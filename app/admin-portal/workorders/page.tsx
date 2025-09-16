@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
+import { useLoading } from '@/contexts/LoadingContext'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { WorkOrder, Location } from '@/lib/types'
 import CreateWorkOrderModal from '@/components/modals/CreateWorkOrderModal'
@@ -35,7 +36,6 @@ export default function AdminWorkOrdersPage() {
   const { notifications, removeNotification, success, error, info } = useNotifications()
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
   const [locations, setLocations] = useState<Location[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null)
@@ -66,7 +66,6 @@ export default function AdminWorkOrdersPage() {
         ...doc.data()
       })) as WorkOrder[]
       setWorkOrders(workOrdersData)
-      setIsLoading(false)
     })
 
     // Fetch locations
@@ -133,8 +132,8 @@ export default function AdminWorkOrdersPage() {
         const errorData = await response.json()
         error('Creation Failed', errorData.error || 'Failed to create work order')
       }
-    } catch (error) {
-      console.error('Error creating work order:', error)
+    } catch (err) {
+      console.error('Error creating work order:', err)
       error('Error', 'Failed to create work order')
     }
   }
@@ -176,8 +175,8 @@ export default function AdminWorkOrdersPage() {
         const errorData = await response.json()
         error('Update Failed', errorData.error || 'Failed to update work order')
       }
-    } catch (error) {
-      console.error('Error updating work order:', error)
+    } catch (err) {
+      console.error('Error updating work order:', err)
       error('Error', 'Failed to update work order')
     }
   }
@@ -199,8 +198,8 @@ export default function AdminWorkOrdersPage() {
         const errorData = await response.json()
         error('Approval Failed', errorData.error || 'Failed to approve work order')
       }
-    } catch (error) {
-      console.error('Error approving work order:', error)
+    } catch (err) {
+      console.error('Error approving work order:', err)
       error('Error', 'Failed to approve work order')
     }
   }
@@ -228,8 +227,8 @@ export default function AdminWorkOrdersPage() {
         const errorData = await response.json()
         error('Rejection Failed', errorData.error || 'Failed to reject work order')
       }
-    } catch (error) {
-      console.error('Error rejecting work order:', error)
+    } catch (err) {
+      console.error('Error rejecting work order:', err)
       error('Error', 'Failed to reject work order')
     }
   }
@@ -258,8 +257,8 @@ export default function AdminWorkOrdersPage() {
         const errorData = await response.json()
         error('Assignment Failed', errorData.error || 'Failed to assign work order')
       }
-    } catch (error) {
-      console.error('Error assigning work order:', error)
+    } catch (err) {
+      console.error('Error assigning work order:', err)
       error('Error', 'Failed to assign work order')
     } finally {
       setIsAssigning(false)
@@ -272,8 +271,8 @@ export default function AdminWorkOrdersPage() {
     try {
       await deleteDoc(doc(db, 'workorders', workOrderId))
       success('Work Order Deleted', 'Work order deleted successfully!')
-    } catch (error) {
-      console.error('Error deleting work order:', error)
+    } catch (err) {
+      console.error('Error deleting work order:', err)
       error('Error', 'Failed to delete work order')
     }
   }
@@ -285,8 +284,8 @@ export default function AdminWorkOrdersPage() {
       if (data.success) {
         setSubcontractors(data.subcontractors)
       }
-    } catch (error) {
-      console.error('Error fetching subcontractors:', error)
+    } catch (err) {
+      console.error('Error fetching subcontractors:', err)
     }
   }
 
@@ -342,9 +341,6 @@ export default function AdminWorkOrdersPage() {
     completed: workOrders.filter(w => w.status === 'completed').length
   }
 
-  if (isLoading) {
-    return <div className="p-6">Loading work orders...</div>
-  }
 
   return (
     <>

@@ -27,7 +27,6 @@ import {
 export default function SubcontractorWorkOrdersPage() {
   const { user } = useAuth()
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterCategory, setFilterCategory] = useState('all')
@@ -57,7 +56,6 @@ export default function SubcontractorWorkOrdersPage() {
         ...doc.data()
       })) as WorkOrder[]
       setWorkOrders(workOrdersData)
-      setIsLoading(false)
     })
 
     return () => {
@@ -148,9 +146,6 @@ export default function SubcontractorWorkOrdersPage() {
     pending: workOrders.filter(w => w.status === 'approved').length
   }
 
-  if (isLoading) {
-    return <div className="p-6">Loading assigned work orders...</div>
-  }
 
   return (
     <div className="p-6 space-y-6">
@@ -345,11 +340,6 @@ export default function SubcontractorWorkOrdersPage() {
                 )}
 
 
-                {workOrder.completionNotes && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
-                    <p className="text-green-800"><strong>Completion Notes:</strong> {workOrder.completionNotes}</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           ))

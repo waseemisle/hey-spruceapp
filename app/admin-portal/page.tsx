@@ -112,7 +112,6 @@ export default function AdminPortal() {
   
   // Client registrations state
   const [clientRegistrations, setClientRegistrations] = useState<any[]>([])
-  const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(true)
 
   useEffect(() => {
     if (!loading && (!user || !profile)) {
@@ -141,10 +140,8 @@ export default function AdminPortal() {
         }))
         console.log('Fetched client registrations:', registrations)
         setClientRegistrations(registrations)
-        setIsLoadingRegistrations(false)
       }, (error) => {
         console.error('Error fetching client registrations:', error)
-        setIsLoadingRegistrations(false)
       })
 
       return () => unsubscribe()
@@ -459,7 +456,7 @@ export default function AdminPortal() {
                         <div>
                           <p className="text-sm font-medium text-gray-600">Pending</p>
                           <p className="text-2xl font-bold">
-                            {isLoadingRegistrations ? '...' : clientRegistrations.filter(r => r.status === 'pending').length}
+                            {clientRegistrations.filter(r => r.status === 'pending').length}
                           </p>
                         </div>
                         <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -475,7 +472,7 @@ export default function AdminPortal() {
                         <div>
                           <p className="text-sm font-medium text-gray-600">Approved</p>
                           <p className="text-2xl font-bold">
-                            {isLoadingRegistrations ? '...' : clientRegistrations.filter(r => r.status === 'approved').length}
+                            {clientRegistrations.filter(r => r.status === 'approved').length}
                           </p>
                         </div>
                         <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -491,7 +488,7 @@ export default function AdminPortal() {
                         <div>
                           <p className="text-sm font-medium text-gray-600">Total</p>
                           <p className="text-2xl font-bold">
-                            {isLoadingRegistrations ? '...' : clientRegistrations.length}
+                            {clientRegistrations.length}
                           </p>
                         </div>
                         <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -509,12 +506,7 @@ export default function AdminPortal() {
                     <CardDescription>Latest client registration requests</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {isLoadingRegistrations ? (
-                      <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                        <p className="text-gray-500 mt-2">Loading registrations...</p>
-                      </div>
-                    ) : clientRegistrations.length === 0 ? (
+                    {clientRegistrations.length === 0 ? (
                       <div className="text-center py-8">
                         <p className="text-gray-500">No client registrations found</p>
                       </div>

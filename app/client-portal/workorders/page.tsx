@@ -24,10 +24,9 @@ import {
 } from 'lucide-react'
 
 export default function ClientWorkOrdersPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
   const [locations, setLocations] = useState<Location[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -49,7 +48,6 @@ export default function ClientWorkOrdersPage() {
         ...doc.data()
       })) as WorkOrder[]
       setWorkOrders(workOrdersData)
-      setIsLoading(false)
     })
 
     // Fetch client's approved locations only
@@ -85,7 +83,7 @@ export default function ClientWorkOrdersPage() {
           ...formData,
           location: selectedLocation,
           clientId: user?.uid,
-          clientName: user?.fullName,
+          clientName: profile?.fullName || user?.email || 'Unknown',
           clientEmail: user?.email,
           createdBy: user?.uid
         })
@@ -155,9 +153,6 @@ export default function ClientWorkOrdersPage() {
     }
   }
 
-  if (isLoading) {
-    return <div className="p-6">Loading work orders...</div>
-  }
 
   return (
     <div className="p-6 space-y-6">

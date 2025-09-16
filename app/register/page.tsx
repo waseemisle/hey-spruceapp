@@ -18,6 +18,7 @@ import {
   CheckCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Logo from '@/components/ui/logo'
 
 interface RegistrationData {
   companyName: string
@@ -386,6 +387,7 @@ export default function ClientRegistration() {
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
+              <Logo size="lg" />
               <div>
                 <CardTitle className="text-2xl">Client Registration</CardTitle>
                 <CardDescription>

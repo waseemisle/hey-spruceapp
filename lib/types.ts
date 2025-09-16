@@ -92,8 +92,8 @@ export interface WorkOrderFormData {
   priority: 'low' | 'medium' | 'high' | 'urgent'
   category: 'maintenance' | 'repair' | 'installation' | 'inspection' | 'cleaning' | 'other'
   locationId: string
-  estimatedCost?: number
-  estimatedDuration?: number
+  estimatedCost?: string // Changed to string for form input
+  estimatedDuration?: string // Changed to string for form input
   scheduledDate?: string
   notes?: string
 }

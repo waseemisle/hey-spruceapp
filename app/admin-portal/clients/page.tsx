@@ -27,7 +27,6 @@ export default function AdminClientsPage() {
   const { user, profile } = useAuth()
   const { notifications, removeNotification, success, error, info } = useNotifications()
   const [clientRegistrations, setClientRegistrations] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   
@@ -53,12 +52,10 @@ export default function AdminClientsPage() {
         }))
         console.log('Fetched client registrations:', registrationsData)
         setClientRegistrations(registrationsData)
-        setIsLoading(false)
       },
-      (error) => {
-        console.error('Error fetching client registrations:', error)
+      (err) => {
+        console.error('Error fetching client registrations:', err)
         error('Fetch Error', 'Failed to load client registrations')
-        setIsLoading(false)
       }
     )
 
@@ -72,8 +69,8 @@ export default function AdminClientsPage() {
         }))
         setGeneratedLinks(linksData)
       },
-      (error) => {
-        console.error('Error fetching registration links:', error)
+      (err) => {
+        console.error('Error fetching registration links:', err)
       }
     )
 
@@ -100,8 +97,8 @@ export default function AdminClientsPage() {
         const errorData = await response.json()
         error('Approval Failed', errorData.error || 'Failed to approve client')
       }
-    } catch (error) {
-      console.error('Error approving client:', error)
+    } catch (err) {
+      console.error('Error approving client:', err)
       error('Error', 'Failed to approve client')
     }
   }
@@ -128,8 +125,8 @@ export default function AdminClientsPage() {
         const errorData = await response.json()
         error('Rejection Failed', errorData.error || 'Failed to reject client')
       }
-    } catch (error) {
-      console.error('Error rejecting client:', error)
+    } catch (err) {
+      console.error('Error rejecting client:', err)
       error('Error', 'Failed to reject client')
     }
   }
@@ -169,8 +166,8 @@ export default function AdminClientsPage() {
         console.error('API Error:', errorData)
         error('Generation Failed', errorData.error || 'Failed to generate link')
       }
-    } catch (error) {
-      console.error('Error generating link:', error)
+    } catch (err) {
+      console.error('Error generating link:', err)
       error('Error', 'Failed to generate link')
     } finally {
       setIsGenerating(false)
@@ -207,9 +204,6 @@ export default function AdminClientsPage() {
     rejected: clientRegistrations.filter(r => r.status === 'rejected').length
   }
 
-  if (isLoading) {
-    return <div className="p-6">Loading client registrations...</div>
-  }
 
   return (
     <>

@@ -101,7 +101,7 @@ export default function LineChart({
     // Add x-axis
     g.append('g')
       .attr('transform', `translate(0,${chartHeight})`)
-      .call(d3.axisBottom(x).tickFormat(d3.timeFormat('%m/%d')))
+      .call(d3.axisBottom(x).tickFormat(d3.timeFormat('%m/%d') as any))
       .selectAll('text')
       .style('font-size', '12px')
       .style('fill', '#6b7280')

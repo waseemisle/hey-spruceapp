@@ -27,7 +27,6 @@ export default function ClientLocationsPage() {
   const router = useRouter()
   const { user, profile, loading } = useAuth()
   const [locations, setLocations] = useState<Location[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -66,11 +65,9 @@ export default function ClientLocationsPage() {
         console.log('Fetched client locations:', locationsData)
         console.log('Total locations found:', locationsData.length)
         setLocations(locationsData)
-        setIsLoading(false)
       }, (error) => {
         console.error('Error fetching client locations:', error)
         console.error('Error details:', error.message)
-        setIsLoading(false)
       })
 
       return () => unsubscribe()
@@ -272,12 +269,7 @@ export default function ClientLocationsPage() {
             <CardDescription>Track the status of your location submissions</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="text-gray-500 mt-2">Loading locations...</p>
-              </div>
-            ) : filteredLocations.length === 0 ? (
+            {filteredLocations.length === 0 ? (
               <div className="text-center py-8">
                 <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">No locations found</p>

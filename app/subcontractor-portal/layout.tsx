@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { ActiveSectionContext } from '@/hooks/useActiveSection'
+import Logo from '@/components/ui/logo'
 import { 
   Wrench, 
   DollarSign, 
@@ -80,7 +81,7 @@ export default function SubcontractorPortalLayout({
                 {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
               <div className="flex items-center gap-3">
-                <div className="text-2xl">🌲</div>
+                <Logo size="lg" showText={false} />
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">Spruce App</h1>
                   <p className="text-sm text-gray-600">Subcontractor Portal</p>

@@ -103,7 +103,7 @@ export function useAuth() {
     }
 
     // Verify portal access
-    if (!canAccessPortal(profile.role, portalType)) {
+    if (!profile || !canAccessPortal(profile.role, portalType)) {
       await signOut()
       throw new Error(`Your account does not have access to the ${portalType} portal.`)
     }

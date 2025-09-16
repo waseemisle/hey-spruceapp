@@ -179,7 +179,7 @@ export default function CreateLocationModal({
           <Label htmlFor="contactPerson">Contact Person *</Label>
           <Input
             id="contactPerson"
-            value={formData.contactInfo.contactPerson}
+            value={formData.contactInfo?.contactPerson || ''}
             onChange={(e) => handleContactInfoChange('contactPerson', e.target.value)}
             placeholder="John Smith"
             required
@@ -191,7 +191,7 @@ export default function CreateLocationModal({
             <Label htmlFor="phone">Phone *</Label>
             <Input
               id="phone"
-              value={formData.contactInfo.phone}
+              value={formData.contactInfo?.phone || ''}
               onChange={(e) => handleContactInfoChange('phone', e.target.value)}
               placeholder="+1 (555) 123-4567"
               required
@@ -202,7 +202,7 @@ export default function CreateLocationModal({
             <Input
               id="email"
               type="email"
-              value={formData.contactInfo.email}
+              value={formData.contactInfo?.email || ''}
               onChange={(e) => handleContactInfoChange('email', e.target.value)}
               placeholder="contact@company.com"
               required
@@ -232,7 +232,7 @@ export default function CreateLocationModal({
           </Button>
           <Button 
             type="submit" 
-            disabled={isSubmitting || !formData.name || !formData.address || !formData.city || !formData.state || !formData.zipCode || !formData.contactInfo.contactPerson || !formData.contactInfo.phone || !formData.contactInfo.email}
+            disabled={isSubmitting || !formData.name || !formData.address || !formData.city || !formData.state || !formData.zipCode || !formData.contactInfo?.contactPerson || !formData.contactInfo?.phone || !formData.contactInfo?.email}
             className="w-full sm:w-auto"
           >
             {isSubmitting ? 'Creating...' : 'Create Location'}

@@ -32,11 +32,10 @@ export default function WorkOrderForm({
     priority: 'medium',
     category: 'maintenance',
     locationId: '',
-    estimatedCost: 0,
-    estimatedDuration: 0,
+    estimatedCost: '',
+    estimatedDuration: '',
     scheduledDate: '',
-    notes: '',
-    materials: []
+    notes: ''
   })
 
 
@@ -48,11 +47,10 @@ export default function WorkOrderForm({
         priority: initialData.priority,
         category: initialData.category,
         locationId: initialData.location.id,
-        estimatedCost: initialData.estimatedCost || 0,
-        estimatedDuration: initialData.estimatedDuration || 0,
+        estimatedCost: initialData.estimatedCost?.toString() || '',
+        estimatedDuration: initialData.estimatedDuration?.toString() || '',
         scheduledDate: initialData.scheduledDate || '',
-        notes: initialData.notes || '',
-        materials: []
+        notes: initialData.notes || ''
       })
     }
   }, [initialData])

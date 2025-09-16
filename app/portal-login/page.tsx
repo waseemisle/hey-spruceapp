@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useAuth } from '@/lib/auth'
 import { demoUsers } from '@/lib/firebase'
 import { cn } from '@/lib/utils'
+import Logo from '@/components/ui/logo'
 
 interface PortalOption {
   value: string
@@ -97,6 +98,7 @@ export default function PortalLogin() {
 
       setSuccess('Login successful! Redirecting...')
       
+      // Reduced timeout from 500ms to 2000ms (2 seconds)
       setTimeout(() => {
         switch (selectedPortal) {
           case 'client':
@@ -109,7 +111,7 @@ export default function PortalLogin() {
             router.push('/subcontractor-portal')
             break
         }
-      }, 500)
+      }, 2000)
     } catch (err: any) {
       setError(err.message || 'Invalid email or password. Please try again.')
       setSuccess('')
@@ -177,11 +179,8 @@ export default function PortalLogin() {
             <div className="grid grid-cols-1 lg:grid-cols-2">
               {/* Left side - Login Form */}
               <div className="p-8 lg:p-12">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="text-5xl">🌲</div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Spruce App</h1>
-                  </div>
+                <div className="mb-8 flex justify-center">
+                  <Logo size="2xl" />
                 </div>
                 
                 <p className="text-gray-600 mb-6">Property Maintenance Solutions Portal</p>
@@ -292,7 +291,7 @@ export default function PortalLogin() {
                       <Checkbox
                         id="remember"
                         checked={remember}
-                        onCheckedChange={setRemember}
+                        onCheckedChange={(checked) => setRemember(checked === true)}
                       />
                       <Label htmlFor="remember" className="text-sm">Keep me signed in</Label>
                     </div>

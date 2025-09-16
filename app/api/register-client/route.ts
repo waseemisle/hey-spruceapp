@@ -115,7 +115,7 @@ async function validateAndMarkLinkUsed(token: string, email: string): Promise<bo
     console.log(`Validating link for token: ${token}, email: ${email}`)
     
     // Simulate validation (in real app, query Firestore)
-    const isValid = token && token.length > 10
+    const isValid = Boolean(token && token.length > 10)
     
     if (isValid) {
       // Mark link as used (in real app, update Firestore document)
