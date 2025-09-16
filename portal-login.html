@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spruce App Portal - Login</title>
+    <meta name="version" content="2.0.1">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html {
+            overflow-y: scroll;
+            height: 100%;
+        }
+        
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary: #764ba2;
+            --text-dark: #2d3748;
+            --text-light: #718096;
+            --border: #e2e8f0;
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-attachment: fixed;
+            min-height: 100%;
+            padding: 40px 20px;
+            overflow-y: auto;
+        }
+        
+        /* Animated background shapes */
+        .bg-shape {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            animation: float 20s infinite ease-in-out;
+        }
+        
+        .bg-shape:nth-child(1) {
+            width: 80px;
+            height: 80px;
+            left: 10%;
+            top: 20%;
+            animation-duration: 25s;
+        }
+        
+        .bg-shape:nth-child(2) {
+            width: 120px;
+            height: 120px;
+            right: 15%;
+            top: 50%;
+            animation-duration: 30s;
+            animation-delay: -5s;
+        }
+        
+        .bg-shape:nth-child(3) {
+            width: 60px;
+            height: 60px;
+            left: 70%;
+            bottom: 20%;
+            animation-duration: 20s;
+            animation-delay: -10s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.1; }
+            25% { transform: translateY(-20px) rotate(90deg); opacity: 0.15; }
+            50% { transform: translateY(10px) rotate(180deg); opacity: 0.1; }
+            75% { transform: translateY(-15px) rotate(270deg); opacity: 0.15; }
+        }
+        
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            max-width: 900px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            position: relative;
+            z-index: 1;
+            margin: 0 auto;
+        }
+        
+        .login-left {
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .login-right {
+            background: var(--primary-gradient);
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-right::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.3; }
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+        
+        .brand h1 {
+            font-size: 32px;
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+        
+        .tagline {
+            color: var(--text-light);
+            font-size: 16px;
+            margin-bottom: 40px;
+        }
+        
+        .portal-selection {
+            margin-bottom: 30px;
+        }
+        
+        .portal-selection label {
+            display: block;
+            color: var(--text-dark);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .portal-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        .portal-option {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .portal-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+        }
+        
+        .portal-option-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 10px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .portal-option-label:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: var(--card-shadow);
+        }
+        
+        .portal-option input[type="radio"]:checked + .portal-option-label {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+        }
+        
+        .portal-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .portal-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: var(--text-dark);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .remember-forgot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .remember-forgot label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-dark);
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .remember-forgot a {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .remember-forgot a:hover {
+            text-decoration: underline;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 30px 0;
+            position: relative;
+        }
+        
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--border);
+        }
+        
+        .divider span {
+            background: white;
+            padding: 0 15px;
+            color: var(--text-light);
+            font-size: 14px;
+            position: relative;
+        }
+        
+        .signup-link {
+            text-align: center;
+            color: var(--text-light);
+            font-size: 14px;
+        }
+        
+        .signup-link a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .signup-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .feature-list {
+            list-style: none;
+            margin-top: 40px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .feature-list li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+        
+        .feature-list .icon {
+            width: 24px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        .info-box {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .info-box h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .info-box p {
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .success-message {
+            background: #c6f6d5;
+            color: #22543d;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 15px;
+                min-height: 100vh;
+            }
+            
+            .login-container {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+                margin-top: 20px;
+                margin-bottom: 20px;
+            }
+            
+            .login-right {
+                display: none;
+            }
+            
+            .portal-options {
+                grid-template-columns: 1fr;
+            }
+            
+            .login-left {
+                padding: 30px;
+            }
+        }
+    </style>
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Background shapes -->
+    <div class="bg-shape"></div>
+    <div class="bg-shape"></div>
+    <div class="bg-shape"></div>
+    
+    <div class="login-container">
+        <div class="login-left">
+            <div class="brand">
+                <div class="logo">🌲</div>
+                <h1>Spruce App</h1>
+            </div>
+            
+            <p class="tagline">Property Maintenance Solutions Portal</p>
+            
+            <!-- Demo Credentials -->
+            <div class="demo-credentials" style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #f59e0b;">
+                <h4 style="color: #92400e; margin-bottom: 10px; font-size: 14px;">ℹ️ Login Information</h4>
+                <div style="font-size: 13px; color: #713f12; line-height: 1.6;">
+                    <p style="margin-bottom: 10px;"><strong>Use your existing account or create one in Supabase.</strong></p>
+                    <details style="margin-top: 10px;">
+                        <summary style="cursor: pointer; font-weight: 600;">Setup Demo Accounts (Optional)</summary>
+                        <div style="margin-top: 10px; padding-left: 10px;">
+                            <p>1. Check DEMO-SETUP-GUIDE.md for instructions</p>
+                            <p>2. Run diagnose-setup.sql to check your database</p>
+                            <p>3. Create users in Supabase Dashboard</p>
+                            <div style="margin-top: 8px; padding: 8px; background: #fff; border-radius: 4px;">
+                                <div class="demo-cred" data-email="demo.client@heyspruce.com" data-password="demo123" data-portal="client" style="cursor: pointer; padding: 2px 0;"><strong>Client:</strong> demo.client@heyspruce.com / demo123</div>
+                                <div class="demo-cred" data-email="demo.admin@heyspruce.com" data-password="demo123" data-portal="admin" style="cursor: pointer; padding: 2px 0;"><strong>Admin:</strong> demo.admin@heyspruce.com / demo123</div>
+                                <div class="demo-cred" data-email="demo.sub@heyspruce.com" data-password="demo123" data-portal="subcontractor" style="cursor: pointer; padding: 2px 0;"><strong>Sub:</strong> demo.sub@heyspruce.com / demo123</div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+            
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="portal-selection">
+                    <label>Select Your Portal</label>
+                    <div class="portal-options">
+                        <div class="portal-option">
+                            <input type="radio" name="portal" value="client" id="client" checked>
+                            <label for="client" class="portal-option-label">
+                                <div class="portal-icon">🏢</div>
+                                <div class="portal-name">Client</div>
+                            </label>
+                        </div>
+                        
+                        <div class="portal-option">
+                            <input type="radio" name="portal" value="admin" id="admin">
+                            <label for="admin" class="portal-option-label">
+                                <div class="portal-icon">👤</div>
+                                <div class="portal-name">Admin</div>
+                            </label>
+                        </div>
+                        
+                        <div class="portal-option">
+                            <input type="radio" name="portal" value="subcontractor" id="subcontractor">
+                            <label for="subcontractor" class="portal-option-label">
+                                <div class="portal-icon">🔧</div>
+                                <div class="portal-name">Sub</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" required placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required placeholder="Enter your password">
+                </div>
+                
+                <div class="remember-forgot">
+                    <label>
+                        <input type="checkbox" id="remember" checked>
+                        Keep me signed in
+                    </label>
+                    <a href="#" onclick="showForgotPassword(event)">Forgot password?</a>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Sign In</button>
+            </form>
+            
+            <div class="divider">
+                <span>OR</span>
+            </div>
+            
+            <div class="signup-link">
+                New to Spruce App? <a href="#" onclick="showSignupOptions(event)">Request Access</a>
+            </div>
+        </div>
+        
+        <div class="login-right">
+            <h2 style="font-size: 28px; margin-bottom: 20px;">Welcome Back!</h2>
+            <p style="font-size: 16px; opacity: 0.9; text-align: center;">
+                Access your personalized portal to manage properties, work orders, and more.
+            </p>
+            
+            <ul class="feature-list">
+                <li>
+                    <span class="icon">✓</span>
+                    <span>Manage work orders & service requests</span>
+                </li>
+                <li>
+                    <span class="icon">✓</span>
+                    <span>Track equipment maintenance</span>
+                </li>
+                <li>
+                    <span class="icon">✓</span>
+                    <span>Submit & review proposals</span>
+                </li>
+                <li>
+                    <span class="icon">✓</span>
+                    <span>Real-time notifications</span>
+                </li>
+            </ul>
+            
+            <div class="info-box">
+                <h3>Need Help?</h3>
+                <p>
+                    Contact our support team at<br>
+                    📞 877-253-2646<br>
+                    ✉️ support@heyspruce.com
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize Supabase
+        const SUPABASE_URL = 'https://uokmehjqcxmcoavnszid.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVva21laGpxY3htY29hdm5zemlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxODI1MDUsImV4cCI6MjA3MTc1ODUwNX0.K19tHO1YrS-HRBleEAWgOANCPglR9rerBCmE5abY1Rg';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Check if user is already logged in
+        async function checkExistingSession() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                // Get user profile to determine portal
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('role')
+                    .eq('id', session.user.id)
+                    .single();
+                
+                if (profile) {
+                    redirectToPortal(profile.role);
+                }
+            }
+        }
+
+        // Redirect based on role
+        function redirectToPortal(role) {
+            const lastPortal = localStorage.getItem('lastPortal');
+            
+            // Use last portal if valid for this role
+            if (lastPortal && canAccessPortal(role, lastPortal)) {
+                switch(lastPortal) {
+                    case 'client':
+                        window.location.href = '/client-portal.html';
+                        break;
+                    case 'admin':
+                        window.location.href = '/supplier-portal.html';
+                        break;
+                    case 'subcontractor':
+                        window.location.href = '/subcontractor-portal.html';
+                        break;
+                }
+            } else {
+                // Default redirects based on role
+                switch(role) {
+                    case 'client':
+                        window.location.href = '/client-portal.html';
+                        break;
+                    case 'admin':
+                        window.location.href = '/supplier-portal.html';
+                        break;
+                    case 'subcontractor':
+                        window.location.href = '/subcontractor-portal.html';
+                        break;
+                    default:
+                        console.error('Unknown role:', role);
+                }
+            }
+        }
+
+        function canAccessPortal(role, portal) {
+            const portalRoleMap = {
+                'client': ['client', 'admin'],
+                'admin': ['admin'],
+                'subcontractor': ['subcontractor', 'admin']
+            };
+            return portalRoleMap[portal]?.includes(role) || false;
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const portal = document.querySelector('input[name="portal"]:checked').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
+            
+            // Clear any existing messages
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+            
+            // Show loading message
+            const successMsg = document.getElementById('successMessage');
+            successMsg.textContent = 'Logging in...';
+            successMsg.style.display = 'block';
+            
+            try {
+                // Authenticate with Supabase
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) throw error;
+
+                // Check user profile and permissions
+                const { data: profile, error: profileError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (profileError) {
+                    // If no profile exists, create one
+                    const { data: newProfile, error: createError } = await supabase
+                        .from('users')
+                        .insert({
+                            id: data.user.id,
+                            email: email,
+                            full_name: email.split('@')[0],
+                            role: portal === 'admin' ? 'admin' : portal
+                        })
+                        .select()
+                        .single();
+
+                    if (createError) throw createError;
+                    profile = newProfile;
+                }
+
+                // Verify portal access
+                if (!canAccessPortal(profile.role, portal)) {
+                    // Sign out if no access
+                    await supabase.auth.signOut();
+                    throw new Error(`Your account does not have access to the ${portal} portal.`);
+                }
+
+                // Store preferences if remember is checked
+                if (remember) {
+                    localStorage.setItem('rememberedEmail', email);
+                    localStorage.setItem('rememberedPortal', portal);
+                } else {
+                    localStorage.removeItem('rememberedEmail');
+                    localStorage.removeItem('rememberedPortal');
+                }
+
+                // Store portal preference
+                localStorage.setItem('lastPortal', portal);
+
+                // Redirect to appropriate portal
+                successMsg.textContent = 'Login successful! Redirecting...';
+                setTimeout(() => {
+                    switch(portal) {
+                        case 'client':
+                            window.location.href = '/client-portal.html';
+                            break;
+                        case 'admin':
+                            window.location.href = '/supplier-portal.html';
+                            break;
+                        case 'subcontractor':
+                            window.location.href = '/subcontractor-portal.html';
+                            break;
+                    }
+                }, 500);
+
+            } catch (error) {
+                console.error('Login error:', error);
+                const errorMsg = document.getElementById('errorMessage');
+                errorMsg.textContent = error.message || 'Invalid email or password. Please try again.';
+                errorMsg.style.display = 'block';
+                successMsg.style.display = 'none';
+            }
+        }
+        
+        async function showForgotPassword(event) {
+            event.preventDefault();
+            const email = document.getElementById('email').value;
+            
+            if (!email) {
+                const errorMsg = document.getElementById('errorMessage');
+                errorMsg.textContent = 'Please enter your email address first.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/reset-password.html`
+                });
+                
+                if (error) throw error;
+                
+                const successMsg = document.getElementById('successMessage');
+                successMsg.textContent = `Password reset instructions have been sent to ${email}`;
+                successMsg.style.display = 'block';
+                
+                // Hide after 5 seconds
+                setTimeout(() => {
+                    successMsg.style.display = 'none';
+                }, 5000);
+            } catch (error) {
+                const errorMsg = document.getElementById('errorMessage');
+                errorMsg.textContent = 'Error sending reset email: ' + error.message;
+                errorMsg.style.display = 'block';
+            }
+        }
+        
+        function showSignupOptions(event) {
+            event.preventDefault();
+            
+            const portal = document.querySelector('input[name="portal"]:checked').value;
+            let message = '';
+            
+            switch(portal) {
+                case 'client':
+                    message = 'To request client access, please contact your account manager or call 877-253-2646.';
+                    break;
+                case 'admin':
+                    message = 'Admin access is restricted. Please contact your system administrator.';
+                    break;
+                case 'subcontractor':
+                    message = 'To become a Hey Spruce subcontractor partner, please contact us at partners@heyspruce.com or call 877-253-2646.';
+                    break;
+            }
+            
+            const successMsg = document.getElementById('successMessage');
+            successMsg.textContent = message;
+            successMsg.style.display = 'block';
+            
+            // Hide after 7 seconds
+            setTimeout(() => {
+                successMsg.style.display = 'none';
+            }, 7000);
+        }
+        
+        // Load remembered credentials on page load and check existing session
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Check for existing session first
+            await checkExistingSession();
+            
+            // Then load remembered credentials
+            const rememberedEmail = localStorage.getItem('rememberedEmail');
+            const rememberedPortal = localStorage.getItem('rememberedPortal');
+            
+            if (rememberedEmail) {
+                document.getElementById('email').value = rememberedEmail;
+                document.getElementById('remember').checked = true;
+            }
+            
+            if (rememberedPortal) {
+                document.getElementById(rememberedPortal).checked = true;
+            }
+            
+            // Auto-fill demo credentials on click
+            const demoCreds = document.querySelectorAll('.demo-cred');
+            demoCreds.forEach(cred => {
+                cred.addEventListener('click', () => {
+                    document.getElementById('email').value = cred.dataset.email;
+                    document.getElementById('password').value = cred.dataset.password;
+                    document.querySelector(`input[value="${cred.dataset.portal}"]`).checked = true;
+                    // Highlight the clicked credential
+                    cred.style.background = '#e6fffa';
+                    setTimeout(() => cred.style.background = '', 1000);
+                });
+                // Add hover effect
+                cred.addEventListener('mouseenter', () => cred.style.background = '#f0f4f8');
+                cred.addEventListener('mouseleave', () => cred.style.background = '');
+            });
+        });
+    </script>
+</body>
+</html>
