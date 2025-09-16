@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, createContext, useContext } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { 
-  Building2, 
   Wrench, 
   DollarSign, 
   TrendingUp, 
@@ -14,18 +13,31 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Calendar,
+  Star
 } from 'lucide-react'
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: TrendingUp, path: '/subcontractor-portal' },
   { id: 'workorders', label: 'Work Orders', icon: Wrench, path: '/subcontractor-portal/workorders' },
-  { id: 'timesheets', label: 'Timesheets', icon: FileText, path: '/subcontractor-portal' },
-  { id: 'billing', label: 'Billing', icon: DollarSign, path: '/subcontractor-portal' },
-  { id: 'reports', label: 'Reports', icon: FileText, path: '/subcontractor-portal' },
-  { id: 'notifications', label: 'Notifications', icon: Bell, path: '/subcontractor-portal' },
+  { id: 'proposals', label: 'Proposals', icon: FileText, path: '/subcontractor-portal' },
+  { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/subcontractor-portal' },
+  { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/subcontractor-portal' },
+  { id: 'ratings', label: 'Ratings', icon: Star, path: '/subcontractor-portal' },
   { id: 'settings', label: 'Settings', icon: Settings, path: '/subcontractor-portal' }
 ]
+
+// Create context for active section
+const ActiveSectionContext = createContext<{
+  activeSection: string
+  setActiveSection: (section: string) => void
+}>({
+  activeSection: 'dashboard',
+  setActiveSection: () => {}
+})
+
+export const useActiveSection = () => useContext(ActiveSectionContext)
 
 export default function SubcontractorPortalLayout({
   children,
@@ -36,6 +48,7 @@ export default function SubcontractorPortalLayout({
   const pathname = usePathname()
   const { profile, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState('dashboard')
 
   const handleSignOut = async () => {
     try {
@@ -47,6 +60,7 @@ export default function SubcontractorPortalLayout({
   }
 
   const handleNavigation = (item: any) => {
+    setActiveSection(item.id)
     if (item.path === '/subcontractor-portal') {
       router.push('/subcontractor-portal')
     } else {
@@ -56,94 +70,96 @@ export default function SubcontractorPortalLayout({
   }
 
   const isActive = (item: any) => {
-    if (item.path === '/subcontractor-portal') {
-      return pathname === '/subcontractor-portal'
-    }
-    return pathname === item.path
+    return activeSection === item.id
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">🌲</div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Spruce App</h1>
-                <p className="text-sm text-gray-600">Subcontractor Portal</p>
+    <ActiveSectionContext.Provider value={{ activeSection, setActiveSection }}>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200 px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+              >
+                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">🌲</div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Spruce App</h1>
+                  <p className="text-sm text-gray-600">Subcontractor Portal</p>
+                </div>
               </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="font-medium">{profile?.fullName}</div>
-              <div className="text-sm text-gray-600">Subcontractor</div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleSignOut}>
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}>
-          <div className="flex flex-col h-full">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
             </div>
             
-            <nav className="flex-1 px-4 pb-4">
-              <div className="space-y-2">
-                {sidebarItems.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNavigation(item)}
-                      className={`
-                        w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors
-                        text-gray-700 hover:bg-gray-100
-                      `}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="font-medium">{item.label}</span>
-                    </button>
-                  )
-                })}
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <div className="font-medium">{profile?.fullName}</div>
+                <div className="text-sm text-gray-600">Subcontractor</div>
               </div>
-            </nav>
+              <Button variant="ghost" size="icon" onClick={handleSignOut}>
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
-        </aside>
+        </header>
 
-        {/* Main Content */}
-        <main className="flex-1 lg:ml-0">
-          {children}
-        </main>
+        <div className="flex">
+          {/* Sidebar */}
+          <aside className={`
+            fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          `}>
+            <div className="flex flex-col h-full">
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
+              </div>
+              
+              <nav className="flex-1 px-4 pb-4">
+                <div className="space-y-2">
+                  {sidebarItems.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNavigation(item)}
+                        className={`
+                          w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors
+                          ${isActive(item) 
+                            ? 'bg-green-600 text-white' 
+                            : 'text-gray-700 hover:bg-gray-100'
+                          }
+                        `}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="font-medium">{item.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </nav>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 lg:ml-0">
+            {children}
+          </main>
+        </div>
+
+        {/* Overlay for mobile */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
       </div>
-
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-    </div>
+    </ActiveSectionContext.Provider>
   )
 }

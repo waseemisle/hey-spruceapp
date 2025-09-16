@@ -12,7 +12,9 @@ import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { WorkOrder, Location } from '@/lib/types'
-import WorkOrderForm from '@/components/workorder/WorkOrderForm'
+import CreateWorkOrderModal from '@/components/modals/CreateWorkOrderModal'
+import EditWorkOrderModal from '@/components/modals/EditWorkOrderModal'
+import ViewWorkOrderModal from '@/components/modals/ViewWorkOrderModal'
 import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
   Plus, 
@@ -24,7 +26,8 @@ import {
   UserPlus,
   Clock,
   DollarSign,
-  MapPin
+  MapPin,
+  Eye
 } from 'lucide-react'
 
 export default function AdminWorkOrdersPage() {
@@ -36,6 +39,8 @@ export default function AdminWorkOrdersPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showEditForm, setShowEditForm] = useState(false)
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [viewingWorkOrder, setViewingWorkOrder] = useState<WorkOrder | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterCategory, setFilterCategory] = useState('all')
@@ -102,7 +107,11 @@ export default function AdminWorkOrdersPage() {
 
       const requestData = {
         ...formData,
-        location: selectedLocation,
+        location: {
+          id: selectedLocation.id,
+          name: selectedLocation.name,
+          address: selectedLocation.address
+        },
         clientId: user.uid,
         clientName: profile.fullName,
         clientEmail: profile.email,
@@ -134,10 +143,29 @@ export default function AdminWorkOrdersPage() {
     if (!editingWorkOrder) return
 
     try {
+      const selectedLocation = locations.find(l => l.id === formData.locationId)
+      
+      if (!selectedLocation) {
+        error('Location Required', 'Please select a valid location')
+        return
+      }
+
+      const requestData = {
+        ...formData,
+        location: {
+          id: selectedLocation.id,
+          name: selectedLocation.name,
+          address: selectedLocation.address
+        },
+        status: formData.status || editingWorkOrder.status
+      }
+
+      console.log('Updating work order with data:', requestData)
+
       const response = await fetch(`/api/workorders/${editingWorkOrder.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(requestData)
       })
 
       if (response.ok) {
@@ -374,24 +402,6 @@ export default function AdminWorkOrdersPage() {
         </Card>
       </div>
 
-      {/* Debug Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Debug Info</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <p><strong>User ID:</strong> {user?.uid || 'Not loaded'}</p>
-            <p><strong>User Name:</strong> {profile?.fullName || 'Not loaded'}</p>
-            <p><strong>User Email:</strong> {profile?.email || 'Not loaded'}</p>
-            <p><strong>User Role:</strong> {profile?.role || 'Not loaded'}</p>
-            <p><strong>Locations Count:</strong> {locations.length}</p>
-            <p><strong>Work Orders Count:</strong> {workOrders.length}</p>
-            <p><strong>Auth Loading:</strong> {profile ? 'Loaded' : 'Loading...'}</p>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Filters */}
       <Card>
         <CardHeader>
@@ -470,20 +480,22 @@ export default function AdminWorkOrdersPage() {
         {filteredWorkOrders.map((workOrder) => (
           <Card key={workOrder.id}>
             <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    {workOrder.title}
-                    <Badge className={getStatusBadge(workOrder.status)}>
-                      {workOrder.status}
-                    </Badge>
-                    <Badge className={getPriorityBadge(workOrder.priority)}>
-                      {workOrder.priority}
-                    </Badge>
+              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                <div className="flex-1">
+                  <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                    <span className="text-lg font-semibold break-words">{workOrder.title}</span>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className={`${getStatusBadge(workOrder.status)} text-xs`}>
+                        {workOrder.status}
+                      </Badge>
+                      <Badge className={`${getPriorityBadge(workOrder.priority)} text-xs`}>
+                        {workOrder.priority}
+                      </Badge>
+                    </div>
                   </CardTitle>
-                  <p className="text-sm text-gray-600 mt-1">{workOrder.description}</p>
+                  <p className="text-sm text-gray-600 line-clamp-2">{workOrder.description}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {workOrder.status === 'pending' && (
                     <>
                       <Button
@@ -519,9 +531,21 @@ export default function AdminWorkOrdersPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
+                      setViewingWorkOrder(workOrder)
+                      setShowViewModal(true)
+                    }}
+                    title="View Details"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
                       setEditingWorkOrder(workOrder)
                       setShowEditForm(true)
                     }}
+                    title="Edit Work Order"
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -530,6 +554,7 @@ export default function AdminWorkOrdersPage() {
                     variant="outline"
                     onClick={() => handleDeleteWorkOrder(workOrder.id)}
                     className="text-red-600 hover:bg-red-50"
+                    title="Delete Work Order"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -537,25 +562,25 @@ export default function AdminWorkOrdersPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span>{workOrder.location.name}</span>
+                  <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <span className="truncate">{workOrder.location.name}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-gray-400" />
+                  <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <span>${workOrder.estimatedCost || 0}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-gray-400" />
+                  <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <span>{workOrder.estimatedDuration || 0}h</span>
                 </div>
               </div>
-              <div className="mt-2 text-sm text-gray-600">
-                <p><strong>Client:</strong> {workOrder.clientName}</p>
-                <p><strong>Category:</strong> {workOrder.category}</p>
+              <div className="mt-3 text-sm text-gray-600 space-y-1">
+                <p><strong>Client:</strong> <span className="break-words">{workOrder.clientName}</span></p>
+                <p><strong>Category:</strong> <span className="capitalize">{workOrder.category}</span></p>
                 {workOrder.assignedToName && (
-                  <p><strong>Assigned to:</strong> {workOrder.assignedToName}</p>
+                  <p><strong>Assigned to:</strong> <span className="break-words">{workOrder.assignedToName}</span></p>
                 )}
               </div>
             </CardContent>
@@ -563,20 +588,37 @@ export default function AdminWorkOrdersPage() {
         ))}
       </div>
 
-      {/* Create/Edit Form */}
-      {(showCreateForm || showEditForm) && (
-        <WorkOrderForm
-          initialData={editingWorkOrder}
-          onSubmit={showCreateForm ? handleCreateWorkOrder : handleEditWorkOrder}
-          onCancel={() => {
-            setShowCreateForm(false)
-            setShowEditForm(false)
-            setEditingWorkOrder(null)
-          }}
-          locations={locations}
-          isAdmin={true}
-        />
-      )}
+      {/* Create Work Order Modal */}
+      <CreateWorkOrderModal
+        isOpen={showCreateForm}
+        onClose={() => setShowCreateForm(false)}
+        onSubmit={handleCreateWorkOrder}
+        isSubmitting={false}
+        locations={locations}
+      />
+
+      {/* Edit Work Order Modal */}
+      <EditWorkOrderModal
+        isOpen={showEditForm}
+        onClose={() => {
+          setShowEditForm(false)
+          setEditingWorkOrder(null)
+        }}
+        onSubmit={handleEditWorkOrder}
+        isSubmitting={false}
+        locations={locations}
+        workOrder={editingWorkOrder}
+      />
+
+      {/* View Work Order Modal */}
+      <ViewWorkOrderModal
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false)
+          setViewingWorkOrder(null)
+        }}
+        workOrder={viewingWorkOrder}
+      />
 
       {/* Assignment Modal */}
       {showAssignmentModal && selectedWorkOrder && (

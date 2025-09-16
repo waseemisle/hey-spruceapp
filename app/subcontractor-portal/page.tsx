@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/lib/auth'
+import { useActiveSection } from './layout'
 import { formatCurrency, formatDate, getStatusColor, getPriorityColor } from '@/lib/utils'
 import BarChart from '@/components/charts/BarChart'
 import LineChart from '@/components/charts/LineChart'
@@ -19,10 +20,6 @@ import {
   Plus,
   Search,
   Filter,
-  Settings,
-  LogOut,
-  Menu,
-  X,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -135,21 +132,11 @@ const mockData = {
   }
 }
 
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
-  { id: 'workorders', label: 'Work Orders', icon: Wrench },
-  { id: 'proposals', label: 'Proposals', icon: FileText },
-  { id: 'earnings', label: 'Earnings', icon: DollarSign },
-  { id: 'schedule', label: 'Schedule', icon: Calendar },
-  { id: 'ratings', label: 'Ratings', icon: Star },
-  { id: 'settings', label: 'Settings', icon: Settings }
-]
 
 export default function SubcontractorPortal() {
   const router = useRouter()
-  const { user, profile, signOut, loading } = useAuth()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeSection, setActiveSection] = useState('dashboard')
+  const { user, profile, loading } = useAuth()
+  const { activeSection } = useActiveSection()
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
@@ -164,14 +151,6 @@ export default function SubcontractorPortal() {
     }
   }, [user, profile, loading, router])
 
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-      router.push('/portal-login')
-    } catch (error) {
-      console.error('Sign out error:', error)
-    }
-  }
 
   if (loading) {
     return (
@@ -431,140 +410,53 @@ export default function SubcontractorPortal() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">🌲</div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Spruce App</h1>
-                <p className="text-sm text-gray-600">Subcontractor Portal</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="font-medium">{mockData.contractorInfo.name}</div>
-              <div className="text-sm text-gray-600">Service Provider</div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleSignOut}>
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}>
-          <div className="flex flex-col h-full">
-            <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
-            </div>
-            
-            <nav className="flex-1 px-4 pb-4">
-              <div className="space-y-2">
-                {sidebarItems.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveSection(item.id)
-                        setSidebarOpen(false)
-                      }}
-                      className={`
-                        w-full flex items-center gap-3 px-3 py-2 text-left rounded-lg transition-colors
-                        ${activeSection === item.id 
-                          ? 'bg-green-600 text-white' 
-                          : 'text-gray-700 hover:bg-gray-100'
-                        }
-                      `}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="font-medium">{item.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </nav>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 lg:ml-0">
-          <div className="p-6">
-            {activeSection === 'dashboard' && renderDashboard()}
-            {activeSection === 'workorders' && renderWorkOrders()}
-            {activeSection === 'proposals' && renderProposals()}
-            {activeSection === 'earnings' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Earnings & Payments</CardTitle>
-                  <CardDescription>Track your earnings and payment history</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Earnings interface coming soon...</p>
-                </CardContent>
-              </Card>
-            )}
-            {activeSection === 'schedule' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Schedule</CardTitle>
-                  <CardDescription>Manage your work schedule and appointments</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Schedule interface coming soon...</p>
-                </CardContent>
-              </Card>
-            )}
-            {activeSection === 'ratings' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Customer Ratings</CardTitle>
-                  <CardDescription>View customer feedback and ratings</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Ratings interface coming soon...</p>
-                </CardContent>
-              </Card>
-            )}
-            {activeSection === 'settings' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Settings</CardTitle>
-                  <CardDescription>Manage your account and service preferences</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Settings interface coming soon...</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </main>
-      </div>
-
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+    <div className="p-6">
+      {activeSection === 'dashboard' && renderDashboard()}
+      {activeSection === 'workorders' && renderWorkOrders()}
+      {activeSection === 'proposals' && renderProposals()}
+      {activeSection === 'earnings' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Earnings & Payments</CardTitle>
+            <CardDescription>Track your earnings and payment history</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600">Earnings interface coming soon...</p>
+          </CardContent>
+        </Card>
+      )}
+      {activeSection === 'schedule' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Schedule</CardTitle>
+            <CardDescription>Manage your work schedule and appointments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600">Schedule interface coming soon...</p>
+          </CardContent>
+        </Card>
+      )}
+      {activeSection === 'ratings' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer Ratings</CardTitle>
+            <CardDescription>View customer feedback and ratings</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600">Ratings interface coming soon...</p>
+          </CardContent>
+        </Card>
+      )}
+      {activeSection === 'settings' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Account Settings</CardTitle>
+            <CardDescription>Manage your account and service preferences</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600">Settings interface coming soon...</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { Location } from '@/lib/types'
-import LocationForm from '@/components/location/LocationForm'
+import CreateLocationModal from '@/components/modals/CreateLocationModal'
 import { 
   Plus, 
   Search, 
@@ -311,14 +311,13 @@ export default function AdminLocationsPage() {
           </CardContent>
         </Card>
 
-        {/* Create Form */}
-        {showCreateForm && (
-          <LocationForm
-            onSubmit={handleCreateLocation}
-            onCancel={() => setShowCreateForm(false)}
-            submitLabel="Create Location"
-          />
-        )}
+        {/* Create Location Modal */}
+        <CreateLocationModal
+          isOpen={showCreateForm}
+          onClose={() => setShowCreateForm(false)}
+          onSubmit={handleCreateLocation}
+          isSubmitting={false}
+        />
 
         {/* Locations List */}
         <Card>
