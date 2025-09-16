@@ -1,0 +1,22 @@
+# Ignore HTML files that are not part of Next.js
+admin-portal.html
+client-portal.html
+subcontractor-portal.html
+portal-login.html
+
+# Ignore documentation files
+*.md
+README.md
+ADMIN_LINK_GENERATION_GUIDE.md
+CLIENT_REGISTRATION_GUIDE.md
+FIREBASE_SETUP.md
+
+# Ignore scripts
+scripts/
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore other files
+h origin main
