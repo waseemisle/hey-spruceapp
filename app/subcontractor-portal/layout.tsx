@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, createContext, useContext } from 'react'
+import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
+import { ActiveSectionContext } from '@/hooks/useActiveSection'
 import { 
   Wrench, 
   DollarSign, 
@@ -28,16 +29,6 @@ const sidebarItems = [
   { id: 'settings', label: 'Settings', icon: Settings, path: '/subcontractor-portal' }
 ]
 
-// Create context for active section
-const ActiveSectionContext = createContext<{
-  activeSection: string
-  setActiveSection: (section: string) => void
-}>({
-  activeSection: 'dashboard',
-  setActiveSection: () => {}
-})
-
-export const useActiveSection = () => useContext(ActiveSectionContext)
 
 export default function SubcontractorPortalLayout({
   children,
