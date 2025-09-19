@@ -98,7 +98,7 @@ export default function CreateQuoteModal({
               totalPrice: field === 'quantity' || field === 'unitPrice' 
                 ? (field === 'quantity' ? value as number : item.quantity) * 
                   (field === 'unitPrice' ? value as number : item.unitPrice)
-                : item.totalPrice
+                : item.quantity * item.unitPrice
             }
           : item
       )
@@ -110,7 +110,7 @@ export default function CreateQuoteModal({
     const materialCost = parseFloat(formData.materialCost) || 0
     const additionalCosts = parseFloat(formData.additionalCosts) || 0
     const discountAmount = parseFloat(formData.discountAmount || '0') || 0
-    const lineItemsTotal = formData.lineItems.reduce((sum, item) => sum + item.totalPrice, 0)
+    const lineItemsTotal = formData.lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
     
     const subtotal = laborCost + materialCost + additionalCosts + lineItemsTotal - discountAmount
     const taxRate = parseFloat(formData.taxRate) || 0
@@ -301,7 +301,7 @@ export default function CreateQuoteModal({
                     <div className="flex-1">
                       <Label>Total</Label>
                       <Input
-                        value={`$${item.totalPrice.toFixed(2)}`}
+                        value={`$${(item.quantity * item.unitPrice).toFixed(2)}`}
                         disabled
                         className="bg-gray-50"
                       />
@@ -338,7 +338,7 @@ export default function CreateQuoteModal({
                 </div>
                 <div className="flex justify-between">
                   <span>Line Items Total:</span>
-                  <span>${formData.lineItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)}</span>
+                  <span>${formData.lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0).toFixed(2)}</span>
                 </div>
                 {parseFloat(formData.discountAmount || '0') > 0 && (
                   <div className="flex justify-between text-green-600">
