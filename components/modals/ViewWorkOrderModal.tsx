@@ -1,10 +1,11 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Modal from '@/components/ui/modal'
-import { WorkOrder } from '@/lib/types'
+import { WorkOrder, Quote } from '@/lib/types'
 import { 
   MapPin, 
   Calendar, 
@@ -18,7 +19,9 @@ import {
   CheckCircle,
   XCircle,
   PlayCircle,
-  PauseCircle
+  PauseCircle,
+  Calculator,
+  Eye
 } from 'lucide-react'
 
 interface ViewWorkOrderModalProps {
@@ -101,6 +104,43 @@ export default function ViewWorkOrderModal({
   onClose, 
   workOrder 
 }: ViewWorkOrderModalProps) {
+  const [quotes, setQuotes] = useState<Quote[]>([])
+  const [loadingQuotes, setLoadingQuotes] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && workOrder) {
+      fetchQuotes()
+    }
+  }, [isOpen, workOrder])
+
+  const fetchQuotes = async () => {
+    if (!workOrder) return
+    
+    setLoadingQuotes(true)
+    try {
+      const response = await fetch(`/api/admin/quotes?workOrderId=${workOrder.id}`)
+      const data = await response.json()
+      if (data.success) {
+        setQuotes(data.quotes)
+      }
+    } catch (error) {
+      console.error('Error fetching quotes:', error)
+    } finally {
+      setLoadingQuotes(false)
+    }
+  }
+
+  const getQuoteStatusColor = (status: string) => {
+    switch (status) {
+      case 'draft': return 'bg-gray-100 text-gray-800'
+      case 'sent': return 'bg-blue-100 text-blue-800'
+      case 'accepted': return 'bg-green-100 text-green-800'
+      case 'rejected': return 'bg-red-100 text-red-800'
+      case 'expired': return 'bg-orange-100 text-orange-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
   if (!workOrder) return null
 
   return (
@@ -230,6 +270,98 @@ export default function ViewWorkOrderModal({
             </CardContent>
           </Card>
         </div>
+
+        {/* Quotes Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Quotes ({quotes.length})
+            </CardTitle>
+            <CardDescription>
+              Quotes created for this work order
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingQuotes ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                <p className="text-gray-500 mt-2">Loading quotes...</p>
+              </div>
+            ) : quotes.length === 0 ? (
+              <div className="text-center py-8">
+                <Calculator className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No quotes created yet</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {quotes.map((quote) => (
+                  <div key={quote.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="font-semibold">Quote #{quote.id.slice(-8)}</h4>
+                          <Badge className={getQuoteStatusColor(quote.status)}>
+                            {quote.status}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                          <div>
+                            <p><strong>Total Amount:</strong> {formatCurrency(quote.totalAmount)}</p>
+                            <p><strong>Valid Until:</strong> {formatDate(quote.validUntil)}</p>
+                          </div>
+                          <div>
+                            <p><strong>Labor Cost:</strong> {formatCurrency(quote.laborCost)}</p>
+                            <p><strong>Material Cost:</strong> {formatCurrency(quote.materialCost)}</p>
+                          </div>
+                          <div>
+                            <p><strong>Tax Rate:</strong> {quote.taxRate}%</p>
+                            <p><strong>Created:</strong> {formatDate(quote.createdAt)}</p>
+                          </div>
+                        </div>
+
+                        {quote.lineItems.length > 0 && (
+                          <div className="mt-3">
+                            <p className="font-medium text-sm mb-2">Line Items:</p>
+                            <div className="space-y-1">
+                              {quote.lineItems.map((item, index) => (
+                                <div key={index} className="flex justify-between text-sm">
+                                  <span>{item.description} (Qty: {item.quantity})</span>
+                                  <span>{formatCurrency(item.totalPrice)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {quote.notes && (
+                          <p className="text-sm text-gray-600 mt-2">
+                            <strong>Notes:</strong> {quote.notes}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col gap-2 ml-4">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            // TODO: Implement quote view functionality
+                            console.log('View quote:', quote.id)
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Notes */}
         {workOrder.notes && (

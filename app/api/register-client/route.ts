@@ -66,7 +66,6 @@ export async function POST(request: NextRequest) {
       address: registrationData.address,
       businessType: registrationData.businessType,
       numberOfProperties: parseInt(registrationData.numberOfProperties),
-      estimatedMonthlySpend: registrationData.estimatedMonthlySpend,
       preferredServices: registrationData.preferredServices,
       additionalInfo: registrationData.additionalInfo,
       password: registrationData.password, // In production, hash this

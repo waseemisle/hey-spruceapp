@@ -98,6 +98,62 @@ export interface WorkOrderFormData {
   notes?: string
 }
 
+export interface Quote {
+  id: string
+  workOrderId: string
+  workOrderTitle: string
+  workOrderDescription: string
+  workOrderLocation: {
+    id: string
+    name: string
+    address: string
+  }
+  clientId: string
+  clientName: string
+  clientEmail: string
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+  totalAmount: number
+  laborCost: number
+  materialCost: number
+  additionalCosts: number
+  taxRate: number
+  taxAmount: number
+  discountAmount?: number
+  validUntil: string
+  lineItems: QuoteLineItem[]
+  notes?: string
+  terms?: string
+  createdBy: string // admin ID who created it
+  createdAt: string
+  updatedAt: string
+  sentAt?: string
+  acceptedAt?: string
+  rejectedAt?: string
+  rejectionReason?: string
+}
+
+export interface QuoteLineItem {
+  id: string
+  description: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
+  category: 'labor' | 'material' | 'equipment' | 'other'
+}
+
+export interface QuoteFormData {
+  workOrderId: string
+  laborCost: string
+  materialCost: string
+  additionalCosts: string
+  taxRate: string
+  discountAmount?: string
+  validUntil: string
+  lineItems: Omit<QuoteLineItem, 'id' | 'totalPrice'>[]
+  notes?: string
+  terms?: string
+}
+
 export interface UserProfile {
   id: string
   email: string

@@ -70,6 +70,46 @@ export function useAuth() {
   const signIn = async (email: string, password: string, portalType: string) => {
     setAuthState(prev => ({ ...prev, loading: true }))
     
+    // For client portal, check registration status first
+    if (portalType === 'client') {
+      try {
+        const response = await fetch('/api/check-registration-status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          
+          if (data.status === 'not_found') {
+            setAuthState(prev => ({ ...prev, loading: false }))
+            throw new Error('No registration found for this email. Please register first.')
+          }
+          
+          if (data.status === 'pending') {
+            setAuthState(prev => ({ ...prev, loading: false }))
+            throw new Error('Approval Pending')
+          }
+          
+          if (data.status === 'rejected') {
+            setAuthState(prev => ({ ...prev, loading: false }))
+            throw new Error('Your registration has been rejected. Please contact support for more information.')
+          }
+          
+          // If approved, continue with authentication
+        }
+      } catch (error: any) {
+        // If it's our custom error message, throw it
+        if (error.message === 'Approval Pending' || error.message.includes('registration')) {
+          throw error
+        }
+        // Otherwise, continue with authentication attempt
+      }
+    }
+    
     const { user, error } = await signInWithFirebase(email, password)
     
     if (error) {

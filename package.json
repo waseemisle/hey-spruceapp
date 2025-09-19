@@ -10,7 +10,8 @@
     "lint": "next lint",
     "setup-demo": "node scripts/setup-demo-users.mjs",
     "test-firebase": "node scripts/test-firebase.mjs",
-    "create-demo": "node scripts/create-demo-users.mjs"
+    "create-demo": "node scripts/create-demo-users.mjs",
+    "test-email": "node scripts/test-email.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.0.4",
@@ -19,12 +20,15 @@
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.0.2",
     "@types/d3": "^7.4.3",
+    "@types/nodemailer": "^7.0.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "d3": "^7.8.5",
     "firebase": "^10.7.1",
     "lucide-react": "^0.294.0",
     "next": "^14.0.0",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^7.0.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.0.0"

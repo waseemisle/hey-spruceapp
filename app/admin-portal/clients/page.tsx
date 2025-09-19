@@ -92,7 +92,12 @@ export default function AdminClientsPage() {
       })
 
       if (response.ok) {
-        success('Client Approved', 'Client has been approved successfully!')
+        const result = await response.json()
+        if (result.emailSent) {
+          success('Client Approved', 'Client has been approved successfully and notification email sent!')
+        } else {
+          success('Client Approved', `Client approved successfully, but email failed to send: ${result.emailError || 'Unknown error'}`)
+        }
       } else {
         const errorData = await response.json()
         error('Approval Failed', errorData.error || 'Failed to approve client')

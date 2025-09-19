@@ -16,6 +16,7 @@ import { WorkOrder, Location } from '@/lib/types'
 import CreateWorkOrderModal from '@/components/modals/CreateWorkOrderModal'
 import EditWorkOrderModal from '@/components/modals/EditWorkOrderModal'
 import ViewWorkOrderModal from '@/components/modals/ViewWorkOrderModal'
+import CreateQuoteModal from '@/components/modals/CreateQuoteModal'
 import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
   Plus, 
@@ -28,7 +29,8 @@ import {
   Clock,
   DollarSign,
   MapPin,
-  Eye
+  Eye,
+  Calculator
 } from 'lucide-react'
 
 export default function AdminWorkOrdersPage() {
@@ -56,6 +58,10 @@ export default function AdminWorkOrdersPage() {
   // Rejection modal state
   const [showRejectionModal, setShowRejectionModal] = useState(false)
   const [rejectionReason, setRejectionReason] = useState('')
+
+  // Quote modal state
+  const [showQuoteModal, setShowQuoteModal] = useState(false)
+  const [selectedWorkOrderForQuote, setSelectedWorkOrderForQuote] = useState<WorkOrder | null>(null)
 
   useEffect(() => {
     // Fetch work orders
@@ -300,6 +306,38 @@ export default function AdminWorkOrdersPage() {
     setShowRejectionModal(true)
   }
 
+  const openQuoteModal = (workOrder: WorkOrder) => {
+    setSelectedWorkOrderForQuote(workOrder)
+    setShowQuoteModal(true)
+  }
+
+  const handleCreateQuote = async (quoteData: any) => {
+    try {
+      const response = await fetch('/api/admin/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...quoteData,
+          adminId: user?.uid,
+          adminName: profile?.fullName,
+          adminEmail: profile?.email
+        })
+      })
+
+      if (response.ok) {
+        success('Quote Created', 'Quote created successfully!')
+        setShowQuoteModal(false)
+        setSelectedWorkOrderForQuote(null)
+      } else {
+        const errorData = await response.json()
+        error('Quote Creation Failed', errorData.error || 'Failed to create quote')
+      }
+    } catch (err) {
+      console.error('Error creating quote:', err)
+      error('Error', 'Failed to create quote')
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const variants = {
       pending: 'bg-yellow-100 text-yellow-800',
@@ -514,14 +552,24 @@ export default function AdminWorkOrdersPage() {
                     </>
                   )}
                   {workOrder.status === 'approved' && (
-                    <Button
-                      size="sm"
-                      onClick={() => openAssignmentModal(workOrder)}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <UserPlus className="w-4 h-4 mr-1" />
-                      Assign
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => openQuoteModal(workOrder)}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        <Calculator className="w-4 h-4 mr-1" />
+                        Create Quote
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => openAssignmentModal(workOrder)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <UserPlus className="w-4 h-4 mr-1" />
+                        Assign
+                      </Button>
+                    </>
                   )}
                   <Button
                     size="sm"
@@ -614,6 +662,18 @@ export default function AdminWorkOrdersPage() {
           setViewingWorkOrder(null)
         }}
         workOrder={viewingWorkOrder}
+      />
+
+      {/* Create Quote Modal */}
+      <CreateQuoteModal
+        isOpen={showQuoteModal}
+        onClose={() => {
+          setShowQuoteModal(false)
+          setSelectedWorkOrderForQuote(null)
+        }}
+        onSubmit={handleCreateQuote}
+        isSubmitting={false}
+        workOrder={selectedWorkOrderForQuote}
       />
 
       {/* Assignment Modal */}

@@ -113,7 +113,14 @@ export default function PortalLogin() {
         }
       }, 2000)
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password. Please try again.')
+      // Handle specific error messages
+      if (err.message === 'Approval Pending') {
+        setError('Your registration is pending admin approval. Please wait for approval before logging in.')
+      } else if (err.message.includes('registration')) {
+        setError(err.message)
+      } else {
+        setError('Invalid email or password. Please try again.')
+      }
       setSuccess('')
     } finally {
       setLoading(false)

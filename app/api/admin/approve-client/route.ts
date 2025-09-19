@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getFirestore, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore'
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
 import { initializeApp } from 'firebase/app'
+import { sendApprovalEmail } from '@/lib/email'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
@@ -77,7 +78,6 @@ export async function POST(request: NextRequest) {
       address: registrationData.address,
       businessType: registrationData.businessType,
       numberOfProperties: registrationData.numberOfProperties,
-      estimatedMonthlySpend: registrationData.estimatedMonthlySpend,
       preferredServices: registrationData.preferredServices,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -94,10 +94,21 @@ export async function POST(request: NextRequest) {
       userId: authUser.uid
     })
 
+    // Send approval email to client
+    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/portal-login`
+    const emailResult = await sendApprovalEmail(
+      registrationData.email,
+      registrationData.contactPerson,
+      registrationData.companyName,
+      loginUrl
+    )
+
     return NextResponse.json({
       success: true,
       message: 'Client approved successfully',
-      userId: authUser.uid
+      userId: authUser.uid,
+      emailSent: emailResult.success,
+      emailError: emailResult.error || null
     })
 
   } catch (error) {

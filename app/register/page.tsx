@@ -28,7 +28,6 @@ interface RegistrationData {
   address: string
   businessType: string
   numberOfProperties: string
-  estimatedMonthlySpend: string
   preferredServices: string[]
   additionalInfo: string
   password: string
@@ -72,7 +71,6 @@ export default function ClientRegistration() {
     address: '',
     businessType: '',
     numberOfProperties: '',
-    estimatedMonthlySpend: '',
     preferredServices: [],
     additionalInfo: '',
     password: '',
@@ -240,27 +238,15 @@ export default function ClientRegistration() {
           </select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="numberOfProperties">Number of Properties *</Label>
-            <Input
-              id="numberOfProperties"
-              type="number"
-              value={formData.numberOfProperties}
-              onChange={(e) => handleInputChange('numberOfProperties', e.target.value)}
-              placeholder="e.g., 5"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="estimatedMonthlySpend">Estimated Monthly Spend</Label>
-            <Input
-              id="estimatedMonthlySpend"
-              value={formData.estimatedMonthlySpend}
-              onChange={(e) => handleInputChange('estimatedMonthlySpend', e.target.value)}
-              placeholder="e.g., $10,000"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="numberOfProperties">Number of Properties *</Label>
+          <Input
+            id="numberOfProperties"
+            type="number"
+            value={formData.numberOfProperties}
+            onChange={(e) => handleInputChange('numberOfProperties', e.target.value)}
+            placeholder="e.g., 5"
+          />
         </div>
 
         <div className="space-y-3">
