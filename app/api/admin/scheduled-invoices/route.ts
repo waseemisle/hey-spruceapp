@@ -36,6 +36,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate frequency
+    const validFrequencies = ['weekly', 'monthly', 'quarterly', 'yearly']
+    if (!validFrequencies.includes(frequency)) {
+      console.error('Invalid frequency:', frequency)
+      return NextResponse.json(
+        { error: 'Invalid frequency. Must be one of: weekly, monthly, quarterly, yearly' },
+        { status: 400 }
+      )
+    }
+
+    // Validate amount
+    const amountNum = parseFloat(amount)
+    if (isNaN(amountNum) || amountNum <= 0) {
+      console.error('Invalid amount:', amount)
+      return NextResponse.json(
+        { error: 'Amount must be a valid positive number' },
+        { status: 400 }
+      )
+    }
+
     // Get client details from client_registrations collection
     console.log('Looking for client with ID:', clientId)
     const clientQuery = query(
