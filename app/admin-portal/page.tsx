@@ -266,17 +266,6 @@ export default function AdminPortal() {
     }
   }
 
-  const testFetchRegistrations = async () => {
-    try {
-      const response = await fetch('/api/admin/list-registrations')
-      const data = await response.json()
-      console.log('API Response:', data)
-      alert(`Found ${data.count} registrations. Check console for details.`)
-    } catch (error) {
-      console.error('Error testing API:', error)
-      alert('Error testing API. Check console.')
-    }
-  }
 
   if (loading) {
     return (
@@ -438,12 +427,6 @@ export default function AdminPortal() {
                     >
                       <LinkIcon className="h-4 w-4 mr-2" />
                       Generate Registration Link
-                    </Button>
-                    <Button
-                      onClick={testFetchRegistrations}
-                      variant="outline"
-                    >
-                      Test Fetch Data
                     </Button>
                   </div>
                 </div>

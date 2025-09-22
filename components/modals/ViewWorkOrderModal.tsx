@@ -118,10 +118,23 @@ export default function ViewWorkOrderModal({
     
     setLoadingQuotes(true)
     try {
+      console.log('Fetching quotes for work order:', workOrder.id)
       const response = await fetch(`/api/admin/quotes?workOrderId=${workOrder.id}`)
+      
+      if (!response.ok) {
+        console.error('Response not ok:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        return
+      }
+      
       const data = await response.json()
+      console.log('Quotes response:', data)
+      
       if (data.success) {
-        setQuotes(data.quotes)
+        setQuotes(data.quotes || [])
+      } else {
+        console.error('API returned error:', data.error)
       }
     } catch (error) {
       console.error('Error fetching quotes:', error)

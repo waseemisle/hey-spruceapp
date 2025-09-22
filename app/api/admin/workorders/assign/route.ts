@@ -45,18 +45,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get subcontractor details
-    const subcontractorRef = doc(db, 'users', subcontractorId)
-    const subcontractorSnap = await getDoc(subcontractorRef)
+    // Get subcontractor details from subcontractors collection
+    const subcontractorQuery = query(
+      collection(db, 'subcontractors'),
+      where('userId', '==', subcontractorId)
+    )
+    const subcontractorSnapshot = await getDocs(subcontractorQuery)
 
-    if (!subcontractorSnap.exists()) {
+    if (subcontractorSnapshot.empty) {
       return NextResponse.json(
         { error: 'Subcontractor not found' },
         { status: 404 }
       )
     }
 
-    const subcontractorData = subcontractorSnap.data()
+    const subcontractorData = subcontractorSnapshot.docs[0].data()
 
     await updateDoc(workOrderRef, {
       assignedTo: subcontractorId,
@@ -83,16 +86,19 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get all subcontractors for assignment dropdown
+    // Get all approved subcontractors for assignment dropdown
     const q = query(
-      collection(db, 'users'),
-      where('role', '==', 'subcontractor')
+      collection(db, 'subcontractors'),
+      where('status', '==', 'approved')
     )
     
     const querySnapshot = await getDocs(q)
     const subcontractors = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+      id: doc.data().userId, // Use the userId field as the ID for assignment
+      fullName: doc.data().fullName,
+      email: doc.data().email,
+      title: doc.data().title,
+      skills: doc.data().skills
     }))
 
     return NextResponse.json({ success: true, subcontractors })

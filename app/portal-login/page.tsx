@@ -341,6 +341,13 @@ export default function PortalLogin() {
                     Register as Client
                   </a>
                   {' '}or{' '}
+                  <a
+                    href="/register-subcontractor"
+                    className="text-primary hover:underline font-semibold"
+                  >
+                    Register as Subcontractor
+                  </a>
+                  {' '}or{' '}
                   <button
                     onClick={handleSignupRequest}
                     className="text-primary hover:underline font-semibold"

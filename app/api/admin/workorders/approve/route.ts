@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getFirestore, doc, updateDoc, getDoc } from 'firebase/firestore'
 import { initializeApp } from 'firebase/app'
 import { db } from '@/lib/firebase'
+import { sendWorkOrderEmail } from '@/lib/sendgrid-service'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
@@ -45,14 +46,88 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const approvedAt = new Date().toISOString()
+    
     await updateDoc(workOrderRef, {
       status: 'approved',
       approvedBy: adminId,
-      approvedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      approvedAt: approvedAt,
+      updatedAt: approvedAt
     })
 
-    return NextResponse.json({ success: true, message: 'Work order approved successfully' })
+    // Send email to client with PDF attachment
+    try {
+      console.log('=== WORK ORDER APPROVAL EMAIL START ===')
+      console.log('Work order data:', {
+        workOrderId: workOrderId,
+        clientName: workOrderData.clientName,
+        clientEmail: workOrderData.clientEmail,
+        workOrderTitle: workOrderData.title,
+        workOrderIdField: workOrderData.workOrderId
+      })
+      
+      console.log('Sending work order approval email to client...')
+      const emailResult = await sendWorkOrderEmail({
+        workOrderId: workOrderData.workOrderId || workOrderId,
+        clientName: workOrderData.clientName,
+        clientEmail: workOrderData.clientEmail,
+        workOrderTitle: workOrderData.title,
+        status: 'approved',
+        priority: workOrderData.priority,
+        category: workOrderData.category,
+        locationName: workOrderData.location?.name || 'Unknown Location',
+        estimatedCost: workOrderData.estimatedCost,
+        estimatedDuration: workOrderData.estimatedDuration,
+        scheduledDate: workOrderData.scheduledDate,
+        workOrderData: {
+          workOrderId: workOrderData.workOrderId || workOrderId,
+          workOrderNumber: workOrderData.workOrderId || workOrderId.substring(0, 8).toUpperCase(),
+          clientName: workOrderData.clientName,
+          clientEmail: workOrderData.clientEmail,
+          title: workOrderData.title,
+          description: workOrderData.description,
+          priority: workOrderData.priority,
+          category: workOrderData.category,
+          status: 'approved',
+          location: workOrderData.location || {
+            name: 'Unknown Location',
+            address: '',
+            city: '',
+            state: '',
+            zipCode: ''
+          },
+          estimatedCost: workOrderData.estimatedCost,
+          estimatedDuration: workOrderData.estimatedDuration,
+          scheduledDate: workOrderData.scheduledDate,
+          notes: workOrderData.notes,
+          createdAt: workOrderData.createdAt,
+          approvedAt: approvedAt,
+          approvedBy: adminId
+        }
+      })
+
+      console.log('Email result:', emailResult)
+      
+      if (emailResult.success) {
+        console.log('Work order approval email sent successfully')
+        console.log('Email data:', emailResult.data)
+      } else {
+        console.error('Failed to send work order approval email:', emailResult.error)
+      }
+    } catch (emailError) {
+      console.error('Error sending work order approval email:', emailError)
+      console.error('Email error details:', {
+        message: emailError instanceof Error ? emailError.message : 'Unknown error',
+        stack: emailError instanceof Error ? emailError.stack : undefined
+      })
+    }
+    
+    console.log('=== WORK ORDER APPROVAL EMAIL END ===')
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Work order approved and email sent successfully' 
+    })
 
   } catch (error) {
     console.error('Error approving work order:', error)

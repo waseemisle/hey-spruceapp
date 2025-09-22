@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { WorkOrder, QuoteFormData, QuoteLineItem } from '@/lib/types'
-import { Plus, Trash2, Calculator } from 'lucide-react'
+import { Plus, Trash2, Calculator, Mail } from 'lucide-react'
 
 interface CreateQuoteModalProps {
   isOpen: boolean
@@ -35,7 +36,8 @@ export default function CreateQuoteModal({
     validUntil: '',
     lineItems: [],
     notes: '',
-    terms: ''
+    terms: '',
+    sendEmail: true
   })
 
   useEffect(() => {
@@ -53,7 +55,8 @@ export default function CreateQuoteModal({
         validUntil: validUntil.toISOString().split('T')[0],
         lineItems: [],
         notes: '',
-        terms: 'Payment due within 30 days of acceptance. Work will begin within 5 business days of signed contract.'
+        terms: 'Payment due within 30 days of acceptance. Work will begin within 5 business days of signed contract.',
+        sendEmail: true
       })
     }
   }, [workOrder])
@@ -65,6 +68,10 @@ export default function CreateQuoteModal({
 
   const handleSelectChange = (value: string, id: string) => {
     setFormData(prev => ({ ...prev, [id]: value }))
+  }
+
+  const handleCheckboxChange = (checked: boolean, id: string) => {
+    setFormData(prev => ({ ...prev, [id]: checked }))
   }
 
   const addLineItem = () => {
@@ -384,6 +391,19 @@ export default function CreateQuoteModal({
                   rows={3}
                 />
               </div>
+            </div>
+
+            {/* Send Email Option */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="sendEmail"
+                checked={formData.sendEmail}
+                onCheckedChange={(checked) => handleCheckboxChange(checked as boolean, 'sendEmail')}
+              />
+              <Label htmlFor="sendEmail" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Send quote via email to client
+              </Label>
             </div>
 
             {/* Actions */}

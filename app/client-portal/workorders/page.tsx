@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { WorkOrder, Location } from '@/lib/types'
-import WorkOrderForm from '@/components/workorder/WorkOrderForm'
+import CreateWorkOrderModal from '@/components/modals/CreateWorkOrderModal'
 import { 
   Plus, 
   Search, 
@@ -35,11 +35,10 @@ export default function ClientWorkOrdersPage() {
   useEffect(() => {
     if (!user?.uid) return
 
-    // Fetch client's work orders
+    // Fetch client's work orders (without orderBy to avoid index issues)
     const workOrdersQuery = query(
       collection(db, 'workorders'),
-      where('clientId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      where('clientId', '==', user.uid)
     )
     
     const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
@@ -47,15 +46,49 @@ export default function ClientWorkOrdersPage() {
         id: doc.id,
         ...doc.data()
       })) as WorkOrder[]
+      
+      // Sort by createdAt manually since we can't use orderBy in the query
+      workOrdersData.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0).getTime()
+        const dateB = new Date(b.createdAt || 0).getTime()
+        return dateB - dateA // Descending order
+      })
+      
+      console.log('Work orders found:', workOrdersData.length)
+      console.log('Work orders data:', workOrdersData)
       setWorkOrders(workOrdersData)
+    }, (error) => {
+      console.error('Error fetching work orders:', error)
+      // If the query fails, try a simpler approach
+      const fallbackQuery = query(
+        collection(db, 'workorders'),
+        where('clientId', '==', user.uid)
+      )
+      
+      onSnapshot(fallbackQuery, (snapshot) => {
+        const workOrdersData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as WorkOrder[]
+        
+        // Sort by createdAt manually
+        workOrdersData.sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0).getTime()
+          const dateB = new Date(b.createdAt || 0).getTime()
+          return dateB - dateA
+        })
+        
+        console.log('Fallback query - Work orders found:', workOrdersData.length)
+        console.log('Fallback work orders data:', workOrdersData)
+        setWorkOrders(workOrdersData)
+      })
     })
 
-    // Fetch client's approved locations only
+    // Fetch client's approved locations only (without orderBy to avoid index issues)
     const locationsQuery = query(
       collection(db, 'locations'),
       where('clientId', '==', user.uid),
-      where('status', '==', 'approved'),
-      orderBy('createdAt', 'desc')
+      where('status', '==', 'approved')
     )
     
     const unsubscribeLocations = onSnapshot(locationsQuery, (snapshot) => {
@@ -63,7 +96,37 @@ export default function ClientWorkOrdersPage() {
         id: doc.id,
         ...doc.data()
       })) as Location[]
+      
+      // Sort by createdAt manually since we can't use orderBy in the query
+      locationsData.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0).getTime()
+        const dateB = new Date(b.createdAt || 0).getTime()
+        return dateB - dateA // Descending order
+      })
+      
+      console.log('Approved locations found:', locationsData.length)
+      console.log('Location data:', locationsData)
       setLocations(locationsData)
+    }, (error) => {
+      console.error('Error fetching approved locations:', error)
+      // If the query fails, try fetching all locations and filter client-side
+      const fallbackQuery = query(
+        collection(db, 'locations'),
+        where('clientId', '==', user.uid)
+      )
+      
+      onSnapshot(fallbackQuery, (snapshot) => {
+        const allLocations = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Location[]
+        
+        const approvedLocations = allLocations.filter(loc => loc.status === 'approved')
+        console.log('Fallback query - All locations:', allLocations.length)
+        console.log('Fallback query - Approved locations:', approvedLocations.length)
+        console.log('All location statuses:', allLocations.map(l => ({ id: l.id, status: l.status })))
+        setLocations(approvedLocations)
+      })
     })
 
     return () => {
@@ -124,6 +187,17 @@ export default function ClientWorkOrdersPage() {
     return variants[priority as keyof typeof variants] || 'bg-gray-100 text-gray-800'
   }
 
+  const getQuoteStatusBadge = (status: string) => {
+    const variants = {
+      pending: 'bg-gray-100 text-gray-800',
+      sent: 'bg-blue-100 text-blue-800',
+      accepted: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800',
+      expired: 'bg-orange-100 text-orange-800'
+    }
+    return variants[status as keyof typeof variants] || 'bg-gray-100 text-gray-800'
+  }
+
   const filteredWorkOrders = workOrders.filter(workOrder => {
     const matchesSearch = workOrder.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          workOrder.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -141,23 +215,14 @@ export default function ClientWorkOrdersPage() {
     completed: workOrders.filter(w => w.status === 'completed').length
   }
 
-  const testFetchWorkOrders = async () => {
-    try {
-      const response = await fetch(`/api/workorders?userId=${user?.uid}&role=client`)
-      const data = await response.json()
-      console.log('API Response:', data)
-      console.log('Current workOrders state:', workOrders)
-      console.log('User ID:', user?.uid)
-    } catch (error) {
-      console.error('Error fetching work orders:', error)
-    }
-  }
 
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">My Work Orders</h1>
+        <div>
+          <h1 className="text-3xl font-bold">My Work Orders</h1>
+        </div>
         <Button 
           onClick={() => setShowCreateForm(true)}
           disabled={locations.length === 0}
@@ -280,10 +345,6 @@ export default function ClientWorkOrdersPage() {
         </CardContent>
       </Card>
 
-      {/* Debug Button */}
-      <Button onClick={testFetchWorkOrders} variant="outline">
-        Test Fetch Work Orders
-      </Button>
 
       {/* Work Orders List */}
       <div className="space-y-4">
@@ -310,6 +371,7 @@ export default function ClientWorkOrdersPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="flex items-center gap-2">
+                      <span className="text-sm font-mono text-gray-500">#{workOrder.id}</span>
                       {workOrder.title}
                       <Badge className={getStatusBadge(workOrder.status)}>
                         {workOrder.status}
@@ -317,6 +379,11 @@ export default function ClientWorkOrdersPage() {
                       <Badge className={getPriorityBadge(workOrder.priority)}>
                         {workOrder.priority}
                       </Badge>
+                      {workOrder.quoteStatus && (
+                        <Badge className={getQuoteStatusBadge(workOrder.quoteStatus)}>
+                          Quote {workOrder.quoteStatus}
+                        </Badge>
+                      )}
                     </CardTitle>
                     <p className="text-sm text-gray-600 mt-1">{workOrder.description}</p>
                   </div>
@@ -370,15 +437,14 @@ export default function ClientWorkOrdersPage() {
         )}
       </div>
 
-      {/* Create Form */}
-      {showCreateForm && (
-        <WorkOrderForm
-          onSubmit={handleCreateWorkOrder}
-          onCancel={() => setShowCreateForm(false)}
-          locations={locations}
-          isAdmin={false}
-        />
-      )}
+      {/* Create Work Order Modal */}
+      <CreateWorkOrderModal
+        isOpen={showCreateForm}
+        onClose={() => setShowCreateForm(false)}
+        onSubmit={handleCreateWorkOrder}
+        isSubmitting={false}
+        locations={locations}
+      />
     </div>
   )
 }

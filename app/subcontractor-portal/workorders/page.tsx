@@ -46,8 +46,7 @@ export default function SubcontractorWorkOrdersPage() {
     // Fetch work orders assigned to this subcontractor
     const workOrdersQuery = query(
       collection(db, 'workorders'),
-      where('assignedTo', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      where('assignedTo', '==', user.uid)
     )
     
     const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
@@ -55,7 +54,19 @@ export default function SubcontractorWorkOrdersPage() {
         id: doc.id,
         ...doc.data()
       })) as WorkOrder[]
+      
+      // Sort by createdAt manually since we can't use orderBy in the query
+      workOrdersData.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0).getTime()
+        const dateB = new Date(b.createdAt || 0).getTime()
+        return dateB - dateA // Descending order
+      })
+      
+      console.log('Work orders found for subcontractor:', workOrdersData.length)
+      console.log('Work orders data:', workOrdersData)
       setWorkOrders(workOrdersData)
+    }, (error) => {
+      console.error('Error fetching work orders:', error)
     })
 
     return () => {

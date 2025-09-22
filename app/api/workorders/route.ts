@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { initializeApp } from 'firebase/app'
 import { db } from '@/lib/firebase'
+import { generateWorkOrderIdSimple } from '@/lib/workorder-id-generator'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
@@ -38,7 +39,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Generate sequential work order ID
+    const workOrderId = await generateWorkOrderIdSimple()
+    
     const workOrderRecord = {
+      workOrderId: workOrderId, // Add the sequential ID
       title: workOrderData.title,
       description: workOrderData.description,
       priority: workOrderData.priority,
@@ -62,6 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       workOrderId: docRef.id,
+      workOrderNumber: workOrderId,
       message: 'Work order submitted for approval'
     })
 
@@ -88,15 +94,13 @@ export async function GET(request: NextRequest) {
       // Client can only see their own work orders
       q = query(
         collection(db, 'workorders'),
-        where('clientId', '==', userId),
-        orderBy('createdAt', 'desc')
+        where('clientId', '==', userId)
       )
     } else if (role === 'subcontractor' && userId) {
       // Subcontractor can only see work orders assigned to them
       q = query(
         collection(db, 'workorders'),
-        where('assignedTo', '==', userId),
-        orderBy('createdAt', 'desc')
+        where('assignedTo', '==', userId)
       )
     } else {
       return NextResponse.json({ error: 'Invalid request parameters' }, { status: 400 })
@@ -106,7 +110,16 @@ export async function GET(request: NextRequest) {
     const workOrders = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }))
+    })) as any[]
+
+    // Sort by createdAt manually for client and subcontractor queries
+    if (role === 'client' || role === 'subcontractor') {
+      workOrders.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0).getTime()
+        const dateB = new Date(b.createdAt || 0).getTime()
+        return dateB - dateA // Descending order
+      })
+    }
 
     return NextResponse.json({ success: true, workOrders })
   } catch (error) {

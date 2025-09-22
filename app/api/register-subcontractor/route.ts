@@ -1,0 +1,134 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/firebase'
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
+import { Subcontractor, SubcontractorRegistrationData } from '@/lib/types'
+
+export async function POST(request: NextRequest) {
+  try {
+    const data = await request.json()
+    const registrationData = data as SubcontractorRegistrationData
+
+    console.log('Received subcontractor registration:', registrationData)
+
+    // Validate required fields
+    const requiredFields = [
+      'fullName', 'email', 'phone', 'title', 'skills', 'experience', 'password',
+      'address.street', 'address.city', 'address.state', 'address.zipCode'
+    ]
+
+    const missingFields = requiredFields.filter(field => {
+      if (field.includes('.')) {
+        const [parent, child] = field.split('.')
+        const parentValue = registrationData[parent as keyof SubcontractorRegistrationData] as any
+        return !parentValue?.[child]
+      }
+      return !registrationData[field as keyof SubcontractorRegistrationData]
+    })
+
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        { error: `Missing required fields: ${missingFields.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // Validate password
+    if (registrationData.password !== registrationData.confirmPassword) {
+      return NextResponse.json(
+        { error: 'Passwords do not match' },
+        { status: 400 }
+      )
+    }
+
+    if (registrationData.password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters long' },
+        { status: 400 }
+      )
+    }
+
+    // Check if email is already registered
+    const emailQuery = query(
+      collection(db, 'subcontractors'),
+      where('email', '==', registrationData.email)
+    )
+    
+    const emailDocs = await getDocs(emailQuery)
+    if (!emailDocs.empty) {
+      return NextResponse.json(
+        { error: 'Email is already registered as a subcontractor' },
+        { status: 400 }
+      )
+    }
+
+    // Create Firebase Auth user
+    let firebaseUser
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        registrationData.email,
+        registrationData.password
+      )
+      firebaseUser = userCredential.user
+      console.log('Firebase user created:', firebaseUser.uid)
+    } catch (error: any) {
+      console.error('Error creating Firebase user:', error)
+      if (error.code === 'auth/email-already-in-use') {
+        return NextResponse.json(
+          { error: 'Email is already in use. Please use a different email or try logging in.' },
+          { status: 400 }
+        )
+      }
+      return NextResponse.json(
+        { error: 'Failed to create user account. Please try again.' },
+        { status: 500 }
+      )
+    }
+
+    // Create subcontractor document
+    const subcontractorData: Omit<Subcontractor, 'id'> = {
+      userId: firebaseUser.uid,
+      fullName: registrationData.fullName,
+      email: registrationData.email,
+      phone: registrationData.phone,
+      title: registrationData.title,
+      skills: registrationData.skills,
+      experience: registrationData.experience,
+      hourlyRate: registrationData.hourlyRate ? parseFloat(registrationData.hourlyRate) : undefined,
+      availability: 'available',
+      status: 'pending',
+      address: registrationData.address,
+      businessInfo: registrationData.businessInfo,
+      references: registrationData.references?.filter(ref => 
+        ref.name && ref.contact && ref.relationship
+      ),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    // Clean undefined values
+    const cleanSubcontractorData = Object.fromEntries(
+      Object.entries(subcontractorData).filter(([_, value]) => value !== undefined)
+    )
+
+    const docRef = await addDoc(collection(db, 'subcontractors'), cleanSubcontractorData)
+
+    console.log('Subcontractor registered successfully:', docRef.id)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Subcontractor registration submitted successfully',
+      subcontractorId: docRef.id
+    })
+
+  } catch (error) {
+    console.error('Error registering subcontractor:', error)
+    return NextResponse.json(
+      { error: 'Failed to register subcontractor' },
+      { status: 500 }
+    )
+  }
+}
+

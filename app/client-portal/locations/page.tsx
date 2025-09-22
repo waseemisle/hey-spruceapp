@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 import { Location } from '@/lib/types'
-import LocationForm from '@/components/location/LocationForm'
+import CreateLocationModal from '@/components/modals/CreateLocationModal'
 import { 
   Plus, 
   Search, 
@@ -104,17 +104,6 @@ export default function ClientLocationsPage() {
     }
   }
 
-  const testFetchLocations = async () => {
-    try {
-      const response = await fetch(`/api/locations?userId=${profile?.id}&role=client`)
-      const data = await response.json()
-      console.log('API Response:', data)
-      alert(`Found ${data.locations?.length || 0} locations. Check console for details.`)
-    } catch (error) {
-      console.error('Error testing API:', error)
-      alert('Error testing API. Check console.')
-    }
-  }
 
   // Filter locations based on search
   const filteredLocations = locations.filter(location => {
@@ -171,12 +160,6 @@ export default function ClientLocationsPage() {
             >
               <Plus className="h-4 w-4 mr-2" />
               Add New Location
-            </Button>
-            <Button
-              onClick={testFetchLocations}
-              variant="outline"
-            >
-              Test Fetch Data
             </Button>
           </div>
         </div>
@@ -253,14 +236,13 @@ export default function ClientLocationsPage() {
           </CardContent>
         </Card>
 
-        {/* Create Form */}
-        {showCreateForm && (
-          <LocationForm
-            onSubmit={handleCreateLocation}
-            onCancel={() => setShowCreateForm(false)}
-            submitLabel="Submit Location"
-          />
-        )}
+        {/* Create Location Modal */}
+        <CreateLocationModal
+          isOpen={showCreateForm}
+          onClose={() => setShowCreateForm(false)}
+          onSubmit={handleCreateLocation}
+          isSubmitting={false}
+        />
 
         {/* Locations List */}
         <Card>

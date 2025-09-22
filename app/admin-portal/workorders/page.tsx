@@ -12,11 +12,13 @@ import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
 import { useLoading } from '@/contexts/LoadingContext'
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { WorkOrder, Location } from '@/lib/types'
+import { WorkOrder, Location, Quote, Invoice } from '@/lib/types'
 import CreateWorkOrderModal from '@/components/modals/CreateWorkOrderModal'
 import EditWorkOrderModal from '@/components/modals/EditWorkOrderModal'
 import ViewWorkOrderModal from '@/components/modals/ViewWorkOrderModal'
 import CreateQuoteModal from '@/components/modals/CreateQuoteModal'
+import CreateInvoiceModal from '@/components/modals/CreateInvoiceModal'
+import WithRoleProtection from '@/components/auth/withRoleProtection'
 import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
   Plus, 
@@ -30,10 +32,22 @@ import {
   DollarSign,
   MapPin,
   Eye,
-  Calculator
+  Calculator,
+  Receipt
 } from 'lucide-react'
 
 export default function AdminWorkOrdersPage() {
+  return (
+    <WithRoleProtection 
+      allowedRoles={['admin']}
+      fallbackMessage="This work orders page is only accessible to administrators."
+    >
+      <AdminWorkOrdersContent />
+    </WithRoleProtection>
+  )
+}
+
+function AdminWorkOrdersContent() {
   const { user, profile } = useAuth()
   const { notifications, removeNotification, success, error, info } = useNotifications()
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
@@ -63,6 +77,12 @@ export default function AdminWorkOrdersPage() {
   const [showQuoteModal, setShowQuoteModal] = useState(false)
   const [selectedWorkOrderForQuote, setSelectedWorkOrderForQuote] = useState<WorkOrder | null>(null)
 
+  // Invoice modal state
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [selectedWorkOrderForInvoice, setSelectedWorkOrderForInvoice] = useState<WorkOrder | null>(null)
+  const [quotes, setQuotes] = useState<Quote[]>([])
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false)
+
   useEffect(() => {
     // Fetch work orders
     const workOrdersQuery = query(collection(db, 'workorders'), orderBy('createdAt', 'desc'))
@@ -84,9 +104,22 @@ export default function AdminWorkOrdersPage() {
       setLocations(locationsData)
     })
 
+    // Fetch quotes for invoice creation
+    const quotesQuery = query(collection(db, 'quotes'), orderBy('createdAt', 'desc'))
+    const unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
+      const quotesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Quote[]
+      // Filter only accepted quotes
+      const acceptedQuotes = quotesData.filter(quote => quote.status === 'accepted')
+      setQuotes(acceptedQuotes)
+    })
+
     return () => {
       unsubscribeWorkOrders()
       unsubscribeLocations()
+      unsubscribeQuotes()
     }
   }, [])
 
@@ -313,6 +346,13 @@ export default function AdminWorkOrdersPage() {
 
   const handleCreateQuote = async (quoteData: any) => {
     try {
+      console.log('Creating quote with data:', {
+        ...quoteData,
+        adminId: user?.uid,
+        adminName: profile?.fullName,
+        adminEmail: profile?.email
+      })
+
       const response = await fetch('/api/admin/quotes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -324,17 +364,86 @@ export default function AdminWorkOrdersPage() {
         })
       })
 
+      console.log('Response status:', response.status)
+      console.log('Response headers:', response.headers)
+
       if (response.ok) {
+        const result = await response.json()
+        console.log('Quote created successfully:', result)
         success('Quote Created', 'Quote created successfully!')
         setShowQuoteModal(false)
         setSelectedWorkOrderForQuote(null)
       } else {
-        const errorData = await response.json()
-        error('Quote Creation Failed', errorData.error || 'Failed to create quote')
+        let errorMessage = 'Failed to create quote'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.details || errorMessage
+          console.error('Server error response:', errorData)
+        } catch (jsonError) {
+          console.error('Failed to parse error response as JSON:', jsonError)
+          const textResponse = await response.text()
+          console.error('Raw error response:', textResponse)
+          errorMessage = `Server error (${response.status}): ${textResponse || 'Unknown error'}`
+        }
+        error('Quote Creation Failed', errorMessage)
       }
     } catch (err) {
       console.error('Error creating quote:', err)
-      error('Error', 'Failed to create quote')
+      error('Error', `Failed to create quote: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }
+
+  const openInvoiceModal = (workOrder: WorkOrder) => {
+    setSelectedWorkOrderForInvoice(workOrder)
+    setShowInvoiceModal(true)
+  }
+
+  const handleCreateInvoice = async (invoiceData: any) => {
+    try {
+      setIsCreatingInvoice(true)
+      console.log('Creating invoice with data:', {
+        ...invoiceData,
+        adminId: user?.uid,
+        adminName: profile?.fullName,
+        adminEmail: profile?.email
+      })
+
+      const response = await fetch('/api/admin/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...invoiceData,
+          adminId: user?.uid,
+          adminName: profile?.fullName,
+          adminEmail: profile?.email
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Invoice created successfully:', result)
+        success('Invoice Created', 'Invoice created and sent to client successfully!')
+        setShowInvoiceModal(false)
+        setSelectedWorkOrderForInvoice(null)
+      } else {
+        let errorMessage = 'Failed to create invoice'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.details || errorMessage
+          console.error('Server error response:', errorData)
+        } catch (jsonError) {
+          console.error('Failed to parse error response as JSON:', jsonError)
+          const textResponse = await response.text()
+          console.error('Raw error response:', textResponse)
+          errorMessage = `Server error (${response.status}): ${textResponse || 'Unknown error'}`
+        }
+        error('Invoice Creation Failed', errorMessage)
+      }
+    } catch (err) {
+      console.error('Error creating invoice:', err)
+      error('Error', `Failed to create invoice: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsCreatingInvoice(false)
     }
   }
 
@@ -358,6 +467,17 @@ export default function AdminWorkOrdersPage() {
       urgent: 'bg-red-100 text-red-800'
     }
     return variants[priority as keyof typeof variants] || 'bg-gray-100 text-gray-800'
+  }
+
+  const getQuoteStatusBadge = (status: string) => {
+    const variants = {
+      pending: 'bg-gray-100 text-gray-800',
+      sent: 'bg-blue-100 text-blue-800',
+      accepted: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800',
+      expired: 'bg-orange-100 text-orange-800'
+    }
+    return variants[status as keyof typeof variants] || 'bg-gray-100 text-gray-800'
   }
 
   const filteredWorkOrders = workOrders.filter(workOrder => {
@@ -517,6 +637,7 @@ export default function AdminWorkOrdersPage() {
               <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
                 <div className="flex-1">
                   <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                    <span className="text-sm font-mono text-gray-500">#{workOrder.id}</span>
                     <span className="text-lg font-semibold break-words">{workOrder.title}</span>
                     <div className="flex flex-wrap gap-2">
                       <Badge className={`${getStatusBadge(workOrder.status)} text-xs`}>
@@ -525,6 +646,11 @@ export default function AdminWorkOrdersPage() {
                       <Badge className={`${getPriorityBadge(workOrder.priority)} text-xs`}>
                         {workOrder.priority}
                       </Badge>
+                      {workOrder.quoteStatus && (
+                        <Badge className={`${getQuoteStatusBadge(workOrder.quoteStatus)} text-xs`}>
+                          Quote {workOrder.quoteStatus}
+                        </Badge>
+                      )}
                     </div>
                   </CardTitle>
                   <p className="text-sm text-gray-600 line-clamp-2">{workOrder.description}</p>
@@ -553,23 +679,37 @@ export default function AdminWorkOrdersPage() {
                   )}
                   {workOrder.status === 'approved' && (
                     <>
-                      <Button
-                        size="sm"
-                        onClick={() => openQuoteModal(workOrder)}
-                        className="bg-purple-600 hover:bg-purple-700"
-                      >
-                        <Calculator className="w-4 h-4 mr-1" />
-                        Create Quote
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => openAssignmentModal(workOrder)}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <UserPlus className="w-4 h-4 mr-1" />
-                        Assign
-                      </Button>
+                      {!workOrder.quoteStatus && (
+                        <Button
+                          size="sm"
+                          onClick={() => openQuoteModal(workOrder)}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          <Calculator className="w-4 h-4 mr-1" />
+                          Create Quote
+                        </Button>
+                      )}
+                      {workOrder.quoteStatus === 'accepted' && (
+                        <Button
+                          size="sm"
+                          onClick={() => openAssignmentModal(workOrder)}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <UserPlus className="w-4 h-4 mr-1" />
+                          Assign
+                        </Button>
+                      )}
                     </>
+                  )}
+                  {workOrder.status === 'completed' && workOrder.quoteStatus === 'accepted' && (
+                    <Button
+                      size="sm"
+                      onClick={() => openInvoiceModal(workOrder)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Receipt className="w-4 h-4 mr-1" />
+                      Create Invoice
+                    </Button>
                   )}
                   <Button
                     size="sm"
@@ -763,6 +903,18 @@ export default function AdminWorkOrdersPage() {
           </Card>
         </div>
       )}
+
+      {/* Create Invoice Modal */}
+      <CreateInvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={() => {
+          setShowInvoiceModal(false)
+          setSelectedWorkOrderForInvoice(null)
+        }}
+        onSubmit={handleCreateInvoice}
+        isSubmitting={isCreatingInvoice}
+        quotes={quotes}
+      />
       </div>
     </>
   )

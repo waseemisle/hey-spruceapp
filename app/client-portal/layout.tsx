@@ -15,14 +15,15 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Receipt
 } from 'lucide-react'
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: TrendingUp, path: '/client-portal' },
   { id: 'locations', label: 'Locations', icon: Building2, path: '/client-portal/locations' },
-  { id: 'properties', label: 'Properties', icon: Building2, path: '/client-portal' },
   { id: 'workorders', label: 'Work Orders', icon: Wrench, path: '/client-portal/workorders' },
+  { id: 'quotes', label: 'Quotes', icon: Receipt, path: '/client-portal/quotes' },
   { id: 'billing', label: 'Billing', icon: DollarSign, path: '/client-portal' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/client-portal' },
   { id: 'notifications', label: 'Notifications', icon: Bell, path: '/client-portal' },
