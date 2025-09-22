@@ -201,22 +201,27 @@ function AdminScheduledInvoicesContent() {
 
   const formatNextExecution = (nextExecution?: string) => {
     if (!nextExecution) return 'Not scheduled'
-    const date = new Date(nextExecution)
-    return date.toLocaleString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short'
-    })
+    try {
+      const date = new Date(nextExecution)
+      if (isNaN(date.getTime())) return 'Invalid date'
+      return date.toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      })
+    } catch (error) {
+      return 'Invalid date'
+    }
   }
 
   const filteredScheduledInvoices = scheduledInvoices.filter(invoice => {
-    const matchesSearch = invoice.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.clientEmail.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (invoice.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (invoice.clientName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (invoice.clientEmail || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || 
                          (filterStatus === 'active' && invoice.isActive) ||
                          (filterStatus === 'inactive' && !invoice.isActive)
@@ -228,7 +233,10 @@ function AdminScheduledInvoicesContent() {
     total: scheduledInvoices.length,
     active: scheduledInvoices.filter(s => s.isActive).length,
     inactive: scheduledInvoices.filter(s => !s.isActive).length,
-    totalValue: scheduledInvoices.reduce((sum, s) => sum + s.amount, 0)
+    totalValue: scheduledInvoices.reduce((sum, s) => {
+      const amount = typeof s.amount === 'number' && !isNaN(s.amount) ? s.amount : 0
+      return sum + amount
+    }, 0)
   }
 
   if (isLoading) {
@@ -399,7 +407,7 @@ function AdminScheduledInvoicesContent() {
                     </div>
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span>${invoice.amount.toLocaleString()}</span>
+                      <span>${typeof invoice.amount === 'number' && !isNaN(invoice.amount) ? invoice.amount.toLocaleString() : '0'}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />

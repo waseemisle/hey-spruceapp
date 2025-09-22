@@ -101,11 +101,7 @@ export default function CreateQuoteModal({
         i === index 
           ? { 
               ...item, 
-              [field]: value,
-              totalPrice: field === 'quantity' || field === 'unitPrice' 
-                ? (field === 'quantity' ? value as number : item.quantity) * 
-                  (field === 'unitPrice' ? value as number : item.unitPrice)
-                : item.quantity * item.unitPrice
+              [field]: value
             }
           : item
       )
