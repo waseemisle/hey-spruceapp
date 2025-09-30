@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { getDocs, collection, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from 'firebase/firestore'
 import { Category } from '@/lib/types'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const activeOnly = searchParams.get('activeOnly') === 'true'
@@ -22,26 +22,29 @@ export async function GET(request: NextRequest) {
       ...doc.data()
     }))
 
-    return NextResponse.json(categories)
+    return new Response(
+        JSON.stringify(categories),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error fetching categories:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch categories' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to fetch categories' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const data = await request.json()
     
     // Validate required fields
     if (!data.name || !data.createdBy) {
-      return NextResponse.json(
-        { error: 'Missing required fields: name and createdBy' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: name and createdBy' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -56,29 +59,32 @@ export async function POST(request: NextRequest) {
 
     const docRef = await addDoc(collection(db, COLLECTIONS.CATEGORIES), categoryData)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       categoryId: docRef.id,
       message: 'Category created successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error creating category:', error)
-    return NextResponse.json(
-      { error: 'Failed to create category' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to create category' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function PUT(request: Request) {
   try {
     const data = await request.json()
     
     if (!data.id) {
-      return NextResponse.json(
-        { error: 'Category ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Category ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -92,44 +98,50 @@ export async function PUT(request: NextRequest) {
 
     await updateDoc(doc(db, COLLECTIONS.CATEGORIES, data.id), updateData)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Category updated successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error updating category:', error)
-    return NextResponse.json(
-      { error: 'Failed to update category' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to update category' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const categoryId = searchParams.get('id')
     
     if (!categoryId) {
-      return NextResponse.json(
-        { error: 'Category ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Category ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     await deleteDoc(doc(db, COLLECTIONS.CATEGORIES, categoryId))
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Category deleted successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error deleting category:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete category' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to delete category' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

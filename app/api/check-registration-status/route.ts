@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore'
 import { initializeApp } from 'firebase/app'
 
@@ -15,14 +15,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { email } = await request.json()
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Email is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -32,27 +32,34 @@ export async function POST(request: NextRequest) {
     const querySnapshot = await getDocs(q)
 
     if (querySnapshot.empty) {
-      return NextResponse.json({
+      return new Response(
+        JSON.stringify({
         status: 'not_found',
         message: 'No registration found for this email'
-      })
+      }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     const registration = querySnapshot.docs[0].data()
     const registrationId = querySnapshot.docs[0].id
 
-    return NextResponse.json({
-      status: registration.status,
-      registrationId,
-      message: getStatusMessage(registration.status)
-    })
+    return new Response(
+      JSON.stringify({
+        success: true,
+        status: registration.status,
+        registrationId,
+        message: getStatusMessage(registration.status)
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
     console.error('Registration status check error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { Invoice } from '@/lib/types'
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -15,9 +15,9 @@ export async function GET(
     const invoiceSnap = await getDoc(invoiceRef)
 
     if (!invoiceSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Invoice not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -36,10 +36,10 @@ export async function GET(
 
   } catch (error: any) {
     console.error('Error downloading invoice:', error)
-    return NextResponse.json(
-      { error: 'Failed to download invoice' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to download invoice' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

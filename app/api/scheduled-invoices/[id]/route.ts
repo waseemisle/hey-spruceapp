@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, deleteDoc } from 'firebase/firestore'
 
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -12,16 +12,19 @@ export async function DELETE(
     const scheduledInvoiceRef = doc(db, COLLECTIONS.SCHEDULED_INVOICES, scheduledInvoiceId)
     await deleteDoc(scheduledInvoiceRef)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Scheduled invoice deleted successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error deleting scheduled invoice:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete scheduled invoice' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to delete scheduled invoice' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

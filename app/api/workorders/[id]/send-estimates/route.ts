@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore'
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -11,9 +11,9 @@ export async function POST(
     const { subcontractorIds } = await request.json()
 
     if (!subcontractorIds || !Array.isArray(subcontractorIds) || subcontractorIds.length === 0) {
-      return NextResponse.json(
-        { error: 'Subcontractor IDs are required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor IDs are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -22,9 +22,9 @@ export async function POST(
     const workOrderSnap = await getDoc(workOrderRef)
 
     if (!workOrderSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Work Order not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Work Order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -62,17 +62,20 @@ export async function POST(
       biddingWorkOrders.push({ id: docRef.id, ...biddingWorkOrderData })
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Work order sent to subcontractors for bidding',
       biddingWorkOrders
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error sending work order for estimates:', error)
-    return NextResponse.json(
-      { error: 'Failed to send work order for estimates' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to send work order for estimates' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

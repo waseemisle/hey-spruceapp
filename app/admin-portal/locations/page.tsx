@@ -22,8 +22,7 @@ import {
   XCircle, 
   Clock,
   Edit,
-  Eye,
-  Filter
+  Eye
 } from 'lucide-react'
 
 export default function AdminLocationsPage() {

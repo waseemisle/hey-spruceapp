@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { getFirestore, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { initializeApp } from 'firebase/app'
 
@@ -16,16 +16,16 @@ const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
 // GET - Fetch locations based on user role
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
     const userRole = searchParams.get('role')
 
     if (!userId || !userRole) {
-      return NextResponse.json(
-        { error: 'User ID and role are required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'User ID and role are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
         orderBy('createdAt', 'desc')
       )
     } else {
-      return NextResponse.json(
-        { error: 'Invalid user role' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Invalid user role' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -56,22 +56,25 @@ export async function GET(request: NextRequest) {
       ...doc.data()
     }))
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       locations
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error fetching locations:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 // POST - Create new location
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const locationData = await request.json()
 
@@ -80,10 +83,10 @@ export async function POST(request: NextRequest) {
     
     for (const field of requiredFields) {
       if (!locationData[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        )
+        return new Response(
+        JSON.stringify({ error: `Missing required field: ${field}` }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
       }
     }
 
@@ -111,17 +114,20 @@ export async function POST(request: NextRequest) {
     // Save to Firestore
     const docRef = await addDoc(collection(db, 'locations'), locationRecord)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       locationId: docRef.id,
       message: 'Location created successfully. Pending admin approval.'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Location creation error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

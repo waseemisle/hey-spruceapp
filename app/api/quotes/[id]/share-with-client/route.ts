@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { updateDoc, doc, getDoc } from 'firebase/firestore'
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -14,25 +14,25 @@ export async function POST(
     const quoteSnap = await getDoc(quoteRef)
 
     if (!quoteSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Quote not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Quote not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     const quoteData = quoteSnap.data()
 
     if (!quoteData) {
-      return NextResponse.json(
-        { error: 'Quote data not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Quote data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     if (quoteData.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'Quote is not in pending status' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Quote is not in pending status' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -61,18 +61,21 @@ export async function POST(
       })
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Quote shared with client successfully',
       clientAmount: clientAmount,
       markupPercentage: markupPercentage
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error sharing quote with client:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to share quote with client' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: error.message || 'Failed to share quote with client' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

@@ -1,16 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'User ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -31,13 +31,16 @@ export async function GET(request: NextRequest) {
 
     console.log('Found assigned work orders:', workOrders.length)
 
-    return NextResponse.json(workOrders)
+    return new Response(
+        JSON.stringify(workOrders),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error fetching assigned work orders:', error)
-    return NextResponse.json(
-      { error: `Failed to fetch assigned work orders: ${error.message}` },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: `Failed to fetch assigned work orders: ${error.message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

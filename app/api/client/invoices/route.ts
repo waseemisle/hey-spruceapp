@@ -1,16 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS, getDocuments } from '@/lib/firebase'
 import { where } from 'firebase/firestore'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const clientId = searchParams.get('clientId')
 
     if (!clientId) {
-      return NextResponse.json(
-        { error: 'Client ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Client ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -18,19 +18,22 @@ export async function GET(request: NextRequest) {
     const { data, error } = await getDocuments(COLLECTIONS.INVOICES, [where('clientId', '==', clientId)])
     
     if (error) {
-      return NextResponse.json(
-        { error: 'Failed to fetch invoices' },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch invoices' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    return NextResponse.json(data)
+    return new Response(
+        JSON.stringify(data),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error fetching client invoices:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch invoices' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to fetch invoices' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

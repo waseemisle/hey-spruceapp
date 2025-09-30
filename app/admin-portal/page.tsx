@@ -20,11 +20,11 @@ import {
   Wrench, 
   DollarSign, 
   TrendingUp, 
-  AlertTriangle,
+  AlertCircle,
   CheckCircle,
   Clock,
   Settings,
-  Link as LinkIcon,
+  ExternalLink as LinkIcon,
   Calendar,
   ArrowLeft
 } from 'lucide-react'

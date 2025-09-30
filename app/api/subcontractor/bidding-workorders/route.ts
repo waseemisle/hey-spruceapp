@@ -1,16 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'User ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -21,9 +21,9 @@ export async function GET(request: NextRequest) {
     const subcontractorDoc = await getDoc(subcontractorRef)
     
     if (!subcontractorDoc.exists()) {
-      return NextResponse.json(
-        { error: 'Subcontractor not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
 
     if (!subcontractor.categoryId) {
       console.log('No category ID found for subcontractor')
-      return NextResponse.json([])
+      return new Response(
+        JSON.stringify([]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     // Get bidding work orders that were specifically sent to this subcontractor
@@ -61,13 +64,16 @@ export async function GET(request: NextRequest) {
       status: bwo.status
     })))
 
-    return NextResponse.json(biddingWorkOrders)
+    return new Response(
+        JSON.stringify(biddingWorkOrders),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error fetching bidding work orders:', error)
-    return NextResponse.json(
-      { error: `Failed to fetch bidding work orders: ${error.message}` },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: `Failed to fetch bidding work orders: ${error.message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

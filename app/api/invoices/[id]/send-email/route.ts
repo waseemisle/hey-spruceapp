@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { Invoice } from '@/lib/types'
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -15,9 +15,9 @@ export async function POST(
     const invoiceSnap = await getDoc(invoiceRef)
 
     if (!invoiceSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Invoice not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -39,18 +39,21 @@ export async function POST(
       updatedAt: new Date().toISOString()
     })
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Invoice email sent successfully',
       recipient: invoiceData.clientEmail
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error sending invoice email:', error)
-    return NextResponse.json(
-      { error: 'Failed to send invoice email' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to send invoice email' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

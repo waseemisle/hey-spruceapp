@@ -1,31 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getFirestore, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore'
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth'
-import { initializeApp } from 'firebase/app'
+import { db, auth } from '@/lib/firebase'
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { sendApprovalEmail } from '@/lib/email'
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
-  authDomain: "heyspruceappv2.firebaseapp.com",
-  projectId: "heyspruceappv2",
-  storageBucket: "heyspruceappv2.firebasestorage.app",
-  messagingSenderId: "198738285054",
-  appId: "1:198738285054:web:6878291b080771623a70af",
-  measurementId: "G-82NKE8271G"
-}
-
-const app = initializeApp(firebaseConfig)
-const db = getFirestore(app)
-const auth = getAuth(app)
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { registrationId } = await request.json()
 
     if (!registrationId) {
-      return NextResponse.json(
-        { error: 'Registration ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Registration ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -34,18 +19,25 @@ export async function POST(request: NextRequest) {
     const registrationSnap = await getDoc(registrationRef)
 
     if (!registrationSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Registration not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Registration not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     const registrationData = registrationSnap.data()
 
+    if (!registrationData) {
+      return new Response(
+        JSON.stringify({ error: 'Registration data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     if (registrationData.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'Registration is not pending' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Registration is not pending' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -60,9 +52,9 @@ export async function POST(request: NextRequest) {
       authUser = userCredential.user
     } catch (authError: any) {
       if (authError.code === 'auth/email-already-in-use') {
-        return NextResponse.json(
-          { error: 'User with this email already exists' },
-          { status: 400 }
+        return new Response(
+          JSON.stringify({ error: 'User with this email already exists' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
         )
       }
       throw authError
@@ -103,13 +95,16 @@ export async function POST(request: NextRequest) {
       loginUrl
     )
 
-    return NextResponse.json({
-      success: true,
-      message: 'Client approved successfully',
-      userId: authUser.uid,
-      emailSent: emailResult.success,
-      emailError: emailResult.error || null
-    })
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Client approved successfully',
+        userId: authUser.uid,
+        emailSent: emailResult.success,
+        emailError: emailResult.error || null
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
     console.error('Approval error:', error)
@@ -118,12 +113,12 @@ export async function POST(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
       code: (error as any)?.code
     })
-    return NextResponse.json(
-      { 
+    return new Response(
+      JSON.stringify({ 
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
 }

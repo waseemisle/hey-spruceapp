@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { updateDoc, doc, getDoc, addDoc, collection } from 'firebase/firestore'
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -11,9 +11,9 @@ export async function POST(
     const workOrderId = params.id
 
     if (!subcontractorIds || !Array.isArray(subcontractorIds) || subcontractorIds.length === 0) {
-      return NextResponse.json(
-        { error: 'Subcontractor IDs are required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor IDs are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -22,9 +22,9 @@ export async function POST(
     const workOrderSnap = await getDoc(workOrderRef)
 
     if (!workOrderSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Work order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -77,16 +77,19 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Estimate requests sent to selected subcontractors'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error sending estimate requests:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to send estimate requests' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: error.message || 'Failed to send estimate requests' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

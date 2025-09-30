@@ -1,31 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth, db, addDocument, COLLECTIONS } from '@/lib/firebase'
 import { AdminUser } from '@/lib/types'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const data = await request.json()
 
     // Validate required fields
     if (!data.fullName || !data.email || !data.password) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     if (data.password !== data.confirmPassword) {
-      return NextResponse.json(
-        { error: 'Passwords do not match' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Passwords do not match' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     if (data.password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Password must be at least 6 characters' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -63,40 +63,43 @@ export async function POST(request: NextRequest) {
       throw new Error(adminError)
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Admin account created successfully',
       userId: user.uid,
       adminId
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Admin registration error:', error)
     
     if (error.code === 'auth/email-already-in-use') {
-      return NextResponse.json(
-        { error: 'Email address is already registered' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Email address is already registered' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
     
     if (error.code === 'auth/weak-password') {
-      return NextResponse.json(
-        { error: 'Password is too weak' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Password is too weak' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
     
     if (error.code === 'auth/invalid-email') {
-      return NextResponse.json(
-        { error: 'Invalid email address' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Invalid email address' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    return NextResponse.json(
-      { error: error.message || 'Registration failed' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: error.message || 'Registration failed' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

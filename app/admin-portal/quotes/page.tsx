@@ -125,11 +125,11 @@ function AdminQuotesContent() {
 
   const stats = {
     total: quotes.length,
-    draft: quotes.filter(q => q.status === 'draft').length,
-    sent: quotes.filter(q => q.status === 'sent').length,
+    pending: quotes.filter(q => q.status === 'pending').length,
+    shared: quotes.filter(q => q.status === 'shared_with_client').length,
     accepted: quotes.filter(q => q.status === 'accepted').length,
     rejected: quotes.filter(q => q.status === 'rejected').length,
-    totalValue: quotes.reduce((sum, q) => sum + (q.totalAmount || 0), 0)
+    totalValue: quotes.reduce((sum, q) => sum + (q.clientAmount || 0), 0)
   }
 
   if (isLoading) {
@@ -168,7 +168,7 @@ function AdminQuotesContent() {
               <CardTitle className="text-sm font-medium text-gray-600">Draft</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.draft}</div>
+              <div className="text-2xl font-bold">{stats.pending}</div>
             </CardContent>
           </Card>
           <Card>
@@ -176,7 +176,7 @@ function AdminQuotesContent() {
               <CardTitle className="text-sm font-medium text-blue-600">Sent</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.sent}</div>
+              <div className="text-2xl font-bold">{stats.shared}</div>
             </CardContent>
           </Card>
           <Card>
@@ -269,7 +269,7 @@ function AdminQuotesContent() {
                       <p className="text-sm text-gray-600 line-clamp-2">{quote.workOrderDescription || 'No description available'}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {quote.status === 'draft' && (
+                      {quote.status === 'pending' && (
                         <Button
                           size="sm"
                           onClick={() => handleSendQuote(quote.id)}
@@ -279,7 +279,7 @@ function AdminQuotesContent() {
                           Send Quote
                         </Button>
                       )}
-                      {quote.status === 'sent' && (
+                      {quote.status === 'shared_with_client' && (
                         <div className="text-sm text-gray-600">
                           <p>Waiting for client approval...</p>
                         </div>
@@ -316,7 +316,7 @@ function AdminQuotesContent() {
                     </div>
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span>${(quote.totalAmount || 0).toLocaleString()}</span>
+                       <span>${(quote.clientAmount || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />

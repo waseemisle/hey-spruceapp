@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import nodemailer from 'nodemailer'
 
 // Create transporter using your SMTP configuration
@@ -15,14 +15,14 @@ const transporter = nodemailer.createTransport({
   }
 })
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { email } = await request.json()
     
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Email is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -45,21 +45,25 @@ export async function POST(request: NextRequest) {
     const result = await transporter.sendMail(mailOptions)
     console.log('SMTP test result:', result)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       data: { messageId: result.messageId },
       message: 'Test email sent successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('SendGrid test error:', error)
-    return NextResponse.json(
-      { 
+    return new Response(
+      JSON.stringify({ 
+        success: false,
         error: 'Failed to send test email', 
         details: error.message,
         fullError: JSON.stringify(error, null, 2)
-      }, 
-      { status: 500 }
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
 }

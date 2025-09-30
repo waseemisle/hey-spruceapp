@@ -90,7 +90,7 @@ export default function AdminSubcontractorsPage() {
         const subcontractorsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        }))
+        })) as Subcontractor[]
         setSubcontractors(subcontractorsData)
       },
       (err) => {
@@ -186,8 +186,8 @@ export default function AdminSubcontractorsPage() {
       skills: subcontractor.skills?.join(', ') || '',
       availability: subcontractor.availability || 'available',
       businessName: subcontractor.businessInfo?.businessName || '',
-      businessAddress: subcontractor.businessInfo?.address || '',
-      notes: subcontractor.notes || ''
+      businessAddress: subcontractor.address ? `${subcontractor.address.street}, ${subcontractor.address.city}, ${subcontractor.address.state}` : '',
+      notes: ''
     })
     setShowEditModal(true)
   }
@@ -237,7 +237,7 @@ export default function AdminSubcontractorsPage() {
     if (field === 'address' || field === 'businessInfo') {
       setCreateFormData(prev => ({
         ...prev,
-        [field]: { ...prev[field as keyof typeof prev], ...(value as object) }
+         [field]: value
       }))
     } else {
       setCreateFormData(prev => ({
@@ -617,20 +617,14 @@ export default function AdminSubcontractorsPage() {
                     <p className="text-sm text-gray-600">
                       <strong>Name:</strong> {selectedSubcontractor.businessInfo.businessName}
                     </p>
-                    {selectedSubcontractor.businessInfo.address && (
+                    {selectedSubcontractor.address && (
                       <p className="text-sm text-gray-600">
-                        <strong>Address:</strong> {selectedSubcontractor.businessInfo.address}
+                        <strong>Address:</strong> {selectedSubcontractor.address.street}, {selectedSubcontractor.address.city}, {selectedSubcontractor.address.state}
                       </p>
                     )}
                   </div>
                 )}
                 
-                {selectedSubcontractor.notes && (
-                  <div className="mt-4">
-                    <p className="text-sm"><strong>Notes:</strong></p>
-                    <p className="text-sm text-gray-600">{selectedSubcontractor.notes}</p>
-                  </div>
-                )}
                 
                 {selectedSubcontractor.status === 'rejected' && selectedSubcontractor.rejectionReason && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">

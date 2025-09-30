@@ -1,31 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS, addDocument, getDocuments } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { WorkOrder } from '@/lib/types'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { data, error } = await getDocuments(COLLECTIONS.WORK_ORDERS)
     
     if (error) {
-      return NextResponse.json(
-        { error: 'Failed to fetch work orders' },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch work orders' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    return NextResponse.json(data)
+    return new Response(
+        JSON.stringify(data),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error fetching work orders:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch work orders' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to fetch work orders' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const data = await request.json()
     console.log('📝 Work Order Creation Request:', {
@@ -38,9 +41,11 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!data.title || !data.description || !data.clientId || !data.categoryId || !data.estimatedCost || !data.estimatedDateOfService) {
       console.log('❌ Missing required fields')
-      return NextResponse.json(
-        { error: 'Missing required fields: title, description, clientId, categoryId, estimatedCost, estimatedDateOfService' },
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: title, description, clientId, categoryId, estimatedCost, estimatedDateOfService' },
         { status: 400 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
     
@@ -59,8 +64,8 @@ export async function POST(request: NextRequest) {
       console.log('❌ Document check failed:')
       console.log(`   Client exists: ${clientDoc.exists()}`)
       console.log(`   Category exists: ${categoryDoc.exists()}`)
-      return NextResponse.json(
-        { 
+      return new Response(
+        JSON.stringify({ 
           error: 'Client or category not found',
           details: {
             clientExists: clientDoc.exists(),
@@ -68,8 +73,8 @@ export async function POST(request: NextRequest) {
             clientId: data.clientId,
             categoryId: data.categoryId
           }
-        },
-        { status: 404 }
+        }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
     
@@ -79,9 +84,9 @@ export async function POST(request: NextRequest) {
     const categoryData = categoryDoc.data()
     
     if (!clientData || !categoryData) {
-      return NextResponse.json(
-        { error: 'Client or category data not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Client or category data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -127,17 +132,20 @@ export async function POST(request: NextRequest) {
       throw new Error(createError)
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       workOrderId: id,
       message: 'Work order created successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error creating work order:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to create work order' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: error.message || 'Failed to create work order' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

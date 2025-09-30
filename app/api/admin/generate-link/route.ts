@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { getFirestore, collection, addDoc } from 'firebase/firestore'
 import { initializeApp } from 'firebase/app'
 
@@ -15,14 +15,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { clientEmail, clientName, expirationDays } = await request.json()
 
     if (!clientEmail || !clientName) {
-      return NextResponse.json(
-        { error: 'Client email and name are required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Client email and name are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -53,21 +53,24 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
     const registrationUrl = `${baseUrl}/register?token=${token}&email=${encodeURIComponent(clientEmail)}&name=${encodeURIComponent(clientName)}`
 
-    return NextResponse.json({
-      success: true,
-      linkId: docRef.id,
-      token,
-      registrationUrl,
-      expiresAt: expiresAt.toISOString(),
-      message: 'Registration link generated successfully'
-    })
+    return new Response(
+      JSON.stringify({
+        success: true,
+        linkId: docRef.id,
+        token,
+        registrationUrl,
+        expiresAt: expiresAt.toISOString(),
+        message: 'Registration link generated successfully'
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
     console.error('Link generation error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

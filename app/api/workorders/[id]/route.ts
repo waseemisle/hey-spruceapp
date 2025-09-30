@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore'
 
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -17,9 +17,9 @@ export async function PUT(
     const workOrderSnap = await getDoc(workOrderRef)
     
     if (!workOrderSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Work order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -41,22 +41,25 @@ export async function PUT(
     // Update the work order
     await updateDoc(workOrderRef, updateData)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Work order updated successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Work order update error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -66,9 +69,9 @@ export async function GET(
     const workOrderSnap = await getDoc(workOrderRef)
     
     if (!workOrderSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Work order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -77,22 +80,25 @@ export async function GET(
       ...workOrderSnap.data()
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       workOrder: workOrderData
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error fetching work order:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -102,9 +108,9 @@ export async function DELETE(
 
     if (!workOrderId) {
       console.error('No work order ID provided')
-      return NextResponse.json(
-        { error: 'Work order ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Work order ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -116,13 +122,15 @@ export async function DELETE(
     
     if (!workOrderSnap.exists()) {
       console.log('Work order not found in database:', workOrderId)
-      return NextResponse.json(
-        { 
+      return new Response(
+        JSON.stringify({ 
           error: 'Work order not found',
           workOrderId: workOrderId,
           message: 'The work order you are trying to delete does not exist in the database'
         },
         { status: 404 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -133,20 +141,25 @@ export async function DELETE(
 
     console.log('Work order deleted successfully:', workOrderId)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Work order deleted successfully',
       workOrderId: workOrderId
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error deleting work order:', error)
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         error: 'Internal server error',
         message: error.message || 'An unexpected error occurred while deleting the work order'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

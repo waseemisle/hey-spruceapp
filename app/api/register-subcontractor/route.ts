@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { Subcontractor, SubcontractorRegistrationData } from '@/lib/types'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const data = await request.json()
     const registrationData = data as SubcontractorRegistrationData
@@ -28,24 +28,24 @@ export async function POST(request: NextRequest) {
     })
 
     if (missingFields.length > 0) {
-      return NextResponse.json(
-        { error: `Missing required fields: ${missingFields.join(', ')}` },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: `Missing required fields: ${missingFields.join(', ')}` }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     // Validate password
     if (registrationData.password !== registrationData.confirmPassword) {
-      return NextResponse.json(
-        { error: 'Passwords do not match' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Passwords do not match' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     if (registrationData.password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters long' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Password must be at least 6 characters long' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
     
     const emailDocs = await getDocs(emailQuery)
     if (!emailDocs.empty) {
-      return NextResponse.json(
-        { error: 'Email is already registered as a subcontractor' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Email is already registered as a subcontractor' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -76,14 +76,14 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       console.error('Error creating Firebase user:', error)
       if (error.code === 'auth/email-already-in-use') {
-        return NextResponse.json(
-          { error: 'Email is already in use. Please use a different email or try logging in.' },
-          { status: 400 }
-        )
+        return new Response(
+        JSON.stringify({ error: 'Email is already in use. Please use a different email or try logging in.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
       }
-      return NextResponse.json(
-        { error: 'Failed to create user account. Please try again.' },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: 'Failed to create user account. Please try again.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -118,18 +118,21 @@ export async function POST(request: NextRequest) {
 
     console.log('Subcontractor registered successfully:', docRef.id)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Subcontractor registration submitted successfully',
       subcontractorId: docRef.id
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error registering subcontractor:', error)
-    return NextResponse.json(
-      { error: 'Failed to register subcontractor' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to register subcontractor' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

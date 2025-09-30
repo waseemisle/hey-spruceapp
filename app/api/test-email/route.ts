@@ -1,27 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { sendApprovalEmail, verifyEmailConfig } from '@/lib/email'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     // Verify email configuration first
     const configValid = await verifyEmailConfig()
     
     if (!configValid) {
-      return NextResponse.json(
-        { 
+      return new Response(
+        JSON.stringify({ 
           success: false, 
           error: 'Email configuration is invalid. Please check your SMTP settings.' 
         },
         { status: 500 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     const { testEmail, clientName, companyName } = await request.json()
 
     if (!testEmail) {
-      return NextResponse.json(
-        { error: 'Test email address is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Test email address is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -35,32 +37,39 @@ export async function POST(request: NextRequest) {
     )
 
     if (result.success) {
-      return NextResponse.json({
+      return new Response(
+        JSON.stringify({
         success: true,
         message: 'Test email sent successfully',
         messageId: result.messageId
-      })
+      }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     } else {
-      return NextResponse.json(
-        { 
+      return new Response(
+        JSON.stringify({ 
           success: false, 
           error: 'Failed to send test email',
           details: result.error 
         },
         { status: 500 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
   } catch (error) {
     console.error('Test email error:', error)
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
@@ -68,7 +77,8 @@ export async function GET() {
   try {
     const configValid = await verifyEmailConfig()
     
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: configValid,
       message: configValid 
         ? 'Email configuration is valid' 
@@ -76,15 +86,19 @@ export async function GET() {
       smtpHost: process.env.SMTP_HOST || 'Not set',
       smtpUser: process.env.SMTP_USER ? 'Set' : 'Not set',
       smtpPass: process.env.SMTP_PASS ? 'Set' : 'Not set'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   } catch (error) {
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to verify email configuration',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

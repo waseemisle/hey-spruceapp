@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, getDoc } from 'firebase/firestore'
 
 // Update quote status (approve/reject)
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -12,16 +12,18 @@ export async function PUT(
     const { status, clientId } = await request.json()
 
     if (!quoteId || !status || !clientId) {
-      return NextResponse.json(
-        { error: 'Quote ID, status, and client ID are required' },
+      return new Response(
+        JSON.stringify({ error: 'Quote ID, status, and client ID are required' },
         { status: 400 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     if (!['accepted', 'rejected'].includes(status)) {
-      return NextResponse.json(
-        { error: 'Status must be either "accepted" or "rejected"' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Status must be either "accepted" or "rejected"' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -32,9 +34,9 @@ export async function PUT(
     const quoteSnap = await getDoc(quoteRef)
 
     if (!quoteSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Quote not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Quote not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -42,9 +44,9 @@ export async function PUT(
 
     // Verify the client owns this quote
     if (quoteData.clientId !== clientId) {
-      return NextResponse.json(
-        { error: 'Unauthorized: You can only update your own quotes' },
-        { status: 403 }
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: You can only update your own quotes' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -73,18 +75,21 @@ export async function PUT(
 
     console.log(`Quote ${quoteId} updated to ${status} by client ${clientId}`)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: `Quote ${status} successfully`,
       quoteId,
       status
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error updating quote:', error)
-    return NextResponse.json(
-      { error: 'Failed to update quote' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to update quote' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

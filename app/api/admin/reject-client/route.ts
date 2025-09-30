@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { getFirestore, doc, updateDoc, getDoc } from 'firebase/firestore'
 import { initializeApp } from 'firebase/app'
 
@@ -15,14 +15,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { registrationId, reason } = await request.json()
 
     if (!registrationId || !reason) {
-      return NextResponse.json(
-        { error: 'Registration ID and rejection reason are required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Registration ID and rejection reason are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -31,18 +31,18 @@ export async function POST(request: NextRequest) {
     const registrationSnap = await getDoc(registrationRef)
 
     if (!registrationSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Registration not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Registration not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     const registrationData = registrationSnap.data()
 
     if (registrationData.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'Registration is not pending' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Registration is not pending' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -54,16 +54,19 @@ export async function POST(request: NextRequest) {
       rejectionReason: reason
     })
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Client registration rejected'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Rejection error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

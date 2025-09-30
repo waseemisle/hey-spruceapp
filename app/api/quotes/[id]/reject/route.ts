@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -15,18 +15,18 @@ export async function POST(
     const quoteSnap = await getDoc(quoteRef)
 
     if (!quoteSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Quote not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Quote not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     const quoteData = quoteSnap.data()
 
     if (quoteData.status !== 'shared_with_client') {
-      return NextResponse.json(
-        { error: 'Quote is not available for rejection' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Quote is not available for rejection' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -49,16 +49,19 @@ export async function POST(
       })
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Quote rejected successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error rejecting quote:', error)
-    return NextResponse.json(
-      { error: 'Failed to reject quote' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to reject quote' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

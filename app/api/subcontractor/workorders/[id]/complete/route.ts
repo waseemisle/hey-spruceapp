@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, getDoc } from 'firebase/firestore'
 
 // Subcontractor marks work order as completed
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -18,9 +18,9 @@ export async function POST(
 
     // Validate required fields
     if (!subcontractorId) {
-      return NextResponse.json(
-        { error: 'Subcontractor ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -29,9 +29,9 @@ export async function POST(
     const workOrderDoc = await getDoc(workOrderRef)
     
     if (!workOrderDoc.exists()) {
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Work order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -40,17 +40,17 @@ export async function POST(
 
     // Validate subcontractor assignment
     if (currentWorkOrder.assignedTo !== subcontractorId) {
-      return NextResponse.json(
-        { error: 'Unauthorized: Work order not assigned to this subcontractor' },
-        { status: 403 }
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Work order not assigned to this subcontractor' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     // Validate work order status
     if (currentWorkOrder.status !== 'in-progress') {
-      return NextResponse.json(
-        { error: 'Only in-progress work orders can be completed' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Only in-progress work orders can be completed' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -81,10 +81,13 @@ export async function POST(
 
     console.log('=== SUBCONTRACTOR WORK COMPLETION API SUCCESS ===')
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Work order marked as completed successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== SUBCONTRACTOR WORK COMPLETION API ERROR ===')
@@ -96,14 +99,16 @@ export async function POST(
     })
     console.error('=== END ERROR LOG ===')
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to complete work order',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

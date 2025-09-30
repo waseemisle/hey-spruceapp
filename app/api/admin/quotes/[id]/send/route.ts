@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, getDoc } from 'firebase/firestore'
 import { sendQuoteEmail } from '@/lib/sendgrid-service'
 
 // Send quote to client via email
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -19,9 +19,9 @@ export async function POST(
 
     // Validate required fields
     if (!adminId) {
-      return NextResponse.json(
-        { error: 'Admin ID is required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Admin ID is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -30,9 +30,9 @@ export async function POST(
     const quoteDoc = await getDoc(quoteRef)
     
     if (!quoteDoc.exists()) {
-      return NextResponse.json(
-        { error: 'Quote not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Quote not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -41,9 +41,9 @@ export async function POST(
 
     // Validate quote status
     if (quote.status !== 'draft') {
-      return NextResponse.json(
-        { error: 'Only draft quotes can be sent' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Only draft quotes can be sent' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -83,10 +83,13 @@ export async function POST(
 
     console.log('=== SEND QUOTE API SUCCESS ===')
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Quote sent to client successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== SEND QUOTE API ERROR ===')
@@ -98,13 +101,15 @@ export async function POST(
     })
     console.error('=== END ERROR LOG ===')
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to send quote',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

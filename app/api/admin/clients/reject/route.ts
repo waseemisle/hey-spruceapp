@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { updateDoc, doc, getDoc } from 'firebase/firestore'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { clientId, adminId, reason } = await request.json()
 
     if (!clientId || !adminId || !reason) {
-      return NextResponse.json(
-        { error: 'Missing required fields: clientId, adminId, and reason' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: clientId, adminId, and reason' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -18,22 +18,25 @@ export async function POST(request: NextRequest) {
     const clientSnap = await getDoc(clientRef)
 
     if (!clientSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Client not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Client not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     const clientData = clientSnap.data()
 
     if (!clientData) {
-      return NextResponse.json({ error: 'Client data not found' }, { status: 404 })
+      return new Response(
+        JSON.stringify({ error: 'Client data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     if (clientData.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'Client is not in pending status' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Client is not in pending status' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -46,16 +49,19 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString()
     })
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Client rejected successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error rejecting client:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to reject client' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: error.message || 'Failed to reject client' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

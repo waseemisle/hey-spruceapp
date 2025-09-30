@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, getDoc } from 'firebase/firestore'
 
 // Update invoice status
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -18,9 +18,9 @@ export async function PUT(
 
     // Validate required fields
     if (!status || !adminId) {
-      return NextResponse.json(
-        { error: 'Status and Admin ID are required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Status and Admin ID are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -29,9 +29,9 @@ export async function PUT(
     const invoiceDoc = await getDoc(invoiceRef)
     
     if (!invoiceDoc.exists()) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Invoice not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -66,10 +66,13 @@ export async function PUT(
 
     console.log('=== INVOICE UPDATE API SUCCESS ===')
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Invoice updated successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== INVOICE UPDATE API ERROR ===')
@@ -81,14 +84,16 @@ export async function PUT(
     })
     console.error('=== END ERROR LOG ===')
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to update invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

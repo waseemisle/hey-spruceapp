@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { addDoc, doc, getDoc, updateDoc, collection } from 'firebase/firestore'
 import { Invoice, Quote } from '@/lib/types'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const data = await request.json()
     const {
@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
     const quoteSnap = await getDoc(quoteRef)
 
     if (!quoteSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Quote not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Quote not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -107,18 +107,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Invoice created successfully',
       invoiceId: docRef.id,
       invoiceNumber
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error creating invoice:', error)
-    return NextResponse.json(
-      { error: 'Failed to create invoice' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to create invoice' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

@@ -1,31 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS, getDocuments } from '@/lib/firebase'
 import { addDoc, collection } from 'firebase/firestore'
 import { ScheduledInvoice } from '@/lib/types'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { data, error } = await getDocuments(COLLECTIONS.SCHEDULED_INVOICES)
     
     if (error) {
-      return NextResponse.json(
-        { error: 'Failed to fetch scheduled invoices' },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch scheduled invoices' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    return NextResponse.json(data)
+    return new Response(
+        JSON.stringify(data),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error fetching scheduled invoices:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch scheduled invoices' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to fetch scheduled invoices' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const data = await request.json()
     const {
@@ -69,18 +72,21 @@ export async function POST(request: NextRequest) {
 
     const docRef = await addDoc(collection(db, COLLECTIONS.SCHEDULED_INVOICES), scheduledInvoiceData)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Scheduled invoice created successfully',
       scheduledInvoiceId: docRef.id
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error creating scheduled invoice:', error)
-    return NextResponse.json(
-      { error: 'Failed to create scheduled invoice' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to create scheduled invoice' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

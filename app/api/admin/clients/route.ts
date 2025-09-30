@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     // Fetch all clients from the 'clients' collection
     const clientsQuery = query(
@@ -19,13 +19,16 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json(clients)
+    return new Response(
+        JSON.stringify(clients),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error fetching clients:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch clients' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to fetch clients' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

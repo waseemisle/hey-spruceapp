@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { Quote, QuoteFormData } from '@/lib/types'
 import { sendQuoteEmail } from '@/lib/sendgrid-service'
 
 // Create a new quote
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   let data: any = null
   
   try {
@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!workOrderId || !adminId) {
       console.error('Missing required fields:', { workOrderId, adminId })
-      return NextResponse.json(
-        { error: 'Work order ID and admin ID are required' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Work order ID and admin ID are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -46,9 +46,9 @@ export async function POST(request: NextRequest) {
     
     if (workOrderSnapshot.empty) {
       console.error('Work order not found:', workOrderId)
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Work order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
     // Validate work order data structure
     if (!workOrder.title || !workOrder.description || !workOrder.location || !workOrder.clientId) {
       console.error('Invalid work order data:', workOrder)
-      return NextResponse.json(
-        { error: 'Invalid work order data structure' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Invalid work order data structure' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -162,11 +162,14 @@ export async function POST(request: NextRequest) {
       console.log('Email sending skipped as requested')
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       quoteId: docRef.id,
       message: sendEmail ? 'Quote created and email sent successfully' : 'Quote created successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error creating quote:', error)
@@ -177,18 +180,20 @@ export async function POST(request: NextRequest) {
     })
     
     // Ensure we always return a valid JSON response
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         error: 'Failed to create quote',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 // Get all quotes
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   let workOrderId: string | null = null
   
   try {
@@ -239,10 +244,13 @@ export async function GET(request: NextRequest) {
     console.log('Processed quotes:', quotes.length)
     console.log('=== QUOTES GET API SUCCESS ===')
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       quotes
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== QUOTES GET API ERROR ===')
@@ -254,14 +262,16 @@ export async function GET(request: NextRequest) {
     console.error('=== END ERROR LOG ===')
     
     // Always return a valid JSON response
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to fetch quotes',
         details: error instanceof Error ? error.message : 'Unknown error',
         quotes: []
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

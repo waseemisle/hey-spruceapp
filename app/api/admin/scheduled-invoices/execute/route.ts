@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore'
 import { sendInvoiceEmail } from '@/lib/sendgrid-service'
 
 // Execute scheduled invoices that are due
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     console.log('=== EXECUTE SCHEDULED INVOICES START ===')
     
@@ -152,24 +152,29 @@ export async function POST(request: NextRequest) {
     console.log('Processed', results.length, 'scheduled invoices')
     console.log('Results:', results)
     
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: `Processed ${results.length} scheduled invoices`,
       results
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     
   } catch (error) {
     console.error('=== EXECUTE SCHEDULED INVOICES ERROR ===')
     console.error('Error executing scheduled invoices:', error)
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to execute scheduled invoices',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/lib/auth'
-import { UserPlus, ArrowLeft } from 'lucide-react'
+import { User, ArrowLeft } from 'lucide-react'
 
 export default function RegisterAdminPage() {
   const router = useRouter()
@@ -115,7 +115,7 @@ export default function RegisterAdminPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5" />
+              <User className="h-5 w-5" />
               Admin Registration
             </CardTitle>
             <CardDescription>

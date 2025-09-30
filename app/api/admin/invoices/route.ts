@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore'
 import { Invoice, InvoiceFormData, Quote } from '@/lib/types'
 import { sendInvoiceEmail } from '@/lib/sendgrid-service'
 
 // Create a new invoice from an approved quote
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   let data: any = null
   
   try {
@@ -30,9 +30,11 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!quoteId || !workOrderId || !adminId) {
       console.error('Missing required fields:', { quoteId, workOrderId, adminId })
-      return NextResponse.json(
-        { error: 'Quote ID, Work Order ID and Admin ID are required' },
+      return new Response(
+        JSON.stringify({ error: 'Quote ID, Work Order ID and Admin ID are required' },
         { status: 400 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -43,9 +45,9 @@ export async function POST(request: NextRequest) {
     
     if (!quoteDoc.exists()) {
       console.error('Quote not found:', quoteId)
-      return NextResponse.json(
-        { error: 'Quote not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Quote not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -55,9 +57,9 @@ export async function POST(request: NextRequest) {
     // Validate quote status
     if (quote.status !== 'accepted') {
       console.error('Quote not accepted:', quote.status)
-      return NextResponse.json(
-        { error: 'Only accepted quotes can be converted to invoices' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Only accepted quotes can be converted to invoices' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -68,9 +70,9 @@ export async function POST(request: NextRequest) {
     
     if (!workOrderDoc.exists()) {
       console.error('Work order not found:', workOrderId)
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Work order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -186,11 +188,14 @@ export async function POST(request: NextRequest) {
 
     console.log('=== INVOICE CREATE API SUCCESS ===')
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       invoiceId: docRef.id,
       message: sendEmail ? 'Invoice created and email sent successfully' : 'Invoice created successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== INVOICE CREATE API ERROR ===')
@@ -201,19 +206,21 @@ export async function POST(request: NextRequest) {
     console.error('Data:', data)
     console.error('=== END ERROR LOG ===')
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to create invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 // Get all invoices
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     console.log('=== INVOICES GET API START ===')
     
@@ -261,10 +268,13 @@ export async function GET(request: NextRequest) {
     console.log('Processed invoices:', invoices.length)
     console.log('=== INVOICES GET API SUCCESS ===')
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       invoices
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== INVOICES GET API ERROR ===')
@@ -274,15 +284,17 @@ export async function GET(request: NextRequest) {
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack')
     console.error('=== END ERROR LOG ===')
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to fetch invoices',
         details: error instanceof Error ? error.message : 'Unknown error',
         invoices: []
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

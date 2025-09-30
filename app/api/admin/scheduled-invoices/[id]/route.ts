@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore'
 
 // Update a scheduled invoice
 export async function PATCH(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -17,9 +17,9 @@ export async function PATCH(
     const { isActive } = data
     
     if (typeof isActive !== 'boolean') {
-      return NextResponse.json(
-        { error: 'isActive must be a boolean value' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'isActive must be a boolean value' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -32,29 +32,34 @@ export async function PATCH(
 
     console.log('Scheduled invoice updated successfully:', params.id)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Scheduled invoice updated successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== UPDATE SCHEDULED INVOICE API ERROR ===')
     console.error('Error updating scheduled invoice:', error)
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to update scheduled invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 // Delete a scheduled invoice
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -66,9 +71,9 @@ export async function DELETE(
     const scheduledInvoiceDoc = await getDoc(scheduledInvoiceRef)
     
     if (!scheduledInvoiceDoc.exists()) {
-      return NextResponse.json(
-        { error: 'Scheduled invoice not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Scheduled invoice not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -77,22 +82,27 @@ export async function DELETE(
 
     console.log('Scheduled invoice deleted successfully:', params.id)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Scheduled invoice deleted successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== DELETE SCHEDULED INVOICE API ERROR ===')
     console.error('Error deleting scheduled invoice:', error)
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to delete scheduled invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

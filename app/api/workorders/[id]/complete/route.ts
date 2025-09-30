@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, query, collection, getDocs } from 'firebase/firestore'
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -15,9 +15,9 @@ export async function POST(
     const workOrderSnap = await getDoc(workOrderRef)
 
     if (!workOrderSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Work order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -25,16 +25,16 @@ export async function POST(
 
     // Verify the subcontractor is assigned to this work order
     if (workOrderData.assignedTo !== subcontractorId) {
-      return NextResponse.json(
-        { error: 'You are not assigned to this work order' },
-        { status: 403 }
+      return new Response(
+        JSON.stringify({ error: 'You are not assigned to this work order' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     if (workOrderData.status !== 'assigned' && workOrderData.status !== 'in_progress') {
-      return NextResponse.json(
-        { error: 'Work order is not in a state that allows completion' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Work order is not in a state that allows completion' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -68,16 +68,19 @@ export async function POST(
       })
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Work order completed successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error completing work order:', error)
-    return NextResponse.json(
-      { error: 'Failed to complete work order' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to complete work order' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

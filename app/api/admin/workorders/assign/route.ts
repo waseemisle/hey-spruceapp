@@ -1,13 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { workOrderId, subcontractorId, adminId } = await request.json()
 
     if (!workOrderId || !subcontractorId || !adminId) {
-      return NextResponse.json({ error: 'Work Order ID, Subcontractor ID, and Admin ID are required' }, { status: 400 })
+      return new Response(
+        JSON.stringify({ error: 'Work Order ID, Subcontractor ID, and Admin ID are required' }, { status: 400 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     // Get work order data
@@ -15,13 +18,19 @@ export async function POST(request: NextRequest) {
     const workOrderSnap = await getDoc(workOrderRef)
 
     if (!workOrderSnap.exists()) {
-      return NextResponse.json({ error: 'Work Order not found' }, { status: 404 })
+      return new Response(
+        JSON.stringify({ error: 'Work Order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     const workOrderData = workOrderSnap.data()
 
     if (workOrderData.status !== 'quote_approved') {
-      return NextResponse.json({ error: 'Work Order must be in quote_approved status to be assigned' }, { status: 400 })
+      return new Response(
+        JSON.stringify({ error: 'Work Order must be in quote_approved status to be assigned' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     // Update work order status and assignment
@@ -56,10 +65,16 @@ export async function POST(request: NextRequest) {
 
     await addDoc(collection(db, COLLECTIONS.ASSIGNED_WORK_ORDERS), assignedWorkOrderData)
 
-    return NextResponse.json({ success: true, message: 'Work Order assigned successfully' })
+    return new Response(
+        JSON.stringify({ success: true, message: 'Work Order assigned successfully' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error assigning work order:', error)
-    return NextResponse.json({ error: 'Failed to assign work order' }, { status: 500 })
+    return new Response(
+        JSON.stringify({ error: 'Failed to assign work order' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

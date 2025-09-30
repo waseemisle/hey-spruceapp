@@ -8,13 +8,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { 
-  Link as LinkIcon,
+  ExternalLink as LinkIcon,
   Copy,
   Mail,
   MessageSquare,
   ArrowLeft,
   CheckCircle,
-  ExternalLink,
   Calendar,
   Clock
 } from 'lucide-react'
@@ -306,7 +305,7 @@ Spruce App Team`
                     size="sm"
                     onClick={() => window.open(generatedLink, '_blank')}
                   >
-                    <ExternalLink className="h-4 w-4 mr-2" />
+                    <LinkIcon className="h-4 w-4 mr-2" />
                     Open Link
                   </Button>
                 </div>
@@ -383,7 +382,7 @@ Spruce App Team`
                       size="sm"
                       onClick={() => window.open(link.link, '_blank')}
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <LinkIcon className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>

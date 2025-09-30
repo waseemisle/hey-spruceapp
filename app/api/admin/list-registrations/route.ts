@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { getFirestore, collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { initializeApp } from 'firebase/app'
 
@@ -15,7 +15,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const q = query(
       collection(db, 'client_registrations'),
@@ -30,17 +30,20 @@ export async function GET(request: NextRequest) {
 
     console.log('API: Found registrations:', registrations)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       registrations,
       count: registrations.length
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error fetching registrations:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Internal server error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

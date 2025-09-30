@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { collection, query, orderBy, getDocs, addDoc } from 'firebase/firestore'
 
 // Get all subcontractors
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     console.log('Fetching all subcontractors')
 
@@ -22,28 +22,33 @@ export async function GET(request: NextRequest) {
 
     console.log(`Found ${subcontractors.length} subcontractors`)
 
-    return NextResponse.json(subcontractors)
+    return new Response(
+        JSON.stringify(subcontractors),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error fetching subcontractors:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch subcontractors' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to fetch subcontractors' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 // Create a new subcontractor
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body = await request.json()
     console.log('Creating new subcontractor:', body)
 
     // Validate required fields
     if (!body.fullName || !body.email || !body.categoryId) {
-      return NextResponse.json(
-        { error: 'Missing required fields: fullName, email, categoryId' },
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: fullName, email, categoryId' },
         { status: 400 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -75,18 +80,21 @@ export async function POST(request: NextRequest) {
 
     console.log('Subcontractor created successfully with ID:', docRef.id)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Subcontractor created successfully',
       id: docRef.id
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error creating subcontractor:', error)
-    return NextResponse.json(
-      { error: 'Failed to create subcontractor' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to create subcontractor' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

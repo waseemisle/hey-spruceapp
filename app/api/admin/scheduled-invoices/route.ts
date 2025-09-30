@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, orderBy, getDocs, doc, updateDoc, deleteDoc, where } from 'firebase/firestore'
 import { ScheduledInvoice, ScheduledInvoiceFormData } from '@/lib/types'
 
 // Create a new scheduled invoice
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     console.log('=== SCHEDULED INVOICE CREATE API START ===')
     
@@ -30,9 +30,11 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!clientId || !title || !amount || !frequency || !time || !timezone || !adminId) {
       console.error('Missing required fields:', { clientId, title, amount, frequency, time, timezone, adminId })
-      return NextResponse.json(
-        { error: 'Client ID, title, amount, frequency, time, timezone, and admin ID are required' },
+      return new Response(
+        JSON.stringify({ error: 'Client ID, title, amount, frequency, time, timezone, and admin ID are required' },
         { status: 400 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -40,9 +42,11 @@ export async function POST(request: NextRequest) {
     const validFrequencies = ['weekly', 'monthly', 'quarterly', 'yearly']
     if (!validFrequencies.includes(frequency)) {
       console.error('Invalid frequency:', frequency)
-      return NextResponse.json(
-        { error: 'Invalid frequency. Must be one of: weekly, monthly, quarterly, yearly' },
+      return new Response(
+        JSON.stringify({ error: 'Invalid frequency. Must be one of: weekly, monthly, quarterly, yearly' },
         { status: 400 }
+      ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -50,9 +54,9 @@ export async function POST(request: NextRequest) {
     const amountNum = parseFloat(amount)
     if (isNaN(amountNum) || amountNum <= 0) {
       console.error('Invalid amount:', amount)
-      return NextResponse.json(
-        { error: 'Amount must be a valid positive number' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Amount must be a valid positive number' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -79,9 +83,9 @@ export async function POST(request: NextRequest) {
         console.error('  - ID:', data.userId, 'Email:', data.email, 'Status:', data.status)
       })
       
-      return NextResponse.json(
-        { error: 'Client not found or not approved' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Client not found or not approved' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -95,9 +99,9 @@ export async function POST(request: NextRequest) {
       console.log('Next execution calculated:', nextExecution)
     } catch (dateError) {
       console.error('Error calculating next execution:', dateError)
-      return NextResponse.json(
-        { error: 'Invalid date/time configuration' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Invalid date/time configuration' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -132,18 +136,21 @@ export async function POST(request: NextRequest) {
       console.log('Scheduled invoice created successfully:', docRef.id)
     } catch (firestoreError) {
       console.error('Error saving to Firestore:', firestoreError)
-      return NextResponse.json(
-        { error: 'Failed to save scheduled invoice' },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: 'Failed to save scheduled invoice' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       scheduledInvoiceId: docRef.id,
       message: 'Scheduled invoice created successfully',
       nextExecution
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== SCHEDULED INVOICE CREATE API ERROR ===')
@@ -154,19 +161,21 @@ export async function POST(request: NextRequest) {
     console.error('Request data not available in error context')
     console.error('=== END ERROR LOG ===')
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to create scheduled invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 // Get all scheduled invoices
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     console.log('=== SCHEDULED INVOICES GET API START ===')
     
@@ -184,10 +193,13 @@ export async function GET(request: NextRequest) {
     console.log('Processed scheduled invoices:', scheduledInvoices.length)
     console.log('=== SCHEDULED INVOICES GET API SUCCESS ===')
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       scheduledInvoices
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('=== SCHEDULED INVOICES GET API ERROR ===')
@@ -197,15 +209,17 @@ export async function GET(request: NextRequest) {
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack')
     console.error('=== END ERROR LOG ===')
     
-    return NextResponse.json(
-      { 
+    return new Response(
+        JSON.stringify({ 
         success: false,
         error: 'Failed to fetch scheduled invoices',
         details: error instanceof Error ? error.message : 'Unknown error',
         scheduledInvoices: []
       },
       { status: 500 }
-    )
+    ),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 

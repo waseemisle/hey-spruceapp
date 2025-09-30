@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, getDoc } from 'firebase/firestore'
 
 // Update a specific subcontractor
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -19,9 +19,9 @@ export async function PUT(
     const subcontractorDoc = await getDoc(subcontractorRef)
     
     if (!subcontractorDoc.exists()) {
-      return NextResponse.json(
-        { error: 'Subcontractor not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -40,23 +40,26 @@ export async function PUT(
 
     console.log('Subcontractor updated successfully:', subcontractorId)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Subcontractor updated successfully'
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error updating subcontractor:', error)
-    return NextResponse.json(
-      { error: 'Failed to update subcontractor' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to update subcontractor' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
 // Get a specific subcontractor
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -68,9 +71,9 @@ export async function GET(
     const subcontractorDoc = await getDoc(subcontractorRef)
     
     if (!subcontractorDoc.exists()) {
-      return NextResponse.json(
-        { error: 'Subcontractor not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -79,13 +82,16 @@ export async function GET(
       ...subcontractorDoc.data()
     }
 
-    return NextResponse.json(subcontractorData)
+    return new Response(
+        JSON.stringify(subcontractorData),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error) {
     console.error('Error fetching subcontractor:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch subcontractor' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to fetch subcontractor' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

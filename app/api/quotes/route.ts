@@ -1,30 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS, getDocuments } from '@/lib/firebase'
 import { addDoc, collection, doc, getDoc } from 'firebase/firestore'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const { data, error } = await getDocuments(COLLECTIONS.QUOTES)
     
     if (error) {
-      return NextResponse.json(
-        { error: 'Failed to fetch quotes' },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch quotes' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    return NextResponse.json(data)
+    return new Response(
+        JSON.stringify(data),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error fetching quotes:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch quotes' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to fetch quotes' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const data = await request.json()
     const {
@@ -56,26 +59,38 @@ export async function POST(request: NextRequest) {
     const workOrderSnap = await getDoc(workOrderRef)
     
     if (!workOrderSnap.exists()) {
-      return NextResponse.json({ error: 'Work Order not found' }, { status: 404 })
+      return new Response(
+        JSON.stringify({ error: 'Work Order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
     }
     
     const workOrderData = workOrderSnap.data()
     
     if (!workOrderData) {
-      return NextResponse.json({ error: 'Work Order data not found' }, { status: 404 })
+      return new Response(
+        JSON.stringify({ error: 'Work Order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
     }
     
     const subcontractorRef = doc(db, COLLECTIONS.SUBCONTRACTORS, subcontractorId)
     const subcontractorSnap = await getDoc(subcontractorRef)
     
     if (!subcontractorSnap.exists()) {
-      return NextResponse.json({ error: 'Subcontractor not found' }, { status: 404 })
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
     }
     
     const subcontractorData = subcontractorSnap.data()
     
     if (!subcontractorData) {
-      return NextResponse.json({ error: 'Subcontractor data not found' }, { status: 404 })
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     const quoteData = {
@@ -110,17 +125,20 @@ export async function POST(request: NextRequest) {
 
     const docRef = await addDoc(collection(db, COLLECTIONS.QUOTES), quoteData)
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Quote created successfully',
       quoteId: docRef.id
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error creating quote:', error)
-    return NextResponse.json(
-      { error: 'Failed to create quote' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to create quote' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

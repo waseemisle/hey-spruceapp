@@ -1,20 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const { workOrderId, adminId, reason } = await request.json()
 
     if (!workOrderId || !adminId || !reason) {
-      return NextResponse.json({ error: 'Work Order ID, Admin ID, and rejection reason are required' }, { status: 400 })
+      return new Response(
+        JSON.stringify({ error: 'Work Order ID, Admin ID, and rejection reason are required' }, { status: 400 }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
     const workOrderSnap = await getDoc(workOrderRef)
 
     if (!workOrderSnap.exists()) {
-      return NextResponse.json({ error: 'Work Order not found' }, { status: 404 })
+      return new Response(
+        JSON.stringify({ error: 'Work Order not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     // Update work order status to rejected
@@ -26,10 +32,16 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString(),
     })
 
-    return NextResponse.json({ success: true, message: 'Work Order rejected successfully' })
+    return new Response(
+        JSON.stringify({ success: true, message: 'Work Order rejected successfully' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error rejecting work order:', error)
-    return NextResponse.json({ error: 'Failed to reject work order' }, { status: 500 })
+    return new Response(
+        JSON.stringify({ error: 'Failed to reject work order' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }

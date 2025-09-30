@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+// Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { Invoice } from '@/lib/types'
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -15,9 +15,9 @@ export async function POST(
     const invoiceSnap = await getDoc(invoiceRef)
 
     if (!invoiceSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Invoice not found' },
-        { status: 404 }
+      return new Response(
+        JSON.stringify({ error: 'Invoice not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -30,18 +30,21 @@ export async function POST(
     // For now, we'll simulate PDF generation
     const pdfUrl = `/invoices/${invoiceId}/invoice.pdf`
 
-    return NextResponse.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       pdfUrl,
       pdfContent // In real implementation, this would be the actual PDF buffer
-    })
+    }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
   } catch (error: any) {
     console.error('Error generating PDF:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate PDF' },
-      { status: 500 }
-    )
+    return new Response(
+        JSON.stringify({ error: 'Failed to generate PDF' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
   }
 }
 
