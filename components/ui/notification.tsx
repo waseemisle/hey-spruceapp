@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckCircle, XCircle, AlertCircle, AlertTriangle, Copy } from 'lucide-react'
+import { CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react'
 import { Button } from './button'
 
 export interface NotificationProps {
