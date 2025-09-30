@@ -1,5 +1,8 @@
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+
+// Simple cache for registration status to improve performance
+const registrationCache = new Map<string, { status: string, timestamp: number }>()
+const CACHE_DURATION = 2 * 60 * 1000 // 2 minutes cache
 
 export async function POST(request: Request) {
   try {
@@ -12,12 +15,28 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check cache first
+    const cached = registrationCache.get(email)
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          status: cached.status,
+          message: getStatusMessage(cached.status),
+          cached: true
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Check if there's a pending registration for this email
-    const registrationsRef = collection(db, 'client_registrations')
-    const q = query(registrationsRef, where('email', '==', email))
-    const querySnapshot = await getDocs(q)
+    const registrationsRef = db.collection('client_registrations')
+    const q = registrationsRef.where('email', '==', email)
+    const querySnapshot = await q.get()
 
     if (querySnapshot.empty) {
+      // Cache the not_found status
+      registrationCache.set(email, { status: 'not_found', timestamp: Date.now() })
       return new Response(
         JSON.stringify({
         status: 'not_found',
@@ -36,6 +55,9 @@ export async function POST(request: Request) {
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
+
+    // Cache the registration status
+    registrationCache.set(email, { status: registration.status, timestamp: Date.now() })
 
     return new Response(
       JSON.stringify({

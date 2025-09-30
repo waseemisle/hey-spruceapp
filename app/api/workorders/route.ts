@@ -2,6 +2,7 @@
 import { db, COLLECTIONS, addDocument, getDocuments } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { WorkOrder } from '@/lib/types'
+import { generateWorkOrderId } from '@/lib/workorder-id-generator'
 
 export async function GET(request: Request) {
   try {
@@ -97,11 +98,16 @@ export async function POST(request: Request) {
       }
     }
 
+    // Generate sequential work order number
+    const workOrderNumber = await generateWorkOrderId()
+    console.log(`🏷️ Generated work order number: ${workOrderNumber}`)
+
     const workOrderData: Omit<WorkOrder, 'id'> = {
       title: data.title,
       description: data.description,
       priority: data.priority || 'medium',
       status: 'pending',
+      workOrderNumber: workOrderNumber,
       categoryId: data.categoryId,
       categoryName: categoryData.name,
       location: locationData ? {

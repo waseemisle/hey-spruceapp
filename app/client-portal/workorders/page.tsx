@@ -55,8 +55,10 @@ export default function ClientWorkOrdersPage() {
   })
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (profile?.id) {
+      fetchData()
+    }
+  }, [profile?.id])
 
   const fetchData = async () => {
     try {
@@ -72,7 +74,11 @@ export default function ClientWorkOrdersPage() {
       if (locationsResponse.ok) {
         const locationsData = await locationsResponse.json()
         // Only show approved locations for work order creation
-        setLocations(locationsData.filter((l: Location) => l.status === 'approved'))
+        const approvedLocations = locationsData.filter((l: Location) => {
+          const status = String(l.status || '').toLowerCase()
+          return status === 'approved'
+        })
+        setLocations(approvedLocations)
       }
 
       // Fetch categories
@@ -239,7 +245,8 @@ export default function ClientWorkOrdersPage() {
 
   const filteredWorkOrders = workOrders.filter(workOrder => {
     const matchesSearch = workOrder.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         workOrder.description?.toLowerCase().includes(searchTerm.toLowerCase())
+                         workOrder.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         workOrder.workOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || workOrder.status === statusFilter
     
     return matchesSearch && matchesStatus
@@ -252,13 +259,30 @@ export default function ClientWorkOrdersPage() {
     completed: workOrders.filter(w => w.status === 'completed').length
   }
 
-  const canCreateWorkOrder = locations.some(l => l.status === 'approved')
+  const canCreateWorkOrder = locations.some(l => {
+    const status = String(l.status || '').toLowerCase()
+    return status === 'approved'
+  })
 
   if (loading) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading work orders...</div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-8 bg-gray-200 rounded w-16"></div>
+                  <div className="h-8 bg-gray-200 rounded w-16"></div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     )
@@ -369,7 +393,14 @@ export default function ClientWorkOrdersPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold">{workOrder.title}</h3>
+                      <h3 className="text-lg font-semibold">
+                        {workOrder.workOrderNumber && (
+                          <span className="text-blue-600 font-mono text-sm mr-2">
+                            {workOrder.workOrderNumber}
+                          </span>
+                        )}
+                        {workOrder.title}
+                      </h3>
                       <Badge className={getStatusBadge(workOrder.status)}>
                         {workOrder.status.replace(/_/g, ' ')}
                       </Badge>

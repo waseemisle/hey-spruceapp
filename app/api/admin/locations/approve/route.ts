@@ -1,29 +1,28 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
 
 export async function POST(request: Request) {
   try {
-    const { locationId, adminId } = await request.json()
+    const { locationId, approvedBy } = await request.json()
 
-    if (!locationId || !adminId) {
+    if (!locationId || !approvedBy) {
       return new Response(
         JSON.stringify({ error: 'Location ID and Admin ID are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    const locationRef = doc(db, COLLECTIONS.LOCATIONS, locationId)
-    const locationSnap = await getDoc(locationRef)
+    // Get location document using compat API
+    const locationDoc = await db.collection(COLLECTIONS.LOCATIONS).doc(locationId).get()
 
-    if (!locationSnap.exists()) {
+    if (!locationDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Location not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    const locationData = locationSnap.data()
+    const locationData = locationDoc.data()
 
     if (!locationData) {
       return new Response(
@@ -39,11 +38,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Update location status to approved
-    await updateDoc(locationRef, {
+    // Update location status to approved using compat API
+    await db.collection(COLLECTIONS.LOCATIONS).doc(locationId).update({
       status: 'approved',
       approvedAt: new Date().toISOString(),
-      approvedBy: adminId,
+      approvedBy: approvedBy,
       updatedAt: new Date().toISOString(),
     })
 

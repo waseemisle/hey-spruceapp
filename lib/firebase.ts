@@ -102,13 +102,26 @@ export async function getCurrentUser(): Promise<firebase.User | null> {
   })
 }
 
+// Simple cache to avoid repeated Firebase calls
+const profileCache = new Map<string, { profile: UserProfile, timestamp: number }>()
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   try {
+    // Check cache first
+    const cached = profileCache.get(userId)
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return cached.profile
+    }
+
     const docRef = db.collection('users').doc(userId)
     const docSnap = await docRef.get()
     
     if (docSnap.exists) {
-      return { id: docSnap.id, ...docSnap.data() } as UserProfile
+      const profile = { id: docSnap.id, ...docSnap.data() } as UserProfile
+      // Cache the profile
+      profileCache.set(userId, { profile, timestamp: Date.now() })
+      return profile
     } else {
       return null
     }
@@ -132,9 +145,22 @@ export async function createUserProfile(user: {
     }
     
     await db.collection('users').doc(user.id).set(userData)
+    
+    // Update cache
+    profileCache.set(user.id, { profile: userData, timestamp: Date.now() })
+    
     return { data: userData, error: null }
   } catch (error: any) {
     return { data: null, error: error.message }
+  }
+}
+
+// Function to clear profile cache (useful for updates)
+export function clearProfileCache(userId?: string) {
+  if (userId) {
+    profileCache.delete(userId)
+  } else {
+    profileCache.clear()
   }
 }
 

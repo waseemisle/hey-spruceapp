@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { updateDoc, doc, getDoc } from 'firebase/firestore'
 
 export async function POST(
   request: Request,
@@ -9,18 +8,17 @@ export async function POST(
   try {
     const quoteId = params.id
 
-    // Get quote data
-    const quoteRef = doc(db, COLLECTIONS.QUOTES, quoteId)
-    const quoteSnap = await getDoc(quoteRef)
+    // Get quote data using compat API
+    const quoteDoc = await db.collection(COLLECTIONS.QUOTES).doc(quoteId).get()
 
-    if (!quoteSnap.exists()) {
+    if (!quoteDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Quote not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    const quoteData = quoteSnap.data()
+    const quoteData = quoteDoc.data()
 
     if (!quoteData) {
       return new Response(
@@ -40,8 +38,8 @@ export async function POST(
     const markupPercentage = 20
     const clientAmount = quoteData.originalAmount + (quoteData.originalAmount * markupPercentage / 100)
 
-    // Update quote status and client amount
-    await updateDoc(quoteRef, {
+    // Update quote status and client amount using compat API
+    await db.collection(COLLECTIONS.QUOTES).doc(quoteId).update({
       status: 'shared_with_client',
       clientAmount: clientAmount,
       markupPercentage: markupPercentage,
@@ -49,12 +47,11 @@ export async function POST(
       updatedAt: new Date().toISOString()
     })
 
-    // Update work order status
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, quoteData.workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    // Update work order status using compat API
+    const workOrderDoc = await db.collection(COLLECTIONS.WORK_ORDERS).doc(quoteData.workOrderId).get()
 
-    if (workOrderSnap.exists()) {
-      await updateDoc(workOrderRef, {
+    if (workOrderDoc.exists) {
+      await db.collection(COLLECTIONS.WORK_ORDERS).doc(quoteData.workOrderId).update({
         status: 'quote_sent_to_client',
         sharedWithClient: true,
         updatedAt: new Date().toISOString()

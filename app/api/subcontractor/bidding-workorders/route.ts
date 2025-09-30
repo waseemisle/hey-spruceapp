@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 
 export async function GET(request: Request) {
   try {
@@ -16,11 +15,10 @@ export async function GET(request: Request) {
 
     console.log('Fetching bidding work orders for user:', userId)
 
-    // First get the subcontractor to find their category
-    const subcontractorRef = doc(db, COLLECTIONS.SUBCONTRACTORS, userId)
-    const subcontractorDoc = await getDoc(subcontractorRef)
+    // First get the subcontractor to find their category using compat API
+    const subcontractorDoc = await db.collection(COLLECTIONS.SUBCONTRACTORS).doc(userId).get()
     
-    if (!subcontractorDoc.exists()) {
+    if (!subcontractorDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Subcontractor not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -42,15 +40,12 @@ export async function GET(request: Request) {
       )
     }
 
-    // Get bidding work orders that were specifically sent to this subcontractor
-    const biddingWorkOrdersRef = collection(db, COLLECTIONS.BIDDING_WORK_ORDERS)
-    const biddingWorkOrdersQuery = query(
-      biddingWorkOrdersRef,
-      where('subcontractorId', '==', userId),
-      where('status', '==', 'open_for_bidding')
-    )
+    // Get bidding work orders that were specifically sent to this subcontractor using compat API
+    const biddingWorkOrdersSnapshot = await db.collection(COLLECTIONS.BIDDING_WORK_ORDERS)
+      .where('subcontractorId', '==', userId)
+      .where('status', '==', 'open_for_bidding')
+      .get()
     
-    const biddingWorkOrdersSnapshot = await getDocs(biddingWorkOrdersQuery)
     const biddingWorkOrders = biddingWorkOrdersSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()

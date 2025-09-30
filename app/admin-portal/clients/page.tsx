@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
   Plus, 
@@ -43,8 +42,8 @@ export default function AdminClientsPage() {
 
   useEffect(() => {
     // Fetch client registrations
-    const registrationsQuery = query(collection(db, 'clients'), orderBy('createdAt', 'desc'))
-    const unsubscribeRegistrations = onSnapshot(registrationsQuery, 
+    const registrationsQuery = db.collection('clients').orderBy('createdAt', 'desc')
+    const unsubscribeRegistrations = registrationsQuery.onSnapshot( 
       (snapshot) => {
         const registrationsData = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -60,8 +59,8 @@ export default function AdminClientsPage() {
     )
 
     // Fetch generated links
-    const linksQuery = query(collection(db, 'registration_links'), orderBy('createdAt', 'desc'))
-    const unsubscribeLinks = onSnapshot(linksQuery, 
+    const linksQuery = db.collection('registration_links').orderBy('createdAt', 'desc')
+    const unsubscribeLinks = linksQuery.onSnapshot( 
       (snapshot) => {
         const linksData = snapshot.docs.map(doc => ({
           id: doc.id,

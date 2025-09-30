@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { WorkOrder } from '@/lib/types'
 import { 
   Search, 
@@ -44,12 +43,9 @@ export default function SubcontractorWorkOrdersPage() {
     if (!user?.uid) return
 
     // Fetch work orders assigned to this subcontractor
-    const workOrdersQuery = query(
-      collection(db, 'workorders'),
-      where('assignedTo', '==', user.uid)
-    )
+    const workOrdersQuery = db.collection('workorders').where('assignedTo', '==', user.uid)
     
-    const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
+    const unsubscribeWorkOrders = workOrdersQuery.onSnapshot((snapshot) => {
       const workOrdersData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -93,7 +89,7 @@ export default function SubcontractorWorkOrdersPage() {
         }
       }
 
-      await updateDoc(doc(db, 'workorders', selectedWorkOrder.id), updateData)
+      await db.collection('workorders').doc(selectedWorkOrder.id).update(updateData)
       
       alert('Work order status updated successfully!')
       setShowStatusModal(false)
@@ -143,7 +139,8 @@ export default function SubcontractorWorkOrdersPage() {
   const filteredWorkOrders = workOrders.filter(workOrder => {
     const matchesSearch = workOrder.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          workOrder.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         workOrder.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+                         workOrder.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         workOrder.workOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || workOrder.status === filterStatus
     const matchesCategory = filterCategory === 'all' || workOrder.categoryId === filterCategory
     
@@ -275,6 +272,11 @@ export default function SubcontractorWorkOrdersPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="flex items-center gap-2">
+                      {workOrder.workOrderNumber && (
+                        <span className="text-blue-600 font-mono text-sm mr-2">
+                          {workOrder.workOrderNumber}
+                        </span>
+                      )}
                       {workOrder.title}
                       <Badge className={getStatusBadge(workOrder.status)}>
                         {workOrder.status}

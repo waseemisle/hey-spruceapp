@@ -202,7 +202,8 @@ export default function SubcontractorBiddingPage() {
   const filteredWorkOrders = workOrders.filter(workOrder => {
     const matchesSearch = workOrder.workOrderTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          workOrder.workOrderDescription?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         workOrder.clientName?.toLowerCase().includes(searchTerm.toLowerCase())
+                         workOrder.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         workOrder.workOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase())
     
     return matchesSearch
   })
@@ -281,7 +282,14 @@ export default function SubcontractorBiddingPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold">{workOrder.workOrderTitle}</h3>
+                      <h3 className="text-lg font-semibold">
+                        {workOrder.workOrderNumber && (
+                          <span className="text-blue-600 font-mono text-sm mr-2">
+                            {workOrder.workOrderNumber}
+                          </span>
+                        )}
+                        {workOrder.workOrderTitle}
+                      </h3>
                       <Badge className={
                         workOrder.status === 'open_for_bidding' 
                           ? 'bg-blue-100 text-blue-800' 

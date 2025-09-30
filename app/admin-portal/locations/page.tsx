@@ -10,9 +10,10 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { Location } from '@/lib/types'
 import CreateLocationModal from '@/components/modals/CreateLocationModal'
+import Modal from '@/components/ui/modal'
+import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
   Plus, 
   Search, 
@@ -28,8 +29,10 @@ import {
 export default function AdminLocationsPage() {
   const router = useRouter()
   const { user, profile, loading } = useAuth()
+  const { notifications, removeNotification, success, error } = useNotifications()
   const [locations, setLocations] = useState<Location[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
@@ -49,16 +52,31 @@ export default function AdminLocationsPage() {
   // Fetch locations from Firestore
   useEffect(() => {
     if (profile && profile.role === 'admin') {
-      const q = query(
-        collection(db, 'locations'),
-        orderBy('createdAt', 'desc')
-      )
+      const q = db.collection('locations').orderBy('createdAt', 'desc')
       
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const locationsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Location[]
+      const unsubscribe = q.onSnapshot((snapshot) => {
+        const locationsData = snapshot.docs.map(doc => {
+          const data = doc.data()
+          return {
+            id: doc.id,
+            ...data,
+            // Ensure all fields are strings
+            name: String(data.name || ''),
+            address: String(data.address || ''),
+            city: String(data.city || ''),
+            state: String(data.state || ''),
+            zipCode: String(data.zipCode || ''),
+            country: String(data.country || ''),
+            description: String(data.description || ''),
+            type: String(data.type || ''),
+            status: String(data.status || ''),
+            clientName: String(data.clientName || ''),
+            clientEmail: String(data.clientEmail || ''),
+            createdAt: String(data.createdAt || ''),
+            updatedAt: String(data.updatedAt || ''),
+            rejectionReason: String(data.rejectionReason || '')
+          }
+        }) as Location[]
         
         console.log('Fetched locations:', locationsData)
         setLocations(locationsData)
@@ -69,6 +87,11 @@ export default function AdminLocationsPage() {
       return () => unsubscribe()
     }
   }, [profile])
+
+  const openViewModal = (location: Location) => {
+    setSelectedLocation(location)
+    setShowViewModal(true)
+  }
 
   const handleCreateLocation = async (locationData: any) => {
     try {
@@ -92,11 +115,11 @@ export default function AdminLocationsPage() {
         throw new Error(data.error || 'Failed to create location')
       }
 
-      alert('Location created successfully!')
+      success('Location created successfully!')
       setShowCreateForm(false)
-    } catch (error) {
-      console.error('Error creating location:', error)
-      alert(`Failed to create location: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } catch (err) {
+      console.error('Error creating location:', err)
+      error(`Failed to create location: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -119,10 +142,10 @@ export default function AdminLocationsPage() {
         throw new Error(data.error || 'Failed to approve location')
       }
 
-      alert('Location approved successfully!')
-    } catch (error) {
-      console.error('Error approving location:', error)
-      alert(`Failed to approve location: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      success('Location approved successfully!')
+    } catch (err) {
+      console.error('Error approving location:', err)
+      error(`Failed to approve location: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -149,21 +172,27 @@ export default function AdminLocationsPage() {
         throw new Error(data.error || 'Failed to reject location')
       }
 
-      alert('Location rejected successfully!')
-    } catch (error) {
-      console.error('Error rejecting location:', error)
-      alert(`Failed to reject location: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      success('Location rejected successfully!')
+    } catch (err) {
+      console.error('Error rejecting location:', err)
+      error(`Failed to reject location: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
   // Filter locations based on search and status
   const filteredLocations = locations.filter(location => {
-    const matchesSearch = location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         location.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         location.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+    const name = String(location.name || '').toLowerCase()
+    const address = String(location.address || '').toLowerCase()
+    const city = String(location.city || '').toLowerCase()
+    const clientName = String(location.clientName || '').toLowerCase()
+    const status = String(location.status || '')
     
-    const matchesStatus = statusFilter === 'all' || location.status === statusFilter
+    const matchesSearch = name.includes(searchTerm.toLowerCase()) ||
+                         address.includes(searchTerm.toLowerCase()) ||
+                         city.includes(searchTerm.toLowerCase()) ||
+                         clientName.includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = statusFilter === 'all' || status === statusFilter
     
     return matchesSearch && matchesStatus
   })
@@ -201,8 +230,10 @@ export default function AdminLocationsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <>
+      <NotificationContainer notifications={notifications} onRemove={removeNotification} />
+      <div className="p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -311,43 +342,43 @@ export default function AdminLocationsPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <Building2 className="h-5 w-5 text-gray-600" />
-                          <h3 className="text-lg font-semibold">{location.name}</h3>
-                          <Badge className={getStatusColor(location.status)}>
+                          <h3 className="text-lg font-semibold">{String(location.name || '')}</h3>
+                          <Badge className={getStatusColor(String(location.status || ''))}>
                             <span className="flex items-center gap-1">
-                              {getStatusIcon(location.status)}
-                              {location.status}
+                              {getStatusIcon(String(location.status || ''))}
+                              {String(location.status || '')}
                             </span>
                           </Badge>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                           <div>
-                            <p><strong>Address:</strong> {location.address}</p>
-                            <p><strong>City:</strong> {location.city}, {location.state} {location.zipCode}</p>
-                            <p><strong>Type:</strong> {location.type}</p>
+                            <p><strong>Address:</strong> {String(location.address || '')}</p>
+                            <p><strong>City:</strong> {String(location.city || '')}, {String(location.state || '')} {String(location.zipCode || '')}</p>
+                            <p><strong>Type:</strong> {String(location.type || '')}</p>
                           </div>
                           <div>
-                            <p><strong>Client:</strong> {location.clientName}</p>
-                            <p><strong>Email:</strong> {location.clientEmail}</p>
-                            <p><strong>Created:</strong> {new Date(location.createdAt).toLocaleDateString()}</p>
+                            <p><strong>Client:</strong> {String(location.clientName || '')}</p>
+                            <p><strong>Email:</strong> {String(location.clientEmail || '')}</p>
+                            <p><strong>Created:</strong> {location.createdAt ? new Date(String(location.createdAt)).toLocaleDateString() : 'N/A'}</p>
                           </div>
                         </div>
 
                         {location.description && (
                           <p className="text-sm text-gray-600 mt-2">
-                            <strong>Description:</strong> {location.description}
+                            <strong>Description:</strong> {String(location.description)}
                           </p>
                         )}
 
                         {location.rejectionReason && (
                           <p className="text-sm text-red-600 mt-2">
-                            <strong>Rejection Reason:</strong> {location.rejectionReason}
+                            <strong>Rejection Reason:</strong> {String(location.rejectionReason)}
                           </p>
                         )}
                       </div>
 
                       <div className="flex flex-col gap-2 ml-4">
-                        {location.status === 'pending' && (
+                        {String(location.status || '') === 'pending' && (
                           <>
                             <Button
                               size="sm"
@@ -372,7 +403,7 @@ export default function AdminLocationsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setSelectedLocation(location)}
+                          onClick={() => openViewModal(location)}
                         >
                           <Eye className="h-4 w-4 mr-1" />
                           View Details
@@ -385,7 +416,91 @@ export default function AdminLocationsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* View Details Modal */}
+        <Modal
+          isOpen={showViewModal}
+          onClose={() => setShowViewModal(false)}
+          title="Location Details"
+        >
+          {selectedLocation && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Location Name</Label>
+                  <div className="text-sm text-gray-900">{String(selectedLocation.name || '')}</div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Status</Label>
+                  <div className="mt-1">
+                    <Badge className={getStatusColor(String(selectedLocation.status || ''))}>
+                      {String(selectedLocation.status || '')}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Type</Label>
+                  <div className="text-sm text-gray-900 capitalize">{String(selectedLocation.type || '')}</div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Country</Label>
+                  <div className="text-sm text-gray-900">{String(selectedLocation.country || '')}</div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Address</Label>
+                <div className="text-sm text-gray-900">
+                  {String(selectedLocation.address || '')}<br />
+                  {String(selectedLocation.city || '')}, {String(selectedLocation.state || '')} {String(selectedLocation.zipCode || '')}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Client Information</Label>
+                  <div className="text-sm text-gray-900 space-y-1">
+                    <div><strong>Name:</strong> {String(selectedLocation.clientName || '')}</div>
+                    <div><strong>Email:</strong> {String(selectedLocation.clientEmail || '')}</div>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Timestamps</Label>
+                  <div className="text-sm text-gray-900 space-y-1">
+                    <div><strong>Created:</strong> {selectedLocation.createdAt ? new Date(String(selectedLocation.createdAt)).toLocaleDateString() : 'N/A'}</div>
+                    <div><strong>Updated:</strong> {selectedLocation.updatedAt ? new Date(String(selectedLocation.updatedAt)).toLocaleDateString() : 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {selectedLocation.description && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Description</Label>
+                  <div className="text-sm text-gray-900">{String(selectedLocation.description)}</div>
+                </div>
+              )}
+
+              {selectedLocation.rejectionReason && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Rejection Reason</Label>
+                  <div className="text-sm text-red-600">{String(selectedLocation.rejectionReason)}</div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowViewModal(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

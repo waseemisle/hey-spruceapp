@@ -1,20 +1,18 @@
 // Using standard Response instead of NextResponse to avoid type issues
-import { db, COLLECTIONS, getDocuments } from '@/lib/firebase'
-import { addDoc, collection, doc, getDoc } from 'firebase/firestore'
+import { db, COLLECTIONS } from '@/lib/firebase'
 
 export async function GET(request: Request) {
   try {
-    const { data, error } = await getDocuments(COLLECTIONS.QUOTES)
+    // Get all quotes using compat API
+    const quotesSnapshot = await db.collection(COLLECTIONS.QUOTES).get()
     
-    if (error) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch quotes' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
+    const quotes = quotesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
 
     return new Response(
-        JSON.stringify(data),
+        JSON.stringify(quotes),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
 
@@ -30,6 +28,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json()
+    
     const {
       workOrderId,
       subcontractorId,
@@ -44,6 +43,14 @@ export async function POST(request: Request) {
       terms
     } = data
 
+    // Validate required fields
+    if (!workOrderId || !subcontractorId) {
+      return new Response(
+        JSON.stringify({ error: 'Work Order ID and Subcontractor ID are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Calculate totals
     const laborTotal = parseFloat(laborCost) || 0
     const materialTotal = parseFloat(materialCost) || 0
@@ -54,18 +61,29 @@ export async function POST(request: Request) {
     const taxAmount = subtotal * (parseFloat(taxRate) / 100) || 0
     const totalAmount = subtotal + taxAmount
 
-    // Get work order and subcontractor data for quote
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    // Get work order data using compat API - check both regular work orders and bidding work orders
     
-    if (!workOrderSnap.exists()) {
-      return new Response(
-        JSON.stringify({ error: 'Work Order not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      )
+    // First try regular work orders collection
+    let workOrderDoc = await db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId).get()
+    let workOrderData = null
+    let isBiddingWorkOrder = false
+    
+    if (workOrderDoc.exists) {
+      workOrderData = workOrderDoc.data()
+    } else {
+      // Try bidding work orders collection
+      workOrderDoc = await db.collection(COLLECTIONS.BIDDING_WORK_ORDERS).doc(workOrderId).get()
+      
+      if (workOrderDoc.exists) {
+        workOrderData = workOrderDoc.data()
+        isBiddingWorkOrder = true
+      } else {
+        return new Response(
+          JSON.stringify({ error: 'Work Order not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
     }
-    
-    const workOrderData = workOrderSnap.data()
     
     if (!workOrderData) {
       return new Response(
@@ -74,36 +92,30 @@ export async function POST(request: Request) {
       )
     }
     
-    const subcontractorRef = doc(db, COLLECTIONS.SUBCONTRACTORS, subcontractorId)
-    const subcontractorSnap = await getDoc(subcontractorRef)
+    // Get subcontractor data using compat API
+    const subcontractorDoc = await db.collection(COLLECTIONS.SUBCONTRACTORS).doc(subcontractorId).get()
     
-    if (!subcontractorSnap.exists()) {
+    if (!subcontractorDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Subcontractor not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
     
-    const subcontractorData = subcontractorSnap.data()
-    
-    if (!subcontractorData) {
-      return new Response(
-        JSON.stringify({ error: 'Subcontractor data not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
+    const subcontractorData = subcontractorDoc.data()
 
+    // Handle different field names for bidding work orders vs regular work orders
     const quoteData = {
       workOrderId,
-      workOrderTitle: workOrderData.title,
-      workOrderDescription: workOrderData.description,
-      workOrderLocation: workOrderData.location,
-      clientId: workOrderData.clientId,
-      clientName: workOrderData.clientName,
-      clientEmail: workOrderData.clientEmail,
+      workOrderTitle: workOrderData?.title || workOrderData?.workOrderTitle || 'Unknown',
+      workOrderDescription: workOrderData?.description || workOrderData?.workOrderDescription || '',
+      workOrderLocation: workOrderData?.location || workOrderData?.workOrderLocation || {},
+      clientId: workOrderData?.clientId || '',
+      clientName: workOrderData?.clientName || '',
+      clientEmail: workOrderData?.clientEmail || '',
       subcontractorId,
-      subcontractorName: subcontractorData.fullName,
-      subcontractorEmail: subcontractorData.email,
+      subcontractorName: subcontractorData?.fullName || '',
+      subcontractorEmail: subcontractorData?.email || '',
       laborCost: laborTotal,
       materialCost: materialTotal,
       additionalCosts: additionalTotal,
@@ -111,19 +123,27 @@ export async function POST(request: Request) {
       taxAmount,
       discountAmount: discount,
       totalAmount,
-      originalAmount: totalAmount, // Original amount before markup
-      clientAmount: totalAmount, // Will be updated when shared with client
-      markupPercentage: 0, // Will be set when shared with client
+      originalAmount: totalAmount,
+      clientAmount: totalAmount,
+      markupPercentage: 0,
       validUntil,
       lineItems: lineItems || [],
       notes,
       terms,
       status: 'pending',
+      isBiddingWorkOrder: isBiddingWorkOrder,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
 
-    const docRef = await addDoc(collection(db, COLLECTIONS.QUOTES), quoteData)
+    const docRef = await db.collection(COLLECTIONS.QUOTES).add(quoteData)
+
+    // Update work order status to "quote received"
+    const workOrderCollection = isBiddingWorkOrder ? COLLECTIONS.BIDDING_WORK_ORDERS : COLLECTIONS.WORK_ORDERS
+    await db.collection(workOrderCollection).doc(workOrderId).update({
+      status: 'quote_received',
+      updatedAt: new Date().toISOString()
+    })
 
     return new Response(
         JSON.stringify({
@@ -137,7 +157,10 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error creating quote:', error)
     return new Response(
-        JSON.stringify({ error: 'Failed to create quote' }),
+        JSON.stringify({ 
+          error: 'Failed to create quote',
+          details: error.message 
+        }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
   }

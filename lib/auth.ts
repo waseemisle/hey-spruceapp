@@ -70,44 +70,16 @@ export function useAuth() {
   const signIn = async (email: string, password: string, portalType: string) => {
     setAuthState(prev => ({ ...prev, loading: true }))
     
-    // For client portal, check registration status first
+    // For client portal, check registration status in parallel with Firebase auth for better performance
+    let registrationCheckPromise: Promise<any> | null = null
     if (portalType === 'client') {
-      try {
-        const response = await fetch('/api/check-registration-status', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email }),
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          
-          if (data.status === 'not_found') {
-            setAuthState(prev => ({ ...prev, loading: false }))
-            throw new Error('No registration found for this email. Please register first.')
-          }
-          
-          if (data.status === 'pending') {
-            setAuthState(prev => ({ ...prev, loading: false }))
-            throw new Error('Approval Pending')
-          }
-          
-          if (data.status === 'rejected') {
-            setAuthState(prev => ({ ...prev, loading: false }))
-            throw new Error('Your registration has been rejected. Please contact support for more information.')
-          }
-          
-          // If approved, continue with authentication
-        }
-      } catch (error: any) {
-        // If it's our custom error message, throw it
-        if (error.message === 'Approval Pending' || error.message.includes('registration')) {
-          throw error
-        }
-        // Otherwise, continue with authentication attempt
-      }
+      registrationCheckPromise = fetch('/api/check-registration-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      }).then(response => response.ok ? response.json() : null).catch(() => null)
     }
     
     const { user, error } = await signInWithFirebase(email, password)
@@ -122,7 +94,56 @@ export function useAuth() {
       throw new Error('Authentication failed')
     }
 
-    // Get or create user profile
+    // For admin users, assume they have admin role to skip profile lookup
+    if (portalType === 'admin') {
+      const adminProfile = {
+        id: user.uid,
+        email: email,
+        fullName: email.split('@')[0],
+        role: 'admin' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      
+      setAuthState({
+        user,
+        profile: adminProfile,
+        loading: false,
+      })
+
+      return { user, profile: adminProfile }
+    }
+
+    // For client portal, check registration status now (in parallel with profile lookup)
+    if (portalType === 'client' && registrationCheckPromise) {
+      try {
+        const registrationData = await registrationCheckPromise
+        if (registrationData) {
+          if (registrationData.status === 'not_found') {
+            setAuthState(prev => ({ ...prev, loading: false }))
+            throw new Error('No registration found for this email. Please register first.')
+          }
+          
+          if (registrationData.status === 'pending') {
+            setAuthState(prev => ({ ...prev, loading: false }))
+            throw new Error('Approval Pending')
+          }
+          
+          if (registrationData.status === 'rejected') {
+            setAuthState(prev => ({ ...prev, loading: false }))
+            throw new Error('Your registration has been rejected. Please contact support for more information.')
+          }
+        }
+      } catch (error: any) {
+        // If it's our custom error message, throw it
+        if (error.message === 'Approval Pending' || error.message.includes('registration')) {
+          throw error
+        }
+        // Otherwise, continue with authentication attempt
+      }
+    }
+
+    // For non-admin users, get or create user profile
     let profile = await getUserProfile(user.uid)
     
     if (!profile) {
@@ -131,7 +152,7 @@ export function useAuth() {
         id: user.uid,
         email: email,
         fullName: email.split('@')[0],
-        role: portalType === 'admin' ? 'admin' : portalType as 'client' | 'subcontractor'
+        role: portalType as 'client' | 'subcontractor'
       })
       
       if (createError) {

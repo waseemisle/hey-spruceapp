@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS, getDocuments } from '@/lib/firebase'
-import { where } from 'firebase/firestore'
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +14,9 @@ export async function GET(request: Request) {
     }
 
     // Get work orders for specific client
-    const { data, error } = await getDocuments(COLLECTIONS.WORK_ORDERS, [where('clientId', '==', clientId)])
+    const { data, error } = await getDocuments(COLLECTIONS.WORK_ORDERS, [
+      { type: 'where', field: 'clientId', operator: '==', value: clientId }
+    ])
     
     if (error) {
       return new Response(

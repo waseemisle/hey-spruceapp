@@ -98,20 +98,18 @@ export default function PortalLogin() {
 
       setSuccess('Login successful! Redirecting...')
       
-      // Reduced timeout from 500ms to 2000ms (2 seconds)
-      setTimeout(() => {
-        switch (selectedPortal) {
-          case 'client':
-            router.push('/client-portal')
-            break
-          case 'admin':
-            router.push('/admin-portal')
-            break
-          case 'subcontractor':
-            router.push('/subcontractor-portal')
-            break
-        }
-      }, 2000)
+      // Immediate redirect for better UX
+      switch (selectedPortal) {
+        case 'client':
+          router.push('/client-portal')
+          break
+        case 'admin':
+          router.push('/admin-portal')
+          break
+        case 'subcontractor':
+          router.push('/subcontractor-portal')
+          break
+      }
     } catch (err: any) {
       // Handle specific error messages
       if (err.message === 'Approval Pending') {

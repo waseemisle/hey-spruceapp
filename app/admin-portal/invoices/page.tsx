@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { Invoice, Quote } from '@/lib/types'
 import WithRoleProtection from '@/components/auth/withRoleProtection'
 import { useNotifications, NotificationContainer } from '@/components/ui/notification'
@@ -53,8 +52,8 @@ function AdminInvoicesContent() {
 
   useEffect(() => {
     // Fetch invoices
-    const invoicesQuery = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'))
-    const unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
+    const invoicesQuery = db.collection('invoices').orderBy('createdAt', 'desc')
+    const unsubscribeInvoices = invoicesQuery.onSnapshot((snapshot) => {
       const invoicesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -64,8 +63,8 @@ function AdminInvoicesContent() {
     })
 
     // Fetch approved quotes for creating invoices
-    const quotesQuery = query(collection(db, 'quotes'), orderBy('createdAt', 'desc'))
-    const unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
+    const quotesQuery = db.collection('quotes').orderBy('createdAt', 'desc')
+    const unsubscribeQuotes = quotesQuery.onSnapshot((snapshot) => {
       const quotesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()

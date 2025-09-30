@@ -5,18 +5,25 @@ export async function GET(request: Request) {
   try {
     console.log('=== TEST SCHEDULED INVOICES EXECUTION START ===')
     
+    // Add timeout to prevent build hanging
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout')), 10000) // 10 second timeout
+    )
+    
     // Call the execute endpoint
     const baseUrl = process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
       : 'http://localhost:3000'
     
-    const response = await fetch(`${baseUrl}/api/admin/scheduled-invoices/execute`, {
+    const fetchPromise = fetch(`${baseUrl}/api/admin/scheduled-invoices/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({})
     })
+    
+    const response = await Promise.race([fetchPromise, timeoutPromise]) as Response
     
     const result = await response.json()
     

@@ -12,9 +12,8 @@ interface WorkOrderCounter {
  */
 export async function generateWorkOrderId(): Promise<string> {
   try {
-    // Get the current counter value
-    const counterQuery = db.collection('counters').where('type', '==', 'workorders')
-    const counterSnapshot = await counterQuery.get()
+    // Get the current counter value using compat API
+    const counterSnapshot = await db.collection('counters').where('type', '==', 'workorders').get()
     
     let nextNumber = 1
     
@@ -30,8 +29,8 @@ export async function generateWorkOrderId(): Promise<string> {
       const counterData = counterSnapshot.docs[0].data() as WorkOrderCounter
       nextNumber = counterData.lastWorkOrderNumber + 1
       
-      // Update the counter
-      await counterSnapshot.docs[0].ref.update({
+      // Update the counter using compat API
+      await db.collection('counters').doc(counterSnapshot.docs[0].id).update({
         lastWorkOrderNumber: nextNumber,
         updatedAt: new Date().toISOString()
       })
@@ -48,18 +47,17 @@ export async function generateWorkOrderId(): Promise<string> {
     
     // Fallback: try to get the highest existing work order number
     try {
-      const workOrdersQuery = db.collection('workorders')
+      const snapshot = await db.collection('workorders')
         .orderBy('workOrderId', 'desc')
         .limit(1)
-      
-      const snapshot = await workOrdersQuery.get()
+        .get()
       
       if (snapshot.empty) {
         return 'WO0001'
       }
       
       const lastWorkOrder = snapshot.docs[0].data()
-      const lastId = lastWorkOrder.workOrderId || 'WO0000'
+      const lastId = lastWorkOrder.workOrderNumber || lastWorkOrder.workOrderId || 'WO0000'
       const lastNumber = parseInt(lastId.replace('WO', '')) || 0
       const nextNumber = lastNumber + 1
       
@@ -80,8 +78,7 @@ export async function generateWorkOrderId(): Promise<string> {
 export async function generateWorkOrderIdSimple(): Promise<string> {
   try {
     // Get all work orders to find the highest number
-    const workOrdersQuery = db.collection('workorders').orderBy('createdAt', 'desc')
-    const snapshot = await workOrdersQuery.get()
+    const snapshot = await db.collection('workorders').orderBy('createdAt', 'desc').get()
     
     let nextNumber = 1
     
@@ -91,8 +88,9 @@ export async function generateWorkOrderIdSimple(): Promise<string> {
       
       for (const doc of snapshot.docs) {
         const data = doc.data()
-        if (data.workOrderId && data.workOrderId.startsWith('WO')) {
-          const number = parseInt(data.workOrderId.replace('WO', ''))
+        const workOrderId = data.workOrderNumber || data.workOrderId
+        if (workOrderId && workOrderId.startsWith('WO')) {
+          const number = parseInt(workOrderId.replace('WO', ''))
           if (!isNaN(number) && number > highestNumber) {
             highestNumber = number
           }

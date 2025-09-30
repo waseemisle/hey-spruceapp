@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
 
 // Update quote status (approve/reject)
 export async function PUT(
@@ -28,10 +27,10 @@ export async function PUT(
     console.log(`Updating quote ${quoteId} to status: ${status}`)
 
     // Get the quote to verify ownership
-    const quoteRef = doc(db, 'quotes', quoteId)
-    const quoteSnap = await getDoc(quoteRef)
+    const quoteRef = db.collection('quotes').doc(quoteId)
+    const quoteSnap = await quoteRef.get()
 
-    if (!quoteSnap.exists()) {
+    if (!quoteSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Quote not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -56,7 +55,7 @@ export async function PUT(
     }
 
     // Update the quote status
-    await updateDoc(quoteRef, {
+    await quoteRef.update({
       status: status,
       updatedAt: new Date().toISOString(),
       ...(status === 'accepted' && { acceptedAt: new Date().toISOString() }),
@@ -65,8 +64,8 @@ export async function PUT(
 
     // Update the associated work order with quote status
     if (quoteData.workOrderId) {
-      const workOrderRef = doc(db, 'workorders', quoteData.workOrderId)
-      await updateDoc(workOrderRef, {
+      const workOrderRef = db.collection('workorders').doc(quoteData.workOrderId)
+      await workOrderRef.update({
         quoteStatus: status,
         quoteId: quoteId,
         ...(status === 'accepted' && { 

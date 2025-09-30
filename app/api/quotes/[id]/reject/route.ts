@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
 
 export async function POST(
   request: Request,
@@ -10,18 +9,17 @@ export async function POST(
     const quoteId = params.id
     const { clientId, clientName, reason } = await request.json()
 
-    // Get quote data
-    const quoteRef = doc(db, COLLECTIONS.QUOTES, quoteId)
-    const quoteSnap = await getDoc(quoteRef)
+    // Get quote data using compat API
+    const quoteDoc = await db.collection(COLLECTIONS.QUOTES).doc(quoteId).get()
 
-    if (!quoteSnap.exists()) {
+    if (!quoteDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Quote not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    const quoteData = quoteSnap.data()
+    const quoteData = quoteDoc.data()
 
     if (!quoteData) {
       return new Response(
@@ -37,20 +35,19 @@ export async function POST(
       )
     }
 
-    // Update quote status
-    await updateDoc(quoteRef, {
+    // Update quote status using compat API
+    await db.collection(COLLECTIONS.QUOTES).doc(quoteId).update({
       status: 'rejected',
       rejectedAt: new Date().toISOString(),
       rejectionReason: reason,
       updatedAt: new Date().toISOString()
     })
 
-    // Update work order status back to quotes_received to allow other quotes
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, quoteData.workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    // Update work order status back to quotes_received to allow other quotes using compat API
+    const workOrderDoc = await db.collection(COLLECTIONS.WORK_ORDERS).doc(quoteData.workOrderId).get()
 
-    if (workOrderSnap.exists()) {
-      await updateDoc(workOrderRef, {
+    if (workOrderDoc.exists) {
+      await db.collection(COLLECTIONS.WORK_ORDERS).doc(quoteData.workOrderId).update({
         status: 'quotes_received',
         updatedAt: new Date().toISOString()
       })

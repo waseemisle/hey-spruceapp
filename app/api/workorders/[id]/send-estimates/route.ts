@@ -48,6 +48,7 @@ export async function POST(
     for (const subcontractorId of subcontractorIds) {
       const biddingWorkOrderData = {
         workOrderId,
+        workOrderNumber: workOrderData.workOrderNumber,
         workOrderTitle: workOrderData.title,
         workOrderDescription: workOrderData.description,
         workOrderLocation: workOrderData.location,

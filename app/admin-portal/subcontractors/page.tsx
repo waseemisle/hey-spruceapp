@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
   Search, 
@@ -84,8 +83,8 @@ export default function AdminSubcontractorsPage() {
 
   useEffect(() => {
     // Fetch subcontractors
-    const subcontractorsQuery = query(collection(db, 'subcontractors'), orderBy('createdAt', 'desc'))
-    const unsubscribeSubcontractors = onSnapshot(subcontractorsQuery, 
+    const subcontractorsQuery = db.collection('subcontractors').orderBy('createdAt', 'desc')
+    const unsubscribeSubcontractors = subcontractorsQuery.onSnapshot( 
       (snapshot) => {
         const subcontractorsData = snapshot.docs.map(doc => ({
           id: doc.id,

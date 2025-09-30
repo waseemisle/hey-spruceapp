@@ -64,7 +64,8 @@ export interface WorkOrder {
   title: string
   description: string
   priority: 'low' | 'medium' | 'high' | 'urgent'
-  status: 'pending' | 'approved' | 'rejected' | 'waiting_for_quote' | 'quotes_received' | 'quote_sent_to_client' | 'quote_approved' | 'assigned' | 'in_progress' | 'completed_by_contractor' | 'completed' | 'cancelled'
+  status: 'pending' | 'approved' | 'rejected' | 'waiting_for_quote' | 'quote_received' | 'quotes_received' | 'quote_sent_to_client' | 'quote_approved' | 'assigned' | 'in_progress' | 'completed_by_contractor' | 'completed' | 'cancelled'
+  workOrderNumber: string
   categoryId: string
   categoryName: string
   location: {
@@ -440,6 +441,7 @@ export interface ScheduledInvoiceFormData {
 export interface BiddingWorkOrder {
   id: string
   workOrderId: string
+  workOrderNumber: string
   workOrderTitle: string
   workOrderDescription: string
   workOrderLocation: {

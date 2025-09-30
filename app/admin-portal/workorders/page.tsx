@@ -478,7 +478,8 @@ export default function AdminWorkOrdersPage() {
   const filteredWorkOrders = workOrders.filter(workOrder => {
     const matchesSearch = workOrder.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          workOrder.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         getClientName(workOrder.clientId).toLowerCase().includes(searchTerm.toLowerCase())
+                         getClientName(workOrder.clientId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         workOrder.workOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || workOrder.status === filterStatus
     const matchesClient = filterClient === 'all' || workOrder.clientId === filterClient
     
@@ -622,7 +623,14 @@ export default function AdminWorkOrdersPage() {
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold">{workOrder.title}</h3>
+                              <h3 className="font-semibold">
+                                {workOrder.workOrderNumber && (
+                                  <span className="text-blue-600 font-mono text-sm mr-2">
+                                    {workOrder.workOrderNumber}
+                                  </span>
+                                )}
+                                {workOrder.title}
+                              </h3>
                               <Badge className={getStatusBadge(workOrder.status)}>
                                 {workOrder.status.replace(/_/g, ' ')}
                               </Badge>

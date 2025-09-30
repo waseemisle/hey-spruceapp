@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,6 +36,7 @@ export default function ClientLocationsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   
   const [formData, setFormData] = useState<LocationFormData>({
@@ -55,25 +56,57 @@ export default function ClientLocationsPage() {
     additionalInfo: ''
   })
 
-  useEffect(() => {
-    fetchLocations()
-  }, [])
-
-  const fetchLocations = async () => {
+  const fetchLocations = useCallback(async () => {
+    if (!profile?.id) {
+      setLoading(false)
+      return
+    }
+    
+    setLoading(true)
     try {
-      const response = await fetch('/api/client/locations')
+      const response = await fetch(`/api/client/locations?clientId=${profile.id}`)
       if (response.ok) {
         const data = await response.json()
-        setLocations(data)
+        // Ensure all location data is properly formatted
+        const safeLocations = (data || []).map((location: any) => ({
+          ...location,
+          name: String(location.name || ''),
+          address: String(location.address || ''),
+          city: String(location.city || ''),
+          state: String(location.state || ''),
+          zipCode: String(location.zipCode || ''),
+          country: String(location.country || ''),
+          description: String(location.description || ''),
+          type: (String(location.type || 'office')) as 'office' | 'warehouse' | 'retail' | 'residential' | 'industrial' | 'other',
+          status: String(location.status || ''),
+          createdAt: String(location.createdAt || ''),
+          updatedAt: String(location.updatedAt || ''),
+          contactInfo: {
+            phone: String(location.contactInfo?.phone || ''),
+            email: String(location.contactInfo?.email || ''),
+            contactPerson: String(location.contactInfo?.contactPerson || '')
+          }
+        }))
+        setLocations(safeLocations)
       } else {
+        console.error('Failed to fetch locations:', response.status)
         error('Fetch Error', 'Failed to load locations')
+        setLocations([])
       }
     } catch (err) {
+      console.error('Error loading locations:', err)
       error('Fetch Error', 'Error loading locations')
+      setLocations([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [profile?.id])
+
+  useEffect(() => {
+    if (profile?.id) {
+      fetchLocations()
+    }
+  }, [profile, fetchLocations])
 
   const handleInputChange = (field: string, value: any) => {
     if (field.startsWith('contactInfo.')) {
@@ -186,22 +219,27 @@ export default function ClientLocationsPage() {
   const openEditModal = (location: Location) => {
     setSelectedLocation(location)
     setFormData({
-      name: location.name,
-      address: location.address,
-      city: location.city,
-      state: location.state,
-      zipCode: location.zipCode,
-      country: location.country,
-      description: location.description || '',
-      type: location.type,
-      contactInfo: location.contactInfo || {
-        phone: '',
-        email: '',
-        contactPerson: ''
+      name: String(location.name || ''),
+      address: String(location.address || ''),
+      city: String(location.city || ''),
+      state: String(location.state || ''),
+      zipCode: String(location.zipCode || ''),
+      country: String(location.country || 'USA'),
+      description: String(location.description || ''),
+      type: (String(location.type || 'office')) as 'office' | 'warehouse' | 'retail' | 'residential' | 'industrial' | 'other',
+      contactInfo: {
+        phone: String(location.contactInfo?.phone || ''),
+        email: String(location.contactInfo?.email || ''),
+        contactPerson: String(location.contactInfo?.contactPerson || '')
       },
-      additionalInfo: location.additionalInfo || ''
+      additionalInfo: String(location.additionalInfo || '')
     })
     setShowEditModal(true)
+  }
+
+  const openViewModal = (location: Location) => {
+    setSelectedLocation(location)
+    setShowViewModal(true)
   }
 
   const getStatusBadge = (status: string) => {
@@ -222,27 +260,48 @@ export default function ClientLocationsPage() {
     }
   }
 
-  const filteredLocations = locations.filter(location => {
-    const matchesSearch = location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         location.city.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || location.status === statusFilter
-    
-    return matchesSearch && matchesStatus
-  })
+  const filteredLocations = useMemo(() => {
+    return locations.filter(location => {
+      const name = String(location.name || '').toLowerCase()
+      const address = String(location.address || '').toLowerCase()
+      const city = String(location.city || '').toLowerCase()
+      const status = String(location.status || '')
+      
+      const matchesSearch = name.includes(searchTerm.toLowerCase()) ||
+                           address.includes(searchTerm.toLowerCase()) ||
+                           city.includes(searchTerm.toLowerCase())
+      const matchesStatus = statusFilter === 'all' || status === statusFilter
+      
+      return matchesSearch && matchesStatus
+    })
+  }, [locations, searchTerm, statusFilter])
 
   const stats = {
     total: locations.length,
-    pending: locations.filter(l => l.status === 'pending').length,
-    approved: locations.filter(l => l.status === 'approved').length,
-    rejected: locations.filter(l => l.status === 'rejected').length
+    pending: locations.filter(l => String(l.status || '') === 'pending').length,
+    approved: locations.filter(l => String(l.status || '') === 'approved').length,
+    rejected: locations.filter(l => String(l.status || '') === 'rejected').length
   }
 
   if (loading) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading locations...</div>
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-8 bg-gray-200 rounded w-16"></div>
+                  <div className="h-8 bg-gray-200 rounded w-16"></div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     )
@@ -330,12 +389,12 @@ export default function ClientLocationsPage() {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-lg">{location.name}</CardTitle>
+                    <CardTitle className="text-lg">{String(location.name || '')}</CardTitle>
                     <div className="flex items-center gap-2 mt-2">
-                      <Badge className={getStatusBadge(location.status)}>
+                      <Badge className={getStatusBadge(String(location.status || 'pending'))}>
                         <span className="flex items-center gap-1">
-                          {getStatusIcon(location.status)}
-                          {location.status}
+                          {getStatusIcon(String(location.status || 'pending'))}
+                          {String(location.status || 'pending')}
                         </span>
                       </Badge>
                     </div>
@@ -347,27 +406,27 @@ export default function ClientLocationsPage() {
                   <div className="flex items-start gap-2">
                     <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
                     <div className="text-sm text-gray-600">
-                      <p>{location.address}</p>
-                      <p>{location.city}, {location.state} {location.zipCode}</p>
+                      <p>{String(location.address || '')}</p>
+                      <p>{String(location.city || '')}, {String(location.state || '')} {String(location.zipCode || '')}</p>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-600 capitalize">{location.type}</span>
+                    <span className="text-sm text-gray-600 capitalize">{String(location.type || '')}</span>
                   </div>
                   
                   {location.description && (
-                    <p className="text-sm text-gray-600">{location.description}</p>
+                    <p className="text-sm text-gray-600">{String(location.description)}</p>
                   )}
                   
                   <div className="text-xs text-gray-500">
-                    Created: {new Date(location.createdAt).toLocaleDateString()}
+                    Created: {location.createdAt ? new Date(String(location.createdAt)).toLocaleDateString() : 'N/A'}
                   </div>
 
                   {location.rejectionReason && (
                     <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                      <strong>Rejection Reason:</strong> {location.rejectionReason}
+                      <strong>Rejection Reason:</strong> {String(location.rejectionReason)}
                     </div>
                   )}
                 </div>
@@ -385,7 +444,7 @@ export default function ClientLocationsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setSelectedLocation(location)}
+                    onClick={() => openViewModal(location)}
                     className="flex-1"
                   >
                     <Eye className="h-3 w-3 mr-1" />
@@ -653,6 +712,120 @@ export default function ClientLocationsPage() {
               </Button>
             </div>
           </form>
+        </Modal>
+
+        {/* View Location Modal */}
+        <Modal
+          isOpen={showViewModal}
+          onClose={() => setShowViewModal(false)}
+          title="Location Details"
+        >
+          {selectedLocation && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Location Name</Label>
+                  <div className="text-sm text-gray-900">{String(selectedLocation.name || 'N/A')}</div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Status</Label>
+                  <div className="mt-1">
+                    {getStatusBadge(String(selectedLocation.status || 'pending'))}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Type</Label>
+                  <div className="text-sm text-gray-900 capitalize">{String(selectedLocation.type || 'N/A')}</div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Country</Label>
+                  <div className="text-sm text-gray-900">{String(selectedLocation.country || 'N/A')}</div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Address</Label>
+                <div className="text-sm text-gray-900">
+                  {(() => {
+                    // Safely render address components
+                    const address = String(selectedLocation.address || '')
+                    const city = String(selectedLocation.city || '')
+                    const state = String(selectedLocation.state || '')
+                    const zipCode = String(selectedLocation.zipCode || '')
+                    
+                    return (
+                      <>
+                        {address}<br />
+                        {city && state && zipCode ? `${city}, ${state} ${zipCode}` : 
+                         city && state ? `${city}, ${state}` :
+                         city || state || zipCode ? [city, state, zipCode].filter(Boolean).join(', ') : 'N/A'}
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+
+              {selectedLocation.description && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Description</Label>
+                  <div className="text-sm text-gray-900">{String(selectedLocation.description)}</div>
+                </div>
+              )}
+
+              {selectedLocation.contactInfo && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Contact Information</Label>
+                  <div className="text-sm text-gray-900 space-y-1">
+                    {selectedLocation.contactInfo.contactPerson && (
+                      <div><strong>Contact Person:</strong> {String(selectedLocation.contactInfo.contactPerson)}</div>
+                    )}
+                    {selectedLocation.contactInfo.phone && (
+                      <div><strong>Phone:</strong> {String(selectedLocation.contactInfo.phone)}</div>
+                    )}
+                    {selectedLocation.contactInfo.email && (
+                      <div><strong>Email:</strong> {String(selectedLocation.contactInfo.email)}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedLocation.additionalInfo && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Additional Information</Label>
+                  <div className="text-sm text-gray-900">{String(selectedLocation.additionalInfo)}</div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                  <strong>Created:</strong> {selectedLocation.createdAt ? new Date(String(selectedLocation.createdAt)).toLocaleDateString() : 'N/A'}
+                </div>
+                <div>
+                  <strong>Updated:</strong> {selectedLocation.updatedAt ? new Date(String(selectedLocation.updatedAt)).toLocaleDateString() : 'N/A'}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowViewModal(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowViewModal(false)
+                    openEditModal(selectedLocation)
+                  }}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  Edit Location
+                </Button>
+              </div>
+            </div>
+          )}
         </Modal>
       </div>
     </>

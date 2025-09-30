@@ -1,33 +1,32 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
 
 export async function POST(request: Request) {
   try {
-    const { locationId, adminId, reason } = await request.json()
+    const { locationId, rejectedBy, reason } = await request.json()
 
-    if (!locationId || !adminId || !reason) {
+    if (!locationId || !rejectedBy || !reason) {
       return new Response(
         JSON.stringify({ error: 'Location ID, Admin ID, and rejection reason are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    const locationRef = doc(db, COLLECTIONS.LOCATIONS, locationId)
-    const locationSnap = await getDoc(locationRef)
+    // Get location document using compat API
+    const locationDoc = await db.collection(COLLECTIONS.LOCATIONS).doc(locationId).get()
 
-    if (!locationSnap.exists()) {
+    if (!locationDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Location not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    // Update location status to rejected
-    await updateDoc(locationRef, {
+    // Update location status to rejected using compat API
+    await db.collection(COLLECTIONS.LOCATIONS).doc(locationId).update({
       status: 'rejected',
       rejectedAt: new Date().toISOString(),
-      rejectedBy: adminId,
+      rejectedBy: rejectedBy,
       rejectionReason: reason,
       updatedAt: new Date().toISOString(),
     })

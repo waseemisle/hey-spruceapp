@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/lib/auth'
 import { db } from '@/lib/firebase'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { formatCurrency, formatDate, getStatusColor, getPriorityColor } from '@/lib/utils'
 import BarChart from '@/components/charts/BarChart'
 import LineChart from '@/components/charts/LineChart'
@@ -128,12 +127,9 @@ export default function AdminPortal() {
   // Fetch client registrations from Firestore
   useEffect(() => {
     if (profile && profile.role === 'admin') {
-      const q = query(
-        collection(db, 'client_registrations'),
-        orderBy('submittedAt', 'desc')
-      )
+      const q = db.collection('client_registrations').orderBy('submittedAt', 'desc')
       
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      const unsubscribe = q.onSnapshot((snapshot) => {
         const registrations = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()

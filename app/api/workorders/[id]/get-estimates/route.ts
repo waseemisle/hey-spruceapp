@@ -61,6 +61,7 @@ export async function POST(
         // Create bidding work order
         const biddingWorkOrderData = {
           workOrderId,
+          workOrderNumber: workOrderData.workOrderNumber,
           workOrderTitle: workOrderData.title,
           workOrderDescription: workOrderData.description,
           workOrderLocation: workOrderData.location,
