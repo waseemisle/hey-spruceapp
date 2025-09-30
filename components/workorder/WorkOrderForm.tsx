@@ -45,10 +45,10 @@ export default function WorkOrderForm({
         title: initialData.title,
         description: initialData.description,
         priority: initialData.priority,
-        category: initialData.category,
+        category: initialData.categoryName as 'maintenance' | 'repair' | 'installation' | 'inspection' | 'cleaning' | 'other',
         locationId: initialData.location.id,
         estimatedCost: initialData.estimatedCost?.toString() || '',
-        estimatedDuration: initialData.estimatedDuration?.toString() || '',
+        estimatedDuration: initialData.actualDuration?.toString() || '',
         scheduledDate: initialData.scheduledDate || '',
         notes: initialData.notes || ''
       })

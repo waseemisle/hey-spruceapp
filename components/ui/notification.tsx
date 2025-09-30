@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react'
+import { CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { Button } from './button'
 
 export interface NotificationProps {
@@ -59,9 +59,9 @@ const NotificationComponent = ({
       case 'warning':
         return <AlertCircle className="w-5 h-5 text-yellow-600" />
       case 'info':
-        return <Info className="w-5 h-5 text-blue-600" />
+        return <AlertCircle className="w-5 h-5 text-blue-600" />
       default:
-        return <Info className="w-5 h-5 text-gray-600" />
+        return <AlertCircle className="w-5 h-5 text-gray-600" />
     }
   }
 

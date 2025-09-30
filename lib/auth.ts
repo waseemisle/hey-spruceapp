@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { User } from 'firebase/auth'
+import firebase from 'firebase/compat/app'
 import { 
   auth, 
   signInWithFirebase, 
@@ -14,7 +14,7 @@ import {
 } from './firebase'
 
 export interface AuthState {
-  user: User | null
+  user: firebase.User | null
   profile: UserProfile | null
   loading: boolean
 }

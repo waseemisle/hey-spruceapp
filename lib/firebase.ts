@@ -1,6 +1,6 @@
-import { initializeApp } from 'firebase/app'
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, User, createUserWithEmailAndPassword } from 'firebase/auth'
-import { getFirestore, doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, getDocs, query, where, orderBy, limit, Timestamp } from 'firebase/firestore'
+import firebase from 'firebase/compat/app'
+import 'firebase/compat/auth'
+import 'firebase/compat/firestore'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
@@ -13,9 +13,11 @@ const firebaseConfig = {
 }
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig)
-export const auth = getAuth(app)
-export const db = getFirestore(app)
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig)
+}
+export const auth = firebase.auth()
+export const db = firebase.firestore()
 
 export interface UserProfile {
   id: string
@@ -66,7 +68,7 @@ export interface Proposal {
 // Auth helpers
 export async function signInWithFirebase(email: string, password: string) {
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password)
+    const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password)
     return { user: userCredential.user, error: null }
   } catch (error: any) {
     return { user: null, error: error.message }
@@ -75,7 +77,7 @@ export async function signInWithFirebase(email: string, password: string) {
 
 export async function createUserWithFirebase(email: string, password: string) {
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password)
     return { user: userCredential.user, error: null }
   } catch (error: any) {
     return { user: null, error: error.message }
@@ -84,16 +86,16 @@ export async function createUserWithFirebase(email: string, password: string) {
 
 export async function signOutFirebase() {
   try {
-    await signOut(auth)
+    await firebase.auth().signOut()
     return { error: null }
   } catch (error: any) {
     return { error: error.message }
   }
 }
 
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(): Promise<firebase.User | null> {
   return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
       unsubscribe()
       resolve(user)
     })
@@ -102,10 +104,10 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   try {
-    const docRef = doc(db, 'users', userId)
-    const docSnap = await getDoc(docRef)
+    const docRef = db.collection('users').doc(userId)
+    const docSnap = await docRef.get()
     
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       return { id: docSnap.id, ...docSnap.data() } as UserProfile
     } else {
       return null
@@ -129,7 +131,7 @@ export async function createUserProfile(user: {
       updatedAt: new Date().toISOString()
     }
     
-    await setDoc(doc(db, 'users', user.id), userData)
+    await db.collection('users').doc(user.id).set(userData)
     return { data: userData, error: null }
   } catch (error: any) {
     return { data: null, error: error.message }
@@ -201,7 +203,7 @@ export const COLLECTIONS = {
 // Utility functions for Firebase operations
 export async function addDocument(collectionName: string, data: any) {
   try {
-    const docRef = await addDoc(collection(db, collectionName), {
+    const docRef = await db.collection(collectionName).add({
       ...data,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -214,7 +216,7 @@ export async function addDocument(collectionName: string, data: any) {
 
 export async function updateDocument(collectionName: string, docId: string, data: any) {
   try {
-    await updateDoc(doc(db, collectionName, docId), {
+    await db.collection(collectionName).doc(docId).update({
       ...data,
       updatedAt: new Date().toISOString()
     })
@@ -226,10 +228,10 @@ export async function updateDocument(collectionName: string, docId: string, data
 
 export async function getDocument(collectionName: string, docId: string) {
   try {
-    const docRef = doc(db, collectionName, docId)
-    const docSnap = await getDoc(docRef)
+    const docRef = db.collection(collectionName).doc(docId)
+    const docSnap = await docRef.get()
     
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       return { data: { id: docSnap.id, ...docSnap.data() }, error: null }
     } else {
       return { data: null, error: 'Document not found' }
@@ -241,14 +243,23 @@ export async function getDocument(collectionName: string, docId: string) {
 
 export async function getDocuments(collectionName: string, constraints?: any[]) {
   try {
-    let q = collection(db, collectionName)
+    let q: any = db.collection(collectionName)
     
     if (constraints && constraints.length > 0) {
-      q = query(collection(db, collectionName), ...constraints)
+      // Apply constraints for compat API
+      constraints.forEach(constraint => {
+        if (constraint.type === 'where') {
+          q = q.where(constraint.field, constraint.operator, constraint.value)
+        } else if (constraint.type === 'orderBy') {
+          q = q.orderBy(constraint.field, constraint.direction)
+        } else if (constraint.type === 'limit') {
+          q = q.limit(constraint.value)
+        }
+      })
     }
     
-    const querySnapshot = await getDocs(q)
-    const documents = querySnapshot.docs.map(doc => ({
+    const querySnapshot = await q.get()
+    const documents = querySnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     }))
@@ -261,7 +272,7 @@ export async function getDocuments(collectionName: string, constraints?: any[]) 
 
 export async function deleteDocument(collectionName: string, docId: string) {
   try {
-    await deleteDoc(doc(db, collectionName, docId))
+    await db.collection(collectionName).doc(docId).delete()
     return { success: true, error: null }
   } catch (error: any) {
     return { success: false, error: error.message }

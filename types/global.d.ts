@@ -79,7 +79,7 @@ declare module 'lucide-react' {
   export const MoreHorizontal: any
   export const Download: any
   export const Send: any
-  export const Calendar as CalendarIcon: any
+  export const CalendarIcon: any
   export const Clock: any
   export const AlertCircle: any
   export const Check: any
