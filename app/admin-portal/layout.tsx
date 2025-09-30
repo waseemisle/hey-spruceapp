@@ -23,17 +23,15 @@ import {
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: TrendingUp, path: '/admin-portal' },
-  { id: 'users', label: 'User Management', icon: Users, path: '/admin-portal' },
-  { id: 'clients', label: 'Client Approvals', icon: Users, path: '/admin-portal/clients' },
+  { id: 'register-admin', label: 'Register New Admin', icon: Users, path: '/admin-portal/register-admin' },
+  { id: 'clients', label: 'Clients', icon: Users, path: '/admin-portal/clients' },
   { id: 'subcontractors', label: 'Subcontractors', icon: Users, path: '/admin-portal/subcontractors' },
+  { id: 'categories', label: 'Categories', icon: Settings, path: '/admin-portal/categories' },
   { id: 'locations', label: 'Locations', icon: Building2, path: '/admin-portal/locations' },
-  { id: 'properties', label: 'Properties', icon: Building2, path: '/admin-portal' },
   { id: 'workorders', label: 'Work Orders', icon: Wrench, path: '/admin-portal/workorders' },
   { id: 'quotes', label: 'Quotes', icon: FileText, path: '/admin-portal/quotes' },
   { id: 'invoices', label: 'Invoices', icon: Receipt, path: '/admin-portal/invoices' },
-  { id: 'scheduled-invoices', label: 'Scheduled Invoices', icon: Calendar, path: '/admin-portal/scheduled-invoices' },
-  { id: 'reports', label: 'Reports', icon: DollarSign, path: '/admin-portal' },
-  { id: 'settings', label: 'Settings', icon: Settings, path: '/admin-portal' }
+  { id: 'scheduled-invoices', label: 'Scheduled Invoices', icon: Calendar, path: '/admin-portal/scheduled-invoices' }
 ]
 
 export default function AdminPortalLayout({

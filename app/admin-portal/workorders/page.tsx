@@ -7,443 +7,439 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
+import Modal from '@/components/ui/modal'
 import { useAuth } from '@/lib/auth'
-import { db } from '@/lib/firebase'
-import { useLoading } from '@/contexts/LoadingContext'
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { WorkOrder, Location, Quote, Invoice } from '@/lib/types'
-import CreateWorkOrderModal from '@/components/modals/CreateWorkOrderModal'
-import EditWorkOrderModal from '@/components/modals/EditWorkOrderModal'
-import ViewWorkOrderModal from '@/components/modals/ViewWorkOrderModal'
-import CreateQuoteModal from '@/components/modals/CreateQuoteModal'
-import CreateInvoiceModal from '@/components/modals/CreateInvoiceModal'
-import WithRoleProtection from '@/components/auth/withRoleProtection'
+import { WorkOrder, Quote, Client, Subcontractor, Category } from '@/lib/types'
 import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
-  Plus, 
   Search, 
-  Edit, 
-  Trash2, 
-  CheckCircle, 
-  XCircle, 
-  UserPlus,
-  Clock,
-  DollarSign,
-  MapPin,
+  Plus,
   Eye,
-  Calculator,
-  Receipt
+  Edit,
+  CheckCircle,
+  XCircle,
+  DollarSign,
+  Calendar,
+  MapPin,
+  Users,
+  FileText,
+  Send,
+  Trash2
 } from 'lucide-react'
 
 export default function AdminWorkOrdersPage() {
-  return (
-    <WithRoleProtection 
-      allowedRoles={['admin']}
-      fallbackMessage="This work orders page is only accessible to administrators."
-    >
-      <AdminWorkOrdersContent />
-    </WithRoleProtection>
-  )
-}
-
-function AdminWorkOrdersContent() {
-  const { user, profile } = useAuth()
-  const { notifications, removeNotification, success, error, info } = useNotifications()
+  const { user } = useAuth()
+  const { notifications, removeNotification, success, error } = useNotifications()
+  
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
-  const [locations, setLocations] = useState<Location[]>([])
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [showEditForm, setShowEditForm] = useState(false)
-  const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null)
-  const [showViewModal, setShowViewModal] = useState(false)
-  const [viewingWorkOrder, setViewingWorkOrder] = useState<WorkOrder | null>(null)
+  const [quotes, setQuotes] = useState<Quote[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [filterCategory, setFilterCategory] = useState('all')
-  const [filterPriority, setFilterPriority] = useState('all')
-
-  // Assignment modal state
-  const [showAssignmentModal, setShowAssignmentModal] = useState(false)
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null)
-  const [selectedSubcontractor, setSelectedSubcontractor] = useState('')
-  const [subcontractors, setSubcontractors] = useState<any[]>([])
-  const [isAssigning, setIsAssigning] = useState(false)
-
-  // Rejection modal state
-  const [showRejectionModal, setShowRejectionModal] = useState(false)
-  const [rejectionReason, setRejectionReason] = useState('')
-
-  // Quote modal state
+  const [filterClient, setFilterClient] = useState('all')
+  
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showGetEstimatesModal, setShowGetEstimatesModal] = useState(false)
   const [showQuoteModal, setShowQuoteModal] = useState(false)
-  const [selectedWorkOrderForQuote, setSelectedWorkOrderForQuote] = useState<WorkOrder | null>(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null)
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null)
+  const [rejectionReason, setRejectionReason] = useState('')
+  
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    clientId: '',
+    categoryId: '',
+    locationId: '',
+    estimatedCost: '',
+    estimatedDateOfService: ''
+  })
 
-  // Invoice modal state
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
-  const [selectedWorkOrderForInvoice, setSelectedWorkOrderForInvoice] = useState<WorkOrder | null>(null)
-  const [quotes, setQuotes] = useState<Quote[]>([])
-  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false)
+  const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([])
 
   useEffect(() => {
-    // Fetch work orders
-    const workOrdersQuery = query(collection(db, 'workorders'), orderBy('createdAt', 'desc'))
-    const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
-      const workOrdersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as WorkOrder[]
-      setWorkOrders(workOrdersData)
-    })
-
-    // Fetch locations
-    const locationsQuery = query(collection(db, 'locations'), orderBy('createdAt', 'desc'))
-    const unsubscribeLocations = onSnapshot(locationsQuery, (snapshot) => {
-      const locationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Location[]
-      setLocations(locationsData)
-    })
-
-    // Fetch quotes for invoice creation
-    const quotesQuery = query(collection(db, 'quotes'), orderBy('createdAt', 'desc'))
-    const unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
-      const quotesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Quote[]
-      // Filter only accepted quotes
-      const acceptedQuotes = quotesData.filter(quote => quote.status === 'accepted')
-      setQuotes(acceptedQuotes)
-    })
-
-    return () => {
-      unsubscribeWorkOrders()
-      unsubscribeLocations()
-      unsubscribeQuotes()
-    }
+    fetchData()
   }, [])
 
-  const handleCreateWorkOrder = async (formData: any) => {
+  const fetchData = async () => {
     try {
-      // Check if user data is still loading
-      if (!user || !profile) {
-        error('Loading', 'User data is still loading. Please wait a moment and try again.')
-        return
+      // Fetch all data in parallel
+      const [workOrdersRes, quotesRes, clientsRes, subcontractorsRes, categoriesRes] = await Promise.all([
+        fetch('/api/workorders'),
+        fetch('/api/quotes'),
+        fetch('/api/admin/clients'),
+        fetch('/api/admin/subcontractors'),
+        fetch('/api/categories')
+      ])
+
+      if (workOrdersRes.ok) {
+        const workOrdersData = await workOrdersRes.json()
+        setWorkOrders(workOrdersData)
       }
 
-      const selectedLocation = locations.find(l => l.id === formData.locationId)
-      
-      if (!selectedLocation) {
-        error('Location Required', 'Please select a valid location')
-        return
+      if (quotesRes.ok) {
+        const quotesData = await quotesRes.json()
+        setQuotes(quotesData)
       }
 
-      if (!user.uid || !profile.fullName || !profile.email) {
-        error('User Error', 'User information is missing. Please refresh and try again.')
-        return
+      if (clientsRes.ok) {
+        const clientsData = await clientsRes.json()
+        setClients(clientsData.filter((c: Client) => c.status === 'approved'))
       }
 
-      const requestData = {
-        ...formData,
-        location: {
-          id: selectedLocation.id,
-          name: selectedLocation.name,
-          address: selectedLocation.address
-        },
-        clientId: user.uid,
-        clientName: profile.fullName,
-        clientEmail: profile.email,
-        createdBy: user.uid
+      if (subcontractorsRes.ok) {
+        const subcontractorsData = await subcontractorsRes.json()
+        setSubcontractors(subcontractorsData.filter((s: Subcontractor) => s.status === 'approved'))
       }
 
-      console.log('Creating work order with data:', requestData)
+      if (categoriesRes.ok) {
+        const categoriesData = await categoriesRes.json()
+        setCategories(categoriesData.filter((c: Category) => c.isActive))
+      }
 
+    } catch (err) {
+      console.error('Error fetching data:', err)
+      error('Fetch Error', 'Failed to load data')
+    }
+  }
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const handleCreateWorkOrder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.title || !formData.description || !formData.clientId || !formData.categoryId || !formData.estimatedCost || !formData.estimatedDateOfService) {
+      error('Validation Error', 'Please fill in all required fields')
+      return
+    }
+
+    try {
       const response = await fetch('/api/workorders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          estimatedCost: parseFloat(formData.estimatedCost),
+          createdBy: user?.uid
+        }),
       })
 
-      if (response.ok) {
-        setShowCreateForm(false)
-        success('Work Order Created', 'Work order created successfully!')
-      } else {
-        const errorData = await response.json()
-        error('Creation Failed', errorData.error || 'Failed to create work order')
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create work order')
       }
-    } catch (err) {
-      console.error('Error creating work order:', err)
-      error('Error', 'Failed to create work order')
+
+      success('Work Order Created', 'Work order created successfully!')
+      setShowCreateModal(false)
+      setFormData({
+        title: '',
+        description: '',
+        clientId: '',
+        categoryId: '',
+        locationId: '',
+        estimatedCost: '',
+        estimatedDateOfService: ''
+      })
+      fetchData()
+    } catch (err: any) {
+      error('Creation Failed', err.message)
     }
   }
 
-  const handleEditWorkOrder = async (formData: any) => {
-    if (!editingWorkOrder) return
+  const handleGetEstimates = (workOrder: WorkOrder) => {
+    setSelectedWorkOrder(workOrder)
+    setShowGetEstimatesModal(true)
+  }
+
+  const handleSelectSubcontractors = async () => {
+    if (!selectedWorkOrder || selectedSubcontractors.length === 0) {
+      error('Selection Required', 'Please select at least one subcontractor')
+      return
+    }
 
     try {
-      const selectedLocation = locations.find(l => l.id === formData.locationId)
-      
-      if (!selectedLocation) {
-        error('Location Required', 'Please select a valid location')
-        return
-      }
-
-      const requestData = {
-        ...formData,
-        location: {
-          id: selectedLocation.id,
-          name: selectedLocation.name,
-          address: selectedLocation.address
+      const response = await fetch(`/api/workorders/${selectedWorkOrder.id}/get-estimates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        status: formData.status || editingWorkOrder.status
-      }
-
-      console.log('Updating work order with data:', requestData)
-
-      const response = await fetch(`/api/workorders/${editingWorkOrder.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify({
+          subcontractorIds: selectedSubcontractors
+        }),
       })
 
-      if (response.ok) {
-        setShowEditForm(false)
-        setEditingWorkOrder(null)
-        success('Work Order Updated', 'Work order updated successfully!')
-      } else {
-        const errorData = await response.json()
-        error('Update Failed', errorData.error || 'Failed to update work order')
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send estimates request')
       }
-    } catch (err) {
-      console.error('Error updating work order:', err)
-      error('Error', 'Failed to update work order')
+
+      success('Estimates Request Sent', 'Estimate requests sent to selected subcontractors!')
+      setShowGetEstimatesModal(false)
+      setSelectedSubcontractors([])
+      fetchData()
+    } catch (err: any) {
+      error('Request Failed', err.message)
     }
   }
 
-  const handleApproveWorkOrder = async (workOrderId: string) => {
+  const handleShareQuoteWithClient = async (quote: Quote) => {
+    try {
+      const response = await fetch(`/api/quotes/${quote.id}/share-with-client`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to share quote with client')
+      }
+
+      success('Quote Shared', 'Quote has been shared with the client!')
+      fetchData()
+    } catch (err: any) {
+      error('Share Failed', err.message)
+    }
+  }
+
+  const handleAssignWorkOrder = async (workOrder: WorkOrder) => {
+    const quote = quotes.find(q => q.workOrderId === workOrder.id && q.status === 'accepted')
+    if (!quote) {
+      error('No Accepted Quote', 'No accepted quote found for this work order')
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/workorders/${workOrder.id}/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subcontractorId: quote.subcontractorId
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to assign work order')
+      }
+
+      success('Work Order Assigned', 'Work order has been assigned to subcontractor!')
+      fetchData()
+    } catch (err: any) {
+      error('Assignment Failed', err.message)
+    }
+  }
+
+  const handleCreateInvoice = async (workOrder: WorkOrder) => {
+    const quote = quotes.find(q => q.workOrderId === workOrder.id && q.status === 'accepted')
+    if (!quote) {
+      error('No Accepted Quote', 'No accepted quote found for this work order')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/admin/invoices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          quoteId: quote.id,
+          workOrderId: workOrder.id
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create invoice')
+      }
+
+      success('Invoice Created', 'Invoice created and sent to client!')
+      fetchData()
+    } catch (err: any) {
+      error('Invoice Creation Failed', err.message)
+    }
+  }
+
+  const handleApproveWorkOrder = async (workOrder: WorkOrder) => {
     try {
       const response = await fetch('/api/admin/workorders/approve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          workOrderId,
+          workOrderId: workOrder.id,
           adminId: user?.uid
-        })
+        }),
       })
 
-      if (response.ok) {
-        success('Work Order Approved', 'Work order approved successfully!')
-      } else {
-        const errorData = await response.json()
-        error('Approval Failed', errorData.error || 'Failed to approve work order')
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to approve work order')
       }
-    } catch (err) {
-      console.error('Error approving work order:', err)
-      error('Error', 'Failed to approve work order')
+
+      success('Work Order Approved', 'Work order has been approved successfully!')
+      fetchData()
+    } catch (err: any) {
+      error('Approval Failed', err.message)
     }
   }
 
   const handleRejectWorkOrder = async () => {
-    if (!selectedWorkOrder || !rejectionReason.trim()) return
+    if (!selectedWorkOrder || !rejectionReason.trim()) {
+      error('Validation Error', 'Please provide a rejection reason')
+      return
+    }
 
     try {
       const response = await fetch('/api/admin/workorders/reject', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           workOrderId: selectedWorkOrder.id,
           adminId: user?.uid,
           reason: rejectionReason
-        })
+        }),
       })
 
-      if (response.ok) {
-        success('Work Order Rejected', 'Work order rejected successfully!')
-        setShowRejectionModal(false)
-        setSelectedWorkOrder(null)
-        setRejectionReason('')
-      } else {
-        const errorData = await response.json()
-        error('Rejection Failed', errorData.error || 'Failed to reject work order')
-      }
-    } catch (err) {
-      console.error('Error rejecting work order:', err)
-      error('Error', 'Failed to reject work order')
-    }
-  }
-
-  const handleAssignWorkOrder = async () => {
-    if (!selectedWorkOrder || !selectedSubcontractor) return
-
-    setIsAssigning(true)
-    try {
-      const response = await fetch('/api/admin/workorders/assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workOrderId: selectedWorkOrder.id,
-          subcontractorId: selectedSubcontractor,
-          adminId: user?.uid
-        })
-      })
-
-      if (response.ok) {
-        success('Work Order Assigned', 'Work order assigned successfully!')
-        setShowAssignmentModal(false)
-        setSelectedWorkOrder(null)
-        setSelectedSubcontractor('')
-      } else {
-        const errorData = await response.json()
-        error('Assignment Failed', errorData.error || 'Failed to assign work order')
-      }
-    } catch (err) {
-      console.error('Error assigning work order:', err)
-      error('Error', 'Failed to assign work order')
-    } finally {
-      setIsAssigning(false)
-    }
-  }
-
-  const handleDeleteWorkOrder = async (workOrderId: string) => {
-    if (!confirm('Are you sure you want to delete this work order?')) return
-
-    try {
-      await deleteDoc(doc(db, 'workorders', workOrderId))
-      success('Work Order Deleted', 'Work order deleted successfully!')
-    } catch (err) {
-      console.error('Error deleting work order:', err)
-      error('Error', 'Failed to delete work order')
-    }
-  }
-
-  const fetchSubcontractors = async () => {
-    try {
-      const response = await fetch('/api/admin/workorders/assign')
       const data = await response.json()
-      if (data.success) {
-        setSubcontractors(data.subcontractors)
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reject work order')
       }
-    } catch (err) {
-      console.error('Error fetching subcontractors:', err)
+
+      success('Work Order Rejected', 'Work order has been rejected')
+      setShowRejectModal(false)
+      setRejectionReason('')
+      fetchData()
+    } catch (err: any) {
+      error('Rejection Failed', err.message)
     }
   }
 
-  const openAssignmentModal = (workOrder: WorkOrder) => {
+  const handleViewWorkOrder = (workOrder: WorkOrder) => {
     setSelectedWorkOrder(workOrder)
-    setShowAssignmentModal(true)
-    fetchSubcontractors()
+    setShowViewModal(true)
   }
 
-  const openRejectionModal = (workOrder: WorkOrder) => {
+  const handleEditWorkOrder = (workOrder: WorkOrder) => {
     setSelectedWorkOrder(workOrder)
-    setShowRejectionModal(true)
+    setFormData({
+      title: workOrder.title,
+      description: workOrder.description,
+      clientId: workOrder.clientId,
+      categoryId: workOrder.categoryId,
+      locationId: workOrder.location?.id || '',
+      estimatedCost: workOrder.estimatedCost.toString(),
+      estimatedDateOfService: workOrder.estimatedDateOfService
+    })
+    setShowEditModal(true)
   }
 
-  const openQuoteModal = (workOrder: WorkOrder) => {
-    setSelectedWorkOrderForQuote(workOrder)
-    setShowQuoteModal(true)
-  }
+  const handleUpdateWorkOrder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedWorkOrder || !formData.title || !formData.description || !formData.clientId || !formData.categoryId || !formData.estimatedCost || !formData.estimatedDateOfService) {
+      error('Validation Error', 'Please fill in all required fields')
+      return
+    }
 
-  const handleCreateQuote = async (quoteData: any) => {
     try {
-      console.log('Creating quote with data:', {
-        ...quoteData,
-        adminId: user?.uid,
-        adminName: profile?.fullName,
-        adminEmail: profile?.email
-      })
-
-      const response = await fetch('/api/admin/quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(`/api/workorders/${selectedWorkOrder.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          ...quoteData,
-          adminId: user?.uid,
-          adminName: profile?.fullName,
-          adminEmail: profile?.email
-        })
+          ...formData,
+          estimatedCost: parseFloat(formData.estimatedCost),
+          updatedBy: user?.uid
+        }),
       })
 
-      console.log('Response status:', response.status)
-      console.log('Response headers:', response.headers)
+      const data = await response.json()
 
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Quote created successfully:', result)
-        success('Quote Created', 'Quote created successfully!')
-        setShowQuoteModal(false)
-        setSelectedWorkOrderForQuote(null)
-      } else {
-        let errorMessage = 'Failed to create quote'
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.error || errorData.details || errorMessage
-          console.error('Server error response:', errorData)
-        } catch (jsonError) {
-          console.error('Failed to parse error response as JSON:', jsonError)
-          const textResponse = await response.text()
-          console.error('Raw error response:', textResponse)
-          errorMessage = `Server error (${response.status}): ${textResponse || 'Unknown error'}`
-        }
-        error('Quote Creation Failed', errorMessage)
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update work order')
       }
-    } catch (err) {
-      console.error('Error creating quote:', err)
-      error('Error', `Failed to create quote: ${err instanceof Error ? err.message : 'Unknown error'}`)
+
+      success('Work Order Updated', 'Work order updated successfully!')
+      setShowEditModal(false)
+      setFormData({
+        title: '',
+        description: '',
+        clientId: '',
+        categoryId: '',
+        locationId: '',
+        estimatedCost: '',
+        estimatedDateOfService: ''
+      })
+      fetchData()
+    } catch (err: any) {
+      error('Update Failed', err.message)
     }
   }
 
-  const openInvoiceModal = (workOrder: WorkOrder) => {
-    setSelectedWorkOrderForInvoice(workOrder)
-    setShowInvoiceModal(true)
-  }
+  const handleDeleteWorkOrder = async () => {
+    if (!selectedWorkOrder) {
+      error('Validation Error', 'No work order selected')
+      return
+    }
 
-  const handleCreateInvoice = async (invoiceData: any) => {
     try {
-      setIsCreatingInvoice(true)
-      console.log('Creating invoice with data:', {
-        ...invoiceData,
-        adminId: user?.uid,
-        adminName: profile?.fullName,
-        adminEmail: profile?.email
+      console.log('Attempting to delete work order:', selectedWorkOrder.id)
+      
+      const response = await fetch(`/api/workorders/${selectedWorkOrder.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
 
-      const response = await fetch('/api/admin/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...invoiceData,
-          adminId: user?.uid,
-          adminName: profile?.fullName,
-          adminEmail: profile?.email
-        })
-      })
+      const data = await response.json()
 
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Invoice created successfully:', result)
-        success('Invoice Created', 'Invoice created and sent to client successfully!')
-        setShowInvoiceModal(false)
-        setSelectedWorkOrderForInvoice(null)
-      } else {
-        let errorMessage = 'Failed to create invoice'
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.error || errorData.details || errorMessage
-          console.error('Server error response:', errorData)
-        } catch (jsonError) {
-          console.error('Failed to parse error response as JSON:', jsonError)
-          const textResponse = await response.text()
-          console.error('Raw error response:', textResponse)
-          errorMessage = `Server error (${response.status}): ${textResponse || 'Unknown error'}`
+      if (!response.ok) {
+        if (response.status === 404) {
+          error('Work Order Not Found', 'This work order no longer exists. It may have been deleted by another user.')
+        } else {
+          throw new Error(data.error || 'Failed to delete work order')
         }
-        error('Invoice Creation Failed', errorMessage)
+        return
       }
-    } catch (err) {
-      console.error('Error creating invoice:', err)
-      error('Error', `Failed to create invoice: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    } finally {
-      setIsCreatingInvoice(false)
+
+      success('Work Order Deleted', 'Work order has been deleted successfully!')
+      setShowDeleteModal(false)
+      setSelectedWorkOrder(null)
+      fetchData()
+    } catch (err: any) {
+      console.error('Delete work order error:', err)
+      error('Deletion Failed', err.message || 'An unexpected error occurred while deleting the work order')
     }
   }
 
@@ -452,53 +448,49 @@ function AdminWorkOrdersContent() {
       pending: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
-      'in-progress': 'bg-blue-100 text-blue-800',
-      completed: 'bg-gray-100 text-gray-800',
-      cancelled: 'bg-gray-100 text-gray-800'
+      waiting_for_quote: 'bg-blue-100 text-blue-800',
+      quotes_received: 'bg-purple-100 text-purple-800',
+      quote_sent_to_client: 'bg-indigo-100 text-indigo-800',
+      quote_approved: 'bg-green-100 text-green-800',
+      assigned: 'bg-orange-100 text-orange-800',
+      in_progress: 'bg-blue-100 text-blue-800',
+      completed_by_contractor: 'bg-green-100 text-green-800',
+      completed: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800'
     }
     return variants[status as keyof typeof variants] || 'bg-gray-100 text-gray-800'
   }
 
-  const getPriorityBadge = (priority: string) => {
-    const variants = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-orange-100 text-orange-800',
-      urgent: 'bg-red-100 text-red-800'
-    }
-    return variants[priority as keyof typeof variants] || 'bg-gray-100 text-gray-800'
+  const getClientName = (clientId: string) => {
+    const client = clients.find(c => c.id === clientId)
+    return client ? client.fullName : 'Unknown Client'
   }
 
-  const getQuoteStatusBadge = (status: string) => {
-    const variants = {
-      pending: 'bg-gray-100 text-gray-800',
-      sent: 'bg-blue-100 text-blue-800',
-      accepted: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
-      expired: 'bg-orange-100 text-orange-800'
-    }
-    return variants[status as keyof typeof variants] || 'bg-gray-100 text-gray-800'
+  const getCategoryName = (categoryId: string) => {
+    const category = categories.find(c => c.id === categoryId)
+    return category ? category.name : 'Unknown Category'
+  }
+
+  const getWorkOrderQuotes = (workOrderId: string) => {
+    return quotes.filter(q => q.workOrderId === workOrderId)
   }
 
   const filteredWorkOrders = workOrders.filter(workOrder => {
-    const matchesSearch = workOrder.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         workOrder.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         workOrder.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = workOrder.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         workOrder.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         getClientName(workOrder.clientId).toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || workOrder.status === filterStatus
-    const matchesCategory = filterCategory === 'all' || workOrder.category === filterCategory
-    const matchesPriority = filterPriority === 'all' || workOrder.priority === filterPriority
+    const matchesClient = filterClient === 'all' || workOrder.clientId === filterClient
     
-    return matchesSearch && matchesStatus && matchesCategory && matchesPriority
+    return matchesSearch && matchesStatus && matchesClient
   })
 
   const stats = {
     total: workOrders.length,
     pending: workOrders.filter(w => w.status === 'pending').length,
-    approved: workOrders.filter(w => w.status === 'approved').length,
-    inProgress: workOrders.filter(w => w.status === 'in-progress').length,
+    inProgress: workOrders.filter(w => ['waiting_for_quote', 'quotes_received', 'quote_sent_to_client', 'assigned', 'in_progress'].includes(w.status)).length,
     completed: workOrders.filter(w => w.status === 'completed').length
   }
-
 
   return (
     <>
@@ -506,415 +498,675 @@ function AdminWorkOrdersContent() {
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Work Orders Management</h1>
-          <Button onClick={() => setShowCreateForm(true)}>
+          <Button onClick={() => setShowCreateModal(true)} className="bg-primary hover:bg-primary/90">
             <Plus className="w-4 h-4 mr-2" />
             Create Work Order
           </Button>
         </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">Pending</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-600">Approved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.approved}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600">In Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inProgress}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completed}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="search">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-                <Input
-                  id="search"
-                  placeholder="Search work orders..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="repair">Repair</SelectItem>
-                  <SelectItem value="installation">Installation</SelectItem>
-                  <SelectItem value="inspection">Inspection</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Priority</Label>
-              <Select value={filterPriority} onValueChange={setFilterPriority}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All priorities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Work Orders List */}
-      <div className="space-y-4">
-        {filteredWorkOrders.map((workOrder) => (
-          <Card key={workOrder.id}>
-            <CardHeader>
-              <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
-                <div className="flex-1">
-                  <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                    <span className="text-sm font-mono text-gray-500">#{workOrder.id}</span>
-                    <span className="text-lg font-semibold break-words">{workOrder.title}</span>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge className={`${getStatusBadge(workOrder.status)} text-xs`}>
-                        {workOrder.status}
-                      </Badge>
-                      <Badge className={`${getPriorityBadge(workOrder.priority)} text-xs`}>
-                        {workOrder.priority}
-                      </Badge>
-                      {workOrder.quoteStatus && (
-                        <Badge className={`${getQuoteStatusBadge(workOrder.quoteStatus)} text-xs`}>
-                          Quote {workOrder.quoteStatus}
-                        </Badge>
-                      )}
-                    </div>
-                  </CardTitle>
-                  <p className="text-sm text-gray-600 line-clamp-2">{workOrder.description}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {workOrder.status === 'pending' && (
-                    <>
-                      <Button
-                        size="sm"
-                        onClick={() => handleApproveWorkOrder(workOrder.id)}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openRejectionModal(workOrder)}
-                        className="border-red-300 text-red-600 hover:bg-red-50"
-                      >
-                        <XCircle className="w-4 h-4 mr-1" />
-                        Reject
-                      </Button>
-                    </>
-                  )}
-                  {workOrder.status === 'approved' && (
-                    <>
-                      {!workOrder.quoteStatus && (
-                        <Button
-                          size="sm"
-                          onClick={() => openQuoteModal(workOrder)}
-                          className="bg-purple-600 hover:bg-purple-700"
-                        >
-                          <Calculator className="w-4 h-4 mr-1" />
-                          Create Quote
-                        </Button>
-                      )}
-                      {workOrder.quoteStatus === 'accepted' && (
-                        <Button
-                          size="sm"
-                          onClick={() => openAssignmentModal(workOrder)}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          <UserPlus className="w-4 h-4 mr-1" />
-                          Assign
-                        </Button>
-                      )}
-                    </>
-                  )}
-                  {workOrder.status === 'completed' && workOrder.quoteStatus === 'accepted' && (
-                    <Button
-                      size="sm"
-                      onClick={() => openInvoiceModal(workOrder)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <Receipt className="w-4 h-4 mr-1" />
-                      Create Invoice
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setViewingWorkOrder(workOrder)
-                      setShowViewModal(true)
-                    }}
-                    title="View Details"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingWorkOrder(workOrder)
-                      setShowEditForm(true)
-                    }}
-                    title="Edit Work Order"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDeleteWorkOrder(workOrder.id)}
-                    className="text-red-600 hover:bg-red-50"
-                    title="Delete Work Order"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Work Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="truncate">{workOrder.location.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span>${workOrder.estimatedCost || 0}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span>{workOrder.estimatedDuration || 0}h</span>
-                </div>
-              </div>
-              <div className="mt-3 text-sm text-gray-600 space-y-1">
-                <p><strong>Client:</strong> <span className="break-words">{workOrder.clientName}</span></p>
-                <p><strong>Category:</strong> <span className="capitalize">{workOrder.category}</span></p>
-                {workOrder.assignedToName && (
-                  <p><strong>Assigned to:</strong> <span className="break-words">{workOrder.assignedToName}</span></p>
-                )}
-              </div>
+              <div className="text-2xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
-        ))}
-      </div>
-
-      {/* Create Work Order Modal */}
-      <CreateWorkOrderModal
-        isOpen={showCreateForm}
-        onClose={() => setShowCreateForm(false)}
-        onSubmit={handleCreateWorkOrder}
-        isSubmitting={false}
-        locations={locations}
-      />
-
-      {/* Edit Work Order Modal */}
-      <EditWorkOrderModal
-        isOpen={showEditForm}
-        onClose={() => {
-          setShowEditForm(false)
-          setEditingWorkOrder(null)
-        }}
-        onSubmit={handleEditWorkOrder}
-        isSubmitting={false}
-        locations={locations}
-        workOrder={editingWorkOrder}
-      />
-
-      {/* View Work Order Modal */}
-      <ViewWorkOrderModal
-        isOpen={showViewModal}
-        onClose={() => {
-          setShowViewModal(false)
-          setViewingWorkOrder(null)
-        }}
-        workOrder={viewingWorkOrder}
-      />
-
-      {/* Create Quote Modal */}
-      <CreateQuoteModal
-        isOpen={showQuoteModal}
-        onClose={() => {
-          setShowQuoteModal(false)
-          setSelectedWorkOrderForQuote(null)
-        }}
-        onSubmit={handleCreateQuote}
-        isSubmitting={false}
-        workOrder={selectedWorkOrderForQuote}
-      />
-
-      {/* Assignment Modal */}
-      {showAssignmentModal && selectedWorkOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Assign Work Order</CardTitle>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-yellow-600">Pending</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="subcontractor">Select Subcontractor</Label>
-                <Select value={selectedSubcontractor} onValueChange={setSelectedSubcontractor}>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.pending}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-600">In Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.inProgress}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600">Completed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.completed}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="search">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="search"
+                    placeholder="Search work orders..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose subcontractor" />
+                    <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    {subcontractors.map((sub) => (
-                      <SelectItem key={sub.id} value={sub.id}>
-                        {sub.fullName} ({sub.email})
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="waiting_for_quote">Waiting for Quote</SelectItem>
+                    <SelectItem value="quotes_received">Quotes Received</SelectItem>
+                    <SelectItem value="quote_sent_to_client">Quote Sent to Client</SelectItem>
+                    <SelectItem value="quote_approved">Quote Approved</SelectItem>
+                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Client</Label>
+                <Select value={filterClient} onValueChange={setFilterClient}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All clients" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.fullName}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowAssignmentModal(false)
-                    setSelectedWorkOrder(null)
-                    setSelectedSubcontractor('')
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleAssignWorkOrder}
-                  disabled={!selectedSubcontractor || isAssigning}
-                >
-                  {isAssigning ? 'Assigning...' : 'Assign'}
-                </Button>
-              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Work Orders List */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Work Orders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredWorkOrders.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  <p>No work orders found.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredWorkOrders.map((workOrder) => {
+                    const workOrderQuotes = getWorkOrderQuotes(workOrder.id)
+                    const hasAcceptedQuote = workOrderQuotes.some(q => q.status === 'accepted')
+                    
+                    return (
+                      <div key={workOrder.id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold">{workOrder.title}</h3>
+                              <Badge className={getStatusBadge(workOrder.status)}>
+                                {workOrder.status.replace(/_/g, ' ')}
+                              </Badge>
+                            </div>
+                            
+                            <p className="text-gray-600 mb-3">{workOrder.description}</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                              <div>
+                                <p><strong>Client:</strong> {getClientName(workOrder.clientId)}</p>
+                                <p><strong>Category:</strong> {getCategoryName(workOrder.categoryId)}</p>
+                                <p><strong>Estimated Cost:</strong> ${workOrder.estimatedCost}</p>
+                              </div>
+                              <div>
+                                <p><strong>Service Date:</strong> {new Date(workOrder.estimatedDateOfService).toLocaleDateString()}</p>
+                                <p><strong>Created:</strong> {new Date(workOrder.createdAt).toLocaleDateString()}</p>
+                                <p><strong>Quotes:</strong> {workOrderQuotes.length}</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2 ml-4">
+                            {/* View Button - Always available */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewWorkOrder(workOrder)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </Button>
+
+                            {/* Edit Button - Available for most statuses except completed/cancelled */}
+                            {!['completed', 'cancelled', 'rejected'].includes(workOrder.status) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditWorkOrder(workOrder)}
+                              >
+                                <Edit className="w-4 h-4 mr-1" />
+                                Edit
+                              </Button>
+                            )}
+
+                            {/* Delete Button - Available for all statuses */}
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => {
+                                // Refresh data before showing delete modal to ensure we have latest work order
+                                fetchData().then(() => {
+                                  const updatedWorkOrder = workOrders.find(wo => wo.id === workOrder.id)
+                                  if (updatedWorkOrder) {
+                                    setSelectedWorkOrder(updatedWorkOrder)
+                                    setShowDeleteModal(true)
+                                  } else {
+                                    error('Work Order Not Found', 'This work order no longer exists and cannot be deleted.')
+                                  }
+                                })
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Delete
+                            </Button>
+
+                            {/* Approve/Reject Buttons - Only for pending status */}
+                            {workOrder.status === 'pending' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveWorkOrder(workOrder)}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedWorkOrder(workOrder)
+                                    setShowRejectModal(true)
+                                  }}
+                                  variant="destructive"
+                                >
+                                  <XCircle className="w-4 h-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+
+                            {/* Status-specific action buttons */}
+                            {workOrder.status === 'approved' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleGetEstimates(workOrder)}
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                Get Estimates
+                              </Button>
+                            )}
+                            
+                            {workOrder.status === 'quotes_received' && (
+                              <Button
+                                size="sm"
+                                onClick={() => setShowQuoteModal(true)}
+                                className="bg-purple-600 hover:bg-purple-700"
+                              >
+                                <FileText className="w-4 h-4 mr-1" />
+                                View Quotes
+                              </Button>
+                            )}
+                            
+                            {workOrder.status === 'quote_approved' && hasAcceptedQuote && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleAssignWorkOrder(workOrder)}
+                                className="bg-orange-600 hover:bg-orange-700"
+                              >
+                                Assign Work Order
+                              </Button>
+                            )}
+                            
+                            {workOrder.status === 'completed_by_contractor' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleCreateInvoice(workOrder)}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <DollarSign className="w-4 h-4 mr-1" />
+                                Create Invoice
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-      )}
 
-      {/* Rejection Modal */}
-      {showRejectionModal && selectedWorkOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Reject Work Order</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        {/* Create Work Order Modal */}
+        <Modal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          title="Create Work Order"
+        >
+          <form onSubmit={handleCreateWorkOrder} className="space-y-4">
+            <div>
+              <Label htmlFor="title">Title *</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => handleInputChange('title', e.target.value)}
+                placeholder="Enter work order title"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="description">Description *</Label>
+              <Input
+                id="description"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Enter work order description"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="reason">Rejection Reason</Label>
-                <Textarea
-                  id="reason"
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Please provide a reason for rejection..."
-                  rows={3}
+                <Label htmlFor="clientId">Client *</Label>
+                <Select value={formData.clientId} onValueChange={(value) => handleInputChange('clientId', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.fullName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="categoryId">Category *</Label>
+                <Select value={formData.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="estimatedCost">Estimated Cost *</Label>
+                <Input
+                  id="estimatedCost"
+                  type="number"
+                  value={formData.estimatedCost}
+                  onChange={(e) => handleInputChange('estimatedCost', e.target.value)}
+                  placeholder="Enter estimated cost"
+                  required
                 />
               </div>
-              <div className="flex justify-end gap-2">
+
+              <div>
+                <Label htmlFor="estimatedDateOfService">Service Date *</Label>
+                <Input
+                  id="estimatedDateOfService"
+                  type="date"
+                  value={formData.estimatedDateOfService}
+                  onChange={(e) => handleInputChange('estimatedDateOfService', e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
+                Create Work Order
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* View Work Order Modal */}
+        <Modal
+          isOpen={showViewModal}
+          onClose={() => setShowViewModal(false)}
+          title="View Work Order"
+        >
+          {selectedWorkOrder && (
+            <div className="space-y-4">
+              <div className="p-4 border rounded-lg">
+                <h3 className="font-semibold text-lg mb-2">{selectedWorkOrder.title}</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p><strong>Status:</strong> <span className={`px-2 py-1 rounded text-xs ${getStatusBadge(selectedWorkOrder.status)}`}>{selectedWorkOrder.status}</span></p>
+                    <p><strong>Client:</strong> {getClientName(selectedWorkOrder.clientId)}</p>
+                    <p><strong>Category:</strong> {getCategoryName(selectedWorkOrder.categoryId)}</p>
+                  </div>
+                  <div>
+                    <p><strong>Estimated Cost:</strong> ${selectedWorkOrder.estimatedCost}</p>
+                    <p><strong>Service Date:</strong> {new Date(selectedWorkOrder.estimatedDateOfService).toLocaleDateString()}</p>
+                    <p><strong>Created:</strong> {new Date(selectedWorkOrder.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p><strong>Description:</strong></p>
+                  <p className="text-gray-600">{selectedWorkOrder.description}</p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={() => setShowViewModal(false)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {/* Edit Work Order Modal */}
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          title="Edit Work Order"
+        >
+          {selectedWorkOrder && (
+            <form onSubmit={handleUpdateWorkOrder} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-title">Title *</Label>
+                <Input
+                  id="edit-title"
+                  value={formData.title}
+                  onChange={(e) => handleInputChange('title', e.target.value)}
+                  placeholder="Enter work order title"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-description">Description *</Label>
+                <Input
+                  id="edit-description"
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Enter work order description"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-clientId">Client *</Label>
+                  <Select value={formData.clientId} onValueChange={(value) => handleInputChange('clientId', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.fullName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-categoryId">Category *</Label>
+                  <Select value={formData.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-estimatedCost">Estimated Cost *</Label>
+                  <Input
+                    id="edit-estimatedCost"
+                    type="number"
+                    value={formData.estimatedCost}
+                    onChange={(e) => handleInputChange('estimatedCost', e.target.value)}
+                    placeholder="Enter estimated cost"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-estimatedDateOfService">Service Date *</Label>
+                  <Input
+                    id="edit-estimatedDateOfService"
+                    type="date"
+                    value={formData.estimatedDateOfService}
+                    onChange={(e) => handleInputChange('estimatedDateOfService', e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
                 <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-primary hover:bg-primary/90">
+                  Update Work Order
+                </Button>
+              </div>
+            </form>
+          )}
+        </Modal>
+
+        {/* Reject Work Order Modal */}
+        <Modal
+          isOpen={showRejectModal}
+          onClose={() => setShowRejectModal(false)}
+          title="Reject Work Order"
+        >
+          <div className="space-y-4">
+            <div className="p-3 bg-red-50 border border-red-200 rounded">
+              <h4 className="font-medium text-red-800">Reject Work Order</h4>
+              <p className="text-sm text-red-600">Please provide a reason for rejecting this work order.</p>
+            </div>
+
+            <div>
+              <Label htmlFor="rejectionReason">Rejection Reason *</Label>
+              <Input
+                id="rejectionReason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Enter reason for rejection"
+                required
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowRejectModal(false)
+                  setRejectionReason('')
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRejectWorkOrder}
+                variant="destructive"
+                disabled={!rejectionReason.trim()}
+              >
+                Reject Work Order
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Get Estimates Modal */}
+        <Modal
+          isOpen={showGetEstimatesModal}
+          onClose={() => setShowGetEstimatesModal(false)}
+          title="Get Estimates"
+        >
+          {selectedWorkOrder && (
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                <h4 className="font-medium text-blue-800">{selectedWorkOrder.title}</h4>
+                <p className="text-sm text-blue-600">Category: {getCategoryName(selectedWorkOrder.categoryId)}</p>
+              </div>
+
+              <div>
+                <Label>Select Subcontractors</Label>
+                <div className="space-y-2 mt-2 max-h-60 overflow-y-auto">
+                  {subcontractors
+                    .filter(sub => sub.categoryId === selectedWorkOrder.categoryId)
+                    .map((subcontractor) => (
+                      <div key={subcontractor.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={subcontractor.id}
+                          checked={selectedSubcontractors.includes(subcontractor.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedSubcontractors(prev => [...prev, subcontractor.id])
+                            } else {
+                              setSelectedSubcontractors(prev => prev.filter(id => id !== subcontractor.id))
+                            }
+                          }}
+                        />
+                        <label htmlFor={subcontractor.id} className="text-sm">
+                          {subcontractor.fullName} - {subcontractor.title}
+                        </label>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  type="button"
                   variant="outline"
                   onClick={() => {
-                    setShowRejectionModal(false)
-                    setSelectedWorkOrder(null)
-                    setRejectionReason('')
+                    setShowGetEstimatesModal(false)
+                    setSelectedSubcontractors([])
                   }}
                 >
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleRejectWorkOrder}
-                  disabled={!rejectionReason.trim()}
-                  className="bg-red-600 hover:bg-red-700"
+                  onClick={handleSelectSubcontractors}
+                  disabled={selectedSubcontractors.length === 0}
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
-                  Reject Work Order
+                  Send Estimates Request
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          )}
+        </Modal>
 
-      {/* Create Invoice Modal */}
-      <CreateInvoiceModal
-        isOpen={showInvoiceModal}
-        onClose={() => {
-          setShowInvoiceModal(false)
-          setSelectedWorkOrderForInvoice(null)
-        }}
-        onSubmit={handleCreateInvoice}
-        isSubmitting={isCreatingInvoice}
-        quotes={quotes}
-      />
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false)
+            setSelectedWorkOrder(null)
+          }}
+          title="Delete Work Order"
+        >
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Delete Work Order
+              </h3>
+              <p className="text-sm text-gray-500">
+                Are you sure you want to delete this work order? This action cannot be undone.
+              </p>
+              {selectedWorkOrder && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="font-medium text-gray-900">{selectedWorkOrder.title}</p>
+                  <p className="text-sm text-gray-500">Status: {selectedWorkOrder.status}</p>
+                  <p className="text-sm text-gray-500">Client: {getClientName(selectedWorkOrder.clientId)}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setSelectedWorkOrder(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteWorkOrder}
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete Work Order
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </>
   )

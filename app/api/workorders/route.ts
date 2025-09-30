@@ -1,129 +1,143 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { initializeApp } from 'firebase/app'
-import { db } from '@/lib/firebase'
-import { generateWorkOrderIdSimple } from '@/lib/workorder-id-generator'
+import { db, COLLECTIONS, addDocument, getDocuments } from '@/lib/firebase'
+import { doc, getDoc } from 'firebase/firestore'
+import { WorkOrder } from '@/lib/types'
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
-  authDomain: "heyspruceappv2.firebaseapp.com",
-  projectId: "heyspruceappv2",
-  storageBucket: "heyspruceappv2.firebasestorage.app",
-  messagingSenderId: "198738285054",
-  appId: "1:198738285054:web:6878291b080771623a70af",
-  measurementId: "G-82NKE8271G"
-}
-
-const app = initializeApp(firebaseConfig)
-
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const workOrderData = await request.json()
-    console.log('Received work order data:', workOrderData)
-
-    const requiredFields = [
-      'title', 'description', 'priority', 'category', 'location',
-      'clientId', 'clientName', 'clientEmail', 'createdBy'
-    ]
-
-    const missingFields = requiredFields.filter(field => !workOrderData[field])
+    const { data, error } = await getDocuments(COLLECTIONS.WORK_ORDERS)
     
-    if (missingFields.length > 0) {
-      console.error('Missing required fields:', missingFields)
+    if (error) {
       return NextResponse.json(
-        { 
-          error: `Missing required fields: ${missingFields.join(', ')}`,
-          missingFields 
-        },
-        { status: 400 }
+        { error: 'Failed to fetch work orders' },
+        { status: 500 }
       )
     }
 
-    // Generate sequential work order ID
-    const workOrderId = await generateWorkOrderIdSimple()
-    
-    const workOrderRecord = {
-      workOrderId: workOrderId, // Add the sequential ID
-      title: workOrderData.title,
-      description: workOrderData.description,
-      priority: workOrderData.priority,
-      category: workOrderData.category,
-      status: 'pending', // New work orders need admin approval
-      location: workOrderData.location,
-      clientId: workOrderData.clientId,
-      clientName: workOrderData.clientName,
-      clientEmail: workOrderData.clientEmail,
-      createdBy: workOrderData.createdBy,
-      estimatedCost: workOrderData.estimatedCost ? parseFloat(workOrderData.estimatedCost) : 0,
-      estimatedDuration: workOrderData.estimatedDuration ? parseFloat(workOrderData.estimatedDuration) : 0,
-      scheduledDate: workOrderData.scheduledDate || '',
-      notes: workOrderData.notes || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
+    return NextResponse.json(data)
 
-    const docRef = await addDoc(collection(db, 'workorders'), workOrderRecord)
-
-    return NextResponse.json({
-      success: true,
-      workOrderId: docRef.id,
-      workOrderNumber: workOrderId,
-      message: 'Work order submitted for approval'
-    })
-
-  } catch (error) {
-    console.error('Work order creation error:', error)
+  } catch (error: any) {
+    console.error('Error fetching work orders:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch work orders' },
       { status: 500 }
     )
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-    const role = searchParams.get('role')
+    const data = await request.json()
+    console.log('📝 Work Order Creation Request:', {
+      title: data.title,
+      clientId: data.clientId,
+      categoryId: data.categoryId,
+      locationId: data.locationId
+    })
 
-    let q
-    if (role === 'admin') {
-      // Admin can see all work orders
-      q = query(collection(db, 'workorders'), orderBy('createdAt', 'desc'))
-    } else if (role === 'client' && userId) {
-      // Client can only see their own work orders
-      q = query(
-        collection(db, 'workorders'),
-        where('clientId', '==', userId)
+    // Validate required fields
+    if (!data.title || !data.description || !data.clientId || !data.categoryId || !data.estimatedCost || !data.estimatedDateOfService) {
+      console.log('❌ Missing required fields')
+      return NextResponse.json(
+        { error: 'Missing required fields: title, description, clientId, categoryId, estimatedCost, estimatedDateOfService' },
+        { status: 400 }
       )
-    } else if (role === 'subcontractor' && userId) {
-      // Subcontractor can only see work orders assigned to them
-      q = query(
-        collection(db, 'workorders'),
-        where('assignedTo', '==', userId)
-      )
-    } else {
-      return NextResponse.json({ error: 'Invalid request parameters' }, { status: 400 })
+    }
+    
+    // Set createdBy if not provided
+    if (!data.createdBy) {
+      data.createdBy = 'admin'
     }
 
-    const querySnapshot = await getDocs(q)
-    const workOrders = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as any[]
+    // Get client and category names
+    console.log(`🔍 Looking for client: ${data.clientId}`)
+    const clientDoc = await getDoc(doc(db, COLLECTIONS.CLIENTS, data.clientId))
+    console.log(`🔍 Looking for category: ${data.categoryId}`)
+    const categoryDoc = await getDoc(doc(db, COLLECTIONS.CATEGORIES, data.categoryId))
+    
+    if (!clientDoc.exists() || !categoryDoc.exists()) {
+      console.log('❌ Document check failed:')
+      console.log(`   Client exists: ${clientDoc.exists()}`)
+      console.log(`   Category exists: ${categoryDoc.exists()}`)
+      return NextResponse.json(
+        { 
+          error: 'Client or category not found',
+          details: {
+            clientExists: clientDoc.exists(),
+            categoryExists: categoryDoc.exists(),
+            clientId: data.clientId,
+            categoryId: data.categoryId
+          }
+        },
+        { status: 404 }
+      )
+    }
+    
+    console.log('✅ Found client and category')
 
-    // Sort by createdAt manually for client and subcontractor queries
-    if (role === 'client' || role === 'subcontractor') {
-      workOrders.sort((a, b) => {
-        const dateA = new Date(a.createdAt || 0).getTime()
-        const dateB = new Date(b.createdAt || 0).getTime()
-        return dateB - dateA // Descending order
-      })
+    const clientData = clientDoc.data()
+    const categoryData = categoryDoc.data()
+    
+    if (!clientData || !categoryData) {
+      return NextResponse.json(
+        { error: 'Client or category data not found' },
+        { status: 404 }
+      )
     }
 
-    return NextResponse.json({ success: true, workOrders })
-  } catch (error) {
-    console.error('Error fetching work orders:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    // Get location data if locationId is provided
+    let locationData = null
+    if (data.locationId) {
+      const locationDoc = await getDoc(doc(db, COLLECTIONS.LOCATIONS, data.locationId))
+      if (locationDoc.exists()) {
+        locationData = locationDoc.data()
+      }
+    }
+
+    const workOrderData: Omit<WorkOrder, 'id'> = {
+      title: data.title,
+      description: data.description,
+      priority: data.priority || 'medium',
+      status: 'pending',
+      categoryId: data.categoryId,
+      categoryName: categoryData.name,
+      location: locationData ? {
+        id: data.locationId,
+        name: locationData.name,
+        address: `${locationData.address?.street || ''}, ${locationData.address?.city || ''}, ${locationData.address?.state || ''} ${locationData.address?.zipCode || ''}`.trim()
+      } : {
+        id: data.locationId || '',
+        name: data.locationName || 'No location specified',
+        address: data.locationAddress || ''
+      },
+      clientId: data.clientId,
+      clientName: clientData.companyName || clientData.fullName,
+      clientEmail: clientData.email,
+      estimatedCost: parseFloat(data.estimatedCost),
+      estimatedDateOfService: data.estimatedDateOfService,
+      createdBy: data.createdBy,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes: data.notes || ''
+    }
+
+    const { id, error: createError } = await addDocument(COLLECTIONS.WORK_ORDERS, workOrderData)
+
+    if (createError) {
+      throw new Error(createError)
+    }
+
+    return NextResponse.json({
+      success: true,
+      workOrderId: id,
+      message: 'Work order created successfully'
+    })
+
+  } catch (error: any) {
+    console.error('Error creating work order:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to create work order' },
+      { status: 500 }
+    )
   }
 }

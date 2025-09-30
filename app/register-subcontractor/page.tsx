@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -63,6 +63,7 @@ export default function RegisterSubcontractorPage() {
     email: '',
     phone: '',
     title: '',
+    categoryId: '',
     skills: [],
     experience: '',
     hourlyRate: '',
@@ -86,7 +87,28 @@ export default function RegisterSubcontractorPage() {
     ]
   })
 
+  const [categories, setCategories] = useState<any[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
+
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
+
+  // Fetch categories on component mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/categories')
+        if (response.ok) {
+          const data = await response.json()
+          setCategories(data.filter((cat: any) => cat.isActive))
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err)
+      } finally {
+        setLoadingCategories(false)
+      }
+    }
+    fetchCategories()
+  }, [])
 
   const handleInputChange = (field: string, value: any) => {
     if (field.includes('.')) {
@@ -143,6 +165,11 @@ export default function RegisterSubcontractorPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!formData.categoryId) {
+      error('Please select a category')
+      return
+    }
 
     if (selectedSkills.length === 0) {
       error('Please select at least one skill')
@@ -264,6 +291,30 @@ export default function RegisterSubcontractorPage() {
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="categoryId">Category *</Label>
+                <Select
+                  value={formData.categoryId}
+                  onValueChange={(value) => handleInputChange('categoryId', value)}
+                  required
+                  disabled={loadingCategories}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select your category"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {loadingCategories && (
+                  <p className="text-sm text-gray-500 mt-1">Loading available categories...</p>
+                )}
               </div>
             </CardContent>
           </Card>

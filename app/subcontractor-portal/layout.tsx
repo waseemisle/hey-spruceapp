@@ -22,12 +22,9 @@ import {
 
 const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: TrendingUp, path: '/subcontractor-portal' },
-  { id: 'workorders', label: 'Work Orders', icon: Wrench, path: '/subcontractor-portal/workorders' },
-  { id: 'proposals', label: 'Proposals', icon: FileText, path: '/subcontractor-portal' },
-  { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/subcontractor-portal' },
-  { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/subcontractor-portal' },
-  { id: 'ratings', label: 'Ratings', icon: Star, path: '/subcontractor-portal' },
-  { id: 'settings', label: 'Settings', icon: Settings, path: '/subcontractor-portal' }
+  { id: 'skills', label: 'Skills', icon: Settings, path: '/subcontractor-portal/skills' },
+  { id: 'open-for-bidding', label: 'Open for Bidding', icon: DollarSign, path: '/subcontractor-portal/bidding' },
+  { id: 'my-assigned', label: 'My Assigned', icon: Wrench, path: '/subcontractor-portal/assigned' }
 ]
 
 

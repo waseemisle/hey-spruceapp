@@ -23,11 +23,8 @@ const sidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: TrendingUp, path: '/client-portal' },
   { id: 'locations', label: 'Locations', icon: Building2, path: '/client-portal/locations' },
   { id: 'workorders', label: 'Work Orders', icon: Wrench, path: '/client-portal/workorders' },
-  { id: 'quotes', label: 'Quotes', icon: Receipt, path: '/client-portal/quotes' },
-  { id: 'billing', label: 'Billing', icon: DollarSign, path: '/client-portal' },
-  { id: 'reports', label: 'Reports', icon: FileText, path: '/client-portal' },
-  { id: 'notifications', label: 'Notifications', icon: Bell, path: '/client-portal' },
-  { id: 'settings', label: 'Settings', icon: Settings, path: '/client-portal' }
+  { id: 'quotes', label: 'Quotes', icon: FileText, path: '/client-portal/quotes' },
+  { id: 'invoices', label: 'Invoices', icon: Receipt, path: '/client-portal/invoices' }
 ]
 
 export default function ClientPortalLayout({

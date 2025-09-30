@@ -32,6 +32,16 @@ export interface Location {
   additionalInfo?: string
 }
 
+export interface Category {
+  id: string
+  name: string
+  description?: string
+  isActive: boolean
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface LocationFormData {
   name: string
   address: string
@@ -54,8 +64,9 @@ export interface WorkOrder {
   title: string
   description: string
   priority: 'low' | 'medium' | 'high' | 'urgent'
-  status: 'pending' | 'approved' | 'rejected' | 'in-progress' | 'completed' | 'cancelled'
-  category: 'maintenance' | 'repair' | 'installation' | 'inspection' | 'cleaning' | 'other'
+  status: 'pending' | 'approved' | 'rejected' | 'waiting_for_quote' | 'quotes_received' | 'quote_sent_to_client' | 'quote_approved' | 'assigned' | 'in_progress' | 'completed_by_contractor' | 'completed' | 'cancelled'
+  categoryId: string
+  categoryName: string
   location: {
     id: string
     name: string
@@ -66,9 +77,9 @@ export interface WorkOrder {
   clientEmail: string
   assignedTo?: string // subcontractor ID
   assignedToName?: string // subcontractor name
-  estimatedCost?: number
+  estimatedCost: number
+  estimatedDateOfService: string
   actualCost?: number
-  estimatedDuration?: number // in hours
   actualDuration?: number // in hours
   scheduledDate?: string
   completedDate?: string
@@ -84,10 +95,17 @@ export interface WorkOrder {
   assignedBy?: string
   attachments?: string[] // file URLs
   notes?: string
-  quoteStatus?: 'pending' | 'sent' | 'accepted' | 'rejected' | 'expired'
-  quoteId?: string
-  quoteApprovedAt?: string
-  quoteApprovedBy?: string
+  quotes?: {
+    id: string
+    subcontractorId: string
+    subcontractorName: string
+    amount: number
+    status: 'pending' | 'shared_with_client' | 'accepted' | 'rejected'
+    createdAt: string
+  }[]
+  selectedSubcontractors?: string[] // IDs of subcontractors selected for bidding
+  sharedWithClient?: boolean
+  invoiceId?: string
 }
 
 export interface WorkOrderFormData {
@@ -109,6 +127,8 @@ export interface Subcontractor {
   email: string
   phone: string
   title: string
+  categoryId: string
+  categoryName: string
   skills: string[]
   experience: string
   hourlyRate?: number
@@ -145,6 +165,7 @@ export interface SubcontractorRegistrationData {
   email: string
   phone: string
   title: string
+  categoryId: string
   skills: string[]
   experience: string
   hourlyRate?: string
@@ -169,6 +190,54 @@ export interface SubcontractorRegistrationData {
   }[]
 }
 
+export interface ClientRegistrationData {
+  fullName: string
+  email: string
+  phone: string
+  companyName?: string
+  businessType?: string
+  numberOfProperties?: string
+  estimatedMonthlySpend?: string
+  preferredServices?: string[]
+  password: string
+  confirmPassword: string
+  address: {
+    street: string
+    city: string
+    state: string
+    zipCode: string
+    country: string
+  }
+}
+
+export interface Client {
+  id: string
+  userId: string
+  fullName: string
+  email: string
+  phone: string
+  companyName?: string
+  businessType?: string
+  numberOfProperties?: number
+  estimatedMonthlySpend?: number
+  preferredServices?: string[]
+  status: 'pending' | 'approved' | 'rejected'
+  address: {
+    street: string
+    city: string
+    state: string
+    zipCode: string
+    country: string
+  }
+  createdAt: string
+  updatedAt: string
+  approvedAt?: string
+  approvedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
+  rejectionReason?: string
+}
+
 export interface Quote {
   id: string
   workOrderId: string
@@ -182,8 +251,13 @@ export interface Quote {
   clientId: string
   clientName: string
   clientEmail: string
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
-  totalAmount: number
+  subcontractorId: string
+  subcontractorName: string
+  subcontractorEmail: string
+  status: 'pending' | 'shared_with_client' | 'accepted' | 'rejected' | 'edited_by_admin'
+  originalAmount: number // Amount submitted by subcontractor
+  clientAmount: number // Amount shown to client (original + 20%)
+  markupPercentage: number // Default 20%
   laborCost: number
   materialCost: number
   additionalCosts: number
@@ -194,13 +268,16 @@ export interface Quote {
   lineItems: QuoteLineItem[]
   notes?: string
   terms?: string
-  createdBy: string // admin ID who created it
+  adminNotes?: string // Notes added by admin when editing
+  createdBy: string // subcontractor ID who submitted it
   createdAt: string
   updatedAt: string
   sentAt?: string
   acceptedAt?: string
   rejectedAt?: string
   rejectionReason?: string
+  editedBy?: string // admin ID who edited it
+  editedAt?: string
 }
 
 export interface QuoteLineItem {
@@ -271,6 +348,8 @@ export interface Invoice {
   notes?: string
   terms?: string
   dueDate: string
+  invoiceNumber: string
+  pdfUrl?: string
   createdBy: string // admin ID who created it
   createdAt: string
   updatedAt: string
@@ -304,11 +383,23 @@ export interface WorkflowStatus {
   workOrderId: string
   quoteId?: string
   invoiceId?: string
-  currentStep: 'quote_created' | 'quote_sent' | 'quote_approved' | 'quote_rejected' | 'work_assigned' | 'work_in_progress' | 'work_completed' | 'invoice_created' | 'invoice_sent' | 'invoice_paid'
+  currentStep: 'workorder_created' | 'waiting_for_quote' | 'quotes_received' | 'quote_sent_to_client' | 'quote_approved' | 'work_assigned' | 'work_in_progress' | 'work_completed' | 'invoice_created' | 'invoice_sent' | 'invoice_paid'
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
   lastUpdated: string
   lastUpdatedBy: string
   notes?: string
+}
+
+export interface AdminUser {
+  id: string
+  userId: string
+  fullName: string
+  email: string
+  role: 'admin'
+  isActive: boolean
+  createdBy: string // admin ID who created this admin
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ScheduledInvoice {
@@ -344,4 +435,49 @@ export interface ScheduledInvoiceFormData {
   time: string
   timezone: string
   notes?: string
+}
+
+export interface BiddingWorkOrder {
+  id: string
+  workOrderId: string
+  workOrderTitle: string
+  workOrderDescription: string
+  workOrderLocation: {
+    id: string
+    name: string
+    address: string
+  }
+  clientId: string
+  clientName: string
+  categoryId: string
+  categoryName: string
+  estimatedCost: number
+  estimatedDateOfService: string
+  status: 'open_for_bidding' | 'quote_submitted' | 'closed'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AssignedWorkOrder {
+  id: string
+  workOrderId: string
+  workOrderTitle: string
+  workOrderDescription: string
+  workOrderLocation: {
+    id: string
+    name: string
+    address: string
+  }
+  clientId: string
+  clientName: string
+  categoryId: string
+  categoryName: string
+  estimatedCost: number
+  actualCost?: number
+  estimatedDateOfService: string
+  scheduledDate?: string
+  status: 'assigned' | 'in_progress' | 'completed' | 'cancelled'
+  assignedAt: string
+  createdAt: string
+  updatedAt: string
 }

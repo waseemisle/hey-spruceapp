@@ -331,29 +331,30 @@ export default function PortalLogin() {
                   </div>
                 </div>
                 
-                {/* Signup Link */}
-                <div className="text-center text-sm text-gray-600">
-                  New to Spruce App?{' '}
-                  <a
-                    href="/register"
-                    className="text-primary hover:underline font-semibold"
-                  >
-                    Register as Client
-                  </a>
-                  {' '}or{' '}
-                  <a
-                    href="/register-subcontractor"
-                    className="text-primary hover:underline font-semibold"
-                  >
-                    Register as Subcontractor
-                  </a>
-                  {' '}or{' '}
-                  <button
-                    onClick={handleSignupRequest}
-                    className="text-primary hover:underline font-semibold"
-                  >
-                    Request Access
-                  </button>
+                {/* Registration Options */}
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-4">New to Spruce App?</p>
+                  <div className="space-y-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-10"
+                      onClick={() => router.push('/register-client')}
+                    >
+                      Register as Client
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-10"
+                      onClick={() => router.push('/register-subcontractor')}
+                    >
+                      Register as Subcontractor
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3">
+                    Note: Client and Subcontractor accounts require admin approval before login access.
+                  </p>
                 </div>
               </div>
               

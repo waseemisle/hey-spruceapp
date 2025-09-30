@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth'
-import { getFirestore, doc, getDoc, setDoc, collection } from 'firebase/firestore'
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, User, createUserWithEmailAndPassword } from 'firebase/auth'
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, getDocs, query, where, orderBy, limit, Timestamp } from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
@@ -73,6 +73,15 @@ export async function signInWithFirebase(email: string, password: string) {
   }
 }
 
+export async function createUserWithFirebase(email: string, password: string) {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+    return { user: userCredential.user, error: null }
+  } catch (error: any) {
+    return { user: null, error: error.message }
+  }
+}
+
 export async function signOutFirebase() {
   try {
     await signOut(auth)
@@ -130,9 +139,9 @@ export async function createUserProfile(user: {
 // Portal access helpers
 export function canAccessPortal(userRole: string, portalType: string): boolean {
   const portalRoleMap: Record<string, string[]> = {
-    'client': ['client', 'admin'],
+    'client': ['client'],
     'admin': ['admin'],
-    'subcontractor': ['subcontractor', 'admin']
+    'subcontractor': ['subcontractor']
   }
   return portalRoleMap[portalType]?.includes(userRole) || false
 }
@@ -171,3 +180,90 @@ export const demoUsers = [
     fullName: 'Demo Subcontractor'
   }
 ]
+
+// Collection names
+export const COLLECTIONS = {
+  USERS: 'users',
+  CLIENTS: 'clients',
+  SUBCONTRACTORS: 'subcontractors',
+  ADMIN_USERS: 'adminUsers',
+  LOCATIONS: 'locations',
+  CATEGORIES: 'categories',
+  WORK_ORDERS: 'workOrders',
+  QUOTES: 'quotes',
+  INVOICES: 'invoices',
+  BIDDING_WORK_ORDERS: 'biddingWorkOrders',
+  ASSIGNED_WORK_ORDERS: 'assignedWorkOrders',
+  SCHEDULED_INVOICES: 'scheduledInvoices',
+  WORKFLOW_STATUS: 'workflowStatus'
+} as const
+
+// Utility functions for Firebase operations
+export async function addDocument(collectionName: string, data: any) {
+  try {
+    const docRef = await addDoc(collection(db, collectionName), {
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    })
+    return { id: docRef.id, error: null }
+  } catch (error: any) {
+    return { id: null, error: error.message }
+  }
+}
+
+export async function updateDocument(collectionName: string, docId: string, data: any) {
+  try {
+    await updateDoc(doc(db, collectionName, docId), {
+      ...data,
+      updatedAt: new Date().toISOString()
+    })
+    return { success: true, error: null }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function getDocument(collectionName: string, docId: string) {
+  try {
+    const docRef = doc(db, collectionName, docId)
+    const docSnap = await getDoc(docRef)
+    
+    if (docSnap.exists()) {
+      return { data: { id: docSnap.id, ...docSnap.data() }, error: null }
+    } else {
+      return { data: null, error: 'Document not found' }
+    }
+  } catch (error: any) {
+    return { data: null, error: error.message }
+  }
+}
+
+export async function getDocuments(collectionName: string, constraints?: any[]) {
+  try {
+    let q = collection(db, collectionName)
+    
+    if (constraints && constraints.length > 0) {
+      q = query(collection(db, collectionName), ...constraints)
+    }
+    
+    const querySnapshot = await getDocs(q)
+    const documents = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    
+    return { data: documents, error: null }
+  } catch (error: any) {
+    return { data: [], error: error.message }
+  }
+}
+
+export async function deleteDocument(collectionName: string, docId: string) {
+  try {
+    await deleteDoc(doc(db, collectionName, docId))
+    return { success: true, error: null }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}

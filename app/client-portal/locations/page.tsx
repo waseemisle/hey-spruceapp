@@ -2,79 +2,105 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import Modal from '@/components/ui/modal'
 import { useAuth } from '@/lib/auth'
-import { db } from '@/lib/firebase'
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
-import { Location } from '@/lib/types'
-import CreateLocationModal from '@/components/modals/CreateLocationModal'
+import { Location, LocationFormData } from '@/lib/types'
+import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
   Plus, 
   Search, 
   MapPin, 
   Building2, 
-  CheckCircle, 
-  XCircle, 
+  Edit,
+  Eye,
   Clock,
-  Eye
+  CheckCircle,
+  XCircle
 } from 'lucide-react'
 
 export default function ClientLocationsPage() {
   const router = useRouter()
-  const { user, profile, loading } = useAuth()
+  const { user, profile } = useAuth()
+  const { notifications, removeNotification, success, error } = useNotifications()
+  
   const [locations, setLocations] = useState<Location[]>([])
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
+  
+  const [formData, setFormData] = useState<LocationFormData>({
+    name: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'USA',
+    description: '',
+    type: 'office',
+    contactInfo: {
+      phone: '',
+      email: '',
+      contactPerson: ''
+    },
+    additionalInfo: ''
+  })
 
   useEffect(() => {
-    if (!loading && (!user || !profile)) {
-      router.push('/portal-login')
+    fetchLocations()
+  }, [])
+
+  const fetchLocations = async () => {
+    try {
+      const response = await fetch('/api/client/locations')
+      if (response.ok) {
+        const data = await response.json()
+        setLocations(data)
+      } else {
+        error('Fetch Error', 'Failed to load locations')
+      }
+    } catch (err) {
+      error('Fetch Error', 'Error loading locations')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleInputChange = (field: string, value: any) => {
+    if (field.startsWith('contactInfo.')) {
+      const contactField = field.split('.')[1]
+      setFormData(prev => ({
+        ...prev,
+        contactInfo: {
+          ...prev.contactInfo,
+          [contactField]: value
+        }
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }))
+    }
+  }
+
+  const handleCreateLocation = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.name || !formData.address || !formData.city || !formData.state || !formData.zipCode) {
+      error('Validation Error', 'Please fill in all required fields')
       return
     }
 
-    if (profile && profile.role !== 'client') {
-      router.push('/portal-login')
-      return
-    }
-  }, [user, profile, loading, router])
-
-  // Fetch client's own locations from Firestore
-  useEffect(() => {
-    if (profile && profile.role === 'client') {
-      console.log('Fetching locations for client:', profile.id)
-      
-      // Try without orderBy first to avoid index issues
-      const q = query(
-        collection(db, 'locations'),
-        where('clientId', '==', profile.id)
-      )
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const locationsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Location[]
-        
-        // Sort manually by createdAt (most recent first)
-        locationsData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        
-        console.log('Fetched client locations:', locationsData)
-        console.log('Total locations found:', locationsData.length)
-        setLocations(locationsData)
-      }, (error) => {
-        console.error('Error fetching client locations:', error)
-        console.error('Error details:', error.message)
-      })
-
-      return () => unsubscribe()
-    }
-  }, [profile])
-
-  const handleCreateLocation = async (locationData: any) => {
     try {
       const response = await fetch('/api/locations', {
         method: 'POST',
@@ -82,12 +108,12 @@ export default function ClientLocationsPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...locationData,
+          ...formData,
           clientId: profile?.id,
           clientName: profile?.fullName,
           clientEmail: profile?.email,
-          createdBy: profile?.id
-        })
+          createdBy: user?.uid
+        }),
       })
 
       const data = await response.json()
@@ -96,33 +122,97 @@ export default function ClientLocationsPage() {
         throw new Error(data.error || 'Failed to create location')
       }
 
-      alert('Location submitted successfully! It will be reviewed by admin.')
-      setShowCreateForm(false)
-    } catch (error) {
-      console.error('Error creating location:', error)
-      alert(`Failed to create location: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      success('Location Created', 'Location created successfully and submitted for admin approval!')
+      setShowCreateModal(false)
+      resetForm()
+      fetchLocations()
+    } catch (err: any) {
+      error('Creation Failed', err.message)
     }
   }
 
+  const handleEditLocation = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedLocation || !formData.name || !formData.address || !formData.city || !formData.state || !formData.zipCode) {
+      error('Validation Error', 'Please fill in all required fields')
+      return
+    }
 
-  // Filter locations based on search
-  const filteredLocations = locations.filter(location => {
-    return location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           location.city.toLowerCase().includes(searchTerm.toLowerCase())
-  })
+    try {
+      const response = await fetch(`/api/locations/${selectedLocation.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
 
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800'
-      case 'rejected': return 'bg-red-100 text-red-800'
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
-      default: return 'bg-gray-100 text-gray-800'
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update location')
+      }
+
+      success('Location Updated', 'Location updated successfully!')
+      setShowEditModal(false)
+      setSelectedLocation(null)
+      resetForm()
+      fetchLocations()
+    } catch (err: any) {
+      error('Update Failed', err.message)
     }
   }
 
-  // Get status icon
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: 'USA',
+      description: '',
+      type: 'office',
+      contactInfo: {
+        phone: '',
+        email: '',
+        contactPerson: ''
+      },
+      additionalInfo: ''
+    })
+  }
+
+  const openEditModal = (location: Location) => {
+    setSelectedLocation(location)
+    setFormData({
+      name: location.name,
+      address: location.address,
+      city: location.city,
+      state: location.state,
+      zipCode: location.zipCode,
+      country: location.country,
+      description: location.description || '',
+      type: location.type,
+      contactInfo: location.contactInfo || {
+        phone: '',
+        email: '',
+        contactPerson: ''
+      },
+      additionalInfo: location.additionalInfo || ''
+    })
+    setShowEditModal(true)
+  }
+
+  const getStatusBadge = (status: string) => {
+    const variants = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800'
+    }
+    return variants[status as keyof typeof variants] || 'bg-gray-100 text-gray-800'
+  }
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved': return <CheckCircle className="h-4 w-4" />
@@ -132,201 +222,439 @@ export default function ClientLocationsPage() {
     }
   }
 
+  const filteredLocations = locations.filter(location => {
+    const matchesSearch = location.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         location.city.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || location.status === statusFilter
+    
+    return matchesSearch && matchesStatus
+  })
+
+  const stats = {
+    total: locations.length,
+    pending: locations.filter(l => l.status === 'pending').length,
+    approved: locations.filter(l => l.status === 'approved').length,
+    rejected: locations.filter(l => l.status === 'rejected').length
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Loading locations...</div>
+        </div>
       </div>
     )
   }
 
-  if (!user || !profile) {
-    return null
-  }
-
   return (
-    <div className="p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Locations</h1>
-            <p className="text-gray-600">Manage your locations and track approval status</p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-primary hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add New Location
-            </Button>
-          </div>
+    <>
+      <NotificationContainer notifications={notifications} onRemove={removeNotification} />
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Locations Management</h1>
+          <p className="text-gray-600">Manage your property locations</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Locations</p>
-                  <p className="text-2xl font-bold">{locations.length}</p>
-                </div>
-                <MapPin className="h-8 w-8 text-blue-600" />
-              </div>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Locations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                  <p className="text-2xl font-bold">{locations.filter(l => l.status === 'pending').length}</p>
-                </div>
-                <Clock className="h-8 w-8 text-yellow-600" />
-              </div>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-yellow-600">Pending Approval</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.pending}</div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Approved</p>
-                  <p className="text-2xl font-bold">{locations.filter(l => l.status === 'approved').length}</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600">Approved</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.approved}</div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Rejected</p>
-                  <p className="text-2xl font-bold">{locations.filter(l => l.status === 'rejected').length}</p>
-                </div>
-                <XCircle className="h-8 w-8 text-red-600" />
-              </div>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-red-600">Rejected</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.rejected}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <Label htmlFor="search">Search Locations</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search"
-                    placeholder="Search by name, address, or city..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
+        {/* Filters and Actions */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex gap-4">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search locations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 w-64"
+              />
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Create Location Modal */}
-        <CreateLocationModal
-          isOpen={showCreateForm}
-          onClose={() => setShowCreateForm(false)}
-          onSubmit={handleCreateLocation}
-          isSubmitting={false}
-        />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={() => setShowCreateModal(true)} className="bg-primary hover:bg-primary/90">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Location
+          </Button>
+        </div>
 
         {/* Locations List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Locations ({filteredLocations.length})</CardTitle>
-            <CardDescription>Track the status of your location submissions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredLocations.length === 0 ? (
-              <div className="text-center py-8">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No locations found</p>
-                <p className="text-gray-400 text-sm mt-1">Create your first location to get started</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredLocations.map((location) => (
-                  <div key={location.id} className="border rounded-lg p-6 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <Building2 className="h-5 w-5 text-gray-600" />
-                          <h3 className="text-lg font-semibold">{location.name}</h3>
-                          <Badge className={getStatusColor(location.status)}>
-                            <span className="flex items-center gap-1">
-                              {getStatusIcon(location.status)}
-                              {location.status}
-                            </span>
-                          </Badge>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                          <div>
-                            <p><strong>Address:</strong> {location.address}</p>
-                            <p><strong>City:</strong> {location.city}, {location.state} {location.zipCode}</p>
-                            <p><strong>Type:</strong> {location.type}</p>
-                          </div>
-                          <div>
-                            <p><strong>Submitted:</strong> {new Date(location.createdAt).toLocaleDateString()}</p>
-                            {location.approvedAt && (
-                              <p><strong>Approved:</strong> {new Date(location.approvedAt).toLocaleDateString()}</p>
-                            )}
-                            {location.rejectedAt && (
-                              <p><strong>Rejected:</strong> {new Date(location.rejectedAt).toLocaleDateString()}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {location.description && (
-                          <p className="text-sm text-gray-600 mt-2">
-                            <strong>Description:</strong> {location.description}
-                          </p>
-                        )}
-
-                        {location.rejectionReason && (
-                          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <p className="text-sm text-red-800">
-                              <strong>Rejection Reason:</strong> {location.rejectionReason}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col gap-2 ml-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            // You could implement a view details modal here
-                            alert(`Location: ${location.name}\nAddress: ${location.address}\nStatus: ${location.status}`)
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Button>
-                      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredLocations.map((location) => (
+            <Card key={location.id} className="hover:shadow-md transition-shadow">
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-lg">{location.name}</CardTitle>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge className={getStatusBadge(location.status)}>
+                        <span className="flex items-center gap-1">
+                          {getStatusIcon(location.status)}
+                          {location.status}
+                        </span>
+                      </Badge>
                     </div>
                   </div>
-                ))}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
+                    <div className="text-sm text-gray-600">
+                      <p>{location.address}</p>
+                      <p>{location.city}, {location.state} {location.zipCode}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-600 capitalize">{location.type}</span>
+                  </div>
+                  
+                  {location.description && (
+                    <p className="text-sm text-gray-600">{location.description}</p>
+                  )}
+                  
+                  <div className="text-xs text-gray-500">
+                    Created: {new Date(location.createdAt).toLocaleDateString()}
+                  </div>
+
+                  {location.rejectionReason && (
+                    <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                      <strong>Rejection Reason:</strong> {location.rejectionReason}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditModal(location)}
+                    className="flex-1"
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedLocation(location)}
+                    className="flex-1"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    View
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {filteredLocations.length === 0 && (
+          <Card>
+            <CardContent className="text-center py-12">
+              <div className="text-gray-500 mb-4">
+                <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">No locations found</h3>
+                <p className="text-sm">Create your first location to get started</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <Button onClick={() => setShowCreateModal(true)} className="bg-primary hover:bg-primary/90">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Location
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Create Location Modal */}
+        <Modal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          title="Create New Location"
+        >
+          <form onSubmit={handleCreateLocation} className="space-y-4">
+            <div>
+              <Label htmlFor="name">Location Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Enter location name"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="address">Street Address *</Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                placeholder="Enter street address"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="city">City *</Label>
+                <Input
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  placeholder="City"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="state">State *</Label>
+                <Input
+                  id="state"
+                  value={formData.state}
+                  onChange={(e) => handleInputChange('state', e.target.value)}
+                  placeholder="State"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="zipCode">ZIP Code *</Label>
+                <Input
+                  id="zipCode"
+                  value={formData.zipCode}
+                  onChange={(e) => handleInputChange('zipCode', e.target.value)}
+                  placeholder="ZIP"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="type">Property Type *</Label>
+              <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select property type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="office">Office</SelectItem>
+                  <SelectItem value="warehouse">Warehouse</SelectItem>
+                  <SelectItem value="retail">Retail</SelectItem>
+                  <SelectItem value="residential">Residential</SelectItem>
+                  <SelectItem value="industrial">Industrial</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Enter location description"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="contactPerson">Contact Person</Label>
+              <Input
+                id="contactPerson"
+                value={formData.contactInfo?.contactPerson || ''}
+                onChange={(e) => handleInputChange('contactInfo.contactPerson', e.target.value)}
+                placeholder="Contact person name"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={formData.contactInfo?.phone || ''}
+                  onChange={(e) => handleInputChange('contactInfo.phone', e.target.value)}
+                  placeholder="Phone number"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.contactInfo?.email || ''}
+                  onChange={(e) => handleInputChange('contactInfo.email', e.target.value)}
+                  placeholder="Email address"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
+                Create Location
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* Edit Location Modal */}
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          title="Edit Location"
+        >
+          <form onSubmit={handleEditLocation} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Location Name *</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Enter location name"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-address">Street Address *</Label>
+              <Input
+                id="edit-address"
+                value={formData.address}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                placeholder="Enter street address"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="edit-city">City *</Label>
+                <Input
+                  id="edit-city"
+                  value={formData.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  placeholder="City"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-state">State *</Label>
+                <Input
+                  id="edit-state"
+                  value={formData.state}
+                  onChange={(e) => handleInputChange('state', e.target.value)}
+                  placeholder="State"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-zipCode">ZIP Code *</Label>
+                <Input
+                  id="edit-zipCode"
+                  value={formData.zipCode}
+                  onChange={(e) => handleInputChange('zipCode', e.target.value)}
+                  placeholder="ZIP"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-type">Property Type *</Label>
+              <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select property type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="office">Office</SelectItem>
+                  <SelectItem value="warehouse">Warehouse</SelectItem>
+                  <SelectItem value="retail">Retail</SelectItem>
+                  <SelectItem value="residential">Residential</SelectItem>
+                  <SelectItem value="industrial">Industrial</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Enter location description"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEditModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
+                Update Location
+              </Button>
+            </div>
+          </form>
+        </Modal>
       </div>
-    </div>
+    </>
   )
 }

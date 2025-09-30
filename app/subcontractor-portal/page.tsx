@@ -25,7 +25,8 @@ import {
   AlertCircle,
   FileText,
   Calendar,
-  Star
+  Star,
+  Settings
 } from 'lucide-react'
 
 // Mock data - in real app, this would come from Supabase
@@ -166,6 +167,37 @@ export default function SubcontractorPortal() {
 
   const renderDashboard = () => (
     <div className="space-y-6">
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-lg p-6 text-white">
+        <h2 className="text-2xl font-bold mb-2">Welcome back, {profile?.fullName}!</h2>
+        <p className="text-green-100">Manage your skills, view bidding opportunities, and track your assigned work orders.</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/subcontractor-portal/skills')}>
+          <CardContent className="p-6 text-center">
+            <Settings className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+            <h3 className="font-semibold">Manage Skills</h3>
+            <p className="text-sm text-gray-600">Add or update your professional skills</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/subcontractor-portal/bidding')}>
+          <CardContent className="p-6 text-center">
+            <DollarSign className="h-8 w-8 text-green-600 mx-auto mb-2" />
+            <h3 className="font-semibold">Open for Bidding</h3>
+            <p className="text-sm text-gray-600">Submit quotes for work orders</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/subcontractor-portal/assigned')}>
+          <CardContent className="p-6 text-center">
+            <Wrench className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+            <h3 className="font-semibold">My Assigned Work</h3>
+            <p className="text-sm text-gray-600">Track and complete assigned work orders</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
@@ -411,53 +443,7 @@ export default function SubcontractorPortal() {
 
   return (
     <div className="p-6">
-      {activeSection === 'dashboard' && renderDashboard()}
-      {activeSection === 'workorders' && renderWorkOrders()}
-      {activeSection === 'proposals' && renderProposals()}
-      {activeSection === 'earnings' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Earnings & Payments</CardTitle>
-            <CardDescription>Track your earnings and payment history</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">Earnings interface coming soon...</p>
-          </CardContent>
-        </Card>
-      )}
-      {activeSection === 'schedule' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Schedule</CardTitle>
-            <CardDescription>Manage your work schedule and appointments</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">Schedule interface coming soon...</p>
-          </CardContent>
-        </Card>
-      )}
-      {activeSection === 'ratings' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Customer Ratings</CardTitle>
-            <CardDescription>View customer feedback and ratings</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">Ratings interface coming soon...</p>
-          </CardContent>
-        </Card>
-      )}
-      {activeSection === 'settings' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Account Settings</CardTitle>
-            <CardDescription>Manage your account and service preferences</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600">Settings interface coming soon...</p>
-          </CardContent>
-        </Card>
-      )}
+      {renderDashboard()}
     </div>
   )
 }

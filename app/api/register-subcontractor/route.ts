@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     const requiredFields = [
-      'fullName', 'email', 'phone', 'title', 'skills', 'experience', 'password',
+      'fullName', 'email', 'phone', 'title', 'categoryId', 'skills', 'experience', 'password',
       'address.street', 'address.city', 'address.state', 'address.zipCode'
     ]
 
@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
       email: registrationData.email,
       phone: registrationData.phone,
       title: registrationData.title,
+      categoryId: registrationData.categoryId,
       skills: registrationData.skills,
       experience: registrationData.experience,
       hourlyRate: registrationData.hourlyRate ? parseFloat(registrationData.hourlyRate) : undefined,

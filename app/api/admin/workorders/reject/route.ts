@@ -1,65 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFirestore, doc, updateDoc, getDoc } from 'firebase/firestore'
-import { initializeApp } from 'firebase/app'
-import { db } from '@/lib/firebase'
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
-  authDomain: "heyspruceappv2.firebaseapp.com",
-  projectId: "heyspruceappv2",
-  storageBucket: "heyspruceappv2.firebasestorage.app",
-  messagingSenderId: "198738285054",
-  appId: "1:198738285054:web:6878291b080771623a70af",
-  measurementId: "G-82NKE8271G"
-}
-
-const app = initializeApp(firebaseConfig)
+import { db, COLLECTIONS } from '@/lib/firebase'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 
 export async function POST(request: NextRequest) {
   try {
     const { workOrderId, adminId, reason } = await request.json()
 
     if (!workOrderId || !adminId || !reason) {
-      return NextResponse.json(
-        { error: 'Work Order ID, Admin ID, and reason are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Work Order ID, Admin ID, and rejection reason are required' }, { status: 400 })
     }
 
-    const workOrderRef = doc(db, 'workorders', workOrderId)
+    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
     const workOrderSnap = await getDoc(workOrderRef)
 
     if (!workOrderSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Work Order not found' }, { status: 404 })
     }
 
-    const workOrderData = workOrderSnap.data()
-
-    if (workOrderData?.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'Work order is not pending approval' },
-        { status: 400 }
-      )
-    }
-
+    // Update work order status to rejected
     await updateDoc(workOrderRef, {
       status: 'rejected',
-      rejectedBy: adminId,
       rejectedAt: new Date().toISOString(),
+      rejectedBy: adminId,
       rejectionReason: reason,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     })
 
-    return NextResponse.json({ success: true, message: 'Work order rejected successfully' })
+    return NextResponse.json({ success: true, message: 'Work Order rejected successfully' })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error rejecting work order:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to reject work order' }, { status: 500 })
   }
 }

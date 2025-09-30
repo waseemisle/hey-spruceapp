@@ -1,276 +1,414 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/lib/auth'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import Loader from '@/components/ui/loader'
-import { FileText, CheckCircle, XCircle, Clock, DollarSign, Calendar, MapPin } from 'lucide-react'
+import Modal from '@/components/ui/modal'
+import { useAuth } from '@/lib/auth'
 import { Quote } from '@/lib/types'
+import { useNotifications, NotificationContainer } from '@/components/ui/notification'
+import { 
+  Search, 
+  FileText, 
+  DollarSign,
+  MapPin,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Eye
+} from 'lucide-react'
 
 export default function ClientQuotesPage() {
+  const router = useRouter()
   const { user, profile } = useAuth()
+  const { notifications, removeNotification, success, error } = useNotifications()
+  
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null)
+  const [showQuoteModal, setShowQuoteModal] = useState(false)
 
   useEffect(() => {
-    if (user && profile) {
-      fetchQuotes()
-    }
-  }, [user, profile])
+    fetchQuotes()
+  }, [])
 
   const fetchQuotes = async () => {
     try {
-      setLoading(true)
-      const response = await fetch(`/api/client/quotes?clientId=${user?.uid}`)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Error fetching quotes:', errorText)
-        setError('Failed to fetch quotes')
-        return
+      const response = await fetch(`/api/client/quotes?clientId=${profile?.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setQuotes(data)
+      } else {
+        error('Fetch Error', 'Failed to load quotes')
       }
-
-      const data = await response.json()
-      console.log('Quotes fetched:', data)
-      
-      // Sort quotes by createdAt manually since we can't use orderBy in the query
-      const sortedQuotes = (data.quotes || []).sort((a: Quote, b: Quote) => {
-        const dateA = new Date(a.createdAt || 0).getTime()
-        const dateB = new Date(b.createdAt || 0).getTime()
-        return dateB - dateA // Descending order (newest first)
-      })
-      
-      setQuotes(sortedQuotes)
-    } catch (error) {
-      console.error('Error fetching quotes:', error)
-      setError('Failed to fetch quotes')
+    } catch (err) {
+      error('Fetch Error', 'Error loading quotes')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleQuoteAction = async (quoteId: string, action: 'approve' | 'reject') => {
+  const handleAcceptQuote = async (quoteId: string) => {
     try {
-      setActionLoading(quoteId)
-      const response = await fetch(`/api/client/quotes/${quoteId}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/quotes/${quoteId}/accept`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          status: action === 'approve' ? 'accepted' : 'rejected',
-          clientId: user?.uid 
+        body: JSON.stringify({
+          clientId: profile?.id,
+          clientName: profile?.fullName
         }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Error updating quote:', errorText)
-        alert('Failed to update quote')
-        return
+        throw new Error(data.error || 'Failed to accept quote')
       }
 
+      success('Quote Accepted', 'Quote has been accepted successfully!')
+      fetchQuotes()
+    } catch (err: any) {
+      error('Acceptance Failed', err.message)
+    }
+  }
+
+  const handleRejectQuote = async (quoteId: string) => {
+    const reason = prompt('Please provide a reason for rejection:')
+    if (!reason) return
+
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientId: profile?.id,
+          clientName: profile?.fullName,
+          reason
+        }),
+      })
+
       const data = await response.json()
-      console.log('Quote updated:', data)
-      
-      // Refresh quotes list
-      await fetchQuotes()
-      alert(`Quote ${action}d successfully!`)
-    } catch (error) {
-      console.error('Error updating quote:', error)
-      alert('Failed to update quote')
-    } finally {
-      setActionLoading(null)
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reject quote')
+      }
+
+      success('Quote Rejected', 'Quote has been rejected successfully!')
+      fetchQuotes()
+    } catch (err: any) {
+      error('Rejection Failed', err.message)
     }
   }
 
   const getStatusBadge = (status: string) => {
+    const variants = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      shared_with_client: 'bg-blue-100 text-blue-800',
+      accepted: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800',
+      edited_by_admin: 'bg-orange-100 text-orange-800'
+    }
+    return variants[status as keyof typeof variants] || 'bg-gray-100 text-gray-800'
+  }
+
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'draft':
-        return 'bg-gray-100 text-gray-800'
-      case 'sent':
-        return 'bg-blue-100 text-blue-800'
-      case 'accepted':
-        return 'bg-green-100 text-green-800'
-      case 'rejected':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
+      case 'accepted': return <CheckCircle className="h-4 w-4" />
+      case 'rejected': return <XCircle className="h-4 w-4" />
+      case 'shared_with_client': return <FileText className="h-4 w-4" />
+      case 'edited_by_admin': return <FileText className="h-4 w-4" />
+      default: return <Clock className="h-4 w-4" />
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
+  const filteredQuotes = quotes.filter(quote => {
+    const matchesSearch = quote.workOrderTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         quote.workOrderDescription?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         quote.subcontractorName?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'all' || quote.status === statusFilter
+    
+    return matchesSearch && matchesStatus
+  })
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+  const stats = {
+    total: quotes.length,
+    pending: quotes.filter(q => q.status === 'shared_with_client').length,
+    accepted: quotes.filter(q => q.status === 'accepted').length,
+    rejected: quotes.filter(q => q.status === 'rejected').length
   }
 
   if (loading) {
-    return <Loader fullScreen text="Loading quotes..." />
-  }
-
-  if (error) {
     return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-red-600 mb-4">{error}</p>
-              <Button onClick={fetchQuotes}>Try Again</Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Loading quotes...</div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Quotes</h1>
-        <p className="text-gray-600">Review and manage your quotes from Spruce App</p>
-      </div>
+    <>
+      <NotificationContainer notifications={notifications} onRemove={removeNotification} />
+      <div className="p-6">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Quotes Management</h1>
+          <p className="text-gray-600">Review and manage quotes for your work orders</p>
+        </div>
 
-      {quotes.length === 0 ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No quotes found</h3>
-              <p className="text-gray-600">You don't have any quotes yet. Quotes will appear here once they're created by the admin.</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6">
-          {quotes.map((quote) => (
-            <Card key={quote.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Quote #{quote.id?.substring(0, 8)}
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      {quote.workOrderTitle}
-                    </CardDescription>
-                  </div>
-                  <Badge className={`${getStatusBadge(quote.status)} text-sm`}>
-                    {quote.status.toUpperCase()}
-                  </Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Total Amount</p>
-                      <p className="font-semibold">{formatCurrency(quote.totalAmount)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Valid Until</p>
-                      <p className="font-semibold">{formatDate(quote.validUntil)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Location</p>
-                      <p className="font-semibold">{quote.workOrderLocation?.name || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">Total Quotes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-600">Pending Review</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.pending}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-green-600">Accepted</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.accepted}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-red-600">Rejected</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.rejected}</div>
+            </CardContent>
+          </Card>
+        </div>
 
-                <div className="mb-6">
-                  <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
-                  <p className="text-gray-600">{quote.workOrderDescription}</p>
-                </div>
+        {/* Filters */}
+        <div className="flex gap-4 mb-6">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search quotes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 w-64"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Statuses</option>
+            <option value="shared_with_client">Pending Review</option>
+            <option value="accepted">Accepted</option>
+            <option value="rejected">Rejected</option>
+            <option value="edited_by_admin">Edited by Admin</option>
+          </select>
+        </div>
 
-                {quote.notes && (
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-2">Notes</h4>
-                    <p className="text-gray-600">{quote.notes}</p>
-                  </div>
-                )}
-
-                {quote.terms && (
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-2">Terms & Conditions</h4>
-                    <p className="text-gray-600">{quote.terms}</p>
-                  </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  {quote.status === 'sent' && (
-                    <>
-                      <Button
-                        onClick={() => handleQuoteAction(quote.id!, 'approve')}
-                        disabled={actionLoading === quote.id}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        {actionLoading === quote.id ? (
-                          <Clock className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                        )}
-                        Approve Quote
-                      </Button>
-                      
-                      <Button
-                        onClick={() => handleQuoteAction(quote.id!, 'reject')}
-                        disabled={actionLoading === quote.id}
-                        variant="destructive"
-                      >
-                        {actionLoading === quote.id ? (
-                          <Clock className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <XCircle className="h-4 w-4 mr-2" />
-                        )}
-                        Reject Quote
-                      </Button>
-                    </>
-                  )}
-                  
-                  {quote.status === 'accepted' && (
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle className="h-4 w-4" />
-                      <span className="font-medium">Quote Accepted</span>
+        {/* Quotes List */}
+        <div className="space-y-4">
+          {filteredQuotes.map((quote) => (
+            <Card key={quote.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold">{quote.workOrderTitle}</h3>
+                      <Badge className={getStatusBadge(quote.status)}>
+                        <span className="flex items-center gap-1">
+                          {getStatusIcon(quote.status)}
+                          {quote.status.replace(/_/g, ' ')}
+                        </span>
+                      </Badge>
                     </div>
-                  )}
-                  
-                  {quote.status === 'rejected' && (
-                    <div className="flex items-center gap-2 text-red-600">
-                      <XCircle className="h-4 w-4" />
-                      <span className="font-medium">Quote Rejected</span>
+                    
+                    <p className="text-gray-600 mb-3">{quote.workOrderDescription}</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <MapPin className="h-4 w-4" />
+                          <span><strong>Location:</strong> {quote.workOrderLocation.name}</span>
+                        </div>
+                        <p><strong>Address:</strong> {quote.workOrderLocation.address}</p>
+                        <p><strong>Subcontractor:</strong> {quote.subcontractorName}</p>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <DollarSign className="h-4 w-4" />
+                          <span><strong>Total Amount:</strong> ${quote.clientAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="h-4 w-4" />
+                          <span><strong>Valid Until:</strong> {new Date(quote.validUntil).toLocaleDateString()}</span>
+                        </div>
+                        <p><strong>Created:</strong> {new Date(quote.createdAt).toLocaleDateString()}</p>
+                      </div>
                     </div>
-                  )}
+
+                    {quote.notes && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded">
+                        <p className="text-sm text-gray-600">
+                          <strong>Notes:</strong> {quote.notes}
+                        </p>
+                      </div>
+                    )}
+
+                    {quote.adminNotes && (
+                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <p className="text-sm text-blue-700">
+                          <strong>Admin Notes:</strong> {quote.adminNotes}
+                        </p>
+                      </div>
+                    )}
+
+                    {quote.rejectionReason && (
+                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
+                        <p className="text-sm text-red-700">
+                          <strong>Rejection Reason:</strong> {quote.rejectionReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2 ml-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedQuote(quote)
+                        setShowQuoteModal(true)
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      View Details
+                    </Button>
+                    
+                    {quote.status === 'shared_with_client' && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => handleAcceptQuote(quote.id)}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Accept Quote
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRejectQuote(quote.id)}
+                          className="border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Reject Quote
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
-      )}
-    </div>
+
+        {filteredQuotes.length === 0 && (
+          <Card>
+            <CardContent className="text-center py-12">
+              <div className="text-gray-500 mb-4">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">No quotes found</h3>
+                <p className="text-sm">Quotes will appear here when shared by admin</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Quote Details Modal */}
+        {selectedQuote && (
+          <Modal
+            isOpen={showQuoteModal}
+            onClose={() => setShowQuoteModal(false)}
+            title={`Quote Details - ${selectedQuote.workOrderTitle}`}
+          >
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold mb-2">Work Order Information</h4>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Title:</strong> {selectedQuote.workOrderTitle}
+                </p>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Description:</strong> {selectedQuote.workOrderDescription}
+                </p>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Location:</strong> {selectedQuote.workOrderLocation.name}
+                </p>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Address:</strong> {selectedQuote.workOrderLocation.address}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Quote Details</h4>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Subcontractor:</strong> {selectedQuote.subcontractorName}
+                </p>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Total Amount:</strong> ${selectedQuote.clientAmount.toFixed(2)}
+                </p>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Valid Until:</strong> {new Date(selectedQuote.validUntil).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Status:</strong> 
+                  <Badge className={`ml-2 ${getStatusBadge(selectedQuote.status)}`}>
+                    {selectedQuote.status.replace(/_/g, ' ')}
+                  </Badge>
+                </p>
+              </div>
+
+              {selectedQuote.notes && (
+                <div>
+                  <h4 className="font-semibold mb-2">Notes</h4>
+                  <p className="text-sm text-gray-600">{selectedQuote.notes}</p>
+                </div>
+              )}
+
+              {selectedQuote.adminNotes && (
+                <div>
+                  <h4 className="font-semibold mb-2">Admin Notes</h4>
+                  <p className="text-sm text-blue-700 bg-blue-50 p-2 rounded">{selectedQuote.adminNotes}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button onClick={() => setShowQuoteModal(false)}>Close</Button>
+              </div>
+            </div>
+          </Modal>
+        )}
+      </div>
+    </>
   )
 }

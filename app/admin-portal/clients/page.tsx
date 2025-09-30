@@ -17,10 +17,10 @@ import {
   Search, 
   CheckCircle, 
   XCircle, 
-  Link,
+  ExternalLink,
   Copy,
   Mail,
-  MessageSquare
+  MessageCircle
 } from 'lucide-react'
 
 export default function AdminClientsPage() {
@@ -43,7 +43,7 @@ export default function AdminClientsPage() {
 
   useEffect(() => {
     // Fetch client registrations
-    const registrationsQuery = query(collection(db, 'client_registrations'), orderBy('submittedAt', 'desc'))
+    const registrationsQuery = query(collection(db, 'clients'), orderBy('createdAt', 'desc'))
     const unsubscribeRegistrations = onSnapshot(registrationsQuery, 
       (snapshot) => {
         const registrationsData = snapshot.docs.map(doc => ({
@@ -80,24 +80,19 @@ export default function AdminClientsPage() {
     }
   }, [])
 
-  const handleApproveClient = async (registrationId: string) => {
+  const handleApproveClient = async (clientId: string) => {
     try {
-      const response = await fetch('/api/admin/approve-client', {
+      const response = await fetch('/api/admin/clients/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          registrationId,
+          clientId,
           adminId: user?.uid
         })
       })
 
       if (response.ok) {
-        const result = await response.json()
-        if (result.emailSent) {
-          success('Client Approved', 'Client has been approved successfully and notification email sent!')
-        } else {
-          success('Client Approved', `Client approved successfully, but email failed to send: ${result.emailError || 'Unknown error'}`)
-        }
+        success('Client Approved', 'Client has been approved successfully!')
       } else {
         const errorData = await response.json()
         error('Approval Failed', errorData.error || 'Failed to approve client')
@@ -108,17 +103,17 @@ export default function AdminClientsPage() {
     }
   }
 
-  const handleRejectClient = async (registrationId: string) => {
+  const handleRejectClient = async (clientId: string) => {
     // For now, we'll use a simple prompt, but this could be replaced with a modal
     const reason = prompt('Please provide a reason for rejection:')
     if (!reason) return
 
     try {
-      const response = await fetch('/api/admin/reject-client', {
+      const response = await fetch('/api/admin/clients/reject', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          registrationId,
+          clientId,
           adminId: user?.uid,
           reason
         })
@@ -196,7 +191,7 @@ export default function AdminClientsPage() {
   const filteredRegistrations = clientRegistrations.filter(registration => {
     const matchesSearch = registration.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          registration.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         registration.contactName?.toLowerCase().includes(searchTerm.toLowerCase())
+                         registration.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || registration.status === filterStatus
     
     return matchesSearch && matchesStatus
@@ -217,7 +212,7 @@ export default function AdminClientsPage() {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Client Management</h1>
           <Button onClick={() => setShowLinkModal(true)}>
-            <Link className="w-4 h-4 mr-2" />
+            <ExternalLink className="w-4 h-4 mr-2" />
             Generate Registration Link
           </Button>
         </div>
@@ -314,14 +309,14 @@ export default function AdminClientsPage() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold">{registration.companyName}</h3>
+                          <h3 className="font-semibold">{registration.companyName || registration.fullName}</h3>
                           <Badge className={getStatusBadge(registration.status)}>
                             {registration.status}
                           </Badge>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                           <div>
-                            <p><strong>Contact:</strong> {registration.contactName}</p>
+                            <p><strong>Contact:</strong> {registration.fullName}</p>
                             <p><strong>Email:</strong> {registration.email}</p>
                             <p><strong>Phone:</strong> {registration.phone}</p>
                           </div>
@@ -332,7 +327,7 @@ export default function AdminClientsPage() {
                           </div>
                         </div>
                         <p className="text-sm text-gray-600 mt-2">
-                          <strong>Submitted:</strong> {new Date(registration.submittedAt).toLocaleString()}
+                          <strong>Submitted:</strong> {new Date(registration.createdAt).toLocaleString()}
                         </p>
                       </div>
                       <div className="flex gap-2 ml-4">

@@ -164,6 +164,37 @@ export default function ClientPortal() {
 
   const renderDashboard = () => (
     <div className="space-y-6">
+      {/* Welcome Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-6 text-white">
+        <h2 className="text-2xl font-bold mb-2">Welcome back, {profile?.fullName}!</h2>
+        <p className="text-blue-100">Manage your properties, work orders, and invoices from your dashboard.</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/client-portal/locations')}>
+          <CardContent className="p-6 text-center">
+            <Building2 className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+            <h3 className="font-semibold">Manage Locations</h3>
+            <p className="text-sm text-gray-600">Add or edit your property locations</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/client-portal/workorders')}>
+          <CardContent className="p-6 text-center">
+            <Wrench className="h-8 w-8 text-green-600 mx-auto mb-2" />
+            <h3 className="font-semibold">Create Work Order</h3>
+            <p className="text-sm text-gray-600">Request maintenance or repairs</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/client-portal/quotes')}>
+          <CardContent className="p-6 text-center">
+            <FileText className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+            <h3 className="font-semibold">Review Quotes</h3>
+            <p className="text-sm text-gray-600">Check pending quotes for approval</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
@@ -387,53 +418,7 @@ export default function ClientPortal() {
 
   return (
     <div className="p-6">
-            {activeSection === 'dashboard' && renderDashboard()}
-            {activeSection === 'properties' && renderProperties()}
-            {activeSection === 'workorders' && renderWorkOrders()}
-            {activeSection === 'billing' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Billing & Invoices</CardTitle>
-                  <CardDescription>View billing history and manage payments</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Billing interface coming soon...</p>
-                </CardContent>
-              </Card>
-            )}
-            {activeSection === 'reports' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reports</CardTitle>
-                  <CardDescription>Generate property and maintenance reports</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Reports interface coming soon...</p>
-                </CardContent>
-              </Card>
-            )}
-            {activeSection === 'notifications' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Notifications</CardTitle>
-                  <CardDescription>Manage your notification preferences</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Notifications interface coming soon...</p>
-                </CardContent>
-              </Card>
-            )}
-            {activeSection === 'settings' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Settings</CardTitle>
-                  <CardDescription>Manage your account preferences</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Settings interface coming soon...</p>
-                </CardContent>
-              </Card>
-            )}
+      {renderDashboard()}
     </div>
   )
 }

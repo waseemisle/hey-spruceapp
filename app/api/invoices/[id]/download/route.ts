@@ -1,0 +1,142 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db, COLLECTIONS } from '@/lib/firebase'
+import { doc, getDoc } from 'firebase/firestore'
+import { Invoice } from '@/lib/types'
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const invoiceId = params.id
+
+    // Get invoice data
+    const invoiceRef = doc(db, COLLECTIONS.INVOICES, invoiceId)
+    const invoiceSnap = await getDoc(invoiceRef)
+
+    if (!invoiceSnap.exists()) {
+      return NextResponse.json(
+        { error: 'Invoice not found' },
+        { status: 404 }
+      )
+    }
+
+    const invoiceData = invoiceSnap.data() as Invoice
+
+    // Generate PDF content
+    const pdfHTML = generateInvoicePDF(invoiceData)
+
+    // Return HTML content (in real implementation, you would convert to PDF)
+    return new NextResponse(pdfHTML, {
+      headers: {
+        'Content-Type': 'text/html',
+        'Content-Disposition': `attachment; filename="invoice-${invoiceData.invoiceNumber}.html"`
+      }
+    })
+
+  } catch (error: any) {
+    console.error('Error downloading invoice:', error)
+    return NextResponse.json(
+      { error: 'Failed to download invoice' },
+      { status: 500 }
+    )
+  }
+}
+
+function generateInvoicePDF(invoice: Invoice): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Invoice ${invoice.invoiceNumber}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+        .invoice-title { font-size: 24px; font-weight: bold; }
+        .invoice-number { font-size: 18px; color: #666; }
+        .company-info { margin-top: 20px; }
+        .client-info { margin-top: 20px; }
+        .invoice-details { margin: 30px 0; }
+        .line-items { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .line-items th, .line-items td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .line-items th { background-color: #f2f2f2; }
+        .totals { margin-top: 30px; text-align: right; }
+        .total-row { font-weight: bold; font-size: 16px; }
+        .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="invoice-title">INVOICE</div>
+        <div class="invoice-number">${invoice.invoiceNumber}</div>
+        
+        <div class="company-info">
+          <strong>Spruce App</strong><br>
+          Property Maintenance Services<br>
+          Email: billing@spruceapp.com<br>
+          Phone: (555) 123-4567
+        </div>
+        
+        <div class="client-info">
+          <strong>Bill To:</strong><br>
+          ${invoice.clientName}<br>
+          ${invoice.clientEmail}
+        </div>
+      </div>
+
+      <div class="invoice-details">
+        <strong>Work Order:</strong> ${invoice.workOrderTitle}<br>
+        <strong>Description:</strong> ${invoice.workOrderDescription}<br>
+        <strong>Location:</strong> ${invoice.workOrderLocation.name}<br>
+        <strong>Address:</strong> ${invoice.workOrderLocation.address}<br>
+        <strong>Subcontractor:</strong> ${invoice.subcontractorName || 'N/A'}<br>
+        <strong>Invoice Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString()}<br>
+        <strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString()}
+      </div>
+
+      <table class="line-items">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${invoice.lineItems.map(item => `
+            <tr>
+              <td>${item.description}</td>
+              <td>${item.quantity}</td>
+              <td>$${item.unitPrice.toFixed(2)}</td>
+              <td>$${item.totalPrice.toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div class="totals">
+        <div>Subtotal: $${(invoice.totalAmount - invoice.taxAmount + (invoice.discountAmount || 0)).toFixed(2)}</div>
+        ${invoice.discountAmount ? `<div>Discount: -$${invoice.discountAmount.toFixed(2)}</div>` : ''}
+        <div>Tax (${invoice.taxRate}%): $${invoice.taxAmount.toFixed(2)}</div>
+        <div class="total-row">Total: $${invoice.totalAmount.toFixed(2)}</div>
+      </div>
+
+      ${invoice.notes ? `
+        <div class="footer">
+          <strong>Notes:</strong><br>
+          ${invoice.notes}
+        </div>
+      ` : ''}
+
+      ${invoice.terms ? `
+        <div class="footer">
+          <strong>Terms & Conditions:</strong><br>
+          ${invoice.terms}
+        </div>
+      ` : ''}
+    </body>
+    </html>
+  `
+}

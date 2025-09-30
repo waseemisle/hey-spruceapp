@@ -1,109 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFirestore, doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
-import { initializeApp } from 'firebase/app'
-import { db } from '@/lib/firebase'
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
-  authDomain: "heyspruceappv2.firebaseapp.com",
-  projectId: "heyspruceappv2",
-  storageBucket: "heyspruceappv2.firebasestorage.app",
-  messagingSenderId: "198738285054",
-  appId: "1:198738285054:web:6878291b080771623a70af",
-  measurementId: "G-82NKE8271G"
-}
-
-const app = initializeApp(firebaseConfig)
+import { db, COLLECTIONS } from '@/lib/firebase'
+import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore'
 
 export async function POST(request: NextRequest) {
   try {
     const { workOrderId, subcontractorId, adminId } = await request.json()
 
     if (!workOrderId || !subcontractorId || !adminId) {
-      return NextResponse.json(
-        { error: 'Work Order ID, Subcontractor ID, and Admin ID are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Work Order ID, Subcontractor ID, and Admin ID are required' }, { status: 400 })
     }
 
-    const workOrderRef = doc(db, 'workorders', workOrderId)
+    // Get work order data
+    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
     const workOrderSnap = await getDoc(workOrderRef)
 
     if (!workOrderSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Work order not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Work Order not found' }, { status: 404 })
     }
 
     const workOrderData = workOrderSnap.data()
 
-    if (workOrderData?.status !== 'approved') {
-      return NextResponse.json(
-        { error: 'Work order must be approved before assignment' },
-        { status: 400 }
-      )
+    if (workOrderData.status !== 'quote_approved') {
+      return NextResponse.json({ error: 'Work Order must be in quote_approved status to be assigned' }, { status: 400 })
     }
 
-    // Get subcontractor details from subcontractors collection
-    const subcontractorQuery = query(
-      collection(db, 'subcontractors'),
-      where('userId', '==', subcontractorId)
-    )
-    const subcontractorSnapshot = await getDocs(subcontractorQuery)
-
-    if (subcontractorSnapshot.empty) {
-      return NextResponse.json(
-        { error: 'Subcontractor not found' },
-        { status: 404 }
-      )
-    }
-
-    const subcontractorData = subcontractorSnapshot.docs[0].data()
-
+    // Update work order status and assignment
     await updateDoc(workOrderRef, {
+      status: 'assigned',
       assignedTo: subcontractorId,
-      assignedToName: subcontractorData?.fullName || 'Unknown',
-      assignedBy: adminId,
       assignedAt: new Date().toISOString(),
-      status: 'in-progress',
+      assignedBy: adminId,
+      updatedAt: new Date().toISOString(),
+    })
+
+    // Create assigned work order record
+    const assignedWorkOrderData = {
+      workOrderId,
+      workOrderTitle: workOrderData.title,
+      workOrderDescription: workOrderData.description,
+      workOrderLocation: workOrderData.location,
+      clientId: workOrderData.clientId,
+      clientName: workOrderData.clientName,
+      clientEmail: workOrderData.clientEmail,
+      categoryId: workOrderData.categoryId,
+      categoryName: workOrderData.categoryName,
+      estimatedCost: workOrderData.estimatedCost,
+      estimatedDateOfService: workOrderData.estimatedDateOfService,
+      subcontractorId,
+      status: 'assigned',
+      assignedAt: new Date().toISOString(),
+      assignedBy: adminId,
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    })
+    }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Work order assigned to ${subcontractorData?.fullName} successfully` 
-    })
+    await addDoc(collection(db, COLLECTIONS.ASSIGNED_WORK_ORDERS), assignedWorkOrderData)
 
-  } catch (error) {
+    return NextResponse.json({ success: true, message: 'Work Order assigned successfully' })
+
+  } catch (error: any) {
     console.error('Error assigning work order:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    // Get all approved subcontractors for assignment dropdown
-    const q = query(
-      collection(db, 'subcontractors'),
-      where('status', '==', 'approved')
-    )
-    
-    const querySnapshot = await getDocs(q)
-    const subcontractors = querySnapshot.docs.map(doc => ({
-      id: doc.data().userId, // Use the userId field as the ID for assignment
-      fullName: doc.data().fullName,
-      email: doc.data().email,
-      title: doc.data().title,
-      skills: doc.data().skills
-    }))
-
-    return NextResponse.json({ success: true, subcontractors })
-  } catch (error) {
-    console.error('Error fetching subcontractors:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to assign work order' }, { status: 500 })
   }
 }

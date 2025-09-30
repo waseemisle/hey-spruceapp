@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { db, COLLECTIONS, getDocuments } from '@/lib/firebase'
+import { where } from 'firebase/firestore'
 
-// Get quotes for a specific client
 export async function GET(request: NextRequest) {
   try {
-    const url = new URL(request.url)
-    const clientId = url.searchParams.get('clientId')
+    const { searchParams } = new URL(request.url)
+    const clientId = searchParams.get('clientId')
 
     if (!clientId) {
       return NextResponse.json(
@@ -15,29 +14,19 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('Fetching quotes for client:', clientId)
+    // Get quotes for specific client
+    const { data, error } = await getDocuments(COLLECTIONS.QUOTES, [where('clientId', '==', clientId)])
+    
+    if (error) {
+      return NextResponse.json(
+        { error: 'Failed to fetch quotes' },
+        { status: 500 }
+      )
+    }
 
-    // Query quotes for the specific client (without orderBy to avoid index issues)
-    const quotesRef = collection(db, 'quotes')
-    const quotesQuery = query(
-      quotesRef,
-      where('clientId', '==', clientId)
-    )
+    return NextResponse.json(data)
 
-    const quotesSnapshot = await getDocs(quotesQuery)
-    const quotes = quotesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
-
-    console.log(`Found ${quotes.length} quotes for client ${clientId}`)
-
-    return NextResponse.json({
-      success: true,
-      quotes
-    })
-
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching client quotes:', error)
     return NextResponse.json(
       { error: 'Failed to fetch quotes' },
