@@ -31,10 +31,8 @@ export async function POST(request: Request) {
     if (!quoteId || !workOrderId || !adminId) {
       console.error('Missing required fields:', { quoteId, workOrderId, adminId })
       return new Response(
-        JSON.stringify({ error: 'Quote ID, Work Order ID and Admin ID are required' },
-        { status: 400 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Quote ID, Work Order ID and Admin ID are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -79,6 +77,13 @@ export async function POST(request: Request) {
     const workOrder = workOrderDoc.data()
     console.log('Work order data:', workOrder)
 
+    if (!workOrder) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Create invoice data
     const invoiceData: any = {
       quoteId,
@@ -90,7 +95,7 @@ export async function POST(request: Request) {
       clientName: quote.clientName,
       clientEmail: quote.clientEmail,
       status: 'draft',
-      totalAmount: quote.totalAmount,
+      totalAmount: quote.clientAmount,
       laborCost: quote.laborCost,
       materialCost: quote.materialCost,
       additionalCosts: quote.additionalCosts,
@@ -148,7 +153,7 @@ export async function POST(request: Request) {
         clientName: quote.clientName,
         clientEmail: quote.clientEmail,
         workOrderTitle: quote.workOrderTitle,
-        totalAmount: quote.totalAmount,
+        totalAmount: quote.clientAmount,
         dueDate: dueDate,
         invoiceData: {
           invoiceId: docRef.id,
@@ -158,7 +163,7 @@ export async function POST(request: Request) {
           workOrderTitle: quote.workOrderTitle,
           workOrderDescription: quote.workOrderDescription,
           workOrderLocation: quote.workOrderLocation,
-          totalAmount: quote.totalAmount,
+          totalAmount: quote.clientAmount,
           laborCost: quote.laborCost,
           materialCost: quote.materialCost,
           additionalCosts: quote.additionalCosts,
@@ -211,11 +216,9 @@ export async function POST(request: Request) {
         success: false,
         error: 'Failed to create invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 
@@ -251,6 +254,10 @@ export async function GET(request: Request) {
     const invoices = snapshot.docs.map(doc => {
       try {
         const data = doc.data()
+        if (!data) {
+          console.warn('Invoice data is undefined for doc:', doc.id)
+          return null
+        }
         console.log('Processing invoice:', { id: doc.id, workOrderId: data.workOrderId, status: data.status })
         return {
           id: doc.id,
@@ -265,13 +272,14 @@ export async function GET(request: Request) {
       }
     })
 
-    console.log('Processed invoices:', invoices.length)
+    const validInvoices = invoices.filter(invoice => invoice !== null)
+    console.log('Processed invoices:', validInvoices.length)
     console.log('=== INVOICES GET API SUCCESS ===')
 
     return new Response(
         JSON.stringify({
       success: true,
-      invoices
+      invoices: validInvoices
     }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
@@ -290,11 +298,9 @@ export async function GET(request: Request) {
         error: 'Failed to fetch invoices',
         details: error instanceof Error ? error.message : 'Unknown error',
         invoices: []
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 

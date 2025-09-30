@@ -49,11 +49,9 @@ export async function PATCH(
         success: false,
         error: 'Failed to update scheduled invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 
@@ -99,10 +97,8 @@ export async function DELETE(
         success: false,
         error: 'Failed to delete scheduled invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }

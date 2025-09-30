@@ -30,6 +30,13 @@ export async function POST(
 
     const workOrderData = workOrderSnap.data()
 
+    if (!workOrderData) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Update work order status
     await updateDoc(workOrderRef, {
       status: 'waiting_for_quote',

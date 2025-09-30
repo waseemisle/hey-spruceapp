@@ -145,14 +145,14 @@ export default function SubcontractorWorkOrdersPage() {
                          workOrder.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          workOrder.clientName.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || workOrder.status === filterStatus
-    const matchesCategory = filterCategory === 'all' || workOrder.category === filterCategory
+    const matchesCategory = filterCategory === 'all' || workOrder.categoryId === filterCategory
     
     return matchesSearch && matchesStatus && matchesCategory
   })
 
   const stats = {
     total: workOrders.length,
-    inProgress: workOrders.filter(w => w.status === 'in-progress').length,
+    inProgress: workOrders.filter(w => w.status === 'in_progress').length,
     completed: workOrders.filter(w => w.status === 'completed').length,
     pending: workOrders.filter(w => w.status === 'approved').length
   }
@@ -319,10 +319,7 @@ export default function SubcontractorWorkOrdersPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-gray-400" />
-                    <span>Est: {workOrder.estimatedDuration || 0}h</span>
-                    {workOrder.actualDuration && (
-                      <span className="text-green-600">Actual: {workOrder.actualDuration}h</span>
-                    )}
+                    <span>Est: {workOrder.estimatedCost || 0}$</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-gray-400" />
@@ -331,7 +328,7 @@ export default function SubcontractorWorkOrdersPage() {
                 </div>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                   <div>
-                    <p><strong>Category:</strong> {workOrder.category}</p>
+                    <p><strong>Category:</strong> {workOrder.categoryName}</p>
                     <p><strong>Assigned:</strong> {new Date(workOrder.assignedAt || workOrder.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div>

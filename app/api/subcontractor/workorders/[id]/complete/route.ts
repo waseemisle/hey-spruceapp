@@ -38,6 +38,13 @@ export async function POST(
     const currentWorkOrder = workOrderDoc.data()
     console.log('Current work order:', currentWorkOrder)
 
+    if (!currentWorkOrder) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Validate subcontractor assignment
     if (currentWorkOrder.assignedTo !== subcontractorId) {
       return new Response(
@@ -104,10 +111,8 @@ export async function POST(
         success: false,
         error: 'Failed to complete work order',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
   }
 }

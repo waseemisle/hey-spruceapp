@@ -30,6 +30,13 @@ export async function POST(
 
     const workOrderData = workOrderSnap.data()
 
+    if (!workOrderData) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Update work order status
     await updateDoc(workOrderRef, {
       status: 'waiting_for_quote',
@@ -45,6 +52,11 @@ export async function POST(
 
       if (subcontractorSnap.exists()) {
         const subcontractorData = subcontractorSnap.data()
+
+        if (!subcontractorData) {
+          console.warn(`Subcontractor data not found for ID: ${subcontractorId}`)
+          continue
+        }
 
         // Create bidding work order
         const biddingWorkOrderData = {

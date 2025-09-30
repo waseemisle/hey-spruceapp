@@ -27,7 +27,7 @@ export async function GET(
     const pdfHTML = generateInvoicePDF(invoiceData)
 
     // Return HTML content (in real implementation, you would convert to PDF)
-    return new NextResponse(pdfHTML, {
+    return new Response(pdfHTML, {
       headers: {
         'Content-Type': 'text/html',
         'Content-Disposition': `attachment; filename="invoice-${invoiceData.invoiceNumber}.html"`

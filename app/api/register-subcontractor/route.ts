@@ -87,6 +87,19 @@ export async function POST(request: Request) {
       )
     }
 
+    // Get category name
+    const categoriesRef = collection(db, 'categories')
+    const categoryQuery = query(categoriesRef, where('__name__', '==', registrationData.categoryId))
+    const categorySnapshot = await getDocs(categoryQuery)
+    
+    let categoryName = 'Unknown Category'
+    if (!categorySnapshot.empty) {
+      const categoryData = categorySnapshot.docs[0].data()
+      if (categoryData) {
+        categoryName = categoryData.name || 'Unknown Category'
+      }
+    }
+
     // Create subcontractor document
     const subcontractorData: Omit<Subcontractor, 'id'> = {
       userId: firebaseUser.uid,
@@ -95,6 +108,7 @@ export async function POST(request: Request) {
       phone: registrationData.phone,
       title: registrationData.title,
       categoryId: registrationData.categoryId,
+      categoryName: categoryName,
       skills: registrationData.skills,
       experience: registrationData.experience,
       hourlyRate: registrationData.hourlyRate ? parseFloat(registrationData.hourlyRate) : undefined,

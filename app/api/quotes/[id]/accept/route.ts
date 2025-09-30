@@ -23,6 +23,13 @@ export async function POST(
 
     const quoteData = quoteSnap.data()
 
+    if (!quoteData) {
+      return new Response(
+        JSON.stringify({ error: 'Quote data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     if (quoteData.status !== 'shared_with_client') {
       return new Response(
         JSON.stringify({ error: 'Quote is not available for acceptance' }),

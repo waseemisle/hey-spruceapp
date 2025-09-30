@@ -39,8 +39,15 @@ export async function POST(
     const quote = quoteDoc.data()
     console.log('Current quote:', quote)
 
+    if (!quote) {
+      return new Response(
+        JSON.stringify({ error: 'Quote data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Validate quote status
-    if (quote.status !== 'draft') {
+    if (quote.status !== 'pending') {
       return new Response(
         JSON.stringify({ error: 'Only draft quotes can be sent' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -106,10 +113,8 @@ export async function POST(
         success: false,
         error: 'Failed to send quote',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }

@@ -18,9 +18,7 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  PlayCircle,
-  PauseCircle,
-  Calculator,
+  X,
   Eye
 } from 'lucide-react'
 
@@ -39,11 +37,11 @@ const getStatusIcon = (status: string) => {
     case 'rejected':
       return <XCircle className="h-4 w-4" />
     case 'in-progress':
-      return <PlayCircle className="h-4 w-4" />
+      return <Clock className="h-4 w-4" />
     case 'completed':
       return <CheckCircle className="h-4 w-4" />
     case 'cancelled':
-      return <PauseCircle className="h-4 w-4" />
+      return <X className="h-4 w-4" />
     default:
       return <AlertCircle className="h-4 w-4" />
   }
@@ -220,7 +218,7 @@ export default function ViewWorkOrderModal({
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                 <span className="font-medium text-gray-600 text-sm sm:text-base">Category:</span>
                 <Badge variant="outline" className="capitalize w-fit">
-                  {workOrder.category}
+                  {workOrder.categoryName}
                 </Badge>
               </div>
               
@@ -237,7 +235,7 @@ export default function ViewWorkOrderModal({
                   <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />
                   <span className="font-medium text-gray-600 text-sm sm:text-base">Estimated Duration:</span>
                 </div>
-                <span className="text-sm sm:text-base">{workOrder.estimatedDuration ? `${workOrder.estimatedDuration}h` : 'Not specified'}</span>
+                <span className="text-sm sm:text-base">{workOrder.estimatedCost ? `$${workOrder.estimatedCost}` : 'Not specified'}</span>
               </div>
               
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
@@ -288,7 +286,7 @@ export default function ViewWorkOrderModal({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Calculator className="h-5 w-5" />
+              <DollarSign className="h-5 w-5" />
               Quotes ({quotes.length})
             </CardTitle>
             <CardDescription>
@@ -303,7 +301,7 @@ export default function ViewWorkOrderModal({
               </div>
             ) : quotes.length === 0 ? (
               <div className="text-center py-8">
-                <Calculator className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500">No quotes created yet</p>
               </div>
             ) : (
@@ -321,7 +319,7 @@ export default function ViewWorkOrderModal({
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
                           <div>
-                            <p><strong>Total Amount:</strong> {formatCurrency(quote.totalAmount)}</p>
+                            <p><strong>Total Amount:</strong> {formatCurrency(quote.clientAmount)}</p>
                             <p><strong>Valid Until:</strong> {formatDate(quote.validUntil)}</p>
                           </div>
                           <div>

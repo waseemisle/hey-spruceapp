@@ -127,10 +127,8 @@ export async function DELETE(
           error: 'Work order not found',
           workOrderId: workOrderId,
           message: 'The work order you are trying to delete does not exist in the database'
-        },
-        { status: 404 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -156,10 +154,8 @@ export async function DELETE(
         JSON.stringify({ 
         error: 'Internal server error',
         message: error.message || 'An unexpected error occurred while deleting the work order'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
   }
 }

@@ -42,10 +42,8 @@ export async function POST(request: Request) {
     if (!data.title || !data.description || !data.clientId || !data.categoryId || !data.estimatedCost || !data.estimatedDateOfService) {
       console.log('❌ Missing required fields')
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: title, description, clientId, categoryId, estimatedCost, estimatedDateOfService' },
-        { status: 400 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing required fields: title, description, clientId, categoryId, estimatedCost, estimatedDateOfService' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
     

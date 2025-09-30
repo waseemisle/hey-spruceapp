@@ -25,6 +25,13 @@ export async function POST(request: Request) {
 
     const locationData = locationSnap.data()
 
+    if (!locationData) {
+      return new Response(
+        JSON.stringify({ error: 'Location data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     if (locationData.status === 'approved') {
       return new Response(
         JSON.stringify({ message: 'Location already approved' }),

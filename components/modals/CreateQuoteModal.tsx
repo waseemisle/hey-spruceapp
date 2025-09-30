@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { WorkOrder, QuoteFormData, QuoteLineItem } from '@/lib/types'
-import { Plus, Trash2, Calculator, Mail } from 'lucide-react'
+import { Plus, Trash2, DollarSign, Mail } from 'lucide-react'
 
 interface CreateQuoteModalProps {
   isOpen: boolean
@@ -137,7 +137,7 @@ export default function CreateQuoteModal({
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
+            <DollarSign className="h-5 w-5" />
             Create Quote for Work Order
           </CardTitle>
           <p className="text-sm text-gray-600">

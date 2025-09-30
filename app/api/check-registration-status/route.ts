@@ -1,19 +1,5 @@
-// Using standard Response instead of NextResponse to avoid type issues
-import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore'
-import { initializeApp } from 'firebase/app'
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDWHE-iFu2JpGgOc57_RxZ_DFLpHxWYDQ8",
-  authDomain: "heyspruceappv2.firebaseapp.com",
-  projectId: "heyspruceappv2",
-  storageBucket: "heyspruceappv2.firebasestorage.app",
-  messagingSenderId: "198738285054",
-  appId: "1:198738285054:web:6878291b080771623a70af",
-  measurementId: "G-82NKE8271G"
-}
-
-const app = initializeApp(firebaseConfig)
-const db = getFirestore(app)
+import { db } from '@/lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 
 export async function POST(request: Request) {
   try {
@@ -43,6 +29,13 @@ export async function POST(request: Request) {
 
     const registration = querySnapshot.docs[0].data()
     const registrationId = querySnapshot.docs[0].id
+
+    if (!registration) {
+      return new Response(
+        JSON.stringify({ error: 'Registration data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     return new Response(
       JSON.stringify({

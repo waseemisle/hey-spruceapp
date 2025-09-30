@@ -55,6 +55,13 @@ export async function POST(request: Request) {
     const workOrder = workOrderSnapshot.docs[0].data()
     console.log('Work order data:', workOrder)
 
+    if (!workOrder) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Validate work order data structure
     if (!workOrder.title || !workOrder.description || !workOrder.location || !workOrder.clientId) {
       console.error('Invalid work order data:', workOrder)
@@ -184,11 +191,9 @@ export async function POST(request: Request) {
         JSON.stringify({ 
         error: 'Failed to create quote',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 
@@ -227,6 +232,10 @@ export async function GET(request: Request) {
     const quotes = snapshot.docs.map(doc => {
       try {
         const data = doc.data()
+        if (!data) {
+          console.warn('Quote data is undefined for doc:', doc.id)
+          return null
+        }
         console.log('Processing quote:', { id: doc.id, workOrderId: data.workOrderId, status: data.status })
         return {
           id: doc.id,
@@ -244,10 +253,11 @@ export async function GET(request: Request) {
     console.log('Processed quotes:', quotes.length)
     console.log('=== QUOTES GET API SUCCESS ===')
 
+    const validQuotes = quotes.filter(quote => quote !== null)
     return new Response(
         JSON.stringify({
       success: true,
-      quotes
+      quotes: validQuotes
     }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
@@ -268,10 +278,8 @@ export async function GET(request: Request) {
         error: 'Failed to fetch quotes',
         details: error instanceof Error ? error.message : 'Unknown error',
         quotes: []
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }

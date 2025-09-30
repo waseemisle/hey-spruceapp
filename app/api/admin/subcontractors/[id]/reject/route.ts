@@ -13,10 +13,8 @@ export async function PUT(
 
     if (!subcontractorId || !adminId || !adminName || !rejectionReason) {
       return new Response(
-        JSON.stringify({ error: 'Subcontractor ID, admin ID, admin name, and rejection reason are required' },
-        { status: 400 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Subcontractor ID, admin ID, admin name, and rejection reason are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -34,6 +32,13 @@ export async function PUT(
     }
 
     const subcontractorData = subcontractorSnap.data()
+
+    if (!subcontractorData) {
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Check if already approved or rejected
     if (subcontractorData.status !== 'pending') {

@@ -112,7 +112,7 @@ export default function CreateInvoiceModal({
                 <SelectContent>
                   {quotes.map((quote) => (
                     <SelectItem key={quote.id} value={quote.id}>
-                      {quote.workOrderTitle} - ${quote.totalAmount.toLocaleString()} - {quote.clientName}
+                      {quote.workOrderTitle} - ${quote.clientAmount.toLocaleString()} - {quote.clientName}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -133,7 +133,7 @@ export default function CreateInvoiceModal({
                     <p><strong>Location:</strong> {selectedQuote.workOrderLocation.name}</p>
                   </div>
                   <div>
-                    <p><strong>Total Amount:</strong> ${selectedQuote.totalAmount.toLocaleString()}</p>
+                    <p><strong>Total Amount:</strong> ${selectedQuote.clientAmount.toLocaleString()}</p>
                     <p><strong>Labor Cost:</strong> ${selectedQuote.laborCost.toLocaleString()}</p>
                     <p><strong>Material Cost:</strong> ${selectedQuote.materialCost.toLocaleString()}</p>
                   </div>

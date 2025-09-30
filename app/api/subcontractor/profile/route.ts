@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       ...subcontractorDoc.data()
     }
 
-    console.log('Subcontractor profile found:', subcontractorData?.fullName)
+    console.log('Subcontractor profile found:', (subcontractorData as any)?.fullName)
 
     return new Response(
         JSON.stringify(subcontractorData),

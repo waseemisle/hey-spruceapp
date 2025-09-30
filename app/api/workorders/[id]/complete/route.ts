@@ -1,6 +1,6 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc, query, collection, getDocs } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, query, collection, getDocs, where } from 'firebase/firestore'
 
 export async function POST(
   request: Request,
@@ -22,6 +22,13 @@ export async function POST(
     }
 
     const workOrderData = workOrderSnap.data()
+
+    if (!workOrderData) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Verify the subcontractor is assigned to this work order
     if (workOrderData.assignedTo !== subcontractorId) {

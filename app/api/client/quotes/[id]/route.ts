@@ -13,10 +13,8 @@ export async function PUT(
 
     if (!quoteId || !status || !clientId) {
       return new Response(
-        JSON.stringify({ error: 'Quote ID, status, and client ID are required' },
-        { status: 400 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Quote ID, status, and client ID are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -41,6 +39,13 @@ export async function PUT(
     }
 
     const quoteData = quoteSnap.data()
+
+    if (!quoteData) {
+      return new Response(
+        JSON.stringify({ error: 'Quote data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Verify the client owns this quote
     if (quoteData.clientId !== clientId) {

@@ -31,10 +31,8 @@ export async function POST(request: Request) {
     if (!clientId || !title || !amount || !frequency || !time || !timezone || !adminId) {
       console.error('Missing required fields:', { clientId, title, amount, frequency, time, timezone, adminId })
       return new Response(
-        JSON.stringify({ error: 'Client ID, title, amount, frequency, time, timezone, and admin ID are required' },
-        { status: 400 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Client ID, title, amount, frequency, time, timezone, and admin ID are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -43,10 +41,8 @@ export async function POST(request: Request) {
     if (!validFrequencies.includes(frequency)) {
       console.error('Invalid frequency:', frequency)
       return new Response(
-        JSON.stringify({ error: 'Invalid frequency. Must be one of: weekly, monthly, quarterly, yearly' },
-        { status: 400 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Invalid frequency. Must be one of: weekly, monthly, quarterly, yearly' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -80,7 +76,9 @@ export async function POST(request: Request) {
       const allClientsSnapshot = await getDocs(allClientsQuery)
       allClientsSnapshot.docs.forEach(doc => {
         const data = doc.data()
-        console.error('  - ID:', data.userId, 'Email:', data.email, 'Status:', data.status)
+        if (data) {
+          console.error('  - ID:', data.userId, 'Email:', data.email, 'Status:', data.status)
+        }
       })
       
       return new Response(
@@ -91,6 +89,13 @@ export async function POST(request: Request) {
 
     const clientData = clientSnapshot.docs[0].data()
     console.log('Client data found:', clientData)
+
+    if (!clientData) {
+      return new Response(
+        JSON.stringify({ error: 'Client data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Calculate next execution time
     let nextExecution
@@ -166,11 +171,9 @@ export async function POST(request: Request) {
         success: false,
         error: 'Failed to create scheduled invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 
@@ -215,11 +218,9 @@ export async function GET(request: Request) {
         error: 'Failed to fetch scheduled invoices',
         details: error instanceof Error ? error.message : 'Unknown error',
         scheduledInvoices: []
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 

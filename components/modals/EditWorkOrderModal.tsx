@@ -71,7 +71,7 @@ export default function EditWorkOrderModal({
         title: workOrder.title || '',
         description: workOrder.description || '',
         locationId: workOrder.location?.id || '',
-        category: workOrder.category || 'maintenance',
+        category: (workOrder.categoryName as any) || 'maintenance',
         priority: workOrder.priority || 'medium',
         estimatedCost: workOrder.estimatedCost?.toString() || '',
         scheduledDate: workOrder.scheduledDate || '',

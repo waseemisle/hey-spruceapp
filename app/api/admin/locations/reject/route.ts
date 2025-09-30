@@ -8,8 +8,8 @@ export async function POST(request: Request) {
 
     if (!locationId || !adminId || !reason) {
       return new Response(
-        JSON.stringify({ error: 'Location ID, Admin ID, and rejection reason are required' }, { status: 400 }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Location ID, Admin ID, and rejection reason are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 

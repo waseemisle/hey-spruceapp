@@ -86,9 +86,9 @@ export default function RegisterClient() {
   const handleServiceToggle = (service: string) => {
     setFormData(prev => ({
       ...prev,
-      preferredServices: prev.preferredServices.includes(service)
-        ? prev.preferredServices.filter(s => s !== service)
-        : [...prev.preferredServices, service]
+      preferredServices: (prev.preferredServices || []).includes(service)
+        ? (prev.preferredServices || []).filter(s => s !== service)
+        : [...(prev.preferredServices || []), service]
     }))
   }
 
@@ -332,7 +332,7 @@ export default function RegisterClient() {
                     <div key={service} className="flex items-center space-x-2">
                       <Checkbox
                         id={service}
-                        checked={formData.preferredServices.includes(service)}
+                        checked={(formData.preferredServices || []).includes(service)}
                         onCheckedChange={() => handleServiceToggle(service)}
                       />
                       <Label htmlFor={service} className="text-sm">

@@ -38,6 +38,13 @@ export async function PUT(
     const currentInvoice = invoiceDoc.data()
     console.log('Current invoice:', currentInvoice)
 
+    if (!currentInvoice) {
+      return new Response(
+        JSON.stringify({ error: 'Invoice data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Prepare update data
     const updateData: any = {
       status,
@@ -89,11 +96,9 @@ export async function PUT(
         success: false,
         error: 'Failed to update invoice',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 

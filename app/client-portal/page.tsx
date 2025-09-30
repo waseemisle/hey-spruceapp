@@ -19,7 +19,7 @@ import {
   TrendingUp, 
   Plus,
   Search,
-  Filter,
+  MoreHorizontal,
   Settings,
   Home,
   FileText,
@@ -372,7 +372,7 @@ export default function ClientPortal() {
           </div>
         </div>
         <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
+          <MoreHorizontal className="h-4 w-4 mr-2" />
           Filter
         </Button>
       </div>

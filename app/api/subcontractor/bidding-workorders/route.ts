@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       categoryId: subcontractor?.categoryId
     })
 
-    if (!subcontractor.categoryId) {
+    if (!subcontractor || !subcontractor.categoryId) {
       console.log('No category ID found for subcontractor')
       return new Response(
         JSON.stringify([]),
@@ -59,9 +59,9 @@ export async function GET(request: Request) {
     console.log('Found bidding work orders for subcontractor:', biddingWorkOrders.length)
     console.log('Bidding work orders details:', biddingWorkOrders.map(bwo => ({
       id: bwo.id,
-      workOrderTitle: bwo.workOrderTitle,
-      subcontractorId: bwo.subcontractorId,
-      status: bwo.status
+      workOrderTitle: (bwo as any).workOrderTitle,
+      subcontractorId: (bwo as any).subcontractorId,
+      status: (bwo as any).status
     })))
 
     return new Response(

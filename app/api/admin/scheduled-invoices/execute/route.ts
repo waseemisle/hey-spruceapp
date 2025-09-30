@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     // Filter by nextExecution in JavaScript
     const dueInvoices = snapshot.docs.filter(doc => {
       const data = doc.data()
-      return data.nextExecution && data.nextExecution <= nowISO
+      return data && data.nextExecution && data.nextExecution <= nowISO
     })
     
     console.log('Found', dueInvoices.length, 'scheduled invoices due for execution')
@@ -170,11 +170,9 @@ export async function POST(request: Request) {
         success: false,
         error: 'Failed to execute scheduled invoices',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      )
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 

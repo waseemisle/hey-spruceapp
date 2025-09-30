@@ -8,10 +8,8 @@ export async function POST(request: Request) {
 
     if (!subcontractorId || !adminId || !reason) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: subcontractorId, adminId, and reason' },
-        { status: 400 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing required fields: subcontractorId, adminId, and reason' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -27,6 +25,13 @@ export async function POST(request: Request) {
     }
 
     const subcontractorData = subcontractorSnap.data()
+
+    if (!subcontractorData) {
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (subcontractorData.status !== 'pending') {
       return new Response(

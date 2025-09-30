@@ -25,6 +25,13 @@ export async function POST(request: Request) {
 
     const workOrderData = workOrderSnap.data()
 
+    if (!workOrderData) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     if (workOrderData.status !== 'pending') {
       return new Response(
         JSON.stringify({ message: 'Work Order already processed' }),

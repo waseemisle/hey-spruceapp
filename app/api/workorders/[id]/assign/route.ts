@@ -30,6 +30,13 @@ export async function POST(
 
     const workOrderData = workOrderSnap.data()
 
+    if (!workOrderData) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Get subcontractor data
     const subcontractorRef = doc(db, COLLECTIONS.SUBCONTRACTORS, subcontractorId)
     const subcontractorSnap = await getDoc(subcontractorRef)
@@ -42,6 +49,13 @@ export async function POST(
     }
 
     const subcontractorData = subcontractorSnap.data()
+
+    if (!subcontractorData) {
+      return new Response(
+        JSON.stringify({ error: 'Subcontractor data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Update work order status and assignment
     await updateDoc(workOrderRef, {

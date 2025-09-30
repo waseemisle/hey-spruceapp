@@ -8,8 +8,8 @@ export async function POST(request: Request) {
 
     if (!workOrderId || !subcontractorId || !adminId) {
       return new Response(
-        JSON.stringify({ error: 'Work Order ID, Subcontractor ID, and Admin ID are required' }, { status: 400 }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Work Order ID, Subcontractor ID, and Admin ID are required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -25,6 +25,13 @@ export async function POST(request: Request) {
     }
 
     const workOrderData = workOrderSnap.data()
+
+    if (!workOrderData) {
+      return new Response(
+        JSON.stringify({ error: 'Work order data not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (workOrderData.status !== 'quote_approved') {
       return new Response(

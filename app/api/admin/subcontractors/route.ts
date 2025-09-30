@@ -45,10 +45,8 @@ export async function POST(request: Request) {
     // Validate required fields
     if (!body.fullName || !body.email || !body.categoryId) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: fullName, email, categoryId' },
-        { status: 400 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing required fields: fullName, email, categoryId' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 

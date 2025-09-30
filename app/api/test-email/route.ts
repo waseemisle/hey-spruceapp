@@ -11,10 +11,8 @@ export async function POST(request: Request) {
         JSON.stringify({ 
           success: false, 
           error: 'Email configuration is invalid. Please check your SMTP settings.' 
-        },
-        { status: 500 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -51,10 +49,8 @@ export async function POST(request: Request) {
           success: false, 
           error: 'Failed to send test email',
           details: result.error 
-        },
-        { status: 500 }
-      ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -65,10 +61,8 @@ export async function POST(request: Request) {
         success: false,
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
   }
 }
@@ -95,10 +89,8 @@ export async function GET() {
         success: false,
         error: 'Failed to verify email configuration',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    ),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
   }
 }
