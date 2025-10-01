@@ -40,6 +40,24 @@ export default function AdminClientsPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedLinks, setGeneratedLinks] = useState<any[]>([])
 
+  // Add client modal state
+  const [showAddClientModal, setShowAddClientModal] = useState(false)
+  const [isCreatingClient, setIsCreatingClient] = useState(false)
+  const [addClientFormData, setAddClientFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    companyName: '',
+    businessType: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: 'USA'
+    }
+  })
+
   useEffect(() => {
     // Fetch client registrations
     const registrationsQuery = db.collection('clients').orderBy('createdAt', 'desc')
@@ -178,6 +196,76 @@ export default function AdminClientsPage() {
     info('Link Copied', 'Registration link copied to clipboard!')
   }
 
+  const handleAddClientInputChange = (field: string, value: string) => {
+    if (field.startsWith('address.')) {
+      const addressField = field.split('.')[1]
+      setAddClientFormData(prev => ({
+        ...prev,
+        address: {
+          ...prev.address,
+          [addressField]: value
+        }
+      }))
+    } else {
+      setAddClientFormData(prev => ({
+        ...prev,
+        [field]: value
+      }))
+    }
+  }
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!addClientFormData.fullName || !addClientFormData.email || !addClientFormData.phone) {
+      error('Validation Error', 'Please fill in all required fields')
+      return
+    }
+
+    setIsCreatingClient(true)
+
+    try {
+      const clientData = {
+        fullName: addClientFormData.fullName,
+        email: addClientFormData.email,
+        phone: addClientFormData.phone,
+        companyName: addClientFormData.companyName || '',
+        businessType: addClientFormData.businessType || '',
+        address: addClientFormData.address,
+        status: 'approved',
+        approvedBy: user?.uid || 'admin',
+        approvedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        submittedAt: new Date().toISOString()
+      }
+
+      await db.collection('clients').add(clientData)
+      
+      success('Client Created', 'Client created and approved successfully!')
+      setShowAddClientModal(false)
+      setAddClientFormData({
+        fullName: '',
+        email: '',
+        phone: '',
+        companyName: '',
+        businessType: '',
+        address: {
+          street: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: 'USA'
+        }
+      })
+    } catch (err: any) {
+      console.error('Error creating client:', err)
+      error('Creation Failed', err.message || 'Failed to create client')
+    } finally {
+      setIsCreatingClient(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const variants = {
       pending: 'bg-yellow-100 text-yellow-800',
@@ -210,10 +298,16 @@ export default function AdminClientsPage() {
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Client Management</h1>
-          <Button onClick={() => setShowLinkModal(true)}>
-            <ExternalLink className="w-4 h-4 mr-2" />
-            Generate Registration Link
-          </Button>
+          <div className="flex gap-3">
+            <Button onClick={() => setShowAddClientModal(true)} variant="default">
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Client
+            </Button>
+            <Button onClick={() => setShowLinkModal(true)} variant="outline">
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Generate Registration Link
+            </Button>
+          </div>
         </div>
 
       {/* Stats Cards */}
@@ -469,6 +563,155 @@ export default function AdminClientsPage() {
                   {isGenerating ? 'Generating...' : 'Generate Link'}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Client Modal */}
+      {showAddClientModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
+            <CardHeader>
+              <CardTitle>Add New Client</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateClient} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name *</Label>
+                    <Input
+                      id="fullName"
+                      value={addClientFormData.fullName}
+                      onChange={(e) => handleAddClientInputChange('fullName', e.target.value)}
+                      placeholder="John Doe"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={addClientFormData.email}
+                      onChange={(e) => handleAddClientInputChange('email', e.target.value)}
+                      placeholder="john@example.com"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone *</Label>
+                    <Input
+                      id="phone"
+                      value={addClientFormData.phone}
+                      onChange={(e) => handleAddClientInputChange('phone', e.target.value)}
+                      placeholder="555-123-4567"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="companyName">Company Name</Label>
+                    <Input
+                      id="companyName"
+                      value={addClientFormData.companyName}
+                      onChange={(e) => handleAddClientInputChange('companyName', e.target.value)}
+                      placeholder="ABC Corp"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessType">Business Type</Label>
+                    <Select 
+                      value={addClientFormData.businessType} 
+                      onValueChange={(value) => handleAddClientInputChange('businessType', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Real Estate">Real Estate</SelectItem>
+                        <SelectItem value="Property Management">Property Management</SelectItem>
+                        <SelectItem value="Corporate">Corporate</SelectItem>
+                        <SelectItem value="Facility Management">Facility Management</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Address</h3>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="street">Street Address</Label>
+                    <Input
+                      id="street"
+                      value={addClientFormData.address.street}
+                      onChange={(e) => handleAddClientInputChange('address.street', e.target.value)}
+                      placeholder="123 Main St"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        value={addClientFormData.address.city}
+                        onChange={(e) => handleAddClientInputChange('address.city', e.target.value)}
+                        placeholder="New York"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State</Label>
+                      <Input
+                        id="state"
+                        value={addClientFormData.address.state}
+                        onChange={(e) => handleAddClientInputChange('address.state', e.target.value)}
+                        placeholder="NY"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="zipCode">ZIP Code</Label>
+                      <Input
+                        id="zipCode"
+                        value={addClientFormData.address.zipCode}
+                        onChange={(e) => handleAddClientInputChange('address.zipCode', e.target.value)}
+                        placeholder="10001"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country</Label>
+                    <Input
+                      id="country"
+                      value={addClientFormData.address.country}
+                      onChange={(e) => handleAddClientInputChange('address.country', e.target.value)}
+                      placeholder="USA"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowAddClientModal(false)}
+                    disabled={isCreatingClient}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isCreatingClient}>
+                    {isCreatingClient ? 'Creating...' : 'Create Client'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>

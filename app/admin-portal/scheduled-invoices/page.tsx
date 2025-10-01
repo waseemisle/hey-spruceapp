@@ -23,7 +23,8 @@ import {
   CheckCircle,
   XCircle,
   DollarSign,
-  Eye
+  Eye,
+  Mail
 } from 'lucide-react'
 
 export default function AdminScheduledInvoicesPage() {
@@ -38,7 +39,9 @@ export default function AdminScheduledInvoicesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
+  const [showSendEmailModal, setShowSendEmailModal] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<ScheduledInvoice | null>(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
   
   const [formData, setFormData] = useState({
     clientId: '',
@@ -189,6 +192,37 @@ export default function AdminScheduledInvoicesPage() {
       fetchData()
     } catch (err: any) {
       error('Deletion Failed', err.message)
+    }
+  }
+
+  const openSendEmailModal = (invoice: ScheduledInvoice) => {
+    setSelectedInvoice(invoice)
+    setShowSendEmailModal(true)
+  }
+
+  const handleConfirmSendEmail = async () => {
+    if (!selectedInvoice) return
+
+    setSendingEmail(true)
+    
+    try {
+      const response = await fetch(`/api/scheduled-invoices/${selectedInvoice.id}/send-email`, {
+        method: 'POST'
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send email')
+      }
+
+      success('Email Sent', `Invoice email sent successfully to ${selectedInvoice.clientEmail}`)
+      setShowSendEmailModal(false)
+      setSelectedInvoice(null)
+    } catch (err: any) {
+      error('Email Failed', err.message)
+    } finally {
+      setSendingEmail(false)
     }
   }
 
@@ -469,6 +503,16 @@ export default function AdminScheduledInvoicesPage() {
                     >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openSendEmailModal(invoice)}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <Mail className="h-4 w-4 mr-1" />
+                      Send Email
                     </Button>
                     
                     <Button
@@ -980,6 +1024,77 @@ export default function AdminScheduledInvoicesPage() {
               </Button>
             </div>
           </form>
+        </Modal>
+
+        {/* Send Email Confirmation Modal */}
+        <Modal
+          isOpen={showSendEmailModal}
+          onClose={() => {
+            if (!sendingEmail) {
+              setShowSendEmailModal(false)
+              setSelectedInvoice(null)
+            }
+          }}
+          title="Send Invoice Email"
+        >
+          {selectedInvoice && (
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start">
+                  <Mail className="h-5 w-5 text-blue-600 mt-0.5 mr-3" />
+                  <div>
+                    <p className="text-sm text-gray-700 mb-3">
+                      Are you sure you want to send an invoice email for this scheduled invoice?
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <p><strong>Title:</strong> {selectedInvoice.title}</p>
+                      <p><strong>Client:</strong> {selectedInvoice.clientName}</p>
+                      <p><strong>Email:</strong> {selectedInvoice.clientEmail}</p>
+                      <p><strong>Amount:</strong> ${selectedInvoice.amount.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> This will send a preview invoice email to the client immediately. No invoice will be created in the system.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowSendEmailModal(false)
+                    setSelectedInvoice(null)
+                  }}
+                  disabled={sendingEmail}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmSendEmail}
+                  disabled={sendingEmail}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {sendingEmail ? (
+                    <>
+                      <span className="inline-block animate-spin mr-2">⏳</span>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Email
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </Modal>
       </div>
     </>
