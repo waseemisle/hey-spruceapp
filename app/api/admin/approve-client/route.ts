@@ -1,5 +1,4 @@
 import { db, auth } from '@/lib/firebase'
-import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { sendApprovalEmail } from '@/lib/email'
 
@@ -15,10 +14,10 @@ export async function POST(request: Request) {
     }
 
     // Get the registration document
-    const registrationRef = doc(db, 'client_registrations', registrationId)
-    const registrationSnap = await getDoc(registrationRef)
+    const registrationRef = db.collection('client_registrations').doc(registrationId)
+    const registrationSnap = await registrationRef.get()
 
-    if (!registrationSnap.exists()) {
+    if (!registrationSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Registration not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -75,10 +74,10 @@ export async function POST(request: Request) {
       updatedAt: new Date().toISOString()
     }
 
-    await setDoc(doc(db, 'users', authUser.uid), userProfile)
+    await db.collection('users').doc(authUser.uid).set(userProfile)
 
     // Update registration status
-    await updateDoc(registrationRef, {
+    await registrationRef.update({
       status: 'approved',
       reviewedAt: new Date().toISOString(),
       reviewedBy: 'admin@heyspruce.com', // In real app, get from auth context

@@ -22,7 +22,8 @@ import {
   Trash2,
   CheckCircle,
   XCircle,
-  DollarSign
+  DollarSign,
+  Eye
 } from 'lucide-react'
 
 export default function AdminScheduledInvoicesPage() {
@@ -36,6 +37,7 @@ export default function AdminScheduledInvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<ScheduledInvoice | null>(null)
   
   const [formData, setFormData] = useState({
@@ -105,6 +107,14 @@ export default function AdminScheduledInvoicesPage() {
     }
 
     try {
+      // Find selected client to get name and email
+      const selectedClient = clients.find(c => c.id === formData.clientId)
+      
+      if (!selectedClient) {
+        error('Validation Error', 'Selected client not found')
+        return
+      }
+
       const response = await fetch('/api/scheduled-invoices', {
         method: 'POST',
         headers: {
@@ -112,6 +122,8 @@ export default function AdminScheduledInvoicesPage() {
         },
         body: JSON.stringify({
           ...formData,
+          clientName: selectedClient.fullName,
+          clientEmail: selectedClient.email,
           amount: parseFloat(formData.amount),
           dayOfWeek: formData.frequency === 'weekly' ? parseInt(formData.dayOfWeek) : null,
           dayOfMonth: ['monthly', 'quarterly', 'yearly'].includes(formData.frequency) ? parseInt(formData.dayOfMonth) : null,
@@ -193,6 +205,91 @@ export default function AdminScheduledInvoicesPage() {
       timezone: 'America/New_York',
       notes: ''
     })
+  }
+
+  const openViewModal = (invoice: ScheduledInvoice) => {
+    setSelectedInvoice(invoice)
+    setShowViewModal(true)
+  }
+
+  const openEditModal = (invoice: ScheduledInvoice) => {
+    setSelectedInvoice(invoice)
+    setFormData({
+      clientId: invoice.clientId,
+      title: invoice.title,
+      description: invoice.description || '',
+      amount: invoice.amount.toString(),
+      frequency: invoice.frequency,
+      dayOfWeek: invoice.dayOfWeek !== null ? invoice.dayOfWeek.toString() : '',
+      dayOfMonth: invoice.dayOfMonth !== null ? invoice.dayOfMonth.toString() : '',
+      time: invoice.time,
+      timezone: invoice.timezone,
+      notes: invoice.notes || ''
+    })
+    setShowEditModal(true)
+  }
+
+  const handleEditScheduledInvoice = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!selectedInvoice) {
+      error('Error', 'No invoice selected')
+      return
+    }
+
+    if (!formData.clientId || !formData.title || !formData.amount || !formData.time) {
+      error('Validation Error', 'Please fill in all required fields')
+      return
+    }
+
+    if (formData.frequency === 'weekly' && !formData.dayOfWeek) {
+      error('Validation Error', 'Please select a day of the week for weekly invoices')
+      return
+    }
+
+    if ((formData.frequency === 'monthly' || formData.frequency === 'quarterly' || formData.frequency === 'yearly') && !formData.dayOfMonth) {
+      error('Validation Error', 'Please select a day of the month for monthly/quarterly/yearly invoices')
+      return
+    }
+
+    try {
+      // Find selected client to get name and email
+      const selectedClient = clients.find(c => c.id === formData.clientId)
+      
+      if (!selectedClient) {
+        error('Validation Error', 'Selected client not found')
+        return
+      }
+
+      const response = await fetch(`/api/scheduled-invoices/${selectedInvoice.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          clientName: selectedClient.fullName,
+          clientEmail: selectedClient.email,
+          amount: parseFloat(formData.amount),
+          dayOfWeek: formData.frequency === 'weekly' ? parseInt(formData.dayOfWeek) : null,
+          dayOfMonth: ['monthly', 'quarterly', 'yearly'].includes(formData.frequency) ? parseInt(formData.dayOfMonth) : null,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update scheduled invoice')
+      }
+
+      success('Scheduled Invoice Updated', 'Scheduled invoice updated successfully!')
+      setShowEditModal(false)
+      setSelectedInvoice(null)
+      resetForm()
+      fetchData()
+    } catch (err: any) {
+      error('Update Failed', err.message)
+    }
   }
 
   const getStatusBadge = (isActive: boolean) => {
@@ -356,6 +453,24 @@ export default function AdminScheduledInvoicesPage() {
                   </div>
 
                   <div className="flex flex-col gap-2 ml-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openViewModal(invoice)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      View Details
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditModal(invoice)}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    
                     <Button
                       size="sm"
                       variant="outline"
@@ -563,6 +678,305 @@ export default function AdminScheduledInvoicesPage() {
               </Button>
               <Button type="submit" className="bg-primary hover:bg-primary/90">
                 Create Scheduled Invoice
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* View Details Modal */}
+        <Modal
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false)
+            setSelectedInvoice(null)
+          }}
+          title="Scheduled Invoice Details"
+        >
+          {selectedInvoice && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Title</Label>
+                  <div className="text-sm text-gray-900">{selectedInvoice.title}</div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Status</Label>
+                  <div className="mt-1">
+                    <Badge className={getStatusBadge(selectedInvoice.isActive)}>
+                      {selectedInvoice.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Client</Label>
+                  <div className="text-sm text-gray-900">{selectedInvoice.clientName}</div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Amount</Label>
+                  <div className="text-sm text-gray-900">${selectedInvoice.amount.toFixed(2)}</div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Description</Label>
+                <div className="text-sm text-gray-900">{selectedInvoice.description || 'N/A'}</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Frequency</Label>
+                  <div className="text-sm text-gray-900 capitalize">
+                    <Badge className={getFrequencyBadge(selectedInvoice.frequency)}>
+                      {selectedInvoice.frequency}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Time</Label>
+                  <div className="text-sm text-gray-900">{selectedInvoice.time} ({selectedInvoice.timezone})</div>
+                </div>
+              </div>
+
+              {selectedInvoice.frequency === 'weekly' && selectedInvoice.dayOfWeek !== null && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Day of Week</Label>
+                  <div className="text-sm text-gray-900">{getDayOfWeekName(selectedInvoice.dayOfWeek)}</div>
+                </div>
+              )}
+
+              {['monthly', 'quarterly', 'yearly'].includes(selectedInvoice.frequency) && selectedInvoice.dayOfMonth && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Day of Month</Label>
+                  <div className="text-sm text-gray-900">{selectedInvoice.dayOfMonth}</div>
+                </div>
+              )}
+
+              {selectedInvoice.nextExecution && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Next Execution</Label>
+                  <div className="text-sm text-gray-900">
+                    {new Date(selectedInvoice.nextExecution).toLocaleDateString()} at {selectedInvoice.time}
+                  </div>
+                </div>
+              )}
+
+              {selectedInvoice.lastExecuted && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Last Executed</Label>
+                  <div className="text-sm text-gray-900">{new Date(selectedInvoice.lastExecuted).toLocaleDateString()}</div>
+                </div>
+              )}
+
+              {selectedInvoice.notes && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Notes</Label>
+                  <div className="text-sm text-gray-900">{selectedInvoice.notes}</div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                  <strong>Created:</strong> {new Date(selectedInvoice.createdAt).toLocaleDateString()}
+                </div>
+                <div>
+                  <strong>Updated:</strong> {new Date(selectedInvoice.updatedAt).toLocaleDateString()}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowViewModal(false)
+                    setSelectedInvoice(null)
+                  }}
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowViewModal(false)
+                    openEditModal(selectedInvoice)
+                  }}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {/* Edit Scheduled Invoice Modal */}
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedInvoice(null)
+            resetForm()
+          }}
+          title="Edit Scheduled Invoice"
+        >
+          <form onSubmit={handleEditScheduledInvoice} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-clientId">Client *</Label>
+              <Select value={formData.clientId} onValueChange={(value) => handleInputChange('clientId', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.fullName} ({client.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-title">Title *</Label>
+              <Input
+                id="edit-title"
+                value={formData.title}
+                onChange={(e) => handleInputChange('title', e.target.value)}
+                placeholder="Monthly Service Invoice"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Description of the scheduled invoice"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-amount">Amount *</Label>
+              <Input
+                id="edit-amount"
+                type="number"
+                step="0.01"
+                value={formData.amount}
+                onChange={(e) => handleInputChange('amount', e.target.value)}
+                placeholder="0.00"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-frequency">Frequency *</Label>
+              <Select value={formData.frequency} onValueChange={(value) => handleInputChange('frequency', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select frequency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.frequency === 'weekly' && (
+              <div>
+                <Label htmlFor="edit-dayOfWeek">Day of Week *</Label>
+                <Select value={formData.dayOfWeek} onValueChange={(value) => handleInputChange('dayOfWeek', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Sunday</SelectItem>
+                    <SelectItem value="1">Monday</SelectItem>
+                    <SelectItem value="2">Tuesday</SelectItem>
+                    <SelectItem value="3">Wednesday</SelectItem>
+                    <SelectItem value="4">Thursday</SelectItem>
+                    <SelectItem value="5">Friday</SelectItem>
+                    <SelectItem value="6">Saturday</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {['monthly', 'quarterly', 'yearly'].includes(formData.frequency) && (
+              <div>
+                <Label htmlFor="edit-dayOfMonth">Day of Month *</Label>
+                <Select value={formData.dayOfMonth} onValueChange={(value) => handleInputChange('dayOfMonth', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                      <SelectItem key={day} value={day.toString()}>
+                        {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-time">Time *</Label>
+                <Input
+                  id="edit-time"
+                  type="time"
+                  value={formData.time}
+                  onChange={(e) => handleInputChange('time', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-timezone">Timezone *</Label>
+                <Select value={formData.timezone} onValueChange={(value) => handleInputChange('timezone', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="America/New_York">Eastern Time</SelectItem>
+                    <SelectItem value="America/Chicago">Central Time</SelectItem>
+                    <SelectItem value="America/Denver">Mountain Time</SelectItem>
+                    <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                value={formData.notes}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                placeholder="Additional notes"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowEditModal(false)
+                  setSelectedInvoice(null)
+                  resetForm()
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
+                Update Scheduled Invoice
               </Button>
             </div>
           </form>

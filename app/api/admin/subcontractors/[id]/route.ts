@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
-
 // Update a specific subcontractor
 export async function PUT(
   request: Request,
@@ -15,10 +13,10 @@ export async function PUT(
     console.log('Update data:', body)
 
     // Check if subcontractor exists
-    const subcontractorRef = doc(db, 'subcontractors', subcontractorId)
-    const subcontractorDoc = await getDoc(subcontractorRef)
+    const subcontractorRef = db.collection('subcontractors').doc(subcontractorId)
+    const subcontractorDoc = await subcontractorRef.get()
     
-    if (!subcontractorDoc.exists()) {
+    if (!subcontractorDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Subcontractor not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -36,7 +34,7 @@ export async function PUT(
     delete updateData.updatedBy
 
     // Update the subcontractor
-    await updateDoc(subcontractorRef, updateData)
+    await subcontractorRef.update(updateData)
 
     console.log('Subcontractor updated successfully:', subcontractorId)
 
@@ -67,10 +65,10 @@ export async function GET(
     
     console.log('Fetching subcontractor:', subcontractorId)
 
-    const subcontractorRef = doc(db, 'subcontractors', subcontractorId)
-    const subcontractorDoc = await getDoc(subcontractorRef)
+    const subcontractorRef = db.collection('subcontractors').doc(subcontractorId)
+    const subcontractorDoc = await subcontractorRef.get()
     
-    if (!subcontractorDoc.exists()) {
+    if (!subcontractorDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Subcontractor not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }

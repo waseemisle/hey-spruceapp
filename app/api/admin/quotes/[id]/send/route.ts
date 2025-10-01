@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
 import { sendQuoteEmail } from '@/lib/sendgrid-service'
 
 // Send quote to client via email
@@ -26,10 +25,10 @@ export async function POST(
     }
 
     // Get current quote
-    const quoteRef = doc(db, 'quotes', quoteId)
-    const quoteDoc = await getDoc(quoteRef)
+    const quoteRef = db.collection('quotes').doc(quoteId)
+    const quoteDoc = await quoteRef.get()
     
-    if (!quoteDoc.exists()) {
+    if (!quoteDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Quote not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -61,7 +60,7 @@ export async function POST(
       updatedAt: new Date().toISOString()
     }
 
-    await updateDoc(quoteRef, updateData)
+    await quoteRef.update(updateData)
     console.log('Quote status updated to sent')
 
     // Send email to client

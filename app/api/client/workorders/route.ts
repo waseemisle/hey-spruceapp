@@ -6,6 +6,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const clientId = searchParams.get('clientId')
 
+    // console.log('Client work orders API - clientId:', clientId)
+
     if (!clientId) {
       return new Response(
         JSON.stringify({ error: 'Client ID is required' }),
@@ -18,6 +20,8 @@ export async function GET(request: Request) {
       { type: 'where', field: 'clientId', operator: '==', value: clientId }
     ])
     
+    // console.log('Found work orders:', data?.length || 0)
+    
     if (error) {
       return new Response(
         JSON.stringify({ error: 'Failed to fetch work orders' }),
@@ -25,8 +29,48 @@ export async function GET(request: Request) {
       )
     }
 
+    // Enhance work orders with location data
+    const enhancedWorkOrders = await Promise.all(
+      (data || []).map(async (workOrder: any) => {
+        try {
+          // If work order has locationId but location is not an object (could be a string), fetch location data
+          if (workOrder.locationId && (typeof workOrder.location !== 'object' || !workOrder.location)) {
+            const locationRef = db.collection('locations').doc(workOrder.locationId)
+            const locationSnap = await locationRef.get()
+            
+            if (locationSnap.exists) {
+              const locationData = locationSnap.data()
+              workOrder.location = {
+                id: workOrder.locationId,
+                name: locationData?.name || 'Unknown Location',
+                address: locationData?.address || ''
+              }
+            } else {
+              workOrder.location = {
+                id: workOrder.locationId,
+                name: 'Location not found',
+                address: ''
+              }
+            }
+          }
+          return workOrder
+        } catch (locationError) {
+          console.error('Error fetching location for work order:', workOrder.id, locationError)
+          // Return work order with fallback location
+          workOrder.location = {
+            id: workOrder.locationId || '',
+            name: 'Location not found',
+            address: ''
+          }
+          return workOrder
+        }
+      })
+    )
+
+    // console.log('Enhanced work orders:', enhancedWorkOrders.length)
+
     return new Response(
-        JSON.stringify(data),
+        JSON.stringify(enhancedWorkOrders),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
 

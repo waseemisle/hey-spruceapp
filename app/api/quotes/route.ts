@@ -138,10 +138,10 @@ export async function POST(request: Request) {
 
     const docRef = await db.collection(COLLECTIONS.QUOTES).add(quoteData)
 
-    // Update work order status to "quote received"
+    // Update work order status to "quote received" or "quote_submitted" for bidding work orders
     const workOrderCollection = isBiddingWorkOrder ? COLLECTIONS.BIDDING_WORK_ORDERS : COLLECTIONS.WORK_ORDERS
     await db.collection(workOrderCollection).doc(workOrderId).update({
-      status: 'quote_received',
+      status: isBiddingWorkOrder ? 'quote_submitted' : 'quote_received',
       updatedAt: new Date().toISOString()
     })
 

@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
-
 // Reject a subcontractor
 export async function PUT(
   request: Request,
@@ -21,10 +19,10 @@ export async function PUT(
     console.log(`Rejecting subcontractor ${subcontractorId} by admin ${adminName}`)
 
     // Get the subcontractor to verify it exists
-    const subcontractorRef = doc(db, 'subcontractors', subcontractorId)
-    const subcontractorSnap = await getDoc(subcontractorRef)
+    const subcontractorRef = db.collection('subcontractors').doc(subcontractorId)
+    const subcontractorSnap = await subcontractorRef.get()
 
-    if (!subcontractorSnap.exists()) {
+    if (!subcontractorSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Subcontractor not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -49,7 +47,7 @@ export async function PUT(
     }
 
     // Update the subcontractor status
-    await updateDoc(subcontractorRef, {
+    await subcontractorRef.update({
       status: 'rejected',
       rejectedAt: new Date().toISOString(),
       rejectedBy: adminId,

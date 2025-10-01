@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore'
-
 export async function POST(request: Request) {
   try {
     const { workOrderId, subcontractorId, adminId } = await request.json()
@@ -14,10 +12,10 @@ export async function POST(request: Request) {
     }
 
     // Get work order data
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
+    const workOrderSnap = await workOrderRef.get()
 
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Work Order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -41,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     // Update work order status and assignment
-    await updateDoc(workOrderRef, {
+    await workOrderRef.update({
       status: 'assigned',
       assignedTo: subcontractorId,
       assignedAt: new Date().toISOString(),
@@ -70,7 +68,7 @@ export async function POST(request: Request) {
       updatedAt: new Date().toISOString()
     }
 
-    await addDoc(collection(db, COLLECTIONS.ASSIGNED_WORK_ORDERS), assignedWorkOrderData)
+    await db.collection(COLLECTIONS.ASSIGNED_WORK_ORDERS).add(assignedWorkOrderData)
 
     return new Response(
         JSON.stringify({ success: true, message: 'Work Order assigned successfully' }),

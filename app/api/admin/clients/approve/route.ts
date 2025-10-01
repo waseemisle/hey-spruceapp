@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { updateDoc, doc, getDoc } from 'firebase/firestore'
-
 export async function POST(request: Request) {
   try {
     const { clientId, adminId } = await request.json()
@@ -14,10 +12,10 @@ export async function POST(request: Request) {
     }
 
     // Get client data
-    const clientRef = doc(db, COLLECTIONS.CLIENTS, clientId)
-    const clientSnap = await getDoc(clientRef)
+    const clientRef = db.collection(COLLECTIONS.CLIENTS).doc(clientId)
+    const clientSnap = await clientRef.get()
 
-    if (!clientSnap.exists()) {
+    if (!clientSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Client not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -41,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     // Update client status to approved
-    await updateDoc(clientRef, {
+    await clientRef.update({
       status: 'approved',
       approvedAt: new Date().toISOString(),
       approvedBy: adminId,

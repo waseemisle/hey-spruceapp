@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { updateDoc, doc, getDoc, addDoc, collection } from 'firebase/firestore'
-
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -18,10 +16,10 @@ export async function POST(
     }
 
     // Get work order data
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
+    const workOrderSnap = await workOrderRef.get()
 
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Work order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -38,7 +36,7 @@ export async function POST(
     }
 
     // Update work order status
-    await updateDoc(workOrderRef, {
+    await workOrderRef.update({
       status: 'waiting_for_quote',
       selectedSubcontractors: subcontractorIds,
       updatedAt: new Date().toISOString()
@@ -47,10 +45,10 @@ export async function POST(
     // Create bidding work orders for each selected subcontractor
     for (const subcontractorId of subcontractorIds) {
       // Get subcontractor data
-      const subcontractorRef = doc(db, COLLECTIONS.SUBCONTRACTORS, subcontractorId)
-      const subcontractorSnap = await getDoc(subcontractorRef)
+      const subcontractorRef = db.collection(COLLECTIONS.SUBCONTRACTORS).doc(subcontractorId)
+      const subcontractorSnap = await subcontractorRef.get()
 
-      if (subcontractorSnap.exists()) {
+      if (subcontractorSnap.exists) {
         const subcontractorData = subcontractorSnap.data()
 
         if (!subcontractorData) {
@@ -85,7 +83,7 @@ export async function POST(
           workOrderTitle: workOrderData.title
         })
         
-        const docRef = await addDoc(collection(db, COLLECTIONS.BIDDING_WORK_ORDERS), biddingWorkOrderData)
+        const docRef = await db.collection(COLLECTIONS.BIDDING_WORK_ORDERS).add(biddingWorkOrderData)
         console.log('Bidding work order created with ID:', docRef.id)
       }
     }

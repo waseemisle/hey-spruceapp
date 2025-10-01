@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, orderBy, getDocs, doc, updateDoc, deleteDoc, where } from 'firebase/firestore'
 import { ScheduledInvoice, ScheduledInvoiceFormData } from '@/lib/types'
 
 // Create a new scheduled invoice
@@ -58,12 +57,11 @@ export async function POST(request: Request) {
 
     // Get client details from client_registrations collection
     console.log('Looking for client with ID:', clientId)
-    const clientQuery = query(
-      collection(db, 'client_registrations'),
-      where('userId', '==', clientId),
-      where('status', '==', 'approved')
-    )
-    const clientSnapshot = await getDocs(clientQuery)
+    const clientQuery = 
+      db.collection('client_registrations')
+      .where('userId', '==', clientId)
+      .where('status', '==', 'approved')
+    const clientSnapshot = await clientQuery.get()
     
     console.log('Client query results:', clientSnapshot.docs.length, 'documents found')
     
@@ -72,8 +70,8 @@ export async function POST(request: Request) {
       console.error('Available clients in database:')
       
       // Debug: Get all clients to see what's available
-      const allClientsQuery = query(collection(db, 'client_registrations'))
-      const allClientsSnapshot = await getDocs(allClientsQuery)
+      const allClientsQuery = db.collection('client_registrations')
+      const allClientsSnapshot = await allClientsQuery.get()
       allClientsSnapshot.docs.forEach(doc => {
         const data = doc.data()
         if (data) {
@@ -136,8 +134,8 @@ export async function POST(request: Request) {
     // Save to Firestore
     let docRef
     try {
-      const scheduledInvoicesRef = collection(db, 'scheduled_invoices')
-      docRef = await addDoc(scheduledInvoicesRef, scheduledInvoiceData)
+      const scheduledInvoicesRef = db.collection('scheduled_invoices')
+      docRef = await scheduledInvoicesRef.add(scheduledInvoiceData)
       console.log('Scheduled invoice created successfully:', docRef.id)
     } catch (firestoreError) {
       console.error('Error saving to Firestore:', firestoreError)
@@ -182,10 +180,10 @@ export async function GET(request: Request) {
   try {
     console.log('=== SCHEDULED INVOICES GET API START ===')
     
-    const scheduledInvoicesRef = collection(db, 'scheduled_invoices')
-    const q = query(scheduledInvoicesRef, orderBy('createdAt', 'desc'))
+    const scheduledInvoicesRef = db.collection('scheduled_invoices')
+    const q = scheduledInvoicesRef.orderBy('createdAt', 'desc')
     
-    const snapshot = await getDocs(q)
+    const snapshot = await q.get()
     console.log('Query executed successfully, found', snapshot.docs.length, 'scheduled invoices')
 
     const scheduledInvoices = snapshot.docs.map(doc => ({

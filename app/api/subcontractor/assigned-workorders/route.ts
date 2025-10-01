@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { collection, query, where, getDocs } from 'firebase/firestore'
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -17,13 +15,12 @@ export async function GET(request: Request) {
     console.log('Fetching assigned work orders for user:', userId)
 
     // Get work orders that are assigned to this subcontractor
-    const workOrdersRef = collection(db, COLLECTIONS.WORK_ORDERS)
-    const workOrdersQuery = query(
-      workOrdersRef,
-      where('assignedTo', '==', userId)
-    )
+    const workOrdersRef = db.collection(COLLECTIONS.WORK_ORDERS)
+    const workOrdersQuery = 
+      workOrdersRef
+      .where('assignedTo', '==', userId)
     
-    const workOrdersSnapshot = await getDocs(workOrdersQuery)
+    const workOrdersSnapshot = await workOrdersQuery.get()
     const workOrders = workOrdersSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()

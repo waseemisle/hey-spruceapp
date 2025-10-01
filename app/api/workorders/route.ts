@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS, addDocument, getDocuments } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
 import { WorkOrder } from '@/lib/types'
 import { generateWorkOrderId } from '@/lib/workorder-id-generator'
 
@@ -55,20 +54,20 @@ export async function POST(request: Request) {
 
     // Get client and category names
     console.log(`🔍 Looking for client: ${data.clientId}`)
-    const clientDoc = await getDoc(doc(db, COLLECTIONS.CLIENTS, data.clientId))
+    const clientDoc = await db.collection(COLLECTIONS.CLIENTS).doc(data.clientId).get()
     console.log(`🔍 Looking for category: ${data.categoryId}`)
-    const categoryDoc = await getDoc(doc(db, COLLECTIONS.CATEGORIES, data.categoryId))
+    const categoryDoc = await db.collection(COLLECTIONS.CATEGORIES).doc(data.categoryId).get()
     
-    if (!clientDoc.exists() || !categoryDoc.exists()) {
+    if (!clientDoc.exists || !categoryDoc.exists) {
       console.log('❌ Document check failed:')
-      console.log(`   Client exists: ${clientDoc.exists()}`)
-      console.log(`   Category exists: ${categoryDoc.exists()}`)
+      console.log(`   Client exists: ${clientDoc.exists}`)
+      console.log(`   Category exists: ${categoryDoc.exists}`)
       return new Response(
         JSON.stringify({ 
           error: 'Client or category not found',
           details: {
-            clientExists: clientDoc.exists(),
-            categoryExists: categoryDoc.exists(),
+            clientExists: clientDoc.exists,
+            categoryExists: categoryDoc.exists,
             clientId: data.clientId,
             categoryId: data.categoryId
           }
@@ -92,8 +91,8 @@ export async function POST(request: Request) {
     // Get location data if locationId is provided
     let locationData = null
     if (data.locationId) {
-      const locationDoc = await getDoc(doc(db, COLLECTIONS.LOCATIONS, data.locationId))
-      if (locationDoc.exists()) {
+      const locationDoc = await db.collection(COLLECTIONS.LOCATIONS).doc(data.locationId).get()
+      if (locationDoc.exists) {
         locationData = locationDoc.data()
       }
     }

@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore'
-
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -18,10 +16,10 @@ export async function POST(
     }
 
     // Get work order data
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
+    const workOrderSnap = await workOrderRef.get()
 
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Work Order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -38,7 +36,7 @@ export async function POST(
     }
 
     // Update work order status
-    await updateDoc(workOrderRef, {
+    await workOrderRef.update({
       status: 'waiting_for_quote',
       updatedAt: new Date().toISOString()
     })
@@ -51,7 +49,11 @@ export async function POST(
         workOrderNumber: workOrderData.workOrderNumber,
         workOrderTitle: workOrderData.title,
         workOrderDescription: workOrderData.description,
-        workOrderLocation: workOrderData.location,
+        workOrderLocation: {
+          id: workOrderData.locationId || '',
+          name: typeof workOrderData.location === 'string' ? workOrderData.location : (workOrderData.location?.name || 'No location specified'),
+          address: typeof workOrderData.location === 'object' ? (workOrderData.location?.address || '') : ''
+        },
         clientId: workOrderData.clientId,
         clientName: workOrderData.clientName,
         clientEmail: workOrderData.clientEmail,
@@ -66,7 +68,7 @@ export async function POST(
         updatedAt: new Date().toISOString()
       }
 
-      const docRef = await addDoc(collection(db, COLLECTIONS.BIDDING_WORK_ORDERS), biddingWorkOrderData)
+      const docRef = await db.collection(COLLECTIONS.BIDDING_WORK_ORDERS).add(biddingWorkOrderData)
       biddingWorkOrders.push({ id: docRef.id, ...biddingWorkOrderData })
     }
 

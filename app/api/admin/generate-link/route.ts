@@ -1,6 +1,4 @@
 import { db } from '@/lib/firebase'
-import { collection, addDoc } from 'firebase/firestore'
-
 export async function POST(request: Request) {
   try {
     const { clientEmail, clientName, expirationDays } = await request.json()
@@ -33,7 +31,7 @@ export async function POST(request: Request) {
     }
 
     // Save to Firestore
-    const docRef = await addDoc(collection(db, 'registration_links'), linkData)
+    const docRef = await db.collection('registration_links').add(linkData)
 
     // Generate the registration URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'

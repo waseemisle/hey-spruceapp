@@ -166,12 +166,16 @@ export default function ClientWorkOrdersPage() {
 
   const handleEditWorkOrder = (workOrder: WorkOrder) => {
     setSelectedWorkOrder(workOrder)
+    
+    // Extract locationId - could be in location.id or locationId field
+    const locationId = workOrder.location?.id || (workOrder as any).locationId || ''
+    
     setFormData({
       title: workOrder.title,
       description: workOrder.description,
       priority: workOrder.priority as 'low' | 'medium' | 'high' | 'urgent',
       categoryId: workOrder.categoryId,
-      locationId: workOrder.location?.id || '',
+      locationId: locationId,
       estimatedCost: workOrder.estimatedCost.toString(),
       estimatedDateOfService: workOrder.estimatedDateOfService,
       notes: workOrder.notes || ''
@@ -414,7 +418,7 @@ export default function ClientWorkOrdersPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                       <div>
                         <p><strong>Category:</strong> {workOrder.categoryName}</p>
-                        <p><strong>Location:</strong> {workOrder.location.name}</p>
+                        <p><strong>Location:</strong> {workOrder.location?.name || 'Location not found'}</p>
                         <p><strong>Estimated Cost:</strong> ${workOrder.estimatedCost}</p>
                       </div>
                       <div>
@@ -513,7 +517,7 @@ export default function ClientWorkOrdersPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p><strong>Category:</strong> {selectedWorkOrder.categoryName}</p>
-                    <p><strong>Location:</strong> {selectedWorkOrder.location.name}</p>
+                    <p><strong>Location:</strong> {selectedWorkOrder.location?.name || 'Location not found'}</p>
                     <p><strong>Estimated Cost:</strong> ${selectedWorkOrder.estimatedCost}</p>
                   </div>
                   <div>

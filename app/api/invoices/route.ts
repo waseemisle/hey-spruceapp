@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { addDoc, doc, getDoc, updateDoc, collection } from 'firebase/firestore'
 import { Invoice, Quote } from '@/lib/types'
 
 export async function POST(request: Request) {
@@ -17,10 +16,10 @@ export async function POST(request: Request) {
     } = data
 
     // Get quote details
-    const quoteRef = doc(db, COLLECTIONS.QUOTES, quoteId)
-    const quoteSnap = await getDoc(quoteRef)
+    const quoteRef = db.collection(COLLECTIONS.QUOTES).doc(quoteId)
+    const quoteSnap = await quoteRef.get()
 
-    if (!quoteSnap.exists()) {
+    if (!quoteSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Quote not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -63,7 +62,7 @@ export async function POST(request: Request) {
       updatedAt: new Date().toISOString()
     }
 
-    const docRef = await addDoc(collection(db, COLLECTIONS.INVOICES), invoiceData)
+    const docRef = await db.collection(COLLECTIONS.INVOICES).add(invoiceData)
 
     // Generate PDF
     try {
@@ -79,7 +78,7 @@ export async function POST(request: Request) {
         const pdfData = await pdfResponse.json()
         
         // Update invoice with PDF URL
-        await updateDoc(doc(db, COLLECTIONS.INVOICES, docRef.id), {
+        await db.collection(COLLECTIONS.INVOICES).doc(docRef.id).update({
           pdfUrl: pdfData.pdfUrl,
           status: sendEmail ? 'sent' : 'draft',
           sentAt: sendEmail ? new Date().toISOString() : undefined,

@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore'
-
 // Update a scheduled invoice
 export async function PATCH(
   request: Request,
@@ -24,8 +22,8 @@ export async function PATCH(
     }
 
     // Update the scheduled invoice
-    const scheduledInvoiceRef = doc(db, 'scheduled_invoices', params.id)
-    await updateDoc(scheduledInvoiceRef, {
+    const scheduledInvoiceRef = db.collection('scheduled_invoices').doc(params.id)
+    await scheduledInvoiceRef.update({
       isActive,
       updatedAt: new Date().toISOString()
     })
@@ -65,10 +63,10 @@ export async function DELETE(
     console.log('Scheduled invoice ID:', params.id)
     
     // Check if scheduled invoice exists
-    const scheduledInvoiceRef = doc(db, 'scheduled_invoices', params.id)
-    const scheduledInvoiceDoc = await getDoc(scheduledInvoiceRef)
+    const scheduledInvoiceRef = db.collection('scheduled_invoices').doc(params.id)
+    const scheduledInvoiceDoc = await scheduledInvoiceRef.get()
     
-    if (!scheduledInvoiceDoc.exists()) {
+    if (!scheduledInvoiceDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Scheduled invoice not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -76,7 +74,7 @@ export async function DELETE(
     }
 
     // Delete the scheduled invoice
-    await deleteDoc(scheduledInvoiceRef)
+    await scheduledInvoiceRef.delete()
 
     console.log('Scheduled invoice deleted successfully:', params.id)
 

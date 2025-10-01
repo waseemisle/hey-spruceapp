@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -17,10 +15,10 @@ export async function GET(request: Request) {
     console.log('Fetching subcontractor profile for user:', userId)
 
     // Get subcontractor profile directly by document ID
-    const subcontractorRef = doc(db, COLLECTIONS.SUBCONTRACTORS, userId)
-    const subcontractorDoc = await getDoc(subcontractorRef)
+    const subcontractorRef = db.collection(COLLECTIONS.SUBCONTRACTORS).doc(userId)
+    const subcontractorDoc = await subcontractorRef.get()
     
-    if (!subcontractorDoc.exists()) {
+    if (!subcontractorDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Subcontractor profile not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }

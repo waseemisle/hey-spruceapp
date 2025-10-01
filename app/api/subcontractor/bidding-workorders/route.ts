@@ -41,15 +41,17 @@ export async function GET(request: Request) {
     }
 
     // Get bidding work orders that were specifically sent to this subcontractor using compat API
+    // Include both open_for_bidding and quote_submitted statuses
     const biddingWorkOrdersSnapshot = await db.collection(COLLECTIONS.BIDDING_WORK_ORDERS)
       .where('subcontractorId', '==', userId)
-      .where('status', '==', 'open_for_bidding')
       .get()
     
-    const biddingWorkOrders = biddingWorkOrdersSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
+    const biddingWorkOrders = biddingWorkOrdersSnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .filter((wo: any) => wo.status !== 'closed') // Exclude closed work orders
 
     console.log('Found bidding work orders for subcontractor:', biddingWorkOrders.length)
     console.log('Bidding work orders details:', biddingWorkOrders.map(bwo => ({

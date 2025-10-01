@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
-
 // Update invoice status
 export async function PUT(
   request: Request,
@@ -25,10 +23,10 @@ export async function PUT(
     }
 
     // Get current invoice
-    const invoiceRef = doc(db, 'invoices', invoiceId)
-    const invoiceDoc = await getDoc(invoiceRef)
+    const invoiceRef = db.collection('invoices').doc(invoiceId)
+    const invoiceDoc = await invoiceRef.get()
     
-    if (!invoiceDoc.exists()) {
+    if (!invoiceDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Invoice not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -61,7 +59,7 @@ export async function PUT(
     }
 
     // Update invoice
-    await updateDoc(invoiceRef, updateData)
+    await invoiceRef.update(updateData)
     console.log('Invoice updated successfully')
 
     // Update workflow status
@@ -106,7 +104,7 @@ export async function PUT(
 async function updateWorkflowStatus(workOrderId: string, step: string, updatedBy: string, notes?: string) {
   try {
     const { collection, addDoc } = await import('firebase/firestore')
-    const workflowRef = collection(db, 'workflow_status')
+    const workflowRef = db.collection('workflow_status')
     const workflowData = {
       workOrderId,
       currentStep: step,

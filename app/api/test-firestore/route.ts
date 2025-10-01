@@ -1,16 +1,14 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { collection, getDocs } from 'firebase/firestore'
-
 export async function GET(request: Request) {
   try {
     console.log('Testing Firestore connection...')
     
     // Test basic Firestore connection
-    const testRef = collection(db, 'quotes')
+    const testRef = db.collection('quotes')
     console.log('Collection reference created')
     
-    const snapshot = await getDocs(testRef)
+    const snapshot = await testRef.get()
     console.log('Query executed, found', snapshot.docs.length, 'documents')
     
     return new Response(

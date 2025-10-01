@@ -1,6 +1,4 @@
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
-
 export async function POST(request: Request) {
   try {
     const { registrationId, reason } = await request.json()
@@ -13,10 +11,10 @@ export async function POST(request: Request) {
     }
 
     // Get the registration document
-    const registrationRef = doc(db, 'client_registrations', registrationId)
-    const registrationSnap = await getDoc(registrationRef)
+    const registrationRef = db.collection('client_registrations').doc(registrationId)
+    const registrationSnap = await registrationRef.get()
 
-    if (!registrationSnap.exists()) {
+    if (!registrationSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Registration not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -40,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     // Update registration status
-    await updateDoc(registrationRef, {
+    await registrationRef.update({
       status: 'rejected',
       reviewedAt: new Date().toISOString(),
       reviewedBy: 'admin@heyspruce.com', // In real app, get from auth context

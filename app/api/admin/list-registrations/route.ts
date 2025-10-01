@@ -1,14 +1,11 @@
 import { db } from '@/lib/firebase'
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'
-
 export async function GET(request: Request) {
   try {
-    const q = query(
-      collection(db, 'client_registrations'),
-      orderBy('submittedAt', 'desc')
-    )
+    const q = 
+      db.collection('client_registrations')
+      .orderBy('submittedAt', 'desc')
     
-    const snapshot = await getDocs(q)
+    const snapshot = await q.get()
     const registrations = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()

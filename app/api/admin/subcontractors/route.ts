@@ -1,20 +1,17 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { collection, query, orderBy, getDocs, addDoc } from 'firebase/firestore'
-
 // Get all subcontractors
 export async function GET(request: Request) {
   try {
     console.log('Fetching all subcontractors')
 
     // Query all subcontractors ordered by creation date
-    const subcontractorsRef = collection(db, 'subcontractors')
-    const subcontractorsQuery = query(
-      subcontractorsRef,
-      orderBy('createdAt', 'desc')
-    )
+    const subcontractorsRef = db.collection('subcontractors')
+    const subcontractorsQuery = 
+      subcontractorsRef
+      .orderBy('createdAt', 'desc')
 
-    const subcontractorsSnapshot = await getDocs(subcontractorsQuery)
+    const subcontractorsSnapshot = await subcontractorsQuery.get()
     const subcontractors = subcontractorsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -74,7 +71,7 @@ export async function POST(request: Request) {
     }
 
     // Add the subcontractor to Firestore
-    const docRef = await addDoc(collection(db, 'subcontractors'), subcontractorData)
+    const docRef = await db.collection('subcontractors').add(subcontractorData)
 
     console.log('Subcontractor created successfully with ID:', docRef.id)
 

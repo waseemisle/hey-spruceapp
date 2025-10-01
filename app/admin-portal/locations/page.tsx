@@ -23,7 +23,8 @@ import {
   XCircle, 
   Clock,
   Edit,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react'
 
 export default function AdminLocationsPage() {
@@ -33,6 +34,7 @@ export default function AdminLocationsPage() {
   const [locations, setLocations] = useState<Location[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
@@ -176,6 +178,37 @@ export default function AdminLocationsPage() {
     } catch (err) {
       console.error('Error rejecting location:', err)
       error(`Failed to reject location: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }
+
+  const openDeleteModal = (location: Location) => {
+    setSelectedLocation(location)
+    setShowDeleteModal(true)
+  }
+
+  const handleDeleteLocation = async () => {
+    if (!selectedLocation) return
+
+    try {
+      const response = await fetch(`/api/admin/locations/delete?locationId=${selectedLocation.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete location')
+      }
+
+      success('Location deleted successfully!')
+      setShowDeleteModal(false)
+      setSelectedLocation(null)
+    } catch (err) {
+      console.error('Error deleting location:', err)
+      error(`Failed to delete location: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -408,6 +441,16 @@ export default function AdminLocationsPage() {
                           <Eye className="h-4 w-4 mr-1" />
                           View Details
                         </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openDeleteModal(location)}
+                          className="border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -498,6 +541,62 @@ export default function AdminLocationsPage() {
               </div>
             </div>
           )}
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false)
+            setSelectedLocation(null)
+          }}
+          title="Delete Location"
+        >
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Delete Location
+              </h3>
+              <p className="text-sm text-gray-500">
+                Are you sure you want to delete this location? This action cannot be undone.
+              </p>
+              <p className="text-sm text-amber-600 mt-2">
+                <strong>Note:</strong> Locations that are being used in work orders cannot be deleted.
+              </p>
+              {selectedLocation && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="font-medium text-gray-900">{String(selectedLocation.name || '')}</p>
+                  <p className="text-sm text-gray-500">Address: {String(selectedLocation.address || '')}</p>
+                  <p className="text-sm text-gray-500">Status: {String(selectedLocation.status || '')}</p>
+                  <p className="text-sm text-gray-500">Client: {String(selectedLocation.clientName || '')}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setSelectedLocation(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteLocation}
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Location
+              </Button>
+            </div>
+          </div>
         </Modal>
         </div>
       </div>

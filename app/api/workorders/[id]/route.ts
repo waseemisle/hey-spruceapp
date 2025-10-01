@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore'
 
 export async function PUT(
   request: Request,
@@ -10,36 +9,62 @@ export async function PUT(
     const workOrderId = params.id
     const workOrderData = await request.json()
     
-    console.log('Updating work order:', workOrderId, workOrderData)
+    console.log('Updating work order:', workOrderId)
+    console.log('Received data:', JSON.stringify(workOrderData, null, 2))
 
     // Check if work order exists
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
+    const workOrderSnap = await workOrderRef.get()
     
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Work order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    // Prepare update data
-    const updateData = {
+    // Prepare update data - handle both old and new field names
+    const updateData: any = {
       title: workOrderData.title,
       description: workOrderData.description,
       priority: workOrderData.priority,
-      category: workOrderData.category,
-      status: workOrderData.status,
-      location: workOrderData.location,
       estimatedCost: workOrderData.estimatedCost ? parseFloat(workOrderData.estimatedCost) : 0,
-      estimatedDuration: workOrderData.estimatedDuration || 0,
-      scheduledDate: workOrderData.scheduledDate || '',
-      notes: workOrderData.notes || '',
       updatedAt: new Date().toISOString()
     }
 
+    // Handle category (can be categoryId or category)
+    if (workOrderData.categoryId) {
+      updateData.categoryId = workOrderData.categoryId
+    } else if (workOrderData.category) {
+      updateData.category = workOrderData.category
+    }
+
+    // Handle location (can be locationId or location)
+    if (workOrderData.locationId) {
+      updateData.locationId = workOrderData.locationId
+    } else if (workOrderData.location) {
+      updateData.location = workOrderData.location
+    }
+
+    // Handle scheduled date (can be estimatedDateOfService or scheduledDate)
+    if (workOrderData.estimatedDateOfService) {
+      updateData.estimatedDateOfService = workOrderData.estimatedDateOfService
+    } else if (workOrderData.scheduledDate) {
+      updateData.scheduledDate = workOrderData.scheduledDate
+    }
+
+    // Optional fields
+    if (workOrderData.status) updateData.status = workOrderData.status
+    if (workOrderData.estimatedDuration) updateData.estimatedDuration = workOrderData.estimatedDuration
+    if (workOrderData.notes !== undefined) updateData.notes = workOrderData.notes
+    if (workOrderData.updatedBy) updateData.updatedBy = workOrderData.updatedBy
+
+    console.log('Update data to be saved:', JSON.stringify(updateData, null, 2))
+    
     // Update the work order
-    await updateDoc(workOrderRef, updateData)
+    await workOrderRef.update(updateData)
+    
+    console.log('Work order updated successfully')
 
     return new Response(
         JSON.stringify({
@@ -65,10 +90,10 @@ export async function GET(
   try {
     const workOrderId = params.id
     
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
+    const workOrderSnap = await workOrderRef.get()
     
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Work order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -115,12 +140,12 @@ export async function DELETE(
     }
 
     // Check if work order exists
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
     console.log('Checking work order existence...')
     
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderSnap = await workOrderRef.get()
     
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       console.log('Work order not found in database:', workOrderId)
       return new Response(
         JSON.stringify({ 
@@ -135,7 +160,7 @@ export async function DELETE(
     console.log('Work order found, proceeding with deletion:', workOrderSnap.data())
 
     // Delete the work order from Firebase
-    await deleteDoc(workOrderRef)
+    await workOrderRef.delete()
 
     console.log('Work order deleted successfully:', workOrderId)
 

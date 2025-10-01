@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS, getDocuments } from '@/lib/firebase'
-import { addDoc, collection } from 'firebase/firestore'
 import { ScheduledInvoice } from '@/lib/types'
 
 export async function GET(request: Request) {
@@ -70,7 +69,7 @@ export async function POST(request: Request) {
       notes
     }
 
-    const docRef = await addDoc(collection(db, COLLECTIONS.SCHEDULED_INVOICES), scheduledInvoiceData)
+    const docRef = await db.collection(COLLECTIONS.SCHEDULED_INVOICES).add(scheduledInvoiceData)
 
     return new Response(
         JSON.stringify({

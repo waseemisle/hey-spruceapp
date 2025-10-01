@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc, query, collection, getDocs, where } from 'firebase/firestore'
-
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -11,10 +9,10 @@ export async function POST(
     const { subcontractorId, actualCost, completionNotes, attachments } = await request.json()
 
     // Get work order data
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
+    const workOrderSnap = await workOrderRef.get()
 
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Work order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -46,7 +44,7 @@ export async function POST(
     }
 
     // Update work order status
-    await updateDoc(workOrderRef, {
+    await workOrderRef.update({
       status: 'completed_by_contractor',
       actualCost: actualCost ? parseFloat(actualCost) : undefined,
       completedDate: new Date().toISOString(),
@@ -56,16 +54,15 @@ export async function POST(
     })
 
     // Update assigned work order status
-    const assignedWorkOrderQuery = query(
-      collection(db, COLLECTIONS.ASSIGNED_WORK_ORDERS),
-      where('workOrderId', '==', workOrderId),
-      where('subcontractorId', '==', subcontractorId)
-    )
+    const assignedWorkOrderQuery = 
+      db.collection(COLLECTIONS.ASSIGNED_WORK_ORDERS)
+      .where('workOrderId', '==', workOrderId)
+      .where('subcontractorId', '==', subcontractorId)
     
-    const assignedWorkOrderSnapshot = await getDocs(assignedWorkOrderQuery)
+    const assignedWorkOrderSnapshot = await assignedWorkOrderQuery.get()
     if (!assignedWorkOrderSnapshot.empty) {
       const assignedWorkOrderDoc = assignedWorkOrderSnapshot.docs[0]
-      await updateDoc(doc(db, COLLECTIONS.ASSIGNED_WORK_ORDERS, assignedWorkOrderDoc.id), {
+      await db.collection(COLLECTIONS.ASSIGNED_WORK_ORDERS).doc(assignedWorkOrderDoc.id).update({
         status: 'completed',
         actualCost: actualCost ? parseFloat(actualCost) : undefined,
         completedDate: new Date().toISOString(),

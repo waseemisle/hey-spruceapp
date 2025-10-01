@@ -1,6 +1,4 @@
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore'
-
 // GET - Fetch locations based on user role
 export async function GET(request: Request) {
   try {
@@ -18,17 +16,15 @@ export async function GET(request: Request) {
     let q
     if (userRole === 'admin') {
       // Admin can see all locations
-      q = query(
-        collection(db, 'locations'),
-        orderBy('createdAt', 'desc')
-      )
+      q = 
+        db.collection('locations')
+        .orderBy('createdAt', 'desc')
     } else if (userRole === 'client') {
       // Client can only see their own locations
-      q = query(
-        collection(db, 'locations'),
-        where('clientId', '==', userId),
-        orderBy('createdAt', 'desc')
-      )
+      q = 
+        db.collection('locations')
+        .where('clientId', '==', userId)
+        .orderBy('createdAt', 'desc')
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid user role' }),
@@ -36,7 +32,7 @@ export async function GET(request: Request) {
       )
     }
 
-    const snapshot = await getDocs(q)
+    const snapshot = await q.get()
     const locations = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -98,7 +94,7 @@ export async function POST(request: Request) {
     }
 
     // Save to Firestore
-    const docRef = await addDoc(collection(db, 'locations'), locationRecord)
+    const docRef = await db.collection('locations').add(locationRecord)
 
     return new Response(
         JSON.stringify({

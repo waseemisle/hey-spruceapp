@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
-
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -10,17 +8,17 @@ export async function POST(
     const scheduledInvoiceId = params.id
     const { isActive } = await request.json()
 
-    const scheduledInvoiceRef = doc(db, COLLECTIONS.SCHEDULED_INVOICES, scheduledInvoiceId)
-    const scheduledInvoiceSnap = await getDoc(scheduledInvoiceRef)
+    const scheduledInvoiceRef = db.collection(COLLECTIONS.SCHEDULED_INVOICES).doc(scheduledInvoiceId)
+    const scheduledInvoiceSnap = await scheduledInvoiceRef.get()
 
-    if (!scheduledInvoiceSnap.exists()) {
+    if (!scheduledInvoiceSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Scheduled invoice not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    await updateDoc(scheduledInvoiceRef, {
+    await scheduledInvoiceRef.update({
       isActive,
       updatedAt: new Date().toISOString()
     })

@@ -33,6 +33,7 @@ export default function SubcontractorBiddingPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<BiddingWorkOrder | null>(null)
   const [showQuoteModal, setShowQuoteModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
   
   const [quoteForm, setQuoteForm] = useState<QuoteFormData>({
     workOrderId: '',
@@ -199,6 +200,11 @@ export default function SubcontractorBiddingPage() {
     setShowQuoteModal(true)
   }
 
+  const openViewModal = (workOrder: BiddingWorkOrder) => {
+    setSelectedWorkOrder(workOrder)
+    setShowViewModal(true)
+  }
+
   const filteredWorkOrders = workOrders.filter(workOrder => {
     const matchesSearch = workOrder.workOrderTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          workOrder.workOrderDescription?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -305,10 +311,9 @@ export default function SubcontractorBiddingPage() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <MapPin className="h-4 w-4" />
-                          <span><strong>Location:</strong> {workOrder.workOrderLocation.name}</span>
+                          <span><strong>Location:</strong> {workOrder.workOrderLocation?.name || 'No location specified'}</span>
                         </div>
-                        <p><strong>Address:</strong> {workOrder.workOrderLocation.address}</p>
-                        <p><strong>Client:</strong> {workOrder.clientName}</p>
+                        <p><strong>Address:</strong> {workOrder.workOrderLocation?.address || 'N/A'}</p>
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -328,7 +333,7 @@ export default function SubcontractorBiddingPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setSelectedWorkOrder(workOrder)}
+                      onClick={() => openViewModal(workOrder)}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View Details
@@ -469,6 +474,137 @@ export default function SubcontractorBiddingPage() {
               </Button>
             </div>
           </form>
+        </Modal>
+
+        {/* View Details Modal */}
+        <Modal
+          isOpen={showViewModal}
+          onClose={() => {
+            setShowViewModal(false)
+            setSelectedWorkOrder(null)
+          }}
+          title="Work Order Details"
+        >
+          {selectedWorkOrder && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Work Order Number</Label>
+                  <div className="text-sm text-gray-900 font-mono">{selectedWorkOrder.workOrderNumber || 'N/A'}</div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Status</Label>
+                  <div className="mt-1">
+                    <Badge className={
+                      selectedWorkOrder.status === 'open_for_bidding' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-green-100 text-green-800'
+                    }>
+                      {selectedWorkOrder.status === 'open_for_bidding' ? 'Open for Bidding' : 'Quote Submitted'}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Category</Label>
+                  <div className="text-sm text-gray-900">{selectedWorkOrder.categoryName || 'N/A'}</div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Work Order Title</Label>
+                <div className="text-sm text-gray-900 font-semibold">{selectedWorkOrder.workOrderTitle || 'N/A'}</div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Description</Label>
+                <div className="text-sm text-gray-900">{selectedWorkOrder.workOrderDescription || 'N/A'}</div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Location</Label>
+                <div className="text-sm text-gray-900">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MapPin className="h-4 w-4" />
+                    <span>{selectedWorkOrder.workOrderLocation?.name || 'No location specified'}</span>
+                  </div>
+                  {selectedWorkOrder.workOrderLocation?.address && (
+                    <div className="ml-6 text-gray-600">
+                      {selectedWorkOrder.workOrderLocation.address}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Estimated Cost</Label>
+                  <div className="text-sm text-gray-900 flex items-center gap-1">
+                    <DollarSign className="h-4 w-4" />
+                    ${selectedWorkOrder.estimatedCost || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Service Date</Label>
+                  <div className="text-sm text-gray-900 flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    {selectedWorkOrder.estimatedDateOfService ? 
+                      new Date(selectedWorkOrder.estimatedDateOfService).toLocaleDateString() : 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {selectedWorkOrder.priority && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Priority</Label>
+                  <div className="text-sm text-gray-900 capitalize">{selectedWorkOrder.priority}</div>
+                </div>
+              )}
+
+              {selectedWorkOrder.notes && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Notes</Label>
+                  <div className="text-sm text-gray-900">{selectedWorkOrder.notes}</div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                  <strong>Created:</strong> {selectedWorkOrder.createdAt ? 
+                    new Date(selectedWorkOrder.createdAt).toLocaleDateString() : 'N/A'}
+                </div>
+                <div>
+                  <strong>Updated:</strong> {selectedWorkOrder.updatedAt ? 
+                    new Date(selectedWorkOrder.updatedAt).toLocaleDateString() : 'N/A'}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowViewModal(false)
+                    setSelectedWorkOrder(null)
+                  }}
+                >
+                  Close
+                </Button>
+                {selectedWorkOrder.status === 'open_for_bidding' && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowViewModal(false)
+                      openQuoteModal(selectedWorkOrder)
+                    }}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Submit Quote
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </Modal>
       </div>
     </>

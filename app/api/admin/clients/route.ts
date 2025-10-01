@@ -1,16 +1,13 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'
-
 export async function GET(request: Request) {
   try {
     // Fetch all clients from the 'clients' collection
-    const clientsQuery = query(
-      collection(db, COLLECTIONS.CLIENTS),
-      orderBy('createdAt', 'desc')
-    )
+    const clientsQuery = 
+      db.collection(COLLECTIONS.CLIENTS)
+      .orderBy('createdAt', 'desc')
     
-    const clientsSnapshot = await getDocs(clientsQuery)
+    const clientsSnapshot = await clientsQuery.get()
     const clients = clientsSnapshot.docs.map(doc => {
       const data = doc.data()
       return {

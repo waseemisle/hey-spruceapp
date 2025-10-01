@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { updateDoc, doc, getDoc, addDoc, collection } from 'firebase/firestore'
-
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -18,10 +16,10 @@ export async function POST(
     }
 
     // Get work order data
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
+    const workOrderSnap = await workOrderRef.get()
 
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Work order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -38,10 +36,10 @@ export async function POST(
     }
 
     // Get subcontractor data
-    const subcontractorRef = doc(db, COLLECTIONS.SUBCONTRACTORS, subcontractorId)
-    const subcontractorSnap = await getDoc(subcontractorRef)
+    const subcontractorRef = db.collection(COLLECTIONS.SUBCONTRACTORS).doc(subcontractorId)
+    const subcontractorSnap = await subcontractorRef.get()
 
-    if (!subcontractorSnap.exists()) {
+    if (!subcontractorSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Subcontractor not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -58,7 +56,7 @@ export async function POST(
     }
 
     // Update work order status and assignment
-    await updateDoc(workOrderRef, {
+    await workOrderRef.update({
       status: 'assigned',
       assignedTo: subcontractorId,
       assignedToName: subcontractorData.fullName,
@@ -67,7 +65,7 @@ export async function POST(
     })
 
     // Create assigned work order for subcontractor
-    await addDoc(collection(db, COLLECTIONS.ASSIGNED_WORK_ORDERS), {
+    await db.collection(COLLECTIONS.ASSIGNED_WORK_ORDERS).add({
       workOrderId,
       workOrderTitle: workOrderData.title,
       workOrderDescription: workOrderData.description,

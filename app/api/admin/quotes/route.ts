@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { Quote, QuoteFormData } from '@/lib/types'
 import { sendQuoteEmail } from '@/lib/sendgrid-service'
 
@@ -40,9 +39,9 @@ export async function POST(request: Request) {
 
     // Get work order details
     console.log('Fetching work order:', workOrderId)
-    const workOrdersRef = collection(db, 'workorders')
-    const workOrderQuery = query(workOrdersRef, where('__name__', '==', workOrderId))
-    const workOrderSnapshot = await getDocs(workOrderQuery)
+    const workOrdersRef = db.collection('workorders')
+    const workOrderQuery = workOrdersRef.where('__name__', '==', workOrderId)
+    const workOrderSnapshot = await workOrderQuery.get()
     
     if (workOrderSnapshot.empty) {
       console.error('Work order not found:', workOrderId)
@@ -135,8 +134,8 @@ export async function POST(request: Request) {
     console.log('Creating quote with data:', cleanQuoteData)
 
     // Save to Firestore
-    const quotesRef = collection(db, 'quotes')
-    const docRef = await addDoc(quotesRef, cleanQuoteData)
+    const quotesRef = db.collection('quotes')
+    const docRef = await quotesRef.add(cleanQuoteData)
 
     console.log('Quote created successfully:', docRef.id)
 
@@ -211,22 +210,22 @@ export async function GET(request: Request) {
 
     // Test Firestore connection first
     console.log('Testing Firestore connection...')
-    const quotesRef = collection(db, 'quotes')
+    const quotesRef = db.collection('quotes')
     console.log('Collection reference created successfully')
 
     let q
     if (workOrderId) {
       console.log('Filtering quotes by workOrderId:', workOrderId)
       // Try without orderBy first to see if that's the issue
-      q = query(quotesRef, where('workOrderId', '==', workOrderId))
+      q = quotesRef.where('workOrderId', '==', workOrderId)
     } else {
       console.log('Getting all quotes')
       // Try without orderBy first to see if that's the issue
-      q = query(quotesRef)
+      q = quotesRef
     }
 
     console.log('Query created successfully, executing...')
-    const snapshot = await getDocs(q)
+    const snapshot = await q.get()
     console.log('Query executed successfully, found', snapshot.docs.length, 'quotes')
 
     const quotes = snapshot.docs.map(doc => {

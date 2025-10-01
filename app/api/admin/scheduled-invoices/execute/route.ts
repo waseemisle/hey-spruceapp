@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore'
 import { sendInvoiceEmail } from '@/lib/sendgrid-service'
 
 // Execute scheduled invoices that are due
@@ -14,13 +13,12 @@ export async function POST(request: Request) {
     console.log('Current time:', nowISO)
     
     // Get all active scheduled invoices (filter by nextExecution in JavaScript to avoid index requirement)
-    const scheduledInvoicesRef = collection(db, 'scheduled_invoices')
-    const q = query(
-      scheduledInvoicesRef,
-      where('isActive', '==', true)
-    )
+    const scheduledInvoicesRef = db.collection('scheduled_invoices')
+    const q = 
+      scheduledInvoicesRef
+      .where('isActive', '==', true)
     
-    const snapshot = await getDocs(q)
+    const snapshot = await q.get()
     console.log('Found', snapshot.docs.length, 'active scheduled invoices')
     
     // Filter by nextExecution in JavaScript
@@ -70,8 +68,8 @@ export async function POST(request: Request) {
         }
         
         // Create invoice in Firestore
-        const invoicesRef = collection(db, 'invoices')
-        const invoiceDocRef = await addDoc(invoicesRef, invoiceData)
+        const invoicesRef = db.collection('invoices')
+        const invoiceDocRef = await invoicesRef.add(invoiceData)
         
         console.log('Invoice created:', invoiceDocRef.id)
         
@@ -123,7 +121,7 @@ export async function POST(request: Request) {
         )
         
         // Update scheduled invoice with last execution and next execution
-        await updateDoc(doc(db, 'scheduled_invoices', scheduledInvoice.id), {
+        await db.collection('scheduled_invoices').doc(scheduledInvoice.id).update({
           lastExecuted: nowISO,
           nextExecution,
           updatedAt: nowISO

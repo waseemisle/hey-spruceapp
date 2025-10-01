@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc } from 'firebase/firestore'
 import { Invoice } from '@/lib/types'
 
 export async function POST(
@@ -11,10 +10,10 @@ export async function POST(
     const invoiceId = params.id
 
     // Get invoice data
-    const invoiceRef = doc(db, COLLECTIONS.INVOICES, invoiceId)
-    const invoiceSnap = await getDoc(invoiceRef)
+    const invoiceRef = db.collection(COLLECTIONS.INVOICES).doc(invoiceId)
+    const invoiceSnap = await invoiceRef.get()
 
-    if (!invoiceSnap.exists()) {
+    if (!invoiceSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Invoice not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }

@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs } from 'firebase/firestore'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { Subcontractor, SubcontractorRegistrationData } from '@/lib/types'
@@ -50,12 +49,11 @@ export async function POST(request: Request) {
     }
 
     // Check if email is already registered
-    const emailQuery = query(
-      collection(db, 'subcontractors'),
-      where('email', '==', registrationData.email)
-    )
+    const emailQuery = 
+      db.collection('subcontractors')
+      .where('email', '==', registrationData.email)
     
-    const emailDocs = await getDocs(emailQuery)
+    const emailDocs = await emailQuery.get()
     if (!emailDocs.empty) {
       return new Response(
         JSON.stringify({ error: 'Email is already registered as a subcontractor' }),
@@ -88,9 +86,9 @@ export async function POST(request: Request) {
     }
 
     // Get category name
-    const categoriesRef = collection(db, 'categories')
-    const categoryQuery = query(categoriesRef, where('__name__', '==', registrationData.categoryId))
-    const categorySnapshot = await getDocs(categoryQuery)
+    const categoriesRef = db.collection('categories')
+    const categoryQuery = categoriesRef.where('__name__', '==', registrationData.categoryId)
+    const categorySnapshot = await categoryQuery.get()
     
     let categoryName = 'Unknown Category'
     if (!categorySnapshot.empty) {
@@ -128,7 +126,7 @@ export async function POST(request: Request) {
       Object.entries(subcontractorData).filter(([_, value]) => value !== undefined)
     )
 
-    const docRef = await addDoc(collection(db, 'subcontractors'), cleanSubcontractorData)
+    const docRef = await db.collection('subcontractors').add(cleanSubcontractorData)
 
     console.log('Subcontractor registered successfully:', docRef.id)
 

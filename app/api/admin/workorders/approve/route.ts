@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
-
 export async function POST(request: Request) {
   try {
     const { workOrderId, adminId } = await request.json()
@@ -13,10 +11,10 @@ export async function POST(request: Request) {
       )
     }
 
-    const workOrderRef = doc(db, COLLECTIONS.WORK_ORDERS, workOrderId)
-    const workOrderSnap = await getDoc(workOrderRef)
+    const workOrderRef = db.collection(COLLECTIONS.WORK_ORDERS).doc(workOrderId)
+    const workOrderSnap = await workOrderRef.get()
 
-    if (!workOrderSnap.exists()) {
+    if (!workOrderSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Work Order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -40,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     // Update work order status to approved
-    await updateDoc(workOrderRef, {
+    await workOrderRef.update({
       status: 'approved',
       approvedAt: new Date().toISOString(),
       approvedBy: adminId,

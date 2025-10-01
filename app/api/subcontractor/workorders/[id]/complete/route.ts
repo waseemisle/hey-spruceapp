@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
-
 // Subcontractor marks work order as completed
 export async function POST(
   request: Request,
@@ -25,10 +23,10 @@ export async function POST(
     }
 
     // Get current work order
-    const workOrderRef = doc(db, 'workorders', workOrderId)
-    const workOrderDoc = await getDoc(workOrderRef)
+    const workOrderRef = db.collection('workorders').doc(workOrderId)
+    const workOrderDoc = await workOrderRef.get()
     
-    if (!workOrderDoc.exists()) {
+    if (!workOrderDoc.exists) {
       return new Response(
         JSON.stringify({ error: 'Work order not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -79,7 +77,7 @@ export async function POST(
     }
 
     // Update work order
-    await updateDoc(workOrderRef, updateData)
+    await workOrderRef.update(updateData)
     console.log('Work order completed successfully')
 
     // Update workflow status
@@ -121,7 +119,7 @@ export async function POST(
 async function updateWorkflowStatus(workOrderId: string, step: string, updatedBy: string, notes?: string) {
   try {
     const { collection, addDoc } = await import('firebase/firestore')
-    const workflowRef = collection(db, 'workflow_status')
+    const workflowRef = db.collection('workflow_status')
     const workflowData = {
       workOrderId,
       currentStep: step,

@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore'
 import { Invoice, InvoiceFormData, Quote } from '@/lib/types'
 import { sendInvoiceEmail } from '@/lib/sendgrid-service'
 
@@ -38,10 +37,10 @@ export async function POST(request: Request) {
 
     // Get quote details
     console.log('Fetching quote:', quoteId)
-    const quoteRef = doc(db, 'quotes', quoteId)
-    const quoteDoc = await getDoc(quoteRef)
+    const quoteRef = db.collection('quotes').doc(quoteId)
+    const quoteDoc = await quoteRef.get()
     
-    if (!quoteDoc.exists()) {
+    if (!quoteDoc.exists) {
       console.error('Quote not found:', quoteId)
       return new Response(
         JSON.stringify({ error: 'Quote not found' }),
@@ -63,10 +62,10 @@ export async function POST(request: Request) {
 
     // Get work order details
     console.log('Fetching work order:', workOrderId)
-    const workOrderRef = doc(db, 'workorders', workOrderId)
-    const workOrderDoc = await getDoc(workOrderRef)
+    const workOrderRef = db.collection('workorders').doc(workOrderId)
+    const workOrderDoc = await workOrderRef.get()
     
-    if (!workOrderDoc.exists()) {
+    if (!workOrderDoc.exists) {
       console.error('Work order not found:', workOrderId)
       return new Response(
         JSON.stringify({ error: 'Work order not found' }),
@@ -136,8 +135,8 @@ export async function POST(request: Request) {
     console.log('Creating invoice with data:', cleanInvoiceData)
 
     // Save to Firestore
-    const invoicesRef = collection(db, 'invoices')
-    const docRef = await addDoc(invoicesRef, cleanInvoiceData)
+    const invoicesRef = db.collection('invoices')
+    const docRef = await invoicesRef.add(cleanInvoiceData)
 
     console.log('Invoice created successfully:', docRef.id)
 
@@ -233,22 +232,22 @@ export async function GET(request: Request) {
 
     console.log('Fetching invoices, workOrderId:', workOrderId, 'quoteId:', quoteId)
 
-    const invoicesRef = collection(db, 'invoices')
+    const invoicesRef = db.collection('invoices')
     let q
 
     if (workOrderId) {
       console.log('Filtering invoices by workOrderId:', workOrderId)
-      q = query(invoicesRef, where('workOrderId', '==', workOrderId), orderBy('createdAt', 'desc'))
+      q = invoicesRef.where('workOrderId', '==', workOrderId).orderBy('createdAt', 'desc')
     } else if (quoteId) {
       console.log('Filtering invoices by quoteId:', quoteId)
-      q = query(invoicesRef, where('quoteId', '==', quoteId), orderBy('createdAt', 'desc'))
+      q = invoicesRef.where('quoteId', '==', quoteId).orderBy('createdAt', 'desc')
     } else {
       console.log('Getting all invoices')
-      q = query(invoicesRef, orderBy('createdAt', 'desc'))
+      q = invoicesRef.orderBy('createdAt', 'desc')
     }
 
     console.log('Query created successfully, executing...')
-    const snapshot = await getDocs(q)
+    const snapshot = await q.get()
     console.log('Query executed successfully, found', snapshot.docs.length, 'invoices')
 
     const invoices = snapshot.docs.map(doc => {
@@ -307,7 +306,7 @@ export async function GET(request: Request) {
 // Helper function to update workflow status
 async function updateWorkflowStatus(workOrderId: string, step: string, updatedBy: string, notes?: string) {
   try {
-    const workflowRef = collection(db, 'workflow_status')
+    const workflowRef = db.collection('workflow_status')
     const workflowData = {
       workOrderId,
       currentStep: step,
@@ -317,7 +316,7 @@ async function updateWorkflowStatus(workOrderId: string, step: string, updatedBy
       notes
     }
     
-    await addDoc(workflowRef, workflowData)
+    await workflowRef.add(workflowData)
     console.log('Workflow status updated:', workflowData)
   } catch (error) {
     console.error('Error updating workflow status:', error)

@@ -1,6 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { getDocs, collection, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from 'firebase/firestore'
 import { Category } from '@/lib/types'
 
 export async function GET(request: Request) {
@@ -8,16 +7,16 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const activeOnly = searchParams.get('activeOnly') === 'true'
 
-    let q = collection(db, COLLECTIONS.CATEGORIES)
+    let q: any = db.collection(COLLECTIONS.CATEGORIES)
     
     if (activeOnly) {
-      q = query(collection(db, COLLECTIONS.CATEGORIES), where('isActive', '==', true))
+      q = q.where('isActive', '==', true)
     }
     
-    q = query(q, orderBy('name', 'asc'))
+    q = q.orderBy('name', 'asc')
     
-    const querySnapshot = await getDocs(q)
-    const categories = querySnapshot.docs.map(doc => ({
+    const querySnapshot = await q.get()
+    const categories = querySnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     }))
@@ -57,7 +56,7 @@ export async function POST(request: Request) {
       updatedAt: new Date().toISOString()
     }
 
-    const docRef = await addDoc(collection(db, COLLECTIONS.CATEGORIES), categoryData)
+    const docRef = await db.collection(COLLECTIONS.CATEGORIES).add(categoryData)
 
     return new Response(
         JSON.stringify({
@@ -96,7 +95,7 @@ export async function PUT(request: Request) {
     // Remove id from update data
     delete updateData.id
 
-    await updateDoc(doc(db, COLLECTIONS.CATEGORIES, data.id), updateData)
+    await db.collection(COLLECTIONS.CATEGORIES).doc(data.id).update(updateData)
 
     return new Response(
         JSON.stringify({
@@ -127,7 +126,7 @@ export async function DELETE(request: Request) {
       )
     }
 
-    await deleteDoc(doc(db, COLLECTIONS.CATEGORIES, categoryId))
+    await db.collection(COLLECTIONS.CATEGORIES).doc(categoryId).delete()
 
     return new Response(
         JSON.stringify({

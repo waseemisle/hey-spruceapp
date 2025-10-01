@@ -1,7 +1,5 @@
 // Using standard Response instead of NextResponse to avoid type issues
 import { db, COLLECTIONS } from '@/lib/firebase'
-import { updateDoc, doc, getDoc } from 'firebase/firestore'
-
 export async function POST(request: Request) {
   try {
     const { subcontractorId, adminId } = await request.json()
@@ -14,10 +12,10 @@ export async function POST(request: Request) {
     }
 
     // Get subcontractor data
-    const subcontractorRef = doc(db, COLLECTIONS.SUBCONTRACTORS, subcontractorId)
-    const subcontractorSnap = await getDoc(subcontractorRef)
+    const subcontractorRef = db.collection(COLLECTIONS.SUBCONTRACTORS).doc(subcontractorId)
+    const subcontractorSnap = await subcontractorRef.get()
 
-    if (!subcontractorSnap.exists()) {
+    if (!subcontractorSnap.exists) {
       return new Response(
         JSON.stringify({ error: 'Subcontractor not found' }),
         { status: 404, headers: { 'Content-Type': 'application/json' } }
@@ -41,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     // Update subcontractor status to approved
-    await updateDoc(subcontractorRef, {
+    await subcontractorRef.update({
       status: 'approved',
       approvedAt: new Date().toISOString(),
       approvedBy: adminId,
