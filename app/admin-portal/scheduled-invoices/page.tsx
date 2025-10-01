@@ -220,8 +220,8 @@ export default function AdminScheduledInvoicesPage() {
       description: invoice.description || '',
       amount: invoice.amount.toString(),
       frequency: invoice.frequency,
-      dayOfWeek: invoice.dayOfWeek !== null ? invoice.dayOfWeek.toString() : '',
-      dayOfMonth: invoice.dayOfMonth !== null ? invoice.dayOfMonth.toString() : '',
+      dayOfWeek: invoice.dayOfWeek != null ? invoice.dayOfWeek.toString() : '',
+      dayOfMonth: invoice.dayOfMonth != null ? invoice.dayOfMonth.toString() : '',
       time: invoice.time,
       timezone: invoice.timezone,
       notes: invoice.notes || ''
@@ -737,7 +737,7 @@ export default function AdminScheduledInvoicesPage() {
                 </div>
               </div>
 
-              {selectedInvoice.frequency === 'weekly' && selectedInvoice.dayOfWeek !== null && (
+              {selectedInvoice.frequency === 'weekly' && selectedInvoice.dayOfWeek != null && (
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Day of Week</Label>
                   <div className="text-sm text-gray-900">{getDayOfWeekName(selectedInvoice.dayOfWeek)}</div>

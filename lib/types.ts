@@ -455,6 +455,8 @@ export interface BiddingWorkOrder {
   categoryName: string
   estimatedCost: number
   estimatedDateOfService: string
+  priority?: 'low' | 'medium' | 'high' | 'urgent'
+  notes?: string
   status: 'open_for_bidding' | 'quote_submitted' | 'closed'
   createdAt: string
   updatedAt: string
