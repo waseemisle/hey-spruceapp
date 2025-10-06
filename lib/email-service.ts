@@ -29,7 +29,7 @@ export async function sendInvoiceEmail(data: InvoiceEmailData & { invoiceData?: 
     let pdfBuffer: Buffer | null = null
     if (data.invoiceData) {
       try {
-        pdfBuffer = generateInvoicePDF(data.invoiceData)
+        pdfBuffer = await generateInvoicePDF(data.invoiceData)
         console.log('PDF generated successfully')
       } catch (pdfError) {
         console.error('Error generating PDF:', pdfError)
@@ -45,7 +45,7 @@ export async function sendInvoiceEmail(data: InvoiceEmailData & { invoiceData?: 
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h1 style="color: #2c3e50; margin: 0;">Spruce App</h1>
-            <p style="color: #7f8c8d; margin: 5px 0 0 0;">Professional Property Management</p>
+            <p style="color: #7f8c8d; margin: 5px 0 0 0;">Professional Cleaning & Maintenance Services</p>
           </div>
           
           <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -137,7 +137,7 @@ export async function sendQuoteEmail(data: QuoteEmailData & { quoteData?: any })
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h1 style="color: #2c3e50; margin: 0;">Spruce App</h1>
-            <p style="color: #7f8c8d; margin: 5px 0 0 0;">Professional Property Management</p>
+            <p style="color: #7f8c8d; margin: 5px 0 0 0;">Professional Cleaning & Maintenance Services</p>
           </div>
           
           <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -240,7 +240,7 @@ export async function sendWorkOrderEmail(data: WorkOrderEmailData & { workOrderD
     if (data.workOrderData) {
       try {
         console.log('Generating work order PDF...')
-        pdfBuffer = generateWorkOrderPDF(data.workOrderData)
+        pdfBuffer = await generateWorkOrderPDF(data.workOrderData)
         console.log('Work order PDF generated successfully, size:', pdfBuffer.length, 'bytes')
       } catch (pdfError) {
         console.error('Error generating work order PDF:', pdfError)
@@ -258,7 +258,7 @@ export async function sendWorkOrderEmail(data: WorkOrderEmailData & { workOrderD
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h1 style="color: #2c3e50; margin: 0;">Spruce App</h1>
-            <p style="color: #7f8c8d; margin: 5px 0 0 0;">Professional Property Management</p>
+            <p style="color: #7f8c8d; margin: 5px 0 0 0;">Professional Cleaning & Maintenance Services</p>
           </div>
 
           <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">

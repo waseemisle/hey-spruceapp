@@ -56,7 +56,7 @@ export async function POST(request: Request) {
             quantity: 1,
             unitPrice: scheduledInvoice.amount,
             totalPrice: scheduledInvoice.amount,
-            category: 'other'
+            category: scheduledInvoice.categoryName || 'other'
           }],
           notes: scheduledInvoice.notes || '',
           terms: 'Payment due within 30 days of invoice date.',

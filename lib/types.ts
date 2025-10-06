@@ -411,6 +411,8 @@ export interface ScheduledInvoice {
   title: string
   description: string
   amount: number
+  categoryId: string
+  categoryName: string
   frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
   dayOfWeek?: number | null // 0-6 for weekly (0 = Sunday)
   dayOfMonth?: number | null // 1-31 for monthly
@@ -430,6 +432,7 @@ export interface ScheduledInvoiceFormData {
   title: string
   description: string
   amount: string
+  categoryId: string
   frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly'
   dayOfWeek?: string
   dayOfMonth?: string

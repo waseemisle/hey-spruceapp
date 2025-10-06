@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import Modal from '@/components/ui/modal'
 import { useAuth } from '@/lib/auth'
-import { ScheduledInvoice, UserProfile } from '@/lib/types'
+import { ScheduledInvoice, UserProfile, Category } from '@/lib/types'
 import { useNotifications, NotificationContainer } from '@/components/ui/notification'
 import { 
   Plus, 
@@ -34,6 +34,7 @@ export default function AdminScheduledInvoicesPage() {
   
   const [scheduledInvoices, setScheduledInvoices] = useState<ScheduledInvoice[]>([])
   const [clients, setClients] = useState<UserProfile[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -48,6 +49,7 @@ export default function AdminScheduledInvoicesPage() {
     title: '',
     description: '',
     amount: '',
+    categoryId: '',
     frequency: 'weekly' as 'weekly' | 'monthly' | 'quarterly' | 'yearly',
     dayOfWeek: '',
     dayOfMonth: '',
@@ -76,6 +78,13 @@ export default function AdminScheduledInvoicesPage() {
         setClients(clientsData)
       }
 
+      // Fetch active categories
+      const categoriesResponse = await fetch('/api/categories?activeOnly=true')
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json()
+        setCategories(categoriesData)
+      }
+
     } catch (err) {
       error('Fetch Error', 'Error loading data')
     } finally {
@@ -92,8 +101,8 @@ export default function AdminScheduledInvoicesPage() {
 
   const handleCreateScheduledInvoice = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!formData.clientId || !formData.title || !formData.amount || !formData.time) {
+
+    if (!formData.clientId || !formData.title || !formData.amount || !formData.time || !formData.categoryId) {
       error('Validation Error', 'Please fill in all required fields')
       return
     }
@@ -112,9 +121,17 @@ export default function AdminScheduledInvoicesPage() {
     try {
       // Find selected client to get name and email
       const selectedClient = clients.find(c => c.id === formData.clientId)
-      
+
       if (!selectedClient) {
         error('Validation Error', 'Selected client not found')
+        return
+      }
+
+      // Find selected category to get name
+      const selectedCategory = categories.find(c => c.id === formData.categoryId)
+
+      if (!selectedCategory) {
+        error('Validation Error', 'Selected category not found')
         return
       }
 
@@ -127,6 +144,7 @@ export default function AdminScheduledInvoicesPage() {
           ...formData,
           clientName: selectedClient.fullName,
           clientEmail: selectedClient.email,
+          categoryName: selectedCategory.name,
           amount: parseFloat(formData.amount),
           dayOfWeek: formData.frequency === 'weekly' ? parseInt(formData.dayOfWeek) : null,
           dayOfMonth: ['monthly', 'quarterly', 'yearly'].includes(formData.frequency) ? parseInt(formData.dayOfMonth) : null,
@@ -232,6 +250,7 @@ export default function AdminScheduledInvoicesPage() {
       title: '',
       description: '',
       amount: '',
+      categoryId: '',
       frequency: 'weekly',
       dayOfWeek: '',
       dayOfMonth: '',
@@ -253,6 +272,7 @@ export default function AdminScheduledInvoicesPage() {
       title: invoice.title,
       description: invoice.description || '',
       amount: invoice.amount.toString(),
+      categoryId: invoice.categoryId || '',
       frequency: invoice.frequency,
       dayOfWeek: invoice.dayOfWeek != null ? invoice.dayOfWeek.toString() : '',
       dayOfMonth: invoice.dayOfMonth != null ? invoice.dayOfMonth.toString() : '',
@@ -265,13 +285,13 @@ export default function AdminScheduledInvoicesPage() {
 
   const handleEditScheduledInvoice = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!selectedInvoice) {
       error('Error', 'No invoice selected')
       return
     }
 
-    if (!formData.clientId || !formData.title || !formData.amount || !formData.time) {
+    if (!formData.clientId || !formData.title || !formData.amount || !formData.time || !formData.categoryId) {
       error('Validation Error', 'Please fill in all required fields')
       return
     }
@@ -289,9 +309,17 @@ export default function AdminScheduledInvoicesPage() {
     try {
       // Find selected client to get name and email
       const selectedClient = clients.find(c => c.id === formData.clientId)
-      
+
       if (!selectedClient) {
         error('Validation Error', 'Selected client not found')
+        return
+      }
+
+      // Find selected category to get name
+      const selectedCategory = categories.find(c => c.id === formData.categoryId)
+
+      if (!selectedCategory) {
+        error('Validation Error', 'Selected category not found')
         return
       }
 
@@ -304,6 +332,7 @@ export default function AdminScheduledInvoicesPage() {
           ...formData,
           clientName: selectedClient.fullName,
           clientEmail: selectedClient.email,
+          categoryName: selectedCategory.name,
           amount: parseFloat(formData.amount),
           dayOfWeek: formData.frequency === 'weekly' ? parseInt(formData.dayOfWeek) : null,
           dayOfMonth: ['monthly', 'quarterly', 'yearly'].includes(formData.frequency) ? parseInt(formData.dayOfMonth) : null,
@@ -360,16 +389,6 @@ export default function AdminScheduledInvoicesPage() {
     active: scheduledInvoices.filter(i => i.isActive).length,
     inactive: scheduledInvoices.filter(i => !i.isActive).length,
     totalAmount: scheduledInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
-  }
-
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading scheduled invoices...</div>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -622,6 +641,22 @@ export default function AdminScheduledInvoicesPage() {
                 placeholder="200.00"
                 required
               />
+            </div>
+
+            <div>
+              <Label htmlFor="category">Category *</Label>
+              <Select value={formData.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -914,6 +949,22 @@ export default function AdminScheduledInvoicesPage() {
                 placeholder="0.00"
                 required
               />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-category">Category *</Label>
+              <Select value={formData.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

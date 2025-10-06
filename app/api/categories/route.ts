@@ -7,19 +7,20 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const activeOnly = searchParams.get('activeOnly') === 'true'
 
-    let q: any = db.collection(COLLECTIONS.CATEGORIES)
-    
-    if (activeOnly) {
-      q = q.where('isActive', '==', true)
-    }
-    
-    q = q.orderBy('name', 'asc')
-    
-    const querySnapshot = await q.get()
-    const categories = querySnapshot.docs.map((doc: any) => ({
+    // Fetch all categories without compound query to avoid needing index
+    const querySnapshot = await db.collection(COLLECTIONS.CATEGORIES).get()
+
+    let categories = querySnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data()
     }))
+
+    // Filter and sort in code
+    if (activeOnly) {
+      categories = categories.filter((cat: any) => cat.isActive === true)
+    }
+
+    categories.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''))
 
     return new Response(
         JSON.stringify(categories),
