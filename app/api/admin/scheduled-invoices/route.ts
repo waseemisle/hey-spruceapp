@@ -10,11 +10,12 @@ export async function POST(request: Request) {
     const data = await request.json()
     console.log('Received scheduled invoice data:', data)
     
-    const { 
+    const {
       clientId,
       title,
       description,
       amount,
+      categoryId,
       frequency,
       dayOfWeek,
       dayOfMonth,
@@ -108,6 +109,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // Get category name if categoryId is provided
+    let categoryName = ''
+    if (categoryId) {
+      const categoryDoc = await db.collection('categories').doc(categoryId).get()
+      if (categoryDoc.exists) {
+        categoryName = categoryDoc.data()?.name || ''
+      }
+    }
+
     // Create scheduled invoice data
     const scheduledInvoiceData: Omit<ScheduledInvoice, 'id'> = {
       clientId,
@@ -116,6 +126,8 @@ export async function POST(request: Request) {
       title,
       description: description || '',
       amount: parseFloat(amount),
+      categoryId: categoryId || '',
+      categoryName: categoryName,
       frequency,
       dayOfWeek: frequency === 'weekly' ? parseInt(dayOfWeek || '1') : null,
       dayOfMonth: (frequency === 'monthly' || frequency === 'quarterly' || frequency === 'yearly') ? parseInt(dayOfMonth || '1') : null,

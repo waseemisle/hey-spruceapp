@@ -65,110 +65,118 @@ export async function generateInvoicePDF(data: PDFInvoiceData): Promise<Buffer> 
   // Load logo
   const logoBase64 = await loadImageAsBase64(LOGO_URL)
 
-  // Set up modern color scheme - Green theme to match Spruce branding
-  const primaryGreen = [76, 175, 80] // #4CAF50 - Fresh green
-  const darkGreen = [56, 142, 60] // #388E3C - Dark green
-  const lightGreen = [232, 245, 233] // #E8F5E9 - Light green background
-  const textDark = [33, 33, 33] // #212121 - Almost black
-  const textGray = [117, 117, 117] // #757575 - Medium gray
-  const accentOrange = [255, 152, 0] // #FF9800 - Accent color
+  // Professional color scheme
+  const primaryColor: [number, number, number] = [31, 41, 55] // #1f2937 - Dark gray/black for text
+  const accentColor: [number, number, number] = [59, 130, 246] // #3b82f6 - Blue accent
+  const lightGray: [number, number, number] = [249, 250, 251] // #f9fafb - Light background
+  const borderGray: [number, number, number] = [229, 231, 235] // #e5e7eb - Borders
+  const textGray: [number, number, number] = [107, 114, 128] // #6b7280 - Secondary text
 
-  // Clean white background with subtle green accent bar
-  doc.setFillColor(...lightGreen)
-  doc.rect(0, 0, 210, 40, 'F')
+  // White background
+  doc.setFillColor(255, 255, 255)
+  doc.rect(0, 0, 210, 297, 'F')
 
-  // Green accent stripe at top
-  doc.setFillColor(...primaryGreen)
-  doc.rect(0, 0, 210, 3, 'F')
-
-  // Add logo if available
+  // Header section - Logo on the left
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'PNG', 15, 10, 50, 20)
+      // Logo positioned at top-left with good prominence
+      doc.addImage(logoBase64, 'PNG', 20, 20, 70, 21)
     } catch (err) {
       console.error('Error adding logo to PDF:', err)
     }
   }
 
-  // Invoice title and number on right side with modern styling
-  doc.setTextColor(...textDark)
-  doc.setFontSize(28)
+  // Invoice title and details on the right side
+  doc.setFontSize(32)
   doc.setFont('helvetica', 'bold')
-  doc.text('INVOICE', 210, 18, { align: 'right' })
+  doc.setTextColor(...primaryColor)
+  doc.text('INVOICE', 190, 28, { align: 'right' })
 
+  // Invoice number
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...textGray)
-  doc.text(`#${data.invoiceNumber}`, 210, 26, { align: 'right' })
+  doc.text(`Invoice #${data.invoiceNumber}`, 190, 36, { align: 'right' })
 
-  // Date and due date with icons-like labels
+  // Dates section
   doc.setFontSize(9)
   doc.setTextColor(...textGray)
-  doc.text(`Issue Date: ${new Date(data.createdAt).toLocaleDateString()}`, 210, 33, { align: 'right' })
-  doc.text(`Due Date: ${new Date(data.dueDate).toLocaleDateString()}`, 210, 38, { align: 'right' })
+  doc.text(`Date Issued: ${new Date(data.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 190, 43, { align: 'right' })
+  doc.text(`Due Date: ${new Date(data.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 190, 49, { align: 'right' })
   
-  // Client information box with modern card design
-  let currentY = 50
-  doc.setFillColor(255, 255, 255)
-  doc.setDrawColor(...primaryGreen)
+  // Divider line after header
+  let currentY = 56
+  doc.setDrawColor(...borderGray)
   doc.setLineWidth(0.5)
-  doc.roundedRect(15, currentY, 85, 30, 2, 2, 'FD')
+  doc.line(20, currentY, 190, currentY)
 
-  doc.setFontSize(10)
+  // Bill To section
+  currentY = 70
+  doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...primaryGreen)
-  doc.text('BILL TO', 20, currentY + 6)
+  doc.setTextColor(...textGray)
+  doc.text('BILL TO', 20, currentY)
 
-  doc.setFont('helvetica', 'bold')
+  currentY += 6
   doc.setFontSize(11)
-  doc.setTextColor(...textDark)
-  doc.text(data.clientName, 20, currentY + 13)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...primaryColor)
+  doc.text(data.clientName, 20, currentY)
 
-  doc.setFont('helvetica', 'normal')
+  currentY += 5
   doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
   doc.setTextColor(...textGray)
-  doc.text(data.clientEmail, 20, currentY + 19)
+  doc.text(data.clientEmail, 20, currentY)
 
-  // Project Details box
-  doc.setFillColor(255, 255, 255)
-  doc.setDrawColor(...primaryGreen)
-  doc.roundedRect(110, currentY, 85, 30, 2, 2, 'FD')
+  if (data.workOrderLocation) {
+    currentY += 4
+    doc.text(data.workOrderLocation.name, 20, currentY)
+    currentY += 4
+    doc.text(data.workOrderLocation.address, 20, currentY)
+  }
 
+  // Project/Work Order Details on the right
+  let rightY = 70
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...textGray)
+  doc.text('PROJECT', 190, rightY, { align: 'right' })
+
+  rightY += 6
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...primaryGreen)
-  doc.text('PROJECT DETAILS', 115, currentY + 6)
+  doc.setTextColor(...primaryColor)
+  const titleLines = doc.splitTextToSize(data.workOrderTitle, 80)
+  doc.text(titleLines[0], 190, rightY, { align: 'right' })
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
-  doc.setTextColor(...textDark)
-  doc.text(data.workOrderTitle.substring(0, 30), 115, currentY + 13)
+  if (data.subcontractorName) {
+    rightY += 6
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...textGray)
+    doc.text(`Contractor: ${data.subcontractorName}`, 190, rightY, { align: 'right' })
+  }
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(...textGray)
-  const descLines = doc.splitTextToSize(data.workOrderDescription, 70)
-  doc.text(descLines.slice(0, 2), 115, currentY + 19)
+  // Line items table
+  const startY = 110
+  currentY = startY
 
-  // Line items table with modern design
-  const startY = 100
-  const tableWidth = 180
+  // Table header with clean professional design
+  doc.setFillColor(...lightGray)
+  doc.rect(20, currentY, 170, 8, 'F')
 
-  // Table header with gradient-like effect
-  doc.setFillColor(...primaryGreen)
-  doc.roundedRect(15, startY, tableWidth, 10, 1, 1, 'F')
-
-  doc.setTextColor(255, 255, 255)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
-  doc.text('DESCRIPTION', 20, startY + 6.5)
-  doc.text('QTY', 115, startY + 6.5)
-  doc.text('RATE', 135, startY + 6.5)
-  doc.text('AMOUNT', 160, startY + 6.5)
-  doc.text('CATEGORY', 175, startY + 6.5, { align: 'right' })
+  doc.setTextColor(...primaryColor)
+  doc.text('DESCRIPTION', 22, currentY + 5.5)
+  doc.text('QTY', 130, currentY + 5.5, { align: 'right' })
+  doc.text('RATE', 155, currentY + 5.5, { align: 'right' })
+  doc.text('AMOUNT', 188, currentY + 5.5, { align: 'right' })
+
+  currentY += 8
 
   // Table rows with clean design
-  currentY = startY + 10
   doc.setFont('helvetica', 'normal')
 
   data.lineItems.forEach((item, index) => {
@@ -177,48 +185,42 @@ export async function generateInvoicePDF(data: PDFInvoiceData): Promise<Buffer> 
       currentY = 20
     }
 
-    // Subtle alternating row background
-    if (index % 2 === 0) {
-      doc.setFillColor(...lightGreen)
-      doc.rect(15, currentY, tableWidth, 9, 'F')
-    }
+    // Bottom border for each row
+    doc.setDrawColor(...borderGray)
+    doc.setLineWidth(0.3)
+    doc.line(20, currentY + 7, 190, currentY + 7)
 
-    // Row border
-    doc.setDrawColor(220, 220, 220)
-    doc.setLineWidth(0.1)
-    doc.line(15, currentY + 9, 195, currentY + 9)
-
+    // Item description
     doc.setFontSize(9)
-    doc.setTextColor(...textDark)
-    doc.text(item.description.substring(0, 45), 20, currentY + 6)
+    doc.setTextColor(...primaryColor)
+    const descLines = doc.splitTextToSize(item.description, 100)
+    doc.text(descLines[0].substring(0, 60), 22, currentY + 5)
 
+    // Category (smaller, below description)
+    doc.setFontSize(7)
     doc.setTextColor(...textGray)
-    doc.text(item.quantity.toString(), 115, currentY + 6)
-    doc.text(`$${item.unitPrice.toFixed(2)}`, 135, currentY + 6)
+    doc.text(item.category, 22, currentY + 9)
 
+    // Quantity
+    doc.setFontSize(9)
+    doc.setTextColor(...primaryColor)
+    doc.text(item.quantity.toString(), 130, currentY + 5, { align: 'right' })
+
+    // Rate
+    doc.text(`$${item.unitPrice.toFixed(2)}`, 155, currentY + 5, { align: 'right' })
+
+    // Amount (bold)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...textDark)
-    doc.text(`$${item.totalPrice.toFixed(2)}`, 160, currentY + 6)
-
+    doc.text(`$${item.totalPrice.toFixed(2)}`, 188, currentY + 5, { align: 'right' })
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(...primaryGreen)
-    doc.text(item.category.toUpperCase(), 175, currentY + 6, { align: 'right' })
 
-    currentY += 9
+    currentY += 11
   })
   
-  // Summary section with modern card design
-  const summaryY = Math.max(currentY + 15, 200)
-  const summaryX = 120
-
-  // Summary box background
-  doc.setFillColor(250, 250, 250)
-  doc.setDrawColor(230, 230, 230)
-  doc.setLineWidth(0.3)
-  doc.roundedRect(summaryX - 5, summaryY - 5, 75, 50, 2, 2, 'FD')
-
-  let lineY = summaryY
+  // Summary section - professional totals on the right
+  currentY += 10
+  const summaryX = 130
+  let summaryY = currentY
 
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
@@ -226,119 +228,113 @@ export async function generateInvoicePDF(data: PDFInvoiceData): Promise<Buffer> 
 
   // Labor cost
   if (data.laborCost > 0) {
-    doc.text('Labor Cost:', summaryX, lineY)
-    doc.text(`$${data.laborCost.toFixed(2)}`, summaryX + 65, lineY, { align: 'right' })
-    lineY += 5
+    doc.text('Labor Cost', summaryX, summaryY)
+    doc.text(`$${data.laborCost.toFixed(2)}`, 188, summaryY, { align: 'right' })
+    summaryY += 5
   }
 
   // Material cost
   if (data.materialCost > 0) {
-    doc.text('Material Cost:', summaryX, lineY)
-    doc.text(`$${data.materialCost.toFixed(2)}`, summaryX + 65, lineY, { align: 'right' })
-    lineY += 5
+    doc.text('Material Cost', summaryX, summaryY)
+    doc.text(`$${data.materialCost.toFixed(2)}`, 188, summaryY, { align: 'right' })
+    summaryY += 5
   }
 
   // Additional costs
   if (data.additionalCosts > 0) {
-    doc.text('Additional Costs:', summaryX, lineY)
-    doc.text(`$${data.additionalCosts.toFixed(2)}`, summaryX + 65, lineY, { align: 'right' })
-    lineY += 5
+    doc.text('Additional Costs', summaryX, summaryY)
+    doc.text(`$${data.additionalCosts.toFixed(2)}`, 188, summaryY, { align: 'right' })
+    summaryY += 5
   }
 
   // Discount
   if (data.discountAmount && data.discountAmount > 0) {
     doc.setTextColor(220, 53, 69) // Red for discount
-    doc.text('Discount:', summaryX, lineY)
-    doc.text(`-$${data.discountAmount.toFixed(2)}`, summaryX + 65, lineY, { align: 'right' })
-    lineY += 5
+    doc.text('Discount', summaryX, summaryY)
+    doc.text(`-$${data.discountAmount.toFixed(2)}`, 188, summaryY, { align: 'right' })
+    summaryY += 5
     doc.setTextColor(...textGray)
   }
 
-  // Divider line
-  doc.setDrawColor(...primaryGreen)
-  doc.setLineWidth(0.5)
-  doc.line(summaryX, lineY + 1, summaryX + 65, lineY + 1)
-  lineY += 6
-
   // Subtotal
+  summaryY += 2
   const subtotal = data.laborCost + data.materialCost + data.additionalCosts - (data.discountAmount || 0)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...textDark)
-  doc.text('Subtotal:', summaryX, lineY)
-  doc.text(`$${subtotal.toFixed(2)}`, summaryX + 65, lineY, { align: 'right' })
-  lineY += 5
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...primaryColor)
+  doc.text('Subtotal', summaryX, summaryY)
+  doc.text(`$${subtotal.toFixed(2)}`, 188, summaryY, { align: 'right' })
+  summaryY += 5
 
   // Tax
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(...textGray)
-  doc.text(`Tax (${data.taxRate}%):`, summaryX, lineY)
-  doc.text(`$${data.taxAmount.toFixed(2)}`, summaryX + 65, lineY, { align: 'right' })
-  lineY += 7
+  doc.text(`Tax (${data.taxRate}%)`, summaryX, summaryY)
+  doc.text(`$${data.taxAmount.toFixed(2)}`, 188, summaryY, { align: 'right' })
+  summaryY += 8
 
-  // Total amount box - standout design
-  doc.setFillColor(...primaryGreen)
-  doc.roundedRect(summaryX - 5, lineY - 3, 75, 12, 2, 2, 'F')
+  // Total amount - highlighted box
+  doc.setFillColor(...accentColor)
+  doc.rect(130, summaryY - 4, 60, 10, 'F')
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(255, 255, 255)
-  doc.text('TOTAL DUE:', summaryX, lineY + 4)
-  doc.setFontSize(13)
-  doc.text(`$${data.totalAmount.toFixed(2)}`, summaryX + 65, lineY + 4, { align: 'right' })
+  doc.text('TOTAL DUE', 132, summaryY + 2)
+  doc.setFontSize(12)
+  doc.text(`$${data.totalAmount.toFixed(2)}`, 188, summaryY + 2, { align: 'right' })
   
-  // Notes and terms section with modern styling
-  const notesStartY = lineY + 15
+  // Notes and terms section
+  summaryY += 15
 
   if (data.notes) {
-    doc.setFillColor(...lightGreen)
-    doc.roundedRect(15, notesStartY, 90, 25, 2, 2, 'F')
-
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...primaryGreen)
-    doc.text('NOTES', 20, notesStartY + 6)
+    doc.setTextColor(...primaryColor)
+    doc.text('NOTES', 20, summaryY)
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
-    doc.setTextColor(...textDark)
-    const notesLines = doc.splitTextToSize(data.notes, 80)
-    doc.text(notesLines.slice(0, 3), 20, notesStartY + 12)
+    doc.setTextColor(...textGray)
+    const notesLines = doc.splitTextToSize(data.notes, 110)
+    doc.text(notesLines.slice(0, 4), 20, summaryY + 5)
+    summaryY += (notesLines.slice(0, 4).length * 4) + 10
   }
 
   if (data.terms) {
     doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...primaryGreen)
-    doc.text('TERMS & CONDITIONS', 20, notesStartY + 40)
+    doc.setTextColor(...primaryColor)
+    doc.text('TERMS & CONDITIONS', 20, summaryY)
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(...textGray)
     const termsLines = doc.splitTextToSize(data.terms, 170)
-    doc.text(termsLines.slice(0, 2), 20, notesStartY + 46)
+    doc.text(termsLines.slice(0, 3), 20, summaryY + 5)
   }
 
-  // Modern footer with green accent
+  // Footer with contact info and thank you message
   const pageHeight = doc.internal.pageSize.height
 
-  // Footer background
-  doc.setFillColor(...lightGreen)
-  doc.rect(0, pageHeight - 25, 210, 25, 'F')
+  // Divider line before footer
+  doc.setDrawColor(...borderGray)
+  doc.setLineWidth(0.5)
+  doc.line(20, pageHeight - 30, 190, pageHeight - 30)
 
-  // Green accent line
-  doc.setFillColor(...primaryGreen)
-  doc.rect(0, pageHeight - 25, 210, 2, 'F')
-
-  doc.setFontSize(9)
+  // Thank you message
+  doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...primaryGreen)
-  doc.text('Thank you for your business!', 105, pageHeight - 16, { align: 'center' })
+  doc.setTextColor(...primaryColor)
+  doc.text('Thank you for your business!', 105, pageHeight - 22, { align: 'center' })
 
+  // Contact information
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(...textGray)
-  doc.text('For questions, contact us at support@heyspruceapp.com', 105, pageHeight - 10, { align: 'center' })
-  doc.text(`Generated on ${new Date().toLocaleDateString()}`, 105, pageHeight - 5, { align: 'center' })
+  doc.text('For questions about this invoice, please contact:', 105, pageHeight - 16, { align: 'center' })
+  doc.text('support@heyspruceapp.com', 105, pageHeight - 11, { align: 'center' })
+
+  // Generated date (small, bottom right)
+  doc.setFontSize(7)
+  doc.text(`Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`, 190, pageHeight - 6, { align: 'right' })
   
   // Convert to buffer
   const pdfOutput = doc.output('arraybuffer')

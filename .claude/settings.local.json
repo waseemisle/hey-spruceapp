@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebFetch(domain:www.heyspruce.com)",
+      "Bash(curl -s \"https://www.heyspruce.com/\")",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:invoicecandy.com)",
+      "Bash(curl -s \"https://invoicecandy.com/invoice-generator?template=3810\")",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

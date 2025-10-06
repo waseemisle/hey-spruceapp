@@ -30,7 +30,7 @@ export default function CreateScheduledInvoiceModal({
     title: '',
     description: '',
     amount: '',
-    category: 'other',
+    categoryId: 'other',
     frequency: 'weekly',
     dayOfWeek: '1', // Monday
     time: '09:00',
@@ -48,7 +48,7 @@ export default function CreateScheduledInvoiceModal({
         title: '',
         description: '',
         amount: '',
-        category: 'other',
+        categoryId: 'other',
         frequency: 'weekly',
         dayOfWeek: '1', // Monday
         time: '09:00',
@@ -167,8 +167,8 @@ export default function CreateScheduledInvoiceModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
-              <Select value={formData.category} onValueChange={(value) => handleChange('category', value)}>
+              <Label htmlFor="categoryId">Category *</Label>
+              <Select value={formData.categoryId} onValueChange={(value) => handleChange('categoryId', value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
