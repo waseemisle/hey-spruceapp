@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Play, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Calendar, Play, Trash2, ToggleLeft, ToggleRight, Edit2, Save, X, Search } from 'lucide-react';
 
 interface ScheduledInvoice {
   id: string;
@@ -30,7 +30,11 @@ export default function ScheduledInvoicesManagement() {
   const [scheduledInvoices, setScheduledInvoices] = useState<ScheduledInvoice[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     clientId: '',
     title: '',
@@ -208,6 +212,74 @@ export default function ScheduledInvoicesManagement() {
     }
   };
 
+  const handleOpenEdit = (schedule: ScheduledInvoice) => {
+    setFormData({
+      clientId: schedule.clientId,
+      title: schedule.title,
+      description: schedule.description,
+      amount: schedule.amount.toString(),
+      frequency: schedule.frequency,
+      dayOfMonth: schedule.dayOfMonth?.toString() || '1',
+    });
+    setEditingId(schedule.id);
+    setShowEditModal(true);
+  };
+
+  const resetEditForm = () => {
+    setFormData({
+      clientId: '',
+      title: '',
+      description: '',
+      amount: '',
+      frequency: 'monthly',
+      dayOfMonth: '1',
+    });
+    setEditingId(null);
+    setShowEditModal(false);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+
+    setSubmitting(true);
+
+    try {
+      const nextExecution = calculateNextExecution(formData.frequency, parseInt(formData.dayOfMonth));
+
+      await updateDoc(doc(db, 'scheduled_invoices', editingId), {
+        title: formData.title,
+        description: formData.description,
+        amount: parseFloat(formData.amount),
+        frequency: formData.frequency,
+        dayOfMonth: parseInt(formData.dayOfMonth),
+        nextExecution: nextExecution,
+        updatedAt: serverTimestamp(),
+      });
+
+      alert('Scheduled invoice updated successfully');
+      resetEditForm();
+      fetchScheduledInvoices();
+    } catch (error) {
+      console.error('Error updating scheduled invoice:', error);
+      alert('Failed to update scheduled invoice');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filteredScheduledInvoices = scheduledInvoices.filter(schedule => {
+    // Filter by search query
+    const searchLower = searchQuery.toLowerCase();
+    const searchMatch = !searchQuery ||
+      schedule.title.toLowerCase().includes(searchLower) ||
+      schedule.clientName.toLowerCase().includes(searchLower) ||
+      schedule.description.toLowerCase().includes(searchLower) ||
+      schedule.frequency.toLowerCase().includes(searchLower);
+
+    return searchMatch;
+  });
+
   if (loading) {
     return (
       <AdminLayout>
@@ -310,17 +382,28 @@ export default function ScheduledInvoicesManagement() {
           </Card>
         )}
 
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search scheduled invoices by title, client, description, or frequency..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
         {/* Scheduled Invoices List */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {scheduledInvoices.length === 0 ? (
+          {filteredScheduledInvoices.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
                 <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No scheduled invoices</p>
+                <p className="text-gray-600">No scheduled invoices found</p>
               </CardContent>
             </Card>
           ) : (
-            scheduledInvoices.map((schedule) => (
+            filteredScheduledInvoices.map((schedule) => (
               <Card key={schedule.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -346,13 +429,20 @@ export default function ScheduledInvoicesManagement() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => handleOpenEdit(schedule)}>
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
                     <Button size="sm" className="flex-1" onClick={() => executeNow(schedule)}>
                       <Play className="h-4 w-4 mr-2" />
-                      Execute Now
+                      Execute
                     </Button>
+                  </div>
+                  <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
+                      className="flex-1"
                       onClick={() => toggleActive(schedule.id, schedule.isActive)}
                     >
                       Toggle
@@ -360,6 +450,7 @@ export default function ScheduledInvoicesManagement() {
                     <Button
                       size="sm"
                       variant="destructive"
+                      className="flex-1"
                       onClick={() => deleteSchedule(schedule.id)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -370,6 +461,87 @@ export default function ScheduledInvoicesManagement() {
             ))
           )}
         </div>
+
+        {/* Edit Modal */}
+        {showEditModal && editingId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Edit Scheduled Invoice</h2>
+                  <Button variant="outline" size="sm" onClick={resetEditForm}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <form onSubmit={handleUpdate} className="space-y-4">
+                  <div>
+                    <Label>Title *</Label>
+                    <Input
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Description *</Label>
+                    <Input
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Amount ($) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Frequency *</Label>
+                    <select
+                      className="w-full mt-1 p-2 border rounded"
+                      value={formData.frequency}
+                      onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="yearly">Yearly</option>
+                    </select>
+                  </div>
+                  {formData.frequency !== 'weekly' && (
+                    <div>
+                      <Label>Day of Month (1-31)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={formData.dayOfMonth}
+                        onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
+                      />
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-4 border-t">
+                    <Button type="submit" className="flex-1" disabled={submitting}>
+                      <Save className="h-4 w-4 mr-2" />
+                      {submitting ? 'Saving...' : 'Update Schedule'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={resetEditForm} disabled={submitting}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

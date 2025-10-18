@@ -4,7 +4,8 @@ const nextConfig = {
     domains: [
       'res.cloudinary.com',
       'firebasestorage.googleapis.com',
-      'heyspruceappv2.firebasestorage.app'
+      'heyspruceappv2.firebasestorage.app',
+      'cdn.prod.website-files.com'
     ],
   },
   env: {

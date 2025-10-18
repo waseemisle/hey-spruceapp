@@ -6,7 +6,9 @@ import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Receipt, Download, Send, CreditCard } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search } from 'lucide-react';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { Quote } from '@/types';
 
@@ -42,7 +44,21 @@ export default function InvoicesManagement() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'paid' | 'overdue'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [generating, setGenerating] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    notes: '',
+    terms: '',
+    status: 'draft' as Invoice['status'],
+  });
+
+  const [lineItems, setLineItems] = useState<Invoice['lineItems']>([
+    { description: '', quantity: 1, unitPrice: 0, amount: 0 }
+  ]);
 
   const fetchInvoices = async () => {
     try {
@@ -183,6 +199,81 @@ export default function InvoicesManagement() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      notes: '',
+      terms: '',
+      status: 'draft',
+    });
+    setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+    setEditingId(null);
+    setShowModal(false);
+  };
+
+  const handleOpenEdit = (invoice: Invoice) => {
+    setFormData({
+      notes: invoice.notes || '',
+      terms: invoice.terms || '',
+      status: invoice.status,
+    });
+    setLineItems(invoice.lineItems.length > 0 ? invoice.lineItems : [{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+    setEditingId(invoice.id);
+    setShowModal(true);
+  };
+
+  const addLineItem = () => {
+    setLineItems([...lineItems, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+  };
+
+  const removeLineItem = (index: number) => {
+    if (lineItems.length > 1) {
+      setLineItems(lineItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateLineItem = (index: number, field: keyof Invoice['lineItems'][0], value: string | number) => {
+    const updated = [...lineItems];
+    updated[index] = { ...updated[index], [field]: value };
+
+    if (field === 'quantity' || field === 'unitPrice') {
+      updated[index].amount = updated[index].quantity * updated[index].unitPrice;
+    }
+
+    setLineItems(updated);
+  };
+
+  const calculateTotal = () => {
+    return lineItems.reduce((sum, item) => sum + item.amount, 0);
+  };
+
+  const handleSubmit = async () => {
+    if (!editingId) return;
+
+    setSubmitting(true);
+
+    try {
+      const totalAmount = calculateTotal();
+
+      await updateDoc(doc(db, 'invoices', editingId), {
+        lineItems: lineItems.filter(item => item.description && item.amount > 0),
+        totalAmount,
+        notes: formData.notes,
+        terms: formData.terms,
+        status: formData.status,
+        updatedAt: serverTimestamp(),
+      });
+
+      alert('Invoice updated successfully');
+      resetForm();
+      fetchInvoices();
+    } catch (error: any) {
+      console.error('Error saving invoice:', error);
+      alert(error.message || 'Failed to save invoice');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const markAsSent = async (invoiceId: string) => {
     try {
       await updateDoc(doc(db, 'invoices', invoiceId), {
@@ -200,8 +291,19 @@ export default function InvoicesManagement() {
   };
 
   const filteredInvoices = invoices.filter(inv => {
-    if (filter === 'all') return true;
-    return inv.status === filter;
+    // Filter by status
+    const statusMatch = filter === 'all' || inv.status === filter;
+
+    // Filter by search query
+    const searchLower = searchQuery.toLowerCase();
+    const searchMatch = !searchQuery ||
+      inv.invoiceNumber.toLowerCase().includes(searchLower) ||
+      inv.workOrderTitle.toLowerCase().includes(searchLower) ||
+      inv.clientName.toLowerCase().includes(searchLower) ||
+      inv.clientEmail.toLowerCase().includes(searchLower) ||
+      (inv.subcontractorName && inv.subcontractorName.toLowerCase().includes(searchLower));
+
+    return statusMatch && searchMatch;
   });
 
   const getStatusColor = (status: string) => {
@@ -263,6 +365,17 @@ export default function InvoicesManagement() {
             </CardContent>
           </Card>
         )}
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search invoices by number, title, client, or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
 
         {/* Filter Tabs */}
         <div className="flex gap-2 flex-wrap">
@@ -341,6 +454,16 @@ export default function InvoicesManagement() {
                       size="sm"
                       variant="outline"
                       className="w-full"
+                      onClick={() => handleOpenEdit(invoice)}
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit Invoice
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
                       onClick={() => downloadInvoice(invoice)}
                     >
                       <Download className="h-4 w-4 mr-2" />
@@ -378,6 +501,154 @@ export default function InvoicesManagement() {
             ))
           )}
         </div>
+
+        {/* Edit Modal */}
+        {showModal && editingId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Edit Invoice</h2>
+                  <Button variant="outline" size="sm" onClick={resetForm}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Line Items */}
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <Label>Line Items</Label>
+                    <Button size="sm" variant="outline" onClick={addLineItem}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Item
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {lineItems.map((item, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                          <div className="md:col-span-6">
+                            <Label className="text-xs">Description</Label>
+                            <Input
+                              placeholder="Service description"
+                              value={item.description}
+                              onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-xs">Quantity</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateLineItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-xs">Unit Price ($)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.unitPrice}
+                              onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex items-end gap-2">
+                            <div className="flex-1">
+                              <Label className="text-xs">Amount</Label>
+                              <div className="text-lg font-bold text-purple-600">
+                                ${item.amount.toLocaleString()}
+                              </div>
+                            </div>
+                            {lineItems.length > 1 && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => removeLineItem(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Total */}
+                  <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold">Total Amount:</span>
+                      <span className="text-2xl font-bold text-purple-600">
+                        ${calculateTotal().toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <Label>Notes</Label>
+                  <textarea
+                    className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
+                    placeholder="Additional notes..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  />
+                </div>
+
+                {/* Terms */}
+                <div>
+                  <Label>Terms</Label>
+                  <textarea
+                    className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
+                    placeholder="Payment terms..."
+                    value={formData.terms}
+                    onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <Label>Status</Label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    className="w-full border border-gray-300 rounded-md p-2"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="sent">Sent</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                  </select>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {submitting ? 'Saving...' : 'Update Invoice'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={resetForm}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

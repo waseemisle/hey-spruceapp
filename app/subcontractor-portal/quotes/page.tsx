@@ -5,7 +5,8 @@ import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestor
 import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, Calendar, DollarSign, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { FileText, Calendar, DollarSign, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 
 interface Quote {
   id: string;
@@ -39,6 +40,7 @@ export default function SubcontractorQuotes() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -75,12 +77,22 @@ export default function SubcontractorQuotes() {
   };
 
   const filteredQuotes = quotes.filter(quote => {
-    if (filter === 'all') return true;
-    if (filter === 'pending') return quote.status === 'pending' && !quote.forwardedToClient;
-    if (filter === 'review') return quote.status === 'pending' && quote.forwardedToClient;
-    if (filter === 'accepted') return quote.status === 'accepted';
-    if (filter === 'rejected') return quote.status === 'rejected';
-    return true;
+    // Filter by status
+    let statusMatch = true;
+    if (filter === 'pending') statusMatch = quote.status === 'pending' && !quote.forwardedToClient;
+    else if (filter === 'review') statusMatch = quote.status === 'pending' && quote.forwardedToClient;
+    else if (filter === 'accepted') statusMatch = quote.status === 'accepted';
+    else if (filter === 'rejected') statusMatch = quote.status === 'rejected';
+
+    // Filter by search query
+    const searchLower = searchQuery.toLowerCase();
+    const searchMatch = !searchQuery ||
+      quote.workOrderTitle.toLowerCase().includes(searchLower) ||
+      quote.clientName.toLowerCase().includes(searchLower) ||
+      (quote.notes && quote.notes.toLowerCase().includes(searchLower)) ||
+      quote.estimatedDuration.toLowerCase().includes(searchLower);
+
+    return statusMatch && searchMatch;
   });
 
   const filterOptions = [
@@ -107,6 +119,17 @@ export default function SubcontractorQuotes() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">My Quotes</h1>
           <p className="text-gray-600 mt-2">Track your submitted quotes and their status</p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search quotes by title, client, or estimated duration..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2">

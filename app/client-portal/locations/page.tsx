@@ -6,7 +6,8 @@ import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, Plus, MapPin, Calendar } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Building2, Plus, MapPin, Calendar, Search } from 'lucide-react';
 import Link from 'next/link';
 
 interface Location {
@@ -30,6 +31,7 @@ interface Location {
 export default function ClientLocations() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -62,6 +64,16 @@ export default function ClientLocations() {
     return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
   };
 
+  const filteredLocations = locations.filter(location => {
+    const searchLower = searchQuery.toLowerCase();
+    return !searchQuery ||
+      location.name.toLowerCase().includes(searchLower) ||
+      location.address.toLowerCase().includes(searchLower) ||
+      location.city.toLowerCase().includes(searchLower) ||
+      location.state.toLowerCase().includes(searchLower) ||
+      location.propertyType.toLowerCase().includes(searchLower);
+  });
+
   if (loading) {
     return (
       <ClientLayout>
@@ -88,7 +100,18 @@ export default function ClientLocations() {
           </Link>
         </div>
 
-        {locations.length === 0 ? (
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search locations by name, address, city, state, or property type..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {filteredLocations.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Building2 className="h-16 w-16 text-gray-400 mb-4" />
@@ -106,7 +129,7 @@ export default function ClientLocations() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {locations.map((location) => (
+            {filteredLocations.map((location) => (
               <Card key={location.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">

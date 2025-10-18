@@ -6,8 +6,10 @@ import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Award } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search } from 'lucide-react';
 
 interface Subcontractor {
   uid: string;
@@ -25,7 +27,22 @@ export default function SubcontractorsManagement() {
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    fullName: '',
+    businessName: '',
+    phone: '',
+    licenseNumber: '',
+    skills: '',
+    status: 'approved' as 'pending' | 'approved' | 'rejected',
+  });
 
   const fetchSubcontractors = async () => {
     try {
@@ -108,9 +125,142 @@ export default function SubcontractorsManagement() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      password: '',
+      fullName: '',
+      businessName: '',
+      phone: '',
+      licenseNumber: '',
+      skills: '',
+      status: 'approved',
+    });
+    setEditingId(null);
+    setShowModal(false);
+  };
+
+  const handleOpenCreate = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const handleOpenEdit = (sub: Subcontractor) => {
+    setFormData({
+      email: sub.email,
+      password: '',
+      fullName: sub.fullName,
+      businessName: sub.businessName,
+      phone: sub.phone,
+      licenseNumber: sub.licenseNumber || '',
+      skills: sub.skills?.join(', ') || '',
+      status: sub.status,
+    });
+    setEditingId(sub.uid);
+    setShowModal(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.email || !formData.fullName || !formData.businessName || !formData.phone) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!editingId && !formData.password) {
+      toast({
+        title: 'Validation Error',
+        description: 'Password is required for new subcontractors',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      if (editingId) {
+        // Update existing subcontractor
+        const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(s => s);
+        await updateDoc(doc(db, 'subcontractors', editingId), {
+          fullName: formData.fullName,
+          businessName: formData.businessName,
+          phone: formData.phone,
+          licenseNumber: formData.licenseNumber,
+          skills: skillsArray,
+          status: formData.status,
+          updatedAt: serverTimestamp(),
+        });
+
+        toast({
+          title: 'Success',
+          description: 'Subcontractor updated successfully',
+        });
+      } else {
+        // Create new subcontractor via API route (doesn't log out admin)
+        const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(s => s);
+
+        const response = await fetch('/api/auth/create-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            role: 'subcontractor',
+            userData: {
+              fullName: formData.fullName,
+              businessName: formData.businessName,
+              phone: formData.phone,
+              licenseNumber: formData.licenseNumber,
+              skills: skillsArray,
+              status: formData.status,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to create subcontractor');
+        }
+
+        toast({
+          title: 'Success',
+          description: 'Subcontractor created successfully',
+        });
+      }
+
+      resetForm();
+      fetchSubcontractors();
+    } catch (error: any) {
+      console.error('Error saving subcontractor:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save subcontractor',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredSubcontractors = subcontractors.filter(sub => {
-    if (filter === 'all') return true;
-    return sub.status === filter;
+    // Filter by status
+    const statusMatch = filter === 'all' || sub.status === filter;
+
+    // Filter by search query
+    const searchLower = searchQuery.toLowerCase();
+    const searchMatch = !searchQuery ||
+      sub.fullName.toLowerCase().includes(searchLower) ||
+      sub.businessName.toLowerCase().includes(searchLower) ||
+      sub.email.toLowerCase().includes(searchLower) ||
+      sub.phone.toLowerCase().includes(searchLower) ||
+      (sub.licenseNumber && sub.licenseNumber.toLowerCase().includes(searchLower)) ||
+      (sub.skills && sub.skills.some(skill => skill.toLowerCase().includes(searchLower)));
+
+    return statusMatch && searchMatch;
   });
 
   const getStatusColor = (status: string) => {
@@ -140,6 +290,21 @@ export default function SubcontractorsManagement() {
             <h1 className="text-3xl font-bold text-gray-900">Subcontractors</h1>
             <p className="text-gray-600 mt-2">Manage subcontractor registrations and approvals</p>
           </div>
+          <Button onClick={handleOpenCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Subcontractor
+          </Button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search subcontractors by name, business, email, phone, license, or skills..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
 
         {/* Filter Tabs */}
@@ -208,32 +373,168 @@ export default function SubcontractorsManagement() {
                     </div>
                   )}
 
-                  {sub.status === 'pending' && (
-                    <div className="flex gap-2 pt-4">
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => handleApprove(sub.uid)}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="flex-1"
-                        onClick={() => handleReject(sub.uid)}
-                      >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Reject
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => handleOpenEdit(sub)}
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    {sub.status === 'pending' && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleApprove(sub.uid)}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="flex-1"
+                          onClick={() => handleReject(sub.uid)}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))
           )}
         </div>
+
+        {/* Create/Edit Modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">
+                    {editingId ? 'Edit Subcontractor' : 'Create New Subcontractor'}
+                  </h2>
+                  <Button variant="outline" size="sm" onClick={resetForm}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Full Name *</Label>
+                    <Input
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Business Name *</Label>
+                    <Input
+                      value={formData.businessName}
+                      onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+                      placeholder="ABC Services"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Email *</Label>
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="abc@gmail.com"
+                      disabled={!!editingId}
+                    />
+                    {editingId && (
+                      <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                    )}
+                  </div>
+
+                  {!editingId && (
+                    <div>
+                      <Label>Password *</Label>
+                      <Input
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder="Minimum 6 characters"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <Label>Phone *</Label>
+                    <Input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>License Number</Label>
+                    <Input
+                      value={formData.licenseNumber}
+                      onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
+                      placeholder="Optional"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Status *</Label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                      className="w-full border border-gray-300 rounded-md p-2"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label>Skills (comma-separated)</Label>
+                    <Input
+                      value={formData.skills}
+                      onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                      placeholder="HVAC, Plumbing, Electrical"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {submitting ? 'Saving...' : (editingId ? 'Update' : 'Create')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={resetForm}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

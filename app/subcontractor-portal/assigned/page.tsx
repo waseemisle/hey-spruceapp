@@ -6,7 +6,8 @@ import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search } from 'lucide-react';
 
 interface AssignedJob {
   id: string;
@@ -36,6 +37,7 @@ export default function SubcontractorAssignedJobs() {
   const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -116,10 +118,22 @@ export default function SubcontractorAssignedJobs() {
     const workOrder = workOrders.get(job.workOrderId);
     if (!workOrder) return false;
 
-    if (filter === 'all') return true;
-    if (filter === 'in-progress') return workOrder.status === 'assigned';
-    if (filter === 'completed') return workOrder.status === 'completed';
-    return true;
+    // Filter by status
+    let statusMatch = true;
+    if (filter === 'in-progress') statusMatch = workOrder.status === 'assigned';
+    else if (filter === 'completed') statusMatch = workOrder.status === 'completed';
+
+    // Filter by search query
+    const searchLower = searchQuery.toLowerCase();
+    const searchMatch = !searchQuery ||
+      workOrder.title.toLowerCase().includes(searchLower) ||
+      workOrder.description.toLowerCase().includes(searchLower) ||
+      workOrder.clientName.toLowerCase().includes(searchLower) ||
+      workOrder.category.toLowerCase().includes(searchLower) ||
+      workOrder.locationName.toLowerCase().includes(searchLower) ||
+      workOrder.locationAddress.toLowerCase().includes(searchLower);
+
+    return statusMatch && searchMatch;
   });
 
   const filterOptions = [
@@ -152,6 +166,17 @@ export default function SubcontractorAssignedJobs() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Assigned Jobs</h1>
           <p className="text-gray-600 mt-2">Manage your assigned work orders</p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search assigned jobs by title, description, client, category, or location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2">

@@ -7,7 +7,7 @@ import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, Send, Search } from 'lucide-react';
 
 interface Chat {
   id: string;
@@ -36,6 +36,7 @@ export default function MessagesManagement() {
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -109,6 +110,19 @@ export default function MessagesManagement() {
     }
   };
 
+  const filteredChats = chats.filter(chat => {
+    const searchLower = searchQuery.toLowerCase();
+    const otherParticipant = chat.participantDetails?.find(
+      p => p.id !== auth.currentUser?.uid
+    );
+    const searchMatch = !searchQuery ||
+      (otherParticipant?.name && otherParticipant.name.toLowerCase().includes(searchLower)) ||
+      (otherParticipant?.email && otherParticipant.email.toLowerCase().includes(searchLower)) ||
+      (chat.lastMessage && chat.lastMessage.toLowerCase().includes(searchLower));
+
+    return searchMatch;
+  });
+
   const selectedChatData = chats.find(c => c.id === selectedChat);
 
   if (loading) {
@@ -136,14 +150,25 @@ export default function MessagesManagement() {
               <CardTitle>Conversations</CardTitle>
             </CardHeader>
             <CardContent>
-              {chats.length === 0 ? (
+              {/* Search Bar */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search conversations..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {filteredChats.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 text-sm">No conversations yet</p>
+                  <p className="text-gray-600 text-sm">No conversations found</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {chats.map(chat => {
+                  {filteredChats.map(chat => {
                     const otherParticipant = chat.participantDetails?.find(
                       p => p.id !== auth.currentUser?.uid
                     );

@@ -7,6 +7,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
+import Logo from '@/components/ui/logo';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X
@@ -78,7 +79,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
-            <h1 className="text-xl font-bold text-purple-600">Hey Spruce Admin</h1>
+            <Logo href="/admin-portal" size="sm" />
+            <span className="ml-3 text-sm text-gray-500">Admin Portal</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user?.email}</span>

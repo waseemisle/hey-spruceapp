@@ -1,13 +1,14 @@
 import Link from 'next/link';
+import Logo from '@/components/ui/logo';
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-violet-600 to-purple-800">
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
-          <h1 className="text-6xl font-bold text-white mb-4">
-            HEY SPRUCE APP
-          </h1>
+          <div className="flex justify-center mb-4">
+            <Logo href="/" size="xl" className="filter brightness-0 invert" />
+          </div>
           <p className="text-xl text-white/90 mb-2">
             Complete Property Maintenance Management System
           </p>

@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileText, DollarSign, Send } from 'lucide-react';
+import { FileText, DollarSign, Send, Plus, Trash2, Search } from 'lucide-react';
 
 interface LineItem {
   description: string;
@@ -19,8 +19,8 @@ interface LineItem {
 
 interface Quote {
   id: string;
-  workOrderId: string;
-  workOrderNumber: string;
+  workOrderId?: string;
+  workOrderNumber?: string;
   workOrderTitle: string;
   clientId: string;
   clientName: string;
@@ -44,12 +44,41 @@ interface Quote {
   createdAt: any;
 }
 
+interface Client {
+  id: string;
+  fullName: string;
+  email: string;
+  companyName?: string;
+}
+
+interface Subcontractor {
+  id: string;
+  fullName: string;
+  email: string;
+  companyName?: string;
+}
+
 export default function QuotesManagement() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'sent_to_client' | 'accepted' | 'rejected'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [markupPercent, setMarkupPercent] = useState('20');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Create Quote Form State
+  const [formData, setFormData] = useState({
+    workOrderTitle: '',
+    clientId: '',
+    subcontractorId: '',
+    notes: '',
+  });
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { description: '', quantity: 1, unitPrice: 0, amount: 0 }
+  ]);
 
   const fetchQuotes = async () => {
     try {
@@ -68,8 +97,38 @@ export default function QuotesManagement() {
     }
   };
 
+  const fetchClients = async () => {
+    try {
+      const clientsQuery = query(collection(db, 'clients'));
+      const snapshot = await getDocs(clientsQuery);
+      const clientsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Client[];
+      setClients(clientsData);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
+  const fetchSubcontractors = async () => {
+    try {
+      const subsQuery = query(collection(db, 'subcontractors'));
+      const snapshot = await getDocs(subsQuery);
+      const subsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Subcontractor[];
+      setSubcontractors(subsData);
+    } catch (error) {
+      console.error('Error fetching subcontractors:', error);
+    }
+  };
+
   useEffect(() => {
     fetchQuotes();
+    fetchClients();
+    fetchSubcontractors();
   }, []);
 
   const handleApplyMarkupAndSend = async (quote: Quote, markup: number) => {
@@ -99,9 +158,117 @@ export default function QuotesManagement() {
     }
   };
 
+  const addLineItem = () => {
+    setLineItems([...lineItems, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+  };
+
+  const removeLineItem = (index: number) => {
+    if (lineItems.length > 1) {
+      setLineItems(lineItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
+    const updated = [...lineItems];
+    updated[index] = { ...updated[index], [field]: value };
+
+    // Calculate amount
+    if (field === 'quantity' || field === 'unitPrice') {
+      updated[index].amount = updated[index].quantity * updated[index].unitPrice;
+    }
+
+    setLineItems(updated);
+  };
+
+  const calculateTotal = () => {
+    return lineItems.reduce((sum, item) => sum + item.amount, 0);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      workOrderTitle: '',
+      clientId: '',
+      subcontractorId: '',
+      notes: '',
+    });
+    setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+    setShowCreateModal(false);
+  };
+
+  const handleCreateQuote = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert('You must be logged in');
+        return;
+      }
+
+      if (!formData.clientId || !formData.subcontractorId || !formData.workOrderTitle) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      const client = clients.find(c => c.id === formData.clientId);
+      const subcontractor = subcontractors.find(s => s.id === formData.subcontractorId);
+
+      if (!client || !subcontractor) {
+        alert('Invalid client or subcontractor selected');
+        return;
+      }
+
+      const totalAmount = calculateTotal();
+      const quoteNumber = `QUOTE-${Date.now().toString().slice(-8).toUpperCase()}`;
+
+      const quoteData = {
+        quoteNumber,
+        workOrderTitle: formData.workOrderTitle,
+        clientId: client.id,
+        clientName: client.fullName,
+        clientEmail: client.email,
+        subcontractorId: subcontractor.id,
+        subcontractorName: subcontractor.fullName,
+        subcontractorEmail: subcontractor.email,
+        lineItems: lineItems.filter(item => item.description && item.amount > 0),
+        laborCost: 0,
+        materialCost: 0,
+        additionalCosts: 0,
+        taxRate: 0,
+        taxAmount: 0,
+        discountAmount: 0,
+        totalAmount,
+        originalAmount: totalAmount,
+        notes: formData.notes,
+        status: 'pending',
+        createdBy: currentUser.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, 'quotes'), quoteData);
+
+      alert(`Quote ${quoteNumber} created successfully!`);
+      resetForm();
+      fetchQuotes();
+    } catch (error) {
+      console.error('Error creating quote:', error);
+      alert('Failed to create quote');
+    }
+  };
+
   const filteredQuotes = quotes.filter(quote => {
-    if (filter === 'all') return true;
-    return quote.status === filter;
+    // Filter by status
+    const statusMatch = filter === 'all' || quote.status === filter;
+
+    // Filter by search query
+    const searchLower = searchQuery.toLowerCase();
+    const searchMatch = !searchQuery ||
+      quote.workOrderTitle.toLowerCase().includes(searchLower) ||
+      quote.clientName.toLowerCase().includes(searchLower) ||
+      quote.subcontractorName.toLowerCase().includes(searchLower) ||
+      (quote.workOrderNumber && quote.workOrderNumber.toLowerCase().includes(searchLower)) ||
+      (quote.notes && quote.notes.toLowerCase().includes(searchLower));
+
+    return statusMatch && searchMatch;
   });
 
   const getStatusColor = (status: string) => {
@@ -132,6 +299,21 @@ export default function QuotesManagement() {
             <h1 className="text-3xl font-bold text-gray-900">Quotes</h1>
             <p className="text-gray-600 mt-2">Review quotes from subcontractors and forward to clients</p>
           </div>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Quote
+          </Button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search quotes by title, client, subcontractor, or work order number..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
 
         {/* Filter Tabs */}
@@ -300,6 +482,168 @@ export default function QuotesManagement() {
             ))
           )}
         </div>
+
+        {/* Create Quote Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Create New Quote</h2>
+                  <Button variant="outline" onClick={resetForm}>Cancel</Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Quote Title */}
+                <div>
+                  <Label>Quote Title / Work Order Title *</Label>
+                  <Input
+                    placeholder="e.g., HVAC Service for Delilah"
+                    value={formData.workOrderTitle}
+                    onChange={(e) => setFormData({ ...formData, workOrderTitle: e.target.value })}
+                  />
+                </div>
+
+                {/* Client Selection */}
+                <div>
+                  <Label>Select Client *</Label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md p-2"
+                    value={formData.clientId}
+                    onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                  >
+                    <option value="">Choose a client...</option>
+                    {clients.map(client => (
+                      <option key={client.id} value={client.id}>
+                        {client.fullName} ({client.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subcontractor Selection */}
+                <div>
+                  <Label>Select Subcontractor *</Label>
+                  <select
+                    className="w-full border border-gray-300 rounded-md p-2"
+                    value={formData.subcontractorId}
+                    onChange={(e) => setFormData({ ...formData, subcontractorId: e.target.value })}
+                  >
+                    <option value="">Choose a subcontractor...</option>
+                    {subcontractors.map(sub => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.fullName} ({sub.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Line Items */}
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <Label>Line Items</Label>
+                    <Button size="sm" variant="outline" onClick={addLineItem}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Item
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {lineItems.map((item, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                          <div className="md:col-span-6">
+                            <Label className="text-xs">Description</Label>
+                            <Input
+                              placeholder="Swamp cooler service"
+                              value={item.description}
+                              onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-xs">Quantity</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateLineItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-xs">Unit Price ($)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.unitPrice}
+                              onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex items-end gap-2">
+                            <div className="flex-1">
+                              <Label className="text-xs">Amount</Label>
+                              <div className="text-lg font-bold text-purple-600">
+                                ${item.amount.toLocaleString()}
+                              </div>
+                            </div>
+                            {lineItems.length > 1 && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => removeLineItem(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Total */}
+                  <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold">Total Amount:</span>
+                      <span className="text-2xl font-bold text-purple-600">
+                        ${calculateTotal().toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <Label>Notes (optional)</Label>
+                  <textarea
+                    className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                    placeholder="e.g., Door gaskets are special order—pricing and labor vary by manufacturer."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    onClick={handleCreateQuote}
+                    disabled={!formData.clientId || !formData.subcontractorId || !formData.workOrderTitle || calculateTotal() === 0}
+                  >
+                    Create Quote
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={resetForm}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

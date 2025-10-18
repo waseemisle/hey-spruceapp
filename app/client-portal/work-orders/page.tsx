@@ -6,7 +6,8 @@ import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, Plus, Calendar, AlertCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ClipboardList, Plus, Calendar, AlertCircle, Search } from 'lucide-react';
 import Link from 'next/link';
 
 interface WorkOrder {
@@ -31,6 +32,7 @@ export default function ClientWorkOrders() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -76,8 +78,16 @@ export default function ClientWorkOrders() {
   };
 
   const filteredWorkOrders = workOrders.filter(wo => {
-    if (filter === 'all') return true;
-    return wo.status === filter;
+    const statusMatch = filter === 'all' || wo.status === filter;
+
+    const searchLower = searchQuery.toLowerCase();
+    const searchMatch = !searchQuery ||
+      wo.title.toLowerCase().includes(searchLower) ||
+      wo.description.toLowerCase().includes(searchLower) ||
+      wo.category.toLowerCase().includes(searchLower) ||
+      wo.locationName.toLowerCase().includes(searchLower);
+
+    return statusMatch && searchMatch;
   });
 
   const filterOptions = [
@@ -113,6 +123,17 @@ export default function ClientWorkOrders() {
               Create Work Order
             </Button>
           </Link>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search work orders by title, description, category, or location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2">

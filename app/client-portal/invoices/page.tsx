@@ -12,19 +12,32 @@ import { Receipt, Download, CreditCard, Calendar, CheckCircle } from 'lucide-rea
 interface Invoice {
   id: string;
   invoiceNumber: string;
+  quoteId?: string;
+  workOrderId: string;
+  workOrderTitle: string;
   clientId: string;
   clientName: string;
   clientEmail: string;
-  workOrderId: string;
-  workOrderTitle: string;
-  quoteId: string;
-  amount: number;
-  status: string;
-  paymentLink?: string;
+  subcontractorId?: string;
+  subcontractorName?: string;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  totalAmount: number;
+  lineItems: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
+  taxRate?: number;
+  taxAmount?: number;
+  discountAmount?: number;
+  dueDate: any;
+  stripePaymentLink?: string;
   stripeSessionId?: string;
   paidAt?: any;
+  notes?: string;
+  terms?: string;
   createdAt: any;
-  dueDate?: any;
 }
 
 export default function ClientInvoices() {
@@ -56,25 +69,24 @@ export default function ClientInvoices() {
 
   const handleDownloadPDF = async (invoice: Invoice) => {
     try {
-      // Transform Invoice to InvoiceData format
       const invoiceData = {
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.clientName,
         clientEmail: invoice.clientEmail,
-        lineItems: [{
+        lineItems: invoice.lineItems || [{
           description: invoice.workOrderTitle,
           quantity: 1,
-          unitPrice: invoice.amount,
-          amount: invoice.amount
+          unitPrice: invoice.totalAmount,
+          amount: invoice.totalAmount
         }],
-        subtotal: invoice.amount,
-        taxRate: 0,
-        taxAmount: 0,
-        discountAmount: 0,
-        totalAmount: invoice.amount,
-        dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A',
-        notes: '',
-        terms: ''
+        subtotal: invoice.totalAmount,
+        taxRate: invoice.taxRate || 0,
+        taxAmount: invoice.taxAmount || 0,
+        discountAmount: invoice.discountAmount || 0,
+        totalAmount: invoice.totalAmount,
+        dueDate: invoice.dueDate?.toDate?.()?.toLocaleDateString() || 'N/A',
+        notes: invoice.notes || '',
+        terms: invoice.terms || ''
       };
       await downloadInvoicePDF(invoiceData);
     } catch (error) {
@@ -84,8 +96,8 @@ export default function ClientInvoices() {
   };
 
   const handlePayNow = (invoice: Invoice) => {
-    if (invoice.paymentLink) {
-      window.open(invoice.paymentLink, '_blank');
+    if (invoice.stripePaymentLink) {
+      window.open(invoice.stripePaymentLink, '_blank');
     } else {
       alert('Payment link not available');
     }
@@ -93,12 +105,22 @@ export default function ClientInvoices() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      unpaid: 'bg-yellow-100 text-yellow-800',
+      draft: 'bg-gray-100 text-gray-800',
+      sent: 'bg-blue-100 text-blue-800',
       paid: 'bg-green-100 text-green-800',
       overdue: 'bg-red-100 text-red-800',
-      pending: 'bg-gray-100 text-gray-800',
     };
     return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels = {
+      draft: 'Draft',
+      sent: 'Awaiting Payment',
+      paid: 'Paid',
+      overdue: 'Overdue',
+    };
+    return labels[status as keyof typeof labels] || status;
   };
 
   const filteredInvoices = invoices.filter(invoice => {
@@ -108,14 +130,14 @@ export default function ClientInvoices() {
 
   const filterOptions = [
     { value: 'all', label: 'All', count: invoices.length },
-    { value: 'unpaid', label: 'Unpaid', count: invoices.filter(i => i.status === 'unpaid').length },
+    { value: 'sent', label: 'Awaiting Payment', count: invoices.filter(i => i.status === 'sent').length },
     { value: 'paid', label: 'Paid', count: invoices.filter(i => i.status === 'paid').length },
     { value: 'overdue', label: 'Overdue', count: invoices.filter(i => i.status === 'overdue').length },
   ];
 
   const totalUnpaid = invoices
-    .filter(i => i.status === 'unpaid' || i.status === 'overdue')
-    .reduce((sum, i) => sum + i.amount, 0);
+    .filter(i => i.status === 'sent' || i.status === 'overdue')
+    .reduce((sum, i) => sum + i.totalAmount, 0);
 
   if (loading) {
     return (
@@ -143,11 +165,11 @@ export default function ClientInvoices() {
                   <Receipt className="h-8 w-8 text-yellow-600" />
                   <div>
                     <p className="font-semibold text-gray-900">Outstanding Balance</p>
-                    <p className="text-2xl font-bold text-yellow-600">${totalUnpaid.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-yellow-600">${totalUnpaid.toLocaleString()}</p>
                   </div>
                 </div>
                 <p className="text-sm text-gray-600">
-                  {invoices.filter(i => i.status === 'unpaid' || i.status === 'overdue').length} unpaid invoice(s)
+                  {invoices.filter(i => i.status === 'sent' || i.status === 'overdue').length} unpaid invoice(s)
                 </p>
               </div>
             </CardContent>
@@ -195,13 +217,13 @@ export default function ClientInvoices() {
                       <p className="text-sm text-gray-600">{invoice.workOrderTitle}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(invoice.status)}`}>
-                      {invoice.status}
+                      {getStatusLabel(invoice.status)}
                     </span>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <p className="text-3xl font-bold text-gray-900">${invoice.amount.toFixed(2)}</p>
+                    <p className="text-3xl font-bold text-gray-900">${invoice.totalAmount.toLocaleString()}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -251,7 +273,7 @@ export default function ClientInvoices() {
                       Download PDF
                     </Button>
 
-                    {(invoice.status === 'unpaid' || invoice.status === 'overdue') && invoice.paymentLink && (
+                    {(invoice.status === 'sent' || invoice.status === 'overdue') && invoice.stripePaymentLink && (
                       <Button
                         onClick={() => handlePayNow(invoice)}
                         className="flex-1 bg-green-600 hover:bg-green-700"

@@ -7,6 +7,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
+import Logo from '@/components/ui/logo';
 import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut } from 'lucide-react';
 
 export default function SubcontractorLayout({ children }: { children: React.ReactNode }) {
@@ -57,7 +58,10 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-green-600">Hey Spruce - Subcontractor Portal</h1>
+          <div className="flex items-center">
+            <Logo href="/subcontractor-portal" size="sm" />
+            <span className="ml-3 text-sm text-gray-500">Subcontractor Portal</span>
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={handleLogout}>

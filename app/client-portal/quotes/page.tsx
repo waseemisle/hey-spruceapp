@@ -6,33 +6,39 @@ import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, Check, X, Calendar, DollarSign } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { FileText, Check, X, Calendar, DollarSign, Search } from 'lucide-react';
 
 interface Quote {
   id: string;
-  workOrderId: string;
+  workOrderId?: string;
   workOrderTitle: string;
   subcontractorId: string;
   subcontractorName: string;
+  subcontractorEmail: string;
   clientId: string;
+  clientName: string;
+  clientEmail: string;
   laborCost: number;
   materialCost: number;
+  additionalCosts: number;
   taxRate: number;
+  taxAmount: number;
+  discountAmount: number;
   totalAmount: number;
-  clientAmount: number;
-  markupPercent: number;
-  estimatedDuration: string;
+  originalAmount: number;
+  clientAmount?: number;
+  markupPercentage?: number;
   lineItems: Array<{
     description: string;
     quantity: number;
-    rate: number;
+    unitPrice: number;
     amount: number;
   }>;
   notes?: string;
-  status: string;
+  status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
   createdAt: any;
-  forwardedToClient: boolean;
-  forwardedAt?: any;
+  sentToClientAt?: any;
   acceptedAt?: any;
   rejectedAt?: any;
 }
@@ -41,6 +47,7 @@ export default function ClientQuotes() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -48,16 +55,19 @@ export default function ClientQuotes() {
 
     const quotesQuery = query(
       collection(db, 'quotes'),
-      where('clientId', '==', currentUser.uid),
-      where('forwardedToClient', '==', true),
       orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(quotesQuery, (snapshot) => {
-      const quotesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Quote[];
+      const quotesData = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .filter(quote =>
+          (quote as Quote).clientId === currentUser.uid &&
+          ((quote as Quote).status === 'sent_to_client' || (quote as Quote).status === 'accepted' || (quote as Quote).status === 'rejected')
+        ) as Quote[];
       setQuotes(quotesData);
       setLoading(false);
     });
@@ -99,11 +109,20 @@ export default function ClientQuotes() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      pending: 'bg-yellow-100 text-yellow-800',
+      sent_to_client: 'bg-blue-100 text-blue-800',
       accepted: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
     };
     return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels = {
+      sent_to_client: 'Pending Review',
+      accepted: 'Accepted',
+      rejected: 'Rejected',
+    };
+    return labels[status as keyof typeof labels] || status;
   };
 
   const filteredQuotes = quotes.filter(quote => {
@@ -113,7 +132,7 @@ export default function ClientQuotes() {
 
   const filterOptions = [
     { value: 'all', label: 'All', count: quotes.length },
-    { value: 'pending', label: 'Pending', count: quotes.filter(q => q.status === 'pending').length },
+    { value: 'sent_to_client', label: 'Pending Review', count: quotes.filter(q => q.status === 'sent_to_client').length },
     { value: 'accepted', label: 'Accepted', count: quotes.filter(q => q.status === 'accepted').length },
     { value: 'rejected', label: 'Rejected', count: quotes.filter(q => q.status === 'rejected').length },
   ];
@@ -177,7 +196,7 @@ export default function ClientQuotes() {
                       <p className="text-sm text-gray-600">From: {quote.subcontractorName}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(quote.status)}`}>
-                      {quote.status}
+                      {getStatusLabel(quote.status)}
                     </span>
                   </div>
                 </CardHeader>
@@ -188,14 +207,14 @@ export default function ClientQuotes() {
                       <div>
                         <p className="text-sm text-gray-600">Total Amount</p>
                         <p className="text-2xl font-bold text-gray-900">
-                          ${quote.clientAmount.toFixed(2)}
+                          ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
                         </p>
+                        {quote.markupPercentage && (
+                          <p className="text-xs text-gray-500">
+                            Includes {quote.markupPercentage}% markup
+                          </p>
+                        )}
                       </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-gray-600">Estimated Duration</p>
-                      <p className="text-lg font-semibold text-gray-900">{quote.estimatedDuration}</p>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -203,33 +222,41 @@ export default function ClientQuotes() {
                       <div>
                         <p className="text-sm text-gray-600">Submitted</p>
                         <p className="text-sm font-medium text-gray-900">
-                          {quote.forwardedAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                          {quote.sentToClientAt?.toDate?.().toLocaleDateString() || 'N/A'}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600">Labor Cost</p>
-                        <p className="font-semibold">${quote.laborCost.toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Material Cost</p>
-                        <p className="font-semibold">${quote.materialCost.toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Tax ({(quote.taxRate * 100).toFixed(1)}%)</p>
-                        <p className="font-semibold">${((quote.laborCost + quote.materialCost) * quote.taxRate).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Subtotal</p>
-                        <p className="font-semibold">${quote.totalAmount.toFixed(2)}</p>
+                  {(quote.laborCost > 0 || quote.materialCost > 0 || quote.taxAmount > 0) && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        {quote.laborCost > 0 && (
+                          <div>
+                            <p className="text-gray-600">Labor Cost</p>
+                            <p className="font-semibold">${quote.laborCost.toLocaleString()}</p>
+                          </div>
+                        )}
+                        {quote.materialCost > 0 && (
+                          <div>
+                            <p className="text-gray-600">Material Cost</p>
+                            <p className="font-semibold">${quote.materialCost.toLocaleString()}</p>
+                          </div>
+                        )}
+                        {quote.taxAmount > 0 && (
+                          <div>
+                            <p className="text-gray-600">Tax ({quote.taxRate}%)</p>
+                            <p className="font-semibold">${quote.taxAmount.toLocaleString()}</p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-gray-600">Subtotal</p>
+                          <p className="font-semibold">${quote.totalAmount.toLocaleString()}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {quote.lineItems && quote.lineItems.length > 0 && (
                     <div className="border-t pt-4">
@@ -249,8 +276,8 @@ export default function ClientQuotes() {
                               <tr key={idx}>
                                 <td className="px-4 py-2">{item.description}</td>
                                 <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                <td className="px-4 py-2 text-right">${item.rate.toFixed(2)}</td>
-                                <td className="px-4 py-2 text-right font-semibold">${item.amount.toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right">${item.unitPrice.toLocaleString()}</td>
+                                <td className="px-4 py-2 text-right font-semibold">${item.amount.toLocaleString()}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -266,7 +293,7 @@ export default function ClientQuotes() {
                     </div>
                   )}
 
-                  {quote.status === 'pending' && (
+                  {quote.status === 'sent_to_client' && (
                     <div className="flex gap-3 pt-4">
                       <Button
                         onClick={() => handleApprove(quote.id)}

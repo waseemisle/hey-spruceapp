@@ -7,6 +7,7 @@ import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
+import Logo from '@/components/ui/logo';
 import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut } from 'lucide-react';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -58,7 +59,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-blue-600">Hey Spruce - Client Portal</h1>
+          <div className="flex items-center">
+            <Logo href="/client-portal" size="sm" />
+            <span className="ml-3 text-sm text-gray-500">Client Portal</span>
+          </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={handleLogout}>

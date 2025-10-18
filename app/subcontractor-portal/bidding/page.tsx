@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, AlertCircle, DollarSign, Plus, X } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, AlertCircle, DollarSign, Plus, X, Search } from 'lucide-react';
 
 interface BiddingWorkOrder {
   id: string;
@@ -34,7 +34,7 @@ interface WorkOrder {
 interface LineItem {
   description: string;
   quantity: number;
-  rate: number;
+  unitPrice: number;
   amount: number;
 }
 
@@ -42,6 +42,7 @@ export default function SubcontractorBidding() {
   const [biddingWorkOrders, setBiddingWorkOrders] = useState<BiddingWorkOrder[]>([]);
   const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -55,7 +56,7 @@ export default function SubcontractorBidding() {
   });
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: '', quantity: 1, rate: 0, amount: 0 },
+    { description: '', quantity: 1, unitPrice: 0, amount: 0 },
   ]);
 
   useEffect(() => {
@@ -100,15 +101,15 @@ export default function SubcontractorBidding() {
     const newLineItems = [...lineItems];
     newLineItems[index] = { ...newLineItems[index], [field]: value };
 
-    if (field === 'quantity' || field === 'rate') {
-      newLineItems[index].amount = newLineItems[index].quantity * newLineItems[index].rate;
+    if (field === 'quantity' || field === 'unitPrice') {
+      newLineItems[index].amount = newLineItems[index].quantity * newLineItems[index].unitPrice;
     }
 
     setLineItems(newLineItems);
   };
 
   const addLineItem = () => {
-    setLineItems([...lineItems, { description: '', quantity: 1, rate: 0, amount: 0 }]);
+    setLineItems([...lineItems, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
   };
 
   const removeLineItem = (index: number) => {
@@ -147,8 +148,14 @@ export default function SubcontractorBidding() {
 
       const labor = parseFloat(quoteForm.laborCost);
       const material = parseFloat(quoteForm.materialCost);
-      const tax = parseFloat(quoteForm.taxRate);
-      const total = calculateTotal();
+      const taxRate = parseFloat(quoteForm.taxRate);
+      const subtotal = labor + material;
+      const taxAmount = subtotal * taxRate;
+      const total = subtotal + taxAmount;
+
+      // Fetch client email
+      const clientDoc = await getDoc(doc(db, 'clients', selectedWorkOrder.clientId));
+      const clientEmail = clientDoc.exists() ? clientDoc.data().email : '';
 
       await addDoc(collection(db, 'quotes'), {
         workOrderId: selectedWorkOrder.id,
@@ -158,16 +165,21 @@ export default function SubcontractorBidding() {
         subcontractorEmail: subData.email,
         clientId: selectedWorkOrder.clientId,
         clientName: selectedWorkOrder.clientName,
+        clientEmail: clientEmail,
         laborCost: labor,
         materialCost: material,
-        taxRate: tax,
+        additionalCosts: 0,
+        taxRate: taxRate,
+        taxAmount: taxAmount,
+        discountAmount: 0,
         totalAmount: total,
-        estimatedDuration: quoteForm.estimatedDuration,
+        originalAmount: total,
         lineItems: lineItems.filter(item => item.description && item.amount > 0),
         notes: quoteForm.notes,
         status: 'pending',
-        forwardedToClient: false,
+        createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
       alert('Quote submitted successfully!');
@@ -180,7 +192,7 @@ export default function SubcontractorBidding() {
         estimatedDuration: '',
         notes: '',
       });
-      setLineItems([{ description: '', quantity: 1, rate: 0, amount: 0 }]);
+      setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
     } catch (error) {
       console.error('Error submitting quote:', error);
       alert('Failed to submit quote');
@@ -188,6 +200,22 @@ export default function SubcontractorBidding() {
       setSubmitting(false);
     }
   };
+
+  const filteredBiddingWorkOrders = biddingWorkOrders.filter(bidding => {
+    const workOrder = workOrders.get(bidding.workOrderId);
+    if (!workOrder) return false;
+
+    const searchLower = searchQuery.toLowerCase();
+    const searchMatch = !searchQuery ||
+      workOrder.title.toLowerCase().includes(searchLower) ||
+      workOrder.description.toLowerCase().includes(searchLower) ||
+      workOrder.clientName.toLowerCase().includes(searchLower) ||
+      workOrder.category.toLowerCase().includes(searchLower) ||
+      workOrder.locationName.toLowerCase().includes(searchLower) ||
+      workOrder.locationAddress.toLowerCase().includes(searchLower);
+
+    return searchMatch;
+  });
 
   const getPriorityBadge = (priority: string) => {
     const styles = {
@@ -331,9 +359,9 @@ export default function SubcontractorBidding() {
                           <Input
                             type="number"
                             step="0.01"
-                            placeholder="Rate"
-                            value={item.rate}
-                            onChange={(e) => handleLineItemChange(index, 'rate', parseFloat(e.target.value) || 0)}
+                            placeholder="Unit Price"
+                            value={item.unitPrice}
+                            onChange={(e) => handleLineItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                           />
                         </div>
                         <div className="col-span-2">
@@ -428,7 +456,18 @@ export default function SubcontractorBidding() {
           <p className="text-gray-600 mt-2">Submit quotes for available jobs</p>
         </div>
 
-        {biddingWorkOrders.length === 0 ? (
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search work orders by title, description, client, category, or location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {filteredBiddingWorkOrders.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <ClipboardList className="h-16 w-16 text-gray-400 mb-4" />
@@ -440,7 +479,7 @@ export default function SubcontractorBidding() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {biddingWorkOrders.map((bidding) => {
+            {filteredBiddingWorkOrders.map((bidding) => {
               const workOrder = workOrders.get(bidding.workOrderId);
               if (!workOrder) return null;
 
