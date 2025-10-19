@@ -15,7 +15,9 @@
       "Bash(findstr :3000)",
       "Bash(git add .)",
       "Bash(del \".git\\index.lock\")",
-      "Bash(if exist \".git\\index.lock\" del \".git\\index.lock\")"
+      "Bash(if exist \".git\\index.lock\" del \".git\\index.lock\")",
+      "Bash(git commit -m \"$(cat <<''EOF''\nFinal Deploy\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push origin main --force)"
     ],
     "deny": [],
     "ask": []
