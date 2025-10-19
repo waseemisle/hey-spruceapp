@@ -12,18 +12,30 @@ export async function POST(request: Request) {
       dueDate,
       lineItems,
       notes,
-      stripePaymentLink
+      stripePaymentLink,
+      pdfBase64
     } = body;
 
     const sendGridApiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'support@heyspruce.com';
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'waseem@shurehw.com';
 
-    if (!sendGridApiKey) {
-      console.error('SendGrid API key not configured');
-      return NextResponse.json(
-        { error: 'Email service not configured' },
-        { status: 500 }
-      );
+    // Check if we're in development/testing mode without proper SendGrid setup
+    const isTestMode = !sendGridApiKey || sendGridApiKey.includes('YOUR_') || sendGridApiKey.length < 20;
+
+    if (isTestMode) {
+      console.log('📧 EMAIL (TEST MODE) - Would send to:', toEmail);
+      console.log('   Subject: Invoice #' + invoiceNumber);
+      console.log('   Amount: $' + totalAmount);
+      console.log('   Due Date:', dueDate);
+      if (stripePaymentLink) {
+        console.log('   Payment Link:', stripePaymentLink);
+      }
+
+      return NextResponse.json({
+        success: true,
+        testMode: true,
+        message: 'Email not sent (test mode) - Configure SendGrid for production'
+      });
     }
 
     // Build line items HTML
@@ -125,12 +137,43 @@ export async function POST(request: Request) {
 
           <p style="font-size: 12px; color: #6b7280; text-align: center;">
             Hey Spruce App | San Francisco, CA 94104<br>
-            Phone: 877-253-2646 | Email: support@heyspruce.com
+            Phone: 877-253-2646 | Email: waseem@shurehw.com
           </p>
         </div>
       </body>
       </html>
     `;
+
+    const emailPayload: any = {
+      personalizations: [
+        {
+          to: [{ email: toEmail, name: toName }],
+          subject: `Invoice #${invoiceNumber} - Payment Due`,
+        },
+      ],
+      from: {
+        email: fromEmail,
+        name: 'Hey Spruce App',
+      },
+      content: [
+        {
+          type: 'text/html',
+          value: emailHtml,
+        },
+      ],
+    };
+
+    // Add PDF attachment if provided
+    if (pdfBase64) {
+      emailPayload.attachments = [
+        {
+          content: pdfBase64,
+          filename: `Invoice_${invoiceNumber}.pdf`,
+          type: 'application/pdf',
+          disposition: 'attachment',
+        },
+      ];
+    }
 
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
@@ -138,32 +181,61 @@ export async function POST(request: Request) {
         'Authorization': `Bearer ${sendGridApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        personalizations: [
-          {
-            to: [{ email: toEmail, name: toName }],
-            subject: `Invoice #${invoiceNumber} - Payment Due`,
-          },
-        ],
-        from: {
-          email: fromEmail,
-          name: 'Hey Spruce App',
-        },
-        content: [
-          {
-            type: 'text/html',
-            value: emailHtml,
-          },
-        ],
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('SendGrid error:', error);
+      console.error('❌ SendGrid error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: error,
+        apiKey: sendGridApiKey ? `${sendGridApiKey.substring(0, 10)}...` : 'not set',
+        fromEmail: fromEmail
+      });
+
+      // Parse SendGrid error for more details
+      let errorMessage = 'Failed to send email';
+      let troubleshooting = '';
+
+      try {
+        const errorData = JSON.parse(error);
+        if (errorData.errors && errorData.errors.length > 0) {
+          errorMessage = errorData.errors[0].message || errorMessage;
+
+          // Provide specific troubleshooting based on error
+          if (response.status === 403) {
+            troubleshooting = 'SendGrid 403 Error - This usually means:\n' +
+              `1. Your sender email (${fromEmail}) is not verified in SendGrid\n` +
+              '2. Your API key does not have "Mail Send" permissions\n' +
+              '3. Your SendGrid account has restrictions\n\n' +
+              'To fix: Log into SendGrid → Settings → Sender Authentication → Verify a sender email';
+          }
+        }
+      } catch (e) {
+        errorMessage = error || errorMessage;
+      }
+
+      console.error('📋 Troubleshooting:', troubleshooting || 'Check SendGrid configuration');
+
+      // Log the email that failed to send
+      console.log('📧 Failed email details:', {
+        to: toEmail,
+        subject: `Invoice #${invoiceNumber}`,
+        amount: totalAmount,
+        dueDate: dueDate,
+        paymentLink: stripePaymentLink
+      });
+
+      // Return gracefully - don't block invoice creation
       return NextResponse.json(
-        { error: 'Failed to send email' },
-        { status: response.status }
+        {
+          success: false,
+          error: errorMessage,
+          details: troubleshooting || 'SendGrid API Error',
+          emailLogged: true
+        },
+        { status: 200 } // Return 200 so invoice creation continues
       );
     }
 

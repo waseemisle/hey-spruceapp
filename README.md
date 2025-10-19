@@ -4,7 +4,7 @@
 
 **Version:** 2.0.1 (Phased Development - Option 3)
 **Status:** ✅ Core System Operational
-**Development Server:** http://localhost:3000
+**Development Server:** http://hey-spruce-appv2.vercel.app
 
 ---
 
@@ -124,14 +124,14 @@ The `.env.local` file is already configured with your Firebase and Stripe creden
 npm run dev
 ```
 
-Visit: **http://localhost:3000**
+Visit: **http://hey-spruce-appv2.vercel.app**
 
 ---
 
 ## 🧪 TESTING THE APPLICATION
 
 ### Test Flow 1: Client Registration & Approval
-1. Go to http://localhost:3000
+1. Go to http://hey-spruce-appv2.vercel.app
 2. Click "Register as Client"
 3. Fill in the form:
    - Full Name: John Doe
@@ -595,5 +595,5 @@ For issues or questions:
 
 **🚀 Your application is now ready for development!**
 
-Access it at: **http://localhost:3000**
+Access it at: **http://hey-spruce-appv2.vercel.app**
 

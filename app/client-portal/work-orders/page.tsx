@@ -8,11 +8,12 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ClipboardList, Plus, Calendar, AlertCircle, Search } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 interface WorkOrder {
   id: string;
+  workOrderNumber?: string;
   clientId: string;
   clientName: string;
   locationId: string;
@@ -186,6 +187,9 @@ export default function ClientWorkOrders() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <CardTitle className="text-lg mb-2">{workOrder.title}</CardTitle>
+                      {workOrder.workOrderNumber && (
+                        <p className="text-sm text-gray-600 mb-2">WO: {workOrder.workOrderNumber}</p>
+                      )}
                       <div className="flex gap-2 flex-wrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(workOrder.status)}`}>
                           {workOrder.status}
@@ -242,6 +246,15 @@ export default function ClientWorkOrders() {
                       ))}
                     </div>
                   )}
+
+                  <div className="pt-3">
+                    <Link href={`/client-portal/work-orders/${workOrder.id}`}>
+                      <Button size="sm" className="w-full">
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
             ))}

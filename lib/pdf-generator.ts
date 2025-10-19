@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { SPRUCE_LOGO_BASE64 } from './logo-base64';
 
 interface InvoiceData {
   invoiceNumber: string;
@@ -26,159 +27,319 @@ interface InvoiceData {
   terms?: string;
 }
 
+// Brand colors matching heyspruce.com
+const COLORS = {
+  primary: [100, 116, 139] as [number, number, number], // Green #16a34a
+  secondary: [8, 145, 178] as [number, number, number], // Teal #0891b2
+  dark: [30, 41, 59] as [number, number, number], // Dark slate #1e293b
+  gray: [100, 116, 139] as [number, number, number], // Gray #64748b
+  lightGray: [226, 232, 240] as [number, number, number], // Light gray #e2e8f0
+  white: [255, 255, 255] as [number, number, number],
+  text: [51, 65, 85] as [number, number, number], // Slate #334155
+};
+
 export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
-  const doc = new jsPDF();
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
 
-  // Set font
-  doc.setFont('helvetica');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Header - Company Info
-  doc.setFontSize(24);
-  doc.setTextColor(102, 126, 234); // Purple color
-  doc.text('HEY SPRUCE APP', 20, 20);
+  // Logo - Embedded as base64
+  try {
+    doc.addImage(SPRUCE_LOGO_BASE64, 'PNG', 20, 12, 55, 16);
+  } catch (error) {
+    // Fallback to styled text if logo fails
+    doc.setFontSize(18);
+    doc.setTextColor(...COLORS.primary);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HEY', 20, 22);
+    doc.setTextColor(...COLORS.secondary);
+    doc.text('SPRUCE', 35, 22);
 
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Property Maintenance Management', 20, 27);
-  doc.text('San Francisco, California 94104', 20, 32);
-  doc.text('United States', 20, 37);
-  doc.text('support@heyspruce.com', 20, 42);
-  doc.text('Phone: 877-253-2646', 20, 47);
+    // Decorative underline for brand
+    doc.setDrawColor(...COLORS.primary);
+    doc.setLineWidth(0.8);
+    doc.line(20, 24, 60, 24);
+  }
 
-  // Invoice Title
-  doc.setFontSize(20);
-  doc.setTextColor(0, 0, 0);
-  doc.text('INVOICE', 150, 20);
+  // Company Info
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.gray);
+  doc.text('Property Maintenance Management', 20, 35);
+  doc.text('San Francisco, California 94104', 20, 39);
+  doc.text('waseem@shurehw.com | 877-253-2646', 20, 43);
 
-  // Invoice Details
-  doc.setFontSize(10);
-  doc.text(`Invoice Number: ${invoice.invoiceNumber}`, 150, 27);
-  doc.text(`Date of Issue: ${new Date().toLocaleDateString()}`, 150, 32);
-  doc.text(`Date Due: ${invoice.dueDate}`, 150, 37);
+  // Invoice Title - Right aligned
+  doc.setFontSize(28);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  doc.text('INVOICE', pageWidth - 20, 22, { align: 'right' });
+
+  // Invoice Details - Right aligned box with background
+  const detailsBoxX = pageWidth - 75;
+  doc.setFillColor(...COLORS.lightGray);
+  doc.roundedRect(detailsBoxX, 28, 55, 22, 2, 2, 'F');
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  doc.text('Invoice Number:', detailsBoxX + 3, 33);
+  doc.setFont('helvetica', 'normal');
+  doc.text(invoice.invoiceNumber, detailsBoxX + 3, 38);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Issue Date:', detailsBoxX + 3, 43);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date().toLocaleDateString(), detailsBoxX + 3, 48);
+
+  // Decorative line
+  doc.setDrawColor(...COLORS.primary);
+  doc.setLineWidth(0.5);
+  doc.line(20, 55, pageWidth - 20, 55);
 
   // Bill To Section
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
-  doc.text('Bill to:', 20, 65);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.primary);
+  doc.text('BILL TO:', 20, 63);
 
   doc.setFontSize(10);
-  doc.text(invoice.clientName, 20, 72);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  doc.text(invoice.clientName, 20, 70);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
   if (invoice.clientAddress) {
-    doc.text(invoice.clientAddress.street, 20, 77);
-    doc.text(`${invoice.clientAddress.city}, ${invoice.clientAddress.state} ${invoice.clientAddress.zip}`, 20, 82);
+    doc.text(invoice.clientAddress.street, 20, 75);
+    doc.text(`${invoice.clientAddress.city}, ${invoice.clientAddress.state} ${invoice.clientAddress.zip}`, 20, 80);
   }
-  doc.text(invoice.clientEmail, 20, 87);
+  doc.text(invoice.clientEmail, 20, 85);
+
+  // Due Date Box - Right side
+  doc.setFillColor(...COLORS.primary);
+  doc.roundedRect(pageWidth - 65, 60, 45, 15, 2, 2, 'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.white);
+  doc.text('DUE DATE:', pageWidth - 62, 66);
+  doc.setFontSize(11);
+  doc.text(invoice.dueDate, pageWidth - 62, 72);
 
   // Line Items Table
-  const tableTop = 105;
+  const tableTop = 100;
   let yPosition = tableTop;
 
-  // Table Header
-  doc.setFillColor(102, 126, 234);
-  doc.rect(20, yPosition, 170, 8, 'F');
-  doc.setTextColor(255, 255, 255);
+  // Modern Table Header with gradient effect
+  doc.setFillColor(...COLORS.primary);
+  doc.roundedRect(20, yPosition, pageWidth - 40, 10, 2, 2, 'F');
+
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DESCRIPTION', 25, yPosition + 6.5);
+  doc.text('QTY', pageWidth - 85, yPosition + 6.5, { align: 'center' });
+  doc.text('UNIT PRICE', pageWidth - 55, yPosition + 6.5, { align: 'right' });
+  doc.text('AMOUNT', pageWidth - 25, yPosition + 6.5, { align: 'right' });
+
+  yPosition += 12;
+
+  // Table Rows with alternating backgrounds
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text('Description', 22, yPosition + 5);
-  doc.text('Qty', 130, yPosition + 5);
-  doc.text('Unit Price', 150, yPosition + 5);
-  doc.text('Amount', 175, yPosition + 5);
+  let rowIndex = 0;
 
-  yPosition += 10;
-
-  // Table Rows
-  doc.setTextColor(0, 0, 0);
   invoice.lineItems.forEach((item) => {
     // Check if we need a new page
-    if (yPosition > 250) {
+    if (yPosition > 240) {
       doc.addPage();
       yPosition = 20;
+
+      // Redraw header on new page
+      doc.setFillColor(...COLORS.primary);
+      doc.roundedRect(20, yPosition, pageWidth - 40, 10, 2, 2, 'F');
+      doc.setTextColor(...COLORS.white);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('DESCRIPTION', 25, yPosition + 6.5);
+      doc.text('QTY', pageWidth - 85, yPosition + 6.5, { align: 'center' });
+      doc.text('UNIT PRICE', pageWidth - 55, yPosition + 6.5, { align: 'right' });
+      doc.text('AMOUNT', pageWidth - 25, yPosition + 6.5, { align: 'right' });
+      yPosition += 12;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      rowIndex = 0;
     }
 
-    doc.text(item.description, 22, yPosition);
-    doc.text(String(item.quantity), 130, yPosition);
-    doc.text(`$${item.unitPrice.toFixed(2)}`, 150, yPosition);
-    doc.text(`$${item.amount.toFixed(2)}`, 175, yPosition);
-    yPosition += 7;
+    // Alternating row colors
+    if (rowIndex % 2 === 0) {
+      doc.setFillColor(248, 250, 252); // Very light gray
+      doc.rect(20, yPosition - 4, pageWidth - 40, 8, 'F');
+    }
+
+    doc.setTextColor(...COLORS.text);
+    doc.text(item.description, 25, yPosition);
+    doc.text(String(item.quantity), pageWidth - 85, yPosition, { align: 'center' });
+    doc.text(`$${item.unitPrice.toFixed(2)}`, pageWidth - 55, yPosition, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.text(`$${item.amount.toFixed(2)}`, pageWidth - 25, yPosition, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+
+    yPosition += 8;
+    rowIndex++;
   });
 
   // Totals Section
-  yPosition += 10;
-  const totalsX = 130;
+  yPosition += 8;
+  const totalsX = pageWidth - 90;
+
+  // Totals box background
+  doc.setFillColor(...COLORS.lightGray);
+  doc.roundedRect(totalsX - 5, yPosition - 5, 75, 40, 2, 2, 'F');
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
 
   doc.text('Subtotal:', totalsX, yPosition);
-  doc.text(`$${invoice.subtotal.toFixed(2)}`, 175, yPosition);
-  yPosition += 7;
+  doc.text(`$${invoice.subtotal.toFixed(2)}`, pageWidth - 25, yPosition, { align: 'right' });
+  yPosition += 6;
 
   if (invoice.discountAmount > 0) {
+    doc.setTextColor(...COLORS.secondary);
     doc.text('Discount:', totalsX, yPosition);
-    doc.text(`-$${invoice.discountAmount.toFixed(2)}`, 175, yPosition);
-    yPosition += 7;
+    doc.text(`-$${invoice.discountAmount.toFixed(2)}`, pageWidth - 25, yPosition, { align: 'right' });
+    yPosition += 6;
+    doc.setTextColor(...COLORS.text);
   }
 
   if (invoice.taxAmount > 0) {
     doc.text(`Tax (${invoice.taxRate}%):`, totalsX, yPosition);
-    doc.text(`$${invoice.taxAmount.toFixed(2)}`, 175, yPosition);
-    yPosition += 7;
+    doc.text(`$${invoice.taxAmount.toFixed(2)}`, pageWidth - 25, yPosition, { align: 'right' });
+    yPosition += 6;
   }
 
+  // Separator line
+  doc.setDrawColor(...COLORS.gray);
+  doc.setLineWidth(0.3);
+  doc.line(totalsX, yPosition, pageWidth - 25, yPosition);
+  yPosition += 5;
+
   // Total Amount (highlighted)
-  yPosition += 3;
-  doc.setFillColor(102, 126, 234);
-  doc.rect(totalsX - 5, yPosition - 5, 65, 10, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(11);
-  doc.text('Amount Due:', totalsX, yPosition);
-  doc.text(`$${invoice.totalAmount.toFixed(2)} USD`, 175, yPosition);
+  doc.setFillColor(...COLORS.primary);
+  doc.roundedRect(totalsX - 5, yPosition - 4, 75, 12, 2, 2, 'F');
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('AMOUNT DUE:', totalsX, yPosition + 2);
+  doc.setFontSize(14);
+  doc.text(`$${invoice.totalAmount.toFixed(2)} USD`, pageWidth - 25, yPosition + 2, { align: 'right' });
 
-  // Payment Instructions
-  yPosition += 20;
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(10);
+  // Payment Instructions Section
+  yPosition += 18;
 
-  if (yPosition > 250) {
+  if (yPosition > 230) {
     doc.addPage();
     yPosition = 20;
   }
 
-  doc.text('Payment Methods:', 20, yPosition);
-  yPosition += 7;
+  // Payment box with icon-style design
+  doc.setFillColor(...COLORS.lightGray);
+  doc.roundedRect(20, yPosition - 3, pageWidth - 40, 28, 2, 2, 'F');
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  doc.text('PAYMENT METHODS', 25, yPosition + 3);
+
   doc.setFontSize(9);
-  doc.text('• Pay online using the Stripe payment link provided in the email', 20, yPosition);
-  yPosition += 7;
-  doc.text('• Send check to: Hey Spruce App, P.O. Box 104477, Pasadena, CA 91189-4477', 20, yPosition);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
+  doc.text('• Pay securely online using the Stripe payment link provided in your email', 25, yPosition + 10);
+  doc.text('• Mail check payable to: Hey Spruce App', 25, yPosition + 16);
+  doc.text('  P.O. Box 104477, Pasadena, CA 91189-4477', 25, yPosition + 21);
 
-  // Notes/Terms
+  yPosition += 32;
+
+  // Notes Section
   if (invoice.notes) {
-    yPosition += 10;
-    doc.setFontSize(9);
-    doc.text('Notes:', 20, yPosition);
-    yPosition += 5;
-    doc.text(invoice.notes, 20, yPosition);
-  }
-
-  if (invoice.terms) {
-    yPosition += 10;
-    if (yPosition > 250) {
+    if (yPosition > 230) {
       doc.addPage();
       yPosition = 20;
     }
+
+    doc.setFillColor(248, 250, 252);
+    const notesHeight = 20;
+    doc.roundedRect(20, yPosition - 3, pageWidth - 40, notesHeight, 2, 2, 'F');
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.primary);
+    doc.text('NOTES', 25, yPosition + 3);
+
     doc.setFontSize(9);
-    doc.text('Terms & Conditions:', 20, yPosition);
-    yPosition += 5;
-    doc.text(invoice.terms, 20, yPosition);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.text);
+    const splitNotes = doc.splitTextToSize(invoice.notes, pageWidth - 50);
+    doc.text(splitNotes, 25, yPosition + 10);
+
+    yPosition += notesHeight + 5;
   }
 
-  // Footer
+  // Terms & Conditions
+  if (invoice.terms) {
+    if (yPosition > 230) {
+      doc.addPage();
+      yPosition = 20;
+    }
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.dark);
+    doc.text('TERMS & CONDITIONS', 20, yPosition);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.gray);
+    const splitTerms = doc.splitTextToSize(invoice.terms, pageWidth - 40);
+    doc.text(splitTerms, 20, yPosition + 6);
+  }
+
+  // Footer with modern design
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+
+    // Footer line
+    doc.setDrawColor(...COLORS.lightGray);
+    doc.setLineWidth(0.5);
+    doc.line(20, pageHeight - 15, pageWidth - 20, pageHeight - 15);
+
+    // Footer text
     doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.gray);
     doc.text(
-      `Page ${i} of ${pageCount} | © ${new Date().getFullYear()} Hey Spruce App. All rights reserved.`,
-      105,
-      285,
+      `Page ${i} of ${pageCount}`,
+      20,
+      pageHeight - 10
+    );
+    doc.text(
+      `© ${new Date().getFullYear()} Hey Spruce. All rights reserved.`,
+      pageWidth / 2,
+      pageHeight - 10,
       { align: 'center' }
+    );
+    doc.text(
+      'waseem@shurehw.com',
+      pageWidth - 20,
+      pageHeight - 10,
+      { align: 'right' }
     );
   }
 

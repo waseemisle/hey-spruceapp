@@ -2,7 +2,7 @@
 
 ## 🎉 APPLICATION IS NOW RUNNING!
 
-**Access the application at:** http://localhost:3000
+**Access the application at:** http://hey-spruce-appv2.vercel.app
 
 ---
 
@@ -79,7 +79,7 @@ Documentation: ~2,000
 ```bash
 npm run dev
 ```
-Access at: http://localhost:3000
+Access at: http://hey-spruce-appv2.vercel.app
 
 ### Step 2: Create Admin User in Firebase
 1. Go to Firebase Console: https://console.firebase.google.com/
@@ -104,7 +104,7 @@ Access at: http://localhost:3000
    ```
 
 ### Step 3: Test Client Registration
-1. Go to http://localhost:3000
+1. Go to http://hey-spruce-appv2.vercel.app
 2. Click "Register as Client"
 3. Fill out the form:
    - Full Name: John Doe
@@ -116,7 +116,7 @@ Access at: http://localhost:3000
 5. You'll be redirected to login (account is pending)
 
 ### Step 4: Approve Client as Admin
-1. Go to http://localhost:3000/portal-login
+1. Go to http://hey-spruce-appv2.vercel.app/portal-login
 2. Login with admin credentials
 3. You'll be redirected to Admin Portal
 4. Click "Clients" in sidebar

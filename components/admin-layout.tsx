@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
-  Calendar, MessageSquare, LogOut, Menu, X
+  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -59,6 +59,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Dashboard', href: '/admin-portal', icon: Home },
     { name: 'Clients', href: '/admin-portal/clients', icon: Users },
     { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users },
+    { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck },
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2 },
     { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList },
     { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText },

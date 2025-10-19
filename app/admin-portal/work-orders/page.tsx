@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface WorkOrder {
@@ -30,6 +30,7 @@ interface WorkOrder {
   assignedTo?: string;
   assignedToName?: string;
   createdAt: any;
+  quoteCount?: number;
 }
 
 interface Client {
@@ -93,10 +94,21 @@ export default function WorkOrdersManagement() {
     try {
       const workOrdersQuery = query(collection(db, 'workOrders'));
       const snapshot = await getDocs(workOrdersQuery);
-      const workOrdersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as WorkOrder[];
+      const workOrdersData = await Promise.all(
+        snapshot.docs.map(async (woDoc) => {
+          const woData = { id: woDoc.id, ...woDoc.data() } as WorkOrder;
+
+          // Fetch quote count for this work order
+          const quotesQuery = query(
+            collection(db, 'quotes'),
+            where('workOrderId', '==', woDoc.id)
+          );
+          const quotesSnapshot = await getDocs(quotesQuery);
+          woData.quoteCount = quotesSnapshot.size;
+
+          return woData;
+        })
+      );
       setWorkOrders(workOrdersData);
     } catch (error) {
       console.error('Error fetching work orders:', error);
@@ -595,6 +607,11 @@ export default function WorkOrdersManagement() {
                         <span className="font-semibold">Assigned to:</span> {workOrder.assignedToName}
                       </div>
                     )}
+                    {workOrder.quoteCount !== undefined && workOrder.quoteCount > 0 && (
+                      <div className="text-sm">
+                        <span className="font-semibold">Quotes Received:</span> {workOrder.quoteCount}
+                      </div>
+                    )}
                   </div>
 
                   {workOrder.images && workOrder.images.length > 0 && (
@@ -607,6 +624,15 @@ export default function WorkOrdersManagement() {
                   {/* Action Buttons */}
                   <div className="pt-4 space-y-2">
                     <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"

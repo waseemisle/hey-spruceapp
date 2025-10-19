@@ -12,6 +12,7 @@ import { FileText, Calendar, DollarSign, CheckCircle, XCircle, Clock, Search } f
 interface Quote {
   id: string;
   workOrderId: string;
+  workOrderNumber?: string;
   workOrderTitle: string;
   clientName: string;
   laborCost: number;
@@ -180,6 +181,9 @@ export default function SubcontractorQuotes() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-xl mb-2">{quote.workOrderTitle}</CardTitle>
+                        {quote.workOrderNumber && (
+                          <p className="text-sm text-gray-600">WO: {quote.workOrderNumber}</p>
+                        )}
                         <p className="text-sm text-gray-600">Client: {quote.clientName}</p>
                       </div>
                       <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${statusInfo.style}`}>

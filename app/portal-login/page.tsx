@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import Logo from '@/components/ui/logo';
 
 export default function PortalLogin() {
   const [email, setEmail] = useState('');
@@ -130,6 +131,9 @@ export default function PortalLogin() {
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-violet-600 to-purple-800 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-4">
+            <Logo size="lg" href="" />
+          </div>
           <CardTitle className="text-3xl font-bold text-center">Portal Login</CardTitle>
           <CardDescription className="text-center">
             Enter your credentials to access your portal

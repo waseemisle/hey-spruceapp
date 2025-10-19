@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
       ],
       mode: 'payment',
       customer_email: customerEmail,
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/payment-success?session_id={CHECKOUT_SESSION_ID}&invoice_id=${invoiceId}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/payment-cancelled?invoice_id=${invoiceId}`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://hey-spruce-appv2.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}&invoice_id=${invoiceId}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://hey-spruce-appv2.vercel.app'}/payment-cancelled?invoice_id=${invoiceId}`,
       metadata: {
         invoiceId,
         invoiceNumber,

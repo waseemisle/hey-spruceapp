@@ -212,7 +212,7 @@ Since there's no admin registration page (for security), you need to manually cr
    - Click **Save**
 
 3. **Login:**
-   - Go to `http://localhost:3000/portal-login`
+   - Go to `http://hey-spruce-appv2.vercel.app/portal-login`
    - Email: `admin@heyspruce.com`
    - Password: `Admin123!`
    - You should be redirected to Admin Portal
@@ -240,7 +240,7 @@ firebase firestore:add adminUsers '{
 
 #### 1. Register a Client
 
-1. Go to `http://localhost:3000/register-client`
+1. Go to `http://hey-spruce-appv2.vercel.app/register-client`
 2. Fill in the form:
    - Full Name: `John Smith`
    - Company: `ABC Properties`

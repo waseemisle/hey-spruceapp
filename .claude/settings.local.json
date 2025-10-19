@@ -7,7 +7,15 @@
       "Bash(npm run dev:*)",
       "Bash(timeout /t 5)",
       "Bash(firebase deploy --only firestore:indexes)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "WebFetch(domain:www.heyspruce.com)",
+      "WebSearch",
+      "Bash(node \"C:\\Users\\Waseem Akhtar\\Desktop\\SHWTasks\\SpruceApp\\scripts\\convert-logo-to-base64.js\")",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3000)",
+      "Bash(git add .)",
+      "Bash(del \".git\\index.lock\")",
+      "Bash(if exist \".git\\index.lock\" del \".git\\index.lock\")"
     ],
     "deny": [],
     "ask": []

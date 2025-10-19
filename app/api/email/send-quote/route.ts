@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const { toEmail, toName, quoteNumber, workOrderTitle, totalAmount, clientAmount, markupPercentage, lineItems, notes } = body;
 
     const sendGridApiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'support@heyspruce.com';
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'waseem@shurehw.com';
 
     if (!sendGridApiKey) {
       console.error('SendGrid API key not configured');
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
 
           <p style="font-size: 12px; color: #6b7280; text-align: center;">
             Hey Spruce App | San Francisco, CA 94104<br>
-            Phone: 877-253-2646 | Email: support@heyspruce.com
+            Phone: 877-253-2646 | Email: waseem@shurehw.com
           </p>
         </div>
       </body>

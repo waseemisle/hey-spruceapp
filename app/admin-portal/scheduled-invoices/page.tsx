@@ -8,8 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Play, Trash2, ToggleLeft, ToggleRight, Edit2, Save, X, Search } from 'lucide-react';
+import { Calendar, Play, Trash2, ToggleLeft, ToggleRight, Edit2, Save, X, Search, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { getInvoicePDFBase64 } from '@/lib/pdf-generator';
+
+interface LineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
 
 interface ScheduledInvoice {
   id: string;
@@ -19,6 +27,7 @@ interface ScheduledInvoice {
   title: string;
   description: string;
   amount: number;
+  lineItems?: LineItem[];
   frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
   dayOfMonth?: number;
   isActive: boolean;
@@ -36,6 +45,7 @@ export default function ScheduledInvoicesManagement() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [executing, setExecuting] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     clientId: '',
     title: '',
@@ -44,6 +54,9 @@ export default function ScheduledInvoicesManagement() {
     frequency: 'monthly' as 'weekly' | 'monthly' | 'quarterly' | 'yearly',
     dayOfMonth: '1',
   });
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { description: '', quantity: 1, unitPrice: 0, amount: 0 }
+  ]);
 
   const fetchScheduledInvoices = async () => {
     try {
@@ -102,6 +115,32 @@ export default function ScheduledInvoicesManagement() {
     return next;
   };
 
+  const addLineItem = () => {
+    setLineItems([...lineItems, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+  };
+
+  const removeLineItem = (index: number) => {
+    if (lineItems.length > 1) {
+      setLineItems(lineItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
+    const updated = [...lineItems];
+    updated[index] = { ...updated[index], [field]: value };
+
+    // Calculate amount
+    if (field === 'quantity' || field === 'unitPrice') {
+      updated[index].amount = updated[index].quantity * updated[index].unitPrice;
+    }
+
+    setLineItems(updated);
+  };
+
+  const calculateTotal = () => {
+    return lineItems.reduce((sum, item) => sum + item.amount, 0);
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -115,6 +154,7 @@ export default function ScheduledInvoicesManagement() {
         return;
       }
 
+      const totalAmount = calculateTotal();
       const nextExecution = calculateNextExecution(formData.frequency, parseInt(formData.dayOfMonth));
 
       await addDoc(collection(db, 'scheduled_invoices'), {
@@ -123,7 +163,8 @@ export default function ScheduledInvoicesManagement() {
         clientEmail: selectedClient.email,
         title: formData.title,
         description: formData.description,
-        amount: parseFloat(formData.amount),
+        amount: totalAmount,
+        lineItems: lineItems.filter(item => item.description && item.amount > 0),
         frequency: formData.frequency,
         dayOfMonth: parseInt(formData.dayOfMonth),
         isActive: true,
@@ -142,6 +183,7 @@ export default function ScheduledInvoicesManagement() {
         frequency: 'monthly',
         dayOfMonth: '1',
       });
+      setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
       fetchScheduledInvoices();
     } catch (error) {
       console.error('Error creating scheduled invoice:', error);
@@ -163,10 +205,23 @@ export default function ScheduledInvoicesManagement() {
   };
 
   const executeNow = async (schedule: ScheduledInvoice) => {
+    setExecuting(schedule.id);
     try {
-      // Create invoice
+      // Step 1: Create invoice in database
       const invoiceNumber = `SPRUCE-${Date.now().toString().slice(-8).toUpperCase()}`;
-      await addDoc(collection(db, 'invoices'), {
+      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      // Use line items if available, otherwise create a single line item from description
+      const invoiceLineItems = schedule.lineItems && schedule.lineItems.length > 0
+        ? schedule.lineItems
+        : [{
+            description: schedule.description || 'Service',
+            quantity: 1,
+            unitPrice: schedule.amount,
+            amount: schedule.amount,
+          }];
+
+      const invoiceDocRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
         scheduledInvoiceId: schedule.id,
         clientId: schedule.clientId,
@@ -174,29 +229,112 @@ export default function ScheduledInvoicesManagement() {
         clientEmail: schedule.clientEmail,
         workOrderTitle: schedule.title,
         totalAmount: schedule.amount,
-        status: 'draft',
-        lineItems: [{
-          description: schedule.description,
-          quantity: 1,
-          unitPrice: schedule.amount,
-          amount: schedule.amount,
-        }],
-        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        status: 'sent',
+        lineItems: invoiceLineItems,
+        dueDate: dueDate,
+        notes: schedule.description || '',
         createdAt: serverTimestamp(),
       });
 
-      // Update last execution
+      toast.success('Invoice created, generating payment link...');
+
+      // Step 2: Create Stripe payment link
+      let stripePaymentLink = '';
+      try {
+        const stripeResponse = await fetch('/api/stripe/create-payment-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoiceId: invoiceDocRef.id,
+            invoiceNumber: invoiceNumber,
+            amount: schedule.amount,
+            customerEmail: schedule.clientEmail,
+            clientName: schedule.clientName,
+          }),
+        });
+
+        if (stripeResponse.ok) {
+          const stripeData = await stripeResponse.json();
+          stripePaymentLink = stripeData.paymentLink;
+
+          // Update invoice with payment link
+          await updateDoc(doc(db, 'invoices', invoiceDocRef.id), {
+            stripePaymentLink: stripeData.paymentLink,
+            stripeSessionId: stripeData.sessionId,
+          });
+
+          toast.success('Payment link created, generating PDF...');
+        }
+      } catch (stripeError) {
+        console.error('Error creating payment link:', stripeError);
+        // Continue even if Stripe fails
+      }
+
+      // Step 3: Generate PDF as base64
+      const pdfBase64 = getInvoicePDFBase64({
+        invoiceNumber,
+        clientName: schedule.clientName,
+        clientEmail: schedule.clientEmail,
+        lineItems: invoiceLineItems,
+        subtotal: schedule.amount,
+        taxRate: 0,
+        taxAmount: 0,
+        discountAmount: 0,
+        totalAmount: schedule.amount,
+        dueDate: dueDate.toLocaleDateString(),
+        notes: schedule.description,
+      });
+
+      toast.success('PDF generated, sending email...');
+
+      // Step 4: Send email with PDF and payment link
+      try {
+        const emailResponse = await fetch('/api/email/send-invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: schedule.clientEmail,
+            toName: schedule.clientName,
+            invoiceNumber: invoiceNumber,
+            workOrderTitle: schedule.title,
+            totalAmount: schedule.amount,
+            dueDate: dueDate.toLocaleDateString(),
+            lineItems: invoiceLineItems,
+            notes: schedule.description,
+            stripePaymentLink: stripePaymentLink,
+            pdfBase64: pdfBase64,
+          }),
+        });
+
+        const emailResult = await emailResponse.json();
+
+        if (emailResult.success) {
+          toast.success('Invoice created and email sent successfully!');
+        } else if (emailResult.testMode) {
+          toast.info('Invoice created (Email in test mode - check console)');
+        } else {
+          console.error('Email failed:', emailResult.error);
+          console.log('Troubleshooting:', emailResult.details);
+          toast.warning('Invoice created successfully, but email notification failed. Client can view it in their portal.');
+        }
+      } catch (emailError) {
+        console.error('Error sending email:', emailError);
+        toast.warning('Invoice created successfully, but email notification failed. Client can view it in their portal.');
+      }
+
+      // Step 5: Update scheduled invoice execution dates
       const nextExecution = calculateNextExecution(schedule.frequency, schedule.dayOfMonth || 1);
       await updateDoc(doc(db, 'scheduled_invoices', schedule.id), {
         lastExecution: serverTimestamp(),
         nextExecution: nextExecution,
       });
 
-      toast.success('Invoice created successfully');
       fetchScheduledInvoices();
     } catch (error) {
       console.error('Error executing schedule:', error);
       toast.error('Failed to execute scheduled invoice');
+    } finally {
+      setExecuting(null);
     }
   };
 
@@ -236,6 +374,12 @@ export default function ScheduledInvoicesManagement() {
       frequency: schedule.frequency,
       dayOfMonth: schedule.dayOfMonth?.toString() || '1',
     });
+    // Load line items if available, otherwise create default
+    if (schedule.lineItems && schedule.lineItems.length > 0) {
+      setLineItems(schedule.lineItems);
+    } else {
+      setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+    }
     setEditingId(schedule.id);
     setShowEditModal(true);
   };
@@ -249,6 +393,7 @@ export default function ScheduledInvoicesManagement() {
       frequency: 'monthly',
       dayOfMonth: '1',
     });
+    setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
     setEditingId(null);
     setShowEditModal(false);
   };
@@ -260,12 +405,14 @@ export default function ScheduledInvoicesManagement() {
     setSubmitting(true);
 
     try {
+      const totalAmount = calculateTotal();
       const nextExecution = calculateNextExecution(formData.frequency, parseInt(formData.dayOfMonth));
 
       await updateDoc(doc(db, 'scheduled_invoices', editingId), {
         title: formData.title,
         description: formData.description,
-        amount: parseFloat(formData.amount),
+        amount: totalAmount,
+        lineItems: lineItems.filter(item => item.description && item.amount > 0),
         frequency: formData.frequency,
         dayOfMonth: parseInt(formData.dayOfMonth),
         nextExecution: nextExecution,
@@ -349,22 +496,88 @@ export default function ScheduledInvoicesManagement() {
                   />
                 </div>
                 <div>
-                  <Label>Description</Label>
-                  <Input
+                  <Label>Description / Notes</Label>
+                  <textarea
+                    className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    required
+                    placeholder="General description or notes about this recurring invoice..."
                   />
                 </div>
+
+                {/* Line Items */}
                 <div>
-                  <Label>Amount ($)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    required
-                  />
+                  <div className="flex justify-between items-center mb-3">
+                    <Label>Line Items</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={addLineItem}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Item
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {lineItems.map((item, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                          <div className="md:col-span-6">
+                            <Label className="text-xs">Description</Label>
+                            <Input
+                              placeholder="Service description"
+                              value={item.description}
+                              onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-xs">Quantity</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateLineItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-xs">Unit Price ($)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.unitPrice}
+                              onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex items-end gap-2">
+                            <div className="flex-1">
+                              <Label className="text-xs">Amount</Label>
+                              <div className="text-lg font-bold text-purple-600">
+                                ${item.amount.toLocaleString()}
+                              </div>
+                            </div>
+                            {lineItems.length > 1 && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => removeLineItem(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Total */}
+                  <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold">Total Amount:</span>
+                      <span className="text-2xl font-bold text-purple-600">
+                        ${calculateTotal().toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <Label>Frequency</Label>
@@ -448,9 +661,14 @@ export default function ScheduledInvoicesManagement() {
                       <Edit2 className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
-                    <Button size="sm" className="flex-1" onClick={() => executeNow(schedule)}>
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => executeNow(schedule)}
+                      disabled={executing === schedule.id}
+                    >
                       <Play className="h-4 w-4 mr-2" />
-                      Execute
+                      {executing === schedule.id ? 'Executing...' : 'Execute'}
                     </Button>
                   </div>
                   <div className="flex gap-2">
@@ -501,22 +719,88 @@ export default function ScheduledInvoicesManagement() {
                     />
                   </div>
                   <div>
-                    <Label>Description *</Label>
-                    <Input
+                    <Label>Description / Notes</Label>
+                    <textarea
+                      className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      required
+                      placeholder="General description or notes about this recurring invoice..."
                     />
                   </div>
+
+                  {/* Line Items */}
                   <div>
-                    <Label>Amount ($) *</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      required
-                    />
+                    <div className="flex justify-between items-center mb-3">
+                      <Label>Line Items *</Label>
+                      <Button type="button" size="sm" variant="outline" onClick={addLineItem}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Item
+                      </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {lineItems.map((item, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                            <div className="md:col-span-6">
+                              <Label className="text-xs">Description</Label>
+                              <Input
+                                placeholder="Service description"
+                                value={item.description}
+                                onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Label className="text-xs">Quantity</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => updateLineItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Label className="text-xs">Unit Price ($)</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.unitPrice}
+                                onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                              />
+                            </div>
+                            <div className="md:col-span-2 flex items-end gap-2">
+                              <div className="flex-1">
+                                <Label className="text-xs">Amount</Label>
+                                <div className="text-lg font-bold text-purple-600">
+                                  ${item.amount.toLocaleString()}
+                                </div>
+                              </div>
+                              {lineItems.length > 1 && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => removeLineItem(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Total */}
+                    <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold">Total Amount:</span>
+                        <span className="text-2xl font-bold text-purple-600">
+                          ${calculateTotal().toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <Label>Frequency *</Label>

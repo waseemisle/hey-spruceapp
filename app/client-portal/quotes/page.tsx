@@ -12,6 +12,7 @@ import { FileText, Check, X, Calendar, DollarSign, Search } from 'lucide-react';
 interface Quote {
   id: string;
   workOrderId?: string;
+  workOrderNumber?: string;
   workOrderTitle: string;
   subcontractorId: string;
   subcontractorName: string;
@@ -193,6 +194,9 @@ export default function ClientQuotes() {
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="text-xl mb-2">{quote.workOrderTitle}</CardTitle>
+                      {quote.workOrderNumber && (
+                        <p className="text-sm text-gray-600">WO: {quote.workOrderNumber}</p>
+                      )}
                       <p className="text-sm text-gray-600">From: {quote.subcontractorName}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(quote.status)}`}>

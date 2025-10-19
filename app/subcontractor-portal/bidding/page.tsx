@@ -21,6 +21,7 @@ interface BiddingWorkOrder {
 
 interface WorkOrder {
   id: string;
+  workOrderNumber?: string;
   title: string;
   description: string;
   category: string;
@@ -166,6 +167,7 @@ export default function SubcontractorBidding() {
 
       await addDoc(collection(db, 'quotes'), {
         workOrderId: selectedWorkOrder.id,
+        workOrderNumber: selectedWorkOrder.workOrderNumber,
         workOrderTitle: selectedWorkOrder.title,
         subcontractorId: currentUser.uid,
         subcontractorName: subData.fullName || subData.businessName,
@@ -268,7 +270,10 @@ export default function SubcontractorBidding() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Submit Quote</h1>
-              <p className="text-gray-600 mt-2">{selectedWorkOrder.title}</p>
+              <p className="text-gray-600 mt-1">{selectedWorkOrder.title}</p>
+              {selectedWorkOrder.workOrderNumber && (
+                <p className="text-sm text-gray-500 mt-1">Work Order: {selectedWorkOrder.workOrderNumber}</p>
+              )}
             </div>
             <Button variant="outline" onClick={() => {
               setShowQuoteForm(false);
@@ -514,6 +519,9 @@ export default function SubcontractorBidding() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <CardTitle className="text-lg mb-2">{workOrder.title}</CardTitle>
+                        {workOrder.workOrderNumber && (
+                          <p className="text-sm text-gray-600 mb-2">WO: {workOrder.workOrderNumber}</p>
+                        )}
                         <div className="flex gap-2 flex-wrap">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
                             {workOrder.priority} priority

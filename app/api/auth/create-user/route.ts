@@ -1,22 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-// Initialize Firebase Admin
-if (!getApps().length) {
-  try {
-    initializeApp({
-      credential: cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
+// Initialize Firebase client SDK for server-side use
+const getFirebaseApp = () => {
+  if (getApps().length === 0) {
+    return initializeApp({
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     });
-  } catch (error) {
-    console.error('Firebase admin initialization error:', error);
   }
-}
+  return getApp();
+};
 
 export async function POST(request: Request) {
   try {
@@ -29,31 +28,52 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create user with Firebase Auth Admin
-    const auth = getAuth();
-    const userRecord = await auth.createUser({
-      email,
-      password,
-      emailVerified: false,
+    // Use Firebase Authentication REST API to create user
+    // This doesn't require Admin SDK or service account credentials
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const signUpUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`;
+
+    const authResponse = await fetch(signUpUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        returnSecureToken: true,
+      }),
     });
 
-    // Create user document in Firestore
-    const db = getFirestore();
+    if (!authResponse.ok) {
+      const errorData = await authResponse.json();
+      throw new Error(errorData.error?.message || 'Failed to create user account');
+    }
+
+    const authData = await authResponse.json();
+    const uid = authData.localId;
+
+    // Create user document in Firestore using client SDK
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+
     const userDoc = {
       email,
       role,
       ...userData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
 
-    await db.collection(role === 'client' ? 'clients' : 'subcontractors')
-      .doc(userRecord.uid)
-      .set(userDoc);
+    const collectionName =
+      role === 'client' ? 'clients' :
+      role === 'subcontractor' ? 'subcontractors' :
+      'adminUsers';
+    await setDoc(doc(db, collectionName, uid), userDoc);
 
     return NextResponse.json({
       success: true,
-      uid: userRecord.uid,
+      uid: uid,
       message: `${role} created successfully`,
     });
   } catch (error: any) {
