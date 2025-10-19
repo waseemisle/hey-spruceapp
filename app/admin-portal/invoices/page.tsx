@@ -518,6 +518,16 @@ export default function InvoicesManagement() {
                         )}
                       </>
                     )}
+
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => handleDeleteInvoice(invoice)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Invoice
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
