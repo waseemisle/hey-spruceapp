@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,25 +36,30 @@ export default function ClientWorkOrders() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const workOrdersQuery = query(
+          collection(db, 'workOrders'),
+          where('clientId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
 
-    const workOrdersQuery = query(
-      collection(db, 'workOrders'),
-      where('clientId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
+        const unsubscribeSnapshot = onSnapshot(workOrdersQuery, (snapshot) => {
+          const workOrdersData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as WorkOrder[];
+          setWorkOrders(workOrdersData);
+          setLoading(false);
+        });
 
-    const unsubscribe = onSnapshot(workOrdersQuery, (snapshot) => {
-      const workOrdersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as WorkOrder[];
-      setWorkOrders(workOrdersData);
-      setLoading(false);
+        return () => unsubscribeSnapshot();
+      } else {
+        setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
   const getStatusBadge = (status: string) => {

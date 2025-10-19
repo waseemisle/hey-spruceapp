@@ -94,9 +94,31 @@ export default function PortalLogin() {
       await auth.signOut();
     } catch (error: any) {
       console.error('Login error:', error);
+      
+      let errorMessage = 'An unexpected error occurred. Please try again.';
+      
+      // Handle specific Firebase auth errors
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address format.';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled. Please contact support.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password. Please check your credentials.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: 'Login Failed',
-        description: error.message || 'Invalid email or password',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

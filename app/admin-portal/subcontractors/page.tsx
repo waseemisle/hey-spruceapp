@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Subcontractor {
   uid: string;
@@ -31,7 +31,8 @@ export default function SubcontractorsManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { toast } = useToast();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [subToDelete, setSubToDelete] = useState<Subcontractor | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -55,11 +56,7 @@ export default function SubcontractorsManagement() {
       setSubcontractors(subsData);
     } catch (error) {
       console.error('Error fetching subcontractors:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load subcontractors',
-        variant: 'destructive',
-      });
+      toast.error('Failed to load subcontractors');
     } finally {
       setLoading(false);
     }
@@ -81,19 +78,12 @@ export default function SubcontractorsManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      toast({
-        title: 'Subcontractor Approved',
-        description: 'Subcontractor has been approved successfully',
-      });
+      toast.success('Subcontractor has been approved successfully');
 
       fetchSubcontractors();
     } catch (error) {
       console.error('Error approving subcontractor:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to approve subcontractor',
-        variant: 'destructive',
-      });
+      toast.error('Failed to approve subcontractor');
     }
   };
 
@@ -109,19 +99,12 @@ export default function SubcontractorsManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      toast({
-        title: 'Subcontractor Rejected',
-        description: 'Subcontractor registration has been rejected',
-      });
+      toast.success('Subcontractor registration has been rejected');
 
       fetchSubcontractors();
     } catch (error) {
       console.error('Error rejecting subcontractor:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to reject subcontractor',
-        variant: 'destructive',
-      });
+      toast.error('Failed to reject subcontractor');
     }
   };
 
@@ -162,20 +145,12 @@ export default function SubcontractorsManagement() {
 
   const handleSubmit = async () => {
     if (!formData.email || !formData.fullName || !formData.businessName || !formData.phone) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      });
+      toast.error('Please fill in all required fields');
       return;
     }
 
     if (!editingId && !formData.password) {
-      toast({
-        title: 'Validation Error',
-        description: 'Password is required for new subcontractors',
-        variant: 'destructive',
-      });
+      toast.error('Password is required for new subcontractors');
       return;
     }
 
@@ -195,10 +170,7 @@ export default function SubcontractorsManagement() {
           updatedAt: serverTimestamp(),
         });
 
-        toast({
-          title: 'Success',
-          description: 'Subcontractor updated successfully',
-        });
+        toast.success('Subcontractor updated successfully');
       } else {
         // Create new subcontractor via API route (doesn't log out admin)
         const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(s => s);
@@ -226,23 +198,54 @@ export default function SubcontractorsManagement() {
           throw new Error(error.error || 'Failed to create subcontractor');
         }
 
-        toast({
-          title: 'Success',
-          description: 'Subcontractor created successfully',
-        });
+        toast.success('Subcontractor created successfully');
       }
 
       resetForm();
       fetchSubcontractors();
     } catch (error: any) {
       console.error('Error saving subcontractor:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save subcontractor',
-        variant: 'destructive',
-      });
+      toast.error(error.message || 'Failed to save subcontractor');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteSubcontractor = (subcontractor: Subcontractor) => {
+    setSubToDelete(subcontractor);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteSubcontractor = async () => {
+    if (!subToDelete) return;
+
+    try {
+      // Delete all quotes by this subcontractor
+      const quotesQuery = query(
+        collection(db, 'quotes'),
+        where('subcontractorId', '==', subToDelete.uid)
+      );
+      const quotesSnapshot = await getDocs(quotesQuery);
+      await Promise.all(quotesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+      // Delete all bidding work orders for this subcontractor
+      const biddingQuery = query(
+        collection(db, 'biddingWorkOrders'),
+        where('subcontractorId', '==', subToDelete.uid)
+      );
+      const biddingSnapshot = await getDocs(biddingQuery);
+      await Promise.all(biddingSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+      // Delete the subcontractor document
+      await deleteDoc(doc(db, 'subcontractors', subToDelete.uid));
+
+      toast.success('Subcontractor and all related data deleted successfully');
+      setShowDeleteModal(false);
+      setSubToDelete(null);
+      fetchSubcontractors();
+    } catch (error) {
+      console.error('Error deleting subcontractor:', error);
+      toast.error('Failed to delete subcontractor');
     }
   };
 
@@ -382,6 +385,13 @@ export default function SubcontractorsManagement() {
                     >
                       <Edit2 className="h-4 w-4 mr-2" />
                       Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteSubcontractor(sub)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                     {sub.status === 'pending' && (
                       <>
@@ -529,6 +539,49 @@ export default function SubcontractorsManagement() {
                     disabled={submitting}
                   >
                     Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && subToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-4">Delete Subcontractor</h2>
+                <p className="text-gray-700 mb-4">
+                  Are you sure you want to delete subcontractor <strong>"{subToDelete.fullName}"</strong>?
+                </p>
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Warning:</strong> This will also delete:
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-yellow-800 mt-2">
+                    <li>All their quotes</li>
+                    <li>All bidding work orders assigned to them</li>
+                  </ul>
+                  <p className="text-sm text-yellow-800 mt-2 font-semibold">This action cannot be undone.</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setSubToDelete(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={confirmDeleteSubcontractor}
+                    className="flex-1"
+                  >
+                    Delete Subcontractor
                   </Button>
                 </div>
               </div>

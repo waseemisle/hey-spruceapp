@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, MapPin, Building, User, Phone, Plus, Edit2, Save, X, Search } from 'lucide-react';
+import { CheckCircle, XCircle, MapPin, Building, User, Phone, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Location {
   id: string;
@@ -45,6 +46,9 @@ export default function LocationsManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingLocationId, setRejectingLocationId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -71,7 +75,7 @@ export default function LocationsManagement() {
       setLocations(locationsData);
     } catch (error) {
       console.error('Error fetching locations:', error);
-      alert('Failed to load locations');
+      toast.error('Failed to load locations');
     } finally {
       setLoading(false);
     }
@@ -109,35 +113,48 @@ export default function LocationsManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      alert('Location approved successfully');
+      toast.success('Location approved successfully');
       fetchLocations();
     } catch (error) {
       console.error('Error approving location:', error);
-      alert('Failed to approve location');
+      toast.error('Failed to approve location');
     }
   };
 
-  const handleReject = async (locationId: string) => {
+  const handleReject = (locationId: string) => {
+    setRejectingLocationId(locationId);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectingLocationId) return;
+
+    if (!rejectionReason.trim()) {
+      toast.error('Please enter a rejection reason');
+      return;
+    }
+
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const reason = prompt('Enter rejection reason:');
-      if (!reason) return;
-
-      await updateDoc(doc(db, 'locations', locationId), {
+      await updateDoc(doc(db, 'locations', rejectingLocationId), {
         status: 'rejected',
         rejectedBy: currentUser.uid,
         rejectedAt: serverTimestamp(),
-        rejectionReason: reason,
+        rejectionReason: rejectionReason,
         updatedAt: serverTimestamp(),
       });
 
-      alert('Location rejected');
+      toast.success('Location rejected');
+      setShowRejectModal(false);
+      setRejectingLocationId(null);
+      setRejectionReason('');
       fetchLocations();
     } catch (error) {
       console.error('Error rejecting location:', error);
-      alert('Failed to reject location');
+      toast.error('Failed to reject location');
     }
   };
 
@@ -184,7 +201,7 @@ export default function LocationsManagement() {
 
   const handleSubmit = async () => {
     if (!formData.clientId || !formData.locationName || !formData.street || !formData.city || !formData.state || !formData.zip) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -193,7 +210,7 @@ export default function LocationsManagement() {
     try {
       const client = clients.find(c => c.id === formData.clientId);
       if (!client) {
-        alert('Invalid client selected');
+        toast.error('Invalid client selected');
         return;
       }
 
@@ -219,23 +236,92 @@ export default function LocationsManagement() {
       if (editingId) {
         // Update existing location
         await updateDoc(doc(db, 'locations', editingId), locationData);
-        alert('Location updated successfully');
+        toast.success('Location updated successfully');
       } else {
         // Create new location
         await addDoc(collection(db, 'locations'), {
           ...locationData,
           createdAt: serverTimestamp(),
         });
-        alert('Location created successfully');
+        toast.success('Location created successfully');
       }
 
       resetForm();
       fetchLocations();
     } catch (error: any) {
       console.error('Error saving location:', error);
-      alert(error.message || 'Failed to save location');
+      toast.error(error.message || 'Failed to save location');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteLocation = async (location: Location) => {
+    // Show confirmation toast with action buttons
+    toast(`Delete location "${location.locationName}"?`, {
+      description: 'This will also delete all work orders at this location and all related quotes and invoices. This action cannot be undone.',
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          await performDeleteLocation(location);
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const performDeleteLocation = async (location: Location) => {
+    try {
+      // Find all work orders at this location
+      const workOrdersQuery = query(
+        collection(db, 'workOrders'),
+        where('locationId', '==', location.id)
+      );
+      const workOrdersSnapshot = await getDocs(workOrdersQuery);
+
+      // For each work order, delete related data
+      for (const workOrderDoc of workOrdersSnapshot.docs) {
+        const workOrderId = workOrderDoc.id;
+
+        // Delete related quotes
+        const quotesQuery = query(
+          collection(db, 'quotes'),
+          where('workOrderId', '==', workOrderId)
+        );
+        const quotesSnapshot = await getDocs(quotesQuery);
+        await Promise.all(quotesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+        // Delete related bidding work orders
+        const biddingQuery = query(
+          collection(db, 'biddingWorkOrders'),
+          where('workOrderId', '==', workOrderId)
+        );
+        const biddingSnapshot = await getDocs(biddingQuery);
+        await Promise.all(biddingSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+        // Delete related invoices
+        const invoicesQuery = query(
+          collection(db, 'invoices'),
+          where('workOrderId', '==', workOrderId)
+        );
+        const invoicesSnapshot = await getDocs(invoicesQuery);
+        await Promise.all(invoicesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+        // Delete the work order itself
+        await deleteDoc(workOrderDoc.ref);
+      }
+
+      // Delete the location itself
+      await deleteDoc(doc(db, 'locations', location.id));
+
+      toast.success('Location and all related data deleted successfully');
+      fetchLocations();
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      toast.error('Failed to delete location');
     }
   };
 
@@ -368,6 +454,13 @@ export default function LocationsManagement() {
                     >
                       <Edit2 className="h-4 w-4 mr-2" />
                       Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteLocation(location)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                     {location.status === 'pending' && (
                       <>
@@ -552,6 +645,64 @@ export default function LocationsManagement() {
                     variant="outline"
                     onClick={resetForm}
                     disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reject Reason Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6 border-b">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Reject Location</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowRejectModal(false);
+                      setRejectingLocationId(null);
+                      setRejectionReason('');
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <Label>Rejection Reason *</Label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                    placeholder="Please provide a reason for rejecting this location..."
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    variant="destructive"
+                    onClick={confirmReject}
+                    disabled={!rejectionReason.trim()}
+                  >
+                    Reject Location
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowRejectModal(false);
+                      setRejectingLocationId(null);
+                      setRejectionReason('');
+                    }}
                   >
                     Cancel
                   </Button>

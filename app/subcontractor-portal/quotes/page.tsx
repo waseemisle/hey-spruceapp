@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,25 +44,30 @@ export default function SubcontractorQuotes() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const quotesQuery = query(
+          collection(db, 'quotes'),
+          where('subcontractorId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
 
-    const quotesQuery = query(
-      collection(db, 'quotes'),
-      where('subcontractorId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
+        const unsubscribeSnapshot = onSnapshot(quotesQuery, (snapshot) => {
+          const quotesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Quote[];
+          setQuotes(quotesData);
+          setLoading(false);
+        });
 
-    const unsubscribe = onSnapshot(quotesQuery, (snapshot) => {
-      const quotesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Quote[];
-      setQuotes(quotesData);
-      setLoading(false);
+        return () => unsubscribeSnapshot();
+      } else {
+        setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
   const getStatusBadge = (quote: Quote) => {
@@ -189,14 +195,14 @@ export default function SubcontractorQuotes() {
                         <div>
                           <p className="text-sm text-gray-600">Quote Amount</p>
                           <p className="text-2xl font-bold text-gray-900">
-                            ${quote.totalAmount.toFixed(2)}
+                            ${(quote.totalAmount || 0).toFixed(2)}
                           </p>
                         </div>
                       </div>
 
                       <div>
                         <p className="text-sm text-gray-600">Estimated Duration</p>
-                        <p className="text-lg font-semibold text-gray-900">{quote.estimatedDuration}</p>
+                        <p className="text-lg font-semibold text-gray-900">{quote.estimatedDuration || 'N/A'}</p>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -215,19 +221,19 @@ export default function SubcontractorQuotes() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <p className="text-gray-600">Labor Cost</p>
-                          <p className="font-semibold">${quote.laborCost.toFixed(2)}</p>
+                          <p className="font-semibold">${(quote.laborCost || 0).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-gray-600">Material Cost</p>
-                          <p className="font-semibold">${quote.materialCost.toFixed(2)}</p>
+                          <p className="font-semibold">${(quote.materialCost || 0).toFixed(2)}</p>
                         </div>
                         <div>
-                          <p className="text-gray-600">Tax ({(quote.taxRate * 100).toFixed(1)}%)</p>
-                          <p className="font-semibold">${((quote.laborCost + quote.materialCost) * quote.taxRate).toFixed(2)}</p>
+                          <p className="text-gray-600">Tax ({((quote.taxRate || 0) * 100).toFixed(1)}%)</p>
+                          <p className="font-semibold">${(((quote.laborCost || 0) + (quote.materialCost || 0)) * (quote.taxRate || 0)).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-gray-600">Total</p>
-                          <p className="font-semibold">${quote.totalAmount.toFixed(2)}</p>
+                          <p className="font-semibold">${(quote.totalAmount || 0).toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
@@ -239,15 +245,15 @@ export default function SubcontractorQuotes() {
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                               <p className="text-gray-600">Your Quote</p>
-                              <p className="font-semibold">${quote.totalAmount.toFixed(2)}</p>
+                              <p className="font-semibold">${(quote.totalAmount || 0).toFixed(2)}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600">Markup ({quote.markupPercent.toFixed(1)}%)</p>
-                              <p className="font-semibold">${(quote.clientAmount - quote.totalAmount).toFixed(2)}</p>
+                              <p className="text-gray-600">Markup ({(quote.markupPercent || 0).toFixed(1)}%)</p>
+                              <p className="font-semibold">${((quote.clientAmount || 0) - (quote.totalAmount || 0)).toFixed(2)}</p>
                             </div>
                             <div className="col-span-2">
                               <p className="text-gray-600">Client Amount</p>
-                              <p className="text-xl font-bold text-blue-600">${quote.clientAmount.toFixed(2)}</p>
+                              <p className="text-xl font-bold text-blue-600">${(quote.clientAmount || 0).toFixed(2)}</p>
                             </div>
                           </div>
                         </div>
@@ -271,9 +277,9 @@ export default function SubcontractorQuotes() {
                               {quote.lineItems.map((item, idx) => (
                                 <tr key={idx}>
                                   <td className="px-4 py-2">{item.description}</td>
-                                  <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                  <td className="px-4 py-2 text-right">${item.rate.toFixed(2)}</td>
-                                  <td className="px-4 py-2 text-right font-semibold">${item.amount.toFixed(2)}</td>
+                                  <td className="px-4 py-2 text-center">{item.quantity || 0}</td>
+                                  <td className="px-4 py-2 text-right">${(item.rate || 0).toFixed(2)}</td>
+                                  <td className="px-4 py-2 text-right font-semibold">${(item.amount || 0).toFixed(2)}</td>
                                 </tr>
                               ))}
                             </tbody>

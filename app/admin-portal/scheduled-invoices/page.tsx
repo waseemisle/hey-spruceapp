@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar, Play, Trash2, ToggleLeft, ToggleRight, Edit2, Save, X, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ScheduledInvoice {
   id: string;
@@ -110,7 +111,7 @@ export default function ScheduledInvoicesManagement() {
 
       const selectedClient = clients.find(c => c.id === formData.clientId);
       if (!selectedClient) {
-        alert('Please select a client');
+        toast.error('Please select a client');
         return;
       }
 
@@ -131,7 +132,7 @@ export default function ScheduledInvoicesManagement() {
         createdAt: serverTimestamp(),
       });
 
-      alert('Scheduled invoice created successfully');
+      toast.success('Scheduled invoice created successfully');
       setShowCreateForm(false);
       setFormData({
         clientId: '',
@@ -144,7 +145,7 @@ export default function ScheduledInvoicesManagement() {
       fetchScheduledInvoices();
     } catch (error) {
       console.error('Error creating scheduled invoice:', error);
-      alert('Failed to create scheduled invoice');
+      toast.error('Failed to create scheduled invoice');
     }
   };
 
@@ -157,7 +158,7 @@ export default function ScheduledInvoicesManagement() {
       fetchScheduledInvoices();
     } catch (error) {
       console.error('Error toggling status:', error);
-      alert('Failed to update status');
+      toast.error('Failed to update status');
     }
   };
 
@@ -191,24 +192,38 @@ export default function ScheduledInvoicesManagement() {
         nextExecution: nextExecution,
       });
 
-      alert('Invoice created successfully');
+      toast.success('Invoice created successfully');
       fetchScheduledInvoices();
     } catch (error) {
       console.error('Error executing schedule:', error);
-      alert('Failed to execute scheduled invoice');
+      toast.error('Failed to execute scheduled invoice');
     }
   };
 
   const deleteSchedule = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this scheduled invoice?')) return;
+    toast('Delete this scheduled invoice?', {
+      description: 'This action cannot be undone.',
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          await performDeleteSchedule(id);
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
 
+  const performDeleteSchedule = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'scheduled_invoices', id));
-      alert('Scheduled invoice deleted');
+      toast.success('Scheduled invoice deleted');
       fetchScheduledInvoices();
     } catch (error) {
       console.error('Error deleting:', error);
-      alert('Failed to delete');
+      toast.error('Failed to delete');
     }
   };
 
@@ -257,12 +272,12 @@ export default function ScheduledInvoicesManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      alert('Scheduled invoice updated successfully');
+      toast.success('Scheduled invoice updated successfully');
       resetEditForm();
       fetchScheduledInvoices();
     } catch (error) {
       console.error('Error updating scheduled invoice:', error);
-      alert('Failed to update scheduled invoice');
+      toast.error('Failed to update scheduled invoice');
     } finally {
       setSubmitting(false);
     }

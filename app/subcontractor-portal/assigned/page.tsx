@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,46 +41,51 @@ export default function SubcontractorAssignedJobs() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
-    const assignedQuery = query(
-      collection(db, 'assignedJobs'),
-      where('subcontractorId', '==', currentUser.uid),
-      orderBy('assignedAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(assignedQuery, async (snapshot) => {
-      const assignedData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as AssignedJob[];
-
-      setAssignedJobs(assignedData);
-
-      // Listen to work orders
-      const workOrderIds = [...new Set(assignedData.map(job => job.workOrderId))];
-
-      if (workOrderIds.length > 0) {
-        const workOrdersQuery = query(
-          collection(db, 'workOrders'),
-          where('__name__', 'in', workOrderIds)
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const assignedQuery = query(
+          collection(db, 'assignedJobs'),
+          where('subcontractorId', '==', user.uid),
+          orderBy('assignedAt', 'desc')
         );
 
-        onSnapshot(workOrdersQuery, (woSnapshot) => {
-          const workOrdersMap = new Map<string, WorkOrder>();
-          woSnapshot.docs.forEach(woDoc => {
-            workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
-          });
-          setWorkOrders(workOrdersMap);
-          setLoading(false);
+        const unsubscribeSnapshot = onSnapshot(assignedQuery, async (snapshot) => {
+          const assignedData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as AssignedJob[];
+
+          setAssignedJobs(assignedData);
+
+          // Listen to work orders
+          const workOrderIds = [...new Set(assignedData.map(job => job.workOrderId))];
+
+          if (workOrderIds.length > 0) {
+            const workOrdersQuery = query(
+              collection(db, 'workOrders'),
+              where('__name__', 'in', workOrderIds)
+            );
+
+            onSnapshot(workOrdersQuery, (woSnapshot) => {
+              const workOrdersMap = new Map<string, WorkOrder>();
+              woSnapshot.docs.forEach(woDoc => {
+                workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
+              });
+              setWorkOrders(workOrdersMap);
+              setLoading(false);
+            });
+          } else {
+            setLoading(false);
+          }
         });
+
+        return () => unsubscribeSnapshot();
       } else {
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
   const handleMarkComplete = async (workOrderId: string) => {

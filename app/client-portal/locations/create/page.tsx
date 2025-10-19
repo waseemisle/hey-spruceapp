@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function CreateLocation() {
   const router = useRouter();
@@ -67,14 +68,14 @@ export default function CreateLocation() {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        alert('You must be logged in');
+        toast.error('You must be logged in');
         return;
       }
 
       // Get client details
       const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
       if (!clientDoc.exists()) {
-        alert('Client profile not found');
+        toast.error('Client profile not found');
         return;
       }
 
@@ -88,7 +89,7 @@ export default function CreateLocation() {
           imageUrls = await uploadMultipleToCloudinary(selectedFiles);
         } catch (error) {
           console.error('Error uploading images:', error);
-          alert('Failed to upload images. Please try again.');
+          toast.error('Failed to upload images. Please try again.');
           setUploadingImages(false);
           setLoading(false);
           return;
@@ -96,28 +97,38 @@ export default function CreateLocation() {
         setUploadingImages(false);
       }
 
-      // Create location
+      // Create location with consistent structure for admin compatibility
       await addDoc(collection(db, 'locations'), {
         clientId: currentUser.uid,
-        clientName: clientData.fullName || clientData.companyName,
-        clientEmail: clientData.email,
-        name: formData.name,
-        address: formData.address,
+        clientName: clientData.fullName || clientData.companyName || '',
+        clientEmail: clientData.email || '',
+        locationName: formData.name,
+        name: formData.name, // Keep for backward compatibility
+        address: {
+          street: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zip: formData.zipCode,
+          country: 'USA',
+        },
+        // Also keep flat fields for backward compatibility
         city: formData.city,
         state: formData.state,
         zipCode: formData.zipCode,
         propertyType: formData.propertyType,
-        notes: formData.notes,
+        contactPerson: '',
+        contactPhone: '',
+        notes: formData.notes || '',
         images: imageUrls,
         status: 'pending',
         createdAt: serverTimestamp(),
       });
 
-      alert('Location created successfully! Awaiting admin approval.');
+      toast.success('Location created successfully! Awaiting admin approval.');
       router.push('/client-portal/locations');
     } catch (error) {
       console.error('Error creating location:', error);
-      alert('Failed to create location');
+      toast.error('Failed to create location');
     } finally {
       setLoading(false);
     }

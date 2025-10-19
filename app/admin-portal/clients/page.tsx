@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Plus, Edit2, Save, X, Search } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Client {
   uid: string;
@@ -29,7 +29,8 @@ export default function ClientsManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { toast } = useToast();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -51,11 +52,7 @@ export default function ClientsManagement() {
       setClients(clientsData);
     } catch (error) {
       console.error('Error fetching clients:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load clients',
-        variant: 'destructive',
-      });
+      toast.error('Failed to load clients');
     } finally {
       setLoading(false);
     }
@@ -77,19 +74,12 @@ export default function ClientsManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      toast({
-        title: 'Client Approved',
-        description: 'Client has been approved successfully',
-      });
+      toast.success('Client has been approved successfully');
 
       fetchClients();
     } catch (error) {
       console.error('Error approving client:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to approve client',
-        variant: 'destructive',
-      });
+      toast.error('Failed to approve client');
     }
   };
 
@@ -105,19 +95,12 @@ export default function ClientsManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      toast({
-        title: 'Client Rejected',
-        description: 'Client registration has been rejected',
-      });
+      toast.success('Client registration has been rejected');
 
       fetchClients();
     } catch (error) {
       console.error('Error rejecting client:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to reject client',
-        variant: 'destructive',
-      });
+      toast.error('Failed to reject client');
     }
   };
 
@@ -154,20 +137,12 @@ export default function ClientsManagement() {
 
   const handleSubmit = async () => {
     if (!formData.email || !formData.fullName || !formData.phone) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      });
+      toast.error('Please fill in all required fields');
       return;
     }
 
     if (!editingId && !formData.password) {
-      toast({
-        title: 'Validation Error',
-        description: 'Password is required for new clients',
-        variant: 'destructive',
-      });
+      toast.error('Password is required for new clients');
       return;
     }
 
@@ -184,10 +159,7 @@ export default function ClientsManagement() {
           updatedAt: serverTimestamp(),
         });
 
-        toast({
-          title: 'Success',
-          description: 'Client updated successfully',
-        });
+        toast.success('Client updated successfully');
       } else {
         // Create new client via API route (doesn't log out admin)
         const response = await fetch('/api/auth/create-user', {
@@ -211,23 +183,108 @@ export default function ClientsManagement() {
           throw new Error(error.error || 'Failed to create client');
         }
 
-        toast({
-          title: 'Success',
-          description: 'Client created successfully',
-        });
+        toast.success('Client created successfully');
       }
 
       resetForm();
       fetchClients();
     } catch (error: any) {
       console.error('Error saving client:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save client',
-        variant: 'destructive',
-      });
+      toast.error(error.message || 'Failed to save client');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteClient = (client: Client) => {
+    setClientToDelete(client);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!clientToDelete) return;
+
+    try {
+      // Delete all client locations and their related data
+      const locationsQuery = query(
+        collection(db, 'locations'),
+        where('clientId', '==', clientToDelete.uid)
+      );
+      const locationsSnapshot = await getDocs(locationsQuery);
+
+      for (const locationDoc of locationsSnapshot.docs) {
+        const locationId = locationDoc.id;
+
+        // Find work orders at this location
+        const workOrdersQuery = query(
+          collection(db, 'workOrders'),
+          where('locationId', '==', locationId)
+        );
+        const workOrdersSnapshot = await getDocs(workOrdersQuery);
+
+        // Delete work orders and their related data
+        for (const workOrderDoc of workOrdersSnapshot.docs) {
+          const workOrderId = workOrderDoc.id;
+
+          // Delete quotes
+          const quotesQuery = query(collection(db, 'quotes'), where('workOrderId', '==', workOrderId));
+          const quotesSnapshot = await getDocs(quotesQuery);
+          await Promise.all(quotesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+          // Delete bidding work orders
+          const biddingQuery = query(collection(db, 'biddingWorkOrders'), where('workOrderId', '==', workOrderId));
+          const biddingSnapshot = await getDocs(biddingQuery);
+          await Promise.all(biddingSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+          // Delete invoices
+          const invoicesQuery = query(collection(db, 'invoices'), where('workOrderId', '==', workOrderId));
+          const invoicesSnapshot = await getDocs(invoicesQuery);
+          await Promise.all(invoicesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+          // Delete work order
+          await deleteDoc(workOrderDoc.ref);
+        }
+
+        // Delete location
+        await deleteDoc(locationDoc.ref);
+      }
+
+      // Delete any work orders directly associated with this client
+      const clientWorkOrdersQuery = query(
+        collection(db, 'workOrders'),
+        where('clientId', '==', clientToDelete.uid)
+      );
+      const clientWorkOrdersSnapshot = await getDocs(clientWorkOrdersQuery);
+
+      for (const workOrderDoc of clientWorkOrdersSnapshot.docs) {
+        const workOrderId = workOrderDoc.id;
+
+        // Delete related data
+        const quotesQuery = query(collection(db, 'quotes'), where('workOrderId', '==', workOrderId));
+        const quotesSnapshot = await getDocs(quotesQuery);
+        await Promise.all(quotesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+        const biddingQuery = query(collection(db, 'biddingWorkOrders'), where('workOrderId', '==', workOrderId));
+        const biddingSnapshot = await getDocs(biddingQuery);
+        await Promise.all(biddingSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+        const invoicesQuery = query(collection(db, 'invoices'), where('workOrderId', '==', workOrderId));
+        const invoicesSnapshot = await getDocs(invoicesQuery);
+        await Promise.all(invoicesSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+        await deleteDoc(workOrderDoc.ref);
+      }
+
+      // Delete the client from authentication would need admin SDK, so we just delete from Firestore
+      await deleteDoc(doc(db, 'clients', clientToDelete.uid));
+
+      toast.success('Client and all related data deleted successfully');
+      setShowDeleteModal(false);
+      setClientToDelete(null);
+      fetchClients();
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      toast.error('Failed to delete client');
     }
   };
 
@@ -349,6 +406,13 @@ export default function ClientsManagement() {
                     >
                       <Edit2 className="h-4 w-4 mr-2" />
                       Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteClient(client)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                     {client.status === 'pending' && (
                       <>
@@ -478,6 +542,52 @@ export default function ClientsManagement() {
                     disabled={submitting}
                   >
                     Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && clientToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-4">Delete Client</h2>
+                <p className="text-gray-700 mb-4">
+                  Are you sure you want to delete client <strong>"{clientToDelete.fullName || clientToDelete.companyName}"</strong>?
+                </p>
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Warning:</strong> This will permanently delete:
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-yellow-800 mt-2">
+                    <li>All their locations</li>
+                    <li>All their work orders</li>
+                    <li>All related quotes</li>
+                    <li>All related invoices</li>
+                    <li>All bidding work orders</li>
+                  </ul>
+                  <p className="text-sm text-yellow-800 mt-2 font-semibold">This action cannot be undone.</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setClientToDelete(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={confirmDelete}
+                    className="flex-1"
+                  >
+                    Delete Client
                   </Button>
                 </div>
               </div>

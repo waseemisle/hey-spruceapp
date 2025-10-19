@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, serverTimestamp, getDocs, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ClipboardList, Calendar, MapPin, AlertCircle, DollarSign, Plus, X, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface BiddingWorkOrder {
   id: string;
@@ -60,37 +62,42 @@ export default function SubcontractorBidding() {
   ]);
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const biddingQuery = query(
+          collection(db, 'biddingWorkOrders'),
+          where('subcontractorId', '==', user.uid),
+          where('status', '==', 'pending'),
+          orderBy('sharedAt', 'desc')
+        );
 
-    const biddingQuery = query(
-      collection(db, 'biddingWorkOrders'),
-      where('subcontractorId', '==', currentUser.uid),
-      where('status', '==', 'pending'),
-      orderBy('sharedAt', 'desc')
-    );
+        const unsubscribeSnapshot = onSnapshot(biddingQuery, async (snapshot) => {
+          const biddingData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as BiddingWorkOrder[];
 
-    const unsubscribe = onSnapshot(biddingQuery, async (snapshot) => {
-      const biddingData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as BiddingWorkOrder[];
+          setBiddingWorkOrders(biddingData);
 
-      setBiddingWorkOrders(biddingData);
+          // Fetch work order details
+          const workOrdersMap = new Map<string, WorkOrder>();
+          for (const bidding of biddingData) {
+            const woDoc = await getDoc(doc(db, 'workOrders', bidding.workOrderId));
+            if (woDoc.exists()) {
+              workOrdersMap.set(bidding.workOrderId, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
+            }
+          }
+          setWorkOrders(workOrdersMap);
+          setLoading(false);
+        });
 
-      // Fetch work order details
-      const workOrdersMap = new Map<string, WorkOrder>();
-      for (const bidding of biddingData) {
-        const woDoc = await getDoc(doc(db, 'workOrders', bidding.workOrderId));
-        if (woDoc.exists()) {
-          workOrdersMap.set(bidding.workOrderId, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
-        }
+        return () => unsubscribeSnapshot();
+      } else {
+        setLoading(false);
       }
-      setWorkOrders(workOrdersMap);
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
   const handleQuoteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -131,7 +138,7 @@ export default function SubcontractorBidding() {
     if (!selectedWorkOrder) return;
 
     if (!quoteForm.laborCost || !quoteForm.materialCost || !quoteForm.estimatedDuration) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -174,6 +181,7 @@ export default function SubcontractorBidding() {
         discountAmount: 0,
         totalAmount: total,
         originalAmount: total,
+        estimatedDuration: quoteForm.estimatedDuration,
         lineItems: lineItems.filter(item => item.description && item.amount > 0),
         notes: quoteForm.notes,
         status: 'pending',
@@ -182,7 +190,24 @@ export default function SubcontractorBidding() {
         updatedAt: serverTimestamp(),
       });
 
-      alert('Quote submitted successfully!');
+      // Update biddingWorkOrder status to 'quoted' so it disappears from bidding list
+      const biddingQuery = query(
+        collection(db, 'biddingWorkOrders'),
+        where('workOrderId', '==', selectedWorkOrder.id),
+        where('subcontractorId', '==', currentUser.uid)
+      );
+      const biddingSnapshot = await getDocs(biddingQuery);
+
+      if (!biddingSnapshot.empty) {
+        const biddingDoc = biddingSnapshot.docs[0];
+        await updateDoc(doc(db, 'biddingWorkOrders', biddingDoc.id), {
+          status: 'quoted',
+          quotedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      toast.success('Quote submitted successfully!');
       setShowQuoteForm(false);
       setSelectedWorkOrder(null);
       setQuoteForm({
@@ -195,7 +220,7 @@ export default function SubcontractorBidding() {
       setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
     } catch (error) {
       console.error('Error submitting quote:', error);
-      alert('Failed to submit quote');
+      toast.error('Failed to submit quote');
     } finally {
       setSubmitting(false);
     }

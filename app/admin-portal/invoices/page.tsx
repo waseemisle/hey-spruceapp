@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search } from 'lucide-react';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { Quote } from '@/types';
+import { toast } from 'sonner';
 
 interface Invoice {
   id: string;
@@ -49,6 +50,8 @@ export default function InvoicesManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
 
   const [formData, setFormData] = useState({
     notes: '',
@@ -71,7 +74,7 @@ export default function InvoicesManagement() {
       setInvoices(invoicesData);
     } catch (error) {
       console.error('Error fetching invoices:', error);
-      alert('Failed to load invoices');
+      toast.error('Failed to load invoices');
     } finally {
       setLoading(false);
     }
@@ -131,12 +134,12 @@ export default function InvoicesManagement() {
 
       await addDoc(collection(db, 'invoices'), invoiceData);
 
-      alert(`Invoice ${invoiceNumber} created successfully`);
+      toast.success(`Invoice ${invoiceNumber} created successfully`);
       fetchInvoices();
       fetchAcceptedQuotes();
     } catch (error) {
       console.error('Error generating invoice:', error);
-      alert('Failed to generate invoice');
+      toast.error('Failed to generate invoice');
     } finally {
       setGenerating(null);
     }
@@ -169,11 +172,11 @@ export default function InvoicesManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      alert('Stripe payment link created successfully');
+      toast.success('Stripe payment link created successfully');
       fetchInvoices();
     } catch (error) {
       console.error('Error creating payment link:', error);
-      alert('Failed to create Stripe payment link');
+      toast.error('Failed to create Stripe payment link');
     }
   };
 
@@ -195,7 +198,7 @@ export default function InvoicesManagement() {
       });
     } catch (error) {
       console.error('Error downloading invoice:', error);
-      alert('Failed to download invoice');
+      toast.error('Failed to download invoice');
     }
   };
 
@@ -263,12 +266,12 @@ export default function InvoicesManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      alert('Invoice updated successfully');
+      toast.success('Invoice updated successfully');
       resetForm();
       fetchInvoices();
     } catch (error: any) {
       console.error('Error saving invoice:', error);
-      alert(error.message || 'Failed to save invoice');
+      toast.error(error.message || 'Failed to save invoice');
     } finally {
       setSubmitting(false);
     }
@@ -282,11 +285,31 @@ export default function InvoicesManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      alert('Invoice marked as sent');
+      toast.success('Invoice marked as sent');
       fetchInvoices();
     } catch (error) {
       console.error('Error marking invoice as sent:', error);
-      alert('Failed to update invoice status');
+      toast.error('Failed to update invoice status');
+    }
+  };
+
+  const handleDeleteInvoice = (invoice: Invoice) => {
+    setInvoiceToDelete(invoice);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteInvoice = async () => {
+    if (!invoiceToDelete) return;
+
+    try {
+      await deleteDoc(doc(db, 'invoices', invoiceToDelete.id));
+      toast.success('Invoice deleted successfully');
+      setShowDeleteModal(false);
+      setInvoiceToDelete(null);
+      fetchInvoices();
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      toast.error('Failed to delete invoice');
     }
   };
 
@@ -643,6 +666,44 @@ export default function InvoicesManagement() {
                     disabled={submitting}
                   >
                     Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && invoiceToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-4">Delete Invoice</h2>
+                <p className="text-gray-700 mb-4">
+                  Are you sure you want to delete invoice <strong>"{invoiceToDelete.invoiceNumber}"</strong>?
+                </p>
+                <div className="bg-gray-50 p-4 rounded mb-4">
+                  <p className="text-sm"><strong>Client:</strong> {invoiceToDelete.clientName}</p>
+                  <p className="text-sm"><strong>Amount:</strong> ${invoiceToDelete.totalAmount?.toFixed(2) || '0.00'}</p>
+                </div>
+                <p className="text-sm text-red-600 mb-4">This action cannot be undone.</p>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setInvoiceToDelete(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={confirmDeleteInvoice}
+                    className="flex-1"
+                  >
+                    Delete Invoice
                   </Button>
                 </div>
               </div>

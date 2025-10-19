@@ -12,11 +12,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface Location {
   id: string;
   name: string;
-  address: string;
+  address: string | { street: string; city: string; state: string; zip: string; country: string; };
 }
 
 export default function CreateWorkOrder() {
@@ -33,6 +34,7 @@ export default function CreateWorkOrder() {
     description: '',
     category: 'HVAC',
     priority: 'medium',
+    estimateBudget: '',
   });
 
   useEffect(() => {
@@ -94,7 +96,7 @@ export default function CreateWorkOrder() {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        alert('You must be logged in');
+        toast.error('You must be logged in');
         return;
       }
 
@@ -103,7 +105,7 @@ export default function CreateWorkOrder() {
       const locationDoc = await getDoc(doc(db, 'locations', formData.locationId));
 
       if (!clientDoc.exists() || !locationDoc.exists()) {
-        alert('Invalid client or location');
+        toast.error('Invalid client or location');
         return;
       }
 
@@ -118,7 +120,7 @@ export default function CreateWorkOrder() {
           imageUrls = await uploadMultipleToCloudinary(selectedFiles);
         } catch (error) {
           console.error('Error uploading images:', error);
-          alert('Failed to upload images. Please try again.');
+          toast.error('Failed to upload images. Please try again.');
           setUploadingImages(false);
           setLoading(false);
           return;
@@ -126,28 +128,32 @@ export default function CreateWorkOrder() {
         setUploadingImages(false);
       }
 
+      // Build full location address
+      const fullAddress = `${locationData.address || ''}, ${locationData.city || ''}, ${locationData.state || ''} ${locationData.zipCode || ''}`.trim();
+
       // Create work order
       await addDoc(collection(db, 'workOrders'), {
         clientId: currentUser.uid,
-        clientName: clientData.fullName || clientData.companyName,
-        clientEmail: clientData.email,
+        clientName: clientData.fullName || clientData.companyName || '',
+        clientEmail: clientData.email || '',
         locationId: formData.locationId,
-        locationName: locationData.name,
-        locationAddress: locationData.address,
+        locationName: locationData.name || 'Unnamed Location',
+        locationAddress: fullAddress,
         title: formData.title,
         description: formData.description,
         category: formData.category,
         priority: formData.priority,
+        estimateBudget: formData.estimateBudget ? parseFloat(formData.estimateBudget) : null,
         images: imageUrls,
         status: 'pending',
         createdAt: serverTimestamp(),
       });
 
-      alert('Work order created successfully! Awaiting admin approval.');
+      toast.success('Work order created successfully! Awaiting admin approval.');
       router.push('/client-portal/work-orders');
     } catch (error) {
       console.error('Error creating work order:', error);
-      alert('Failed to create work order');
+      toast.error('Failed to create work order');
     } finally {
       setLoading(false);
     }
@@ -201,7 +207,7 @@ export default function CreateWorkOrder() {
                       <option value="">Select a location</option>
                       {locations.map(location => (
                         <option key={location.id} value={location.id}>
-                          {location.name} - {location.address}
+                          {location.name} - {typeof location.address === 'object' ? location.address.street : location.address}
                         </option>
                       ))}
                     </select>
@@ -271,6 +277,21 @@ export default function CreateWorkOrder() {
                       placeholder="Provide detailed information about the issue..."
                       required
                     />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="estimateBudget">Estimate Budget (Optional)</Label>
+                    <Input
+                      id="estimateBudget"
+                      name="estimateBudget"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.estimateBudget}
+                      onChange={handleChange}
+                      placeholder="e.g., 5000"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Estimated budget for this work order in USD</p>
                   </div>
 
                   <div className="md:col-span-2">

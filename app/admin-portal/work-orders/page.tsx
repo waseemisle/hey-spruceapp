@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search } from 'lucide-react';
+import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface WorkOrder {
   id: string;
@@ -23,6 +24,7 @@ interface WorkOrder {
   description: string;
   category: string;
   priority: 'low' | 'medium' | 'high';
+  estimateBudget?: number;
   status: 'pending' | 'approved' | 'rejected' | 'bidding' | 'quotes_received' | 'assigned' | 'completed';
   images: string[];
   assignedTo?: string;
@@ -47,6 +49,13 @@ interface Location {
   };
 }
 
+interface Subcontractor {
+  id: string;
+  fullName: string;
+  email: string;
+  businessName?: string;
+}
+
 export default function WorkOrdersManagement() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -58,6 +67,17 @@ export default function WorkOrdersManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Bidding modal states
+  const [showBiddingModal, setShowBiddingModal] = useState(false);
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
+  const [workOrderToShare, setWorkOrderToShare] = useState<WorkOrder | null>(null);
+
+  // Reject modal states
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectingWorkOrderId, setRejectingWorkOrderId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
   const [formData, setFormData] = useState({
     clientId: '',
     locationId: '',
@@ -65,6 +85,7 @@ export default function WorkOrdersManagement() {
     description: '',
     category: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
+    estimateBudget: '',
     status: 'approved' as WorkOrder['status'],
   });
 
@@ -79,7 +100,7 @@ export default function WorkOrdersManagement() {
       setWorkOrders(workOrdersData);
     } catch (error) {
       console.error('Error fetching work orders:', error);
-      alert('Failed to load work orders');
+      toast.error('Failed to load work orders');
     } finally {
       setLoading(false);
     }
@@ -134,35 +155,48 @@ export default function WorkOrdersManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      alert('Work order approved successfully');
+      toast.success('Work order approved successfully');
       fetchWorkOrders();
     } catch (error) {
       console.error('Error approving work order:', error);
-      alert('Failed to approve work order');
+      toast.error('Failed to approve work order');
     }
   };
 
-  const handleReject = async (workOrderId: string) => {
+  const handleReject = (workOrderId: string) => {
+    setRejectingWorkOrderId(workOrderId);
+    setRejectionReason('');
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectingWorkOrderId) return;
+
+    if (!rejectionReason.trim()) {
+      toast.error('Please enter a rejection reason');
+      return;
+    }
+
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const reason = prompt('Enter rejection reason:');
-      if (!reason) return;
-
-      await updateDoc(doc(db, 'workOrders', workOrderId), {
+      await updateDoc(doc(db, 'workOrders', rejectingWorkOrderId), {
         status: 'rejected',
         rejectedBy: currentUser.uid,
         rejectedAt: serverTimestamp(),
-        rejectionReason: reason,
+        rejectionReason: rejectionReason,
         updatedAt: serverTimestamp(),
       });
 
-      alert('Work order rejected');
+      toast.success('Work order rejected');
+      setShowRejectModal(false);
+      setRejectingWorkOrderId(null);
+      setRejectionReason('');
       fetchWorkOrders();
     } catch (error) {
       console.error('Error rejecting work order:', error);
-      alert('Failed to reject work order');
+      toast.error('Failed to reject work order');
     }
   };
 
@@ -174,6 +208,7 @@ export default function WorkOrdersManagement() {
       description: '',
       category: '',
       priority: 'medium',
+      estimateBudget: '',
       status: 'approved',
     });
     setEditingId(null);
@@ -193,6 +228,7 @@ export default function WorkOrdersManagement() {
       description: workOrder.description,
       category: workOrder.category,
       priority: workOrder.priority,
+      estimateBudget: workOrder.estimateBudget ? workOrder.estimateBudget.toString() : '',
       status: workOrder.status,
     });
     setEditingId(workOrder.id);
@@ -201,7 +237,7 @@ export default function WorkOrdersManagement() {
 
   const handleSubmit = async () => {
     if (!formData.clientId || !formData.locationId || !formData.title || !formData.description || !formData.category) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -212,7 +248,7 @@ export default function WorkOrdersManagement() {
       const location = locations.find(l => l.id === formData.locationId);
 
       if (!client || !location) {
-        alert('Invalid client or location selected');
+        toast.error('Invalid client or location selected');
         return;
       }
 
@@ -227,6 +263,7 @@ export default function WorkOrdersManagement() {
         description: formData.description,
         category: formData.category,
         priority: formData.priority,
+        estimateBudget: formData.estimateBudget ? parseFloat(formData.estimateBudget) : null,
         status: formData.status,
         updatedAt: serverTimestamp(),
       };
@@ -234,7 +271,7 @@ export default function WorkOrdersManagement() {
       if (editingId) {
         // Update existing work order
         await updateDoc(doc(db, 'workOrders', editingId), workOrderData);
-        alert('Work order updated successfully');
+        toast.success('Work order updated successfully');
       } else {
         // Create new work order
         const workOrderNumber = `WO-${Date.now().toString().slice(-8).toUpperCase()}`;
@@ -244,14 +281,14 @@ export default function WorkOrdersManagement() {
           images: [],
           createdAt: serverTimestamp(),
         });
-        alert('Work order created successfully');
+        toast.success('Work order created successfully');
       }
 
       resetForm();
       fetchWorkOrders();
     } catch (error: any) {
       console.error('Error saving work order:', error);
-      alert(error.message || 'Failed to save work order');
+      toast.error(error.message || 'Failed to save work order');
     } finally {
       setSubmitting(false);
     }
@@ -267,23 +304,57 @@ export default function WorkOrdersManagement() {
       const subsSnapshot = await getDocs(subsQuery);
 
       if (subsSnapshot.empty) {
-        alert('No approved subcontractors found');
+        toast.error('No approved subcontractors found');
         return;
       }
 
-      // Create bidding work order for each subcontractor
-      const promises = subsSnapshot.docs.map(async (subDoc) => {
-        const sub = subDoc.data();
+      // Map subcontractors data
+      const subsData = subsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        fullName: doc.data().fullName,
+        email: doc.data().email,
+        businessName: doc.data().businessName,
+      })) as Subcontractor[];
+
+      setSubcontractors(subsData);
+      setWorkOrderToShare(workOrder);
+      setSelectedSubcontractors([]);
+      setShowBiddingModal(true);
+    } catch (error) {
+      console.error('Error loading subcontractors:', error);
+      toast.error('Failed to load subcontractors');
+    }
+  };
+
+  const handleSubmitBidding = async () => {
+    if (!workOrderToShare) return;
+
+    if (selectedSubcontractors.length === 0) {
+      toast.error('Please select at least one subcontractor');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      // Ensure workOrderNumber exists, generate if missing
+      const workOrderNumber = workOrderToShare.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
+
+      // Create bidding work order for each selected subcontractor
+      const promises = selectedSubcontractors.map(async (subId) => {
+        const sub = subcontractors.find(s => s.id === subId);
+        if (!sub) return;
+
         await addDoc(collection(db, 'biddingWorkOrders'), {
-          workOrderId: workOrder.id,
-          workOrderNumber: workOrder.workOrderNumber,
-          subcontractorId: subDoc.id,
+          workOrderId: workOrderToShare.id,
+          workOrderNumber: workOrderNumber,
+          subcontractorId: subId,
           subcontractorName: sub.fullName,
           subcontractorEmail: sub.email,
-          workOrderTitle: workOrder.title,
-          workOrderDescription: workOrder.description,
-          clientId: workOrder.clientId,
-          clientName: workOrder.clientName,
+          workOrderTitle: workOrderToShare.title,
+          workOrderDescription: workOrderToShare.description,
+          clientId: workOrderToShare.clientId,
+          clientName: workOrderToShare.clientName,
           status: 'pending',
           sharedAt: serverTimestamp(),
           createdAt: serverTimestamp(),
@@ -292,18 +363,97 @@ export default function WorkOrdersManagement() {
 
       await Promise.all(promises);
 
-      // Update work order status
-      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+      // Update work order status and ensure workOrderNumber exists
+      await updateDoc(doc(db, 'workOrders', workOrderToShare.id), {
         status: 'bidding',
+        workOrderNumber: workOrderNumber,
         sharedForBiddingAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      alert(`Work order shared with ${subsSnapshot.size} subcontractors for bidding`);
+      toast.success(`Work order shared with ${selectedSubcontractors.length} subcontractor(s) for bidding`);
+      setShowBiddingModal(false);
+      setSelectedSubcontractors([]);
+      setWorkOrderToShare(null);
       fetchWorkOrders();
     } catch (error) {
       console.error('Error sharing for bidding:', error);
-      alert('Failed to share work order for bidding');
+      toast.error('Failed to share work order for bidding');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleSubcontractorSelection = (subId: string) => {
+    setSelectedSubcontractors(prev =>
+      prev.includes(subId)
+        ? prev.filter(id => id !== subId)
+        : [...prev, subId]
+    );
+  };
+
+  const selectAllSubcontractors = () => {
+    if (selectedSubcontractors.length === subcontractors.length) {
+      setSelectedSubcontractors([]);
+    } else {
+      setSelectedSubcontractors(subcontractors.map(s => s.id));
+    }
+  };
+
+  const handleDeleteWorkOrder = async (workOrder: WorkOrder) => {
+    // Show confirmation toast with action buttons
+    toast(`Delete work order "${workOrder.title}"?`, {
+      description: 'This will also delete all related quotes, bidding work orders, and invoices. This action cannot be undone.',
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          await performDeleteWorkOrder(workOrder);
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const performDeleteWorkOrder = async (workOrder: WorkOrder) => {
+    try {
+      // Delete related quotes
+      const quotesQuery = query(
+        collection(db, 'quotes'),
+        where('workOrderId', '==', workOrder.id)
+      );
+      const quotesSnapshot = await getDocs(quotesQuery);
+      const quoteDeletePromises = quotesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(quoteDeletePromises);
+
+      // Delete related bidding work orders
+      const biddingQuery = query(
+        collection(db, 'biddingWorkOrders'),
+        where('workOrderId', '==', workOrder.id)
+      );
+      const biddingSnapshot = await getDocs(biddingQuery);
+      const biddingDeletePromises = biddingSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(biddingDeletePromises);
+
+      // Delete related invoices
+      const invoicesQuery = query(
+        collection(db, 'invoices'),
+        where('workOrderId', '==', workOrder.id)
+      );
+      const invoicesSnapshot = await getDocs(invoicesQuery);
+      const invoiceDeletePromises = invoicesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(invoiceDeletePromises);
+
+      // Delete the work order itself
+      await deleteDoc(doc(db, 'workOrders', workOrder.id));
+
+      toast.success('Work order and all related data deleted successfully');
+      fetchWorkOrders();
+    } catch (error) {
+      console.error('Error deleting work order:', error);
+      toast.error('Failed to delete work order');
     }
   };
 
@@ -435,6 +585,11 @@ export default function WorkOrdersManagement() {
                     <div className="text-sm">
                       <span className="font-semibold">Category:</span> {workOrder.category}
                     </div>
+                    {workOrder.estimateBudget && (
+                      <div className="text-sm">
+                        <span className="font-semibold">Estimate Budget:</span> ${workOrder.estimateBudget.toLocaleString()}
+                      </div>
+                    )}
                     {workOrder.assignedToName && (
                       <div className="text-sm">
                         <span className="font-semibold">Assigned to:</span> {workOrder.assignedToName}
@@ -451,15 +606,24 @@ export default function WorkOrdersManagement() {
 
                   {/* Action Buttons */}
                   <div className="pt-4 space-y-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => handleOpenEdit(workOrder)}
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Edit Work Order
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenEdit(workOrder)}
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteWorkOrder(workOrder)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
 
                     {workOrder.status === 'pending' && (
                       <div className="flex gap-2">
@@ -582,6 +746,19 @@ export default function WorkOrdersManagement() {
                   </div>
 
                   <div>
+                    <Label>Estimate Budget (Optional)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.estimateBudget}
+                      onChange={(e) => setFormData({ ...formData, estimateBudget: e.target.value })}
+                      placeholder="e.g., 5000"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Estimated budget in USD</p>
+                  </div>
+
+                  <div>
                     <Label>Category *</Label>
                     <select
                       value={formData.category}
@@ -647,6 +824,176 @@ export default function WorkOrdersManagement() {
                     variant="outline"
                     onClick={resetForm}
                     disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Share for Bidding Modal */}
+        {showBiddingModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold">Share for Bidding</h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Select subcontractors to share this work order with
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowBiddingModal(false);
+                      setSelectedSubcontractors([]);
+                      setWorkOrderToShare(null);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {workOrderToShare && (
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="font-semibold text-blue-900 mb-1">{workOrderToShare.title}</h3>
+                    <p className="text-sm text-blue-700">{workOrderToShare.workOrderNumber}</p>
+                  </div>
+                )}
+
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="selectAll"
+                      checked={selectedSubcontractors.length === subcontractors.length && subcontractors.length > 0}
+                      onChange={selectAllSubcontractors}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="selectAll" className="text-sm font-medium text-gray-700">
+                      Select All ({subcontractors.length})
+                    </label>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {selectedSubcontractors.length} selected
+                  </div>
+                </div>
+
+                <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
+                  {subcontractors.length === 0 ? (
+                    <p className="text-center text-gray-500 py-8">No approved subcontractors found</p>
+                  ) : (
+                    subcontractors.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                          selectedSubcontractors.includes(sub.id)
+                            ? 'bg-blue-50 border-blue-300'
+                            : 'bg-white border-gray-200 hover:bg-gray-50'
+                        }`}
+                        onClick={() => toggleSubcontractorSelection(sub.id)}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedSubcontractors.includes(sub.id)}
+                          onChange={() => toggleSubcontractorSelection(sub.id)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{sub.fullName}</p>
+                          {sub.businessName && (
+                            <p className="text-sm text-gray-600">{sub.businessName}</p>
+                          )}
+                          <p className="text-sm text-gray-500">{sub.email}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-6 border-t mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowBiddingModal(false);
+                      setSelectedSubcontractors([]);
+                      setWorkOrderToShare(null);
+                    }}
+                    disabled={submitting}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSubmitBidding}
+                    disabled={submitting || selectedSubcontractors.length === 0}
+                    className="flex-1"
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    {submitting ? 'Sharing...' : `Share with ${selectedSubcontractors.length} Subcontractor(s)`}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reject Reason Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6 border-b">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Reject Work Order</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowRejectModal(false);
+                      setRejectingWorkOrderId(null);
+                      setRejectionReason('');
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <Label>Rejection Reason *</Label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                    placeholder="Please provide a reason for rejecting this work order..."
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    variant="destructive"
+                    onClick={confirmReject}
+                    disabled={!rejectionReason.trim()}
+                  >
+                    Reject Work Order
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowRejectModal(false);
+                      setRejectingWorkOrderId(null);
+                      setRejectionReason('');
+                    }}
                   >
                     Cancel
                   </Button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import ClientLayout from '@/components/client-layout';
@@ -46,25 +47,30 @@ export default function ClientInvoices() {
   const [filter, setFilter] = useState<string>('all');
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const invoicesQuery = query(
+          collection(db, 'invoices'),
+          where('clientId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
 
-    const invoicesQuery = query(
-      collection(db, 'invoices'),
-      where('clientId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
+        const unsubscribeSnapshot = onSnapshot(invoicesQuery, (snapshot) => {
+          const invoicesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Invoice[];
+          setInvoices(invoicesData);
+          setLoading(false);
+        });
 
-    const unsubscribe = onSnapshot(invoicesQuery, (snapshot) => {
-      const invoicesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Invoice[];
-      setInvoices(invoicesData);
-      setLoading(false);
+        return () => unsubscribeSnapshot();
+      } else {
+        setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
   const handleDownloadPDF = async (invoice: Invoice) => {

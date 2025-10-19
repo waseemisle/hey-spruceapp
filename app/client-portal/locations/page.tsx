@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,7 @@ interface Location {
   clientId: string;
   clientName: string;
   name: string;
-  address: string;
+  address: string | { street: string; city: string; state: string; zip: string; country: string; };
   city: string;
   state: string;
   zipCode: string;
@@ -34,25 +35,30 @@ export default function ClientLocations() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const locationsQuery = query(
+          collection(db, 'locations'),
+          where('clientId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
 
-    const locationsQuery = query(
-      collection(db, 'locations'),
-      where('clientId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
+        const unsubscribeSnapshot = onSnapshot(locationsQuery, (snapshot) => {
+          const locationsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Location[];
+          setLocations(locationsData);
+          setLoading(false);
+        });
 
-    const unsubscribe = onSnapshot(locationsQuery, (snapshot) => {
-      const locationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Location[];
-      setLocations(locationsData);
-      setLoading(false);
+        return () => unsubscribeSnapshot();
+      } else {
+        setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -66,11 +72,23 @@ export default function ClientLocations() {
 
   const filteredLocations = locations.filter(location => {
     const searchLower = searchQuery.toLowerCase();
+
+    // Handle both old format (flat fields) and new format (nested address object)
+    const addressStr = typeof location.address === 'object'
+      ? location.address.street.toLowerCase()
+      : location.address.toLowerCase();
+    const city = typeof location.address === 'object'
+      ? location.address.city.toLowerCase()
+      : location.city.toLowerCase();
+    const state = typeof location.address === 'object'
+      ? location.address.state.toLowerCase()
+      : location.state.toLowerCase();
+
     return !searchQuery ||
       location.name.toLowerCase().includes(searchLower) ||
-      location.address.toLowerCase().includes(searchLower) ||
-      location.city.toLowerCase().includes(searchLower) ||
-      location.state.toLowerCase().includes(searchLower) ||
+      addressStr.includes(searchLower) ||
+      city.includes(searchLower) ||
+      state.includes(searchLower) ||
       location.propertyType.toLowerCase().includes(searchLower);
   });
 
@@ -143,8 +161,16 @@ export default function ClientLocations() {
                   <div className="flex items-start gap-2">
                     <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-gray-600">
-                      <div>{location.address}</div>
-                      <div>{location.city}, {location.state} {location.zipCode}</div>
+                      <div>
+                        {typeof location.address === 'object'
+                          ? location.address.street
+                          : location.address}
+                      </div>
+                      <div>
+                        {typeof location.address === 'object'
+                          ? `${location.address.city}, ${location.address.state} ${location.address.zip}`
+                          : `${location.city}, ${location.state} ${location.zipCode}`}
+                      </div>
                     </div>
                   </div>
 

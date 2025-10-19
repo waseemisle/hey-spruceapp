@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FileText, DollarSign, Send, Plus, Trash2, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface LineItem {
   description: string;
@@ -91,7 +92,7 @@ export default function QuotesManagement() {
       setQuotes(quotesData);
     } catch (error) {
       console.error('Error fetching quotes:', error);
-      alert('Failed to load quotes');
+      toast.error('Failed to load quotes');
     } finally {
       setLoading(false);
     }
@@ -149,12 +150,12 @@ export default function QuotesManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      alert(`Quote forwarded to client with ${markup}% markup`);
+      toast.success(`Quote forwarded to client with ${markup}% markup`);
       setSelectedQuote(null);
       fetchQuotes();
     } catch (error) {
       console.error('Error sending quote:', error);
-      alert('Failed to send quote to client');
+      toast.error('Failed to send quote to client');
     }
   };
 
@@ -199,12 +200,12 @@ export default function QuotesManagement() {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        alert('You must be logged in');
+        toast.error('You must be logged in');
         return;
       }
 
       if (!formData.clientId || !formData.subcontractorId || !formData.workOrderTitle) {
-        alert('Please fill in all required fields');
+        toast.error('Please fill in all required fields');
         return;
       }
 
@@ -212,7 +213,7 @@ export default function QuotesManagement() {
       const subcontractor = subcontractors.find(s => s.id === formData.subcontractorId);
 
       if (!client || !subcontractor) {
-        alert('Invalid client or subcontractor selected');
+        toast.error('Invalid client or subcontractor selected');
         return;
       }
 
@@ -246,12 +247,40 @@ export default function QuotesManagement() {
 
       await addDoc(collection(db, 'quotes'), quoteData);
 
-      alert(`Quote ${quoteNumber} created successfully!`);
+      toast.success(`Quote ${quoteNumber} created successfully!`);
       resetForm();
       fetchQuotes();
     } catch (error) {
       console.error('Error creating quote:', error);
-      alert('Failed to create quote');
+      toast.error('Failed to create quote');
+    }
+  };
+
+  const handleDeleteQuote = async (quote: Quote) => {
+    // Show confirmation toast with action buttons
+    toast(`Delete quote for "${quote.workOrderTitle}"?`, {
+      description: `Quote Amount: $${quote.totalAmount?.toFixed(2) || '0.00'}\nSubcontractor: ${quote.subcontractorName}\n\nThis action cannot be undone.`,
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          await performDeleteQuote(quote);
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const performDeleteQuote = async (quote: Quote) => {
+    try {
+      await deleteDoc(doc(db, 'quotes', quote.id));
+      toast.success('Quote deleted successfully');
+      fetchQuotes();
+    } catch (error) {
+      console.error('Error deleting quote:', error);
+      toast.error('Failed to delete quote');
     }
   };
 
@@ -477,6 +506,19 @@ export default function QuotesManagement() {
                       )}
                     </div>
                   )}
+
+                  {/* Delete Button */}
+                  <div className="pt-4 border-t">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => handleDeleteQuote(quote)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Quote
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))
