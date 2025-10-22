@@ -286,3 +286,71 @@ export interface Message {
   seenAt?: Date;
   createdAt: Date;
 }
+
+// Recurring Work Order Types
+export interface RecurringWorkOrder {
+  id: string;
+  workOrderNumber: string;
+  clientId: string;
+  clientName: string;
+  clientEmail: string;
+  locationId: string;
+  locationName?: string;
+  locationAddress?: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  estimateBudget?: number;
+  status: 'active' | 'paused' | 'cancelled';
+  recurrencePattern: RecurrencePattern;
+  invoiceSchedule: InvoiceSchedule;
+  nextExecution: Date;
+  lastExecution?: Date;
+  totalExecutions: number;
+  successfulExecutions: number;
+  failedExecutions: number;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export interface RecurrencePattern {
+  type: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+  interval: number; // Every X days/weeks/months/years
+  daysOfWeek?: number[]; // 0-6 (Sunday-Saturday) for weekly
+  dayOfMonth?: number; // 1-31 for monthly
+  monthOfYear?: number; // 1-12 for yearly
+  customPattern?: string; // For custom patterns like "Every 2 weeks on Tuesday"
+  endDate?: Date; // Optional end date for the recurrence
+  maxOccurrences?: number; // Optional maximum number of occurrences
+}
+
+export interface InvoiceSchedule {
+  type: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+  interval: number;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+  monthOfYear?: number;
+  customPattern?: string;
+  time: string; // Time of day to send invoice
+  timezone: string;
+}
+
+export interface RecurringWorkOrderExecution {
+  id: string;
+  recurringWorkOrderId: string;
+  workOrderId?: string; // Reference to created work order
+  executionNumber: number;
+  scheduledDate: Date;
+  executedDate?: Date;
+  status: 'pending' | 'executed' | 'failed' | 'skipped';
+  workOrderPdfUrl?: string;
+  invoicePdfUrl?: string;
+  stripePaymentLink?: string;
+  emailSent: boolean;
+  emailSentAt?: Date;
+  failureReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}

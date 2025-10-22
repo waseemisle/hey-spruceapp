@@ -78,6 +78,9 @@ export default function WorkOrdersManagement() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingWorkOrderId, setRejectingWorkOrderId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  
+  // Work order type selection modal
+  const [showWorkOrderTypeModal, setShowWorkOrderTypeModal] = useState(false);
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -228,8 +231,18 @@ export default function WorkOrdersManagement() {
   };
 
   const handleOpenCreate = () => {
+    setShowWorkOrderTypeModal(true);
+  };
+
+  const handleCreateNormalWorkOrder = () => {
     resetForm();
+    setShowWorkOrderTypeModal(false);
     setShowModal(true);
+  };
+
+  const handleCreateRecurringWorkOrder = () => {
+    setShowWorkOrderTypeModal(false);
+    window.location.href = '/admin-portal/recurring-work-orders/create';
   };
 
   const handleOpenEdit = (workOrder: WorkOrder) => {
@@ -964,6 +977,68 @@ export default function WorkOrdersManagement() {
                   >
                     <Share2 className="h-4 w-4 mr-2" />
                     {submitting ? 'Sharing...' : `Share with ${selectedSubcontractors.length} Subcontractor(s)`}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Work Order Type Selection Modal */}
+        {showWorkOrderTypeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6 border-b">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Create Work Order</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowWorkOrderTypeModal(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-gray-600 mb-6">Choose the type of work order you want to create:</p>
+                
+                <div className="space-y-3">
+                  <Button
+                    className="w-full justify-start h-auto p-4"
+                    variant="outline"
+                    onClick={handleCreateNormalWorkOrder}
+                  >
+                    <div className="text-left">
+                      <div className="font-semibold text-lg">Normal Work Order</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Create a one-time work order for immediate or scheduled work
+                      </div>
+                    </div>
+                  </Button>
+                  
+                  <Button
+                    className="w-full justify-start h-auto p-4"
+                    variant="outline"
+                    onClick={handleCreateRecurringWorkOrder}
+                  >
+                    <div className="text-left">
+                      <div className="font-semibold text-lg">Recurring Work Order</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Create a recurring work order that repeats automatically (daily, weekly, monthly, yearly, or custom)
+                      </div>
+                    </div>
+                  </Button>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowWorkOrderTypeModal(false)}
+                    className="flex-1"
+                  >
+                    Cancel
                   </Button>
                 </div>
               </div>
