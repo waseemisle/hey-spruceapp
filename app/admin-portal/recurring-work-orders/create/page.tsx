@@ -145,24 +145,46 @@ export default function CreateRecurringWorkOrder() {
       const recurrencePattern: RecurrencePattern = {
         type: formData.recurrenceType,
         interval: formData.recurrenceInterval,
-        daysOfWeek: formData.recurrenceDaysOfWeek.length > 0 ? formData.recurrenceDaysOfWeek : undefined,
-        dayOfMonth: formData.recurrenceDayOfMonth,
-        monthOfYear: formData.recurrenceMonthOfYear,
-        customPattern: formData.recurrenceCustomPattern || undefined,
-        endDate: formData.recurrenceEndDate ? new Date(formData.recurrenceEndDate) : undefined,
-        maxOccurrences: formData.recurrenceMaxOccurrences ? parseInt(formData.recurrenceMaxOccurrences) : undefined,
-      };
+        ...(formData.recurrenceType === 'weekly' && formData.recurrenceDaysOfWeek.length > 0 && {
+          daysOfWeek: formData.recurrenceDaysOfWeek,
+        }),
+        ...(formData.recurrenceType === 'monthly' && {
+          dayOfMonth: formData.recurrenceDayOfMonth,
+        }),
+        ...(formData.recurrenceType === 'yearly' && {
+          monthOfYear: formData.recurrenceMonthOfYear,
+          dayOfMonth: formData.recurrenceDayOfMonth,
+        }),
+        ...(formData.recurrenceType === 'custom' && formData.recurrenceCustomPattern && {
+          customPattern: formData.recurrenceCustomPattern,
+        }),
+        ...(formData.recurrenceEndDate && {
+          endDate: new Date(formData.recurrenceEndDate),
+        }),
+        ...(formData.recurrenceMaxOccurrences && {
+          maxOccurrences: parseInt(formData.recurrenceMaxOccurrences),
+        }),
+      } as RecurrencePattern;
 
       const invoiceSchedule: InvoiceSchedule = {
         type: formData.invoiceScheduleType,
         interval: formData.invoiceScheduleInterval,
-        daysOfWeek: formData.invoiceScheduleDaysOfWeek.length > 0 ? formData.invoiceScheduleDaysOfWeek : undefined,
-        dayOfMonth: formData.invoiceScheduleDayOfMonth,
-        monthOfYear: formData.invoiceScheduleMonthOfYear,
-        customPattern: formData.invoiceScheduleCustomPattern || undefined,
+        ...(formData.invoiceScheduleType === 'weekly' && formData.invoiceScheduleDaysOfWeek.length > 0 && {
+          daysOfWeek: formData.invoiceScheduleDaysOfWeek,
+        }),
+        ...(formData.invoiceScheduleType === 'monthly' && {
+          dayOfMonth: formData.invoiceScheduleDayOfMonth,
+        }),
+        ...(formData.invoiceScheduleType === 'yearly' && {
+          monthOfYear: formData.invoiceScheduleMonthOfYear,
+          dayOfMonth: formData.invoiceScheduleDayOfMonth,
+        }),
+        ...(formData.invoiceScheduleType === 'custom' && formData.invoiceScheduleCustomPattern && {
+          customPattern: formData.invoiceScheduleCustomPattern,
+        }),
         time: formData.invoiceTime,
         timezone: formData.timezone,
-      };
+      } as InvoiceSchedule;
 
       const workOrderNumber = `RWO-${Date.now().toString().slice(-8).toUpperCase()}`;
 
