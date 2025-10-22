@@ -60,6 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Clients', href: '/admin-portal/clients', icon: Users },
     { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users },
     { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck },
+    { name: 'Subsidiaries', href: '/admin-portal/subsidiaries', icon: Building2 },
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2 },
     { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList },
     { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText },

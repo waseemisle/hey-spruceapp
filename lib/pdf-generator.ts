@@ -155,8 +155,14 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   let rowIndex = 0;
 
   invoice.lineItems.forEach((item) => {
+    // Split description into multiple lines if needed (max width ~95mm for description column)
+    const maxDescriptionWidth = 95;
+    const splitDescription = doc.splitTextToSize(item.description, maxDescriptionWidth);
+    const lineHeight = 5;
+    const rowHeight = Math.max(8, splitDescription.length * lineHeight + 2);
+
     // Check if we need a new page
-    if (yPosition > 240) {
+    if (yPosition + rowHeight > 240) {
       doc.addPage();
       yPosition = 20;
 
@@ -176,21 +182,27 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
       rowIndex = 0;
     }
 
-    // Alternating row colors
+    // Alternating row colors with dynamic height
     if (rowIndex % 2 === 0) {
       doc.setFillColor(248, 250, 252); // Very light gray
-      doc.rect(20, yPosition - 4, pageWidth - 40, 8, 'F');
+      doc.rect(20, yPosition - 4, pageWidth - 40, rowHeight, 'F');
     }
 
     doc.setTextColor(...COLORS.text);
-    doc.text(item.description, 25, yPosition);
-    doc.text(String(item.quantity), pageWidth - 85, yPosition, { align: 'center' });
-    doc.text(`$${item.unitPrice.toFixed(2)}`, pageWidth - 55, yPosition, { align: 'right' });
+
+    // Draw wrapped description text
+    doc.text(splitDescription, 25, yPosition);
+
+    // Position other columns at the vertical center of the row
+    const centerY = yPosition + (splitDescription.length > 1 ? (splitDescription.length - 1) * lineHeight / 2 : 0);
+
+    doc.text(String(item.quantity), pageWidth - 85, centerY, { align: 'center' });
+    doc.text(`$${item.unitPrice.toFixed(2)}`, pageWidth - 55, centerY, { align: 'right' });
     doc.setFont('helvetica', 'bold');
-    doc.text(`$${item.amount.toFixed(2)}`, pageWidth - 25, yPosition, { align: 'right' });
+    doc.text(`$${item.amount.toFixed(2)}`, pageWidth - 25, centerY, { align: 'right' });
     doc.setFont('helvetica', 'normal');
 
-    yPosition += 8;
+    yPosition += rowHeight;
     rowIndex++;
   });
 
