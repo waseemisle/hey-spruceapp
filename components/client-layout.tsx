@@ -48,6 +48,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const menuItems = [
     { name: 'Dashboard', href: '/client-portal', icon: Home },
+    { name: 'Subsidiaries', href: '/client-portal/subsidiaries', icon: Building2 },
     { name: 'Locations', href: '/client-portal/locations', icon: Building2 },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList },
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText },

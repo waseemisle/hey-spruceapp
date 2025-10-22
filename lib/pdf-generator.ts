@@ -155,11 +155,11 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   let rowIndex = 0;
 
   invoice.lineItems.forEach((item) => {
-    // Split description text to fit within column width (adjustable width for description column)
-    const descriptionMaxWidth = pageWidth - 115; // Space for description column
+    // Split description text to fit within column width (adaptive width for description column)
+    const descriptionMaxWidth = pageWidth - 115;
     const splitDescription = doc.splitTextToSize(item.description, descriptionMaxWidth);
-    const lineHeight = 5; // Height per line of text
-    const rowHeight = Math.max(8, splitDescription.length * lineHeight + 2); // Dynamic row height based on text lines
+    const lineHeight = 5;
+    const rowHeight = Math.max(8, splitDescription.length * lineHeight + 2);
 
     // Check if we need a new page
     if (yPosition + rowHeight > 240) {
@@ -189,11 +189,11 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
     }
 
     doc.setTextColor(...COLORS.text);
-    // Render wrapped description text
+    // Draw wrapped description text
     doc.text(splitDescription, 25, yPosition);
 
-    // Calculate vertical center for single-line items (quantity, price, amount)
-    const centerY = yPosition + (splitDescription.length > 1 ? (splitDescription.length * lineHeight) / 2 - 2 : 0);
+    // Position other columns at the vertical center of the row
+    const centerY = yPosition + (splitDescription.length > 1 ? ((splitDescription.length - 1) * lineHeight) / 2 : 0);
 
     doc.text(String(item.quantity), pageWidth - 85, centerY, { align: 'center' });
     doc.text(`$${item.unitPrice.toFixed(2)}`, pageWidth - 55, centerY, { align: 'right' });

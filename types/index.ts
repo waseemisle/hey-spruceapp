@@ -61,6 +61,8 @@ export interface Location {
   clientId: string;
   clientName: string;
   clientEmail: string;
+  subsidiaryId: string;
+  subsidiaryName: string;
   locationName: string;
   address: Address;
   propertyType: string;
@@ -70,6 +72,19 @@ export interface Location {
   approvedBy?: string;
   approvedAt?: Date;
   rejectionReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Subsidiary Types
+export interface Subsidiary {
+  id: string;
+  clientId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  address?: Address;
   createdAt: Date;
   updatedAt: Date;
 }
