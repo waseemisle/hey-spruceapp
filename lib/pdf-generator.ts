@@ -165,6 +165,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
     if (yPosition + rowHeight > 240) {
       doc.addPage();
       yPosition = 20;
+      
 
       // Redraw header on new page
       doc.setFillColor(...COLORS.primary);
