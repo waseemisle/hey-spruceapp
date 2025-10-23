@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MessageSquare, Send } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Chat {
   id: string;
@@ -105,7 +106,7 @@ export default function SubcontractorMessages() {
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Failed to send message');
+      toast.error('Failed to send message');
     }
   };
 

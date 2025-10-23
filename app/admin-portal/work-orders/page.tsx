@@ -25,7 +25,7 @@ interface WorkOrder {
   category: string;
   priority: 'low' | 'medium' | 'high';
   estimateBudget?: number;
-  status: 'pending' | 'approved' | 'rejected' | 'bidding' | 'quotes_received' | 'assigned' | 'completed';
+  status: 'pending' | 'approved' | 'rejected' | 'bidding' | 'quotes_received' | 'to_be_started' | 'assigned' | 'completed' | 'accepted_by_subcontractor' | 'rejected_by_subcontractor';
   images: string[];
   assignedTo?: string;
   assignedToName?: string;
@@ -52,9 +52,11 @@ interface Location {
 
 interface Subcontractor {
   id: string;
+  uid: string;
   fullName: string;
   email: string;
   businessName?: string;
+  status: 'pending' | 'approved' | 'rejected';
 }
 
 export default function WorkOrdersManagement() {
@@ -62,7 +64,7 @@ export default function WorkOrdersManagement() {
   const [clients, setClients] = useState<Client[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'bidding' | 'assigned' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'bidding' | 'quotes_received' | 'to_be_started' | 'assigned' | 'completed' | 'accepted_by_subcontractor' | 'rejected_by_subcontractor'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -81,6 +83,11 @@ export default function WorkOrdersManagement() {
   
   // Work order type selection modal
   const [showWorkOrderTypeModal, setShowWorkOrderTypeModal] = useState(false);
+  
+  // Assign to subcontractor modal states
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [workOrderToAssign, setWorkOrderToAssign] = useState<WorkOrder | null>(null);
+  const [selectedSubcontractorForAssign, setSelectedSubcontractorForAssign] = useState<string>('');
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -243,6 +250,58 @@ export default function WorkOrdersManagement() {
   const handleCreateRecurringWorkOrder = () => {
     setShowWorkOrderTypeModal(false);
     window.location.href = '/admin-portal/recurring-work-orders/create';
+  };
+
+  const handleAssignToSubcontractor = (workOrder: WorkOrder) => {
+    setWorkOrderToAssign(workOrder);
+    setSelectedSubcontractorForAssign('');
+    setShowAssignModal(true);
+  };
+
+  const handleSubmitAssignment = async () => {
+    if (!workOrderToAssign || !selectedSubcontractorForAssign) {
+      toast.error('Please select a subcontractor');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const subcontractor = subcontractors.find(s => s.id === selectedSubcontractorForAssign);
+      if (!subcontractor) {
+        toast.error('Invalid subcontractor selected');
+        return;
+      }
+
+      // Update work order status and assignment
+      await updateDoc(doc(db, 'workOrders', workOrderToAssign.id), {
+        status: 'assigned',
+        assignedTo: selectedSubcontractorForAssign,
+        assignedToName: subcontractor.fullName,
+        assignedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Create assignment record for subcontractor portal
+      await addDoc(collection(db, 'assignedJobs'), {
+        workOrderId: workOrderToAssign.id,
+        subcontractorId: selectedSubcontractorForAssign,
+        assignedAt: serverTimestamp(),
+        status: 'pending_acceptance', // New status for pending acceptance
+        createdAt: serverTimestamp(),
+      });
+
+      toast.success(`Work order assigned to ${subcontractor.fullName}`);
+      setShowAssignModal(false);
+      setWorkOrderToAssign(null);
+      setSelectedSubcontractorForAssign('');
+      fetchWorkOrders();
+    } catch (error) {
+      console.error('Error assigning work order:', error);
+      toast.error('Failed to assign work order');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleOpenEdit = (workOrder: WorkOrder) => {
@@ -505,8 +564,11 @@ export default function WorkOrdersManagement() {
       case 'rejected': return 'text-red-600 bg-red-50';
       case 'bidding': return 'text-blue-600 bg-blue-50';
       case 'quotes_received': return 'text-purple-600 bg-purple-50';
+      case 'to_be_started': return 'text-orange-600 bg-orange-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
+      case 'accepted_by_subcontractor': return 'text-green-600 bg-green-50';
+      case 'rejected_by_subcontractor': return 'text-red-600 bg-red-50';
       default: return 'text-gray-600 bg-gray-50';
     }
   };
@@ -533,14 +595,18 @@ export default function WorkOrdersManagement() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Work Orders</h1>
-            <p className="text-gray-600 mt-2">Manage work orders and assignments</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Work Orders</h1>
+            <p className="text-gray-600 mt-2 text-sm sm:text-base">Manage work orders and assignments</p>
           </div>
-          <Button onClick={handleOpenCreate}>
+          <Button 
+            onClick={handleOpenCreate}
+            className="w-full sm:w-auto"
+          >
             <Plus className="h-4 w-4 mr-2" />
-            Create Work Order
+            <span className="hidden sm:inline">Create Work Order</span>
+            <span className="sm:hidden">Create</span>
           </Button>
         </div>
 
@@ -557,21 +623,23 @@ export default function WorkOrdersManagement() {
 
         {/* Filter Tabs */}
         <div className="flex gap-2 flex-wrap">
-          {['all', 'pending', 'approved', 'bidding', 'assigned', 'completed'].map((filterOption) => (
+          {['all', 'pending', 'approved', 'bidding', 'quotes_received', 'to_be_started', 'assigned', 'completed', 'accepted_by_subcontractor', 'rejected_by_subcontractor'].map((filterOption) => (
             <Button
               key={filterOption}
               variant={filter === filterOption ? 'default' : 'outline'}
               onClick={() => setFilter(filterOption as typeof filter)}
-              className="capitalize"
+              className="capitalize text-xs sm:text-sm"
               size="sm"
             >
-              {filterOption} ({workOrders.filter(w => filterOption === 'all' || w.status === filterOption).length})
+              <span className="hidden sm:inline">{filterOption}</span>
+              <span className="sm:hidden">{filterOption.charAt(0).toUpperCase()}</span>
+              <span className="ml-1">({workOrders.filter(w => filterOption === 'all' || w.status === filterOption).length})</span>
             </Button>
           ))}
         </div>
 
         {/* Work Orders Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {filteredWorkOrders.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
@@ -636,28 +704,29 @@ export default function WorkOrdersManagement() {
 
                   {/* Action Buttons */}
                   <div className="pt-4 space-y-2">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1"
+                        className="flex-1 min-w-0"
                         onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}
                       >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
+                        <Eye className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">View</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1"
+                        className="flex-1 min-w-0"
                         onClick={() => handleOpenEdit(workOrder)}
                       >
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit
+                        <Edit2 className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Edit</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="destructive"
+                        className="px-2 sm:px-3"
                         onClick={() => handleDeleteWorkOrder(workOrder)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -665,23 +734,23 @@ export default function WorkOrdersManagement() {
                     </div>
 
                     {workOrder.status === 'pending' && (
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
-                          className="flex-1"
+                          className="flex-1 min-w-0"
                           onClick={() => handleApprove(workOrder.id)}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approve
+                          <CheckCircle className="h-4 w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Approve</span>
                         </Button>
                         <Button
                           size="sm"
                           variant="destructive"
-                          className="flex-1"
+                          className="flex-1 min-w-0"
                           onClick={() => handleReject(workOrder.id)}
                         >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Reject
+                          <XCircle className="h-4 w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Reject</span>
                         </Button>
                       </div>
                     )}
@@ -692,8 +761,9 @@ export default function WorkOrdersManagement() {
                         className="w-full"
                         onClick={() => handleShareForBidding(workOrder)}
                       >
-                        <Share2 className="h-4 w-4 mr-2" />
-                        Share for Bidding
+                        <Share2 className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Share for Bidding</span>
+                        <span className="sm:hidden">Share</span>
                       </Button>
                     )}
 
@@ -703,7 +773,32 @@ export default function WorkOrdersManagement() {
                         className="w-full"
                         onClick={() => window.location.href = `/admin-portal/quotes?workOrderId=${workOrder.id}`}
                       >
-                        View Quotes
+                        <span className="hidden sm:inline">View Quotes</span>
+                        <span className="sm:hidden">Quotes</span>
+                      </Button>
+                    )}
+
+                    {workOrder.status === 'to_be_started' && (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleAssignToSubcontractor(workOrder)}
+                      >
+                        <UserPlus className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Assign to Subcontractor</span>
+                        <span className="sm:hidden">Assign</span>
+                      </Button>
+                    )}
+
+                    {workOrder.status === 'rejected_by_subcontractor' && (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleAssignToSubcontractor(workOrder)}
+                      >
+                        <UserPlus className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Reassign to Subcontractor</span>
+                        <span className="sm:hidden">Reassign</span>
                       </Button>
                     )}
                   </div>
@@ -715,11 +810,11 @@ export default function WorkOrdersManagement() {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">
+                  <h2 className="text-xl sm:text-2xl font-bold">
                     {editingId ? 'Edit Work Order' : 'Create New Work Order'}
                   </h2>
                   <Button variant="outline" size="sm" onClick={resetForm}>
@@ -728,8 +823,8 @@ export default function WorkOrdersManagement() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 sm:p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Select Client *</Label>
                     <select
@@ -765,7 +860,7 @@ export default function WorkOrdersManagement() {
                     </select>
                   </div>
 
-                  <div className="md:col-span-2">
+                  <div className="sm:col-span-2">
                     <Label>Work Order Title *</Label>
                     <Input
                       value={formData.title}
@@ -774,7 +869,7 @@ export default function WorkOrdersManagement() {
                     />
                   </div>
 
-                  <div className="md:col-span-2">
+                  <div className="sm:col-span-2">
                     <Label>Description *</Label>
                     <textarea
                       value={formData.description}
@@ -850,7 +945,7 @@ export default function WorkOrdersManagement() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                   <Button
                     className="flex-1"
                     onClick={handleSubmit}
@@ -863,6 +958,7 @@ export default function WorkOrdersManagement() {
                     variant="outline"
                     onClick={resetForm}
                     disabled={submitting}
+                    className="w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
@@ -874,12 +970,12 @@ export default function WorkOrdersManagement() {
 
         {/* Share for Bidding Modal */}
         {showBiddingModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h2 className="text-2xl font-bold">Share for Bidding</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold">Share for Bidding</h2>
                     <p className="text-sm text-gray-600 mt-1">
                       Select subcontractors to share this work order with
                     </p>
@@ -898,7 +994,7 @@ export default function WorkOrdersManagement() {
                 </div>
               </div>
 
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 {workOrderToShare && (
                   <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <h3 className="font-semibold text-blue-900 mb-1">{workOrderToShare.title}</h3>
@@ -957,7 +1053,7 @@ export default function WorkOrdersManagement() {
                   )}
                 </div>
 
-                <div className="flex gap-3 pt-6 border-t mt-6">
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t mt-6">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -976,7 +1072,12 @@ export default function WorkOrdersManagement() {
                     className="flex-1"
                   >
                     <Share2 className="h-4 w-4 mr-2" />
-                    {submitting ? 'Sharing...' : `Share with ${selectedSubcontractors.length} Subcontractor(s)`}
+                    <span className="hidden sm:inline">
+                      {submitting ? 'Sharing...' : `Share with ${selectedSubcontractors.length} Subcontractor(s)`}
+                    </span>
+                    <span className="sm:hidden">
+                      {submitting ? 'Sharing...' : `Share (${selectedSubcontractors.length})`}
+                    </span>
                   </Button>
                 </div>
               </div>
@@ -986,11 +1087,11 @@ export default function WorkOrdersManagement() {
 
         {/* Work Order Type Selection Modal */}
         {showWorkOrderTypeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-lg max-w-md w-full">
-              <div className="p-6 border-b">
+              <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">Create Work Order</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold">Create Work Order</h2>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1001,7 +1102,7 @@ export default function WorkOrdersManagement() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <p className="text-gray-600 mb-6">Choose the type of work order you want to create:</p>
                 
                 <div className="space-y-3">
@@ -1036,7 +1137,7 @@ export default function WorkOrdersManagement() {
                   <Button
                     variant="outline"
                     onClick={() => setShowWorkOrderTypeModal(false)}
-                    className="flex-1"
+                    className="w-full"
                   >
                     Cancel
                   </Button>
@@ -1048,11 +1149,11 @@ export default function WorkOrdersManagement() {
 
         {/* Reject Reason Modal */}
         {showRejectModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-lg max-w-md w-full">
-              <div className="p-6 border-b">
+              <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">Reject Work Order</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold">Reject Work Order</h2>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1067,7 +1168,7 @@ export default function WorkOrdersManagement() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div>
                   <Label>Rejection Reason *</Label>
                   <textarea
@@ -1079,7 +1180,7 @@ export default function WorkOrdersManagement() {
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                   <Button
                     className="flex-1"
                     variant="destructive"
@@ -1095,6 +1196,80 @@ export default function WorkOrdersManagement() {
                       setRejectingWorkOrderId(null);
                       setRejectionReason('');
                     }}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Assign to Subcontractor Modal */}
+        {showAssignModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-4 sm:p-6 border-b">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl sm:text-2xl font-bold">Assign to Subcontractor</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowAssignModal(false);
+                      setWorkOrderToAssign(null);
+                      setSelectedSubcontractorForAssign('');
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-6 space-y-4">
+                {workOrderToAssign && (
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="font-semibold text-blue-900 mb-1">{workOrderToAssign.title}</h3>
+                    <p className="text-sm text-blue-700">{workOrderToAssign.workOrderNumber}</p>
+                  </div>
+                )}
+
+                <div>
+                  <Label>Select Subcontractor *</Label>
+                  <select
+                    value={selectedSubcontractorForAssign}
+                    onChange={(e) => setSelectedSubcontractorForAssign(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md p-2"
+                  >
+                    <option value="">Choose a subcontractor...</option>
+                    {subcontractors
+                      .filter(sub => sub.status === 'approved')
+                      .map(subcontractor => (
+                        <option key={subcontractor.uid} value={subcontractor.uid}>
+                          {subcontractor.fullName} ({subcontractor.email})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    onClick={handleSubmitAssignment}
+                    disabled={submitting || !selectedSubcontractorForAssign}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    {submitting ? 'Assigning...' : 'Assign Work Order'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowAssignModal(false);
+                      setWorkOrderToAssign(null);
+                      setSelectedSubcontractorForAssign('');
+                    }}
+                    className="w-full sm:w-auto"
                   >
                     Cancel
                   </Button>

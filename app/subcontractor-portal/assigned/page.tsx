@@ -1,20 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search } from 'lucide-react';
+import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AssignedJob {
   id: string;
   workOrderId: string;
   subcontractorId: string;
   assignedAt: any;
+  status: 'pending_acceptance' | 'accepted' | 'rejected';
+  acceptedAt?: any;
+  rejectedAt?: any;
 }
 
 interface WorkOrder {
@@ -88,19 +92,102 @@ export default function SubcontractorAssignedJobs() {
     return () => unsubscribeAuth();
   }, []);
 
-  const handleMarkComplete = async (workOrderId: string) => {
-    if (!confirm('Are you sure you want to mark this job as complete?')) return;
+  const handleAcceptAssignment = async (assignedJobId: string, workOrderId: string) => {
+    const workOrder = workOrders.get(workOrderId);
+    toast(`Accept assignment for "${workOrder?.title}"?`, {
+      description: 'This will mark the work order as accepted and ready to begin.',
+      action: {
+        label: 'Accept',
+        onClick: async () => {
+          try {
+            // Update assigned job status
+            await updateDoc(doc(db, 'assignedJobs', assignedJobId), {
+              status: 'accepted',
+              acceptedAt: serverTimestamp(),
+            });
 
-    try {
-      await updateDoc(doc(db, 'workOrders', workOrderId), {
-        status: 'completed',
-        completedAt: new Date(),
-      });
-      alert('Job marked as complete successfully!');
-    } catch (error) {
-      console.error('Error marking job complete:', error);
-      alert('Failed to mark job as complete');
-    }
+            // Update work order status
+            await updateDoc(doc(db, 'workOrders', workOrderId), {
+              status: 'accepted_by_subcontractor',
+              updatedAt: serverTimestamp(),
+            });
+
+            toast.success('Assignment accepted successfully!');
+          } catch (error) {
+            console.error('Error accepting assignment:', error);
+            toast.error('Failed to accept assignment');
+          }
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const handleRejectAssignment = async (assignedJobId: string, workOrderId: string) => {
+    const workOrder = workOrders.get(workOrderId);
+    toast(`Reject assignment for "${workOrder?.title}"?`, {
+      description: 'Please provide a reason for rejection (optional).',
+      action: {
+        label: 'Reject',
+        onClick: async () => {
+          const reason = prompt('Please provide a reason for rejection (optional):');
+          if (reason === null) return;
+
+          try {
+            // Update assigned job status
+            await updateDoc(doc(db, 'assignedJobs', assignedJobId), {
+              status: 'rejected',
+              rejectedAt: serverTimestamp(),
+              rejectionReason: reason,
+            });
+
+            // Update work order status
+            await updateDoc(doc(db, 'workOrders', workOrderId), {
+              status: 'rejected_by_subcontractor',
+              updatedAt: serverTimestamp(),
+            });
+
+            toast.success('Assignment rejected. The work order will be available for reassignment.');
+          } catch (error) {
+            console.error('Error rejecting assignment:', error);
+            toast.error('Failed to reject assignment');
+          }
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const handleMarkComplete = async (workOrderId: string) => {
+    const workOrder = workOrders.get(workOrderId);
+    toast(`Mark "${workOrder?.title}" as complete?`, {
+      description: 'This will mark the work order as completed.',
+      action: {
+        label: 'Mark Complete',
+        onClick: async () => {
+          try {
+            await updateDoc(doc(db, 'workOrders', workOrderId), {
+              status: 'completed',
+              completedAt: serverTimestamp(),
+            });
+            toast.success('Job marked as complete successfully!');
+          } catch (error) {
+            console.error('Error marking job complete:', error);
+            toast.error('Failed to mark job as complete');
+          }
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -114,6 +201,9 @@ export default function SubcontractorAssignedJobs() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
+      pending_acceptance: 'bg-yellow-100 text-yellow-800',
+      accepted: 'bg-blue-100 text-blue-800',
+      rejected: 'bg-red-100 text-red-800',
       assigned: 'bg-blue-100 text-blue-800',
       completed: 'bg-green-100 text-green-800',
     };
@@ -126,7 +216,8 @@ export default function SubcontractorAssignedJobs() {
 
     // Filter by status
     let statusMatch = true;
-    if (filter === 'in-progress') statusMatch = workOrder.status === 'assigned';
+    if (filter === 'pending') statusMatch = job.status === 'pending_acceptance';
+    else if (filter === 'in-progress') statusMatch = job.status === 'accepted' && workOrder.status === 'assigned';
     else if (filter === 'completed') statusMatch = workOrder.status === 'completed';
 
     // Filter by search query
@@ -145,9 +236,14 @@ export default function SubcontractorAssignedJobs() {
   const filterOptions = [
     { value: 'all', label: 'All', count: assignedJobs.length },
     {
+      value: 'pending',
+      label: 'Pending Acceptance',
+      count: assignedJobs.filter(job => job.status === 'pending_acceptance').length
+    },
+    {
       value: 'in-progress',
       label: 'In Progress',
-      count: assignedJobs.filter(job => workOrders.get(job.workOrderId)?.status === 'assigned').length
+      count: assignedJobs.filter(job => job.status === 'accepted' && workOrders.get(job.workOrderId)?.status === 'assigned').length
     },
     {
       value: 'completed',
@@ -228,8 +324,8 @@ export default function SubcontractorAssignedJobs() {
                       <div className="flex-1">
                         <CardTitle className="text-lg mb-2">{workOrder.title}</CardTitle>
                         <div className="flex gap-2 flex-wrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(workOrder.status)}`}>
-                            {workOrder.status}
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(job.status)}`}>
+                            {job.status.replace('_', ' ')}
                           </span>
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
                             {workOrder.priority} priority
@@ -298,7 +394,27 @@ export default function SubcontractorAssignedJobs() {
                       </div>
                     )}
 
-                    {workOrder.status === 'assigned' && (
+                    {job.status === 'pending_acceptance' && (
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          onClick={() => handleAcceptAssignment(job.id, workOrder.id)}
+                          className="flex-1 bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Accept
+                        </Button>
+                        <Button
+                          onClick={() => handleRejectAssignment(job.id, workOrder.id)}
+                          variant="destructive"
+                          className="flex-1"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+
+                    {job.status === 'accepted' && workOrder.status === 'assigned' && (
                       <Button
                         onClick={() => handleMarkComplete(workOrder.id)}
                         className="w-full mt-4 bg-green-600 hover:bg-green-700"

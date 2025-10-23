@@ -17,6 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -77,43 +78,79 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center">
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => {
+                if (window.innerWidth < 768) {
+                  setMobileMenuOpen(!mobileMenuOpen);
+                } else {
+                  setSidebarOpen(!sidebarOpen);
+                }
+              }}
               className="mr-4 text-gray-600 hover:text-gray-900"
+              aria-label="Toggle menu"
             >
-              {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {(sidebarOpen || mobileMenuOpen) ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <Logo href="/admin-portal" size="sm" />
-            <span className="ml-3 text-sm text-gray-500">Admin Portal</span>
+            <span className="ml-3 text-sm text-gray-500 hidden sm:inline">Admin Portal</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{user?.email}</span>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-sm text-gray-600 hidden md:inline">{user?.email}</span>
             <Button
               variant="outline"
               size="sm"
               onClick={handleLogout}
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
+              <LogOut className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Logout</span>
             </Button>
           </div>
         </div>
       </header>
 
+      {/* Mobile Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       <div className="flex pt-16">
-        {/* Sidebar */}
+        {/* Sidebar - Desktop */}
         <aside
-          className={`fixed left-0 h-[calc(100vh-4rem)] bg-white border-r transition-all duration-300 ${
+          className={`hidden md:block fixed left-0 h-[calc(100vh-4rem)] bg-white border-r transition-all duration-300 ${
             sidebarOpen ? 'w-64' : 'w-0 -ml-64'
           }`}
         >
-          <nav className="p-4 space-y-1">
+          <nav className="p-4 space-y-1 overflow-y-auto h-full">
             {menuItems.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition-colors"
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span>{item.name}</span>
+              </Link>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Sidebar - Mobile */}
+        <aside
+          className={`md:hidden fixed left-0 h-[calc(100vh-4rem)] bg-white border-r transition-all duration-300 z-50 ${
+            mobileMenuOpen ? 'w-64' : 'w-0 -ml-64'
+          }`}
+        >
+          <nav className="p-4 space-y-1 overflow-y-auto h-full">
+            {menuItems.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition-colors"
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
               </Link>
             ))}
@@ -123,10 +160,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Main Content */}
         <main
           className={`flex-1 transition-all duration-300 ${
-            sidebarOpen ? 'ml-64' : 'ml-0'
+            sidebarOpen ? 'md:ml-64' : 'md:ml-0'
           }`}
         >
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             {children}
           </div>
         </main>

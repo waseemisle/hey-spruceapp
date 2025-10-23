@@ -367,3 +367,284 @@ export function getInvoicePDFBase64(invoice: InvoiceData): string {
   const doc = generateInvoicePDF(invoice);
   return doc.output('dataurlstring').split(',')[1];
 }
+
+// Work Order PDF Generator
+interface WorkOrderData {
+  workOrderNumber: string;
+  clientName: string;
+  clientEmail: string;
+  clientAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  locationName: string;
+  locationAddress?: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  estimateBudget?: number;
+  dueDate: string;
+  notes?: string;
+  terms?: string;
+}
+
+export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Logo - Embedded as base64
+  try {
+    doc.addImage(SPRUCE_LOGO_BASE64, 'PNG', 20, 12, 55, 16);
+  } catch (error) {
+    // Fallback to styled text if logo fails
+    doc.setFontSize(18);
+    doc.setTextColor(...COLORS.primary);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HEY', 20, 22);
+    doc.setTextColor(...COLORS.secondary);
+    doc.text('SPRUCE', 35, 22);
+
+    // Decorative underline for brand
+    doc.setDrawColor(...COLORS.primary);
+    doc.setLineWidth(0.8);
+    doc.line(20, 24, 60, 24);
+  }
+
+  // Company Info
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.gray);
+  doc.text('Property Maintenance Management', 20, 35);
+  doc.text('San Francisco, California 94104', 20, 39);
+  doc.text('waseem@shurehw.com | 877-253-2646', 20, 43);
+
+  // Work Order Title - Right aligned
+  doc.setFontSize(28);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  doc.text('WORK ORDER', pageWidth - 20, 22, { align: 'right' });
+
+  // Work Order Details - Right aligned box with background
+  const detailsBoxX = pageWidth - 75;
+  doc.setFillColor(...COLORS.lightGray);
+  doc.roundedRect(detailsBoxX, 28, 55, 22, 2, 2, 'F');
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  doc.text('Work Order #:', detailsBoxX + 3, 33);
+  doc.setFont('helvetica', 'normal');
+  doc.text(workOrder.workOrderNumber, detailsBoxX + 3, 38);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Issue Date:', detailsBoxX + 3, 43);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date().toLocaleDateString(), detailsBoxX + 3, 48);
+
+  // Decorative line
+  doc.setDrawColor(...COLORS.primary);
+  doc.setLineWidth(0.5);
+  doc.line(20, 55, pageWidth - 20, 55);
+
+  // Client Information Section
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.primary);
+  doc.text('CLIENT INFORMATION:', 20, 63);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  doc.text(workOrder.clientName, 20, 70);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
+  if (workOrder.clientAddress) {
+    doc.text(workOrder.clientAddress.street, 20, 75);
+    doc.text(`${workOrder.clientAddress.city}, ${workOrder.clientAddress.state} ${workOrder.clientAddress.zip}`, 20, 80);
+  }
+  doc.text(workOrder.clientEmail, 20, 85);
+
+  // Due Date Box - Right side
+  doc.setFillColor(...COLORS.primary);
+  doc.roundedRect(pageWidth - 65, 60, 45, 15, 2, 2, 'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.white);
+  doc.text('DUE DATE:', pageWidth - 62, 66);
+  doc.setFontSize(11);
+  doc.text(workOrder.dueDate, pageWidth - 62, 72);
+
+  // Work Order Details Section
+  let yPosition = 100;
+
+  // Work Order Title
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.dark);
+  doc.text('WORK ORDER DETAILS', 20, yPosition);
+  yPosition += 8;
+
+  // Priority and Category
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.primary);
+  doc.text('Priority:', 20, yPosition);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
+  doc.text(workOrder.priority.toUpperCase(), 50, yPosition);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.primary);
+  doc.text('Category:', 100, yPosition);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
+  doc.text(workOrder.category, 130, yPosition);
+  yPosition += 8;
+
+  // Work Order Title
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.primary);
+  doc.text('Title:', 20, yPosition);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
+  const splitTitle = doc.splitTextToSize(workOrder.title, pageWidth - 50);
+  doc.text(splitTitle, 50, yPosition);
+  yPosition += splitTitle.length * 5 + 5;
+
+  // Description
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.primary);
+  doc.text('Description:', 20, yPosition);
+  yPosition += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
+  const splitDescription = doc.splitTextToSize(workOrder.description, pageWidth - 40);
+  doc.text(splitDescription, 20, yPosition);
+  yPosition += splitDescription.length * 5 + 8;
+
+  // Location Information
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.primary);
+  doc.text('LOCATION:', 20, yPosition);
+  yPosition += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.text);
+  doc.text(workOrder.locationName, 20, yPosition);
+  if (workOrder.locationAddress) {
+    yPosition += 5;
+    doc.text(workOrder.locationAddress, 20, yPosition);
+  }
+  yPosition += 10;
+
+  // Budget Information
+  if (workOrder.estimateBudget) {
+    doc.setFillColor(...COLORS.lightGray);
+    doc.roundedRect(20, yPosition - 3, pageWidth - 40, 15, 2, 2, 'F');
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.dark);
+    doc.text('ESTIMATED BUDGET:', 25, yPosition + 3);
+    doc.text(`$${workOrder.estimateBudget.toLocaleString()}`, pageWidth - 25, yPosition + 3, { align: 'right' });
+    yPosition += 20;
+  }
+
+  // Notes Section
+  if (workOrder.notes) {
+    if (yPosition > 200) {
+      doc.addPage();
+      yPosition = 20;
+    }
+
+    doc.setFillColor(248, 250, 252);
+    const notesHeight = 20;
+    doc.roundedRect(20, yPosition - 3, pageWidth - 40, notesHeight, 2, 2, 'F');
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.primary);
+    doc.text('NOTES', 25, yPosition + 3);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.text);
+    const splitNotes = doc.splitTextToSize(workOrder.notes, pageWidth - 50);
+    doc.text(splitNotes, 25, yPosition + 10);
+
+    yPosition += notesHeight + 5;
+  }
+
+  // Terms & Conditions
+  if (workOrder.terms) {
+    if (yPosition > 230) {
+      doc.addPage();
+      yPosition = 20;
+    }
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.dark);
+    doc.text('TERMS & CONDITIONS', 20, yPosition);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.gray);
+    const splitTerms = doc.splitTextToSize(workOrder.terms, pageWidth - 40);
+    doc.text(splitTerms, 20, yPosition + 6);
+  }
+
+  // Footer with modern design
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+
+    // Footer line
+    doc.setDrawColor(...COLORS.lightGray);
+    doc.setLineWidth(0.5);
+    doc.line(20, pageHeight - 15, pageWidth - 20, pageHeight - 15);
+
+    // Footer text
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.gray);
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      20,
+      pageHeight - 10
+    );
+    doc.text(
+      `© ${new Date().getFullYear()} Hey Spruce. All rights reserved.`,
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: 'center' }
+    );
+    doc.text(
+      'waseem@shurehw.com',
+      pageWidth - 20,
+      pageHeight - 10,
+      { align: 'right' }
+    );
+  }
+
+  return doc;
+}
+
+export function downloadWorkOrderPDF(workOrder: WorkOrderData) {
+  const doc = generateWorkOrderPDF(workOrder);
+  doc.save(`work_order_${workOrder.workOrderNumber}.pdf`);
+}
+
+export function getWorkOrderPDFBase64(workOrder: WorkOrderData): string {
+  const doc = generateWorkOrderPDF(workOrder);
+  return doc.output('dataurlstring').split(',')[1];
+}

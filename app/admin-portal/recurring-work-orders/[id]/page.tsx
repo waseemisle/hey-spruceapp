@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, Edit2, Play, Pause, XCircle, Trash2, 
   Calendar, Clock, RotateCcw, CheckCircle, XCircle as XCircleIcon, 
-  AlertCircle, Download, Mail, ExternalLink, RefreshCw
+  AlertCircle, Download, Mail, ExternalLink, RefreshCw, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution } from '@/types';
@@ -121,6 +121,39 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
   };
 
+  const handleExecuteNow = async () => {
+    if (!recurringWorkOrder) return;
+    
+    try {
+      setSubmitting(true);
+      
+      const response = await fetch('/api/recurring-work-orders/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recurringWorkOrderId: recurringWorkOrder.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success('Recurring work order executed successfully! Email sent to client.');
+        fetchRecurringWorkOrder();
+        fetchExecutions();
+      } else {
+        toast.error(result.error || 'Failed to execute recurring work order');
+      }
+    } catch (error) {
+      console.error('Error executing recurring work order:', error);
+      toast.error('Failed to execute recurring work order');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'text-green-600 bg-green-50';
@@ -194,6 +227,16 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             </div>
           </div>
           <div className="flex gap-2">
+            {recurringWorkOrder.status === 'active' && (
+              <Button
+                onClick={handleExecuteNow}
+                disabled={submitting}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Execute Now
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => router.push(`/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`)}

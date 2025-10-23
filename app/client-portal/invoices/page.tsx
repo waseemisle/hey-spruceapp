@@ -9,6 +9,7 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Receipt, Download, CreditCard, Calendar, CheckCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Invoice {
   id: string;
@@ -97,7 +98,7 @@ export default function ClientInvoices() {
       await downloadInvoicePDF(invoiceData);
     } catch (error) {
       console.error('Error downloading PDF:', error);
-      alert('Failed to download PDF');
+      toast.error('Failed to download PDF');
     }
   };
 
@@ -105,7 +106,7 @@ export default function ClientInvoices() {
     if (invoice.stripePaymentLink) {
       window.open(invoice.stripePaymentLink, '_blank');
     } else {
-      alert('Payment link not available');
+      toast.error('Payment link not available');
     }
   };
 

@@ -13,7 +13,8 @@ export async function POST(request: Request) {
       lineItems,
       notes,
       stripePaymentLink,
-      pdfBase64
+      pdfBase64,
+      workOrderPdfBase64
     } = body;
 
     const sendGridApiKey = process.env.SENDGRID_API_KEY;
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
 
           <p>Hi ${toName},</p>
 
-          <p>Your invoice for <strong>${workOrderTitle}</strong> is ready for payment.</p>
+          <p>Your invoice and work order for <strong>${workOrderTitle}</strong> are ready. Please find both documents attached to this email.</p>
 
           <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
             <h3 style="margin-top: 0; color: #667eea;">Invoice Details</h3>
@@ -163,16 +164,29 @@ export async function POST(request: Request) {
       ],
     };
 
-    // Add PDF attachment if provided
+    // Add PDF attachments if provided
+    const attachments = [];
+    
     if (pdfBase64) {
-      emailPayload.attachments = [
-        {
-          content: pdfBase64,
-          filename: `Invoice_${invoiceNumber}.pdf`,
-          type: 'application/pdf',
-          disposition: 'attachment',
-        },
-      ];
+      attachments.push({
+        content: pdfBase64,
+        filename: `Invoice_${invoiceNumber}.pdf`,
+        type: 'application/pdf',
+        disposition: 'attachment',
+      });
+    }
+    
+    if (workOrderPdfBase64) {
+      attachments.push({
+        content: workOrderPdfBase64,
+        filename: `WorkOrder_${workOrderTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+        type: 'application/pdf',
+        disposition: 'attachment',
+      });
+    }
+    
+    if (attachments.length > 0) {
+      emailPayload.attachments = attachments;
     }
 
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {

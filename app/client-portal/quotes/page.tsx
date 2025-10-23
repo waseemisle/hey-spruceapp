@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FileText, Check, X, Calendar, DollarSign, Search } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Quote {
   id: string;
@@ -77,35 +78,73 @@ export default function ClientQuotes() {
   }, []);
 
   const handleApprove = async (quoteId: string) => {
-    if (!confirm('Are you sure you want to approve this quote?')) return;
+    toast(`Approve quote for "${quotes.find(q => q.id === quoteId)?.workOrderTitle}"?`, {
+      description: 'This will mark the work order as ready for subcontractor assignment.',
+      action: {
+        label: 'Approve',
+        onClick: async () => {
+          try {
+            // Update quote status
+            await updateDoc(doc(db, 'quotes', quoteId), {
+              status: 'accepted',
+              acceptedAt: new Date(),
+            });
 
-    try {
-      await updateDoc(doc(db, 'quotes', quoteId), {
-        status: 'accepted',
-        acceptedAt: new Date(),
-      });
-      alert('Quote approved successfully! An invoice will be generated.');
-    } catch (error) {
-      console.error('Error approving quote:', error);
-      alert('Failed to approve quote');
-    }
+            // Find the quote to get work order ID
+            const quote = quotes.find(q => q.id === quoteId);
+            if (quote && quote.workOrderId) {
+              // Update work order status to "to_be_started"
+              await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
+                status: 'to_be_started',
+                updatedAt: serverTimestamp(),
+              });
+            } else {
+              console.warn('Quote does not have associated work order ID:', quoteId);
+              toast.error('Quote does not have an associated work order');
+              return;
+            }
+
+            toast.success('Quote approved successfully! Work order is now ready to be assigned to a subcontractor.');
+          } catch (error) {
+            console.error('Error approving quote:', error);
+            toast.error('Failed to approve quote');
+          }
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
   };
 
   const handleReject = async (quoteId: string) => {
-    const reason = prompt('Please provide a reason for rejection (optional):');
-    if (reason === null) return;
+    toast(`Reject quote for "${quotes.find(q => q.id === quoteId)?.workOrderTitle}"?`, {
+      description: 'Please provide a reason for rejection (optional).',
+      action: {
+        label: 'Reject',
+        onClick: async () => {
+          const reason = prompt('Please provide a reason for rejection (optional):');
+          if (reason === null) return;
 
-    try {
-      await updateDoc(doc(db, 'quotes', quoteId), {
-        status: 'rejected',
-        rejectedAt: new Date(),
-        rejectionReason: reason || 'No reason provided',
-      });
-      alert('Quote rejected successfully.');
-    } catch (error) {
-      console.error('Error rejecting quote:', error);
-      alert('Failed to reject quote');
-    }
+          try {
+            await updateDoc(doc(db, 'quotes', quoteId), {
+              status: 'rejected',
+              rejectedAt: serverTimestamp(),
+              rejectionReason: reason || 'No reason provided',
+            });
+            toast.success('Quote rejected successfully!');
+          } catch (error) {
+            console.error('Error rejecting quote:', error);
+            toast.error('Failed to reject quote');
+          }
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -308,7 +347,6 @@ export default function ClientQuotes() {
                       </Button>
                       <Button
                         onClick={() => handleReject(quote.id)}
-                        variant="outline"
                         className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
                       >
                         <X className="h-4 w-4 mr-2" />

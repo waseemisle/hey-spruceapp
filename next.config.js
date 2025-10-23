@@ -1,11 +1,23 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: [
-      'res.cloudinary.com',
-      'firebasestorage.googleapis.com',
-      'heyspruceappv2.firebasestorage.app',
-      'cdn.prod.website-files.com'
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'heyspruceappv2.firebasestorage.app',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.prod.website-files.com',
+      },
     ],
   },
   env: {

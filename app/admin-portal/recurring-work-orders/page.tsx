@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
   RotateCcw, Plus, Edit2, Save, X, Search, Trash2, Eye, 
-  Play, Pause, Calendar, Clock, CheckCircle, XCircle, AlertCircle
+  Play, Pause, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution } from '@/types';
@@ -94,6 +94,36 @@ export default function RecurringWorkOrdersManagement() {
     } catch (error) {
       console.error('Error cancelling recurring work order:', error);
       toast.error('Failed to cancel recurring work order');
+    }
+  };
+
+  const handleExecuteNow = async (recurringWorkOrder: RecurringWorkOrder) => {
+    try {
+      setSubmitting(true);
+      
+      const response = await fetch('/api/recurring-work-orders/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recurringWorkOrderId: recurringWorkOrder.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        toast.success('Recurring work order executed successfully! Email sent to client.');
+        fetchRecurringWorkOrders();
+      } else {
+        toast.error(result.error || 'Failed to execute recurring work order');
+      }
+    } catch (error) {
+      console.error('Error executing recurring work order:', error);
+      toast.error('Failed to execute recurring work order');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -197,14 +227,18 @@ export default function RecurringWorkOrdersManagement() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Recurring Work Orders</h1>
-            <p className="text-gray-600 mt-2">Manage recurring work orders and their schedules</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recurring Work Orders</h1>
+            <p className="text-gray-600 mt-2 text-sm sm:text-base">Manage recurring work orders and their schedules</p>
           </div>
-          <Button onClick={() => window.location.href = '/admin-portal/recurring-work-orders/create'}>
+          <Button 
+            onClick={() => window.location.href = '/admin-portal/recurring-work-orders/create'}
+            className="w-full sm:w-auto"
+          >
             <Plus className="h-4 w-4 mr-2" />
-            Create Recurring Work Order
+            <span className="hidden sm:inline">Create Recurring Work Order</span>
+            <span className="sm:hidden">Create</span>
           </Button>
         </div>
 
@@ -226,16 +260,18 @@ export default function RecurringWorkOrdersManagement() {
               key={filterOption}
               variant={filter === filterOption ? 'default' : 'outline'}
               onClick={() => setFilter(filterOption as typeof filter)}
-              className="capitalize"
+              className="capitalize text-xs sm:text-sm"
               size="sm"
             >
-              {filterOption} ({recurringWorkOrders.filter(rwo => filterOption === 'all' || rwo.status === filterOption).length})
+              <span className="hidden sm:inline">{filterOption}</span>
+              <span className="sm:hidden">{filterOption.charAt(0).toUpperCase()}</span>
+              <span className="ml-1">({recurringWorkOrders.filter(rwo => filterOption === 'all' || rwo.status === filterOption).length})</span>
             </Button>
           ))}
         </div>
 
         {/* Recurring Work Orders Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {filteredRecurringWorkOrders.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
@@ -264,7 +300,7 @@ export default function RecurringWorkOrdersManagement() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-3 p-4 sm:p-6">
                   <p className="text-sm text-gray-600 line-clamp-2">{recurringWorkOrder.description}</p>
 
                   <div className="space-y-2">
@@ -292,28 +328,29 @@ export default function RecurringWorkOrdersManagement() {
 
                   {/* Action Buttons */}
                   <div className="pt-4 space-y-2">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1"
+                        className="flex-1 min-w-0"
                         onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}`}
                       >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
+                        <Eye className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">View</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1"
+                        className="flex-1 min-w-0"
                         onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}
                       >
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit
+                        <Edit2 className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Edit</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="destructive"
+                        className="px-2 sm:px-3"
                         onClick={() => handleDelete(recurringWorkOrder)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -321,24 +358,34 @@ export default function RecurringWorkOrdersManagement() {
                     </div>
 
                     {recurringWorkOrder.status === 'active' && (
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 min-w-0 bg-green-600 hover:bg-green-700 text-white"
+                          onClick={() => handleExecuteNow(recurringWorkOrder)}
+                          disabled={submitting}
+                        >
+                          <Zap className="h-4 w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Execute Now</span>
+                          <span className="sm:hidden">Execute</span>
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 min-w-0"
                           onClick={() => handleToggleStatus(recurringWorkOrder)}
                         >
-                          <Pause className="h-4 w-4 mr-2" />
-                          Pause
+                          <Pause className="h-4 w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Pause</span>
                         </Button>
                         <Button
                           size="sm"
                           variant="destructive"
-                          className="flex-1"
+                          className="flex-1 min-w-0"
                           onClick={() => handleCancel(recurringWorkOrder)}
                         >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Cancel
+                          <XCircle className="h-4 w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">Cancel</span>
                         </Button>
                       </div>
                     )}

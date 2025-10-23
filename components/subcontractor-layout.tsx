@@ -8,11 +8,12 @@ import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
-import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut } from 'lucide-react';
+import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu, X } from 'lucide-react';
 
 export default function SubcontractorLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -56,39 +57,71 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b fixed w-full top-0 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="mr-4 md:hidden text-gray-600 hover:text-gray-900"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
             <Logo href="/subcontractor-portal" size="sm" />
-            <span className="ml-3 text-sm text-gray-500">Subcontractor Portal</span>
+            <span className="ml-3 text-sm text-gray-500 hidden sm:inline">Subcontractor Portal</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{user?.email}</span>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-sm text-gray-600 hidden md:inline">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
+              <LogOut className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Logout</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="flex">
-        <aside className="w-64 min-h-screen bg-white border-r">
-          <nav className="p-4 space-y-1">
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      <div className="flex pt-16">
+        <aside className="hidden md:block w-64 min-h-screen bg-white border-r fixed left-0">
+          <nav className="p-4 space-y-1 h-[calc(100vh-4rem)] overflow-y-auto">
             {menuItems.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-600 transition-colors"
               >
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
               </Link>
             ))}
           </nav>
         </aside>
 
-        <main className="flex-1 p-6">{children}</main>
+        <aside className={`md:hidden fixed left-0 h-[calc(100vh-4rem)] bg-white border-r transition-all duration-300 z-50 ${
+          mobileMenuOpen ? 'w-64' : 'w-0 -ml-64'
+        }`}>
+          <nav className="p-4 space-y-1 h-full overflow-y-auto">
+            {menuItems.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-600 transition-colors"
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span>{item.name}</span>
+              </Link>
+            ))}
+          </nav>
+        </aside>
+
+        <main className="flex-1 md:ml-64 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
