@@ -217,7 +217,7 @@ export default function SubcontractorAssignedJobs() {
     // Filter by status
     let statusMatch = true;
     if (filter === 'pending') statusMatch = job.status === 'pending_acceptance';
-    else if (filter === 'in-progress') statusMatch = job.status === 'accepted' && workOrder.status === 'assigned';
+    else if (filter === 'in-progress') statusMatch = job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor');
     else if (filter === 'completed') statusMatch = workOrder.status === 'completed';
 
     // Filter by search query
@@ -243,7 +243,7 @@ export default function SubcontractorAssignedJobs() {
     {
       value: 'in-progress',
       label: 'In Progress',
-      count: assignedJobs.filter(job => job.status === 'accepted' && workOrders.get(job.workOrderId)?.status === 'assigned').length
+      count: assignedJobs.filter(job => job.status === 'accepted' && (workOrders.get(job.workOrderId)?.status === 'assigned' || workOrders.get(job.workOrderId)?.status === 'accepted_by_subcontractor')).length
     },
     {
       value: 'completed',
@@ -414,7 +414,7 @@ export default function SubcontractorAssignedJobs() {
                       </div>
                     )}
 
-                    {job.status === 'accepted' && workOrder.status === 'assigned' && (
+                    {job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (
                       <Button
                         onClick={() => handleMarkComplete(workOrder.id)}
                         className="w-full mt-4 bg-green-600 hover:bg-green-700"

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface WorkOrder {
@@ -252,10 +252,152 @@ export default function WorkOrdersManagement() {
     window.location.href = '/admin-portal/recurring-work-orders/create';
   };
 
-  const handleAssignToSubcontractor = (workOrder: WorkOrder) => {
-    setWorkOrderToAssign(workOrder);
-    setSelectedSubcontractorForAssign('');
-    setShowAssignModal(true);
+  const handleSendInvoice = async (workOrder: WorkOrder) => {
+    try {
+      // Generate invoice number
+      const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
+      
+      // Create invoice data
+      const invoiceData = {
+        invoiceNumber,
+        workOrderId: workOrder.id,
+        workOrderTitle: workOrder.title,
+        clientId: workOrder.clientId,
+        clientName: workOrder.clientName,
+        clientEmail: workOrder.clientEmail,
+        subcontractorId: workOrder.assignedTo,
+        subcontractorName: workOrder.assignedToName,
+        status: 'draft' as const,
+        totalAmount: workOrder.estimateBudget || 0,
+        lineItems: [
+          {
+            description: workOrder.title,
+            quantity: 1,
+            unitPrice: workOrder.estimateBudget || 0,
+            amount: workOrder.estimateBudget || 0,
+          }
+        ],
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        notes: `Invoice for completed work order: ${workOrder.workOrderNumber}`,
+        createdAt: serverTimestamp(),
+      };
+
+      // Create invoice in Firestore
+      const invoiceRef = await addDoc(collection(db, 'invoices'), invoiceData);
+
+      // Generate PDF
+      const { generateInvoicePDF } = await import('@/lib/pdf-generator');
+      const pdf = generateInvoicePDF({
+        invoiceNumber: invoiceData.invoiceNumber,
+        clientName: invoiceData.clientName,
+        clientEmail: invoiceData.clientEmail,
+        lineItems: invoiceData.lineItems,
+        subtotal: invoiceData.totalAmount,
+        taxRate: 0,
+        taxAmount: 0,
+        discountAmount: 0,
+        totalAmount: invoiceData.totalAmount,
+        dueDate: invoiceData.dueDate.toLocaleDateString(),
+        notes: invoiceData.notes,
+      });
+      const pdfBase64 = pdf.output('dataurlstring').split(',')[1];
+
+      // Create Stripe payment link
+      const stripeResponse = await fetch('/api/stripe/create-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Math.round(invoiceData.totalAmount * 100), // Convert to cents
+          description: `Payment for ${workOrder.title}`,
+          metadata: {
+            invoiceId: invoiceRef.id,
+            workOrderId: workOrder.id,
+            clientId: workOrder.clientId,
+          },
+        }),
+      });
+
+      const stripeData = await stripeResponse.json();
+      const stripePaymentLink = stripeData.paymentLink;
+
+      // Update invoice with payment link
+      await updateDoc(invoiceRef, {
+        stripePaymentLink,
+        status: 'sent',
+      });
+
+      // Send email with invoice
+      const emailResponse = await fetch('/api/email/send-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: workOrder.clientEmail,
+          toName: workOrder.clientName,
+          invoiceNumber,
+          workOrderTitle: workOrder.title,
+          totalAmount: invoiceData.totalAmount,
+          dueDate: invoiceData.dueDate.toLocaleDateString(),
+          lineItems: invoiceData.lineItems,
+          notes: invoiceData.notes,
+          stripePaymentLink,
+          pdfBase64,
+        }),
+      });
+
+      const emailResult = await emailResponse.json();
+
+      if (emailResult.success) {
+        toast.success('Invoice created and sent successfully!');
+      } else {
+        toast.warning('Invoice created successfully, but email notification failed. Client can view it in their portal.');
+      }
+
+      // Refresh work orders
+      fetchWorkOrders();
+    } catch (error) {
+      console.error('Error sending invoice:', error);
+      toast.error('Failed to send invoice');
+    }
+  };
+
+  const handleAssignToSubcontractor = async (workOrder: WorkOrder) => {
+    try {
+      // Get all approved subcontractors
+      const subsQuery = query(
+        collection(db, 'subcontractors'),
+        where('status', '==', 'approved')
+      );
+      const subsSnapshot = await getDocs(subsQuery);
+
+      if (subsSnapshot.empty) {
+        toast.error('No approved subcontractors found');
+        return;
+      }
+
+      // Map subcontractors data
+      const subsData = subsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('Subcontractor data:', { id: doc.id, data });
+        return {
+          id: doc.id,
+          uid: data.uid || doc.id, // Use uid if exists, otherwise use doc.id
+          fullName: data.fullName,
+          email: data.email,
+          businessName: data.businessName,
+          status: data.status,
+        };
+      }) as Subcontractor[];
+
+      console.log('Mapped subcontractors:', subsData);
+
+      setSubcontractors(subsData);
+      setWorkOrderToAssign(workOrder);
+      setSelectedSubcontractorForAssign('');
+      setShowAssignModal(true);
+    } catch (error) {
+      console.error('Error loading subcontractors:', error);
+      toast.error('Failed to load subcontractors');
+    }
   };
 
   const handleSubmitAssignment = async () => {
@@ -267,7 +409,12 @@ export default function WorkOrdersManagement() {
     setSubmitting(true);
 
     try {
+      console.log('Selected subcontractor UID:', selectedSubcontractorForAssign);
+      console.log('Available subcontractors:', subcontractors.map(s => ({ id: s.id, uid: s.uid, fullName: s.fullName })));
+      
       const subcontractor = subcontractors.find(s => s.id === selectedSubcontractorForAssign);
+      console.log('Found subcontractor:', subcontractor);
+      
       if (!subcontractor) {
         toast.error('Invalid subcontractor selected');
         return;
@@ -276,7 +423,7 @@ export default function WorkOrdersManagement() {
       // Update work order status and assignment
       await updateDoc(doc(db, 'workOrders', workOrderToAssign.id), {
         status: 'assigned',
-        assignedTo: selectedSubcontractorForAssign,
+        assignedTo: subcontractor.uid || subcontractor.id,
         assignedToName: subcontractor.fullName,
         assignedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -285,7 +432,7 @@ export default function WorkOrdersManagement() {
       // Create assignment record for subcontractor portal
       await addDoc(collection(db, 'assignedJobs'), {
         workOrderId: workOrderToAssign.id,
-        subcontractorId: selectedSubcontractorForAssign,
+        subcontractorId: subcontractor.uid || subcontractor.id,
         assignedAt: serverTimestamp(),
         status: 'pending_acceptance', // New status for pending acceptance
         createdAt: serverTimestamp(),
@@ -801,6 +948,18 @@ export default function WorkOrdersManagement() {
                         <span className="sm:hidden">Reassign</span>
                       </Button>
                     )}
+
+                    {workOrder.status === 'completed' && (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleSendInvoice(workOrder)}
+                      >
+                        <Receipt className="h-4 w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Send Invoice to Client</span>
+                        <span className="sm:hidden">Send Invoice</span>
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -1246,7 +1405,7 @@ export default function WorkOrdersManagement() {
                     {subcontractors
                       .filter(sub => sub.status === 'approved')
                       .map(subcontractor => (
-                        <option key={subcontractor.uid} value={subcontractor.uid}>
+                        <option key={subcontractor.id} value={subcontractor.id}>
                           {subcontractor.fullName} ({subcontractor.email})
                         </option>
                       ))}
