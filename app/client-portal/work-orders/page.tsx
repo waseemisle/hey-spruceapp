@@ -35,6 +35,7 @@ export default function ClientWorkOrders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
