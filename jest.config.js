@@ -4,9 +4,6 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
-  transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': ['@swc/jest', {}],
-  },
   collectCoverageFrom: [
     'app/**/*.{js,jsx,ts,tsx}',
     'components/**/*.{js,jsx,ts,tsx}',
@@ -14,4 +11,4 @@ module.exports = {
     '!**/*.d.ts',
     '!**/node_modules/**',
   ],
-}
+};
