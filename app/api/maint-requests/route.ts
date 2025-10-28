@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,7 +20,57 @@ const getFirebaseApp = () => {
   return getApp();
 };
 
+// Verify Bearer Token
+async function verifyBearerToken(request: Request): Promise<{ valid: boolean; tokenId?: string }> {
+  const authHeader = request.headers.get('authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { valid: false };
+  }
+
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+  try {
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+
+    // Query for the token in the api_tokens collection
+    const tokensQuery = query(
+      collection(db, 'api_tokens'),
+      where('token', '==', token)
+    );
+
+    const querySnapshot = await getDocs(tokensQuery);
+
+    if (querySnapshot.empty) {
+      return { valid: false };
+    }
+
+    // Token is valid, return the token document ID
+    const tokenDoc = querySnapshot.docs[0];
+
+    // Update last used timestamp (don't await to avoid slowing down the response)
+    updateDoc(doc(db, 'api_tokens', tokenDoc.id), {
+      lastUsed: serverTimestamp(),
+    }).catch(err => console.error('Error updating lastUsed:', err));
+
+    return { valid: true, tokenId: tokenDoc.id };
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return { valid: false };
+  }
+}
+
 export async function GET(request: Request) {
+  // Verify bearer token
+  const tokenVerification = await verifyBearerToken(request);
+  if (!tokenVerification.valid) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Valid bearer token required.' },
+      { status: 401 }
+    );
+  }
+
   try {
     // Initialize Firebase
     const app = getFirebaseApp();
@@ -58,6 +108,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Verify bearer token
+  const tokenVerification = await verifyBearerToken(request);
+  if (!tokenVerification.valid) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Valid bearer token required.' },
+      { status: 401 }
+    );
+  }
+
   try {
     const data = await request.json();
 

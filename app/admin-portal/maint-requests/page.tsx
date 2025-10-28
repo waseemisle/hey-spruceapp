@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Wrench, Calendar, User, MapPin, AlertCircle, Search, Eye, X, Trash2 } from 'lucide-react';
+import { Wrench, Calendar, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MaintRequest {
@@ -24,6 +24,14 @@ interface MaintRequest {
   createdAt: any;
 }
 
+interface ApiToken {
+  id: string;
+  name: string;
+  token: string;
+  createdAt: string;
+  lastUsed: string | null;
+}
+
 export default function MaintRequestsPage() {
   const [requests, setRequests] = useState<MaintRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +39,12 @@ export default function MaintRequestsPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'in-progress' | 'completed'>('all');
   const [selectedRequest, setSelectedRequest] = useState<MaintRequest | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // API Token states
+  const [apiTokens, setApiTokens] = useState<ApiToken[]>([]);
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [newTokenName, setNewTokenName] = useState('');
+  const [newlyGeneratedToken, setNewlyGeneratedToken] = useState<string>('');
 
   useEffect(() => {
     const maintRequestsQuery = query(
@@ -49,6 +63,89 @@ export default function MaintRequestsPage() {
 
     return () => unsubscribe();
   }, []);
+
+  // Fetch API tokens
+  useEffect(() => {
+    fetchApiTokens();
+  }, []);
+
+  const fetchApiTokens = async () => {
+    try {
+      const response = await fetch('/api/api-tokens');
+      const result = await response.json();
+      if (result.success) {
+        setApiTokens(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching API tokens:', error);
+    }
+  };
+
+  const handleGenerateToken = async () => {
+    if (!newTokenName.trim()) {
+      toast.error('Please enter a token name');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/api-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTokenName }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setNewlyGeneratedToken(result.token);
+        setNewTokenName('');
+        fetchApiTokens();
+        toast.success('API token generated successfully');
+      } else {
+        toast.error(result.error || 'Failed to generate token');
+      }
+    } catch (error) {
+      console.error('Error generating token:', error);
+      toast.error('Failed to generate token');
+    }
+  };
+
+  const handleDeleteToken = async (tokenId: string) => {
+    toast(`Delete this API token?`, {
+      description: 'Applications using this token will lose access.',
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          try {
+            const response = await fetch(`/api/api-tokens?id=${tokenId}`, {
+              method: 'DELETE',
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+              fetchApiTokens();
+              toast.success('Token deleted successfully');
+            } else {
+              toast.error(result.error || 'Failed to delete token');
+            }
+          } catch (error) {
+            console.error('Error deleting token:', error);
+            toast.error('Failed to delete token');
+          }
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard');
+  };
 
   const handleViewDetails = (request: MaintRequest) => {
     setSelectedRequest(request);
@@ -137,6 +234,10 @@ export default function MaintRequestsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Maintenance Requests</h1>
             <p className="text-gray-600 mt-2">View and manage incoming maintenance requests</p>
           </div>
+          <Button onClick={() => setShowTokenModal(true)} className="flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            API Tokens
+          </Button>
         </div>
 
         {/* Search Bar */}
@@ -323,6 +424,145 @@ export default function MaintRequestsPage() {
                     </select>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* API Token Management Modal */}
+        {showTokenModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">API Token Management</h2>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setShowTokenModal(false);
+                    setNewlyGeneratedToken('');
+                  }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Generate New Token Section */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Generate New Token</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="tokenName">Token Name</Label>
+                      <Input
+                        id="tokenName"
+                        placeholder="e.g., Mobile App, Website Integration"
+                        value={newTokenName}
+                        onChange={(e) => setNewTokenName(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleGenerateToken()}
+                      />
+                    </div>
+                    <Button onClick={handleGenerateToken} className="w-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Generate Token
+                    </Button>
+
+                    {/* Show newly generated token */}
+                    {newlyGeneratedToken && (
+                      <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <Label className="text-green-800 font-semibold">Token Generated Successfully!</Label>
+                        <p className="text-sm text-green-700 mt-1 mb-3">
+                          Copy this token now. For security reasons, it won't be shown again.
+                        </p>
+                        <div className="flex gap-2">
+                          <Input
+                            value={newlyGeneratedToken}
+                            readOnly
+                            className="font-mono text-sm bg-white"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => copyToClipboard(newlyGeneratedToken)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Existing Tokens List */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-3">Active Tokens ({apiTokens.length})</h3>
+                  {apiTokens.length === 0 ? (
+                    <Card>
+                      <CardContent className="p-8 text-center text-gray-500">
+                        No API tokens generated yet
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {apiTokens.map((token) => (
+                        <Card key={token.id}>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Key className="h-4 w-4 text-purple-600" />
+                                  <span className="font-semibold">{token.name}</span>
+                                </div>
+                                <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                  <div className="flex gap-2">
+                                    <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                                      {token.token.substring(0, 16)}...{token.token.substring(token.token.length - 8)}
+                                    </span>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => copyToClipboard(token.token)}
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                  <p>Created: {new Date(token.createdAt).toLocaleString()}</p>
+                                  {token.lastUsed && (
+                                    <p>Last used: {new Date(token.lastUsed).toLocaleString()}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeleteToken(token.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Usage Instructions */}
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg text-blue-900">How to Use API Tokens</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-blue-800 space-y-2">
+                    <p>Include the token in the Authorization header of your API requests:</p>
+                    <pre className="bg-blue-900 text-blue-100 p-3 rounded-lg overflow-x-auto">
+{`Authorization: Bearer YOUR_TOKEN_HERE`}
+                    </pre>
+                    <p className="mt-3">Example using curl:</p>
+                    <pre className="bg-blue-900 text-blue-100 p-3 rounded-lg overflow-x-auto text-xs">
+{`curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
+  https://hey-spruce-appv2.vercel.app/api/maint-requests`}
+                    </pre>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </div>
