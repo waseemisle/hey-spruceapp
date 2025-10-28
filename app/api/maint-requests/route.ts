@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,6 +19,43 @@ const getFirebaseApp = () => {
   }
   return getApp();
 };
+
+export async function GET(request: Request) {
+  try {
+    // Initialize Firebase
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+
+    // Get all maintenance requests, ordered by creation date (newest first)
+    const maintRequestsQuery = query(
+      collection(db, 'maint_requests'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(maintRequestsQuery);
+
+    const maintRequests = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      // Convert Firestore Timestamps to ISO strings for JSON serialization
+      createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || null,
+      updatedAt: doc.data().updatedAt?.toDate?.()?.toISOString() || null,
+      date: doc.data().date?.toDate?.()?.toISOString() || doc.data().date,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      count: maintRequests.length,
+      data: maintRequests,
+    });
+  } catch (error: any) {
+    console.error('Error fetching maintenance requests:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch maintenance requests' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
