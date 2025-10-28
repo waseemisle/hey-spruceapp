@@ -61,8 +61,8 @@ export interface Location {
   clientId: string;
   clientName: string;
   clientEmail: string;
-  subsidiaryId: string;
-  subsidiaryName: string;
+  companyId: string;
+  companyName: string;
   locationName: string;
   address: Address;
   propertyType: string;
@@ -76,8 +76,8 @@ export interface Location {
   updatedAt: Date;
 }
 
-// Subsidiary Types
-export interface Subsidiary {
+// Company Types
+export interface Company {
   id: string;
   clientId: string;
   name: string;
@@ -88,6 +88,9 @@ export interface Subsidiary {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Keep Subsidiary as alias for backward compatibility
+export type Subsidiary = Company;
 
 // Category Types
 export interface Category {
@@ -117,8 +120,12 @@ export interface WorkOrder {
   assignedToName?: string;
   assignedToEmail?: string;
   assignedAt?: Date;
+  scheduledServiceDate?: Date;
+  scheduledServiceTime?: string;
   completedAt?: Date;
   completionNotes?: string;
+  completionDetails?: string;
+  completionImages?: string[];
   approvedBy?: string;
   approvedAt?: Date;
   rejectionReason?: string;
@@ -316,23 +323,17 @@ export interface RecurringWorkOrder {
 }
 
 export interface RecurrencePattern {
-  type: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
-  interval: number; // Every X days/weeks/months/years
-  daysOfWeek?: number[]; // 0-6 (Sunday-Saturday) for weekly
+  type: 'monthly';
+  interval: number; // Every X months
   dayOfMonth?: number; // 1-31 for monthly
-  monthOfYear?: number; // 1-12 for yearly
-  customPattern?: string; // For custom patterns like "Every 2 weeks on Tuesday"
   endDate?: Date; // Optional end date for the recurrence
   maxOccurrences?: number; // Optional maximum number of occurrences
 }
 
 export interface InvoiceSchedule {
-  type: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+  type: 'monthly';
   interval: number;
-  daysOfWeek?: number[];
   dayOfMonth?: number;
-  monthOfYear?: number;
-  customPattern?: string;
   time: string; // Time of day to send invoice
   timezone: string;
 }
@@ -353,4 +354,19 @@ export interface RecurringWorkOrderExecution {
   failureReason?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Notification Types
+export interface Notification {
+  id: string;
+  userId: string;
+  userRole: 'admin' | 'client' | 'subcontractor';
+  type: 'work_order' | 'quote' | 'invoice' | 'assignment' | 'completion' | 'schedule' | 'general';
+  title: string;
+  message: string;
+  link?: string;
+  read: boolean;
+  referenceId?: string;
+  referenceType?: 'workOrder' | 'quote' | 'invoice' | 'location';
+  createdAt: Date;
 }

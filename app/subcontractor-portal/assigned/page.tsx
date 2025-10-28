@@ -8,8 +8,9 @@ import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X } from 'lucide-react';
+import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { Label } from '@/components/ui/label';
 
 interface AssignedJob {
   id: string;
@@ -19,6 +20,8 @@ interface AssignedJob {
   status: 'pending_acceptance' | 'accepted' | 'rejected';
   acceptedAt?: any;
   rejectedAt?: any;
+  scheduledServiceDate?: any;
+  scheduledServiceTime?: string;
 }
 
 interface WorkOrder {
@@ -43,6 +46,15 @@ export default function SubcontractorAssignedJobs() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [acceptingJobId, setAcceptingJobId] = useState<string | null>(null);
+  const [acceptingWorkOrderId, setAcceptingWorkOrderId] = useState<string | null>(null);
+  const [serviceDate, setServiceDate] = useState('');
+  const [serviceTime, setServiceTime] = useState('09:00');
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completingWorkOrderId, setCompletingWorkOrderId] = useState<string | null>(null);
+  const [completionDetails, setCompletionDetails] = useState('');
+  const [completionNotes, setCompletionNotes] = useState('');
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -92,38 +104,51 @@ export default function SubcontractorAssignedJobs() {
     return () => unsubscribeAuth();
   }, []);
 
-  const handleAcceptAssignment = async (assignedJobId: string, workOrderId: string) => {
-    const workOrder = workOrders.get(workOrderId);
-    toast(`Accept assignment for "${workOrder?.title}"?`, {
-      description: 'This will mark the work order as accepted and ready to begin.',
-      action: {
-        label: 'Accept',
-        onClick: async () => {
-          try {
-            // Update assigned job status
-            await updateDoc(doc(db, 'assignedJobs', assignedJobId), {
-              status: 'accepted',
-              acceptedAt: serverTimestamp(),
-            });
+  const handleAcceptAssignment = (assignedJobId: string, workOrderId: string) => {
+    setAcceptingJobId(assignedJobId);
+    setAcceptingWorkOrderId(workOrderId);
+    setShowAcceptModal(true);
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setServiceDate(tomorrow.toISOString().split('T')[0]);
+  };
 
-            // Update work order status
-            await updateDoc(doc(db, 'workOrders', workOrderId), {
-              status: 'accepted_by_subcontractor',
-              updatedAt: serverTimestamp(),
-            });
+  const handleConfirmAccept = async () => {
+    if (!serviceDate || !serviceTime) {
+      toast.error('Please select both service date and time');
+      return;
+    }
 
-            toast.success('Assignment accepted successfully!');
-          } catch (error) {
-            console.error('Error accepting assignment:', error);
-            toast.error('Failed to accept assignment');
-          }
-        }
-      },
-      cancel: {
-        label: 'Cancel',
-        onClick: () => {}
-      }
-    });
+    if (!acceptingJobId || !acceptingWorkOrderId) return;
+
+    try {
+      // Update assigned job status with scheduled service date/time
+      await updateDoc(doc(db, 'assignedJobs', acceptingJobId), {
+        status: 'accepted',
+        acceptedAt: serverTimestamp(),
+        scheduledServiceDate: new Date(serviceDate + 'T' + serviceTime),
+        scheduledServiceTime: serviceTime,
+      });
+
+      // Update work order status
+      await updateDoc(doc(db, 'workOrders', acceptingWorkOrderId), {
+        status: 'accepted_by_subcontractor',
+        scheduledServiceDate: new Date(serviceDate + 'T' + serviceTime),
+        scheduledServiceTime: serviceTime,
+        updatedAt: serverTimestamp(),
+      });
+
+      toast.success('Assignment accepted successfully with scheduled service date!');
+      setShowAcceptModal(false);
+      setAcceptingJobId(null);
+      setAcceptingWorkOrderId(null);
+      setServiceDate('');
+      setServiceTime('09:00');
+    } catch (error) {
+      console.error('Error accepting assignment:', error);
+      toast.error('Failed to accept assignment');
+    }
   };
 
   const handleRejectAssignment = async (assignedJobId: string, workOrderId: string) => {
@@ -164,30 +189,37 @@ export default function SubcontractorAssignedJobs() {
     });
   };
 
-  const handleMarkComplete = async (workOrderId: string) => {
-    const workOrder = workOrders.get(workOrderId);
-    toast(`Mark "${workOrder?.title}" as complete?`, {
-      description: 'This will mark the work order as completed.',
-      action: {
-        label: 'Mark Complete',
-        onClick: async () => {
-          try {
-            await updateDoc(doc(db, 'workOrders', workOrderId), {
-              status: 'completed',
-              completedAt: serverTimestamp(),
-            });
-            toast.success('Job marked as complete successfully!');
-          } catch (error) {
-            console.error('Error marking job complete:', error);
-            toast.error('Failed to mark job as complete');
-          }
-        }
-      },
-      cancel: {
-        label: 'Cancel',
-        onClick: () => {}
-      }
-    });
+  const handleMarkComplete = (workOrderId: string) => {
+    setCompletingWorkOrderId(workOrderId);
+    setShowCompletionModal(true);
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!completionDetails.trim()) {
+      toast.error('Please provide details about the work completed');
+      return;
+    }
+
+    if (!completingWorkOrderId) return;
+
+    try {
+      await updateDoc(doc(db, 'workOrders', completingWorkOrderId), {
+        status: 'completed',
+        completedAt: serverTimestamp(),
+        completionDetails: completionDetails,
+        completionNotes: completionNotes,
+        updatedAt: serverTimestamp(),
+      });
+
+      toast.success('Job marked as complete with details!');
+      setShowCompletionModal(false);
+      setCompletingWorkOrderId(null);
+      setCompletionDetails('');
+      setCompletionNotes('');
+    } catch (error) {
+      console.error('Error marking job complete:', error);
+      toast.error('Failed to mark job as complete');
+    }
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -281,20 +313,22 @@ export default function SubcontractorAssignedJobs() {
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {filterOptions.map(option => (
-            <button
-              key={option.value}
-              onClick={() => setFilter(option.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-                filter === option.value
-                  ? 'bg-green-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {option.label} ({option.count})
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
+            Filter by Status:
+          </label>
+          <select
+            id="status-filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+          >
+            {filterOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label} ({option.count})
+              </option>
+            ))}
+          </select>
         </div>
 
         {filteredJobs.length === 0 ? (
@@ -441,6 +475,160 @@ export default function SubcontractorAssignedJobs() {
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {/* Accept Assignment Modal with Service Date/Time */}
+        {showAcceptModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6 border-b flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Schedule Service</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowAcceptModal(false);
+                    setAcceptingJobId(null);
+                    setAcceptingWorkOrderId(null);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-gray-600">
+                  Please select when you will start working on this job:
+                </p>
+
+                <div>
+                  <Label htmlFor="service-date" className="flex items-center gap-2 mb-2">
+                    <Calendar className="h-4 w-4" />
+                    Service Date *
+                  </Label>
+                  <Input
+                    id="service-date"
+                    type="date"
+                    value={serviceDate}
+                    onChange={(e) => setServiceDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="service-time" className="flex items-center gap-2 mb-2">
+                    <Clock className="h-4 w-4" />
+                    Service Time *
+                  </Label>
+                  <Input
+                    id="service-time"
+                    type="time"
+                    value={serviceTime}
+                    onChange={(e) => setServiceTime(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    onClick={handleConfirmAccept}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Accept & Schedule
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowAcceptModal(false);
+                      setAcceptingJobId(null);
+                      setAcceptingWorkOrderId(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Completion Form Modal */}
+        {showCompletionModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full">
+              <div className="p-6 border-b flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Complete Work Order</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowCompletionModal(false);
+                    setCompletingWorkOrderId(null);
+                    setCompletionDetails('');
+                    setCompletionNotes('');
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-gray-600">
+                  Please provide details about the work you completed. This information will be shared with the admin and client.
+                </p>
+
+                <div>
+                  <Label htmlFor="completion-details" className="mb-2 font-semibold">
+                    Work Completed (Required) *
+                  </Label>
+                  <textarea
+                    id="completion-details"
+                    value={completionDetails}
+                    onChange={(e) => setCompletionDetails(e.target.value)}
+                    placeholder="Describe what work was completed, parts used, issues encountered, etc."
+                    className="w-full border border-gray-300 rounded-md p-3 min-h-32 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="completion-notes" className="mb-2">
+                    Additional Notes (Optional)
+                  </Label>
+                  <textarea
+                    id="completion-notes"
+                    value={completionNotes}
+                    onChange={(e) => setCompletionNotes(e.target.value)}
+                    placeholder="Any additional information, recommendations, or follow-up needed"
+                    className="w-full border border-gray-300 rounded-md p-3 min-h-24 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    onClick={handleConfirmComplete}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Mark as Complete
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowCompletionModal(false);
+                      setCompletingWorkOrderId(null);
+                      setCompletionDetails('');
+                      setCompletionNotes('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -23,7 +23,7 @@ export default function CreateLocation() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
-    subsidiaryId: '',
+    companyId: '',
     name: '',
     address: '',
     city: '',
@@ -32,7 +32,7 @@ export default function CreateLocation() {
     propertyType: 'Commercial',
     notes: '',
   });
-  const [subsidiaries, setSubsidiaries] = useState<{ id: string; name: string }[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -49,18 +49,18 @@ export default function CreateLocation() {
     }
   };
 
-  // Load subsidiaries for current client
+  // Load companies for current client
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const subsQuery = query(
-          collection(db, 'subsidiaries'),
+        const companiesQuery = query(
+          collection(db, 'companies'),
           where('clientId', '==', user.uid),
           orderBy('createdAt', 'desc')
         );
-        const snap = await getDocs(subsQuery);
+        const snap = await getDocs(companiesQuery);
         const data = snap.docs.map((d) => ({ id: d.id, name: (d.data() as any).name as string }));
-        setSubsidiaries(data);
+        setCompanies(data);
       }
     });
     return () => unsubscribeAuth();
@@ -101,14 +101,14 @@ export default function CreateLocation() {
 
       const clientData = clientDoc.data();
 
-      // Ensure has subsidiary
-      if (!formData.subsidiaryId) {
-        toast.error('Please select a Subsidiary first');
+      // Ensure has company
+      if (!formData.companyId) {
+        toast.error('Please select a Company first');
         setLoading(false);
         return;
       }
 
-      const selectedSubsidiary = subsidiaries.find(s => s.id === formData.subsidiaryId);
+      const selectedCompany = companies.find(c => c.id === formData.companyId);
 
       // Upload images if any
       let imageUrls: string[] = [];
@@ -131,8 +131,8 @@ export default function CreateLocation() {
         clientId: currentUser.uid,
         clientName: clientData.fullName || clientData.companyName || '',
         clientEmail: clientData.email || '',
-        subsidiaryId: formData.subsidiaryId,
-        subsidiaryName: selectedSubsidiary?.name || '',
+        companyId: formData.companyId,
+        companyName: selectedCompany?.name || '',
         locationName: formData.name,
         name: formData.name, // Keep for backward compatibility
         address: {
@@ -187,23 +187,23 @@ export default function CreateLocation() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <Label htmlFor="subsidiaryId">Subsidiary *</Label>
+                  <Label htmlFor="companyId">Company *</Label>
                   <select
-                    id="subsidiaryId"
-                    name="subsidiaryId"
-                    value={formData.subsidiaryId}
+                    id="companyId"
+                    name="companyId"
+                    value={formData.companyId}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
-                    <option value="">Select a subsidiary...</option>
-                    {subsidiaries.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                    <option value="">Select a company...</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
-                  {subsidiaries.length === 0 && (
+                  {companies.length === 0 && (
                     <p className="text-sm text-gray-500 mt-1">
-                      You must create a Subsidiary first.
+                      You must create a Company first.
                       <Link href="/client-portal/subsidiaries/create" className="text-blue-600 underline ml-1">Create one</Link>
                     </p>
                   )}
@@ -351,7 +351,7 @@ export default function CreateLocation() {
                     Cancel
                   </Button>
                 </Link>
-                <Button type="submit" disabled={loading || uploadingImages || subsidiaries.length === 0}>
+                <Button type="submit" disabled={loading || uploadingImages || companies.length === 0}>
                   {uploadingImages ? 'Uploading Images...' : loading ? 'Creating...' : 'Create Location'}
                 </Button>
               </div>

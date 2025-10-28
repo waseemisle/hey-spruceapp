@@ -50,7 +50,7 @@ export default function CreateRecurringWorkOrder() {
     category: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
     estimateBudget: '',
-    recurrenceType: 'weekly' as 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom',
+    recurrenceType: 'monthly' as 'monthly',
     recurrenceInterval: 1,
     recurrenceDaysOfWeek: [] as number[],
     recurrenceDayOfMonth: 1,
@@ -58,7 +58,7 @@ export default function CreateRecurringWorkOrder() {
     recurrenceCustomPattern: '',
     recurrenceEndDate: '',
     recurrenceMaxOccurrences: '',
-    invoiceScheduleType: 'weekly' as 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom',
+    invoiceScheduleType: 'monthly' as 'monthly',
     invoiceScheduleInterval: 1,
     invoiceScheduleDaysOfWeek: [] as number[],
     invoiceScheduleDayOfMonth: 1,
@@ -128,36 +128,15 @@ export default function CreateRecurringWorkOrder() {
         return;
       }
 
-      // Calculate next execution date
+      // Calculate next execution date (Monthly only)
       const now = new Date();
       let nextExecution = new Date(now);
-      
-      if (formData.recurrenceType === 'daily') {
-        nextExecution.setDate(now.getDate() + formData.recurrenceInterval);
-      } else if (formData.recurrenceType === 'weekly') {
-        nextExecution.setDate(now.getDate() + (7 * formData.recurrenceInterval));
-      } else if (formData.recurrenceType === 'monthly') {
-        nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
-      } else if (formData.recurrenceType === 'yearly') {
-        nextExecution.setFullYear(now.getFullYear() + formData.recurrenceInterval);
-      }
+      nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
 
       const recurrencePattern: RecurrencePattern = {
-        type: formData.recurrenceType,
+        type: 'monthly',
         interval: formData.recurrenceInterval,
-        ...(formData.recurrenceType === 'weekly' && formData.recurrenceDaysOfWeek.length > 0 && {
-          daysOfWeek: formData.recurrenceDaysOfWeek,
-        }),
-        ...(formData.recurrenceType === 'monthly' && {
-          dayOfMonth: formData.recurrenceDayOfMonth,
-        }),
-        ...(formData.recurrenceType === 'yearly' && {
-          monthOfYear: formData.recurrenceMonthOfYear,
-          dayOfMonth: formData.recurrenceDayOfMonth,
-        }),
-        ...(formData.recurrenceType === 'custom' && formData.recurrenceCustomPattern && {
-          customPattern: formData.recurrenceCustomPattern,
-        }),
+        dayOfMonth: formData.recurrenceDayOfMonth,
         ...(formData.recurrenceEndDate && {
           endDate: new Date(formData.recurrenceEndDate),
         }),
@@ -167,21 +146,9 @@ export default function CreateRecurringWorkOrder() {
       } as RecurrencePattern;
 
       const invoiceSchedule: InvoiceSchedule = {
-        type: formData.invoiceScheduleType,
+        type: 'monthly',
         interval: formData.invoiceScheduleInterval,
-        ...(formData.invoiceScheduleType === 'weekly' && formData.invoiceScheduleDaysOfWeek.length > 0 && {
-          daysOfWeek: formData.invoiceScheduleDaysOfWeek,
-        }),
-        ...(formData.invoiceScheduleType === 'monthly' && {
-          dayOfMonth: formData.invoiceScheduleDayOfMonth,
-        }),
-        ...(formData.invoiceScheduleType === 'yearly' && {
-          monthOfYear: formData.invoiceScheduleMonthOfYear,
-          dayOfMonth: formData.invoiceScheduleDayOfMonth,
-        }),
-        ...(formData.invoiceScheduleType === 'custom' && formData.invoiceScheduleCustomPattern && {
-          customPattern: formData.invoiceScheduleCustomPattern,
-        }),
+        dayOfMonth: formData.invoiceScheduleDayOfMonth,
         time: formData.invoiceTime,
         timezone: formData.timezone,
       } as InvoiceSchedule;
@@ -406,19 +373,9 @@ export default function CreateRecurringWorkOrder() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Recurrence Pattern *</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {['daily', 'weekly', 'monthly', 'yearly'].map((type) => (
-                    <Button
-                      key={type}
-                      variant={formData.recurrenceType === type ? 'default' : 'outline'}
-                      onClick={() => handleRecurrenceTypeChange(type)}
-                      className="capitalize"
-                      size="sm"
-                    >
-                      {type}
-                    </Button>
-                  ))}
+                <Label>Recurrence Pattern</Label>
+                <div className="text-sm text-gray-600 mt-2 p-3 bg-blue-50 rounded-md">
+                  This work order will repeat <strong>Monthly</strong>
                 </div>
               </div>
 
@@ -432,74 +389,21 @@ export default function CreateRecurringWorkOrder() {
                     onChange={(e) => setFormData({ ...formData, recurrenceInterval: parseInt(e.target.value) || 1 })}
                     className="w-20"
                   />
-                  <span className="text-sm text-gray-600">
-                    {formData.recurrenceType === 'daily' ? 'day(s)' :
-                     formData.recurrenceType === 'weekly' ? 'week(s)' :
-                     formData.recurrenceType === 'monthly' ? 'month(s)' :
-                     formData.recurrenceType === 'yearly' ? 'year(s)' : ''}
-                  </span>
+                  <span className="text-sm text-gray-600">month(s)</span>
                 </div>
               </div>
 
-              {formData.recurrenceType === 'weekly' && (
-                <div>
-                  <Label>Days of Week</Label>
-                  <div className="grid grid-cols-4 gap-2 mt-2">
-                    {daysOfWeek.map((day, index) => (
-                      <Button
-                        key={day}
-                        variant={formData.recurrenceDaysOfWeek.includes(index) ? 'default' : 'outline'}
-                        onClick={() => toggleDayOfWeek(index)}
-                        size="sm"
-                        className="text-xs"
-                      >
-                        {day.slice(0, 3)}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {formData.recurrenceType === 'monthly' && (
-                <div>
-                  <Label>Day of Month</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={formData.recurrenceDayOfMonth}
-                    onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
-                  />
-                </div>
-              )}
-
-              {formData.recurrenceType === 'yearly' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Month</Label>
-                    <select
-                      value={formData.recurrenceMonthOfYear}
-                      onChange={(e) => setFormData({ ...formData, recurrenceMonthOfYear: parseInt(e.target.value) })}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      {['January', 'February', 'March', 'April', 'May', 'June',
-                        'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
-                        <option key={month} value={index + 1}>{month}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label>Day</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={formData.recurrenceDayOfMonth}
-                      onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
-                    />
-                  </div>
-                </div>
-              )}
+              <div>
+                <Label>Day of Month</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={formData.recurrenceDayOfMonth}
+                  onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
+                />
+                <p className="text-xs text-gray-500 mt-1">Day of the month when work order should be created (1-31)</p>
+              </div>
 
               <div className="pt-4 border-t">
                 <Button
@@ -548,19 +452,9 @@ export default function CreateRecurringWorkOrder() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Invoice Schedule Pattern *</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {['daily', 'weekly', 'monthly', 'yearly'].map((type) => (
-                    <Button
-                      key={type}
-                      variant={formData.invoiceScheduleType === type ? 'default' : 'outline'}
-                      onClick={() => handleInvoiceScheduleTypeChange(type)}
-                      className="capitalize"
-                      size="sm"
-                    >
-                      {type}
-                    </Button>
-                  ))}
+                <Label>Invoice Schedule Pattern</Label>
+                <div className="text-sm text-gray-600 mt-2 p-3 bg-blue-50 rounded-md">
+                  Invoices will be sent <strong>Monthly</strong>
                 </div>
               </div>
 
@@ -574,46 +468,21 @@ export default function CreateRecurringWorkOrder() {
                     onChange={(e) => setFormData({ ...formData, invoiceScheduleInterval: parseInt(e.target.value) || 1 })}
                     className="w-20"
                   />
-                  <span className="text-sm text-gray-600">
-                    {formData.invoiceScheduleType === 'daily' ? 'day(s)' :
-                     formData.invoiceScheduleType === 'weekly' ? 'week(s)' :
-                     formData.invoiceScheduleType === 'monthly' ? 'month(s)' :
-                     formData.invoiceScheduleType === 'yearly' ? 'year(s)' : ''}
-                  </span>
+                  <span className="text-sm text-gray-600">month(s)</span>
                 </div>
               </div>
 
-              {formData.invoiceScheduleType === 'weekly' && (
-                <div>
-                  <Label>Days of Week</Label>
-                  <div className="grid grid-cols-4 gap-2 mt-2">
-                    {daysOfWeek.map((day, index) => (
-                      <Button
-                        key={day}
-                        variant={formData.invoiceScheduleDaysOfWeek.includes(index) ? 'default' : 'outline'}
-                        onClick={() => toggleInvoiceDayOfWeek(index)}
-                        size="sm"
-                        className="text-xs"
-                      >
-                        {day.slice(0, 3)}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {formData.invoiceScheduleType === 'monthly' && (
-                <div>
-                  <Label>Day of Month</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={formData.invoiceScheduleDayOfMonth}
-                    onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
-                  />
-                </div>
-              )}
+              <div>
+                <Label>Day of Month</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={formData.invoiceScheduleDayOfMonth}
+                  onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
+                />
+                <p className="text-xs text-gray-500 mt-1">Day of the month when invoice should be sent (1-31)</p>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

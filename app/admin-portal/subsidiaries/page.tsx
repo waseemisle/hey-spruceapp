@@ -12,10 +12,10 @@ import { Building2, Plus, Save, X, Search, Users, Edit2, Trash2 } from 'lucide-r
 import { toast } from 'sonner';
 
 interface Client { id: string; fullName: string; email: string }
-interface Subsidiary { id: string; clientId: string; name: string; email?: string; phone?: string }
+interface Company { id: string; clientId: string; name: string; email?: string; phone?: string }
 
-export default function AdminSubsidiaries() {
-  const [subsidiaries, setSubsidiaries] = useState<Subsidiary[]>([]);
+export default function AdminCompanies() {
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -27,13 +27,13 @@ export default function AdminSubsidiaries() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [subsSnap, clientsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'subsidiaries'))),
+      const [companiesSnap, clientsSnap] = await Promise.all([
+        getDocs(query(collection(db, 'companies'))),
         getDocs(query(collection(db, 'clients'))),
       ]);
-      const subs = subsSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as any as Subsidiary[];
+      const comps = companiesSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as any as Company[];
       const cls = clientsSnap.docs.map((d) => ({ id: d.id, fullName: d.data().fullName, email: d.data().email })) as Client[];
-      setSubsidiaries(subs);
+      setCompanies(comps);
       setClients(cls);
     } catch (e) {
       console.error(e);
@@ -55,15 +55,15 @@ export default function AdminSubsidiaries() {
     setSaving(true);
     try {
       if (editingId) {
-        await updateDoc(doc(db, 'subsidiaries', editingId), {
+        await updateDoc(doc(db, 'companies', editingId), {
           name: formData.name,
           email: formData.email || '',
           phone: formData.phone || '',
           updatedAt: serverTimestamp(),
         });
-        toast.success('Subsidiary updated');
+        toast.success('Company updated');
       } else {
-        await addDoc(collection(db, 'subsidiaries'), {
+        await addDoc(collection(db, 'companies'), {
           clientId: formData.clientId,
           name: formData.name,
           email: formData.email || '',
@@ -71,14 +71,14 @@ export default function AdminSubsidiaries() {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-        toast.success('Subsidiary created');
+        toast.success('Company created');
       }
       setShowModal(false);
       setEditingId(null);
       setFormData({ clientId: '', name: '', email: '', phone: '' });
       fetchAll();
     } catch (e: any) {
-      toast.error(e.message || 'Failed to create subsidiary');
+      toast.error(e.message || 'Failed to create company');
     } finally {
       setSaving(false);
     }
@@ -90,37 +90,37 @@ export default function AdminSubsidiaries() {
     setShowModal(true);
   };
 
-  const handleOpenEdit = (s: Subsidiary) => {
-    setEditingId(s.id);
-    setFormData({ clientId: s.clientId, name: s.name, email: s.email || '', phone: s.phone || '' });
+  const handleOpenEdit = (c: Company) => {
+    setEditingId(c.id);
+    setFormData({ clientId: c.clientId, name: c.name, email: c.email || '', phone: c.phone || '' });
     setShowModal(true);
   };
 
-  const performDelete = async (s: Subsidiary) => {
+  const performDelete = async (c: Company) => {
     try {
-      // prevent deletion if locations exist for subsidiary
-      const locSnap = await getDocs(query(collection(db, 'locations'), where('subsidiaryId', '==', s.id)));
+      // prevent deletion if locations exist for company
+      const locSnap = await getDocs(query(collection(db, 'locations'), where('companyId', '==', c.id)));
       if (!locSnap.empty) {
-        toast.error(`Cannot delete. ${locSnap.size} location(s) linked to this subsidiary.`);
+        toast.error(`Cannot delete. ${locSnap.size} location(s) linked to this company.`);
         return;
       }
-      await deleteDoc(doc(db, 'subsidiaries', s.id));
-      toast.success('Subsidiary deleted');
+      await deleteDoc(doc(db, 'companies', c.id));
+      toast.success('Company deleted');
       fetchAll();
     } catch (e) {
       console.error(e);
-      toast.error('Failed to delete subsidiary');
+      toast.error('Failed to delete company');
     }
   };
 
-  const filtered = subsidiaries.filter((s) => {
+  const filtered = companies.filter((c) => {
     const q = searchQuery.toLowerCase();
     if (!q) return true;
-    const client = clients.find((c) => c.id === s.clientId);
+    const client = clients.find((cl) => cl.id === c.clientId);
     return (
-      s.name.toLowerCase().includes(q) ||
-      (s.email || '').toLowerCase().includes(q) ||
-      (s.phone || '').toLowerCase().includes(q) ||
+      c.name.toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.phone || '').toLowerCase().includes(q) ||
       (client?.fullName || '').toLowerCase().includes(q)
     );
   });
@@ -140,19 +140,19 @@ export default function AdminSubsidiaries() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Subsidiaries</h1>
-            <p className="text-gray-600 mt-2">Manage client subsidiaries</p>
+            <h1 className="text-3xl font-bold text-gray-900">Companies</h1>
+            <p className="text-gray-600 mt-2">Manage client companies</p>
           </div>
           <Button onClick={handleOpenCreate}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Subsidiary
+            Create Company
           </Button>
         </div>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search by subsidiary or client..."
+            placeholder="Search by company or client..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -164,30 +164,30 @@ export default function AdminSubsidiaries() {
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
                 <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No subsidiaries found</p>
+                <p className="text-gray-600">No companies found</p>
               </CardContent>
             </Card>
           ) : (
-            filtered.map((s) => {
-              const client = clients.find((c) => c.id === s.clientId);
+            filtered.map((c) => {
+              const client = clients.find((cl) => cl.id === c.clientId);
               return (
-                <Card key={s.id} className="hover:shadow-lg transition-shadow">
+                <Card key={c.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
-                    <CardTitle className="text-lg">{s.name}</CardTitle>
+                    <CardTitle className="text-lg">{c.name}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      <span>{client ? `${client.fullName} (${client.email})` : s.clientId}</span>
+                      <span>{client ? `${client.fullName} (${client.email})` : c.clientId}</span>
                     </div>
-                    {s.email && <div>Email: {s.email}</div>}
-                    {s.phone && <div>Phone: {s.phone}</div>}
+                    {c.email && <div>Email: {c.email}</div>}
+                    {c.phone && <div>Phone: {c.phone}</div>}
                     <div className="flex gap-2 pt-2">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleOpenEdit(s)}>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleOpenEdit(c)}>
                         <Edit2 className="h-4 w-4 mr-2" />
                         Edit
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => performDelete(s)}>
+                      <Button size="sm" variant="destructive" onClick={() => performDelete(c)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -202,7 +202,7 @@ export default function AdminSubsidiaries() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-2xl w-full">
               <div className="p-6 border-b flex items-center justify-between">
-                <h2 className="text-2xl font-bold">{editingId ? 'Edit Subsidiary' : 'Create Subsidiary'}</h2>
+                <h2 className="text-2xl font-bold">{editingId ? 'Edit Company' : 'Create Company'}</h2>
                 <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -229,7 +229,7 @@ export default function AdminSubsidiaries() {
                     )}
                   </div>
                   <div>
-                    <Label>Subsidiary Name *</Label>
+                    <Label>Company Name *</Label>
                     <Input
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}

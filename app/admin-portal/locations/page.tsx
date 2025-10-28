@@ -52,7 +52,7 @@ export default function LocationsManagement() {
 
   const [formData, setFormData] = useState({
     clientId: '',
-    subsidiaryId: '',
+    companyId: '',
     locationName: '',
     street: '',
     city: '',
@@ -64,7 +64,7 @@ export default function LocationsManagement() {
     contactPhone: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
   });
-  const [subsidiaries, setSubsidiaries] = useState<{ id: string; name: string; clientId: string }[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string; clientId: string }[]>([]);
 
   const fetchLocations = async () => {
     try {
@@ -98,21 +98,21 @@ export default function LocationsManagement() {
     }
   };
 
-  const fetchSubsidiaries = async () => {
+  const fetchCompanies = async () => {
     try {
-      const subsQuery = query(collection(db, 'subsidiaries'));
-      const snapshot = await getDocs(subsQuery);
-      const subsData = snapshot.docs.map(d => ({ id: d.id, name: d.data().name as string, clientId: d.data().clientId as string }));
-      setSubsidiaries(subsData);
+      const companiesQuery = query(collection(db, 'companies'));
+      const snapshot = await getDocs(companiesQuery);
+      const companiesData = snapshot.docs.map(d => ({ id: d.id, name: d.data().name as string, clientId: d.data().clientId as string }));
+      setCompanies(companiesData);
     } catch (error) {
-      console.error('Error fetching subsidiaries:', error);
+      console.error('Error fetching companies:', error);
     }
   };
 
   useEffect(() => {
     fetchLocations();
     fetchClients();
-    fetchSubsidiaries();
+    fetchCompanies();
   }, []);
 
   const handleApprove = async (locationId: string) => {
@@ -175,7 +175,7 @@ export default function LocationsManagement() {
   const resetForm = () => {
     setFormData({
       clientId: '',
-      subsidiaryId: '',
+      companyId: '',
       locationName: '',
       street: '',
       city: '',
@@ -199,7 +199,7 @@ export default function LocationsManagement() {
   const handleOpenEdit = (location: Location) => {
     setFormData({
       clientId: location.clientId,
-      subsidiaryId: (location as any).subsidiaryId || '',
+      companyId: (location as any).companyId || '',
       locationName: location.locationName,
       street: location.address.street,
       city: location.address.city,
@@ -216,7 +216,7 @@ export default function LocationsManagement() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.clientId || !formData.subsidiaryId || !formData.locationName || !formData.street || !formData.city || !formData.state || !formData.zip) {
+    if (!formData.clientId || !formData.companyId || !formData.locationName || !formData.street || !formData.city || !formData.state || !formData.zip) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -230,13 +230,13 @@ export default function LocationsManagement() {
         return;
       }
 
-      const selectedSubsidiary = subsidiaries.find(s => s.id === formData.subsidiaryId);
+      const selectedCompany = companies.find(c => c.id === formData.companyId);
       const locationData = {
         clientId: formData.clientId,
         clientName: client.fullName,
         clientEmail: client.email,
-        subsidiaryId: formData.subsidiaryId,
-        subsidiaryName: selectedSubsidiary?.name || '',
+        companyId: formData.companyId,
+        companyName: selectedCompany?.name || '',
         locationName: formData.locationName,
         address: {
           street: formData.street,
@@ -530,7 +530,7 @@ export default function LocationsManagement() {
                     <Label>Select Client *</Label>
                     <select
                       value={formData.clientId}
-                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value, subsidiaryId: '' })}
+                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value, companyId: '' })}
                       className="w-full border border-gray-300 rounded-md p-2"
                       disabled={!!editingId}
                     >
@@ -547,18 +547,18 @@ export default function LocationsManagement() {
                   </div>
 
                   <div>
-                    <Label>Subsidiary *</Label>
+                    <Label>Company *</Label>
                     <select
-                      value={formData.subsidiaryId}
-                      onChange={(e) => setFormData({ ...formData, subsidiaryId: e.target.value })}
+                      value={formData.companyId}
+                      onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
                       className="w-full border border-gray-300 rounded-md p-2"
                       disabled={!formData.clientId}
                     >
-                      <option value="">{formData.clientId ? 'Choose a subsidiary...' : 'Select client first'}</option>
-                      {subsidiaries
-                        .filter(s => s.clientId === formData.clientId)
-                        .map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
+                      <option value="">{formData.clientId ? 'Choose a company...' : 'Select client first'}</option>
+                      {companies
+                        .filter(c => c.clientId === formData.clientId)
+                        .map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                     </select>
                   </div>

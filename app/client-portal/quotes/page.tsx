@@ -195,20 +195,22 @@ export default function ClientQuotes() {
           <p className="text-gray-600 mt-2">Review and approve quotes from contractors</p>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {filterOptions.map(option => (
-            <button
-              key={option.value}
-              onClick={() => setFilter(option.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-                filter === option.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {option.label} ({option.count})
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
+            Filter by Status:
+          </label>
+          <select
+            id="status-filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {filterOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label} ({option.count})
+              </option>
+            ))}
+          </select>
         </div>
 
         {filteredQuotes.length === 0 ? (
@@ -244,7 +246,7 @@ export default function ClientQuotes() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-5 w-5 text-green-600" />
                       <div>
@@ -252,11 +254,6 @@ export default function ClientQuotes() {
                         <p className="text-2xl font-bold text-gray-900">
                           ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
                         </p>
-                        {quote.markupPercentage && (
-                          <p className="text-xs text-gray-500">
-                            Includes {quote.markupPercentage}% markup
-                          </p>
-                        )}
                       </div>
                     </div>
 
@@ -270,36 +267,6 @@ export default function ClientQuotes() {
                       </div>
                     </div>
                   </div>
-
-                  {(quote.laborCost > 0 || quote.materialCost > 0 || quote.taxAmount > 0) && (
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        {quote.laborCost > 0 && (
-                          <div>
-                            <p className="text-gray-600">Labor Cost</p>
-                            <p className="font-semibold">${quote.laborCost.toLocaleString()}</p>
-                          </div>
-                        )}
-                        {quote.materialCost > 0 && (
-                          <div>
-                            <p className="text-gray-600">Material Cost</p>
-                            <p className="font-semibold">${quote.materialCost.toLocaleString()}</p>
-                          </div>
-                        )}
-                        {quote.taxAmount > 0 && (
-                          <div>
-                            <p className="text-gray-600">Tax ({quote.taxRate}%)</p>
-                            <p className="font-semibold">${quote.taxAmount.toLocaleString()}</p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-gray-600">Subtotal</p>
-                          <p className="font-semibold">${quote.totalAmount.toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {quote.lineItems && quote.lineItems.length > 0 && (
                     <div className="border-t pt-4">

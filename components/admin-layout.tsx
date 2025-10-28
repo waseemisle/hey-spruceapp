@@ -8,6 +8,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
+import NotificationBell from '@/components/notification-bell';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw
@@ -61,7 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Clients', href: '/admin-portal/clients', icon: Users },
     { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users },
     { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck },
-    { name: 'Subsidiaries', href: '/admin-portal/subsidiaries', icon: Building2 },
+    { name: 'Companies', href: '/admin-portal/subsidiaries', icon: Building2 },
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2 },
     { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList },
     { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw },
@@ -94,6 +95,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="ml-3 text-sm text-gray-500 hidden sm:inline">Admin Portal</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            <NotificationBell />
             <span className="text-sm text-gray-600 hidden md:inline">{user?.email}</span>
             <Button
               variant="outline"

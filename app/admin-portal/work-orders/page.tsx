@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { createNotification } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,9 @@ interface WorkOrder {
   images: string[];
   assignedTo?: string;
   assignedToName?: string;
+  scheduledServiceDate?: any;
+  scheduledServiceTime?: string;
+  scheduleSharedWithClient?: boolean;
   createdAt: any;
   quoteCount?: number;
 }
@@ -357,6 +361,44 @@ export default function WorkOrdersManagement() {
     } catch (error) {
       console.error('Error sending invoice:', error);
       toast.error('Failed to send invoice');
+    }
+  };
+
+  const handleShareScheduleWithClient = async (workOrder: WorkOrder) => {
+    if (!workOrder.scheduledServiceDate || !workOrder.scheduledServiceTime) {
+      toast.error('No scheduled service date/time found');
+      return;
+    }
+
+    try {
+      // Update work order to mark schedule as shared
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        scheduleSharedWithClient: true,
+        scheduleSharedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Create notification for client
+      const serviceDate = workOrder.scheduledServiceDate?.toDate?.() || new Date(workOrder.scheduledServiceDate);
+      const formattedDate = serviceDate.toLocaleDateString();
+      const formattedTime = workOrder.scheduledServiceTime || 'N/A';
+
+      await createNotification({
+        userId: workOrder.clientId,
+        userRole: 'client',
+        type: 'schedule',
+        title: 'Service Date Scheduled',
+        message: `Your work order "${workOrder.title}" has been scheduled for ${formattedDate} at ${formattedTime}. The subcontractor will arrive at the scheduled time.`,
+        link: `/client-portal/work-orders`,
+        referenceId: workOrder.id,
+        referenceType: 'workOrder',
+      });
+
+      toast.success('Schedule shared with client successfully!');
+      fetchWorkOrders();
+    } catch (error) {
+      console.error('Error sharing schedule with client:', error);
+      toast.error('Failed to share schedule with client');
     }
   };
 
@@ -757,32 +799,37 @@ export default function WorkOrdersManagement() {
           </Button>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search work orders by title, description, client, number, or category..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+        {/* Search and Filter */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search work orders..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-2 flex-wrap">
-          {['all', 'pending', 'approved', 'bidding', 'quotes_received', 'to_be_started', 'assigned', 'completed', 'accepted_by_subcontractor', 'rejected_by_subcontractor'].map((filterOption) => (
-            <Button
-              key={filterOption}
-              variant={filter === filterOption ? 'default' : 'outline'}
-              onClick={() => setFilter(filterOption as typeof filter)}
-              className="capitalize text-xs sm:text-sm"
-              size="sm"
+          <div>
+            <Label className="text-sm text-gray-600 mb-1">Filter by Status</Label>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as typeof filter)}
+              className="w-full border border-gray-300 rounded-md p-2 bg-white"
             >
-              <span className="hidden sm:inline">{filterOption}</span>
-              <span className="sm:hidden">{filterOption.charAt(0).toUpperCase()}</span>
-              <span className="ml-1">({workOrders.filter(w => filterOption === 'all' || w.status === filterOption).length})</span>
-            </Button>
-          ))}
+              <option value="all">All ({workOrders.length})</option>
+              <option value="pending">Pending ({workOrders.filter(w => w.status === 'pending').length})</option>
+              <option value="approved">Approved ({workOrders.filter(w => w.status === 'approved').length})</option>
+              <option value="bidding">Bidding ({workOrders.filter(w => w.status === 'bidding').length})</option>
+              <option value="quotes_received">Quotes Received ({workOrders.filter(w => w.status === 'quotes_received').length})</option>
+              <option value="to_be_started">To Be Started ({workOrders.filter(w => w.status === 'to_be_started').length})</option>
+              <option value="assigned">Assigned ({workOrders.filter(w => w.status === 'assigned').length})</option>
+              <option value="completed">Completed ({workOrders.filter(w => w.status === 'completed').length})</option>
+              <option value="accepted_by_subcontractor">Accepted by Subcontractor ({workOrders.filter(w => w.status === 'accepted_by_subcontractor').length})</option>
+              <option value="rejected_by_subcontractor">Rejected by Subcontractor ({workOrders.filter(w => w.status === 'rejected_by_subcontractor').length})</option>
+            </select>
+          </div>
         </div>
 
         {/* Work Orders Grid */}
@@ -947,6 +994,36 @@ export default function WorkOrdersManagement() {
                         <span className="hidden sm:inline">Reassign to Subcontractor</span>
                         <span className="sm:hidden">Reassign</span>
                       </Button>
+                    )}
+
+                    {workOrder.status === 'accepted_by_subcontractor' && (
+                      <div className="space-y-2">
+                        {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
+                          <div className="text-sm bg-green-50 p-3 rounded-md">
+                            <p className="font-semibold text-green-800">Scheduled Service:</p>
+                            <p className="text-green-700">
+                              {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
+                            </p>
+                          </div>
+                        )}
+                        {!workOrder.scheduleSharedWithClient && workOrder.scheduledServiceDate && (
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleShareScheduleWithClient(workOrder)}
+                          >
+                            <Share2 className="h-4 w-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Share Schedule with Client</span>
+                            <span className="sm:hidden">Share Schedule</span>
+                          </Button>
+                        )}
+                        {workOrder.scheduleSharedWithClient && (
+                          <div className="text-sm bg-blue-50 p-3 rounded-md text-center">
+                            <CheckCircle className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+                            <p className="text-blue-800 font-medium">Schedule shared with client</p>
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {workOrder.status === 'completed' && (
@@ -1265,31 +1342,25 @@ export default function WorkOrdersManagement() {
                 <p className="text-gray-600 mb-6">Choose the type of work order you want to create:</p>
                 
                 <div className="space-y-3">
-                  <Button
-                    className="w-full justify-start h-auto p-4"
-                    variant="outline"
+                  <button
+                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateNormalWorkOrder}
                   >
-                    <div className="text-left">
-                      <div className="font-semibold text-lg">Normal Work Order</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        Create a one-time work order for immediate or scheduled work
-                      </div>
+                    <div className="font-semibold text-lg text-gray-900">Normal Work Order</div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      Create a one-time work order for immediate or scheduled work
                     </div>
-                  </Button>
-                  
-                  <Button
-                    className="w-full justify-start h-auto p-4"
-                    variant="outline"
+                  </button>
+
+                  <button
+                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateRecurringWorkOrder}
                   >
-                    <div className="text-left">
-                      <div className="font-semibold text-lg">Recurring Work Order</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        Create a recurring work order that repeats automatically (daily, weekly, monthly, yearly, or custom)
-                      </div>
+                    <div className="font-semibold text-lg text-gray-900">Recurring Work Order</div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      Create a recurring work order that repeats automatically (daily, weekly, monthly, yearly, or custom)
                     </div>
-                  </Button>
+                  </button>
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">

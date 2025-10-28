@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function CreateSubsidiary() {
+export default function CreateCompany() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -35,7 +35,7 @@ export default function CreateSubsidiary() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      toast.error('Subsidiary name is required');
+      toast.error('Company name is required');
       return;
     }
 
@@ -54,7 +54,7 @@ export default function CreateSubsidiary() {
         return;
       }
 
-      await addDoc(collection(db, 'subsidiaries'), {
+      await addDoc(collection(db, 'companies'), {
         clientId: currentUser.uid,
         name: formData.name,
         email: formData.email || '',
@@ -73,11 +73,11 @@ export default function CreateSubsidiary() {
         updatedAt: serverTimestamp(),
       });
 
-      toast.success('Subsidiary created');
+      toast.success('Company created');
       router.push('/client-portal/subsidiaries');
     } catch (error) {
-      console.error('Error creating subsidiary:', error);
-      toast.error('Failed to create subsidiary');
+      console.error('Error creating company:', error);
+      toast.error('Failed to create company');
     } finally {
       setLoading(false);
     }
@@ -90,16 +90,16 @@ export default function CreateSubsidiary() {
           <Link href="/client-portal/subsidiaries">
             <Button variant="outline" size="sm" className="mb-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Subsidiaries
+              Back to Companies
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Add Subsidiary</h1>
-          <p className="text-gray-600 mt-2">Create a subsidiary to group locations</p>
+          <h1 className="text-3xl font-bold text-gray-900">Add Company</h1>
+          <p className="text-gray-600 mt-2">Create a company to group locations</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Subsidiary Details</CardTitle>
+            <CardTitle>Company Details</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -146,7 +146,7 @@ export default function CreateSubsidiary() {
                 <Link href="/client-portal/subsidiaries">
                   <Button type="button" variant="outline">Cancel</Button>
                 </Link>
-                <Button type="submit" disabled={loading}>{loading ? 'Creating...' : 'Create Subsidiary'}</Button>
+                <Button type="submit" disabled={loading}>{loading ? 'Creating...' : 'Create Company'}</Button>
               </div>
             </form>
           </CardContent>

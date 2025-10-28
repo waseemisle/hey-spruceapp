@@ -8,6 +8,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
+import NotificationBell from '@/components/notification-bell';
 import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X } from 'lucide-react';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
@@ -49,7 +50,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const menuItems = [
     { name: 'Dashboard', href: '/client-portal', icon: Home },
-    { name: 'Subsidiaries', href: '/client-portal/subsidiaries', icon: Building2 },
+    { name: 'Companies', href: '/client-portal/subsidiaries', icon: Building2 },
     { name: 'Locations', href: '/client-portal/locations', icon: Building2 },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList },
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText },
@@ -73,6 +74,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <span className="ml-3 text-sm text-gray-500 hidden sm:inline">Client Portal</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            <NotificationBell />
             <span className="text-sm text-gray-600 hidden md:inline">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 md:mr-2" />

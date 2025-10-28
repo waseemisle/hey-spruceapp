@@ -32,9 +32,9 @@ export default function RecurringWorkOrdersManagement() {
     category: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
     estimateBudget: '',
-    recurrenceType: 'weekly' as 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom',
+    recurrenceType: 'monthly' as 'monthly',
     recurrenceInterval: 1,
-    invoiceScheduleType: 'weekly' as 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom',
+    invoiceScheduleType: 'monthly' as 'monthly',
     invoiceScheduleInterval: 1,
     invoiceTime: '09:00',
     timezone: 'America/New_York',
@@ -253,21 +253,23 @@ export default function RecurringWorkOrdersManagement() {
           />
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-2 flex-wrap">
-          {['all', 'active', 'paused', 'cancelled'].map((filterOption) => (
-            <Button
-              key={filterOption}
-              variant={filter === filterOption ? 'default' : 'outline'}
-              onClick={() => setFilter(filterOption as typeof filter)}
-              className="capitalize text-xs sm:text-sm"
-              size="sm"
-            >
-              <span className="hidden sm:inline">{filterOption}</span>
-              <span className="sm:hidden">{filterOption.charAt(0).toUpperCase()}</span>
-              <span className="ml-1">({recurringWorkOrders.filter(rwo => filterOption === 'all' || rwo.status === filterOption).length})</span>
-            </Button>
-          ))}
+        {/* Filter Dropdown */}
+        <div className="flex items-center gap-3">
+          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
+            Filter by Status:
+          </label>
+          <select
+            id="status-filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as typeof filter)}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 capitalize"
+          >
+            {['all', 'active', 'paused', 'cancelled'].map((filterOption) => (
+              <option key={filterOption} value={filterOption} className="capitalize">
+                {filterOption} ({recurringWorkOrders.filter(rwo => filterOption === 'all' || rwo.status === filterOption).length})
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Recurring Work Orders Grid */}
