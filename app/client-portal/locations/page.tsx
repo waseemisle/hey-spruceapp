@@ -8,7 +8,7 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Building2, Plus, MapPin, Calendar, Search } from 'lucide-react';
+import { Building2, Plus, MapPin, Calendar, Search, Eye, X } from 'lucide-react';
 import Link from 'next/link';
 
 interface Location {
@@ -33,6 +33,8 @@ export default function ClientLocations() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -70,6 +72,11 @@ export default function ClientLocations() {
     return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
   };
 
+  const handleViewDetails = (location: Location) => {
+    setSelectedLocation(location);
+    setShowModal(true);
+  };
+
   const filteredLocations = locations.filter(location => {
     const searchLower = searchQuery.toLowerCase();
 
@@ -84,8 +91,11 @@ export default function ClientLocations() {
       ? location.address.state.toLowerCase()
       : location.state.toLowerCase();
 
+    // Handle both 'name' and 'locationName' fields for compatibility
+    const locationName = (location.name || (location as any).locationName || '').toLowerCase();
+
     return !searchQuery ||
-      location.name.toLowerCase().includes(searchLower) ||
+      locationName.includes(searchLower) ||
       addressStr.includes(searchLower) ||
       city.includes(searchLower) ||
       state.includes(searchLower) ||
@@ -151,7 +161,7 @@ export default function ClientLocations() {
               <Card key={location.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{location.name}</CardTitle>
+                    <CardTitle className="text-lg">{location.name || (location as any).locationName}</CardTitle>
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(location.status)}`}>
                       {location.status}
                     </span>
@@ -198,9 +208,114 @@ export default function ClientLocations() {
                       <p className="text-xs text-gray-600">{location.notes}</p>
                     </div>
                   )}
+
+                  <div className="pt-3 border-t">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleViewDetails(location)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Details Modal */}
+        {showModal && selectedLocation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">{selectedLocation.name || (selectedLocation as any).locationName}</h2>
+                  <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(selectedLocation.status)}`}>
+                    Status: {selectedLocation.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Address</p>
+                    <p className="text-gray-900 font-medium">
+                      {typeof selectedLocation.address === 'object'
+                        ? selectedLocation.address.street
+                        : selectedLocation.address}
+                    </p>
+                    <p className="text-gray-900">
+                      {typeof selectedLocation.address === 'object'
+                        ? `${selectedLocation.address.city}, ${selectedLocation.address.state} ${selectedLocation.address.zip}`
+                        : `${selectedLocation.city}, ${selectedLocation.state} ${selectedLocation.zipCode}`}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Property Type</p>
+                    <p className="text-gray-900 font-medium">{selectedLocation.propertyType}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Created</p>
+                    <p className="text-gray-900 font-medium">
+                      {selectedLocation.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                    </p>
+                  </div>
+
+                  {selectedLocation.approvedAt && (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Approved</p>
+                      <p className="text-gray-900 font-medium">
+                        {selectedLocation.approvedAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {selectedLocation.status === 'rejected' && selectedLocation.rejectedReason && (
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm font-semibold text-red-800 mb-2">Rejection Reason:</p>
+                    <p className="text-sm text-red-700">{selectedLocation.rejectedReason}</p>
+                  </div>
+                )}
+
+                {selectedLocation.notes && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">Notes</p>
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-600">{selectedLocation.notes}</p>
+                    </div>
+                  </div>
+                )}
+
+                {selectedLocation.images && selectedLocation.images.length > 0 && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">Images</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedLocation.images.map((image, index) => (
+                        <img
+                          key={index}
+                          src={image}
+                          alt={`Location image ${index + 1}`}
+                          className="w-full h-48 object-cover rounded-lg border"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

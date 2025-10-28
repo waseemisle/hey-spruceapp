@@ -4,6 +4,9 @@ import { collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, 
 import Stripe from 'stripe';
 import { generateInvoicePDF, getInvoicePDFBase64, getWorkOrderPDFBase64 } from '@/lib/pdf-generator';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const { recurringWorkOrderId } = await request.json();

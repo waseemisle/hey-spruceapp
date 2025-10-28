@@ -16,19 +16,26 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
+// Only initialize Firebase if API key is present
+let app: any = null;
+let auth: any = null;
+let db: any = null;
+let storage: any = null;
+let analytics: any = null;
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+if (firebaseConfig.apiKey) {
+  // Initialize Firebase
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase services
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+  // Initialize Firebase services
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
 
-// Initialize Analytics (only in browser environment)
-let analytics = null;
-if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app);
+  // Initialize Analytics (only in browser environment)
+  if (typeof window !== 'undefined') {
+    analytics = getAnalytics(app);
+  }
 }
 
 export { app, auth, db, storage, analytics };

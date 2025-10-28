@@ -11,7 +11,7 @@ import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
-  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw
+  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -66,6 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2 },
     { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList },
     { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw },
+    { name: 'Maint Requests', href: '/admin-portal/maint-requests', icon: Wrench },
     { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText },
     { name: 'Invoices', href: '/admin-portal/invoices', icon: Receipt },
     { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar },
