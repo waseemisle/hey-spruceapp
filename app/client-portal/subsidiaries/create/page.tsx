@@ -55,7 +55,8 @@ export default function CreateCompany() {
       }
 
       await addDoc(collection(db, 'companies'), {
-        clientId: currentUser.uid,
+        userId: currentUser.uid,
+        clientId: currentUser.uid, // Keep both for backward compatibility
         name: formData.name,
         email: formData.email || '',
         phone: formData.phone || '',

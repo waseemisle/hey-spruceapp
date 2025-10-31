@@ -30,9 +30,10 @@ export default function ClientCompanies() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // Query using userId to match the Firestore index
         const companiesQuery = query(
           collection(db, 'companies'),
-          where('clientId', '==', user.uid),
+          where('userId', '==', user.uid),
           orderBy('createdAt', 'desc')
         );
 
