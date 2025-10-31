@@ -51,7 +51,7 @@ export default function CreateWorkOrder() {
       const snapshot = await getDocs(locationsQuery);
       const locationsData = snapshot.docs.map(doc => ({
         id: doc.id,
-        name: doc.data().name,
+        name: doc.data().locationName || doc.data().name,
         address: doc.data().address,
       }));
 
@@ -137,7 +137,7 @@ export default function CreateWorkOrder() {
         clientName: clientData.fullName || clientData.companyName || '',
         clientEmail: clientData.email || '',
         locationId: formData.locationId,
-        locationName: locationData.name || 'Unnamed Location',
+        locationName: locationData.locationName || locationData.name || 'Unnamed Location',
         locationAddress: fullAddress,
         title: formData.title,
         description: formData.description,
@@ -207,7 +207,7 @@ export default function CreateWorkOrder() {
                       <option value="">Select a location</option>
                       {locations.map(location => (
                         <option key={location.id} value={location.id}>
-                          {location.name} - {typeof location.address === 'object' ? location.address.street : location.address}
+                          {location.name}
                         </option>
                       ))}
                     </select>

@@ -7,8 +7,9 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileText, Check, X, Calendar, DollarSign, Search } from 'lucide-react';
+import { FileText, Check, X, Calendar, DollarSign, Search, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface Quote {
   id: string;
@@ -303,8 +304,17 @@ export default function ClientQuotes() {
                     </div>
                   )}
 
+                  <div className="flex gap-3 pt-4 border-t">
+                    <Link href={`/client-portal/quotes/${quote.id}`} className="flex-1">
+                      <Button variant="outline" className="w-full">
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Quote
+                      </Button>
+                    </Link>
+                  </div>
+
                   {quote.status === 'sent_to_client' && (
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex gap-3 pt-2">
                       <Button
                         onClick={() => handleApprove(quote.id)}
                         className="flex-1 bg-green-600 hover:bg-green-700"

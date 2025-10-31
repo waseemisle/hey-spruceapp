@@ -311,17 +311,23 @@ export default function WorkOrdersManagement() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(invoiceData.totalAmount * 100), // Convert to cents
-          description: `Payment for ${workOrder.title}`,
-          metadata: {
-            invoiceId: invoiceRef.id,
-            workOrderId: workOrder.id,
-            clientId: workOrder.clientId,
-          },
+          invoiceId: invoiceRef.id,
+          invoiceNumber: invoiceNumber,
+          amount: invoiceData.totalAmount,
+          customerEmail: workOrder.clientEmail,
+          clientName: workOrder.clientName,
         }),
       });
 
       const stripeData = await stripeResponse.json();
+
+      // Check if Stripe payment link creation was successful
+      if (!stripeData.paymentLink) {
+        console.error('Stripe payment link creation failed:', stripeData);
+        toast.error('Failed to create payment link');
+        return;
+      }
+
       const stripePaymentLink = stripeData.paymentLink;
 
       // Update invoice with payment link
@@ -329,6 +335,9 @@ export default function WorkOrdersManagement() {
         stripePaymentLink,
         status: 'sent',
       });
+
+      // Format due date
+      const formattedDueDate = new Date(invoiceData.dueDate).toLocaleDateString();
 
       // Send email with invoice
       const emailResponse = await fetch('/api/email/send-invoice', {
@@ -340,7 +349,7 @@ export default function WorkOrdersManagement() {
           invoiceNumber,
           workOrderTitle: workOrder.title,
           totalAmount: invoiceData.totalAmount,
-          dueDate: invoiceData.dueDate.toLocaleDateString(),
+          dueDate: formattedDueDate,
           lineItems: invoiceData.lineItems,
           notes: invoiceData.notes,
           stripePaymentLink,
