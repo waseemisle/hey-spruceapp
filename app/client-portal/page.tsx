@@ -6,6 +6,7 @@ import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, ClipboardList, FileText, Receipt } from 'lucide-react';
+import ClientCalendar from '@/components/calendar/client-calendar';
 
 export default function ClientDashboard() {
   const [locationsCount, setLocationsCount] = useState(0);
@@ -13,6 +14,8 @@ export default function ClientDashboard() {
   const [pendingQuotesCount, setPendingQuotesCount] = useState(0);
   const [unpaidInvoicesTotal, setUnpaidInvoicesTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [locations, setLocations] = useState<{ id: string; locationName: string }[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -31,6 +34,11 @@ export default function ClientDashboard() {
         );
         const locationsSnapshot = await getDocs(locationsQuery);
         setLocationsCount(locationsSnapshot.size);
+        const locationsData = locationsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          locationName: doc.data().locationName || doc.data().name || 'Unnamed Location',
+        }));
+        setLocations(locationsData);
 
         // Fetch work orders count (excluding completed and rejected)
         const workOrdersQuery = query(
@@ -126,17 +134,38 @@ export default function ClientDashboard() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-gray-600">• Create a new location for your property</p>
-            <p className="text-gray-600">• Submit a work order for maintenance</p>
-            <p className="text-gray-600">• Review and approve quotes from contractors</p>
-            <p className="text-gray-600">• Pay outstanding invoices</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">Master Calendar</h2>
+            {locations.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Filter by Location:</label>
+                <select
+                  multiple
+                  value={selectedLocations}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, option => option.value);
+                    setSelectedLocations(values);
+                  }}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm min-w-[200px]"
+                >
+                  <option value="">All Locations</option>
+                  {locations.map(location => (
+                    <option key={location.id} value={location.locationName}>
+                      {location.locationName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          <ClientCalendar 
+            selectedLocations={selectedLocations.length > 0 ? selectedLocations : undefined}
+            onEventClick={(workOrderId) => {
+              window.location.href = `/client-portal/work-orders/${workOrderId}`;
+            }}
+          />
+        </div>
       </div>
     </ClientLayout>
   );

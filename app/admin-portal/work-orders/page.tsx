@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { createNotification } from '@/lib/notifications';
+import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -174,12 +174,27 @@ export default function WorkOrdersManagement() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      // Get work order data first
+      const workOrderDoc = await getDoc(doc(db, 'workOrders', workOrderId));
+      if (!workOrderDoc.exists()) {
+        toast.error('Work order not found');
+        return;
+      }
+      const workOrderData = workOrderDoc.data();
+
       await updateDoc(doc(db, 'workOrders', workOrderId), {
         status: 'approved',
         approvedBy: currentUser.uid,
         approvedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Notify client about work order approval
+      await notifyClientOfWorkOrderApproval(
+        workOrderData.clientId,
+        workOrderId,
+        workOrderData.workOrderNumber || workOrderId
+      );
 
       toast.success('Work order approved successfully');
       fetchWorkOrders();
@@ -257,6 +272,26 @@ export default function WorkOrdersManagement() {
   };
 
   const handleSendInvoice = async (workOrder: WorkOrder) => {
+    // Check if work order is completed
+    if (workOrder.status !== 'completed') {
+      toast.error('Invoice can only be generated after work order is completed');
+      return;
+    }
+
+    // Check if invoice already exists
+    const existingInvoiceQuery = query(
+      collection(db, 'invoices'),
+      where('workOrderId', '==', workOrder.id)
+    );
+    const existingInvoiceSnapshot = await getDocs(existingInvoiceQuery);
+    if (!existingInvoiceSnapshot.empty) {
+      const existingInvoice = existingInvoiceSnapshot.docs[0].data();
+      if (existingInvoice.status === 'sent' || existingInvoice.status === 'paid') {
+        toast.error('Invoice already sent for this work order');
+        return;
+      }
+    }
+
     try {
       // Generate invoice number
       const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
@@ -334,7 +369,17 @@ export default function WorkOrdersManagement() {
       await updateDoc(invoiceRef, {
         stripePaymentLink,
         status: 'sent',
+        sentAt: serverTimestamp(),
       });
+
+      // Notify client of invoice
+      await notifyClientOfInvoice(
+        workOrder.clientId,
+        invoiceRef.id,
+        invoiceNumber,
+        workOrder.workOrderNumber || workOrder.id,
+        invoiceData.totalAmount
+      );
 
       // Format due date
       const formattedDueDate = new Date(invoiceData.dueDate).toLocaleDateString();
@@ -387,21 +432,18 @@ export default function WorkOrdersManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      // Create notification for client
+      // Notify client about scheduled service
       const serviceDate = workOrder.scheduledServiceDate?.toDate?.() || new Date(workOrder.scheduledServiceDate);
       const formattedDate = serviceDate.toLocaleDateString();
       const formattedTime = workOrder.scheduledServiceTime || 'N/A';
 
-      await createNotification({
-        userId: workOrder.clientId,
-        userRole: 'client',
-        type: 'schedule',
-        title: 'Service Date Scheduled',
-        message: `Your work order "${workOrder.title}" has been scheduled for ${formattedDate} at ${formattedTime}. The subcontractor will arrive at the scheduled time.`,
-        link: `/client-portal/work-orders`,
-        referenceId: workOrder.id,
-        referenceType: 'workOrder',
-      });
+      await notifyScheduledService(
+        workOrder.clientId,
+        workOrder.id,
+        workOrder.title,
+        formattedDate,
+        formattedTime
+      );
 
       toast.success('Schedule shared with client successfully!');
       fetchWorkOrders();
@@ -590,12 +632,46 @@ export default function WorkOrdersManagement() {
         return;
       }
 
-      // Map subcontractors data
-      const subsData = subsSnapshot.docs.map(doc => ({
+      // Map subcontractors data and filter by category
+      const allSubsData = subsSnapshot.docs.map(doc => ({
         id: doc.id,
         fullName: doc.data().fullName,
         email: doc.data().email,
         businessName: doc.data().businessName,
+        skills: doc.data().skills || [],
+      })) as (Subcontractor & { skills: string[] })[];
+
+      // Filter by work order category (if category exists)
+      let filteredSubs = allSubsData;
+      if (workOrder.category) {
+        const categoryLower = workOrder.category.toLowerCase();
+        filteredSubs = allSubsData.filter(sub => {
+          // Check if subcontractor has matching skill/category
+          if (!sub.skills || sub.skills.length === 0) {
+            // If no skills specified, include all (backward compatibility)
+            return true;
+          }
+          return sub.skills.some(skill => 
+            skill.toLowerCase().includes(categoryLower) || 
+            categoryLower.includes(skill.toLowerCase())
+          );
+        });
+
+        // If no matches found, show all (with warning)
+        if (filteredSubs.length === 0) {
+          toast.warning(`No subcontractors found matching category "${workOrder.category}". Showing all subcontractors.`);
+          filteredSubs = allSubsData;
+        } else {
+          toast.success(`Found ${filteredSubs.length} subcontractor(s) matching category "${workOrder.category}"`);
+        }
+      }
+
+      // Map to Subcontractor type (remove skills for display)
+      const subsData = filteredSubs.map(sub => ({
+        id: sub.id,
+        fullName: sub.fullName,
+        email: sub.email,
+        businessName: sub.businessName,
       })) as Subcontractor[];
 
       setSubcontractors(subsData);
@@ -641,9 +717,19 @@ export default function WorkOrdersManagement() {
           sharedAt: serverTimestamp(),
           createdAt: serverTimestamp(),
         });
+
+        // Notify will be done after all bidding work orders are created
       });
 
       await Promise.all(promises);
+
+      // Notify all selected subcontractors about bidding opportunity
+      await notifyBiddingOpportunity(
+        selectedSubcontractors,
+        workOrderToShare.id,
+        workOrderNumber,
+        workOrderToShare.title
+      );
 
       // Update work order status and ensure workOrderNumber exists
       await updateDoc(doc(db, 'workOrders', workOrderToShare.id), {
@@ -1042,8 +1128,8 @@ export default function WorkOrdersManagement() {
                         onClick={() => handleSendInvoice(workOrder)}
                       >
                         <Receipt className="h-4 w-4 mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">Send Invoice to Client</span>
-                        <span className="sm:hidden">Send Invoice</span>
+                        <span className="hidden sm:inline">Generate & Send Invoice</span>
+                        <span className="sm:hidden">Generate & Send</span>
                       </Button>
                     )}
                   </div>

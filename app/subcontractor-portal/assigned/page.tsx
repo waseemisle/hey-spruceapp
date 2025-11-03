@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
+import { notifyWorkOrderCompletion, notifyScheduledService, getAllAdminUserIds } from '@/lib/notifications';
+import { createNotification } from '@/lib/notifications';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -131,6 +133,10 @@ export default function SubcontractorAssignedJobs() {
         scheduledServiceTime: serviceTime,
       });
 
+      // Get work order data for notifications
+      const workOrderDoc = await getDoc(doc(db, 'workOrders', acceptingWorkOrderId));
+      const workOrderData = workOrderDoc.data();
+
       // Update work order status
       await updateDoc(doc(db, 'workOrders', acceptingWorkOrderId), {
         status: 'accepted_by_subcontractor',
@@ -138,6 +144,34 @@ export default function SubcontractorAssignedJobs() {
         scheduledServiceTime: serviceTime,
         updatedAt: serverTimestamp(),
       });
+
+      // Notify client of scheduling
+      if (workOrderData?.clientId) {
+        const scheduledDateTime = new Date(serviceDate + 'T' + serviceTime);
+        await notifyScheduledService(
+          workOrderData.clientId,
+          acceptingWorkOrderId,
+          workOrderData.title || workOrderData.workOrderNumber || 'Work Order',
+          scheduledDateTime.toLocaleDateString(),
+          serviceTime
+        );
+      }
+
+      // Notify all admins
+      const adminIds = await getAllAdminUserIds();
+      if (adminIds.length > 0) {
+        const scheduledDateTime = new Date(serviceDate + 'T' + serviceTime);
+        await createNotification({
+          recipientIds: adminIds,
+          userRole: 'admin',
+          type: 'schedule',
+          title: 'Work Order Scheduled',
+          message: `Work Order ${workOrderData?.workOrderNumber || acceptingWorkOrderId} scheduled for ${scheduledDateTime.toLocaleString()}`,
+          link: `/admin-portal/work-orders/${acceptingWorkOrderId}`,
+          referenceId: acceptingWorkOrderId,
+          referenceType: 'workOrder',
+        });
+      }
 
       toast.success('Assignment accepted successfully with scheduled service date!');
       setShowAcceptModal(false);
@@ -203,6 +237,10 @@ export default function SubcontractorAssignedJobs() {
     if (!completingWorkOrderId) return;
 
     try {
+      // Get work order data for notifications
+      const workOrderDoc = await getDoc(doc(db, 'workOrders', completingWorkOrderId));
+      const workOrderData = workOrderDoc.data();
+
       await updateDoc(doc(db, 'workOrders', completingWorkOrderId), {
         status: 'completed',
         completedAt: serverTimestamp(),
@@ -210,6 +248,15 @@ export default function SubcontractorAssignedJobs() {
         completionNotes: completionNotes,
         updatedAt: serverTimestamp(),
       });
+
+      // Notify client and admin of completion
+      if (workOrderData?.clientId) {
+        await notifyWorkOrderCompletion(
+          workOrderData.clientId,
+          completingWorkOrderId,
+          workOrderData.workOrderNumber || completingWorkOrderId
+        );
+      }
 
       toast.success('Job marked as complete with details!');
       setShowCompletionModal(false);

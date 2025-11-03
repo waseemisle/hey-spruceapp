@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FileText, DollarSign, Send, Plus, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { notifyQuoteSubmission } from '@/lib/notifications';
 
 interface LineItem {
   description: string;
@@ -149,6 +150,17 @@ export default function QuotesManagement() {
         sentBy: currentUser.uid,
         updatedAt: serverTimestamp(),
       });
+
+      // Notify client about quote
+      if (quote.workOrderId && quote.workOrderNumber) {
+        await notifyQuoteSubmission(
+          quote.clientId,
+          quote.workOrderId,
+          quote.workOrderNumber,
+          quote.subcontractorName,
+          clientAmount
+        );
+      }
 
       toast.success(`Quote forwarded to client with ${markup}% markup`);
       setSelectedQuote(null);

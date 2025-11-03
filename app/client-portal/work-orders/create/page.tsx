@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
+import { notifyAdminsOfWorkOrder } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -132,7 +133,7 @@ export default function CreateWorkOrder() {
       const fullAddress = `${locationData.address || ''}, ${locationData.city || ''}, ${locationData.state || ''} ${locationData.zipCode || ''}`.trim();
 
       // Create work order
-      await addDoc(collection(db, 'workOrders'), {
+      const workOrderRef = await addDoc(collection(db, 'workOrders'), {
         clientId: currentUser.uid,
         clientName: clientData.fullName || clientData.companyName || '',
         clientEmail: clientData.email || '',
@@ -148,6 +149,15 @@ export default function CreateWorkOrder() {
         status: 'pending',
         createdAt: serverTimestamp(),
       });
+
+      // Generate work order number
+      const workOrderNumber = `WO-${workOrderRef.id.slice(-8).toUpperCase()}`;
+      await updateDoc(workOrderRef, {
+        workOrderNumber,
+      });
+
+      // Notify all admins
+      await notifyAdminsOfWorkOrder(workOrderRef.id, workOrderNumber, clientData.fullName || clientData.companyName || 'Client');
 
       toast.success('Work order created successfully! Awaiting admin approval.');
       router.push('/client-portal/work-orders');

@@ -6,9 +6,10 @@ import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { formatAddress } from '@/lib/utils';
 
 interface WorkOrder {
   id: string;
@@ -29,6 +30,12 @@ interface WorkOrder {
   completedAt?: any;
   rejectionReason?: string;
   estimateBudget?: number;
+  completionDetails?: string;
+  completionNotes?: string;
+  assignedSubcontractor?: string;
+  assignedSubcontractorName?: string;
+  scheduledServiceDate?: any;
+  scheduledServiceTime?: string;
 }
 
 export default function ViewClientWorkOrder() {
@@ -127,6 +134,14 @@ export default function ViewClientWorkOrder() {
             <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getPriorityBadge(workOrder.priority)}`}>
               {workOrder.priority} priority
             </span>
+            {(workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && workOrder.assignedSubcontractor && (
+              <Link href={`/client-portal/messages?workOrderId=${workOrder.id}`}>
+                <Button size="sm" variant="outline">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Message Group
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -213,12 +228,10 @@ export default function ViewClientWorkOrder() {
                   <p className="text-sm text-gray-600">Location Name</p>
                   <p className="font-semibold">{workOrder.locationName}</p>
                 </div>
-                {workOrder.locationAddress && (
-                  <div>
-                    <p className="text-sm text-gray-600">Address</p>
-                    <p className="font-semibold">{workOrder.locationAddress}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm text-gray-600">Address</p>
+                  <p className="font-semibold">{formatAddress(workOrder.locationAddress)}</p>
+                </div>
               </CardContent>
             </Card>
 
@@ -252,8 +265,48 @@ export default function ViewClientWorkOrder() {
                     </p>
                   </div>
                 )}
+                {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
+                  <div>
+                    <p className="text-sm text-gray-600">Scheduled Service</p>
+                    <p className="font-semibold">
+                      {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            {/* Follow-up Notes - Visible after completion */}
+            {workOrder.status === 'completed' && (workOrder.completionDetails || workOrder.completionNotes) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Completion Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {workOrder.completionDetails && (
+                    <div>
+                      <h3 className="font-semibold text-gray-700 mb-2">Work Completed</h3>
+                      <p className="text-gray-600 whitespace-pre-wrap">{workOrder.completionDetails}</p>
+                    </div>
+                  )}
+                  {workOrder.completionNotes && (
+                    <div>
+                      <h3 className="font-semibold text-gray-700 mb-2">Follow-up Notes</h3>
+                      <p className="text-gray-600 whitespace-pre-wrap">{workOrder.completionNotes}</p>
+                    </div>
+                  )}
+                  {workOrder.assignedSubcontractorName && (
+                    <div className="pt-3 border-t">
+                      <p className="text-sm text-gray-600">Completed by</p>
+                      <p className="font-semibold">{workOrder.assignedSubcontractorName}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

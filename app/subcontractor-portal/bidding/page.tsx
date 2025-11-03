@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, serverTimestamp, getDocs, updateDoc } from 'firebase/firestore';
+import { notifyQuoteSubmission } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
@@ -165,7 +166,7 @@ export default function SubcontractorBidding() {
       const clientDoc = await getDoc(doc(db, 'clients', selectedWorkOrder.clientId));
       const clientEmail = clientDoc.exists() ? clientDoc.data().email : '';
 
-      await addDoc(collection(db, 'quotes'), {
+      const quoteRef = await addDoc(collection(db, 'quotes'), {
         workOrderId: selectedWorkOrder.id,
         workOrderNumber: selectedWorkOrder.workOrderNumber,
         workOrderTitle: selectedWorkOrder.title,
@@ -191,6 +192,15 @@ export default function SubcontractorBidding() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Notify client and admin about quote submission
+      await notifyQuoteSubmission(
+        selectedWorkOrder.clientId,
+        selectedWorkOrder.id,
+        selectedWorkOrder.workOrderNumber || selectedWorkOrder.id,
+        subData.fullName || subData.businessName,
+        total
+      );
 
       // Update biddingWorkOrder status to 'quoted' so it disappears from bidding list
       const biddingQuery = query(

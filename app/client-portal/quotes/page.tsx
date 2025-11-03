@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { notifySubcontractorAssignment } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileText, Check, X, Calendar, DollarSign, Search, Eye } from 'lucide-react';
+import { FileText, Check, X, Calendar, DollarSign, Search, Eye, GitCompare } from 'lucide-react';
+import QuoteComparison from '@/components/quote-comparison';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -51,6 +53,8 @@ export default function ClientQuotes() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'comparison'>('list');
+  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -80,32 +84,56 @@ export default function ClientQuotes() {
 
   const handleApprove = async (quoteId: string) => {
     toast(`Approve quote for "${quotes.find(q => q.id === quoteId)?.workOrderTitle}"?`, {
-      description: 'This will mark the work order as ready for subcontractor assignment.',
+      description: 'This will automatically assign the work order to the subcontractor.',
       action: {
         label: 'Approve',
         onClick: async () => {
           try {
-            // Update quote status
-            await updateDoc(doc(db, 'quotes', quoteId), {
-              status: 'accepted',
-              acceptedAt: new Date(),
-            });
-
-            // Find the quote to get work order ID
             const quote = quotes.find(q => q.id === quoteId);
-            if (quote && quote.workOrderId) {
-              // Update work order status to "to_be_started"
-              await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
-                status: 'to_be_started',
-                updatedAt: serverTimestamp(),
-              });
-            } else {
-              console.warn('Quote does not have associated work order ID:', quoteId);
+            if (!quote || !quote.workOrderId) {
               toast.error('Quote does not have an associated work order');
               return;
             }
 
-            toast.success('Quote approved successfully! Work order is now ready to be assigned to a subcontractor.');
+            // Get work order details
+            const workOrderDoc = await getDoc(doc(db, 'workOrders', quote.workOrderId));
+            if (!workOrderDoc.exists()) {
+              toast.error('Work order not found');
+              return;
+            }
+            const workOrderData = workOrderDoc.data();
+
+            // Update quote status
+            await updateDoc(doc(db, 'quotes', quoteId), {
+              status: 'accepted',
+              acceptedAt: serverTimestamp(),
+            });
+
+            // AUTO-ASSIGN: Create assigned job record
+            await addDoc(collection(db, 'assignedJobs'), {
+              workOrderId: quote.workOrderId,
+              subcontractorId: quote.subcontractorId,
+              assignedAt: serverTimestamp(),
+              status: 'pending_acceptance',
+            });
+
+            // Update work order status and assignment
+            await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
+              status: 'assigned',
+              assignedSubcontractor: quote.subcontractorId,
+              assignedSubcontractorName: quote.subcontractorName,
+              assignedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+
+            // Notify subcontractor of assignment
+            await notifySubcontractorAssignment(
+              quote.subcontractorId,
+              quote.workOrderId,
+              workOrderData.workOrderNumber || quote.workOrderId
+            );
+
+            toast.success('Quote accepted! Work order automatically assigned to subcontractor.');
           } catch (error) {
             console.error('Error approving quote:', error);
             toast.error('Failed to approve quote');
@@ -120,6 +148,8 @@ export default function ClientQuotes() {
   };
 
   const handleReject = async (quoteId: string) => {
+    const quote = quotes.find(q => q.id === quoteId);
+    if (!quote) return;
     toast(`Reject quote for "${quotes.find(q => q.id === quoteId)?.workOrderTitle}"?`, {
       description: 'Please provide a reason for rejection (optional).',
       action: {
@@ -191,9 +221,31 @@ export default function ClientQuotes() {
   return (
     <ClientLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Quotes</h1>
-          <p className="text-gray-600 mt-2">Review and approve quotes from contractors</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Quotes</h1>
+            <p className="text-gray-600 mt-2">Review and approve quotes from contractors</p>
+          </div>
+          {quotes.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                List View
+              </Button>
+              <Button
+                variant={viewMode === 'comparison' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('comparison')}
+              >
+                <GitCompare className="h-4 w-4 mr-2" />
+                Compare Quotes
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -228,6 +280,37 @@ export default function ClientQuotes() {
               </p>
             </CardContent>
           </Card>
+        ) : viewMode === 'comparison' ? (
+          <div className="space-y-6">
+            {/* Group quotes by work order */}
+            {(() => {
+              const quotesByWorkOrder = filteredQuotes.reduce((acc, quote) => {
+                const woId = quote.workOrderId || 'unknown';
+                if (!acc[woId]) acc[woId] = [];
+                acc[woId].push(quote);
+                return acc;
+              }, {} as Record<string, Quote[]>);
+
+              return Object.entries(quotesByWorkOrder).map(([workOrderId, workOrderQuotes]) => (
+                <Card key={workOrderId}>
+                  <CardHeader>
+                    <CardTitle>{workOrderQuotes[0].workOrderTitle}</CardTitle>
+                    {workOrderQuotes[0].workOrderNumber && (
+                      <p className="text-sm text-gray-600 mt-1">WO: {workOrderQuotes[0].workOrderNumber}</p>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <QuoteComparison
+                      quotes={workOrderQuotes}
+                      workOrderId={workOrderId}
+                      onAcceptQuote={handleApprove}
+                      onRejectQuote={handleReject}
+                    />
+                  </CardContent>
+                </Card>
+              ));
+            })()}
+          </div>
         ) : (
           <div className="space-y-6">
             {filteredQuotes.map((quote) => (

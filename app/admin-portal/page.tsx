@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building2, ClipboardList, Receipt, TrendingUp } from 'lucide-react';
+import AdminCalendar from '@/components/calendar/admin-calendar';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -151,25 +152,7 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-gray-600">
-              • Review pending client and subcontractor registrations
-            </p>
-            <p className="text-gray-600">
-              • Approve location requests from clients
-            </p>
-            <p className="text-gray-600">
-              • Manage work orders and assign to subcontractors
-            </p>
-            <p className="text-gray-600">
-              • Generate and send invoices with Stripe payment links
-            </p>
-          </CardContent>
-        </Card>
+        <AdminCalendar />
       </div>
     </AdminLayout>
   );

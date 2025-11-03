@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
@@ -15,6 +15,10 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [badgeCounts, setBadgeCounts] = useState({
+    bidding: 0,
+    messages: 0,
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -24,6 +28,20 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
         if (subDoc.exists() && subDoc.data().status === 'approved') {
           setUser({ ...firebaseUser, ...subDoc.data() });
           setLoading(false);
+
+          // Listen to pending bidding work orders count
+          const biddingQuery = query(
+            collection(db, 'biddingWorkOrders'),
+            where('subcontractorId', '==', firebaseUser.uid),
+            where('status', '==', 'pending')
+          );
+          const unsubscribeBidding = onSnapshot(biddingQuery, (snapshot) => {
+            setBadgeCounts(prev => ({ ...prev, bidding: snapshot.size }));
+          });
+
+          return () => {
+            unsubscribeBidding();
+          };
         } else {
           router.push('/portal-login');
         }
@@ -49,11 +67,11 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
   }
 
   const menuItems = [
-    { name: 'Dashboard', href: '/subcontractor-portal', icon: Home },
-    { name: 'Bidding Work Orders', href: '/subcontractor-portal/bidding', icon: ClipboardList },
-    { name: 'My Quotes', href: '/subcontractor-portal/quotes', icon: FileText },
-    { name: 'Assigned Jobs', href: '/subcontractor-portal/assigned', icon: CheckSquare },
-    { name: 'Messages', href: '/subcontractor-portal/messages', icon: MessageSquare },
+    { name: 'Dashboard', href: '/subcontractor-portal', icon: Home, badgeKey: null },
+    { name: 'Bidding Work Orders', href: '/subcontractor-portal/bidding', icon: ClipboardList, badgeKey: 'bidding' },
+    { name: 'My Quotes', href: '/subcontractor-portal/quotes', icon: FileText, badgeKey: null },
+    { name: 'Assigned Jobs', href: '/subcontractor-portal/assigned', icon: CheckSquare, badgeKey: null },
+    { name: 'Messages', href: '/subcontractor-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
   ];
 
   return (
@@ -96,10 +114,15 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
               <Link
                 key={item.name}
                 href={item.href}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-600 transition-colors relative"
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
+                {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
@@ -114,10 +137,15 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
                 key={item.name}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-green-50 hover:text-green-600 transition-colors relative"
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
+                {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>

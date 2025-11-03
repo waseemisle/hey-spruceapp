@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
@@ -15,6 +15,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [badgeCounts, setBadgeCounts] = useState({
+    quotes: 0,
+    invoices: 0,
+    messages: 0,
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -24,6 +29,43 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         if (clientDoc.exists() && clientDoc.data().status === 'approved') {
           setUser({ ...firebaseUser, ...clientDoc.data() });
           setLoading(false);
+
+          // Listen to quotes count (pending/sent_to_client)
+          const quotesQuery = query(
+            collection(db, 'quotes'),
+            where('clientId', '==', firebaseUser.uid),
+            where('status', 'in', ['pending', 'sent_to_client'])
+          );
+          const unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
+            setBadgeCounts(prev => ({ ...prev, quotes: snapshot.size }));
+          });
+
+          // Listen to unpaid invoices count
+          const invoicesQuery = query(
+            collection(db, 'invoices'),
+            where('clientId', '==', firebaseUser.uid),
+            where('status', 'in', ['sent', 'draft'])
+          );
+          const unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
+            setBadgeCounts(prev => ({ ...prev, invoices: snapshot.size }));
+          });
+
+          // Listen to unread messages count (if messages collection exists)
+          // Note: This will be implemented when messaging system is added
+          // const messagesQuery = query(
+          //   collection(db, 'messages'),
+          //   where('recipientId', '==', firebaseUser.uid),
+          //   where('read', '==', false)
+          // );
+          // const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
+          //   setBadgeCounts(prev => ({ ...prev, messages: snapshot.size }));
+          // });
+
+          return () => {
+            unsubscribeQuotes();
+            unsubscribeInvoices();
+            // unsubscribeMessages();
+          };
         } else {
           router.push('/portal-login');
         }
@@ -49,13 +91,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }
 
   const menuItems = [
-    { name: 'Dashboard', href: '/client-portal', icon: Home },
-    { name: 'Companies', href: '/client-portal/subsidiaries', icon: Building2 },
-    { name: 'Locations', href: '/client-portal/locations', icon: Building2 },
-    { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList },
-    { name: 'Quotes', href: '/client-portal/quotes', icon: FileText },
-    { name: 'Invoices', href: '/client-portal/invoices', icon: Receipt },
-    { name: 'Messages', href: '/client-portal/messages', icon: MessageSquare },
+    { name: 'Dashboard', href: '/client-portal', icon: Home, badgeKey: null },
+    { name: 'Companies', href: '/client-portal/subsidiaries', icon: Building2, badgeKey: null },
+    { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: null },
+    { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: null },
+    { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
+    { name: 'Invoices', href: '/client-portal/invoices', icon: Receipt, badgeKey: 'invoices' },
+    { name: 'Messages', href: '/client-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
   ];
 
   return (
@@ -98,10 +140,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               <Link
                 key={item.name}
                 href={item.href}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors relative"
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
+                {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
@@ -116,10 +163,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 key={item.name}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors relative"
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
+                {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>

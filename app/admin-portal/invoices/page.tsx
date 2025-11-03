@@ -12,6 +12,7 @@ import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Sear
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { Quote } from '@/types';
 import { toast } from 'sonner';
+import { notifyClientOfInvoice } from '@/lib/notifications';
 
 interface Invoice {
   id: string;
@@ -132,9 +133,50 @@ export default function InvoicesManagement() {
         updatedAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, 'invoices'), invoiceData);
+      const invoiceRef = await addDoc(collection(db, 'invoices'), invoiceData);
 
-      toast.success(`Invoice ${invoiceNumber} created successfully`);
+      // Create Stripe payment link
+      try {
+        const stripeResponse = await fetch('/api/stripe/create-payment-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoiceId: invoiceRef.id,
+            invoiceNumber: invoiceNumber,
+            amount: invoiceData.totalAmount,
+            customerEmail: quote.clientEmail,
+            clientName: quote.clientName,
+          }),
+        });
+
+        const stripeData = await stripeResponse.json();
+        if (stripeData.paymentLink) {
+          await updateDoc(doc(db, 'invoices', invoiceRef.id), {
+            stripePaymentLink: stripeData.paymentLink,
+            stripeSessionId: stripeData.sessionId,
+            status: 'sent',
+            sentAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+
+          // Notify client of invoice
+          await notifyClientOfInvoice(
+            quote.clientId,
+            invoiceRef.id,
+            invoiceNumber,
+            quote.workOrderNumber || quote.workOrderId || '',
+            invoiceData.totalAmount
+          );
+
+          toast.success(`Invoice ${invoiceNumber} generated, payment link created, and sent to client`);
+        } else {
+          toast.success(`Invoice ${invoiceNumber} created successfully. Create payment link to send.`);
+        }
+      } catch (error) {
+        console.error('Error creating payment link:', error);
+        toast.success(`Invoice ${invoiceNumber} created successfully. Create payment link to send.`);
+      }
+
       fetchInvoices();
       fetchAcceptedQuotes();
     } catch (error) {
@@ -279,13 +321,28 @@ export default function InvoicesManagement() {
 
   const markAsSent = async (invoiceId: string) => {
     try {
+      const invoice = invoices.find(inv => inv.id === invoiceId);
+      if (!invoice) {
+        toast.error('Invoice not found');
+        return;
+      }
+
       await updateDoc(doc(db, 'invoices', invoiceId), {
         status: 'sent',
         sentAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      toast.success('Invoice marked as sent');
+      // Notify client of invoice
+      await notifyClientOfInvoice(
+        invoice.clientId,
+        invoiceId,
+        invoice.invoiceNumber,
+        invoice.workOrderTitle,
+        invoice.totalAmount
+      );
+
+      toast.success('Invoice marked as sent and client notified');
       fetchInvoices();
     } catch (error) {
       console.error('Error marking invoice as sent:', error);

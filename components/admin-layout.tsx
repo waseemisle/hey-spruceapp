@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
@@ -19,6 +19,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [badgeCounts, setBadgeCounts] = useState({
+    locations: 0,
+    workOrders: 0,
+    messages: 0,
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -29,6 +34,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (adminDoc.exists()) {
           setUser({ ...firebaseUser, ...adminDoc.data() });
           setLoading(false);
+
+          // Listen to pending locations count
+          const locationsQuery = query(
+            collection(db, 'locations'),
+            where('status', '==', 'pending')
+          );
+          const unsubscribeLocations = onSnapshot(locationsQuery, (snapshot) => {
+            setBadgeCounts(prev => ({ ...prev, locations: snapshot.size }));
+          });
+
+          // Listen to pending work orders count
+          const workOrdersQuery = query(
+            collection(db, 'workOrders'),
+            where('status', '==', 'pending')
+          );
+          const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
+            setBadgeCounts(prev => ({ ...prev, workOrders: snapshot.size }));
+          });
+
+          return () => {
+            unsubscribeLocations();
+            unsubscribeWorkOrders();
+          };
         } else {
           // Not an admin, redirect
           router.push('/portal-login');
@@ -58,19 +86,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const menuItems = [
-    { name: 'Dashboard', href: '/admin-portal', icon: Home },
-    { name: 'Clients', href: '/admin-portal/clients', icon: Users },
-    { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users },
-    { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck },
-    { name: 'Companies', href: '/admin-portal/subsidiaries', icon: Building2 },
-    { name: 'Locations', href: '/admin-portal/locations', icon: Building2 },
-    { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList },
-    { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw },
-    { name: 'Maint Requests', href: '/admin-portal/maint-requests', icon: Wrench },
-    { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText },
-    { name: 'Invoices', href: '/admin-portal/invoices', icon: Receipt },
-    { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar },
-    { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare },
+    { name: 'Dashboard', href: '/admin-portal', icon: Home, badgeKey: null },
+    { name: 'Clients', href: '/admin-portal/clients', icon: Users, badgeKey: null },
+    { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users, badgeKey: null },
+    { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck, badgeKey: null },
+    { name: 'Companies', href: '/admin-portal/subsidiaries', icon: Building2, badgeKey: null },
+    { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
+    { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
+    { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
+    { name: 'Maint Requests', href: '/admin-portal/maint-requests', icon: Wrench, badgeKey: null },
+    { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText, badgeKey: null },
+    { name: 'Invoices', href: '/admin-portal/invoices', icon: Receipt, badgeKey: null },
+    { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar, badgeKey: null },
+    { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
   ];
 
   return (
@@ -130,10 +158,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.name}
                 href={item.href}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition-colors relative"
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
+                {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>
@@ -151,10 +184,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={item.name}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition-colors relative"
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
+                {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
+                  </span>
+                )}
               </Link>
             ))}
           </nav>

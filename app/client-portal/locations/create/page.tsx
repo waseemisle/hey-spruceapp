@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { notifyAdminsOfLocation } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
@@ -127,7 +128,7 @@ export default function CreateLocation() {
       }
 
       // Create location with consistent structure for admin compatibility
-      await addDoc(collection(db, 'locations'), {
+      const locationRef = await addDoc(collection(db, 'locations'), {
         clientId: currentUser.uid,
         clientName: clientData.fullName || clientData.companyName || '',
         clientEmail: clientData.email || '',
@@ -154,6 +155,9 @@ export default function CreateLocation() {
         status: 'pending',
         createdAt: serverTimestamp(),
       });
+
+      // Notify all admins
+      await notifyAdminsOfLocation(locationRef.id, formData.name, clientData.fullName || clientData.companyName || 'Client');
 
       toast.success('Location created successfully! Awaiting admin approval.');
       router.push('/client-portal/locations');

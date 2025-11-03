@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 interface Notification {
   id: string;
@@ -31,6 +31,15 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
+  const pathname = usePathname();
+  
+  // Determine messages page based on current path
+  const getMessagesPath = () => {
+    if (pathname?.startsWith('/admin-portal')) return '/admin-portal/messages';
+    if (pathname?.startsWith('/client-portal')) return '/client-portal/messages';
+    if (pathname?.startsWith('/subcontractor-portal')) return '/subcontractor-portal/messages';
+    return '/messages'; // fallback
+  };
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -91,13 +100,15 @@ export default function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        <div className="flex items-center justify-between px-4 py-2 border-b">
-          <h3 className="font-semibold">Notifications</h3>
+      <DropdownMenuContent align="end" className="w-96">
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+          <h3 className="font-semibold text-gray-900">
+            Notifications {unreadCount > 0 && `(${unreadCount})`}
+          </h3>
           {unreadCount > 0 && (
             <button
               onClick={markAllAsRead}
-              className="text-xs text-blue-600 hover:text-blue-800"
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
             >
               Mark all as read
             </button>
@@ -106,33 +117,90 @@ export default function NotificationBell() {
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="px-4 py-8 text-center text-gray-500">
-              No notifications yet
+              <Bell className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+              <p className="text-sm">No notifications yet</p>
             </div>
           ) : (
-            notifications.map((notification) => (
-              <DropdownMenuItem
-                key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`px-4 py-3 cursor-pointer ${
-                  !notification.read ? 'bg-blue-50' : ''
-                }`}
-              >
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-sm">{notification.title}</p>
-                    {!notification.read && (
-                      <span className="h-2 w-2 bg-blue-600 rounded-full flex-shrink-0 mt-1"></span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-600">{notification.message}</p>
-                  <p className="text-xs text-gray-400">
-                    {notification.createdAt?.toDate?.()?.toLocaleDateString() || 'Just now'}
-                  </p>
-                </div>
-              </DropdownMenuItem>
-            ))
+            <div className="divide-y divide-gray-100">
+              {notifications.map((notification) => {
+                const getTypeIcon = () => {
+                  switch (notification.type) {
+                    case 'work_order':
+                      return '📋';
+                    case 'quote':
+                      return '💰';
+                    case 'invoice':
+                      return '🧾';
+                    case 'assignment':
+                      return '✅';
+                    case 'completion':
+                      return '✔️';
+                    case 'schedule':
+                      return '📅';
+                    default:
+                      return '🔔';
+                  }
+                };
+
+                const formatTime = () => {
+                  if (!notification.createdAt) return 'Just now';
+                  const createdAt = notification.createdAt?.toDate?.() || notification.createdAt;
+                  const now = new Date();
+                  const diffMs = now.getTime() - new Date(createdAt).getTime();
+                  const diffMins = Math.floor(diffMs / 60000);
+                  const diffHours = Math.floor(diffMs / 3600000);
+                  const diffDays = Math.floor(diffMs / 86400000);
+
+                  if (diffMins < 1) return 'Just now';
+                  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+                  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                  return new Date(createdAt).toLocaleDateString();
+                };
+
+                return (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      !notification.read ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 w-full">
+                      <span className="text-xl flex-shrink-0">{getTypeIcon()}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className={`text-sm ${!notification.read ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
+                            {notification.title}
+                          </p>
+                          {!notification.read && (
+                            <span className="h-2 w-2 bg-blue-600 rounded-full flex-shrink-0 mt-1"></span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600 mb-1 line-clamp-2">
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {formatTime()}
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+            </div>
           )}
         </div>
+        {notifications.length > 0 && (
+          <div className="px-4 py-2 border-t bg-gray-50">
+            <button
+              onClick={() => router.push(getMessagesPath())}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium w-full text-center"
+            >
+              View All Notifications
+            </button>
+          </div>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
