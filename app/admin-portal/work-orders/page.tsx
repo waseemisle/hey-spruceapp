@@ -582,7 +582,9 @@ export default function WorkOrdersManagement() {
         clientEmail: client.email,
         locationId: formData.locationId,
         locationName: location.locationName,
-        locationAddress: `${location.address.street}, ${location.address.city}, ${location.address.state}`,
+        locationAddress: location.address && typeof location.address === 'object' 
+          ? `${location.address.street || ''}, ${location.address.city || ''}, ${location.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
+          : (location.address || 'N/A'),
         title: formData.title,
         description: formData.description,
         category: formData.category,
@@ -928,7 +930,7 @@ export default function WorkOrdersManagement() {
         </div>
 
         {/* Work Orders Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredWorkOrders.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
@@ -938,11 +940,11 @@ export default function WorkOrdersManagement() {
             </Card>
           ) : (
             filteredWorkOrders.map((workOrder) => (
-              <Card key={workOrder.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
+              <Card key={workOrder.id} className="h-full flex flex-col hover:shadow-lg transition-shadow">
+                <CardHeader className="flex-shrink-0">
                   <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{workOrder.title}</CardTitle>
+                    <div className="flex justify-between items-start gap-2">
+                      <CardTitle className="text-lg line-clamp-2 flex-1 min-w-0">{workOrder.title}</CardTitle>
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(workOrder.status)}`}>
                         {workOrder.status.toUpperCase()}
                       </span>
@@ -957,7 +959,7 @@ export default function WorkOrdersManagement() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-3 flex-1 flex flex-col">
                   <p className="text-sm text-gray-600 line-clamp-2">{workOrder.description}</p>
 
                   <div className="space-y-2">
@@ -992,7 +994,7 @@ export default function WorkOrdersManagement() {
                   )}
 
                   {/* Action Buttons */}
-                  <div className="pt-4 space-y-2">
+                  <div className="pt-4 space-y-2 mt-auto">
                     <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"

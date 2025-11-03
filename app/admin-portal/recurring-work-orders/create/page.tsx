@@ -162,7 +162,9 @@ export default function CreateRecurringWorkOrder() {
         clientEmail: client.email,
         locationId: formData.locationId,
         locationName: location.locationName,
-        locationAddress: `${location.address.street}, ${location.address.city}, ${location.address.state}`,
+        locationAddress: location.address && typeof location.address === 'object' 
+          ? `${location.address.street || ''}, ${location.address.city || ''}, ${location.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
+          : (location.address || 'N/A'),
         title: formData.title,
         description: formData.description,
         category: formData.category,

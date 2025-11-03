@@ -129,8 +129,34 @@ export default function CreateWorkOrder() {
         setUploadingImages(false);
       }
 
-      // Build full location address
-      const fullAddress = `${locationData.address || ''}, ${locationData.city || ''}, ${locationData.state || ''} ${locationData.zipCode || ''}`.trim();
+      // Build full location address - handle both object and string formats
+      let fullAddress = 'N/A';
+      if (locationData.address) {
+        if (typeof locationData.address === 'object') {
+          // Address is an object
+          const parts: string[] = [];
+          if (locationData.address.street) parts.push(locationData.address.street);
+          if (locationData.address.city) parts.push(locationData.address.city);
+          if (locationData.address.state) parts.push(locationData.address.state);
+          if (locationData.address.zip || locationData.address.zipCode) parts.push(locationData.address.zip || locationData.address.zipCode);
+          fullAddress = parts.filter(p => p).join(', ');
+        } else {
+          // Address is a string, but we might have city/state separately
+          const parts: string[] = [locationData.address];
+          if (locationData.city) parts.push(locationData.city);
+          if (locationData.state) parts.push(locationData.state);
+          if (locationData.zipCode) parts.push(locationData.zipCode);
+          fullAddress = parts.filter(p => p).join(', ');
+        }
+      } else if (locationData.city || locationData.state) {
+        // No address field but has city/state
+        const parts: string[] = [];
+        if (locationData.city) parts.push(locationData.city);
+        if (locationData.state) parts.push(locationData.state);
+        if (locationData.zipCode) parts.push(locationData.zipCode);
+        fullAddress = parts.filter(p => p).join(', ');
+      }
+      fullAddress = fullAddress.trim() || 'N/A';
 
       // Create work order
       const workOrderRef = await addDoc(collection(db, 'workOrders'), {

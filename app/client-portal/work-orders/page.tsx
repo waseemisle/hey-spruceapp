@@ -189,13 +189,13 @@ export default function ClientWorkOrders() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredWorkOrders.map((workOrder) => (
-              <Card key={workOrder.id}>
-                <CardHeader>
+              <Card key={workOrder.id} className="h-full flex flex-col hover:shadow-lg transition-shadow">
+                <CardHeader className="flex-shrink-0">
                   <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg mb-2">{workOrder.title}</CardTitle>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg mb-2 line-clamp-2">{workOrder.title}</CardTitle>
                       {workOrder.workOrderNumber && (
                         <p className="text-sm text-gray-600 mb-2">WO: {workOrder.workOrderNumber}</p>
                       )}
@@ -210,7 +210,7 @@ export default function ClientWorkOrders() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-3 flex-1 flex flex-col">
                   <div>
                     <p className="text-sm font-medium text-gray-700 mb-1">Location:</p>
                     <p className="text-sm text-gray-600">{workOrder.locationName}</p>
@@ -273,7 +273,7 @@ export default function ClientWorkOrders() {
                     </div>
                   )}
 
-                  <div className="pt-3">
+                  <div className="pt-3 mt-auto">
                     <Link href={`/client-portal/work-orders/${workOrder.id}`}>
                       <Button size="sm" className="w-full">
                         <Eye className="h-4 w-4 mr-2" />

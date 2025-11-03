@@ -394,17 +394,17 @@ export default function SubcontractorAssignedJobs() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredJobs.map((job) => {
               const workOrder = workOrders.get(job.workOrderId);
               if (!workOrder) return null;
 
               return (
-                <Card key={job.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-2">{workOrder.title}</CardTitle>
+                <Card key={job.id} className="h-full flex flex-col hover:shadow-lg transition-shadow">
+                <CardHeader className="flex-shrink-0">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg mb-2 line-clamp-2">{workOrder.title}</CardTitle>
                         <div className="flex gap-2 flex-wrap">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(job.status)}`}>
                             {job.status.replace('_', ' ')}
@@ -419,7 +419,7 @@ export default function SubcontractorAssignedJobs() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-3 flex-1 flex flex-col">
                     <div>
                       <p className="text-sm font-medium text-gray-700 mb-1">Client:</p>
                       <p className="text-sm text-gray-600">{workOrder.clientName}</p>
@@ -476,49 +476,51 @@ export default function SubcontractorAssignedJobs() {
                       </div>
                     )}
 
-                    {job.status === 'pending_acceptance' && (
-                      <div className="flex gap-2 mt-4">
+                    <div className="mt-auto pt-4 space-y-2">
+                      {job.status === 'pending_acceptance' && (
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleAcceptAssignment(job.id, workOrder.id)}
+                            className="flex-1 bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Accept
+                          </Button>
+                          <Button
+                            onClick={() => handleRejectAssignment(job.id, workOrder.id)}
+                            variant="destructive"
+                            className="flex-1"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+
+                      {job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (
                         <Button
-                          onClick={() => handleAcceptAssignment(job.id, workOrder.id)}
-                          className="flex-1 bg-green-600 hover:bg-green-700"
+                          onClick={() => handleMarkComplete(workOrder.id)}
+                          className="w-full bg-green-600 hover:bg-green-700"
                         >
                           <CheckCircle className="h-4 w-4 mr-2" />
-                          Accept
+                          Mark as Complete
                         </Button>
-                        <Button
-                          onClick={() => handleRejectAssignment(job.id, workOrder.id)}
-                          variant="destructive"
-                          className="flex-1"
-                        >
-                          <X className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
-                      </div>
-                    )}
+                      )}
 
-                    {job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (
-                      <Button
-                        onClick={() => handleMarkComplete(workOrder.id)}
-                        className="w-full mt-4 bg-green-600 hover:bg-green-700"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Mark as Complete
-                      </Button>
-                    )}
-
-                    {workOrder.status === 'completed' && (
-                      <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                          <div>
-                            <p className="font-semibold text-green-800">Job Completed!</p>
-                            <p className="text-sm text-green-700">
-                              Completed on {workOrder.completedAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                            </p>
+                      {workOrder.status === 'completed' && (
+                        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <div>
+                              <p className="font-semibold text-green-800">Job Completed!</p>
+                              <p className="text-sm text-green-700">
+                                Completed on {workOrder.completedAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
