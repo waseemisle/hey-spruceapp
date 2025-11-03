@@ -133,6 +133,19 @@ export default function InvoicesManagement() {
         updatedAt: serverTimestamp(),
       };
 
+      // Validate required fields before creating invoice
+      if (!invoiceData.totalAmount || invoiceData.totalAmount <= 0) {
+        toast.error('Cannot create invoice: Quote amount must be greater than 0');
+        setGenerating(null);
+        return;
+      }
+
+      if (!quote.clientEmail) {
+        toast.error('Cannot create invoice: Client email is missing');
+        setGenerating(null);
+        return;
+      }
+
       const invoiceRef = await addDoc(collection(db, 'invoices'), invoiceData);
 
       // Create Stripe payment link
@@ -144,13 +157,22 @@ export default function InvoicesManagement() {
             invoiceId: invoiceRef.id,
             invoiceNumber: invoiceNumber,
             amount: invoiceData.totalAmount,
-            customerEmail: quote.clientEmail,
-            clientName: quote.clientName,
+            customerEmail: quote.clientEmail || invoiceData.clientEmail,
+            clientName: quote.clientName || invoiceData.clientName,
           }),
         });
 
         const stripeData = await stripeResponse.json();
-        if (stripeData.paymentLink) {
+        
+        if (!stripeResponse.ok) {
+          console.error('Stripe payment link creation failed:', stripeData);
+          toast.error(`Failed to create payment link: ${stripeData.error || 'Unknown error'}`);
+          // Still create invoice but mark as draft
+          await updateDoc(doc(db, 'invoices', invoiceRef.id), {
+            status: 'draft',
+            updatedAt: serverTimestamp(),
+          });
+        } else if (stripeData.paymentLink) {
           await updateDoc(doc(db, 'invoices', invoiceRef.id), {
             stripePaymentLink: stripeData.paymentLink,
             stripeSessionId: stripeData.sessionId,
@@ -172,9 +194,15 @@ export default function InvoicesManagement() {
         } else {
           toast.success(`Invoice ${invoiceNumber} created successfully. Create payment link to send.`);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error creating payment link:', error);
-        toast.success(`Invoice ${invoiceNumber} created successfully. Create payment link to send.`);
+        const errorMessage = error?.message || error?.error || 'Unknown error';
+        toast.error(`Failed to create payment link: ${errorMessage}. Invoice ${invoiceNumber} created but not sent.`);
+        // Still update invoice but mark as draft
+        await updateDoc(doc(db, 'invoices', invoiceRef.id), {
+          status: 'draft',
+          updatedAt: serverTimestamp(),
+        });
       }
 
       fetchInvoices();
@@ -188,6 +216,17 @@ export default function InvoicesManagement() {
   };
 
   const createStripePaymentLink = async (invoice: Invoice) => {
+    // Validate required fields
+    if (!invoice.totalAmount || invoice.totalAmount <= 0) {
+      toast.error('Cannot create payment link: Invoice amount must be greater than 0');
+      return;
+    }
+
+    if (!invoice.clientEmail) {
+      toast.error('Cannot create payment link: Client email is missing');
+      return;
+    }
+
     try {
       const response = await fetch('/api/stripe/create-payment-link', {
         method: 'POST',
@@ -197,15 +236,20 @@ export default function InvoicesManagement() {
           invoiceNumber: invoice.invoiceNumber,
           amount: invoice.totalAmount,
           customerEmail: invoice.clientEmail,
-          clientName: invoice.clientName,
+          clientName: invoice.clientName || 'Client',
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create payment link');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create payment link');
       }
 
       const data = await response.json();
+      
+      if (!data.paymentLink) {
+        throw new Error(data.error || 'Payment link not returned');
+      }
 
       // Update invoice with Stripe payment link
       await updateDoc(doc(db, 'invoices', invoice.id), {
@@ -216,9 +260,10 @@ export default function InvoicesManagement() {
 
       toast.success('Stripe payment link created successfully');
       fetchInvoices();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating payment link:', error);
-      toast.error('Failed to create Stripe payment link');
+      const errorMessage = error?.message || error?.error || 'Unknown error';
+      toast.error(`Failed to create payment link: ${errorMessage}`);
     }
   };
 

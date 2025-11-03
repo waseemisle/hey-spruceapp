@@ -321,6 +321,17 @@ export default function WorkOrdersManagement() {
         createdAt: serverTimestamp(),
       };
 
+      // Validate required fields before creating invoice
+      if (!invoiceData.totalAmount || invoiceData.totalAmount <= 0) {
+        toast.error('Cannot create invoice: Work order must have an estimated budget');
+        return;
+      }
+
+      if (!workOrder.clientEmail) {
+        toast.error('Cannot create invoice: Client email is missing');
+        return;
+      }
+
       // Create invoice in Firestore
       const invoiceRef = await addDoc(collection(db, 'invoices'), invoiceData);
 
@@ -349,17 +360,22 @@ export default function WorkOrdersManagement() {
           invoiceId: invoiceRef.id,
           invoiceNumber: invoiceNumber,
           amount: invoiceData.totalAmount,
-          customerEmail: workOrder.clientEmail,
-          clientName: workOrder.clientName,
+          customerEmail: workOrder.clientEmail || invoiceData.clientEmail,
+          clientName: workOrder.clientName || invoiceData.clientName,
         }),
       });
 
       const stripeData = await stripeResponse.json();
 
       // Check if Stripe payment link creation was successful
-      if (!stripeData.paymentLink) {
+      if (!stripeResponse.ok || !stripeData.paymentLink) {
         console.error('Stripe payment link creation failed:', stripeData);
-        toast.error('Failed to create payment link');
+        toast.error(`Failed to create payment link: ${stripeData.error || 'Unknown error'}`);
+        // Still update invoice but without payment link
+        await updateDoc(invoiceRef, {
+          status: 'draft',
+          updatedAt: serverTimestamp(),
+        });
         return;
       }
 

@@ -24,31 +24,60 @@ export function formatAddress(address: any): string {
       return 'N/A';
     }
     
-    // Check if it's a Firestore Timestamp or other special object
-    if (address.toString && address.toString() === '[object Object]') {
-      // Try to extract properties
-      const parts: string[] = [];
-      
-      if (address.street) parts.push(String(address.street).trim());
-      if (address.city) parts.push(String(address.city).trim());
-      if (address.state) parts.push(String(address.state).trim());
-      if (address.zip || address.zipCode) parts.push(String(address.zip || address.zipCode).trim());
-      if (address.country && address.country !== 'USA') parts.push(String(address.country).trim());
-      
-      return parts.length > 0 ? parts.filter(p => p).join(', ') : 'N/A';
+    // Check if it's an array (shouldn't happen, but handle it)
+    if (Array.isArray(address)) {
+      return address.filter(item => item).join(', ') || 'N/A';
     }
     
-    // Normal object handling
+    // Try to extract address properties
     const parts: string[] = [];
     
+    // Check for street (could be street, address, or addressLine1)
     if (address.street) parts.push(String(address.street).trim());
-    if (address.city) parts.push(String(address.city).trim());
-    if (address.state) parts.push(String(address.state).trim());
-    if (address.zip || address.zipCode) parts.push(String(address.zip || address.zipCode).trim());
-    if (address.country && address.country !== 'USA') parts.push(String(address.country).trim());
+    else if (address.address) parts.push(String(address.address).trim());
+    else if (address.addressLine1) parts.push(String(address.addressLine1).trim());
     
-    const result = parts.filter(p => p).join(', ');
-    return result.length > 0 ? result : 'N/A';
+    // Check for city
+    if (address.city) parts.push(String(address.city).trim());
+    
+    // Check for state
+    if (address.state) parts.push(String(address.state).trim());
+    
+    // Check for zip (could be zip, zipCode, postalCode)
+    if (address.zip) parts.push(String(address.zip).trim());
+    else if (address.zipCode) parts.push(String(address.zipCode).trim());
+    else if (address.postalCode) parts.push(String(address.postalCode).trim());
+    
+    // Check for country (only add if not USA)
+    if (address.country && String(address.country).trim().toUpperCase() !== 'USA') {
+      parts.push(String(address.country).trim());
+    }
+    
+    // Filter out empty parts and join
+    const result = parts.filter(p => p && p.length > 0).join(', ');
+    
+    // If we got a result, return it
+    if (result.length > 0) {
+      return result;
+    }
+    
+    // If no parts were found, check if it's a stringified object
+    // This handles cases where the object might have been incorrectly stored
+    try {
+      const stringified = JSON.stringify(address);
+      if (stringified && stringified !== '{}' && stringified !== 'null') {
+        // Try to parse it as JSON and extract address info
+        const parsed = JSON.parse(stringified);
+        if (parsed && typeof parsed === 'object') {
+          return formatAddress(parsed); // Recursive call with parsed object
+        }
+      }
+    } catch {
+      // JSON parsing failed, continue to fallback
+    }
+    
+    // Final fallback
+    return 'N/A';
   }
   
   // Fallback for any other type

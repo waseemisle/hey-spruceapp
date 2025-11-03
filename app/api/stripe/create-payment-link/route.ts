@@ -9,9 +9,18 @@ export async function POST(request: NextRequest) {
   try {
     const { invoiceId, invoiceNumber, amount, customerEmail, clientName } = await request.json();
 
-    if (!invoiceId || !invoiceNumber || !amount) {
+    // Validate required fields
+    if (!invoiceId || !invoiceNumber || amount === undefined || amount === null) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: `Missing required fields: ${!invoiceId ? 'invoiceId ' : ''}${!invoiceNumber ? 'invoiceNumber ' : ''}${amount === undefined || amount === null ? 'amount' : ''}` },
+        { status: 400 }
+      );
+    }
+
+    // Validate amount is greater than 0
+    if (amount <= 0) {
+      return NextResponse.json(
+        { error: 'Amount must be greater than 0' },
         { status: 400 }
       );
     }
