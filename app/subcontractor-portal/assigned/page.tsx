@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
+import { formatAddress } from '@/lib/utils';
 
 interface AssignedJob {
   id: string;
@@ -307,7 +308,7 @@ export default function SubcontractorAssignedJobs() {
       workOrder.clientName.toLowerCase().includes(searchLower) ||
       workOrder.category.toLowerCase().includes(searchLower) ||
       workOrder.locationName.toLowerCase().includes(searchLower) ||
-      workOrder.locationAddress.toLowerCase().includes(searchLower);
+      formatAddress(workOrder.locationAddress).toLowerCase().includes(searchLower);
 
     return statusMatch && searchMatch;
   });
@@ -429,7 +430,7 @@ export default function SubcontractorAssignedJobs() {
                       <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
                       <div className="text-sm text-gray-600">
                         <div className="font-medium">{workOrder.locationName}</div>
-                        <div className="text-xs">{workOrder.locationAddress}</div>
+                        <div className="text-xs">{formatAddress(workOrder.locationAddress)}</div>
                       </div>
                     </div>
 

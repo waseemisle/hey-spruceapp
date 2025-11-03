@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution } from '@/types';
+import { formatAddress } from '@/lib/utils';
 
 export default function RecurringWorkOrderDetails({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -311,7 +312,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <span className="font-semibold">Location:</span>
                   <span className="ml-2">{recurringWorkOrder.locationName}</span>
                   {recurringWorkOrder.locationAddress && (
-                    <div className="text-sm text-gray-600 mt-1">{recurringWorkOrder.locationAddress}</div>
+                    <div className="text-sm text-gray-600 mt-1">{formatAddress(recurringWorkOrder.locationAddress)}</div>
                   )}
                 </div>
 

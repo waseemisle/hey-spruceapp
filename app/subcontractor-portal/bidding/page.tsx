@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ClipboardList, Calendar, MapPin, AlertCircle, DollarSign, Plus, X, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatAddress } from '@/lib/utils';
 
 interface BiddingWorkOrder {
   id: string;
@@ -249,7 +250,7 @@ export default function SubcontractorBidding() {
       workOrder.clientName.toLowerCase().includes(searchLower) ||
       workOrder.category.toLowerCase().includes(searchLower) ||
       workOrder.locationName.toLowerCase().includes(searchLower) ||
-      workOrder.locationAddress.toLowerCase().includes(searchLower);
+      formatAddress(workOrder.locationAddress).toLowerCase().includes(searchLower);
 
     return searchMatch;
   });
@@ -553,7 +554,7 @@ export default function SubcontractorBidding() {
                       <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
                       <div className="text-sm text-gray-600">
                         <div>{workOrder.locationName}</div>
-                        <div className="text-xs">{workOrder.locationAddress}</div>
+                        <div className="text-xs">{formatAddress(workOrder.locationAddress)}</div>
                       </div>
                     </div>
 
