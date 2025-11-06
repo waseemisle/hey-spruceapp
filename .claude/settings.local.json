@@ -20,7 +20,8 @@
       "Bash(git push origin main --force)",
       "Bash(if exist \".next\" rmdir /s /q \".next\")",
       "Bash(timeout 180 npm run build:*)",
-      "Bash(firebase login:*)"
+      "Bash(firebase login:*)",
+      "WebFetch(domain:vercel.com)"
     ],
     "deny": [],
     "ask": []
