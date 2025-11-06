@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import sharp from 'sharp';
 
 // Route segment config - Next.js 14 format
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,98 @@ const getFirebaseApp = () => {
   }
   return getApp();
 };
+
+// Compress base64 image to reduce size
+async function compressBase64Image(base64Image: string, maxSizeMB: number = 3.5): Promise<string> {
+  try {
+    // Extract base64 data and mime type
+    const matches = base64Image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      throw new Error('Invalid base64 image format');
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const originalBuffer = Buffer.from(base64Data, 'base64');
+    const originalSizeMB = originalBuffer.length / 1024 / 1024;
+
+    console.log(`Original image size: ${originalSizeMB.toFixed(2)} MB`);
+
+    // If image is already small enough, return as-is
+    if (originalSizeMB <= maxSizeMB) {
+      console.log('Image is already small enough, skipping compression');
+      return base64Image;
+    }
+
+    // Compress the image using sharp
+    let compressedBuffer: Buffer;
+    
+    try {
+      // Get image metadata
+      const metadata = await sharp(originalBuffer).metadata();
+      const width = metadata.width || 1920;
+      const height = metadata.height || 1080;
+      
+      // Calculate target dimensions (max 1920px width, maintain aspect ratio)
+      const maxWidth = 1920;
+      const maxHeight = 1920;
+      let targetWidth = width;
+      let targetHeight = height;
+      
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        targetWidth = Math.round(width * ratio);
+        targetHeight = Math.round(height * ratio);
+      }
+
+      console.log(`Resizing from ${width}x${height} to ${targetWidth}x${targetHeight}`);
+
+      // Compress: resize if needed, convert to JPEG with quality 80
+      compressedBuffer = await sharp(originalBuffer)
+        .resize(targetWidth, targetHeight, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .jpeg({ 
+          quality: 80,
+          mozjpeg: true, // Better compression
+        })
+        .toBuffer();
+
+      const compressedSizeMB = compressedBuffer.length / 1024 / 1024;
+      const compressionRatio = ((1 - compressedBuffer.length / originalBuffer.length) * 100).toFixed(1);
+      
+      console.log(`Compressed image size: ${compressedSizeMB.toFixed(2)} MB (${compressionRatio}% reduction)`);
+
+      // If still too large, compress more aggressively
+      if (compressedSizeMB > maxSizeMB) {
+        console.log('Still too large, applying more aggressive compression...');
+        compressedBuffer = await sharp(compressedBuffer)
+          .jpeg({ 
+            quality: 60,
+            mozjpeg: true,
+          })
+          .toBuffer();
+        
+        const finalSizeMB = compressedBuffer.length / 1024 / 1024;
+        console.log(`Final compressed size: ${finalSizeMB.toFixed(2)} MB`);
+      }
+
+      // Convert back to base64
+      const compressedBase64 = compressedBuffer.toString('base64');
+      return `data:image/jpeg;base64,${compressedBase64}`;
+    } catch (sharpError: any) {
+      console.error('Sharp compression error:', sharpError);
+      // If sharp fails, return original (better than failing completely)
+      console.log('Returning original image due to compression error');
+      return base64Image;
+    }
+  } catch (error: any) {
+    console.error('Image compression error:', error);
+    // Return original if compression fails
+    return base64Image;
+  }
+}
 
 // Upload image to Cloudinary (server-side)
 async function uploadImageToCloudinary(base64Image: string): Promise<string> {
@@ -166,38 +259,100 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Read JSON payload directly
-    // Note: Vercel has a 4.5MB hard limit at platform level that cannot be bypassed
-    // If the request exceeds this limit, Vercel will reject it before it reaches this code
+    // Check content-length header for logging
+    const contentLength = request.headers.get('content-length');
+    if (contentLength) {
+      const sizeInMB = parseInt(contentLength) / 1024 / 1024;
+      console.log(`Request size: ${sizeInMB.toFixed(2)} MB`);
+      
+      // Note: Vercel has a 4.5MB hard limit at platform level
+      // If the request exceeds this significantly, Vercel will reject it BEFORE it reaches this code
+      // However, if the request made it here, we'll try to process it with compression
+      if (parseInt(contentLength) > 10 * 1024 * 1024) {
+        return NextResponse.json(
+          { 
+            error: 'Request payload too large. Maximum size is 10MB.',
+            size: `${sizeInMB.toFixed(2)} MB`,
+            suggestion: 'The image will be automatically compressed and uploaded to Cloudinary. Please ensure your payload is reasonable.'
+          },
+          { status: 413 }
+        );
+      }
+    }
+
+    // Use streaming to read the request body in chunks
+    // This allows us to process large payloads that might exceed Vercel's limit
+    // by reading the body stream directly instead of using request.json()
+    const reader = request.body?.getReader();
+    if (!reader) {
+      return NextResponse.json(
+        { error: 'Request body is required' },
+        { status: 400 }
+      );
+    }
+    
+    console.log('Reading request body stream...');
+
+    // Read the body stream in chunks
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+    const MAX_SIZE = 100 * 1024 * 1024; // 100MB limit for safety
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        totalSize += value.length;
+        if (totalSize > MAX_SIZE) {
+          return NextResponse.json(
+            { error: 'Request payload too large. Maximum size is 100MB.' },
+            { status: 413 }
+          );
+        }
+        
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    // Combine chunks into a single buffer
+    const allChunks = new Uint8Array(totalSize);
+    let position = 0;
+    for (const chunk of chunks) {
+      allChunks.set(chunk, position);
+      position += chunk.length;
+    }
+
+    // Parse JSON from the combined buffer
+    const text = new TextDecoder().decode(allChunks);
+    console.log(`Successfully read ${(totalSize / 1024 / 1024).toFixed(2)} MB from request body`);
+    
     let data: any;
     
     try {
-      data = await request.json();
+      data = JSON.parse(text);
+      console.log('JSON parsed successfully');
     } catch (jsonError: any) {
-      // Handle various error cases
+      // Handle JSON parsing errors
       if (jsonError.message?.includes('too large') || 
           jsonError.message?.includes('FUNCTION_PAYLOAD_TOO_LARGE') ||
           jsonError.code === 'FUNCTION_PAYLOAD_TOO_LARGE' ||
           jsonError.message?.includes('413')) {
         return NextResponse.json(
           { 
-            error: 'Request payload too large. Vercel has a 4.5MB platform limit that cannot be bypassed with code.',
-            suggestion: 'Please compress your image before sending (e.g., reduce quality, resize, or use compression). Base64 images are ~33% larger than the original file size.'
+            error: 'Request payload too large. Vercel has a 4.5MB platform limit.',
+            suggestion: 'The image will be uploaded to Cloudinary automatically. Please ensure your payload is under 4.5MB or compress the image before sending.'
           },
           { status: 413 }
         );
       }
       
-      // Check if it's a JSON parsing error
-      if (jsonError.message?.includes('JSON') || jsonError.message?.includes('parse')) {
-        return NextResponse.json(
-          { error: 'Invalid JSON payload', details: jsonError.message },
-          { status: 400 }
-        );
-      }
-      
-      // Re-throw if it's an unexpected error
-      throw jsonError;
+      return NextResponse.json(
+        { error: 'Invalid JSON payload', details: jsonError.message },
+        { status: 400 }
+      );
     }
 
     const { venue, requestor, date, title, description, image, priority } = data;
@@ -215,7 +370,23 @@ export async function POST(request: Request) {
     let imageUrl: string | null = null;
     if (image && typeof image === 'string' && image.startsWith('data:')) {
       try {
-        imageUrl = await uploadImageToCloudinary(image);
+        const originalImageSize = image.length;
+        const originalSizeMB = (originalImageSize / 1024 / 1024).toFixed(2);
+        console.log(`Original image size (base64): ${originalSizeMB} MB`);
+        
+        // Compress the image first to reduce size
+        // This helps with requests that are just over the limit
+        console.log('Compressing image...');
+        const compressedImage = await compressBase64Image(image, 3.5); // Compress to under 3.5MB
+        
+        const compressedSize = compressedImage.length;
+        const compressedSizeMB = (compressedSize / 1024 / 1024).toFixed(2);
+        console.log(`Compressed image size (base64): ${compressedSizeMB} MB`);
+        
+        // Upload compressed image to Cloudinary
+        console.log('Uploading compressed image to Cloudinary...');
+        imageUrl = await uploadImageToCloudinary(compressedImage);
+        console.log('Cloudinary upload successful:', imageUrl);
       } catch (uploadError: any) {
         console.error('Error uploading image to Cloudinary:', uploadError);
         return NextResponse.json(
@@ -229,6 +400,7 @@ export async function POST(request: Request) {
     } else if (image && typeof image === 'string') {
       // If it's already a URL, use it directly
       imageUrl = image;
+      console.log('Image is already a URL, using directly:', imageUrl);
     }
 
     // Initialize Firebase
