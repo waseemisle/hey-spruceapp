@@ -5,6 +5,15 @@ import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, updat
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// Configure larger body size limit for this route
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 // Initialize Firebase client SDK for server-side use
 const getFirebaseApp = () => {
   if (getApps().length === 0) {
