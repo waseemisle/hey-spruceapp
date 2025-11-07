@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { notifyAdminsOfLocation } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
@@ -33,7 +33,7 @@ export default function CreateLocation() {
     propertyType: 'Commercial',
     notes: '',
   });
-  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string; createdAt?: number }[]>([]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -52,19 +52,76 @@ export default function CreateLocation() {
 
   // Load companies for current client
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const companiesQuery = query(
-          collection(db, 'companies'),
-          where('clientId', '==', user.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const snap = await getDocs(companiesQuery);
-        const data = snap.docs.map((d) => ({ id: d.id, name: (d.data() as any).name as string }));
-        setCompanies(data);
+    let isMounted = true;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        if (isMounted) {
+          setCompanies([]);
+        }
+        return;
       }
+
+      const loadCompanies = async () => {
+        try {
+          const companiesRef = collection(db, 'companies');
+          const queriesToTry = [
+            query(companiesRef, where('userId', '==', user.uid)),
+            query(companiesRef, where('clientId', '==', user.uid)),
+          ];
+
+          const companyMap = new Map<string, { id: string; name: string; createdAt?: number }>();
+
+          const results = await Promise.allSettled(queriesToTry.map((companiesQuery) => getDocs(companiesQuery)));
+
+          results.forEach((result) => {
+            if (result.status === 'fulfilled') {
+              result.value.forEach((docSnap) => {
+                if (companyMap.has(docSnap.id)) {
+                  return;
+                }
+
+                const data = docSnap.data() as { name?: string; createdAt?: { toMillis?: () => number } };
+                const name = typeof data.name === 'string' ? data.name : '';
+                const createdAtMillis = data?.createdAt && typeof data.createdAt.toMillis === 'function'
+                  ? data.createdAt.toMillis()
+                  : undefined;
+
+                companyMap.set(docSnap.id, {
+                  id: docSnap.id,
+                  name,
+                  createdAt: createdAtMillis,
+                });
+              });
+            } else {
+              console.error('Failed to load companies for client portal', result.reason);
+            }
+          });
+
+          if (isMounted) {
+            const sortedCompanies = Array.from(companyMap.values()).sort((a, b) => {
+              const aCreated = a.createdAt ?? 0;
+              const bCreated = b.createdAt ?? 0;
+              return bCreated - aCreated;
+            });
+
+            setCompanies(sortedCompanies);
+          }
+        } catch (error) {
+          console.error('Error fetching companies for client portal', error);
+          if (isMounted) {
+            setCompanies([]);
+          }
+        }
+      };
+
+      void loadCompanies();
     });
-    return () => unsubscribeAuth();
+
+    return () => {
+      isMounted = false;
+      unsubscribeAuth();
+    };
   }, []);
 
   const removeImage = (index: number) => {
