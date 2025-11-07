@@ -39,7 +39,34 @@ export default function ClientWorkOrders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
+  const normalizeStatus = (status: string) => {
+    if (status === 'quotes_received') {
+      return 'approved';
+    }
+    return status;
+  };
+
+  const getStatusLabel = (status: string) => {
+    const normalized = normalizeStatus(status);
+    const labels: Record<string, string> = {
+      pending: 'Pending',
+      approved: 'Approved',
+      bidding: 'Bidding',
+      assigned: 'Assigned',
+      accepted_by_subcontractor: 'Scheduled',
+      completed: 'Completed',
+      rejected: 'Rejected',
+    };
+
+    if (labels[normalized]) {
+      return labels[normalized];
+    }
+
+    return normalized
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -69,16 +96,18 @@ export default function ClientWorkOrders() {
   }, []);
 
   const getStatusBadge = (status: string) => {
+    const normalized = normalizeStatus(status);
     const styles = {
       pending: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-blue-100 text-blue-800',
+      quotes_received: 'bg-blue-100 text-blue-800',
       bidding: 'bg-purple-100 text-purple-800',
       assigned: 'bg-green-100 text-green-800',
       accepted_by_subcontractor: 'bg-green-100 text-green-800',
       completed: 'bg-gray-100 text-gray-800',
       rejected: 'bg-red-100 text-red-800',
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[normalized as keyof typeof styles] || 'bg-gray-100 text-gray-800';
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -91,7 +120,7 @@ export default function ClientWorkOrders() {
   };
 
   const filteredWorkOrders = workOrders.filter(wo => {
-    const statusMatch = filter === 'all' || wo.status === filter;
+    const statusMatch = filter === 'all' || normalizeStatus(wo.status) === filter;
 
     const searchLower = searchQuery.toLowerCase();
     const searchMatch = !searchQuery ||
@@ -103,14 +132,17 @@ export default function ClientWorkOrders() {
     return statusMatch && searchMatch;
   });
 
+  const getStatusCount = (value: string) =>
+    workOrders.filter(wo => normalizeStatus(wo.status) === value).length;
+
   const filterOptions = [
     { value: 'all', label: 'All', count: workOrders.length },
-    { value: 'pending', label: 'Pending', count: workOrders.filter(wo => wo.status === 'pending').length },
-    { value: 'approved', label: 'Approved', count: workOrders.filter(wo => wo.status === 'approved').length },
-    { value: 'bidding', label: 'Bidding', count: workOrders.filter(wo => wo.status === 'bidding').length },
-    { value: 'assigned', label: 'Assigned', count: workOrders.filter(wo => wo.status === 'assigned').length },
-    { value: 'accepted_by_subcontractor', label: 'Scheduled', count: workOrders.filter(wo => wo.status === 'accepted_by_subcontractor').length },
-    { value: 'completed', label: 'Completed', count: workOrders.filter(wo => wo.status === 'completed').length },
+    { value: 'pending', label: 'Pending', count: getStatusCount('pending') },
+    { value: 'approved', label: 'Approved', count: getStatusCount('approved') },
+    { value: 'bidding', label: 'Bidding', count: getStatusCount('bidding') },
+    { value: 'assigned', label: 'Assigned', count: getStatusCount('assigned') },
+    { value: 'accepted_by_subcontractor', label: 'Scheduled', count: getStatusCount('accepted_by_subcontractor') },
+    { value: 'completed', label: 'Completed', count: getStatusCount('completed') },
   ];
 
   if (loading) {
@@ -201,7 +233,7 @@ export default function ClientWorkOrders() {
                       )}
                       <div className="flex gap-2 flex-wrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(workOrder.status)}`}>
-                          {workOrder.status}
+                          {getStatusLabel(workOrder.status)}
                         </span>
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
                           {workOrder.priority} priority

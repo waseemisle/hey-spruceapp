@@ -203,6 +203,26 @@ export default function SubcontractorBidding() {
         total
       );
 
+      // Update parent work order status once a quote is received
+      const workOrderRef = doc(db, 'workOrders', selectedWorkOrder.id);
+      const workOrderSnapshot = await getDoc(workOrderRef);
+      if (workOrderSnapshot.exists()) {
+        const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
+        const statusesEligibleForQuote = ['pending', 'approved', 'bidding'];
+
+        if (currentStatus === 'quotes_received') {
+          await updateDoc(workOrderRef, {
+            updatedAt: serverTimestamp(),
+          });
+        } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
+          await updateDoc(workOrderRef, {
+            status: 'quotes_received',
+            quoteReceivedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
+
       // Update biddingWorkOrder status to 'quoted' so it disappears from bidding list
       const biddingQuery = query(
         collection(db, 'biddingWorkOrders'),

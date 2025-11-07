@@ -875,6 +875,29 @@ export default function WorkOrdersManagement() {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'Pending',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      bidding: 'Bidding',
+      quotes_received: 'Quote Received',
+      to_be_started: 'To Be Started',
+      assigned: 'Assigned',
+      completed: 'Completed',
+      accepted_by_subcontractor: 'Accepted by Subcontractor',
+      rejected_by_subcontractor: 'Rejected by Subcontractor',
+    };
+
+    if (labels[status]) {
+      return labels[status];
+    }
+
+    return status
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'text-red-600 bg-red-50';
@@ -962,7 +985,7 @@ export default function WorkOrdersManagement() {
                     <div className="flex justify-between items-start gap-2">
                       <CardTitle className="text-lg line-clamp-2 flex-1 min-w-0">{workOrder.title}</CardTitle>
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusColor(workOrder.status)}`}>
-                        {workOrder.status.replace('_', ' ').toUpperCase()}
+                        {getStatusLabel(workOrder.status)}
                       </span>
                     </div>
                     <div className="flex gap-2 flex-wrap">
