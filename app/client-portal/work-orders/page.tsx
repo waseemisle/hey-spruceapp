@@ -124,10 +124,11 @@ export default function ClientWorkOrders() {
 
     const searchLower = searchQuery.toLowerCase();
     const searchMatch = !searchQuery ||
-      wo.title.toLowerCase().includes(searchLower) ||
-      wo.description.toLowerCase().includes(searchLower) ||
-      wo.category.toLowerCase().includes(searchLower) ||
-      wo.locationName.toLowerCase().includes(searchLower);
+      wo.title?.toLowerCase().includes(searchLower) ||
+      wo.description?.toLowerCase().includes(searchLower) ||
+      wo.category?.toLowerCase().includes(searchLower) ||
+      wo.locationName?.toLowerCase().includes(searchLower) ||
+      wo.workOrderNumber?.toLowerCase().includes(searchLower);
 
     return statusMatch && searchMatch;
   });
