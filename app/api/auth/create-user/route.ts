@@ -1,21 +1,4 @@
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-
-// Initialize Firebase client SDK for server-side use
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
 
 export async function POST(request: Request) {
   try {
@@ -29,8 +12,15 @@ export async function POST(request: Request) {
     }
 
     // Use Firebase Authentication REST API to create user
-    // This doesn't require Admin SDK or service account credentials
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Firebase API key not configured' },
+        { status: 500 }
+      );
+    }
+
     const signUpUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`;
 
     const authResponse = await fetch(signUpUrl, {
@@ -53,23 +43,56 @@ export async function POST(request: Request) {
     const authData = await authResponse.json();
     const uid = authData.localId;
 
-    // Create user document in Firestore using client SDK
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    // Create user document in Firestore using REST API
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-    const userDoc = {
-      email,
-      role,
-      ...userData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
+    if (!projectId) {
+      return NextResponse.json(
+        { error: 'Firebase project ID not configured' },
+        { status: 500 }
+      );
+    }
 
     const collectionName =
       role === 'client' ? 'clients' :
       role === 'subcontractor' ? 'subcontractors' :
       'adminUsers';
-    await setDoc(doc(db, collectionName, uid), userDoc);
+
+    const userDoc: any = {
+      fields: {
+        email: { stringValue: email },
+        role: { stringValue: role },
+        fullName: { stringValue: userData.fullName || '' },
+        phone: { stringValue: userData.phone || '' },
+        createdAt: { timestampValue: new Date().toISOString() },
+        updatedAt: { timestampValue: new Date().toISOString() },
+      }
+    };
+
+    // Add additional fields for subcontractors
+    if (role === 'subcontractor' && userData.businessName) {
+      userDoc.fields.businessName = { stringValue: userData.businessName };
+    }
+    if (role === 'subcontractor' && userData.status) {
+      userDoc.fields.status = { stringValue: userData.status };
+    }
+
+    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${uid}`;
+
+    const firestoreResponse = await fetch(firestoreUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authData.idToken}`,
+      },
+      body: JSON.stringify(userDoc),
+    });
+
+    if (!firestoreResponse.ok) {
+      const errorData = await firestoreResponse.json();
+      console.error('Firestore error:', errorData);
+      throw new Error('Failed to create user document in Firestore');
+    }
 
     return NextResponse.json({
       success: true,
