@@ -21,7 +21,8 @@
       "Bash(if exist \".next\" rmdir /s /q \".next\")",
       "Bash(timeout 180 npm run build:*)",
       "Bash(firebase login:*)",
-      "WebFetch(domain:vercel.com)"
+      "WebFetch(domain:vercel.com)",
+      "Bash(firebase projects:list:*)"
     ],
     "deny": [],
     "ask": []

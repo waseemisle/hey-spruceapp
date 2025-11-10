@@ -37,11 +37,18 @@ export default function ClientCompanies() {
           orderBy('createdAt', 'desc')
         );
 
-        const unsubscribeSnapshot = onSnapshot(companiesQuery, (snapshot) => {
-          const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Company[];
-          setCompanies(data);
-          setLoading(false);
-        });
+        const unsubscribeSnapshot = onSnapshot(
+          companiesQuery,
+          (snapshot) => {
+            const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Company[];
+            setCompanies(data);
+            setLoading(false);
+          },
+          (error) => {
+            console.error('Error fetching companies:', error);
+            setLoading(false);
+          }
+        );
 
         return () => unsubscribeSnapshot();
       } else {
