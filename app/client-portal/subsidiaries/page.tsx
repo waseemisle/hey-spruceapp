@@ -30,17 +30,22 @@ export default function ClientCompanies() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
-        // Query using userId to match the Firestore index
+        // Query using userId - without orderBy to work without index temporarily
         const companiesQuery = query(
           collection(db, 'companies'),
-          where('userId', '==', user.uid),
-          orderBy('createdAt', 'desc')
+          where('userId', '==', user.uid)
         );
 
         const unsubscribeSnapshot = onSnapshot(
           companiesQuery,
           (snapshot) => {
             const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Company[];
+            // Sort client-side by createdAt descending
+            data.sort((a, b) => {
+              const aTime = a.createdAt?.toMillis?.() || 0;
+              const bTime = b.createdAt?.toMillis?.() || 0;
+              return bTime - aTime;
+            });
             setCompanies(data);
             setLoading(false);
           },
