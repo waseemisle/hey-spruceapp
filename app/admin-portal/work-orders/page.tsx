@@ -35,6 +35,7 @@ interface WorkOrder {
   scheduleSharedWithClient?: boolean;
   createdAt: any;
   quoteCount?: number;
+  hasInvoice?: boolean;
 }
 
 interface Client {
@@ -119,6 +120,14 @@ export default function WorkOrdersManagement() {
           );
           const quotesSnapshot = await getDocs(quotesQuery);
           woData.quoteCount = quotesSnapshot.size;
+
+          // Check if invoice exists for this work order
+          const invoicesQuery = query(
+            collection(db, 'invoices'),
+            where('workOrderId', '==', woDoc.id)
+          );
+          const invoicesSnapshot = await getDocs(invoicesQuery);
+          woData.hasInvoice = !invoicesSnapshot.empty;
 
           return woData;
         })
@@ -297,15 +306,13 @@ export default function WorkOrdersManagement() {
       const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
       
       // Create invoice data
-      const invoiceData = {
+      const invoiceData: any = {
         invoiceNumber,
         workOrderId: workOrder.id,
         workOrderTitle: workOrder.title,
         clientId: workOrder.clientId,
         clientName: workOrder.clientName,
         clientEmail: workOrder.clientEmail,
-        subcontractorId: workOrder.assignedTo,
-        subcontractorName: workOrder.assignedToName,
         status: 'draft' as const,
         totalAmount: workOrder.estimateBudget || 0,
         lineItems: [
@@ -320,6 +327,14 @@ export default function WorkOrdersManagement() {
         notes: `Invoice for completed work order: ${workOrder.workOrderNumber}`,
         createdAt: serverTimestamp(),
       };
+
+      // Only add subcontractor fields if they exist
+      if (workOrder.assignedTo) {
+        invoiceData.subcontractorId = workOrder.assignedTo;
+      }
+      if (workOrder.assignedToName) {
+        invoiceData.subcontractorName = workOrder.assignedToName;
+      }
 
       // Validate required fields before creating invoice
       if (!invoiceData.totalAmount || invoiceData.totalAmount <= 0) {
@@ -1188,7 +1203,7 @@ export default function WorkOrdersManagement() {
                         </Button>
                       )}
 
-                      {workOrder.status === 'completed' && (
+                      {workOrder.status === 'completed' && !workOrder.hasInvoice && (
                         <Button
                           size="sm"
                           className="w-full"
@@ -1198,6 +1213,13 @@ export default function WorkOrdersManagement() {
                           <span className="hidden sm:inline">Generate & Send Invoice</span>
                           <span className="sm:hidden">Generate & Send</span>
                         </Button>
+                      )}
+
+                      {workOrder.status === 'completed' && workOrder.hasInvoice && (
+                        <div className="w-full text-center text-sm text-green-600 bg-green-50 py-2 px-3 rounded-md flex items-center justify-center gap-2">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Invoice Sent</span>
+                        </div>
                       )}
 
                       {!['pending', 'approved', 'quotes_received', 'to_be_started', 'rejected_by_subcontractor', 'completed', 'accepted_by_subcontractor'].includes(workOrder.status) && (
