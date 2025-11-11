@@ -37,6 +37,7 @@ interface WorkOrder {
   rejectionReason?: string;
   completionDetails?: string;
   completionNotes?: string;
+  completionImages?: string[];
   scheduledServiceDate?: any;
   scheduledServiceTime?: string;
 }
@@ -219,6 +220,31 @@ export default function ViewWorkOrder() {
                         key={idx}
                         src={image}
                         alt={`Work order image ${idx + 1}`}
+                        className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(image, '_blank')}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Completion Images */}
+            {workOrder.status === 'completed' && workOrder.completionImages && workOrder.completionImages.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Completion Images ({workOrder.completionImages.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {workOrder.completionImages.map((image, idx) => (
+                      <img
+                        key={idx}
+                        src={image}
+                        alt={`Completion image ${idx + 1}`}
                         className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={() => window.open(image, '_blank')}
                       />

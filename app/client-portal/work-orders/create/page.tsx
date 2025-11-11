@@ -101,6 +101,13 @@ export default function CreateWorkOrder() {
         return;
       }
 
+      // Validate that at least one image is uploaded
+      if (!selectedFiles || selectedFiles.length === 0) {
+        toast.error('Please upload at least one image');
+        setLoading(false);
+        return;
+      }
+
       // Get client and location details
       const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
       const locationDoc = await getDoc(doc(db, 'locations', formData.locationId));
@@ -331,13 +338,13 @@ export default function CreateWorkOrder() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label htmlFor="images">Images (Optional)</Label>
+                    <Label htmlFor="images">Images *</Label>
                     <div className="mt-2">
                       <label htmlFor="images" className="flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-blue-400 focus:outline-none">
                         <div className="flex flex-col items-center space-y-2">
                           <Upload className="h-8 w-8 text-gray-400" />
                           <span className="text-sm text-gray-600">
-                            Click to upload images
+                            Click to upload images (required)
                           </span>
                         </div>
                         <input
@@ -347,6 +354,7 @@ export default function CreateWorkOrder() {
                           accept="image/*"
                           onChange={handleFileSelect}
                           className="hidden"
+                          required
                         />
                       </label>
                     </div>

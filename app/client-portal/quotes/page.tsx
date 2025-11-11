@@ -60,21 +60,19 @@ export default function ClientQuotes() {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
+    // Optimized query: Filter by clientId first to reduce data transfer
     const quotesQuery = query(
       collection(db, 'quotes'),
+      where('clientId', '==', currentUser.uid),
+      where('status', 'in', ['sent_to_client', 'accepted', 'rejected']),
       orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(quotesQuery, (snapshot) => {
-      const quotesData = snapshot.docs
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .filter(quote =>
-          (quote as Quote).clientId === currentUser.uid &&
-          ((quote as Quote).status === 'sent_to_client' || (quote as Quote).status === 'accepted' || (quote as Quote).status === 'rejected')
-        ) as Quote[];
+      const quotesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Quote[];
       setQuotes(quotesData);
       setLoading(false);
     });
@@ -126,12 +124,34 @@ export default function ClientQuotes() {
               updatedAt: serverTimestamp(),
             });
 
-            // Notify subcontractor of assignment
+            // Notify subcontractor of assignment (in-app notification)
             await notifySubcontractorAssignment(
               quote.subcontractorId,
               quote.workOrderId,
               workOrderData.workOrderNumber || quote.workOrderId
             );
+
+            // Send email notification to subcontractor
+            try {
+              await fetch('/api/email/send-assignment', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  toEmail: quote.subcontractorEmail,
+                  toName: quote.subcontractorName,
+                  workOrderNumber: workOrderData.workOrderNumber || quote.workOrderId,
+                  workOrderTitle: quote.workOrderTitle,
+                  clientName: quote.clientName,
+                  locationName: workOrderData.locationName,
+                  locationAddress: workOrderData.locationAddress,
+                }),
+              });
+            } catch (emailError) {
+              console.error('Failed to send assignment email:', emailError);
+              // Don't fail the whole operation if email fails
+            }
 
             toast.success('Quote accepted! Work order automatically assigned to subcontractor.');
           } catch (error) {

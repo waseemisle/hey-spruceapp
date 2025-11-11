@@ -10,10 +10,11 @@ import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock } from 'lucide-react';
+import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { formatAddress } from '@/lib/utils';
+import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 
 interface AssignedJob {
   id: string;
@@ -58,6 +59,9 @@ export default function SubcontractorAssignedJobs() {
   const [completingWorkOrderId, setCompletingWorkOrderId] = useState<string | null>(null);
   const [completionDetails, setCompletionDetails] = useState('');
   const [completionNotes, setCompletionNotes] = useState('');
+  const [completionFiles, setCompletionFiles] = useState<FileList | null>(null);
+  const [completionPreviewUrls, setCompletionPreviewUrls] = useState<string[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -229,6 +233,30 @@ export default function SubcontractorAssignedJobs() {
     setShowCompletionModal(true);
   };
 
+  const handleCompletionFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setCompletionFiles(files);
+      const urls = Array.from(files).map(file => URL.createObjectURL(file));
+      setCompletionPreviewUrls(urls);
+    }
+  };
+
+  const removeCompletionImage = (index: number) => {
+    if (completionFiles) {
+      const dt = new DataTransfer();
+      const filesArray = Array.from(completionFiles);
+      filesArray.splice(index, 1);
+      filesArray.forEach(file => dt.items.add(file));
+      setCompletionFiles(dt.files);
+
+      const newUrls = [...completionPreviewUrls];
+      URL.revokeObjectURL(newUrls[index]);
+      newUrls.splice(index, 1);
+      setCompletionPreviewUrls(newUrls);
+    }
+  };
+
   const handleConfirmComplete = async () => {
     if (!completionDetails.trim()) {
       toast.error('Please provide details about the work completed');
@@ -238,6 +266,21 @@ export default function SubcontractorAssignedJobs() {
     if (!completingWorkOrderId) return;
 
     try {
+      // Upload completion images if any
+      let completionImageUrls: string[] = [];
+      if (completionFiles && completionFiles.length > 0) {
+        setUploadingFiles(true);
+        try {
+          completionImageUrls = await uploadMultipleToCloudinary(completionFiles);
+        } catch (error) {
+          console.error('Error uploading completion images:', error);
+          toast.error('Failed to upload images. Please try again.');
+          setUploadingFiles(false);
+          return;
+        }
+        setUploadingFiles(false);
+      }
+
       // Get work order data for notifications
       const workOrderDoc = await getDoc(doc(db, 'workOrders', completingWorkOrderId));
       const workOrderData = workOrderDoc.data();
@@ -247,6 +290,7 @@ export default function SubcontractorAssignedJobs() {
         completedAt: serverTimestamp(),
         completionDetails: completionDetails,
         completionNotes: completionNotes,
+        completionImages: completionImageUrls,
         updatedAt: serverTimestamp(),
       });
 
@@ -264,6 +308,8 @@ export default function SubcontractorAssignedJobs() {
       setCompletingWorkOrderId(null);
       setCompletionDetails('');
       setCompletionNotes('');
+      setCompletionFiles(null);
+      setCompletionPreviewUrls([]);
     } catch (error) {
       console.error('Error marking job complete:', error);
       toast.error('Failed to mark job as complete');
@@ -657,13 +703,63 @@ export default function SubcontractorAssignedJobs() {
                   />
                 </div>
 
+                <div>
+                  <Label htmlFor="completion-images" className="mb-2 flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Completion Images/Files (Optional)
+                  </Label>
+                  <div className="mt-2">
+                    <label htmlFor="completion-images" className="flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-green-400 focus:outline-none">
+                      <div className="flex flex-col items-center space-y-2">
+                        <Upload className="h-8 w-8 text-gray-400" />
+                        <span className="text-sm text-gray-600">
+                          Click to upload completion images/files
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          (Photos of completed work, before/after, etc.)
+                        </span>
+                      </div>
+                      <input
+                        id="completion-images"
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleCompletionFileSelect}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {completionPreviewUrls.length > 0 && (
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {completionPreviewUrls.map((url, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={url}
+                            alt={`Completion ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeCompletionImage(index)}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-3 pt-4 border-t">
                   <Button
                     className="flex-1 bg-green-600 hover:bg-green-700"
                     onClick={handleConfirmComplete}
+                    disabled={uploadingFiles}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Mark as Complete
+                    {uploadingFiles ? 'Uploading Files...' : 'Mark as Complete'}
                   </Button>
                   <Button
                     variant="outline"
@@ -672,6 +768,8 @@ export default function SubcontractorAssignedJobs() {
                       setCompletingWorkOrderId(null);
                       setCompletionDetails('');
                       setCompletionNotes('');
+                      setCompletionFiles(null);
+                      setCompletionPreviewUrls([]);
                     }}
                   >
                     Cancel

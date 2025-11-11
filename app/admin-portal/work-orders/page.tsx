@@ -1068,35 +1068,23 @@ export default function WorkOrdersManagement() {
                     {workOrder.status === 'accepted_by_subcontractor' && (
                       <div className="space-y-2 mb-2">
                         {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime ? (
-                          <div className="text-sm bg-green-50 p-3 rounded-md min-h-[60px]">
-                            <p className="font-semibold text-green-800">Scheduled Service:</p>
-                            <p className="text-green-700">
-                              {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
-                            </p>
+                          <div className="space-y-2">
+                            <div className="text-sm bg-green-50 p-3 rounded-md">
+                              <p className="font-semibold text-green-800">Scheduled Service:</p>
+                              <p className="text-green-700">
+                                {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
+                              </p>
+                            </div>
+                            <div className="text-sm bg-blue-50 p-3 rounded-md flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                              <p className="text-blue-800 text-xs">Schedule automatically shared with client</p>
+                            </div>
                           </div>
                         ) : (
                           <div className="text-sm bg-green-50 p-3 rounded-md min-h-[60px] flex items-center">
                             <span className="text-green-700">No schedule set</span>
                           </div>
                         )}
-                        {!workOrder.scheduleSharedWithClient && workOrder.scheduledServiceDate ? (
-                          <Button
-                            size="sm"
-                            className="w-full"
-                            onClick={() => handleShareScheduleWithClient(workOrder)}
-                          >
-                            <Share2 className="h-4 w-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Share Schedule with Client</span>
-                            <span className="sm:hidden">Share Schedule</span>
-                          </Button>
-                        ) : workOrder.scheduleSharedWithClient ? (
-                          <div className="text-sm bg-blue-50 p-3 rounded-md text-center min-h-[60px] flex items-center justify-center">
-                            <div>
-                              <CheckCircle className="h-5 w-5 text-blue-600 mx-auto mb-1" />
-                              <p className="text-blue-800 font-medium">Schedule shared with client</p>
-                            </div>
-                          </div>
-                        ) : null}
                       </div>
                     )}
                   </div>

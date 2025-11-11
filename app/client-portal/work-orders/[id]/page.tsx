@@ -32,6 +32,7 @@ interface WorkOrder {
   estimateBudget?: number;
   completionDetails?: string;
   completionNotes?: string;
+  completionImages?: string[];
   assignedSubcontractor?: string;
   assignedSubcontractorName?: string;
   scheduledServiceDate?: any;
@@ -185,6 +186,33 @@ export default function ViewClientWorkOrder() {
                     </div>
                   </div>
                 )}
+
+                {workOrder.status === 'completed' && (workOrder.completionDetails || workOrder.completionNotes) && (
+                  <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <h3 className="font-semibold text-green-800">Completion Details</h3>
+                    </div>
+                    {workOrder.completionDetails && (
+                      <div className="mb-3">
+                        <h4 className="font-semibold text-gray-700 mb-1 text-sm">Work Completed</h4>
+                        <p className="text-gray-600 text-sm whitespace-pre-wrap">{workOrder.completionDetails}</p>
+                      </div>
+                    )}
+                    {workOrder.completionNotes && (
+                      <div className="mb-3">
+                        <h4 className="font-semibold text-gray-700 mb-1 text-sm">Follow-up Notes</h4>
+                        <p className="text-gray-600 text-sm whitespace-pre-wrap">{workOrder.completionNotes}</p>
+                      </div>
+                    )}
+                    {workOrder.assignedSubcontractorName && (
+                      <div className="pt-2 border-t border-green-300">
+                        <p className="text-xs text-gray-600">Completed by</p>
+                        <p className="font-semibold text-sm">{workOrder.assignedSubcontractorName}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -204,6 +232,31 @@ export default function ViewClientWorkOrder() {
                         key={idx}
                         src={image}
                         alt={`Work order image ${idx + 1}`}
+                        className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(image, '_blank')}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Completion Images */}
+            {workOrder.status === 'completed' && workOrder.completionImages && workOrder.completionImages.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Completion Images ({workOrder.completionImages.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {workOrder.completionImages.map((image, idx) => (
+                      <img
+                        key={idx}
+                        src={image}
+                        alt={`Completion image ${idx + 1}`}
                         className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={() => window.open(image, '_blank')}
                       />
@@ -275,38 +328,6 @@ export default function ViewClientWorkOrder() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Follow-up Notes - Visible after completion */}
-            {workOrder.status === 'completed' && (workOrder.completionDetails || workOrder.completionNotes) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    Completion Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {workOrder.completionDetails && (
-                    <div>
-                      <h3 className="font-semibold text-gray-700 mb-2">Work Completed</h3>
-                      <p className="text-gray-600 whitespace-pre-wrap">{workOrder.completionDetails}</p>
-                    </div>
-                  )}
-                  {workOrder.completionNotes && (
-                    <div>
-                      <h3 className="font-semibold text-gray-700 mb-2">Follow-up Notes</h3>
-                      <p className="text-gray-600 whitespace-pre-wrap">{workOrder.completionNotes}</p>
-                    </div>
-                  )}
-                  {workOrder.assignedSubcontractorName && (
-                    <div className="pt-3 border-t">
-                      <p className="text-sm text-gray-600">Completed by</p>
-                      <p className="font-semibold">{workOrder.assignedSubcontractorName}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>
