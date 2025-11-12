@@ -55,16 +55,15 @@ export async function POST(request: Request) {
       idToken = authData.idToken;
 
       // We need to use a custom token approach since Firebase's sendOobCode sends an email automatically
-      // Instead, we'll create a custom password reset token that we can use for our invitation
-      // For now, we'll use the user's idToken and email to construct a secure setup link
-
+      // Store the temporary password in the token so we can sign in and update it later
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
       // Create a temporary token for password setup
-      // We'll store the user's email and a timestamp, then verify it on the password setup page
+      // We'll store the user's email, temp password, and timestamp
       const setupToken = Buffer.from(JSON.stringify({
         email,
         uid,
+        tempPassword,
         timestamp: Date.now(),
         type: 'password_setup'
       })).toString('base64');

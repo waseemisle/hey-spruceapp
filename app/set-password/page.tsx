@@ -21,6 +21,7 @@ function SetPasswordContent() {
   const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
   const [uid, setUid] = useState('');
+  const [tempPassword, setTempPassword] = useState('');
 
   useEffect(() => {
     const tokenParam = searchParams.get('token');
@@ -54,6 +55,7 @@ function SetPasswordContent() {
       setToken(tokenParam);
       setEmail(decoded.email || '');
       setUid(decoded.uid || '');
+      setTempPassword(decoded.tempPassword || '');
     } catch (error) {
       console.error('Error decoding token:', error);
       toast.error('Invalid password setup link');
@@ -92,6 +94,7 @@ function SetPasswordContent() {
           token,
           email,
           uid,
+          tempPassword,
           newPassword: password,
         }),
       });

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, email, uid, newPassword } = await request.json();
+    const { token, email, uid, tempPassword, newPassword } = await request.json();
 
     // Validate required fields
-    if (!token || !email || !uid || !newPassword) {
+    if (!token || !email || !uid || !tempPassword || !newPassword) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
 
       // Verify token matches the provided data
-      if (decoded.email !== email || decoded.uid !== uid) {
+      if (decoded.email !== email || decoded.uid !== uid || decoded.tempPassword !== tempPassword) {
         return NextResponse.json(
           { error: 'Token data mismatch' },
           { status: 400 }
@@ -66,8 +66,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // First, sign in with the email to get an idToken (using a temporary approach)
-    // Since the user has a temporary password, we need to use the update API directly
+    // Sign in with the temporary password to get an idToken
+    const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`;
+
+    const signInResponse = await fetch(signInUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email,
+        password: tempPassword,
+        returnSecureToken: true,
+      }),
+    });
+
+    if (!signInResponse.ok) {
+      const errorData = await signInResponse.json();
+      console.error('Firebase sign-in error:', errorData);
+      throw new Error('Failed to authenticate with temporary password');
+    }
+
+    const signInData = await signInResponse.json();
+    const idToken = signInData.idToken;
+
+    // Now update the password using the idToken
     const updateUrl = `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`;
 
     const updateResponse = await fetch(updateUrl, {
@@ -76,7 +99,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        localId: uid,
+        idToken: idToken,
         password: newPassword,
         returnSecureToken: false,
       }),
