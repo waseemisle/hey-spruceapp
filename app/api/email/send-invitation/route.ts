@@ -17,8 +17,16 @@ export async function POST(request: NextRequest) {
 
     // If no SendGrid API key, log to console (test mode)
     if (!SENDGRID_API_KEY) {
-      console.log('SendGrid not configured. Email would be sent to:', email);
-      console.log('Reset link:', resetLink);
+      console.log('\n========================================');
+      console.log('📧 INVITATION EMAIL (TEST MODE)');
+      console.log('========================================');
+      console.log('To:', email);
+      console.log('Name:', fullName);
+      console.log('Role:', role);
+      console.log('\n🔗 Password Setup Link:');
+      console.log(resetLink);
+      console.log('\n⚠️  SendGrid not configured - Add SENDGRID_API_KEY to environment variables');
+      console.log('========================================\n');
       return NextResponse.json({
         success: true,
         message: 'Test mode: Email logged to console'

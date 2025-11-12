@@ -96,7 +96,10 @@ export async function POST(request: Request) {
         });
 
         if (!invitationResponse.ok) {
-          console.error('Failed to send invitation email');
+          const errorData = await invitationResponse.json();
+          console.error('Failed to send invitation email:', errorData);
+        } else {
+          console.log('Invitation email sent successfully to:', email);
         }
       } catch (emailError) {
         console.error('Error sending invitation email:', emailError);
