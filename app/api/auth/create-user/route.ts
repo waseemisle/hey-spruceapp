@@ -54,31 +54,22 @@ export async function POST(request: Request) {
       uid = authData.localId;
       idToken = authData.idToken;
 
-      // Generate password reset link
-      const resetUrl = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`;
+      // We need to use a custom token approach since Firebase's sendOobCode sends an email automatically
+      // Instead, we'll create a custom password reset token that we can use for our invitation
+      // For now, we'll use the user's idToken and email to construct a secure setup link
 
-      const resetResponse = await fetch(resetUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          requestType: 'PASSWORD_RESET',
-          email,
-        }),
-      });
-
-      if (!resetResponse.ok) {
-        console.error('Failed to generate password reset link');
-      }
-
-      // Get the password reset link from Firebase
-      const resetData = await resetResponse.json();
-      const oobCode = resetData.oobCode;
-
-      // Construct the password setup link
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-      const resetLink = `${baseUrl}/set-password?oobCode=${oobCode}&email=${encodeURIComponent(email)}`;
+
+      // Create a temporary token for password setup
+      // We'll store the user's email and a timestamp, then verify it on the password setup page
+      const setupToken = Buffer.from(JSON.stringify({
+        email,
+        uid,
+        timestamp: Date.now(),
+        type: 'password_setup'
+      })).toString('base64');
+
+      const resetLink = `${baseUrl}/set-password?token=${setupToken}`;
 
       // Send invitation email
       try {

@@ -18,19 +18,46 @@ function SetPasswordContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [oobCode, setOobCode] = useState('');
+  const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
+  const [uid, setUid] = useState('');
 
   useEffect(() => {
-    const code = searchParams.get('oobCode');
-    const emailParam = searchParams.get('email');
+    const tokenParam = searchParams.get('token');
 
-    if (!code) {
-      toast.error('Invalid or missing password reset link');
+    if (!tokenParam) {
+      toast.error('Invalid or missing password setup link');
       router.push('/portal-login');
-    } else {
-      setOobCode(code);
-      setEmail(emailParam || '');
+      return;
+    }
+
+    try {
+      // Decode the token
+      const decoded = JSON.parse(Buffer.from(tokenParam, 'base64').toString());
+
+      // Check if token is expired (24 hours)
+      const tokenAge = Date.now() - decoded.timestamp;
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+      if (tokenAge > maxAge) {
+        toast.error('This password setup link has expired. Please request a new one.');
+        router.push('/portal-login');
+        return;
+      }
+
+      if (decoded.type !== 'password_setup') {
+        toast.error('Invalid token type');
+        router.push('/portal-login');
+        return;
+      }
+
+      setToken(tokenParam);
+      setEmail(decoded.email || '');
+      setUid(decoded.uid || '');
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      toast.error('Invalid password setup link');
+      router.push('/portal-login');
     }
   }, [searchParams, router]);
 
@@ -55,27 +82,24 @@ function SetPasswordContent() {
     setLoading(true);
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-
-      // Confirm password reset using Firebase Auth REST API
-      const response = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:resetPassword?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            oobCode: oobCode,
-            newPassword: password,
-          }),
-        }
-      );
+      // Use our custom API to update the password
+      const response = await fetch('/api/auth/set-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          email,
+          uid,
+          newPassword: password,
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to set password');
+        throw new Error(data.error || 'Failed to set password');
       }
 
       setSuccess(true);
@@ -87,14 +111,7 @@ function SetPasswordContent() {
       }, 2000);
     } catch (error: any) {
       console.error('Error setting password:', error);
-
-      if (error.message.includes('EXPIRED_OOB_CODE')) {
-        toast.error('This password setup link has expired. Please request a new one.');
-      } else if (error.message.includes('INVALID_OOB_CODE')) {
-        toast.error('Invalid password setup link. Please request a new one.');
-      } else {
-        toast.error(error.message || 'Failed to set password');
-      }
+      toast.error(error.message || 'Failed to set password');
     } finally {
       setLoading(false);
     }
