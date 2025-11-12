@@ -36,7 +36,6 @@ export default function SubcontractorsManagement() {
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     fullName: '',
     businessName: '',
     phone: '',
@@ -111,7 +110,6 @@ export default function SubcontractorsManagement() {
   const resetForm = () => {
     setFormData({
       email: '',
-      password: '',
       fullName: '',
       businessName: '',
       phone: '',
@@ -131,7 +129,6 @@ export default function SubcontractorsManagement() {
   const handleOpenEdit = (sub: Subcontractor) => {
     setFormData({
       email: sub.email,
-      password: '',
       fullName: sub.fullName,
       businessName: sub.businessName,
       phone: sub.phone,
@@ -146,11 +143,6 @@ export default function SubcontractorsManagement() {
   const handleSubmit = async () => {
     if (!formData.email || !formData.fullName || !formData.businessName || !formData.phone) {
       toast.error('Please fill in all required fields');
-      return;
-    }
-
-    if (!editingId && !formData.password) {
-      toast.error('Password is required for new subcontractors');
       return;
     }
 
@@ -172,7 +164,7 @@ export default function SubcontractorsManagement() {
 
         toast.success('Subcontractor updated successfully');
       } else {
-        // Create new subcontractor via API route (doesn't log out admin)
+        // Create new subcontractor via API route with invitation email
         const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(s => s);
 
         const response = await fetch('/api/auth/create-user', {
@@ -180,8 +172,8 @@ export default function SubcontractorsManagement() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email,
-            password: formData.password,
             role: 'subcontractor',
+            sendInvitation: true,
             userData: {
               fullName: formData.fullName,
               businessName: formData.businessName,
@@ -198,7 +190,7 @@ export default function SubcontractorsManagement() {
           throw new Error(error.error || 'Failed to create subcontractor');
         }
 
-        toast.success('Subcontractor created successfully');
+        toast.success('Subcontractor created successfully! An invitation email has been sent.');
       }
 
       resetForm();
@@ -468,19 +460,10 @@ export default function SubcontractorsManagement() {
                     {editingId && (
                       <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                     )}
+                    {!editingId && (
+                      <p className="text-xs text-green-600 mt-1">An invitation email will be sent to set up password</p>
+                    )}
                   </div>
-
-                  {!editingId && (
-                    <div>
-                      <Label>Password *</Label>
-                      <Input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="Minimum 6 characters"
-                      />
-                    </div>
-                  )}
 
                   <div>
                     <Label>Phone *</Label>

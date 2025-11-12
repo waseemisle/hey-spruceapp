@@ -34,7 +34,6 @@ export default function ClientsManagement() {
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     fullName: '',
     companyName: '',
     phone: '',
@@ -107,7 +106,6 @@ export default function ClientsManagement() {
   const resetForm = () => {
     setFormData({
       email: '',
-      password: '',
       fullName: '',
       companyName: '',
       phone: '',
@@ -125,7 +123,6 @@ export default function ClientsManagement() {
   const handleOpenEdit = (client: Client) => {
     setFormData({
       email: client.email,
-      password: '',
       fullName: client.fullName,
       companyName: client.companyName || '',
       phone: client.phone,
@@ -138,11 +135,6 @@ export default function ClientsManagement() {
   const handleSubmit = async () => {
     if (!formData.email || !formData.fullName || !formData.phone) {
       toast.error('Please fill in all required fields');
-      return;
-    }
-
-    if (!editingId && !formData.password) {
-      toast.error('Password is required for new clients');
       return;
     }
 
@@ -161,14 +153,14 @@ export default function ClientsManagement() {
 
         toast.success('Client updated successfully');
       } else {
-        // Create new client via API route (doesn't log out admin)
+        // Create new client via API route with invitation email
         const response = await fetch('/api/auth/create-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email,
-            password: formData.password,
             role: 'client',
+            sendInvitation: true,
             userData: {
               fullName: formData.fullName,
               companyName: formData.companyName,
@@ -183,7 +175,7 @@ export default function ClientsManagement() {
           throw new Error(error.error || 'Failed to create client');
         }
 
-        toast.success('Client created successfully');
+        toast.success('Client created successfully! An invitation email has been sent.');
       }
 
       resetForm();
@@ -489,19 +481,10 @@ export default function ClientsManagement() {
                     {editingId && (
                       <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                     )}
+                    {!editingId && (
+                      <p className="text-xs text-green-600 mt-1">An invitation email will be sent to set up password</p>
+                    )}
                   </div>
-
-                  {!editingId && (
-                    <div>
-                      <Label>Password *</Label>
-                      <Input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="Minimum 6 characters"
-                      />
-                    </div>
-                  )}
 
                   <div>
                     <Label>Phone *</Label>

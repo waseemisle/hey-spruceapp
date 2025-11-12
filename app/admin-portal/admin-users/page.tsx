@@ -31,7 +31,6 @@ export default function AdminUsersManagement() {
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     fullName: '',
     phone: '',
   });
@@ -60,7 +59,6 @@ export default function AdminUsersManagement() {
   const resetForm = () => {
     setFormData({
       email: '',
-      password: '',
       fullName: '',
       phone: '',
     });
@@ -76,7 +74,6 @@ export default function AdminUsersManagement() {
   const handleOpenEdit = (admin: AdminUser) => {
     setFormData({
       email: admin.email,
-      password: '',
       fullName: admin.fullName,
       phone: admin.phone,
     });
@@ -87,11 +84,6 @@ export default function AdminUsersManagement() {
   const handleSubmit = async () => {
     if (!formData.email || !formData.fullName || !formData.phone) {
       toast.error('Please fill in all required fields');
-      return;
-    }
-
-    if (!editingId && !formData.password) {
-      toast.error('Password is required for new admin users');
       return;
     }
 
@@ -108,14 +100,14 @@ export default function AdminUsersManagement() {
 
         toast.success('Admin user updated successfully');
       } else {
-        // Create new admin user via API route
+        // Create new admin user via API route with invitation email
         const response = await fetch('/api/auth/create-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email,
-            password: formData.password,
             role: 'admin',
+            sendInvitation: true,
             userData: {
               fullName: formData.fullName,
               phone: formData.phone,
@@ -128,7 +120,7 @@ export default function AdminUsersManagement() {
           throw new Error(error.error || 'Failed to create admin user');
         }
 
-        toast.success('Admin user created successfully');
+        toast.success('Admin user created successfully! An invitation email has been sent.');
       }
 
       resetForm();
@@ -316,19 +308,10 @@ export default function AdminUsersManagement() {
                     {editingId && (
                       <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                     )}
+                    {!editingId && (
+                      <p className="text-xs text-green-600 mt-1">An invitation email will be sent to set up password</p>
+                    )}
                   </div>
-
-                  {!editingId && (
-                    <div>
-                      <Label>Password *</Label>
-                      <Input
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="Minimum 6 characters"
-                      />
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">

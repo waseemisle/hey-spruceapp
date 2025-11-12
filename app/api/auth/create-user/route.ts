@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { email, password, role, userData } = await request.json();
+    const { email, password, role, userData, sendInvitation = false } = await request.json();
 
-    if (!email || !password || !role) {
+    // If sendInvitation is true, we don't need a password (will send reset link)
+    // If sendInvitation is false, we need a password (legacy flow for public registration)
+    if (!email || !role || (!password && !sendInvitation)) {
       return NextResponse.json(
-        { error: 'Email, password, and role are required' },
+        { error: 'Email and role are required' },
         { status: 400 }
       );
     }
 
-    // Use Firebase Authentication REST API to create user
+    // Use Firebase Authentication REST API
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
     if (!apiKey) {
@@ -21,27 +23,110 @@ export async function POST(request: Request) {
       );
     }
 
-    const signUpUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`;
+    let uid: string;
+    let idToken: string;
 
-    const authResponse = await fetch(signUpUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        returnSecureToken: true,
-      }),
-    });
+    if (sendInvitation) {
+      // For invitation flow: Create user without password, they'll set it via email link
+      // We'll use a temporary random password and immediately send a password reset email
+      const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
-    if (!authResponse.ok) {
-      const errorData = await authResponse.json();
-      throw new Error(errorData.error?.message || 'Failed to create user account');
+      const signUpUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`;
+
+      const authResponse = await fetch(signUpUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password: tempPassword,
+          returnSecureToken: true,
+        }),
+      });
+
+      if (!authResponse.ok) {
+        const errorData = await authResponse.json();
+        throw new Error(errorData.error?.message || 'Failed to create user account');
+      }
+
+      const authData = await authResponse.json();
+      uid = authData.localId;
+      idToken = authData.idToken;
+
+      // Generate password reset link
+      const resetUrl = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`;
+
+      const resetResponse = await fetch(resetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestType: 'PASSWORD_RESET',
+          email,
+        }),
+      });
+
+      if (!resetResponse.ok) {
+        console.error('Failed to generate password reset link');
+      }
+
+      // Get the password reset link from Firebase
+      const resetData = await resetResponse.json();
+      const oobCode = resetData.oobCode;
+
+      // Construct the password setup link
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const resetLink = `${baseUrl}/set-password?oobCode=${oobCode}&email=${encodeURIComponent(email)}`;
+
+      // Send invitation email
+      try {
+        const invitationResponse = await fetch(`${baseUrl}/api/email/send-invitation`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            fullName: userData.fullName || 'User',
+            role,
+            resetLink,
+          }),
+        });
+
+        if (!invitationResponse.ok) {
+          console.error('Failed to send invitation email');
+        }
+      } catch (emailError) {
+        console.error('Error sending invitation email:', emailError);
+        // Don't fail the user creation if email fails
+      }
+    } else {
+      // Legacy flow: Create user with provided password (for public registration)
+      const signUpUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`;
+
+      const authResponse = await fetch(signUpUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          returnSecureToken: true,
+        }),
+      });
+
+      if (!authResponse.ok) {
+        const errorData = await authResponse.json();
+        throw new Error(errorData.error?.message || 'Failed to create user account');
+      }
+
+      const authData = await authResponse.json();
+      uid = authData.localId;
+      idToken = authData.idToken;
     }
-
-    const authData = await authResponse.json();
-    const uid = authData.localId;
 
     // Create user document in Firestore using REST API
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -69,12 +154,31 @@ export async function POST(request: Request) {
       }
     };
 
-    // Add additional fields for subcontractors
-    if (role === 'subcontractor' && userData.businessName) {
-      userDoc.fields.businessName = { stringValue: userData.businessName };
+    // Add additional fields based on role
+    if (role === 'subcontractor') {
+      if (userData.businessName) {
+        userDoc.fields.businessName = { stringValue: userData.businessName };
+      }
+      if (userData.licenseNumber) {
+        userDoc.fields.licenseNumber = { stringValue: userData.licenseNumber };
+      }
+      if (userData.skills && Array.isArray(userData.skills)) {
+        userDoc.fields.skills = {
+          arrayValue: {
+            values: userData.skills.map((skill: string) => ({ stringValue: skill }))
+          }
+        };
+      }
+      // For admin-created users, default to approved status
+      userDoc.fields.status = { stringValue: userData.status || 'approved' };
     }
-    if (role === 'subcontractor' && userData.status) {
-      userDoc.fields.status = { stringValue: userData.status };
+
+    if (role === 'client') {
+      if (userData.companyName) {
+        userDoc.fields.companyName = { stringValue: userData.companyName };
+      }
+      // For admin-created users, default to approved status
+      userDoc.fields.status = { stringValue: userData.status || 'approved' };
     }
 
     const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${uid}`;
@@ -83,7 +187,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authData.idToken}`,
+        'Authorization': `Bearer ${idToken}`,
       },
       body: JSON.stringify(userDoc),
     });
