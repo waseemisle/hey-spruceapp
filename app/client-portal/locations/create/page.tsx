@@ -50,11 +50,11 @@ export default function CreateLocation() {
     }
   };
 
-  // Load companies for current client
+  // Load all available companies
   useEffect(() => {
     let isMounted = true;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         if (isMounted) {
           setCompanies([]);
@@ -62,60 +62,67 @@ export default function CreateLocation() {
         return;
       }
 
-      const loadCompanies = async () => {
-        try {
-          const companiesRef = collection(db, 'companies');
-          const queriesToTry = [
-            query(companiesRef, where('userId', '==', user.uid)),
-            query(companiesRef, where('clientId', '==', user.uid)),
-          ];
-
-          const companyMap = new Map<string, { id: string; name: string; createdAt?: number }>();
-
-          const results = await Promise.allSettled(queriesToTry.map((companiesQuery) => getDocs(companiesQuery)));
-
-          results.forEach((result) => {
-            if (result.status === 'fulfilled') {
-              result.value.forEach((docSnap) => {
-                if (companyMap.has(docSnap.id)) {
-                  return;
-                }
-
-                const data = docSnap.data() as { name?: string; createdAt?: { toMillis?: () => number } };
-                const name = typeof data.name === 'string' ? data.name : '';
-                const createdAtMillis = data?.createdAt && typeof data.createdAt.toMillis === 'function'
-                  ? data.createdAt.toMillis()
-                  : undefined;
-
-                companyMap.set(docSnap.id, {
-                  id: docSnap.id,
-                  name,
-                  createdAt: createdAtMillis,
-                });
-              });
-            } else {
-              console.error('Failed to load companies for client portal', result.reason);
-            }
-          });
-
+      // Get the client's companyId from their profile
+      try {
+        const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+        if (!clientDoc.exists()) {
           if (isMounted) {
-            const sortedCompanies = Array.from(companyMap.values()).sort((a, b) => {
+            setCompanies([]);
+          }
+          return;
+        }
+
+        const clientData = clientDoc.data();
+        const clientCompanyId = clientData.companyId;
+
+        // If client has a company assigned, only show that company
+        // Otherwise, show all companies for selection
+        const companiesRef = collection(db, 'companies');
+        let companiesSnapshot;
+
+        if (clientCompanyId) {
+          // Only show the client's assigned company
+          const companyDoc = await getDoc(doc(db, 'companies', clientCompanyId));
+          if (companyDoc.exists() && isMounted) {
+            const data = companyDoc.data() as { name?: string; createdAt?: { toMillis?: () => number } };
+            setCompanies([{
+              id: companyDoc.id,
+              name: data.name || '',
+              createdAt: data?.createdAt && typeof data.createdAt.toMillis === 'function'
+                ? data.createdAt.toMillis()
+                : undefined,
+            }]);
+            // Auto-select the company
+            setFormData(prev => ({ ...prev, companyId: companyDoc.id }));
+          }
+        } else {
+          // Show all companies for selection
+          companiesSnapshot = await getDocs(companiesRef);
+          if (isMounted) {
+            const allCompanies = companiesSnapshot.docs.map((docSnap) => {
+              const data = docSnap.data() as { name?: string; createdAt?: { toMillis?: () => number } };
+              return {
+                id: docSnap.id,
+                name: data.name || '',
+                createdAt: data?.createdAt && typeof data.createdAt.toMillis === 'function'
+                  ? data.createdAt.toMillis()
+                  : undefined,
+              };
+            }).sort((a, b) => {
               const aCreated = a.createdAt ?? 0;
               const bCreated = b.createdAt ?? 0;
               return bCreated - aCreated;
             });
 
-            setCompanies(sortedCompanies);
-          }
-        } catch (error) {
-          console.error('Error fetching companies for client portal', error);
-          if (isMounted) {
-            setCompanies([]);
+            setCompanies(allCompanies);
           }
         }
-      };
-
-      void loadCompanies();
+      } catch (error) {
+        console.error('Error fetching companies for client portal', error);
+        if (isMounted) {
+          setCompanies([]);
+        }
+      }
     });
 
     return () => {
@@ -263,9 +270,8 @@ export default function CreateLocation() {
                     ))}
                   </select>
                   {companies.length === 0 && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      You must create a Company first.
-                      <Link href="/client-portal/subsidiaries/create" className="text-blue-600 underline ml-1">Create one</Link>
+                    <p className="text-sm text-red-500 mt-1">
+                      No company assigned. Please contact an administrator to assign you to a company.
                     </p>
                   )}
                 </div>

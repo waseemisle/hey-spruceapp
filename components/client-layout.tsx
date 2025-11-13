@@ -92,7 +92,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const menuItems = [
     { name: 'Dashboard', href: '/client-portal', icon: Home, badgeKey: null },
-    { name: 'Companies', href: '/client-portal/subsidiaries', icon: Building2, badgeKey: null },
     { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: null },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: null },
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
@@ -117,7 +116,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <NotificationBell />
-            <span className="text-sm text-gray-600 hidden md:inline">{user?.email}</span>
+            <div className="hidden md:flex flex-col items-end">
+              <span className="text-sm text-gray-600">{user?.email}</span>
+              {user?.companyName && (
+                <span className="text-xs text-gray-500 flex items-center gap-1">
+                  <Building2 className="h-3 w-3" />
+                  {user.companyName}
+                </span>
+              )}
+            </div>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>

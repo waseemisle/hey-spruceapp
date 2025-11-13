@@ -8,13 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Plus, Save, X, Search, Users, Edit2, Trash2 } from 'lucide-react';
+import { Building2, Plus, Save, X, Search, Users, Edit2, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface Client { id: string; fullName: string; email: string }
 interface Company { id: string; clientId: string; name: string; email?: string; phone?: string }
 
 export default function AdminCompanies() {
+  const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,9 +185,12 @@ export default function AdminCompanies() {
                     {c.email && <div>Email: {c.email}</div>}
                     {c.phone && <div>Phone: {c.phone}</div>}
                     <div className="flex gap-2 pt-2">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleOpenEdit(c)}>
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => router.push(`/admin-portal/subsidiaries/${c.id}`)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleOpenEdit(c)}>
+                        <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="destructive" onClick={() => performDelete(c)}>
                         <Trash2 className="h-4 w-4" />

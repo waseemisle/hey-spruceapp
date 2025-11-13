@@ -16,13 +16,21 @@ interface Client {
   email: string;
   fullName: string;
   companyName?: string;
+  companyId?: string;
   phone: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
 }
 
+interface Company {
+  id: string;
+  name: string;
+  clientId?: string;
+}
+
 export default function ClientsManagement() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,7 +43,7 @@ export default function ClientsManagement() {
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
-    companyName: '',
+    companyId: '',
     phone: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
   });
@@ -57,8 +65,24 @@ export default function ClientsManagement() {
     }
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const companiesQuery = query(collection(db, 'companies'));
+      const snapshot = await getDocs(companiesQuery);
+      const companiesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Company[];
+      setCompanies(companiesData);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+      toast.error('Failed to load companies');
+    }
+  };
+
   useEffect(() => {
     fetchClients();
+    fetchCompanies();
   }, []);
 
   const handleApprove = async (clientId: string) => {
@@ -107,7 +131,7 @@ export default function ClientsManagement() {
     setFormData({
       email: '',
       fullName: '',
-      companyName: '',
+      companyId: '',
       phone: '',
       status: 'approved',
     });
@@ -124,7 +148,7 @@ export default function ClientsManagement() {
     setFormData({
       email: client.email,
       fullName: client.fullName,
-      companyName: client.companyName || '',
+      companyId: client.companyId || '',
       phone: client.phone,
       status: client.status,
     });
@@ -141,11 +165,16 @@ export default function ClientsManagement() {
     setSubmitting(true);
 
     try {
+      // Get company name from companyId if selected
+      const selectedCompany = companies.find(c => c.id === formData.companyId);
+      const companyName = selectedCompany ? selectedCompany.name : '';
+
       if (editingId) {
         // Update existing client
         await updateDoc(doc(db, 'clients', editingId), {
           fullName: formData.fullName,
-          companyName: formData.companyName,
+          companyId: formData.companyId || null,
+          companyName: companyName,
           phone: formData.phone,
           status: formData.status,
           updatedAt: serverTimestamp(),
@@ -163,7 +192,8 @@ export default function ClientsManagement() {
             sendInvitation: true,
             userData: {
               fullName: formData.fullName,
-              companyName: formData.companyName,
+              companyId: formData.companyId || null,
+              companyName: companyName,
               phone: formData.phone,
               status: formData.status,
             },
@@ -461,12 +491,19 @@ export default function ClientsManagement() {
                   </div>
 
                   <div>
-                    <Label>Company Name</Label>
-                    <Input
-                      value={formData.companyName}
-                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                      placeholder="Optional"
-                    />
+                    <Label>Company</Label>
+                    <select
+                      value={formData.companyId}
+                      onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
+                      className="w-full border border-gray-300 rounded-md p-2"
+                    >
+                      <option value="">Select a company (optional)</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
