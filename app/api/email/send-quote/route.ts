@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { toEmail, toName, quoteNumber, workOrderTitle, totalAmount, clientAmount, markupPercentage, lineItems, notes } = body;
 
-    const sendGridApiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'waseem@shurehw.com';
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'matthew@heyspruce.com';
 
-    if (!sendGridApiKey) {
-      console.error('SendGrid API key not configured');
+    if (!resendApiKey) {
+      console.error('Resend API key not configured');
       return NextResponse.json(
         { error: 'Email service not configured' },
         { status: 500 }
@@ -104,38 +105,20 @@ export async function POST(request: Request) {
       </html>
     `;
 
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${sendGridApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [
-          {
-            to: [{ email: toEmail, name: toName }],
-            subject: `Quote #${quoteNumber} - ${workOrderTitle}`,
-          },
-        ],
-        from: {
-          email: fromEmail,
-          name: 'Hey Spruce App',
-        },
-        content: [
-          {
-            type: 'text/html',
-            value: emailHtml,
-          },
-        ],
-      }),
+    const resend = new Resend(resendApiKey);
+
+    const { data, error } = await resend.emails.send({
+      from: `Hey Spruce App <${fromEmail}>`,
+      to: [toEmail],
+      subject: `Quote #${quoteNumber} - ${workOrderTitle}`,
+      html: emailHtml,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('SendGrid error:', error);
+    if (error) {
+      console.error('Resend error:', error);
       return NextResponse.json(
         { error: 'Failed to send email' },
-        { status: response.status }
+        { status: 500 }
       );
     }
 

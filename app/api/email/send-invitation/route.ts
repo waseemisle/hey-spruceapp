@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,11 +13,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-    const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'waseem@shurehw.com';
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'matthew@heyspruce.com';
 
-    // If no SendGrid API key, log to console (test mode)
-    if (!SENDGRID_API_KEY) {
+    // If no Resend API key, log to console (test mode)
+    if (!RESEND_API_KEY) {
       console.log('\n========================================');
       console.log('📧 INVITATION EMAIL (TEST MODE)');
       console.log('========================================');
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
       console.log('Role:', role);
       console.log('\n🔗 Password Setup Link:');
       console.log(resetLink);
-      console.log('\n⚠️  SendGrid not configured - Add SENDGRID_API_KEY to environment variables');
+      console.log('\n⚠️  Resend not configured - Add RESEND_API_KEY to environment variables');
       console.log('========================================\n');
       return NextResponse.json({
         success: true,
@@ -122,37 +123,19 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
-    // Send email via SendGrid
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SENDGRID_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [
-          {
-            to: [{ email }],
-            subject: `Welcome to Hey Spruce - Set Up Your ${roleTitle} Account`,
-          },
-        ],
-        from: {
-          email: SENDGRID_FROM_EMAIL,
-          name: 'Hey Spruce',
-        },
-        content: [
-          {
-            type: 'text/html',
-            value: emailHtml,
-          },
-        ],
-      }),
+    // Send email via Resend
+    const resend = new Resend(RESEND_API_KEY);
+
+    const { data, error } = await resend.emails.send({
+      from: `Hey Spruce <${RESEND_FROM_EMAIL}>`,
+      to: [email],
+      subject: `Welcome to Hey Spruce - Set Up Your ${roleTitle} Account`,
+      html: emailHtml,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('SendGrid error:', errorText);
-      throw new Error(`SendGrid API error: ${response.status}`);
+    if (error) {
+      console.error('Resend error:', error);
+      throw new Error(`Resend API error: ${error.message}`);
     }
 
     return NextResponse.json({

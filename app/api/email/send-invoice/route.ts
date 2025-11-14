@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
 
 export async function POST(request: Request) {
   try {
@@ -17,11 +18,11 @@ export async function POST(request: Request) {
       workOrderPdfBase64
     } = body;
 
-    const sendGridApiKey = process.env.SENDGRID_API_KEY;
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'waseem@shurehw.com';
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'matthew@heyspruce.com';
 
-    // Check if we're in development/testing mode without proper SendGrid setup
-    const isTestMode = !sendGridApiKey || sendGridApiKey.includes('YOUR_') || sendGridApiKey.length < 20;
+    // Check if we're in development/testing mode without proper Resend setup
+    const isTestMode = !resendApiKey || resendApiKey.includes('YOUR_') || resendApiKey.length < 20;
 
     if (isTestMode) {
       console.log('📧 EMAIL (TEST MODE) - Would send to:', toEmail);
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         testMode: true,
-        message: 'Email not sent (test mode) - Configure SendGrid for production'
+        message: 'Email not sent (test mode) - Configure Resend for production'
       });
     }
 
@@ -145,92 +146,44 @@ export async function POST(request: Request) {
       </html>
     `;
 
-    const emailPayload: any = {
-      personalizations: [
-        {
-          to: [{ email: toEmail, name: toName }],
-          subject: `Invoice #${invoiceNumber} - Payment Due`,
-        },
-      ],
-      from: {
-        email: fromEmail,
-        name: 'Hey Spruce App',
-      },
-      content: [
-        {
-          type: 'text/html',
-          value: emailHtml,
-        },
-      ],
-    };
+    // Prepare attachments for Resend
+    const resendAttachments = [];
 
-    // Add PDF attachments if provided
-    const attachments = [];
-    
     if (pdfBase64) {
-      attachments.push({
+      resendAttachments.push({
         content: pdfBase64,
         filename: `Invoice_${invoiceNumber}.pdf`,
-        type: 'application/pdf',
-        disposition: 'attachment',
       });
     }
-    
+
     if (workOrderPdfBase64) {
-      attachments.push({
+      resendAttachments.push({
         content: workOrderPdfBase64,
         filename: `WorkOrder_${workOrderTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
-        type: 'application/pdf',
-        disposition: 'attachment',
       });
     }
-    
-    if (attachments.length > 0) {
-      emailPayload.attachments = attachments;
+
+    const resend = new Resend(resendApiKey);
+
+    const emailOptions: any = {
+      from: `Hey Spruce App <${fromEmail}>`,
+      to: [toEmail],
+      subject: `Invoice #${invoiceNumber} - Payment Due`,
+      html: emailHtml,
+    };
+
+    if (resendAttachments.length > 0) {
+      emailOptions.attachments = resendAttachments;
     }
 
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${sendGridApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(emailPayload),
-    });
+    const { data, error } = await resend.emails.send(emailOptions);
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('❌ SendGrid error response:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: error,
-        apiKey: sendGridApiKey ? `${sendGridApiKey.substring(0, 10)}...` : 'not set',
+    if (error) {
+      console.error('❌ Resend error response:', {
+        error: error,
+        apiKey: resendApiKey ? `${resendApiKey.substring(0, 10)}...` : 'not set',
         fromEmail: fromEmail
       });
-
-      // Parse SendGrid error for more details
-      let errorMessage = 'Failed to send email';
-      let troubleshooting = '';
-
-      try {
-        const errorData = JSON.parse(error);
-        if (errorData.errors && errorData.errors.length > 0) {
-          errorMessage = errorData.errors[0].message || errorMessage;
-
-          // Provide specific troubleshooting based on error
-          if (response.status === 403) {
-            troubleshooting = 'SendGrid 403 Error - This usually means:\n' +
-              `1. Your sender email (${fromEmail}) is not verified in SendGrid\n` +
-              '2. Your API key does not have "Mail Send" permissions\n' +
-              '3. Your SendGrid account has restrictions\n\n' +
-              'To fix: Log into SendGrid → Settings → Sender Authentication → Verify a sender email';
-          }
-        }
-      } catch (e) {
-        errorMessage = error || errorMessage;
-      }
-
-      console.error('📋 Troubleshooting:', troubleshooting || 'Check SendGrid configuration');
 
       // Log the email that failed to send
       console.log('📧 Failed email details:', {
@@ -245,8 +198,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: errorMessage,
-          details: troubleshooting || 'SendGrid API Error',
+          error: error.message || 'Failed to send email',
+          details: 'Resend API Error',
           emailLogged: true
         },
         { status: 200 } // Return 200 so invoice creation continues
