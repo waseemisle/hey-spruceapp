@@ -22,7 +22,11 @@
       "Bash(timeout 180 npm run build:*)",
       "Bash(firebase login:*)",
       "WebFetch(domain:vercel.com)",
-      "Bash(firebase projects:list:*)"
+      "Bash(firebase projects:list:*)",
+      "Bash(test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nMigrate email service from SendGrid to Resend\n\n- Update all email routes to use Resend API\n- Change send-invitation, send-quote, send-invoice, and send-assignment routes\n- Update environment variables from SENDGRID_* to RESEND_*\n- Set default from email to matthew@heyspruce.com\n- Maintain support for PDF attachments in invoice emails\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

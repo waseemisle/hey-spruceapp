@@ -13,8 +13,10 @@ export interface Client {
   email: string;
   fullName: string;
   companyName?: string;
+  companyId?: string;
   phone: string;
   address?: Address;
+  assignedLocations?: string[]; // Array of location IDs the client has access to
   status: 'pending' | 'approved' | 'rejected';
   approvedBy?: string;
   approvedAt?: Date;
@@ -101,6 +103,70 @@ export interface Category {
 }
 
 // Work Order Types
+export interface WorkOrderTimelineEvent {
+  id: string;
+  timestamp: Date | any;
+  type: 'created' | 'approved' | 'rejected' | 'shared_for_bidding' | 'quote_received' |
+        'quote_shared_with_client' | 'quote_approved_by_client' | 'quote_rejected_by_client' |
+        'assigned' | 'schedule_set' | 'schedule_shared' | 'started' | 'completed' |
+        'invoice_sent' | 'payment_received';
+  userId: string;
+  userName: string;
+  userRole: 'admin' | 'client' | 'subcontractor' | 'system';
+  details: string;
+  metadata?: Record<string, any>;
+}
+
+export interface WorkOrderSystemInformation {
+  createdBy?: { id: string; name: string; role: string; timestamp: Date | any };
+  approvedBy?: { id: string; name: string; timestamp: Date | any };
+  rejectedBy?: { id: string; name: string; timestamp: Date | any; reason: string };
+  sharedForBidding?: {
+    by: { id: string; name: string };
+    timestamp: Date | any;
+    subcontractors: Array<{ id: string; name: string }>;
+  };
+  quotesReceived?: Array<{
+    quoteId: string;
+    subcontractorId: string;
+    subcontractorName: string;
+    amount: number;
+    timestamp: Date | any;
+  }>;
+  quoteSharedWithClient?: {
+    quoteId: string;
+    by: { id: string; name: string };
+    timestamp: Date | any;
+  };
+  quoteApprovalByClient?: {
+    quoteId: string;
+    approvedBy: { id: string; name: string };
+    timestamp: Date | any;
+  };
+  assignment?: {
+    subcontractorId: string;
+    subcontractorName: string;
+    assignedBy: { id: string; name: string };
+    timestamp: Date | any;
+  };
+  scheduledService?: {
+    date: Date | any;
+    time: string;
+    setBy: { id: string; name: string };
+    sharedWithClientAt?: Date | any;
+  };
+  completion?: {
+    completedBy: { id: string; name: string };
+    timestamp: Date | any;
+    notes: string;
+  };
+  invoicing?: {
+    sentAt: Date | any;
+    sentBy: { id: string; name: string };
+    paidAt?: Date | any;
+  };
+}
+
 export interface WorkOrder {
   id: string;
   workOrderNumber: string;
@@ -129,6 +195,8 @@ export interface WorkOrder {
   approvedBy?: string;
   approvedAt?: Date;
   rejectionReason?: string;
+  timeline?: WorkOrderTimelineEvent[];
+  systemInformation?: WorkOrderSystemInformation;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -185,7 +253,10 @@ export interface Quote {
   notes: string;
   terms: string;
   validUntil: Date;
-  status: 'pending' | 'accepted' | 'rejected';
+  proposedServiceDate?: Date; // Date subcontractor can perform the work
+  proposedServiceTime?: string; // Time subcontractor can perform the work (e.g., "2:00 PM")
+  estimatedDuration?: string; // Estimated duration (e.g., "2-3 days")
+  status: 'pending' | 'accepted' | 'rejected' | 'sent_to_client';
   isBiddingWorkOrder: boolean;
   acceptedAt?: Date;
   rejectedAt?: Date;

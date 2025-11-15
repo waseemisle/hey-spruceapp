@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -37,6 +37,17 @@ interface WorkOrder {
   assignedSubcontractorName?: string;
   scheduledServiceDate?: any;
   scheduledServiceTime?: string;
+  approvedQuoteId?: string;
+  approvedQuoteAmount?: number;
+  approvedQuoteLaborCost?: number;
+  approvedQuoteMaterialCost?: number;
+  approvedQuoteTaxAmount?: number;
+  approvedQuoteLineItems?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
 }
 
 export default function ViewClientWorkOrder() {
@@ -215,6 +226,91 @@ export default function ViewClientWorkOrder() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Approved Quote Pricing */}
+            {workOrder.approvedQuoteAmount && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-green-600" />
+                    Approved Quote
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-lg font-semibold text-gray-700">Total Amount</span>
+                      <span className="text-3xl font-bold text-green-600">
+                        ${workOrder.approvedQuoteAmount.toLocaleString()}
+                      </span>
+                    </div>
+
+                    {(workOrder.approvedQuoteLaborCost || workOrder.approvedQuoteMaterialCost || workOrder.approvedQuoteTaxAmount) && (
+                      <div className="space-y-2 pt-3 border-t border-green-300">
+                        {workOrder.approvedQuoteLaborCost > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Labor Cost</span>
+                            <span className="font-medium text-gray-900">
+                              ${workOrder.approvedQuoteLaborCost.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {workOrder.approvedQuoteMaterialCost > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Material Cost</span>
+                            <span className="font-medium text-gray-900">
+                              ${workOrder.approvedQuoteMaterialCost.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {workOrder.approvedQuoteTaxAmount > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Tax</span>
+                            <span className="font-medium text-gray-900">
+                              ${workOrder.approvedQuoteTaxAmount.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {workOrder.approvedQuoteLineItems && workOrder.approvedQuoteLineItems.length > 0 && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
+                              <th className="px-4 py-2 text-center font-semibold text-gray-700">Qty</th>
+                              <th className="px-4 py-2 text-right font-semibold text-gray-700">Rate</th>
+                              <th className="px-4 py-2 text-right font-semibold text-gray-700">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {workOrder.approvedQuoteLineItems.map((item, idx) => (
+                              <tr key={idx}>
+                                <td className="px-4 py-2">{item.description}</td>
+                                <td className="px-4 py-2 text-center">{item.quantity}</td>
+                                <td className="px-4 py-2 text-right">${item.unitPrice.toLocaleString()}</td>
+                                <td className="px-4 py-2 text-right font-semibold">${item.amount.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {workOrder.assignedSubcontractorName && (
+                    <div className="text-sm text-gray-600 pt-3 border-t">
+                      <span className="font-semibold">Contractor:</span> {workOrder.assignedSubcontractorName}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Images */}
             {workOrder.images && workOrder.images.length > 0 && (

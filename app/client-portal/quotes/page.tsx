@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifySubcontractorAssignment } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
@@ -55,29 +55,90 @@ export default function ClientQuotes() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'comparison'>('list');
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
+  const [assignedLocations, setAssignedLocations] = useState<string[]>([]);
 
   useEffect(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
-    // Optimized query: Filter by clientId first to reduce data transfer
-    const quotesQuery = query(
-      collection(db, 'quotes'),
-      where('clientId', '==', currentUser.uid),
-      where('status', 'in', ['sent_to_client', 'accepted', 'rejected']),
-      orderBy('createdAt', 'desc')
-    );
+    const fetchQuotes = async () => {
+      try {
+        // Fetch client's assigned locations
+        const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+        const clientData = clientDoc.data();
+        const clientAssignedLocations = clientData?.assignedLocations || [];
+        setAssignedLocations(clientAssignedLocations);
 
-    const unsubscribe = onSnapshot(quotesQuery, (snapshot) => {
-      const quotesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Quote[];
-      setQuotes(quotesData);
-      setLoading(false);
-    });
+        // Query quotes
+        const quotesQuery = query(
+          collection(db, 'quotes'),
+          where('clientId', '==', currentUser.uid),
+          where('status', 'in', ['sent_to_client', 'accepted', 'rejected']),
+          orderBy('createdAt', 'desc')
+        );
 
-    return () => unsubscribe();
+        const unsubscribe = onSnapshot(
+          quotesQuery,
+          async (snapshot) => {
+            const quotesData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Quote[];
+
+            // If client has assigned locations, filter quotes by location
+            if (clientAssignedLocations.length > 0) {
+              // Fetch work orders to check locations
+              const workOrderIds = quotesData.map(q => q.workOrderId).filter(Boolean);
+              const workOrdersMap = new Map<string, any>();
+
+              if (workOrderIds.length > 0) {
+                // Fetch work orders in batches (Firestore 'in' query limit is 10)
+                const batchSize = 10;
+                for (let i = 0; i < workOrderIds.length; i += batchSize) {
+                  const batch = workOrderIds.slice(i, i + batchSize);
+                  const workOrdersQuery = query(
+                    collection(db, 'workOrders'),
+                    where('__name__', 'in', batch)
+                  );
+                  const workOrdersSnapshot = await getDocs(workOrdersQuery);
+                  workOrdersSnapshot.docs.forEach(doc => {
+                    workOrdersMap.set(doc.id, doc.data());
+                  });
+                }
+              }
+
+              // Filter quotes where work order's location is in assigned locations
+              const filteredQuotes = quotesData.filter(quote => {
+                if (!quote.workOrderId) return true; // Keep quotes without work order (shouldn't happen)
+                const workOrder = workOrdersMap.get(quote.workOrderId);
+                if (!workOrder) return true; // Keep if work order not found (edge case)
+                return clientAssignedLocations.includes(workOrder.locationId);
+              });
+
+              setQuotes(filteredQuotes);
+            } else {
+              // No location filtering, show all quotes
+              setQuotes(quotesData);
+            }
+
+            setLoading(false);
+          },
+          (error) => {
+            console.error('Error fetching quotes:', error);
+            setLoading(false);
+            toast.error('Failed to load quotes. Please refresh the page or contact support if the issue persists.');
+          }
+        );
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error('Error setting up quotes listener:', error);
+        setLoading(false);
+        toast.error('Failed to load quotes. Please refresh the page.');
+      }
+    };
+
+    fetchQuotes();
   }, []);
 
   const handleApprove = async (quoteId: string) => {
@@ -115,13 +176,19 @@ export default function ClientQuotes() {
               status: 'pending_acceptance',
             });
 
-            // Update work order status and assignment
+            // Update work order status, assignment, and approved quote pricing
             await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
               status: 'assigned',
               assignedSubcontractor: quote.subcontractorId,
               assignedSubcontractorName: quote.subcontractorName,
               assignedAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
+              approvedQuoteId: quoteId,
+              approvedQuoteAmount: quote.clientAmount || quote.totalAmount,
+              approvedQuoteLaborCost: quote.laborCost,
+              approvedQuoteMaterialCost: quote.materialCost,
+              approvedQuoteTaxAmount: quote.taxAmount,
+              approvedQuoteLineItems: quote.lineItems || [],
             });
 
             // Notify subcontractor of assignment (in-app notification)
@@ -371,6 +438,34 @@ export default function ClientQuotes() {
                       </div>
                     </div>
                   </div>
+
+                  {(quote as any).proposedServiceDate && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start gap-2">
+                        <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-blue-900 mb-1">Proposed Service Schedule</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-xs text-blue-700">Date</p>
+                              <p className="text-sm font-medium text-blue-900">
+                                {(quote as any).proposedServiceDate?.toDate?.().toLocaleDateString() ||
+                                 new Date((quote as any).proposedServiceDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                            {(quote as any).proposedServiceTime && (
+                              <div>
+                                <p className="text-xs text-blue-700">Time</p>
+                                <p className="text-sm font-medium text-blue-900">
+                                  {(quote as any).proposedServiceTime}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {quote.lineItems && quote.lineItems.length > 0 && (
                     <div className="border-t pt-4">

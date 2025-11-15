@@ -304,7 +304,21 @@ export default function MaintRequestsPage() {
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Calendar className="h-4 w-4 flex-shrink-0" />
                     <span>
-                      {request.date?.toDate ? request.date.toDate().toLocaleDateString() : new Date(request.date).toLocaleDateString()}
+                      {request.date?.toDate
+                        ? request.date.toDate().toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        : new Date(request.date).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                     </span>
                   </div>
 

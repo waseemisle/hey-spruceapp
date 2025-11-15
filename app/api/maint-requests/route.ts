@@ -424,6 +424,168 @@ export async function POST(request: Request) {
     // Add to Firestore
     const docRef = await addDoc(collection(db, 'maint_requests'), maintRequestData);
 
+    // Auto-create work order from maint request
+    try {
+      // Find or create location
+      let locationId = '';
+      let locationName = venue;
+
+      // Search for existing location by name
+      const locationsQuery = query(
+        collection(db, 'locations'),
+        where('locationName', '==', locationName)
+      );
+      const locationsSnapshot = await getDocs(locationsQuery);
+
+      if (!locationsSnapshot.empty) {
+        // Location exists
+        locationId = locationsSnapshot.docs[0].id;
+        console.log(`Found existing location: ${locationName} (${locationId})`);
+      } else {
+        // Location doesn't exist - create it automatically
+        const newLocationRef = await addDoc(collection(db, 'locations'), {
+          locationName: locationName,
+          clientId: '', // No specific client (accessible via assigned locations)
+          clientName: 'Auto-Generated',
+          clientEmail: '',
+          companyId: '', // Can be set later by admin
+          companyName: '',
+          address: {
+            street: '',
+            city: '',
+            state: '',
+            zip: '',
+            country: 'USA',
+          },
+          propertyType: '',
+          contactPerson: requestor || 'API Request',
+          contactPhone: '',
+          status: 'approved', // Auto-approve for API-generated locations
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+
+        locationId = newLocationRef.id;
+        console.log(`Created new location: ${locationName} (${locationId})`);
+      }
+
+      // Generate work order number
+      const workOrderNumber = `WO-${Date.now().toString().slice(-6).toUpperCase()}`;
+
+      // Create initial timeline event
+      const timelineEvent = {
+        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: serverTimestamp(),
+        type: 'created',
+        userId: 'system',
+        userName: 'Automated System',
+        userRole: 'system',
+        details: `Work order created automatically from maintenance request for ${locationName}`,
+        metadata: {
+          source: 'maintenance_request_api',
+          maintRequestId: docRef.id,
+          requestor: requestor || 'Unknown',
+          priority: priority,
+        }
+      };
+
+      // Create system information
+      const systemInformation = {
+        createdBy: {
+          id: 'system',
+          name: 'Automated System (API)',
+          role: 'system',
+          timestamp: serverTimestamp(),
+        }
+      };
+
+      // Create work order
+      const workOrderRef = await addDoc(collection(db, 'workOrders'), {
+        workOrderNumber,
+        clientId: '', // Not assigned to specific client initially
+        clientName: requestor || 'API Request',
+        clientEmail: '',
+        locationId: locationId,
+        location: { id: locationId, locationName: locationName },
+        locationName: locationName,
+        locationAddress: locationName,
+        title: title,
+        description: description,
+        category: 'General Maintenance', // Default category
+        categoryId: '',
+        priority: priority || 'medium',
+        status: 'pending', // Waiting for admin approval
+        images: imageUrl ? [imageUrl] : [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: 'API',
+        createdViaAPI: true, // Flag to identify API-created work orders
+        originalMaintRequestId: docRef.id, // Link back to maint request
+        timeline: [timelineEvent],
+        systemInformation: systemInformation,
+      });
+
+      console.log(`Created work order: ${workOrderNumber} (${workOrderRef.id})`);
+
+      // Notify admins about new maintenance request
+      // Get all admin users
+      const adminsQuery = query(collection(db, 'adminUsers'));
+      const adminsSnapshot = await getDocs(adminsQuery);
+
+      // Create in-app notifications for each admin
+      const notificationPromises = adminsSnapshot.docs.map(async (adminDoc) => {
+        await addDoc(collection(db, 'notifications'), {
+          userId: adminDoc.id,
+          userRole: 'admin',
+          type: 'general',
+          title: `New Maintenance Request: ${priority?.toUpperCase() || 'NORMAL'}`,
+          message: `New maintenance request for ${venue}: ${title}`,
+          link: `/admin-portal/work-orders`,
+          read: false,
+          referenceId: docRef.id,
+          referenceType: 'maintRequest',
+          createdAt: serverTimestamp(),
+        });
+      });
+
+      await Promise.all(notificationPromises);
+
+      // Send email to all admins
+      for (const adminDoc of adminsSnapshot.docs) {
+        const adminData = adminDoc.data();
+        const adminEmail = adminData.email;
+        const adminName = adminData.fullName || 'Admin';
+
+        if (adminEmail) {
+          try {
+            await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/email/send-maint-request-notification`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toEmail: adminEmail,
+                toName: adminName,
+                maintRequestId: docRef.id,
+                venue: venue,
+                requestor: requestor,
+                title: title,
+                description: description,
+                priority: priority,
+                date: date,
+                portalLink: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin-portal/work-orders`,
+              }),
+            });
+          } catch (emailError) {
+            console.error('Failed to send email to admin:', adminEmail, emailError);
+            // Don't fail the whole request if email fails
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error auto-creating work order from maint request:', error);
+      // Don't fail the whole request if work order creation fails
+    }
+
     return NextResponse.json({
       success: true,
       id: docRef.id,

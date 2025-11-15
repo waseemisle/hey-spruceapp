@@ -18,6 +18,7 @@ interface Client {
   companyName?: string;
   companyId?: string;
   phone: string;
+  assignedLocations?: string[];
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
 }
@@ -28,9 +29,18 @@ interface Company {
   clientId?: string;
 }
 
+interface Location {
+  id: string;
+  locationName: string;
+  companyId?: string;
+  companyName?: string;
+  address?: any;
+}
+
 export default function ClientsManagement() {
   const [clients, setClients] = useState<Client[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,6 +55,7 @@ export default function ClientsManagement() {
     fullName: '',
     companyId: '',
     phone: '',
+    assignedLocations: [] as string[],
     status: 'approved' as 'pending' | 'approved' | 'rejected',
   });
 
@@ -80,15 +91,51 @@ export default function ClientsManagement() {
     }
   };
 
+  const fetchLocations = async () => {
+    try {
+      const locationsQuery = query(collection(db, 'locations'));
+      const snapshot = await getDocs(locationsQuery);
+      const locationsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Location[];
+      setLocations(locationsData);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+      toast.error('Failed to load locations');
+    }
+  };
+
   useEffect(() => {
     fetchClients();
     fetchCompanies();
+    fetchLocations();
   }, []);
 
   const handleApprove = async (clientId: string) => {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
+
+      // Get client data to check assigned locations and email
+      const clientDoc = await getDoc(doc(db, 'clients', clientId));
+      if (!clientDoc.exists()) {
+        toast.error('Client not found');
+        return;
+      }
+
+      const clientData = clientDoc.data();
+      const assignedLocations = clientData.assignedLocations || [];
+
+      // Validate: Client must have at least one assigned location
+      if (assignedLocations.length === 0) {
+        toast.error('Cannot approve client without assigned locations. Please assign at least one location first.');
+        return;
+      }
+
+      // Get admin name
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
 
       await updateDoc(doc(db, 'clients', clientId), {
         status: 'approved',
@@ -97,7 +144,24 @@ export default function ClientsManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      toast.success('Client has been approved successfully');
+      // Send approval email to client
+      try {
+        await fetch('/api/email/send-client-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: clientData.email,
+            toName: clientData.fullName,
+            approvedBy: adminName,
+            portalLink: `${window.location.origin}/portal-login`,
+          }),
+        });
+      } catch (emailError) {
+        console.error('Failed to send approval email:', emailError);
+        // Don't fail the whole operation if email fails
+      }
+
+      toast.success('Client has been approved successfully and notified via email');
 
       fetchClients();
     } catch (error) {
@@ -133,6 +197,7 @@ export default function ClientsManagement() {
       fullName: '',
       companyId: '',
       phone: '',
+      assignedLocations: [],
       status: 'approved',
     });
     setEditingId(null);
@@ -150,6 +215,7 @@ export default function ClientsManagement() {
       fullName: client.fullName,
       companyId: client.companyId || '',
       phone: client.phone,
+      assignedLocations: client.assignedLocations || [],
       status: client.status,
     });
     setEditingId(client.uid);
@@ -176,6 +242,7 @@ export default function ClientsManagement() {
           companyId: formData.companyId || null,
           companyName: companyName,
           phone: formData.phone,
+          assignedLocations: formData.assignedLocations,
           status: formData.status,
           updatedAt: serverTimestamp(),
         });
@@ -195,6 +262,7 @@ export default function ClientsManagement() {
               companyId: formData.companyId || null,
               companyName: companyName,
               phone: formData.phone,
+              assignedLocations: formData.assignedLocations,
               status: formData.status,
             },
           }),
@@ -419,6 +487,32 @@ export default function ClientsManagement() {
                     <span>{client.phone}</span>
                   </div>
 
+                  {client.assignedLocations && client.assignedLocations.length > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-md p-2 mt-2">
+                      <p className="text-xs font-semibold text-blue-900 mb-1">Assigned Locations ({client.assignedLocations.length})</p>
+                      <div className="flex flex-wrap gap-1">
+                        {client.assignedLocations.slice(0, 3).map((locId) => {
+                          const location = locations.find(l => l.id === locId);
+                          return location ? (
+                            <span key={locId} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                              {location.locationName}
+                            </span>
+                          ) : null;
+                        })}
+                        {client.assignedLocations.length > 3 && (
+                          <span className="text-xs text-blue-600">+{client.assignedLocations.length - 3} more</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!client.assignedLocations || client.assignedLocations.length === 0) && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-2 mt-2">
+                      <p className="text-xs font-semibold text-yellow-900">⚠️ No locations assigned</p>
+                      <p className="text-xs text-yellow-700">Cannot approve without assigned locations</p>
+                    </div>
+                  )}
+
                   <div className="flex gap-2 pt-4">
                     <Button
                       size="sm"
@@ -504,6 +598,48 @@ export default function ClientsManagement() {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label>Assigned Locations *</Label>
+                    <div className="border border-gray-300 rounded-md p-3 max-h-60 overflow-y-auto bg-white">
+                      {formData.companyId ? (
+                        locations.filter(loc => loc.companyId === formData.companyId).length > 0 ? (
+                          locations
+                            .filter(loc => loc.companyId === formData.companyId)
+                            .map((location) => (
+                              <label key={location.id} className="flex items-center gap-2 py-2 hover:bg-gray-50 px-2 rounded cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={formData.assignedLocations.includes(location.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setFormData({
+                                        ...formData,
+                                        assignedLocations: [...formData.assignedLocations, location.id]
+                                      });
+                                    } else {
+                                      setFormData({
+                                        ...formData,
+                                        assignedLocations: formData.assignedLocations.filter(id => id !== location.id)
+                                      });
+                                    }
+                                  }}
+                                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">{location.locationName}</span>
+                              </label>
+                            ))
+                        ) : (
+                          <p className="text-sm text-gray-500 italic">No locations found for this company. Please create locations first.</p>
+                        )
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">Please select a company first to see available locations.</p>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Client will only see work orders for these locations. Select at least one location.
+                    </p>
                   </div>
 
                   <div>

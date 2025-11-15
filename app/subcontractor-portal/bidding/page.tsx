@@ -57,6 +57,8 @@ export default function SubcontractorBidding() {
     materialCost: '',
     taxRate: '0.0825',
     estimatedDuration: '',
+    proposedServiceDate: '',
+    proposedServiceTime: '',
     notes: '',
   });
 
@@ -140,8 +142,8 @@ export default function SubcontractorBidding() {
   const handleSubmitQuote = async () => {
     if (!selectedWorkOrder) return;
 
-    if (!quoteForm.laborCost || !quoteForm.materialCost || !quoteForm.estimatedDuration) {
-      toast.error('Please fill in all required fields');
+    if (!quoteForm.laborCost || !quoteForm.materialCost || !quoteForm.estimatedDuration || !quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
+      toast.error('Please fill in all required fields (including service date and time)');
       return;
     }
 
@@ -186,6 +188,8 @@ export default function SubcontractorBidding() {
         totalAmount: total,
         originalAmount: total,
         estimatedDuration: quoteForm.estimatedDuration,
+        proposedServiceDate: new Date(quoteForm.proposedServiceDate),
+        proposedServiceTime: quoteForm.proposedServiceTime,
         lineItems: lineItems.filter(item => item.description && item.amount > 0),
         notes: quoteForm.notes,
         status: 'pending',
@@ -203,22 +207,108 @@ export default function SubcontractorBidding() {
         total
       );
 
+      // Send email notifications to client and admins
+      try {
+        // Send to client
+        if (clientEmail) {
+          await fetch('/api/email/send-quote-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: clientEmail,
+              toName: selectedWorkOrder.clientName,
+              workOrderNumber: selectedWorkOrder.workOrderNumber || selectedWorkOrder.id,
+              workOrderTitle: selectedWorkOrder.title,
+              subcontractorName: subData.fullName || subData.businessName,
+              quoteAmount: total,
+              proposedServiceDate: quoteForm.proposedServiceDate,
+              proposedServiceTime: quoteForm.proposedServiceTime,
+              portalLink: `${window.location.origin}/client-portal/quotes`,
+            }),
+          });
+        }
+
+        // Send to all admins
+        const adminsQuery = query(collection(db, 'adminUsers'));
+        const adminsSnapshot = await getDocs(adminsQuery);
+        for (const adminDoc of adminsSnapshot.docs) {
+          const adminData = adminDoc.data();
+          if (adminData.email) {
+            await fetch('/api/email/send-quote-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toEmail: adminData.email,
+                toName: adminData.fullName || 'Admin',
+                workOrderNumber: selectedWorkOrder.workOrderNumber || selectedWorkOrder.id,
+                workOrderTitle: selectedWorkOrder.title,
+                subcontractorName: subData.fullName || subData.businessName,
+                quoteAmount: total,
+                proposedServiceDate: quoteForm.proposedServiceDate,
+                proposedServiceTime: quoteForm.proposedServiceTime,
+                portalLink: `${window.location.origin}/admin-portal/quotes`,
+              }),
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error('Failed to send quote notification emails:', emailError);
+        // Don't fail the whole operation if emails fail
+      }
+
       // Update parent work order status once a quote is received
       const workOrderRef = doc(db, 'workOrders', selectedWorkOrder.id);
       const workOrderSnapshot = await getDoc(workOrderRef);
       if (workOrderSnapshot.exists()) {
         const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
         const statusesEligibleForQuote = ['pending', 'approved', 'bidding'];
+        const workOrderData = workOrderSnapshot.data();
+        const existingTimeline = workOrderData?.timeline || [];
+        const existingSysInfo = workOrderData?.systemInformation || {};
+
+        // Create timeline event for quote submission
+        const timelineEvent = {
+          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: serverTimestamp(),
+          type: 'quote_received',
+          userId: currentUser.uid,
+          userName: subData.fullName || subData.businessName,
+          userRole: 'subcontractor',
+          details: `Quote received from ${subData.fullName || subData.businessName} - $${total.toLocaleString()}`,
+          metadata: {
+            quoteId: quoteRef.id,
+            amount: total,
+            proposedServiceDate: quoteForm.proposedServiceDate,
+            proposedServiceTime: quoteForm.proposedServiceTime,
+          }
+        };
+
+        // Update system information
+        const existingQuotes = existingSysInfo.quotesReceived || [];
+        const updatedSysInfo = {
+          ...existingSysInfo,
+          quotesReceived: [...existingQuotes, {
+            quoteId: quoteRef.id,
+            subcontractorId: currentUser.uid,
+            subcontractorName: subData.fullName || subData.businessName,
+            amount: total,
+            timestamp: serverTimestamp(),
+          }]
+        };
 
         if (currentStatus === 'quotes_received') {
           await updateDoc(workOrderRef, {
             updatedAt: serverTimestamp(),
+            timeline: [...existingTimeline, timelineEvent],
+            systemInformation: updatedSysInfo,
           });
         } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
           await updateDoc(workOrderRef, {
             status: 'quotes_received',
             quoteReceivedAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
+            timeline: [...existingTimeline, timelineEvent],
+            systemInformation: updatedSysInfo,
           });
         }
       }
@@ -248,6 +338,8 @@ export default function SubcontractorBidding() {
         materialCost: '',
         taxRate: '0.0825',
         estimatedDuration: '',
+        proposedServiceDate: '',
+        proposedServiceTime: '',
         notes: '',
       });
       setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
@@ -373,6 +465,33 @@ export default function SubcontractorBidding() {
                       placeholder="e.g., 2-3 days"
                       required
                     />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="proposedServiceDate">Proposed Service Date *</Label>
+                    <Input
+                      id="proposedServiceDate"
+                      name="proposedServiceDate"
+                      type="date"
+                      value={quoteForm.proposedServiceDate}
+                      onChange={handleQuoteFormChange}
+                      required
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Date you can perform the work</p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="proposedServiceTime">Proposed Service Time *</Label>
+                    <Input
+                      id="proposedServiceTime"
+                      name="proposedServiceTime"
+                      type="time"
+                      value={quoteForm.proposedServiceTime}
+                      onChange={handleQuoteFormChange}
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Time you can perform the work</p>
                   </div>
 
                   <div className="md:col-span-2">

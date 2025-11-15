@@ -94,7 +94,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
     { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
     { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
-    { name: 'Maint Requests', href: '/admin-portal/maint-requests', icon: Wrench, badgeKey: null },
+    { name: 'Maintenance Requests', href: '/admin-portal/maint-requests', icon: Wrench, badgeKey: null },
     { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText, badgeKey: null },
     { name: 'Invoices', href: '/admin-portal/invoices', icon: Receipt, badgeKey: null },
     { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar, badgeKey: null },

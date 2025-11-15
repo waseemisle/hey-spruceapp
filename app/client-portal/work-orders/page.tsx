@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
@@ -69,24 +69,53 @@ export default function ClientWorkOrders() {
   };
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const workOrdersQuery = query(
-          collection(db, 'workOrders'),
-          where('clientId', '==', user.uid),
-          orderBy('createdAt', 'desc')
-        );
+        try {
+          // Fetch client document to get assigned locations
+          const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+          const clientData = clientDoc.data();
+          const assignedLocations = clientData?.assignedLocations || [];
 
-        const unsubscribeSnapshot = onSnapshot(workOrdersQuery, (snapshot) => {
-          const workOrdersData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as WorkOrder[];
-          setWorkOrders(workOrdersData);
+          let workOrdersQuery;
+
+          if (assignedLocations.length > 0) {
+            // Filter by assigned locations
+            workOrdersQuery = query(
+              collection(db, 'workOrders'),
+              where('locationId', 'in', assignedLocations),
+              orderBy('createdAt', 'desc')
+            );
+          } else {
+            // Fallback to clientId for backward compatibility
+            workOrdersQuery = query(
+              collection(db, 'workOrders'),
+              where('clientId', '==', user.uid),
+              orderBy('createdAt', 'desc')
+            );
+          }
+
+          const unsubscribeSnapshot = onSnapshot(
+            workOrdersQuery,
+            (snapshot) => {
+              const workOrdersData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+              })) as WorkOrder[];
+              setWorkOrders(workOrdersData);
+              setLoading(false);
+            },
+            (error) => {
+              console.error('Error fetching work orders:', error);
+              setLoading(false);
+            }
+          );
+
+          return () => unsubscribeSnapshot();
+        } catch (error) {
+          console.error('Error setting up work orders listener:', error);
           setLoading(false);
-        });
-
-        return () => unsubscribeSnapshot();
+        }
       } else {
         setLoading(false);
       }
