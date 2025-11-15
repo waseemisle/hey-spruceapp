@@ -1,84 +1,43 @@
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
 export const runtime = 'nodejs';
 
-// Initialize Firebase client SDK for server-side use
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
-
-// POST - Generate impersonation token (calls Firebase Function)
+// POST - Redirect to view-as API (simplified impersonation)
 export async function POST(request: Request) {
   try {
-    const { userId, role } = await request.json();
-
-    if (!userId || !role) {
-      return NextResponse.json(
-        { error: 'User ID and role are required' },
-        { status: 400 }
-      );
-    }
-
-    if (role !== 'client' && role !== 'subcontractor') {
-      return NextResponse.json(
-        { error: 'Invalid role. Only client and subcontractor can be impersonated' },
-        { status: 400 }
-      );
-    }
-
-    // Verify the requesting user is an admin
+    const body = await request.json();
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Authorization header required' },
-        { status: 401 }
-      );
-    }
 
-    const idToken = authHeader.substring(7);
-
-    // Call Firebase Function to generate impersonation token
-    const app = getFirebaseApp();
-    const functions = getFunctions(app);
-    const generateToken = httpsCallable(functions, 'generateImpersonationToken');
-
-    // Call the function with the ID token in the header
-    const result = await generateToken({ userId, role }, {
-      headers: {
-        'Authorization': `Bearer ${idToken}`
-      }
-    });
-
-    const data = result.data as any;
-
+    // Forward to view-as API
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
                    (request.headers.get('origin') || 'http://localhost:3000');
 
-    const impersonationUrl = `${baseUrl}/api/auth/impersonate?token=${data.impersonationToken}`;
+    const viewAsResponse = await fetch(`${baseUrl}/api/auth/view-as`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader || '',
+      },
+      body: JSON.stringify(body),
+    });
 
+    const data = await viewAsResponse.json();
+
+    if (!viewAsResponse.ok) {
+      return NextResponse.json(data, { status: viewAsResponse.status });
+    }
+
+    // Return with redirect URL
     return NextResponse.json({
       success: true,
-      impersonationToken: data.impersonationToken,
-      impersonationUrl,
-      [role]: data.user,
-      expiresAt: data.expiresAt,
+      impersonationUrl: data.redirectUrl,
+      [body.role]: data.user,
+      viewAsToken: data.viewAsToken,
     });
   } catch (error: any) {
-    console.error('Error generating impersonation token:', error);
+    console.error('Error in impersonation:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to generate impersonation token' },
+      { error: error.message || 'Failed to start impersonation' },
       { status: 500 }
     );
   }

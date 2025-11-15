@@ -37,7 +37,8 @@
       "Bash(start https://console.cloud.google.com/iam-admin/serviceaccounts?project=heyspruceappv2)",
       "Bash(start https://cloud.google.com/sdk/docs/install)",
       "Bash(gcloud iam service-accounts list:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(start https://console.firebase.google.com/project/heyspruceappv2/overview)"
     ],
     "deny": [],
     "ask": []
