@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 export const runtime = 'nodejs';
 
@@ -20,7 +19,7 @@ const getFirebaseApp = () => {
   return getApp();
 };
 
-// POST - Generate impersonation token
+// POST - Generate impersonation token (calls Firebase Function)
 export async function POST(request: Request) {
   try {
     const { userId, role } = await request.json();
@@ -49,80 +48,32 @@ export async function POST(request: Request) {
     }
 
     const idToken = authHeader.substring(7);
+
+    // Call Firebase Function to generate impersonation token
     const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const functions = getFunctions(app);
+    const generateToken = httpsCallable(functions, 'generateImpersonationToken');
 
-    // Verify the token and check if user is admin
-    // We'll use Firebase Admin to verify the token
-    const adminAuth = getAdminAuth();
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(idToken);
-    } catch (error) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    // Check if the user is an admin
-    const adminDoc = await getDoc(doc(db, 'adminUsers', decodedToken.uid));
-    if (!adminDoc.exists()) {
-      return NextResponse.json(
-        { error: 'Only admins can impersonate users' },
-        { status: 403 }
-      );
-    }
-
-    // Verify the target user exists and get their data
-    const collectionName = role === 'client' ? 'clients' : 'subcontractors';
-    const userDoc = await getDoc(doc(db, collectionName, userId));
-    
-    if (!userDoc.exists()) {
-      return NextResponse.json(
-        { error: `${role} not found` },
-        { status: 404 }
-      );
-    }
-
-    const userData = userDoc.data();
-
-    // Generate a custom token for impersonation
-    const customToken = await adminAuth.createCustomToken(userId, {
-      impersonating: true,
-      originalAdmin: decodedToken.uid,
-      role: role,
+    // Call the function with the ID token in the header
+    const result = await generateToken({ userId, role }, {
+      headers: {
+        'Authorization': `Bearer ${idToken}`
+      }
     });
 
-    // Create impersonation token (JWT-like structure for the URL)
-    // Use base64 encoding and replace URL-unsafe characters
-    const tokenData = JSON.stringify({
-      customToken,
-      userId,
-      role,
-      expiresAt: Date.now() + 3600000, // 1 hour
-    });
-    const impersonationToken = Buffer.from(tokenData)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+    const data = result.data as any;
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
                    (request.headers.get('origin') || 'http://localhost:3000');
-    
-    const impersonationUrl = `${baseUrl}/api/auth/impersonate?token=${impersonationToken}`;
+
+    const impersonationUrl = `${baseUrl}/api/auth/impersonate?token=${data.impersonationToken}`;
 
     return NextResponse.json({
       success: true,
-      impersonationToken,
+      impersonationToken: data.impersonationToken,
       impersonationUrl,
-      [role]: {
-        id: userId,
-        name: userData.fullName || userData.businessName || 'Unknown',
-        email: userData.email,
-      },
-      expiresAt: 'after 1 hour',
+      [role]: data.user,
+      expiresAt: data.expiresAt,
     });
   } catch (error: any) {
     console.error('Error generating impersonation token:', error);

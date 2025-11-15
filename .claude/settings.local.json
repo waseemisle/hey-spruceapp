@@ -26,7 +26,18 @@
       "Bash(test:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nMigrate email service from SendGrid to Resend\n\n- Update all email routes to use Resend API\n- Change send-invitation, send-quote, send-invoice, and send-assignment routes\n- Update environment variables from SENDGRID_* to RESEND_*\n- Set default from email to matthew@heyspruce.com\n- Maintain support for PDF attachments in invoice emails\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(dir /b \"C:\\Users\\Waseem Akhtar\\Desktop\\SprApp\\hey-spruceapp\\app\\api\\email\")",
+      "Bash(dir /b \"C:\\Users\\Waseem Akhtar\\Desktop\\SprApp\\hey-spruceapp\\components\")",
+      "Bash(findstr:*)",
+      "Bash(git commit:*)",
+      "Bash(firebase:*)",
+      "Bash(start https://console.firebase.google.com/project/heyspruceappv2/settings/serviceaccounts/adminsdk)",
+      "Bash(where:*)",
+      "Bash(start https://console.cloud.google.com/iam-admin/serviceaccounts?project=heyspruceappv2)",
+      "Bash(start https://cloud.google.com/sdk/docs/install)",
+      "Bash(gcloud iam service-accounts list:*)",
+      "Bash(del nul)"
     ],
     "deny": [],
     "ask": []
