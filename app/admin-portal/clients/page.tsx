@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, getDoc, doc, updateDoc, serverTimestamp, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

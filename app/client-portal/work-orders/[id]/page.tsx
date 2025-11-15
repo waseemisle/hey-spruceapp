@@ -247,27 +247,27 @@ export default function ViewClientWorkOrder() {
 
                     {(workOrder.approvedQuoteLaborCost || workOrder.approvedQuoteMaterialCost || workOrder.approvedQuoteTaxAmount) && (
                       <div className="space-y-2 pt-3 border-t border-green-300">
-                        {workOrder.approvedQuoteLaborCost > 0 && (
+                        {(workOrder.approvedQuoteLaborCost ?? 0) > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Labor Cost</span>
                             <span className="font-medium text-gray-900">
-                              ${workOrder.approvedQuoteLaborCost.toLocaleString()}
+                              ${(workOrder.approvedQuoteLaborCost ?? 0).toLocaleString()}
                             </span>
                           </div>
                         )}
-                        {workOrder.approvedQuoteMaterialCost > 0 && (
+                        {(workOrder.approvedQuoteMaterialCost ?? 0) > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Material Cost</span>
                             <span className="font-medium text-gray-900">
-                              ${workOrder.approvedQuoteMaterialCost.toLocaleString()}
+                              ${(workOrder.approvedQuoteMaterialCost ?? 0).toLocaleString()}
                             </span>
                           </div>
                         )}
-                        {workOrder.approvedQuoteTaxAmount > 0 && (
+                        {(workOrder.approvedQuoteTaxAmount ?? 0) > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Tax</span>
                             <span className="font-medium text-gray-900">
-                              ${workOrder.approvedQuoteTaxAmount.toLocaleString()}
+                              ${(workOrder.approvedQuoteTaxAmount ?? 0).toLocaleString()}
                             </span>
                           </div>
                         )}
