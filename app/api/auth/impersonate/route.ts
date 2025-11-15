@@ -1,19 +1,8 @@
 import { NextResponse } from 'next/server';
-import { initializeApp as initializeAdminApp, getApps as getAdminApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
+import { getAdminAuth } from '@/lib/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
-
-// Initialize Firebase Admin if not already initialized
-const getAdminApp = () => {
-  if (getAdminApps().length === 0) {
-    return initializeAdminApp({
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
-  }
-  return getAdminApps()[0];
-};
 
 // POST - Generate impersonation token
 export async function POST(request: Request) {
@@ -43,9 +32,8 @@ export async function POST(request: Request) {
     }
 
     const idToken = authHeader.substring(7);
-    const adminApp = getAdminApp();
-    const adminAuth = getAuth(adminApp);
-    const db = getFirestore(adminApp);
+    const adminAuth = getAdminAuth();
+    const db = getFirestore();
 
     // Verify the requesting user is an admin
     let adminUid: string;

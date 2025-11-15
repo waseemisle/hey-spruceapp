@@ -297,7 +297,7 @@ export default function ClientsManagement() {
       setImpersonating(clientId);
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        toast.error('You must be logged in to impersonate');
+        toast.error('You must be logged in to view as client');
         setImpersonating(null);
         return;
       }
@@ -305,8 +305,8 @@ export default function ClientsManagement() {
       // Get the current user's ID token
       const idToken = await currentUser.getIdToken();
 
-      // Call the impersonation API to generate token
-      const response = await fetch('/api/auth/impersonate', {
+      // Call the view-as API to start session
+      const response = await fetch('/api/auth/view-as', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -321,26 +321,23 @@ export default function ClientsManagement() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate impersonation token');
+        throw new Error(data.error || 'Failed to start view-as session');
       }
 
-      if (!data.success || !data.impersonationToken) {
-        throw new Error('Failed to generate impersonation token');
+      if (!data.success || !data.redirectUrl) {
+        throw new Error('Failed to start view-as session');
       }
 
-      // Create impersonation URL with token
-      const impersonationUrl = `/api/auth/impersonate?token=${data.impersonationToken}`;
+      // Open client portal in a new tab
+      window.open(data.redirectUrl, '_blank');
 
-      // Open impersonation URL in a new tab
-      window.open(impersonationUrl, '_blank');
-
-      toast.success('Opening client session in new tab...');
+      toast.success('Opening client portal in new tab...');
 
       // Reset impersonating state
       setImpersonating(null);
     } catch (error: any) {
-      console.error('Error impersonating client:', error);
-      toast.error(error.message || 'Failed to impersonate client');
+      console.error('Error viewing as client:', error);
+      toast.error(error.message || 'Failed to view as client');
       setImpersonating(null);
     }
   };
