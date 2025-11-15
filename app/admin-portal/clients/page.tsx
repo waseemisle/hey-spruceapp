@@ -298,13 +298,14 @@ export default function ClientsManagement() {
       const currentUser = auth.currentUser;
       if (!currentUser) {
         toast.error('You must be logged in to impersonate');
+        setImpersonating(null);
         return;
       }
 
       // Get the current user's ID token
       const idToken = await currentUser.getIdToken();
 
-      // Call the impersonation API
+      // Call the impersonation API to generate token
       const response = await fetch('/api/auth/impersonate', {
         method: 'POST',
         headers: {
@@ -320,11 +321,20 @@ export default function ClientsManagement() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate impersonation link');
+        throw new Error(data.error || 'Failed to generate impersonation token');
       }
 
+      if (!data.success || !data.impersonationToken) {
+        throw new Error('Failed to generate impersonation token');
+      }
+
+      // Create impersonation URL with token
+      const impersonationUrl = `/api/auth/impersonate?token=${data.impersonationToken}`;
+
       // Open impersonation URL in a new tab
-      window.open(data.impersonationUrl, '_blank');
+      window.open(impersonationUrl, '_blank');
+
+      toast.success('Opening client session in new tab...');
 
       // Reset impersonating state
       setImpersonating(null);
