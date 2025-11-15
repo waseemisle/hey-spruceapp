@@ -21,34 +21,40 @@ export function getAdminApp(): App {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
-  if (!projectId || !clientEmail || !privateKey) {
-    const missingVars = [];
-    if (!projectId) missingVars.push('FIREBASE_PROJECT_ID (or NEXT_PUBLIC_FIREBASE_PROJECT_ID)');
-    if (!clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
-    if (!privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
-    
+  // If all credentials are provided, use them (production setup)
+  if (projectId && clientEmail && privateKey) {
+    adminApp = initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
+    });
+    return adminApp;
+  }
+
+  // Otherwise, use Application Default Credentials (ADC)
+  // This works with gcloud CLI authentication or GOOGLE_APPLICATION_CREDENTIALS
+  if (!projectId) {
     throw new Error(
-      `Firebase Admin credentials are not configured. Missing: ${missingVars.join(', ')}\n\n` +
-      `To set up Firebase Admin SDK:\n` +
-      `1. Go to Firebase Console: https://console.firebase.google.com/\n` +
-      `2. Select your project: ${projectId || 'your-project-id'}\n` +
-      `3. Go to Project Settings (gear icon) → Service Accounts tab\n` +
-      `4. Click "Generate New Private Key" button\n` +
-      `5. Download the JSON file\n` +
-      `6. Add to your .env.local file:\n` +
-      `   FIREBASE_PROJECT_ID=${projectId || 'your-project-id'}\n` +
-      `   FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@${projectId || 'your-project-id'}.iam.gserviceaccount.com\n` +
-      `   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\nYOUR_KEY_HERE\\n-----END PRIVATE KEY-----\\n"\n\n` +
-      `See FIREBASE_ADMIN_SETUP.md for detailed instructions.`
+      `Firebase Admin requires at least FIREBASE_PROJECT_ID (or NEXT_PUBLIC_FIREBASE_PROJECT_ID).\n\n` +
+      `For local development without service account keys:\n` +
+      `1. Install gcloud CLI: https://cloud.google.com/sdk/docs/install\n` +
+      `2. Run: gcloud auth application-default login\n` +
+      `3. Run: gcloud config set project heyspruceappv2\n` +
+      `4. Add to .env.local:\n` +
+      `   NEXT_PUBLIC_FIREBASE_PROJECT_ID=heyspruceappv2\n\n` +
+      `For production deployment:\n` +
+      `Add service account credentials to your hosting environment.`
     );
   }
 
+  console.log('Using Application Default Credentials for Firebase Admin SDK');
+
+  // Initialize with ADC (Application Default Credentials)
+  // This will use gcloud authentication or GOOGLE_APPLICATION_CREDENTIALS env var
   adminApp = initializeApp({
-    credential: cert({
-      projectId,
-      clientEmail,
-      privateKey,
-    }),
+    projectId,
   });
 
   return adminApp;
