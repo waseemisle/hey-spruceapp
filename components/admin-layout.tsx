@@ -9,6 +9,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
+import { ThemeToggle } from '@/components/theme-toggle';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench
@@ -78,8 +79,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -102,9 +103,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Top Navigation */}
-      <header className="bg-white shadow-sm border-b fixed w-full top-0 z-50">
+      <header className="bg-card shadow-sm border-b fixed w-full top-0 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center">
             <button
@@ -115,17 +116,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   setSidebarOpen(!sidebarOpen);
                 }
               }}
-              className="mr-4 text-gray-600 hover:text-gray-900"
+              className="mr-4 text-muted-foreground hover:text-foreground"
               aria-label="Toggle menu"
             >
               {(sidebarOpen || mobileMenuOpen) ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <Logo href="/admin-portal" size="sm" />
-            <span className="ml-3 text-sm text-gray-500 hidden sm:inline">Admin Portal</span>
+            <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Admin Portal</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            <ThemeToggle />
             <NotificationBell />
-            <span className="text-sm text-gray-600 hidden md:inline">{user?.email}</span>
+            <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
             <Button
               variant="outline"
               size="sm"
@@ -149,7 +151,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex pt-16">
         {/* Sidebar - Desktop */}
         <aside
-          className={`hidden md:block fixed left-0 h-[calc(100vh-4rem)] bg-white border-r transition-all duration-300 ${
+          className={`hidden md:block fixed left-0 h-[calc(100vh-4rem)] bg-card border-r transition-all duration-300 ${
             sidebarOpen ? 'w-64' : 'w-0 -ml-64'
           }`}
         >
@@ -158,7 +160,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.name}
                 href={item.href}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition-colors relative"
+                className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>
@@ -174,7 +176,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Sidebar - Mobile */}
         <aside
-          className={`md:hidden fixed left-0 h-[calc(100vh-4rem)] bg-white border-r transition-all duration-300 z-50 ${
+          className={`md:hidden fixed left-0 h-[calc(100vh-4rem)] bg-card border-r transition-all duration-300 z-50 ${
             mobileMenuOpen ? 'w-64' : 'w-0 -ml-64'
           }`}
         >
@@ -184,7 +186,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={item.name}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition-colors relative"
+                className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
                 <span>{item.name}</span>

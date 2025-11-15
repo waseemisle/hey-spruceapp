@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Subcontractor {
@@ -33,6 +33,7 @@ export default function SubcontractorsManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [subToDelete, setSubToDelete] = useState<Subcontractor | null>(null);
+  const [impersonating, setImpersonating] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -203,6 +204,46 @@ export default function SubcontractorsManagement() {
     }
   };
 
+  const handleImpersonate = async (subId: string) => {
+    try {
+      setImpersonating(subId);
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        toast.error('You must be logged in to impersonate');
+        return;
+      }
+
+      // Get the current user's ID token
+      const idToken = await currentUser.getIdToken();
+
+      // Call the impersonation API
+      const response = await fetch('/api/auth/impersonate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          userId: subId,
+          role: 'subcontractor',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate impersonation link');
+      }
+
+      // Redirect to the impersonation URL
+      window.location.href = data.impersonationUrl;
+    } catch (error: any) {
+      console.error('Error impersonating subcontractor:', error);
+      toast.error(error.message || 'Failed to impersonate subcontractor');
+      setImpersonating(null);
+    }
+  };
+
   const handleDeleteSubcontractor = (subcontractor: Subcontractor) => {
     setSubToDelete(subcontractor);
     setShowDeleteModal(true);
@@ -368,44 +409,56 @@ export default function SubcontractorsManagement() {
                     </div>
                   )}
 
-                  <div className="flex gap-2 pt-4">
+                  <div className="flex flex-col gap-2 pt-4">
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleOpenEdit(sub)}
+                      variant="default"
+                      className="w-full"
+                      onClick={() => handleImpersonate(sub.uid)}
+                      disabled={impersonating === sub.uid}
                     >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Edit
+                      <LogIn className="h-4 w-4 mr-2" />
+                      {impersonating === sub.uid ? 'Logging in...' : 'Login as Subcontractor'}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteSubcontractor(sub)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    {sub.status === 'pending' && (
-                      <>
-                        <Button
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleApprove(sub.uid)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="flex-1"
-                          onClick={() => handleReject(sub.uid)}
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Reject
-                        </Button>
-                      </>
-                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenEdit(sub)}
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteSubcontractor(sub)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      {sub.status === 'pending' && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleApprove(sub.uid)}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="flex-1"
+                            onClick={() => handleReject(sub.uid)}
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

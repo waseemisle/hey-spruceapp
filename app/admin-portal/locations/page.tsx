@@ -363,10 +363,10 @@ export default function LocationsManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-50';
-      case 'approved': return 'text-green-600 bg-green-50';
-      case 'rejected': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      case 'pending': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950';
+      case 'approved': return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950';
+      case 'rejected': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -374,7 +374,7 @@ export default function LocationsManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       </AdminLayout>
     );
@@ -382,13 +382,13 @@ export default function LocationsManagement() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Locations</h1>
-            <p className="text-gray-600 mt-2">Manage client location requests and approvals</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Locations</h1>
+            <p className="text-muted-foreground mt-2">Manage client location requests and approvals</p>
           </div>
-          <Button onClick={handleOpenCreate}>
+          <Button onClick={handleOpenCreate} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Create Location
           </Button>
@@ -396,7 +396,7 @@ export default function LocationsManagement() {
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search locations by name, client, address, or property type..."
             value={searchQuery}
@@ -406,13 +406,13 @@ export default function LocationsManagement() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {['all', 'pending', 'approved', 'rejected'].map((filterOption) => (
             <Button
               key={filterOption}
               variant={filter === filterOption ? 'default' : 'outline'}
               onClick={() => setFilter(filterOption as typeof filter)}
-              className="capitalize"
+              className="capitalize text-xs sm:text-sm"
             >
               {filterOption} ({locations.filter(l => filterOption === 'all' || l.status === filterOption).length})
             </Button>
@@ -420,64 +420,66 @@ export default function LocationsManagement() {
         </div>
 
         {/* Locations Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredLocations.length === 0 ? (
             <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No locations found</p>
+              <CardContent className="p-8 md:p-12 text-center">
+                <MapPin className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No locations found</p>
               </CardContent>
             </Card>
           ) : (
             filteredLocations.map((location) => (
               <Card key={location.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{location.locationName}</CardTitle>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(location.status)}`}>
+                  <div className="flex justify-between items-start gap-2">
+                    <CardTitle className="text-base sm:text-lg break-words">{location.locationName}</CardTitle>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusColor(location.status)}`}>
                       {location.status.toUpperCase()}
                     </span>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <User className="h-4 w-4" />
-                    <span>{location.clientName}</span>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <User className="h-4 w-4 flex-shrink-0" />
+                    <span className="break-words">{location.clientName}</span>
                   </div>
-                  <div className="flex items-start gap-2 text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 mt-0.5" />
-                    <div>
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <div className="break-words">
                       <div>{location.address.street}</div>
                       <div>{location.address.city}, {location.address.state} {location.address.zip}</div>
                     </div>
                   </div>
                   {location.propertyType && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Building className="h-4 w-4" />
-                      <span>{location.propertyType}</span>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Building className="h-4 w-4 flex-shrink-0" />
+                      <span className="break-words">{location.propertyType}</span>
                     </div>
                   )}
                   {location.contactPhone && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Phone className="h-4 w-4" />
-                      <span>{location.contactPhone}</span>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4 flex-shrink-0" />
+                      <span className="break-words">{location.contactPhone}</span>
                     </div>
                   )}
 
-                  <div className="flex gap-2 pt-4">
+                  <div className="flex flex-wrap gap-2 pt-4">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-[80px]"
                       onClick={() => handleOpenEdit(location)}
                     >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Edit
+                      <Edit2 className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Edit</span>
                     </Button>
                     <Button
                       size="sm"
                       variant="destructive"
+                      className="min-w-[40px]"
                       onClick={() => handleDeleteLocation(location)}
+                      aria-label="Delete location"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -485,20 +487,20 @@ export default function LocationsManagement() {
                       <>
                         <Button
                           size="sm"
-                          className="flex-1"
+                          className="flex-1 min-w-[100px]"
                           onClick={() => handleApprove(location.id)}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approve
+                          <CheckCircle className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Approve</span>
                         </Button>
                         <Button
                           size="sm"
                           variant="destructive"
-                          className="flex-1"
+                          className="flex-1 min-w-[100px]"
                           onClick={() => handleReject(location.id)}
                         >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Reject
+                          <XCircle className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Reject</span>
                         </Button>
                       </>
                     )}
@@ -511,11 +513,11 @@ export default function LocationsManagement() {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">
+          <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
+                <div className="flex justify-between items-center gap-4">
+                  <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                     {editingId ? 'Edit Location' : 'Create New Location'}
                   </h2>
                   <Button variant="outline" size="sm" onClick={resetForm}>
@@ -524,14 +526,14 @@ export default function LocationsManagement() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Select Client *</Label>
                     <select
                       value={formData.clientId}
                       onChange={(e) => setFormData({ ...formData, clientId: e.target.value, companyId: '' })}
-                      className="w-full border border-gray-300 rounded-md p-2"
+                      className="w-full border border-input bg-background rounded-md p-2 text-foreground"
                       disabled={!!editingId}
                     >
                       <option value="">Choose a client...</option>
@@ -542,7 +544,7 @@ export default function LocationsManagement() {
                       ))}
                     </select>
                     {editingId && (
-                      <p className="text-xs text-gray-500 mt-1">Client cannot be changed</p>
+                      <p className="text-xs text-muted-foreground mt-1">Client cannot be changed</p>
                     )}
                   </div>
 
@@ -551,7 +553,7 @@ export default function LocationsManagement() {
                     <select
                       value={formData.companyId}
                       onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md p-2"
+                      className="w-full border border-input bg-background rounded-md p-2 text-foreground"
                       disabled={!formData.clientId}
                     >
                       <option value="">{formData.clientId ? 'Choose a company...' : 'Select client first'}</option>
@@ -622,7 +624,7 @@ export default function LocationsManagement() {
                     <select
                       value={formData.propertyType}
                       onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md p-2"
+                      className="w-full border border-input bg-background rounded-md p-2 text-foreground"
                     >
                       <option value="">Select type...</option>
                       <option value="Restaurant">Restaurant</option>
@@ -668,9 +670,9 @@ export default function LocationsManagement() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                   <Button
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                     onClick={handleSubmit}
                     disabled={submitting}
                   >
@@ -681,6 +683,7 @@ export default function LocationsManagement() {
                     variant="outline"
                     onClick={resetForm}
                     disabled={submitting}
+                    className="w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
@@ -692,11 +695,11 @@ export default function LocationsManagement() {
 
         {/* Reject Reason Modal */}
         {showRejectModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
-              <div className="p-6 border-b">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">Reject Location</h2>
+          <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-card rounded-lg max-w-md w-full shadow-lg">
+              <div className="p-4 sm:p-6 border-b">
+                <div className="flex justify-between items-center gap-4">
+                  <h2 className="text-xl sm:text-2xl font-bold text-foreground">Reject Location</h2>
                   <Button
                     variant="outline"
                     size="sm"
@@ -711,21 +714,21 @@ export default function LocationsManagement() {
                 </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div>
                   <Label>Rejection Reason *</Label>
                   <textarea
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                    className="w-full border border-input bg-background rounded-md p-2 min-h-[100px] text-foreground"
                     placeholder="Please provide a reason for rejecting this location..."
                     autoFocus
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                   <Button
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                     variant="destructive"
                     onClick={confirmReject}
                     disabled={!rejectionReason.trim()}
@@ -739,6 +742,7 @@ export default function LocationsManagement() {
                       setRejectingLocationId(null);
                       setRejectionReason('');
                     }}
+                    className="w-full sm:w-auto"
                   >
                     Cancel
                   </Button>
