@@ -23,12 +23,6 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'https://hey-spruce-appv2.vercel.app',
   },
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-    responseLimit: '10mb',
-  },
 }
 
 module.exports = nextConfig

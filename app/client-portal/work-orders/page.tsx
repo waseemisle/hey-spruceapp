@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
@@ -77,41 +77,65 @@ export default function ClientWorkOrders() {
           const clientData = clientDoc.data();
           const assignedLocations = clientData?.assignedLocations || [];
 
-          let workOrdersQuery;
-
+          // Fetch work orders based on assigned locations with batching for Firestore 'in' limitation
           if (assignedLocations.length > 0) {
-            // Filter by assigned locations
-            workOrdersQuery = query(
-              collection(db, 'workOrders'),
-              where('locationId', 'in', assignedLocations),
-              orderBy('createdAt', 'desc')
-            );
+            // Firestore 'in' query limited to 10 items, so we need to batch
+            const batchSize = 10;
+            const allWorkOrders: WorkOrder[] = [];
+
+            for (let i = 0; i < assignedLocations.length; i += batchSize) {
+              const batch = assignedLocations.slice(i, i + batchSize);
+              const workOrdersQuery = query(
+                collection(db, 'workOrders'),
+                where('locationId', 'in', batch),
+                orderBy('createdAt', 'desc')
+              );
+
+              const snapshot = await getDocs(workOrdersQuery);
+              const batchWorkOrders = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+              })) as WorkOrder[];
+              allWorkOrders.push(...batchWorkOrders);
+            }
+
+            // Remove duplicates and sort by createdAt
+            const uniqueWorkOrders = Array.from(
+              new Map(allWorkOrders.map(wo => [wo.id, wo])).values()
+            ).sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
+              const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
+              return bTime.getTime() - aTime.getTime();
+            });
+
+            setWorkOrders(uniqueWorkOrders);
+            setLoading(false);
           } else {
             // Fallback to clientId for backward compatibility
-            workOrdersQuery = query(
+            const workOrdersQuery = query(
               collection(db, 'workOrders'),
               where('clientId', '==', user.uid),
               orderBy('createdAt', 'desc')
             );
+
+            const unsubscribeSnapshot = onSnapshot(
+              workOrdersQuery,
+              (snapshot) => {
+                const workOrdersData = snapshot.docs.map(doc => ({
+                  id: doc.id,
+                  ...doc.data(),
+                })) as WorkOrder[];
+                setWorkOrders(workOrdersData);
+                setLoading(false);
+              },
+              (error) => {
+                console.error('Error fetching work orders:', error);
+                setLoading(false);
+              }
+            );
+
+            return () => unsubscribeSnapshot();
           }
-
-          const unsubscribeSnapshot = onSnapshot(
-            workOrdersQuery,
-            (snapshot) => {
-              const workOrdersData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-              })) as WorkOrder[];
-              setWorkOrders(workOrdersData);
-              setLoading(false);
-            },
-            (error) => {
-              console.error('Error fetching work orders:', error);
-              setLoading(false);
-            }
-          );
-
-          return () => unsubscribeSnapshot();
         } catch (error) {
           console.error('Error setting up work orders listener:', error);
           setLoading(false);

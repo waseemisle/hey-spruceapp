@@ -407,39 +407,39 @@ export default function QuotesManagement() {
                   <div className="bg-gray-50 p-3 rounded-lg space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span>Labor Cost:</span>
-                      <span className="font-semibold">${quote.laborCost.toLocaleString()}</span>
+                      <span className="font-semibold">${(quote.laborCost || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Material Cost:</span>
-                      <span className="font-semibold">${quote.materialCost.toLocaleString()}</span>
+                      <span className="font-semibold">${(quote.materialCost || 0).toLocaleString()}</span>
                     </div>
-                    {quote.additionalCosts > 0 && (
+                    {(quote.additionalCosts || 0) > 0 && (
                       <div className="flex justify-between">
                         <span>Additional Costs:</span>
-                        <span className="font-semibold">${quote.additionalCosts.toLocaleString()}</span>
+                        <span className="font-semibold">${(quote.additionalCosts || 0).toLocaleString()}</span>
                       </div>
                     )}
-                    {quote.taxAmount > 0 && (
+                    {(quote.taxAmount || 0) > 0 && (
                       <div className="flex justify-between">
-                        <span>Tax ({quote.taxRate}%):</span>
-                        <span className="font-semibold">${quote.taxAmount.toLocaleString()}</span>
+                        <span>Tax ({quote.taxRate || 0}%):</span>
+                        <span className="font-semibold">${(quote.taxAmount || 0).toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex justify-between pt-2 border-t border-gray-300">
                       <span className="font-bold">Subcontractor Total:</span>
-                      <span className="font-bold text-lg">${quote.totalAmount.toLocaleString()}</span>
+                      <span className="font-bold text-lg">${(quote.totalAmount || 0).toLocaleString()}</span>
                     </div>
                     {quote.clientAmount && (
                       <>
                         <div className="flex justify-between text-purple-600">
-                          <span>Markup ({quote.markupPercentage}%):</span>
+                          <span>Markup ({quote.markupPercentage || 0}%):</span>
                           <span className="font-semibold">
-                            ${(quote.clientAmount - quote.totalAmount).toLocaleString()}
+                            ${((quote.clientAmount || 0) - (quote.totalAmount || 0)).toLocaleString()}
                           </span>
                         </div>
                         <div className="flex justify-between text-purple-600 font-bold">
                           <span>Client Amount:</span>
-                          <span className="text-lg">${quote.clientAmount.toLocaleString()}</span>
+                          <span className="text-lg">${(quote.clientAmount || 0).toLocaleString()}</span>
                         </div>
                       </>
                     )}
@@ -452,8 +452,8 @@ export default function QuotesManagement() {
                       <div className="space-y-1 text-xs">
                         {quote.lineItems.map((item, index) => (
                           <div key={index} className="flex justify-between text-gray-600">
-                            <span>{item.description} ({item.quantity}x)</span>
-                            <span>${item.amount.toLocaleString()}</span>
+                            <span>{item.description} ({item.quantity || 0}x)</span>
+                            <span>${(item.amount || 0).toLocaleString()}</span>
                           </div>
                         ))}
                       </div>
@@ -483,7 +483,7 @@ export default function QuotesManagement() {
                             max="100"
                           />
                           <div className="text-sm text-gray-600">
-                            Client will pay: ${(quote.totalAmount * (1 + parseFloat(markupPercent || '0') / 100)).toLocaleString()}
+                            Client will pay: ${((quote.totalAmount || 0) * (1 + parseFloat(markupPercent || '0') / 100)).toLocaleString()}
                           </div>
                           <div className="flex gap-2">
                             <Button
@@ -638,7 +638,7 @@ export default function QuotesManagement() {
                             <div className="flex-1">
                               <Label className="text-xs">Amount</Label>
                               <div className="text-lg font-bold text-purple-600">
-                                ${item.amount.toLocaleString()}
+                                ${(item.amount || 0).toLocaleString()}
                               </div>
                             </div>
                             {lineItems.length > 1 && (
@@ -661,7 +661,7 @@ export default function QuotesManagement() {
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total Amount:</span>
                       <span className="text-2xl font-bold text-purple-600">
-                        ${calculateTotal().toLocaleString()}
+                        ${(calculateTotal() || 0).toLocaleString()}
                       </span>
                     </div>
                   </div>

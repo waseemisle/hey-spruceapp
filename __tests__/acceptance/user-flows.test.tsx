@@ -78,12 +78,21 @@ describe('Acceptance Tests - Complete User Flows', () => {
       
       expect(screen.getByText(/client registration/i)).toBeInTheDocument();
       
-      // Fill registration form
-      await user.type(screen.getByLabelText(/full name/i), 'John Doe');
-      await user.type(screen.getByLabelText(/email/i), 'john@test.com');
-      await user.type(screen.getByLabelText(/phone/i), '555-1234');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      // Fill registration form - handle multiple matches
+      const fullNameInputs = screen.getAllByLabelText(/full name/i);
+      await user.type(fullNameInputs[0], 'John Doe');
+      
+      const emailInputs = screen.getAllByLabelText(/email/i);
+      await user.type(emailInputs[0], 'john@test.com');
+      
+      const phoneInputs = screen.getAllByLabelText(/phone/i);
+      await user.type(phoneInputs[0], '555-1234');
+      
+      const passwordInputs = screen.getAllByLabelText(/^password/i);
+      await user.type(passwordInputs[0], 'password123');
+      
+      const confirmPasswordInputs = screen.getAllByLabelText(/confirm password/i);
+      await user.type(confirmPasswordInputs[0], 'password123');
       
       const mockUser = { uid: 'client-uid', email: 'john@test.com' };
       mockCreateUser.mockResolvedValueOnce({ user: mockUser } as any);
@@ -108,8 +117,11 @@ describe('Acceptance Tests - Complete User Flows', () => {
       const PortalLogin = (await import('@/app/portal-login/page')).default;
       render(<PortalLogin />);
       
-      await user.type(screen.getByLabelText(/email/i), 'john@test.com');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
+      const emailInputs = screen.getAllByLabelText(/email/i);
+      await user.type(emailInputs[0], 'john@test.com');
+      
+      const passwordInputs = screen.getAllByLabelText(/password/i);
+      await user.type(passwordInputs[0], 'password123');
       
       mockSignIn.mockResolvedValueOnce({ user: mockUser } as any);
       
@@ -234,12 +246,21 @@ describe('Acceptance Tests - Complete User Flows', () => {
       
       expect(screen.getByText(/subcontractor registration/i)).toBeInTheDocument();
       
-      // Fill registration
-      await user.type(screen.getByLabelText(/full name/i), 'Jane Contractor');
-      await user.type(screen.getByLabelText(/email/i), 'jane@contractor.com');
-      await user.type(screen.getByLabelText(/phone/i), '555-5678');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+      // Fill registration - use getAllByLabelText for multiple matches
+      const fullNameInputs = screen.getAllByLabelText(/full name/i);
+      await user.type(fullNameInputs[0], 'Jane Contractor');
+      
+      const emailInputs = screen.getAllByLabelText(/email/i);
+      await user.type(emailInputs[0], 'jane@contractor.com');
+      
+      const phoneInputs = screen.getAllByLabelText(/phone/i);
+      await user.type(phoneInputs[0], '555-5678');
+      
+      const passwordInputs = screen.getAllByLabelText(/^password/i);
+      await user.type(passwordInputs[0], 'password123');
+      
+      const confirmPasswordInputs = screen.getAllByLabelText(/confirm password/i);
+      await user.type(confirmPasswordInputs[0], 'password123');
       
       const mockUser = { uid: 'sub-uid', email: 'jane@contractor.com' };
       mockCreateUser.mockResolvedValueOnce({ user: mockUser } as any);
@@ -265,8 +286,11 @@ describe('Acceptance Tests - Complete User Flows', () => {
       const PortalLogin = (await import('@/app/portal-login/page')).default;
       render(<PortalLogin />);
       
-      await user.type(screen.getByLabelText(/email/i), 'jane@contractor.com');
-      await user.type(screen.getByLabelText(/password/i), 'password123');
+      const emailInputs = screen.getAllByLabelText(/email/i);
+      await user.type(emailInputs[0], 'jane@contractor.com');
+      
+      const passwordInputs = screen.getAllByLabelText(/password/i);
+      await user.type(passwordInputs[0], 'password123');
       await user.click(screen.getByRole('button', { name: /login/i }));
       
       await waitFor(() => {

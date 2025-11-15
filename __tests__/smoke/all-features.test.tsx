@@ -39,11 +39,13 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('sonner', () => ({
-  toast: {
-    success: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
-  },
+  toast: jest.fn((message, options) => {
+    return {
+      id: 'mock-toast-id',
+      dismiss: jest.fn(),
+      update: jest.fn(),
+    };
+  }),
 }));
 
 describe('Smoke Tests - All Features', () => {
@@ -64,7 +66,8 @@ describe('Smoke Tests - All Features', () => {
       render(<AdminDashboard />);
       
       await waitFor(() => {
-        expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+        const dashboardTexts = screen.getAllByText(/dashboard/i);
+        expect(dashboardTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -73,7 +76,8 @@ describe('Smoke Tests - All Features', () => {
       render(<ClientsPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/clients/i)).toBeInTheDocument();
+        const clientsTexts = screen.getAllByText(/clients/i);
+        expect(clientsTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -82,7 +86,8 @@ describe('Smoke Tests - All Features', () => {
       render(<LocationsPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/locations/i)).toBeInTheDocument();
+        const locationsTexts = screen.getAllByText(/locations/i);
+        expect(locationsTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -91,7 +96,8 @@ describe('Smoke Tests - All Features', () => {
       render(<WorkOrdersPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/work orders/i)).toBeInTheDocument();
+        const workOrdersTexts = screen.getAllByText(/work orders/i);
+        expect(workOrdersTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -100,7 +106,8 @@ describe('Smoke Tests - All Features', () => {
       render(<QuotesPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/quotes/i)).toBeInTheDocument();
+        const quotesTexts = screen.getAllByText(/quotes/i);
+        expect(quotesTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -109,7 +116,8 @@ describe('Smoke Tests - All Features', () => {
       render(<InvoicesPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/invoices/i)).toBeInTheDocument();
+        const invoicesTexts = screen.getAllByText(/invoices/i);
+        expect(invoicesTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -118,7 +126,8 @@ describe('Smoke Tests - All Features', () => {
       render(<SubcontractorsPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/subcontractors/i)).toBeInTheDocument();
+        const subcontractorsTexts = screen.getAllByText(/subcontractors/i);
+        expect(subcontractorsTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -127,7 +136,8 @@ describe('Smoke Tests - All Features', () => {
       render(<RecurringWOPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/recurring/i)).toBeInTheDocument();
+        const recurringTexts = screen.getAllByText(/recurring/i);
+        expect(recurringTexts.length).toBeGreaterThan(0);
       });
     });
   });
@@ -138,7 +148,8 @@ describe('Smoke Tests - All Features', () => {
       render(<ClientDashboard />);
       
       await waitFor(() => {
-        expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+        const dashboardTexts = screen.getAllByText(/dashboard/i);
+        expect(dashboardTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -147,7 +158,8 @@ describe('Smoke Tests - All Features', () => {
       render(<ClientLocationsPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/locations/i)).toBeInTheDocument();
+        const locationsTexts = screen.getAllByText(/locations/i);
+        expect(locationsTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -156,7 +168,8 @@ describe('Smoke Tests - All Features', () => {
       render(<ClientWOPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/work orders/i)).toBeInTheDocument();
+        const workOrdersTexts = screen.getAllByText(/work orders/i);
+        expect(workOrdersTexts.length).toBeGreaterThan(0);
       });
     });
   });
@@ -167,7 +180,8 @@ describe('Smoke Tests - All Features', () => {
       render(<SubDashboard />);
       
       await waitFor(() => {
-        expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+        const dashboardTexts = screen.getAllByText(/dashboard/i);
+        expect(dashboardTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -176,7 +190,8 @@ describe('Smoke Tests - All Features', () => {
       render(<BiddingPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/bidding/i)).toBeInTheDocument();
+        const biddingTexts = screen.getAllByText(/bidding/i);
+        expect(biddingTexts.length).toBeGreaterThan(0);
       });
     });
 
@@ -185,7 +200,8 @@ describe('Smoke Tests - All Features', () => {
       render(<AssignedPage />);
       
       await waitFor(() => {
-        expect(screen.getByText(/assigned/i)).toBeInTheDocument();
+        const assignedTexts = screen.getAllByText(/assigned/i);
+        expect(assignedTexts.length).toBeGreaterThan(0);
       });
     });
   });
@@ -195,21 +211,24 @@ describe('Smoke Tests - All Features', () => {
       const LoginPage = (await import('@/app/portal-login/page')).default;
       render(<LoginPage />);
       
-      expect(screen.getByText(/login/i)).toBeInTheDocument();
+      const loginTexts = screen.getAllByText(/login/i);
+      expect(loginTexts.length).toBeGreaterThan(0);
     });
 
     it('SMOKE: Client Registration page loads', async () => {
       const RegisterClient = (await import('@/app/register-client/page')).default;
       render(<RegisterClient />);
       
-      expect(screen.getByText(/register/i)).toBeInTheDocument();
+      const registerTexts = screen.getAllByText(/register/i);
+      expect(registerTexts.length).toBeGreaterThan(0);
     });
 
     it('SMOKE: Subcontractor Registration page loads', async () => {
       const RegisterSub = (await import('@/app/register-subcontractor/page')).default;
       render(<RegisterSub />);
       
-      expect(screen.getByText(/register/i)).toBeInTheDocument();
+      const registerTexts = screen.getAllByText(/register/i);
+      expect(registerTexts.length).toBeGreaterThan(0);
     });
   });
 

@@ -32,6 +32,16 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+jest.mock('@fullcalendar/react', () => ({
+  __esModule: true,
+  default: () => <div data-testid="calendar">Calendar</div>,
+}));
+
+jest.mock('@fullcalendar/daygrid', () => ({}));
+jest.mock('@fullcalendar/timegrid', () => ({}));
+jest.mock('@fullcalendar/interaction', () => ({}));
+jest.mock('@fullcalendar/list', () => ({}));
+
 describe('Performance Tests', () => {
   describe('Rendering Performance', () => {
     it('PERF: Dashboard renders within 100ms', async () => {

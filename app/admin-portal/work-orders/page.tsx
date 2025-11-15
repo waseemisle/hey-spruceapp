@@ -1112,7 +1112,7 @@ export default function WorkOrdersManagement() {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       <span className={`px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${getPriorityColor(workOrder.priority)}`}>
-                        {workOrder.priority.toUpperCase()}
+                        {(workOrder.priority || 'medium').toUpperCase()}
                       </span>
                       <span className="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap">
                         {workOrder.workOrderNumber}
