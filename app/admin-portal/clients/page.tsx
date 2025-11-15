@@ -323,8 +323,11 @@ export default function ClientsManagement() {
         throw new Error(data.error || 'Failed to generate impersonation link');
       }
 
-      // Redirect to the impersonation URL
-      window.location.href = data.impersonationUrl;
+      // Open impersonation URL in a new tab
+      window.open(data.impersonationUrl, '_blank');
+
+      // Reset impersonating state
+      setImpersonating(null);
     } catch (error: any) {
       console.error('Error impersonating client:', error);
       toast.error(error.message || 'Failed to impersonate client');
