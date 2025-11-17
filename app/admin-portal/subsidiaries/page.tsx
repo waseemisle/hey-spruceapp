@@ -50,8 +50,8 @@ export default function AdminCompanies() {
   }, []);
 
   const handleSave = async () => {
-    if (!formData.clientId || !formData.name.trim()) {
-      toast.error('Client and name are required');
+    if (!formData.name.trim()) {
+      toast.error('Company name is required');
       return;
     }
     setSaving(true);
@@ -215,7 +215,7 @@ export default function AdminCompanies() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Select Client *</Label>
+                    <Label>Select Client</Label>
                     <select
                       value={formData.clientId}
                       onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
