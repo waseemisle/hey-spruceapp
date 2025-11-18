@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Subcontractor {
@@ -407,6 +407,12 @@ export default function SubcontractorsManagement() {
                     <Phone className="h-4 w-4" />
                     <span>{sub.phone}</span>
                   </div>
+                  {sub.password && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Lock className="h-4 w-4" />
+                      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{sub.password}</span>
+                    </div>
+                  )}
                   {sub.licenseNumber && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Award className="h-4 w-4" />

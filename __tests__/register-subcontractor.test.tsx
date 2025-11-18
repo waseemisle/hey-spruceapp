@@ -122,6 +122,12 @@ describe('RegisterSubcontractor', () => {
     
     await waitFor(() => {
       expect(mockSetDoc).toHaveBeenCalledTimes(2) // subcontractors and users collections
+      // Verify password is stored in subcontractors collection
+      const subsCall = mockSetDoc.mock.calls.find(call => 
+        call[0]?.path?.includes('subcontractors')
+      )
+      expect(subsCall).toBeDefined()
+      expect(subsCall?.[1]).toHaveProperty('password', 'password123')
     })
     
     await waitFor(() => {

@@ -116,6 +116,12 @@ describe('RegisterClient', () => {
     
     await waitFor(() => {
       expect(mockSetDoc).toHaveBeenCalledTimes(2) // clients and users collections
+      // Verify password is stored in clients collection
+      const clientsCall = mockSetDoc.mock.calls.find(call => 
+        call[0]?.path?.includes('clients')
+      )
+      expect(clientsCall).toBeDefined()
+      expect(clientsCall?.[1]).toHaveProperty('password', 'password123')
     })
     
     await waitFor(() => {
