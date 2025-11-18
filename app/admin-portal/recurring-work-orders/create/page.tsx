@@ -356,8 +356,10 @@ export default function CreateRecurringWorkOrder() {
                   type="number"
                   step="0.01"
                   min="0"
+                  inputMode="decimal"
                   value={formData.estimateBudget}
                   onChange={(e) => setFormData({ ...formData, estimateBudget: e.target.value })}
+                  onWheel={(e) => e.currentTarget.blur()}
                   placeholder="e.g., 5000"
                 />
                 <p className="text-xs text-gray-500 mt-1">Estimated budget per occurrence in USD</p>

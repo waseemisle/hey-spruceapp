@@ -401,8 +401,10 @@ export default function CreateWorkOrder() {
                       type="number"
                       step="0.01"
                       min="0"
+                      inputMode="decimal"
                       value={formData.estimateBudget}
                       onChange={handleChange}
+                      onWheel={(e) => e.currentTarget.blur()}
                       placeholder="e.g., 5000"
                     />
                     <p className="text-xs text-gray-500 mt-1">Estimated budget for this work order in USD</p>
