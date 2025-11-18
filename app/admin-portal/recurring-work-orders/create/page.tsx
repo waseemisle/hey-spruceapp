@@ -25,6 +25,7 @@ interface Client {
 interface Location {
   id: string;
   clientId: string;
+  companyId?: string;
   locationName: string;
   address: {
     street: string;
@@ -33,10 +34,17 @@ interface Location {
   };
 }
 
+interface Company {
+  id: string;
+  clientId?: string;
+  name: string;
+}
+
 export default function CreateRecurringWorkOrder() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showAdvancedRecurrence, setShowAdvancedRecurrence] = useState(false);
@@ -44,6 +52,7 @@ export default function CreateRecurringWorkOrder() {
 
   const [formData, setFormData] = useState({
     clientId: '',
+  companyId: '',
     locationId: '',
     title: '',
     description: '',
@@ -87,26 +96,43 @@ export default function CreateRecurringWorkOrder() {
     try {
       const locationsQuery = query(collection(db, 'locations'));
       const snapshot = await getDocs(locationsQuery);
-      const locationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        clientId: doc.data().clientId,
-        locationName: doc.data().locationName,
-        address: doc.data().address,
-      })) as Location[];
+    const locationsData = snapshot.docs.map(doc => ({
+      id: doc.id,
+      clientId: doc.data().clientId,
+      companyId: doc.data().companyId,
+      locationName: doc.data().locationName,
+      address: doc.data().address,
+    })) as Location[];
       setLocations(locationsData);
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
   };
 
+const fetchCompanies = async () => {
+  try {
+    const companiesQuery = query(collection(db, 'companies'));
+    const snapshot = await getDocs(companiesQuery);
+    const companiesData = snapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+      clientId: doc.data().clientId,
+    })) as Company[];
+    setCompanies(companiesData);
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+  }
+};
+
   useEffect(() => {
     fetchClients();
     fetchLocations();
+  fetchCompanies();
     setLoading(false);
   }, []);
 
   const handleSubmit = async () => {
-    if (!formData.clientId || !formData.locationId || !formData.title || !formData.description || !formData.category) {
+    if (!formData.clientId || !formData.companyId || !formData.locationId || !formData.title || !formData.description || !formData.category) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -122,9 +148,15 @@ export default function CreateRecurringWorkOrder() {
 
       const client = clients.find(c => c.id === formData.clientId);
       const location = locations.find(l => l.id === formData.locationId);
+      const company = companies.find(c => c.id === formData.companyId);
 
-      if (!client || !location) {
-        toast.error('Invalid client or location selected');
+      if (!client || !location || !company) {
+        toast.error('Invalid client, company, or location selected');
+        return;
+      }
+
+      if (location.companyId && location.companyId !== company.id) {
+        toast.error('Selected location does not belong to the chosen company');
         return;
       }
 
@@ -161,6 +193,8 @@ export default function CreateRecurringWorkOrder() {
         clientName: client.fullName,
         clientEmail: client.email,
         locationId: formData.locationId,
+        companyId: company.id,
+        companyName: company.name,
         locationName: location.locationName,
         locationAddress: location.address && typeof location.address === 'object' 
           ? `${location.address.street || ''}, ${location.address.city || ''}, ${location.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
@@ -194,6 +228,26 @@ export default function CreateRecurringWorkOrder() {
     }
   };
 
+const handleCompanySelect = (companyId: string) => {
+  const selectedCompany = companies.find(c => c.id === companyId);
+  setFormData((prev) => ({
+    ...prev,
+    companyId,
+    locationId: '',
+    clientId: selectedCompany?.clientId || prev.clientId,
+  }));
+};
+
+const handleLocationSelect = (locationId: string) => {
+  const selectedLocation = locations.find(l => l.id === locationId);
+  setFormData((prev) => ({
+    ...prev,
+    locationId,
+    clientId: selectedLocation?.clientId || prev.clientId,
+    companyId: selectedLocation?.companyId || prev.companyId,
+  }));
+};
+
   const handleRecurrenceTypeChange = (type: string) => {
     setFormData({ ...formData, recurrenceType: type as any });
   };
@@ -221,6 +275,20 @@ export default function CreateRecurringWorkOrder() {
   };
 
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const filteredCompanies = formData.clientId
+    ? companies.filter(company => company.clientId === formData.clientId)
+    : companies;
+
+  const filteredLocations = locations.filter((location) => {
+    if (formData.companyId) {
+      return location.companyId === formData.companyId;
+    }
+    if (formData.clientId) {
+      return location.clientId === formData.clientId;
+    }
+    return true;
+  });
 
   if (loading) {
     return (
@@ -263,7 +331,7 @@ export default function CreateRecurringWorkOrder() {
                 <Label>Select Client *</Label>
                 <select
                   value={formData.clientId}
-                  onChange={(e) => setFormData({ ...formData, clientId: e.target.value, locationId: '' })}
+                  onChange={(e) => setFormData({ ...formData, clientId: e.target.value, companyId: '', locationId: '' })}
                   className="w-full border border-gray-300 rounded-md p-2"
                 >
                   <option value="">Choose a client...</option>
@@ -276,22 +344,46 @@ export default function CreateRecurringWorkOrder() {
               </div>
 
               <div>
+                <Label>Company *</Label>
+                <select
+                  value={formData.companyId}
+                  onChange={(e) => handleCompanySelect(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                >
+                  <option value="">Choose a company...</option>
+                  {filteredCompanies.map(company => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+                {formData.clientId && filteredCompanies.length === 0 && (
+                  <p className="text-xs text-yellow-600 mt-1">
+                    No companies found for the selected client.
+                  </p>
+                )}
+              </div>
+
+              <div>
                 <Label>Select Location *</Label>
                 <select
                   value={formData.locationId}
-                  onChange={(e) => setFormData({ ...formData, locationId: e.target.value })}
+                  onChange={(e) => handleLocationSelect(e.target.value)}
                   className="w-full border border-gray-300 rounded-md p-2"
-                  disabled={!formData.clientId}
+                  disabled={!formData.companyId}
                 >
                   <option value="">Choose a location...</option>
-                  {locations
-                    .filter(loc => loc.clientId === formData.clientId)
-                    .map(location => (
-                      <option key={location.id} value={location.id}>
-                        {location.locationName}
-                      </option>
-                    ))}
+                  {filteredLocations.map(location => (
+                    <option key={location.id} value={location.id}>
+                      {location.locationName}
+                    </option>
+                  ))}
                 </select>
+                {formData.companyId && filteredLocations.length === 0 && (
+                  <p className="text-xs text-yellow-600 mt-1">
+                    No locations found for the selected company.
+                  </p>
+                )}
               </div>
 
               <div>

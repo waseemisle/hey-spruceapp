@@ -19,6 +19,8 @@ interface WorkOrder {
   clientId: string;
   clientName: string;
   clientEmail: string;
+  companyId?: string;
+  companyName?: string;
   locationId: string;
   locationName?: string;
   locationAddress?: string;
@@ -48,12 +50,19 @@ interface Client {
 interface Location {
   id: string;
   clientId: string;
+  companyId?: string;
   locationName: string;
   address: {
     street: string;
     city: string;
     state: string;
   };
+}
+
+interface Company {
+  id: string;
+  clientId?: string;
+  name: string;
 }
 
 interface Subcontractor {
@@ -69,6 +78,7 @@ export default function WorkOrdersManagement() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'bidding' | 'quotes_received' | 'to_be_started' | 'assigned' | 'completed' | 'accepted_by_subcontractor' | 'rejected_by_subcontractor'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,6 +108,7 @@ export default function WorkOrdersManagement() {
 
   const [formData, setFormData] = useState({
     clientId: '',
+  companyId: '',
     locationId: '',
     title: '',
     description: '',
@@ -165,6 +176,7 @@ export default function WorkOrdersManagement() {
       const locationsData = snapshot.docs.map(doc => ({
         id: doc.id,
         clientId: doc.data().clientId,
+      companyId: doc.data().companyId,
         locationName: doc.data().locationName,
         address: doc.data().address,
       })) as Location[];
@@ -174,10 +186,26 @@ export default function WorkOrdersManagement() {
     }
   };
 
+const fetchCompanies = async () => {
+  try {
+    const companiesQuery = query(collection(db, 'companies'));
+    const snapshot = await getDocs(companiesQuery);
+    const companiesData = snapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+      clientId: doc.data().clientId,
+    })) as Company[];
+    setCompanies(companiesData);
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+  }
+};
+
   useEffect(() => {
     fetchWorkOrders();
     fetchClients();
     fetchLocations();
+  fetchCompanies();
   }, []);
 
   const handleApprove = async (workOrderId: string) => {
@@ -287,6 +315,7 @@ export default function WorkOrdersManagement() {
   const resetForm = () => {
     setFormData({
       clientId: '',
+    companyId: '',
       locationId: '',
       title: '',
       description: '',
@@ -313,6 +342,26 @@ export default function WorkOrdersManagement() {
     setShowWorkOrderTypeModal(false);
     window.location.href = '/admin-portal/recurring-work-orders/create';
   };
+
+const handleCompanySelect = (companyId: string) => {
+  const selectedCompany = companies.find(c => c.id === companyId);
+  setFormData((prev) => ({
+    ...prev,
+    companyId,
+    locationId: '',
+    clientId: selectedCompany?.clientId || prev.clientId,
+  }));
+};
+
+const handleLocationSelect = (locationId: string) => {
+  const selectedLocation = locations.find(l => l.id === locationId);
+  setFormData((prev) => ({
+    ...prev,
+    locationId,
+    clientId: selectedLocation?.clientId || prev.clientId,
+    companyId: selectedLocation?.companyId || prev.companyId,
+  }));
+};
 
   const handleSendInvoice = async (workOrder: WorkOrder) => {
     // Check if work order is completed
@@ -610,8 +659,11 @@ export default function WorkOrdersManagement() {
   };
 
   const handleOpenEdit = (workOrder: WorkOrder) => {
+  const locationForWorkOrder = locations.find(l => l.id === workOrder.locationId);
+  const resolvedCompanyId = workOrder.companyId || locationForWorkOrder?.companyId || '';
     setFormData({
       clientId: workOrder.clientId,
+    companyId: resolvedCompanyId,
       locationId: workOrder.locationId,
       title: workOrder.title,
       description: workOrder.description,
@@ -625,7 +677,7 @@ export default function WorkOrdersManagement() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.clientId || !formData.locationId || !formData.title || !formData.description || !formData.category) {
+    if (!formData.clientId || !formData.companyId || !formData.locationId || !formData.title || !formData.description || !formData.category) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -635,9 +687,15 @@ export default function WorkOrdersManagement() {
     try {
       const client = clients.find(c => c.id === formData.clientId);
       const location = locations.find(l => l.id === formData.locationId);
+      const company = companies.find(c => c.id === formData.companyId);
 
-      if (!client || !location) {
-        toast.error('Invalid client or location selected');
+      if (!client || !location || !company) {
+        toast.error('Invalid client, company, or location selected');
+        return;
+      }
+
+      if (location.companyId && location.companyId !== company.id) {
+        toast.error('Selected location does not belong to the chosen company');
         return;
       }
 
@@ -645,6 +703,8 @@ export default function WorkOrdersManagement() {
         clientId: formData.clientId,
         clientName: client.fullName,
         clientEmail: client.email,
+        companyId: company.id,
+        companyName: company.name,
         locationId: formData.locationId,
         locationName: location.locationName,
         locationAddress: location.address && typeof location.address === 'object' 
@@ -1061,6 +1121,20 @@ export default function WorkOrdersManagement() {
     }
   };
 
+const filteredCompanies = formData.clientId
+  ? companies.filter(company => company.clientId === formData.clientId)
+  : companies;
+
+const filteredLocationsForForm = locations.filter((location) => {
+  if (formData.companyId) {
+    return location.companyId === formData.companyId;
+  }
+  if (formData.clientId) {
+    return location.clientId === formData.clientId;
+  }
+  return true;
+});
+
   if (loading) {
     return (
       <AdminLayout>
@@ -1452,7 +1526,7 @@ export default function WorkOrdersManagement() {
                     <Label>Select Client *</Label>
                     <select
                       value={formData.clientId}
-                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value, locationId: '' })}
+                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value, companyId: '', locationId: '' })}
                       className="w-full border border-gray-300 rounded-md p-2"
                     >
                       <option value="">Choose a client...</option>
@@ -1465,22 +1539,46 @@ export default function WorkOrdersManagement() {
                   </div>
 
                   <div>
+                    <Label>Company *</Label>
+                    <select
+                      value={formData.companyId}
+                      onChange={(e) => handleCompanySelect(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md p-2"
+                    >
+                      <option value="">Choose a company...</option>
+                      {filteredCompanies.map(company => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.clientId && filteredCompanies.length === 0 && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        No companies found for the selected client.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
                     <Label>Select Location *</Label>
                     <select
                       value={formData.locationId}
-                      onChange={(e) => setFormData({ ...formData, locationId: e.target.value })}
+                      onChange={(e) => handleLocationSelect(e.target.value)}
                       className="w-full border border-gray-300 rounded-md p-2"
-                      disabled={!formData.clientId}
+                      disabled={!formData.companyId}
                     >
                       <option value="">Choose a location...</option>
-                      {locations
-                        .filter(loc => loc.clientId === formData.clientId)
-                        .map(location => (
-                          <option key={location.id} value={location.id}>
-                            {location.locationName}
-                          </option>
-                        ))}
+                      {filteredLocationsForForm.map(location => (
+                        <option key={location.id} value={location.id}>
+                          {location.locationName}
+                        </option>
+                      ))}
                     </select>
+                    {formData.companyId && filteredLocationsForForm.length === 0 && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        No locations found for the selected company.
+                      </p>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">
