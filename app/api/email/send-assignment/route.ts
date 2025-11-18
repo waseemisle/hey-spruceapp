@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/nodemailer';
+import { sendEmail } from '@/lib/sendgrid';
 
 export async function POST(request: Request) {
   try {
@@ -63,13 +63,13 @@ export async function POST(request: Request) {
       </html>
     `;
 
-    const result = await sendEmail({
+    await sendEmail({
       to: toEmail,
       subject: `Work Order Assignment: ${workOrderNumber} - ${workOrderTitle}`,
       html: emailHtml,
     });
 
-    return NextResponse.json({ success: true, testMode: result.testMode });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error sending assignment email:', error);
     return NextResponse.json(

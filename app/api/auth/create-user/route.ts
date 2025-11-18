@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/nodemailer';
+import { sendEmail } from '@/lib/sendgrid';
 
 export async function POST(request: Request) {
   try {
@@ -164,20 +164,15 @@ export async function POST(request: Request) {
           </html>
         `;
 
-        // Send email directly
-        const result = await sendEmail({
+        // Send email via SendGrid
+        await sendEmail({
           to: email,
           subject: `Welcome to Hey Spruce - Set Up Your ${roleTitle} Account`,
           html: emailHtml,
         });
 
         emailSent = true;
-        console.log('✅ Invitation email sent successfully to:', email);
-        if (result.testMode) {
-          console.log('⚠️  Email sent in test mode (SMTP not configured)');
-        } else {
-          console.log('📧 Email sent via SMTP, messageId:', result.messageId);
-        }
+        console.log('✅ Invitation email sent successfully via SendGrid to:', email);
       } catch (err: any) {
         emailError = err.message || String(err);
         console.error('❌ Error sending invitation email:', err);

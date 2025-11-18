@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/nodemailer';
+import { sendEmail } from '@/lib/sendgrid';
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
-    // Send email via Nodemailer
-    const result = await sendEmail({
+    // Send email via SendGrid
+    await sendEmail({
       to: toEmail,
       subject: `New Quote Received for Work Order ${workOrderNumber}`,
       html: emailHtml,
@@ -100,8 +100,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      messageId: result.messageId,
-      testMode: result.testMode,
     });
   } catch (error: any) {
     console.error('Error sending quote notification email:', error);

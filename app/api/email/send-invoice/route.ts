@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/nodemailer';
+import { sendEmail } from '@/lib/sendgrid';
 
 export async function POST(request: Request) {
   try {
@@ -124,13 +124,15 @@ export async function POST(request: Request) {
       </html>
     `;
 
-    // Prepare attachments for Nodemailer
+    // Prepare attachments for SendGrid
     const attachments = [];
 
     if (pdfBase64) {
       attachments.push({
         content: pdfBase64,
         filename: `Invoice_${invoiceNumber}.pdf`,
+        type: 'application/pdf',
+        disposition: 'attachment',
       });
     }
 
@@ -138,17 +140,19 @@ export async function POST(request: Request) {
       attachments.push({
         content: workOrderPdfBase64,
         filename: `WorkOrder_${workOrderTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
+        type: 'application/pdf',
+        disposition: 'attachment',
       });
     }
 
-    const result = await sendEmail({
+    await sendEmail({
       to: toEmail,
       subject: `Invoice #${invoiceNumber} - Payment Due`,
       html: emailHtml,
       attachments,
     });
 
-    return NextResponse.json({ success: true, testMode: result.testMode });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error sending invoice email:', error);
     return NextResponse.json(
