@@ -6,7 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { RecurringWorkOrder } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ interface WorkOrder {
   id: string;
   workOrderNumber?: string;
   title: string;
+  locationId?: string;
   locationName: string;
   locationAddress?: string;
   status: string;
@@ -60,43 +61,121 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
-    // Listen to work orders for this client
-    const workOrdersQuery = query(
-      collection(db, 'workOrders'),
-      where('clientId', '==', currentUser.uid)
-    );
+    let unsubscribeWorkOrders: (() => void) | null = null;
+    let unsubscribeRecurring: (() => void) | null = null;
 
-    const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
-      const workOrdersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as WorkOrder[];
+    // Fetch client's assigned locations first
+    const setupListeners = async () => {
+      try {
+        const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+        const clientData = clientDoc.data();
+        const assignedLocations = clientData?.assignedLocations || [];
 
-      setWorkOrders(workOrdersData);
-    });
+        if (assignedLocations.length > 0) {
+          // Firestore 'in' query limited to 10 items, so we need to batch
+          const batchSize = 10;
+          const allWorkOrders: WorkOrder[] = [];
+          const allRecurringWorkOrders: RecurringWorkOrder[] = [];
 
-    // Listen to recurring work orders for this client
-    const recurringWorkOrdersQuery = query(
-      collection(db, 'recurringWorkOrders'),
-      where('clientId', '==', currentUser.uid),
-      where('status', '==', 'active')
-    );
+          // Set up listeners for each batch
+          const unsubscribes: (() => void)[] = [];
 
-    const unsubscribeRecurring = onSnapshot(recurringWorkOrdersQuery, (snapshot) => {
-      const recurringData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        nextExecution: doc.data().nextExecution?.toDate(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-      })) as RecurringWorkOrder[];
+          for (let i = 0; i < assignedLocations.length; i += batchSize) {
+            const batch = assignedLocations.slice(i, i + batchSize);
+            
+            // Work orders query
+            const workOrdersQuery = query(
+              collection(db, 'workOrders'),
+              where('locationId', 'in', batch)
+            );
 
-      setRecurringWorkOrders(recurringData);
-    });
+            const unsubscribeWO = onSnapshot(workOrdersQuery, (snapshot) => {
+              const batchWorkOrders = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+              })) as WorkOrder[];
+
+              // Collect all work orders from all batches
+              setWorkOrders(prev => {
+                const combined = [...prev.filter(wo => !batch.some((locId: string) => wo.locationId === locId)), ...batchWorkOrders];
+                // Remove duplicates
+                return Array.from(new Map(combined.map(wo => [wo.id, wo])).values());
+              });
+            });
+
+            // Recurring work orders query
+            const recurringWorkOrdersQuery = query(
+              collection(db, 'recurringWorkOrders'),
+              where('locationId', 'in', batch),
+              where('status', '==', 'active')
+            );
+
+            const unsubscribeRWO = onSnapshot(recurringWorkOrdersQuery, (snapshot) => {
+              const batchRecurring = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                nextExecution: doc.data().nextExecution?.toDate(),
+                createdAt: doc.data().createdAt?.toDate(),
+                updatedAt: doc.data().updatedAt?.toDate(),
+              })) as RecurringWorkOrder[];
+
+              setRecurringWorkOrders(prev => {
+                const combined = [...prev.filter(rwo => !batch.some((locId: string) => rwo.locationId === locId)), ...batchRecurring];
+                // Remove duplicates
+                return Array.from(new Map(combined.map(rwo => [rwo.id, rwo])).values());
+              });
+            });
+
+            unsubscribes.push(unsubscribeWO, unsubscribeRWO);
+          }
+
+          unsubscribeWorkOrders = () => {
+            unsubscribes.forEach(unsub => unsub());
+          };
+        } else {
+          // Fallback to clientId for backward compatibility
+          const workOrdersQuery = query(
+            collection(db, 'workOrders'),
+            where('clientId', '==', currentUser.uid)
+          );
+
+          unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
+            const workOrdersData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as WorkOrder[];
+
+            setWorkOrders(workOrdersData);
+          });
+
+          const recurringWorkOrdersQuery = query(
+            collection(db, 'recurringWorkOrders'),
+            where('clientId', '==', currentUser.uid),
+            where('status', '==', 'active')
+          );
+
+          unsubscribeRecurring = onSnapshot(recurringWorkOrdersQuery, (snapshot) => {
+            const recurringData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              nextExecution: doc.data().nextExecution?.toDate(),
+              createdAt: doc.data().createdAt?.toDate(),
+              updatedAt: doc.data().updatedAt?.toDate(),
+            })) as RecurringWorkOrder[];
+
+            setRecurringWorkOrders(recurringData);
+          });
+        }
+      } catch (error) {
+        console.error('Error setting up calendar listeners:', error);
+      }
+    };
+
+    setupListeners();
 
     return () => {
-      unsubscribeWorkOrders();
-      unsubscribeRecurring();
+      unsubscribeWorkOrders?.();
+      unsubscribeRecurring?.();
     };
   }, []);
 

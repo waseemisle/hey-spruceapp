@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,32 +26,85 @@ export default function ClientDashboard() {
       }
 
       try {
-        // Fetch locations count
-        const locationsQuery = query(
-          collection(db, 'locations'),
-          where('clientId', '==', currentUser.uid),
-          where('status', '==', 'approved')
-        );
-        const locationsSnapshot = await getDocs(locationsQuery);
-        setLocationsCount(locationsSnapshot.size);
-        const locationsData = locationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          locationName: doc.data().locationName || doc.data().name || 'Unnamed Location',
-        }));
-        setLocations(locationsData);
+        // Fetch client document to get assigned locations
+        const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+        const clientData = clientDoc.data();
+        const assignedLocations = clientData?.assignedLocations || [];
 
-        // Fetch work orders count (excluding completed and rejected)
-        const workOrdersQuery = query(
-          collection(db, 'workOrders'),
-          where('clientId', '==', currentUser.uid)
-        );
-        const workOrdersSnapshot = await getDocs(workOrdersQuery);
-        const openWorkOrders = workOrdersSnapshot.docs.filter(
-          doc => doc.data().status !== 'completed' && doc.data().status !== 'rejected'
-        );
-        setWorkOrdersCount(openWorkOrders.length);
+        // Fetch locations count - show locations the client has access to
+        if (assignedLocations.length > 0) {
+          const batchSize = 10;
+          let totalLocations = 0;
+          const locationsMap = new Map<string, { id: string; locationName: string }>();
+
+          for (let i = 0; i < assignedLocations.length; i += batchSize) {
+            const batch = assignedLocations.slice(i, i + batchSize);
+            const locationsQuery = query(
+              collection(db, 'locations'),
+              where('__name__', 'in', batch),
+              where('status', '==', 'approved')
+            );
+            const locationsSnapshot = await getDocs(locationsQuery);
+            totalLocations += locationsSnapshot.size;
+            locationsSnapshot.docs.forEach(doc => {
+              locationsMap.set(doc.id, {
+                id: doc.id,
+                locationName: doc.data().locationName || doc.data().name || 'Unnamed Location',
+              });
+            });
+          }
+          setLocationsCount(totalLocations);
+          setLocations(Array.from(locationsMap.values()));
+        } else {
+          // Fallback to clientId for backward compatibility
+          const locationsQuery = query(
+            collection(db, 'locations'),
+            where('clientId', '==', currentUser.uid),
+            where('status', '==', 'approved')
+          );
+          const locationsSnapshot = await getDocs(locationsQuery);
+          setLocationsCount(locationsSnapshot.size);
+          const locationsData = locationsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            locationName: doc.data().locationName || doc.data().name || 'Unnamed Location',
+          }));
+          setLocations(locationsData);
+        }
+
+        // Fetch work orders count based on assigned locations
+        if (assignedLocations.length > 0) {
+          const batchSize = 10;
+          let totalOpenWorkOrders = 0;
+
+          for (let i = 0; i < assignedLocations.length; i += batchSize) {
+            const batch = assignedLocations.slice(i, i + batchSize);
+            const workOrdersQuery = query(
+              collection(db, 'workOrders'),
+              where('locationId', 'in', batch)
+            );
+            const workOrdersSnapshot = await getDocs(workOrdersQuery);
+            const openWorkOrders = workOrdersSnapshot.docs.filter(
+              doc => doc.data().status !== 'completed' && doc.data().status !== 'rejected'
+            );
+            totalOpenWorkOrders += openWorkOrders.length;
+          }
+          setWorkOrdersCount(totalOpenWorkOrders);
+        } else {
+          // Fallback to clientId for backward compatibility
+          const workOrdersQuery = query(
+            collection(db, 'workOrders'),
+            where('clientId', '==', currentUser.uid)
+          );
+          const workOrdersSnapshot = await getDocs(workOrdersQuery);
+          const openWorkOrders = workOrdersSnapshot.docs.filter(
+            doc => doc.data().status !== 'completed' && doc.data().status !== 'rejected'
+          );
+          setWorkOrdersCount(openWorkOrders.length);
+        }
 
         // Fetch pending quotes count (sent_to_client status)
+        // Quotes are already filtered by location in the quotes page, but for dashboard count
+        // we'll use clientId for simplicity (quotes page handles location filtering)
         const quotesQuery = query(
           collection(db, 'quotes'),
           where('clientId', '==', currentUser.uid),

@@ -69,7 +69,12 @@ export default function ClientWorkOrders() {
   };
 
   useEffect(() => {
+    let unsubscribeWorkOrders: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      // Clean up previous listeners
+      unsubscribeWorkOrders?.();
+
       if (user) {
         try {
           // Fetch client document to get assigned locations
@@ -81,7 +86,7 @@ export default function ClientWorkOrders() {
           if (assignedLocations.length > 0) {
             // Firestore 'in' query limited to 10 items, so we need to batch
             const batchSize = 10;
-            const allWorkOrders: WorkOrder[] = [];
+            const unsubscribes: (() => void)[] = [];
 
             for (let i = 0; i < assignedLocations.length; i += batchSize) {
               const batch = assignedLocations.slice(i, i + batchSize);
@@ -91,25 +96,44 @@ export default function ClientWorkOrders() {
                 orderBy('createdAt', 'desc')
               );
 
-              const snapshot = await getDocs(workOrdersQuery);
-              const batchWorkOrders = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-              })) as WorkOrder[];
-              allWorkOrders.push(...batchWorkOrders);
+              const unsubscribe = onSnapshot(
+                workOrdersQuery,
+                (snapshot) => {
+                  const batchWorkOrders = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                  })) as WorkOrder[];
+
+                  // Update work orders by merging all batches
+                  setWorkOrders(prev => {
+                    // Remove work orders from this batch first
+                    const filtered = prev.filter(wo => !batch.includes(wo.locationId));
+                    // Add new batch work orders
+                    const combined = [...filtered, ...batchWorkOrders];
+                    // Remove duplicates and sort by createdAt
+                    const unique = Array.from(
+                      new Map(combined.map(wo => [wo.id, wo])).values()
+                    ).sort((a, b) => {
+                      const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
+                      const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
+                      return bTime.getTime() - aTime.getTime();
+                    });
+                    return unique;
+                  });
+                  setLoading(false);
+                },
+                (error) => {
+                  console.error('Error fetching work orders:', error);
+                  setLoading(false);
+                }
+              );
+
+              unsubscribes.push(unsubscribe);
             }
 
-            // Remove duplicates and sort by createdAt
-            const uniqueWorkOrders = Array.from(
-              new Map(allWorkOrders.map(wo => [wo.id, wo])).values()
-            ).sort((a, b) => {
-              const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
-              const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
-              return bTime.getTime() - aTime.getTime();
-            });
-
-            setWorkOrders(uniqueWorkOrders);
-            setLoading(false);
+            unsubscribeWorkOrders = () => {
+              unsubscribes.forEach(unsub => unsub());
+            };
           } else {
             // Fallback to clientId for backward compatibility
             const workOrdersQuery = query(
@@ -118,7 +142,7 @@ export default function ClientWorkOrders() {
               orderBy('createdAt', 'desc')
             );
 
-            const unsubscribeSnapshot = onSnapshot(
+            unsubscribeWorkOrders = onSnapshot(
               workOrdersQuery,
               (snapshot) => {
                 const workOrdersData = snapshot.docs.map(doc => ({
@@ -133,8 +157,6 @@ export default function ClientWorkOrders() {
                 setLoading(false);
               }
             );
-
-            return () => unsubscribeSnapshot();
           }
         } catch (error) {
           console.error('Error setting up work orders listener:', error);
@@ -145,7 +167,10 @@ export default function ClientWorkOrders() {
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeWorkOrders?.();
+    };
   }, []);
 
   const getStatusBadge = (status: string) => {
