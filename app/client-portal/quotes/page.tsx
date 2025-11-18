@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { notifySubcontractorAssignment } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
@@ -58,26 +59,35 @@ export default function ClientQuotes() {
   const [assignedLocations, setAssignedLocations] = useState<string[]>([]);
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    let unsubscribeQuotes: (() => void) | null = null;
 
-    const fetchQuotes = async () => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      unsubscribeQuotes?.();
+
+      if (!user) {
+        setQuotes([]);
+        setAssignedLocations([]);
+        setLoading(false);
+        return;
+      }
+
       try {
+        setLoading(true);
+
         // Fetch client's assigned locations
-        const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+        const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         const clientData = clientDoc.data();
         const clientAssignedLocations = clientData?.assignedLocations || [];
         setAssignedLocations(clientAssignedLocations);
 
-        // Query quotes
         const quotesQuery = query(
           collection(db, 'quotes'),
-          where('clientId', '==', currentUser.uid),
+          where('clientId', '==', user.uid),
           where('status', 'in', ['sent_to_client', 'accepted', 'rejected']),
           orderBy('createdAt', 'desc')
         );
 
-        const unsubscribe = onSnapshot(
+        unsubscribeQuotes = onSnapshot(
           quotesQuery,
           async (snapshot) => {
             const quotesData = snapshot.docs.map(doc => ({
@@ -85,14 +95,11 @@ export default function ClientQuotes() {
               ...doc.data(),
             })) as Quote[];
 
-            // If client has assigned locations, filter quotes by location
             if (clientAssignedLocations.length > 0) {
-              // Fetch work orders to check locations
-              const workOrderIds = quotesData.map(q => q.workOrderId).filter(Boolean);
+              const workOrderIds = quotesData.map(q => q.workOrderId).filter(Boolean) as string[];
               const workOrdersMap = new Map<string, any>();
 
               if (workOrderIds.length > 0) {
-                // Fetch work orders in batches (Firestore 'in' query limit is 10)
                 const batchSize = 10;
                 for (let i = 0; i < workOrderIds.length; i += batchSize) {
                   const batch = workOrderIds.slice(i, i + batchSize);
@@ -107,17 +114,15 @@ export default function ClientQuotes() {
                 }
               }
 
-              // Filter quotes where work order's location is in assigned locations
               const filteredQuotes = quotesData.filter(quote => {
-                if (!quote.workOrderId) return true; // Keep quotes without work order (shouldn't happen)
+                if (!quote.workOrderId) return true;
                 const workOrder = workOrdersMap.get(quote.workOrderId);
-                if (!workOrder) return true; // Keep if work order not found (edge case)
+                if (!workOrder) return true;
                 return clientAssignedLocations.includes(workOrder.locationId);
               });
 
               setQuotes(filteredQuotes);
             } else {
-              // No location filtering, show all quotes
               setQuotes(quotesData);
             }
 
@@ -129,16 +134,17 @@ export default function ClientQuotes() {
             toast.error('Failed to load quotes. Please refresh the page or contact support if the issue persists.');
           }
         );
-
-        return () => unsubscribe();
       } catch (error) {
         console.error('Error setting up quotes listener:', error);
         setLoading(false);
         toast.error('Failed to load quotes. Please refresh the page.');
       }
-    };
+    });
 
-    fetchQuotes();
+    return () => {
+      unsubscribeQuotes?.();
+      unsubscribeAuth();
+    };
   }, []);
 
   const handleApprove = async (quoteId: string) => {
