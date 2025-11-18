@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye } from 'lucide-react';
 import Link from 'next/link';
+import ViewControls from '@/components/view-controls';
+import { useViewControls } from '@/contexts/view-controls-context';
 
 interface WorkOrder {
   id: string;
@@ -39,6 +41,7 @@ export default function ClientWorkOrders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const { viewMode } = useViewControls();
 
   const normalizeStatus = (status: string) => {
     if (status === 'quotes_received') {
@@ -261,22 +264,25 @@ export default function ClientWorkOrders() {
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
-            Filter by Status:
-          </label>
-          <select
-            id="status-filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            {filterOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label} ({option.count})
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex items-center gap-3">
+            <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
+              Filter by Status:
+            </label>
+            <select
+              id="status-filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {filterOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label} ({option.count})
+                </option>
+              ))}
+            </select>
+          </div>
+          <ViewControls hideSort />
         </div>
 
         {filteredWorkOrders.length === 0 ? (
@@ -299,6 +305,58 @@ export default function ClientWorkOrders() {
               )}
             </CardContent>
           </Card>
+        ) : viewMode === 'list' ? (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredWorkOrders.map((workOrder) => (
+                  <tr key={workOrder.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-medium text-gray-900">{workOrder.title}</div>
+                      {workOrder.workOrderNumber && (
+                        <div className="text-xs text-gray-500">WO: {workOrder.workOrderNumber}</div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-1 line-clamp-2">{workOrder.description}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.locationName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.category}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(workOrder.status)}`}>
+                        {getStatusLabel(workOrder.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
+                        {workOrder.priority}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <Link href={`/client-portal/work-orders/${workOrder.id}`}>
+                        <Button size="sm" variant="outline">
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredWorkOrders.map((workOrder) => (

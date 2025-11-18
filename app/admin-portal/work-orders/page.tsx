@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
@@ -107,6 +107,11 @@ export default function WorkOrdersManagement() {
   const [workOrderToAssign, setWorkOrderToAssign] = useState<WorkOrder | null>(null);
   const [selectedSubcontractorForAssign, setSelectedSubcontractorForAssign] = useState<string>('');
 
+  // Company search state
+  const [companySearchQuery, setCompanySearchQuery] = useState('');
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const companyDropdownRef = useRef<HTMLDivElement>(null);
+
   const [formData, setFormData] = useState({
     clientId: '',
   companyId: '',
@@ -209,6 +214,23 @@ const fetchCompanies = async () => {
     fetchLocations();
   fetchCompanies();
   }, []);
+
+  // Close company dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(event.target as Node)) {
+        setShowCompanyDropdown(false);
+      }
+    };
+
+    if (showCompanyDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCompanyDropdown]);
 
   const handleApprove = async (workOrderId: string) => {
     try {
@@ -327,6 +349,8 @@ const fetchCompanies = async () => {
       status: 'approved',
       isMaintenanceRequestOrder: false,
     });
+    setCompanySearchQuery('');
+    setShowCompanyDropdown(false);
     setEditingId(null);
     setShowModal(false);
   };
@@ -664,6 +688,7 @@ const handleLocationSelect = (locationId: string) => {
   const handleOpenEdit = (workOrder: WorkOrder) => {
   const locationForWorkOrder = locations.find(l => l.id === workOrder.locationId);
   const resolvedCompanyId = workOrder.companyId || locationForWorkOrder?.companyId || '';
+  const selectedCompany = companies.find(c => c.id === resolvedCompanyId);
     setFormData({
       clientId: workOrder.clientId,
     companyId: resolvedCompanyId,
@@ -676,6 +701,8 @@ const handleLocationSelect = (locationId: string) => {
       status: workOrder.status,
       isMaintenanceRequestOrder: workOrder.isMaintenanceRequestOrder || false,
     });
+    setCompanySearchQuery(selectedCompany?.name || '');
+    setShowCompanyDropdown(false);
     setEditingId(workOrder.id);
     setShowModal(true);
   };
@@ -1130,9 +1157,10 @@ const handleLocationSelect = (locationId: string) => {
     }
   };
 
-const filteredCompanies = formData.clientId
-  ? companies.filter(company => company.clientId === formData.clientId)
-  : companies;
+// Filter companies by search query (show all companies, not filtered by client)
+const filteredCompanies = companies.filter(company => 
+  company.name?.toLowerCase().includes(companySearchQuery.toLowerCase())
+);
 
 const filteredLocationsForForm = locations.filter((location) => {
   if (formData.companyId) {
@@ -1535,7 +1563,11 @@ const filteredLocationsForForm = locations.filter((location) => {
                     <Label>Select Client *</Label>
                     <select
                       value={formData.clientId}
-                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value, companyId: '', locationId: '' })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, clientId: e.target.value, companyId: '', locationId: '' });
+                        setCompanySearchQuery('');
+                        setShowCompanyDropdown(false);
+                      }}
                       className="w-full border border-gray-300 rounded-md p-2"
                     >
                       <option value="">Choose a client...</option>
@@ -1549,21 +1581,65 @@ const filteredLocationsForForm = locations.filter((location) => {
 
                   <div>
                     <Label>Company *</Label>
-                    <select
-                      value={formData.companyId}
-                      onChange={(e) => handleCompanySelect(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      <option value="">Choose a company...</option>
-                      {filteredCompanies.map(company => (
-                        <option key={company.id} value={company.id}>
-                          {company.name}
-                        </option>
-                      ))}
-                    </select>
-                    {formData.clientId && filteredCompanies.length === 0 && (
+                    <div className="relative" ref={companyDropdownRef}>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          type="text"
+                          placeholder="Search companies..."
+                          value={companySearchQuery}
+                          onChange={(e) => {
+                            setCompanySearchQuery(e.target.value);
+                            setShowCompanyDropdown(true);
+                            if (!e.target.value) {
+                              setFormData({ ...formData, companyId: '', locationId: '' });
+                            }
+                          }}
+                          onFocus={() => {
+                            if (formData.companyId) {
+                              const selectedCompany = companies.find(c => c.id === formData.companyId);
+                              setCompanySearchQuery(selectedCompany?.name || '');
+                            }
+                            setShowCompanyDropdown(true);
+                          }}
+                          className="pl-10 w-full border border-gray-300 rounded-md p-2"
+                        />
+                      </div>
+                      {showCompanyDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                          {filteredCompanies.length === 0 ? (
+                            <div className="p-3 text-sm text-gray-500 text-center">
+                              {companySearchQuery ? 'No companies found' : 'No companies available'}
+                            </div>
+                          ) : (
+                            filteredCompanies.map(company => (
+                              <div
+                                key={company.id}
+                                onClick={() => {
+                                  handleCompanySelect(company.id);
+                                  const selectedCompany = companies.find(c => c.id === company.id);
+                                  setCompanySearchQuery(selectedCompany?.name || '');
+                                  setShowCompanyDropdown(false);
+                                }}
+                                className={`p-3 cursor-pointer hover:bg-gray-100 ${
+                                  formData.companyId === company.id ? 'bg-blue-50' : ''
+                                }`}
+                              >
+                                <div className="font-medium text-gray-900">{company.name}</div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {companySearchQuery && filteredCompanies.length === 0 && companies.length > 0 && (
                       <p className="text-xs text-yellow-600 mt-1">
-                        No companies found for the selected client.
+                        No companies found matching your search.
+                      </p>
+                    )}
+                    {!formData.companyId && companies.length === 0 && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        No companies found. Please add companies first.
                       </p>
                     )}
                   </div>
