@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Wrench, Calendar, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, Plus } from 'lucide-react';
+import { Wrench, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MaintRequest {
@@ -301,27 +301,6 @@ export default function MaintRequestsPage() {
                     <span>{request.requestor}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="h-4 w-4 flex-shrink-0" />
-                    <span>
-                      {request.date?.toDate
-                        ? request.date.toDate().toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })
-                        : new Date(request.date).toLocaleString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                    </span>
-                  </div>
-
                   <div className="text-sm text-gray-600 line-clamp-2">
                     {request.description}
                   </div>
@@ -391,13 +370,6 @@ export default function MaintRequestsPage() {
                   <div>
                     <Label className="text-gray-600">Requestor</Label>
                     <p className="text-gray-900 font-medium">{selectedRequest.requestor}</p>
-                  </div>
-
-                  <div>
-                    <Label className="text-gray-600">Date</Label>
-                    <p className="text-gray-900 font-medium">
-                      {selectedRequest.date?.toDate ? selectedRequest.date.toDate().toLocaleString() : new Date(selectedRequest.date).toLocaleString()}
-                    </p>
                   </div>
 
                   <div>
