@@ -653,18 +653,88 @@ export default function ScheduledInvoicesManagement() {
           />
         </div>
 
-        {/* Scheduled Invoices List */}
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'}>
-          {sortedScheduledInvoices.length === 0 ? (
-            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
-              <CardContent className="p-12 text-center">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No scheduled invoices found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            sortedScheduledInvoices.map((schedule) => (
-              <Card key={schedule.id} className={viewMode === 'list' ? 'w-full' : ''}>
+        {/* Scheduled Invoices Grid/List */}
+        {sortedScheduledInvoices.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="p-12 text-center">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No scheduled invoices found</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'list' ? (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Frequency</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Next Execution</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedScheduledInvoices.map((schedule) => (
+                  <tr key={schedule.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-medium text-gray-900">{schedule.title}</div>
+                      {schedule.description && (
+                        <div className="text-gray-500 text-xs mt-1 line-clamp-1">{schedule.description}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{schedule.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">${schedule.amount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 capitalize">{schedule.frequency}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        schedule.isActive ? 'text-green-600 bg-green-50' : 'text-gray-600 bg-gray-50'
+                      }`}>
+                        {schedule.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {schedule.nextExecution?.toDate?.()?.toLocaleDateString() || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleOpenEdit(schedule)}>
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => executeNow(schedule)}
+                          disabled={executing === schedule.id}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleActive(schedule.id, schedule.isActive)}
+                        >
+                          {schedule.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => deleteSchedule(schedule.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {sortedScheduledInvoices.map((schedule) => (
+              <Card key={schedule.id}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg">{schedule.title}</CardTitle>
@@ -723,9 +793,9 @@ export default function ScheduledInvoicesManagement() {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Edit Modal */}
         {showEditModal && editingId && (

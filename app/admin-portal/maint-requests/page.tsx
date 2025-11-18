@@ -363,19 +363,87 @@ export default function MaintRequestsPage() {
           ))}
         </div>
 
-        {/* Requests Grid */}
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-          {sortedRequests.length === 0 ? (
-            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
-              <CardContent className="p-12 text-center">
-                <Wrench className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No maintenance requests found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            sortedRequests.map(renderRequestCard)
-          )}
-        </div>
+        {/* Requests Grid/List */}
+        {sortedRequests.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="p-12 text-center">
+              <Wrench className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No maintenance requests found</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'list' ? (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Venue</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Requestor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedRequests.map((request) => (
+                  <tr key={request.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-medium text-gray-900">{request.title}</div>
+                      <div className="text-gray-500 text-xs mt-1 line-clamp-1">{request.description}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{request.venue}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{request.requestor}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
+                        {request.priority}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
+                        {request.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {request.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewDetails(request)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <select
+                          value={request.status}
+                          onChange={(e) => handleStatusChange(request.id, e.target.value)}
+                          className="text-xs border border-gray-300 rounded-md px-2 py-1"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="in-progress">In Progress</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(request.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {sortedRequests.map(renderRequestCard)}
+          </div>
+        )}
 
         {/* Details Modal */}
         {showModal && selectedRequest && (

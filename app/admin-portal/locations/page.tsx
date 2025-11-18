@@ -461,18 +461,90 @@ export default function LocationsManagement() {
           ))}
         </div>
 
-        {/* Locations Grid */}
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6' : 'space-y-4'}>
-          {sortedLocations.length === 0 ? (
-            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
-              <CardContent className="p-8 md:p-12 text-center">
-                <MapPin className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No locations found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            sortedLocations.map((location) => (
-              <Card key={location.id} className={`hover:shadow-lg transition-shadow ${viewMode === 'list' ? 'w-full' : ''}`}>
+        {/* Locations Grid/List */}
+        {sortedLocations.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="p-8 md:p-12 text-center">
+              <MapPin className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No locations found</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'list' ? (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Address</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Property Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedLocations.map((location) => (
+                  <tr key={location.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-medium text-gray-900">{location.locationName}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{location.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      <div>{location.address.street}</div>
+                      <div className="text-xs text-gray-500">{location.address.city}, {location.address.state} {location.address.zip}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{location.propertyType || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{location.contactPhone || '-'}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(location.status)}`}>
+                        {location.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenEdit(location)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        {location.status === 'pending' && (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => handleApprove(location.id)}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleReject(location.id)}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteLocation(location)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {sortedLocations.map((location) => (
+              <Card key={location.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start gap-2">
                     <CardTitle className="text-base sm:text-lg break-words">{location.locationName}</CardTitle>
@@ -549,9 +621,9 @@ export default function LocationsManagement() {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Create/Edit Modal */}
         {showModal && (

@@ -404,20 +404,80 @@ export default function QuotesManagement() {
           ))}
         </div>
 
-        {/* Quotes Grid */}
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'}>
-          {sortedQuotes.length === 0 ? (
-            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
-              <CardContent className="p-12 text-center">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No quotes found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            sortedQuotes.map((quote) => (
+        {/* Quotes Grid/List */}
+        {sortedQuotes.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="p-12 text-center">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No quotes found</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'list' ? (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Subcontractor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedQuotes.map((quote) => (
+                  <tr key={quote.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-medium text-gray-900">{quote.workOrderTitle}</div>
+                      <div className="text-gray-500 text-xs mt-1">WO: {quote.workOrderNumber || 'N/A'}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{quote.subcontractorName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{quote.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">${(quote.totalAmount || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {quote.clientAmount ? `$${(quote.clientAmount || 0).toLocaleString()}` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(quote.status)}`}>
+                        {quote.status.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        {quote.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedQuote(quote);
+                              setMarkupPercent('20');
+                            }}
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteQuote(quote)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {sortedQuotes.map((quote) => (
               <Card
                 key={quote.id}
-                className={`hover:shadow-lg transition-shadow ${viewMode === 'list' ? 'w-full' : ''}`}
+                className="hover:shadow-lg transition-shadow"
               >
                 <CardHeader>
                   <div className="space-y-2">
@@ -568,9 +628,9 @@ export default function QuotesManagement() {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Create Quote Modal */}
         {showCreateModal && (

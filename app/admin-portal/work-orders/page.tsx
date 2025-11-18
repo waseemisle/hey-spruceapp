@@ -1122,22 +1122,88 @@ export default function WorkOrdersManagement() {
           </div>
         </div>
 
-        {/* Work Orders Grid */}
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' : 'space-y-4'}>
-          {sortedWorkOrders.length === 0 ? (
-            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
-              <CardContent className="p-12 text-center">
-                <ClipboardList className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No work orders found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            sortedWorkOrders.map((workOrder) => (
+        {/* Work Orders Grid/List */}
+        {sortedWorkOrders.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="p-12 text-center">
+              <ClipboardList className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No work orders found</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'list' ? (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Budget</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedWorkOrders.map((workOrder) => (
+                  <tr key={workOrder.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-medium text-gray-900">{workOrder.title}</div>
+                      <div className="text-gray-500 text-xs mt-1 line-clamp-1">{workOrder.description}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.workOrderNumber}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.category}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(workOrder.priority)}`}>
+                        {(workOrder.priority || 'medium').toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(workOrder.status)}`}>
+                        {getStatusLabel(workOrder.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {workOrder.estimateBudget ? `$${workOrder.estimateBudget.toLocaleString()}` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenEdit(workOrder)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteWorkOrder(workOrder)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {sortedWorkOrders.map((workOrder) => (
               <Card
                 key={workOrder.id}
-                className={`h-full flex flex-col min-h-[500px] hover:shadow-lg transition-shadow ${
-                  viewMode === 'list' ? 'w-full' : ''
-                }`}
+                className="h-full flex flex-col min-h-[500px] hover:shadow-lg transition-shadow"
               >
                 <CardHeader className="flex-shrink-0 pb-4">
                   <div className="space-y-2">
@@ -1361,9 +1427,9 @@ export default function WorkOrdersManagement() {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Create/Edit Modal */}
         {showModal && (
