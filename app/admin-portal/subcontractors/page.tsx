@@ -53,12 +53,6 @@ export default function SubcontractorsManagement() {
       const snapshot = await getDocs(subsQuery);
       const subsData = snapshot.docs.map(doc => {
         const data = doc.data();
-        // Debug: Log password field for troubleshooting
-        console.log('========================================');
-        console.log('FETCHING SUBCONTRACTOR:', data.email);
-        console.log('Has password field:', !!data.password);
-        console.log('Password value:', data.password || 'NOT SET');
-        console.log('========================================');
         return {
           ...data,
           uid: doc.id,
@@ -140,11 +134,6 @@ export default function SubcontractorsManagement() {
   };
 
   const handleOpenEdit = (sub: Subcontractor) => {
-    console.log('========================================');
-    console.log('OPENING EDIT MODAL FOR SUBCONTRACTOR:', sub.email);
-    console.log('Subcontractor UID:', sub.uid);
-    console.log('Subcontractor password field:', sub.password || 'NOT SET');
-    console.log('========================================');
     setFormData({
       email: sub.email,
       fullName: sub.fullName,

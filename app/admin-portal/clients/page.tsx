@@ -68,12 +68,6 @@ export default function ClientsManagement() {
       const snapshot = await getDocs(clientsQuery);
       const clientsData = snapshot.docs.map(doc => {
         const data = doc.data();
-        // Debug: Log password field for troubleshooting
-        console.log('========================================');
-        console.log('FETCHING CLIENT:', data.email);
-        console.log('Has password field:', !!data.password);
-        console.log('Password value:', data.password || 'NOT SET');
-        console.log('========================================');
         return {
           ...data,
           uid: doc.id,
@@ -223,11 +217,6 @@ export default function ClientsManagement() {
   };
 
   const handleOpenEdit = (client: Client) => {
-    console.log('========================================');
-    console.log('OPENING EDIT MODAL FOR CLIENT:', client.email);
-    console.log('Client UID:', client.uid);
-    console.log('Client password field:', client.password || 'NOT SET');
-    console.log('========================================');
     setFormData({
       email: client.email,
       fullName: client.fullName,
