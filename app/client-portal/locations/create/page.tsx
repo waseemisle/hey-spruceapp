@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { notifyAdminsOfLocation } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
@@ -33,7 +33,8 @@ export default function CreateLocation() {
     propertyType: 'Commercial',
     notes: '',
   });
-  const [companies, setCompanies] = useState<{ id: string; name: string; createdAt?: number }[]>([]);
+  const [assignedCompany, setAssignedCompany] = useState<{ id: string; name: string } | null>(null);
+  const [checkingCompany, setCheckingCompany] = useState(true);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -50,14 +51,16 @@ export default function CreateLocation() {
     }
   };
 
-  // Load all available companies
+  // Load assigned company
   useEffect(() => {
     let isMounted = true;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         if (isMounted) {
-          setCompanies([]);
+          setAssignedCompany(null);
+          setFormData(prev => ({ ...prev, companyId: '' }));
+          setCheckingCompany(false);
         }
         return;
       }
@@ -67,7 +70,8 @@ export default function CreateLocation() {
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         if (!clientDoc.exists()) {
           if (isMounted) {
-            setCompanies([]);
+            setAssignedCompany(null);
+            setFormData(prev => ({ ...prev, companyId: '' }));
           }
           return;
         }
@@ -75,52 +79,37 @@ export default function CreateLocation() {
         const clientData = clientDoc.data();
         const clientCompanyId = clientData.companyId;
 
-        // If client has a company assigned, only show that company
-        // Otherwise, show all companies for selection
-        const companiesRef = collection(db, 'companies');
-        let companiesSnapshot;
-
-        if (clientCompanyId) {
-          // Only show the client's assigned company
-          const companyDoc = await getDoc(doc(db, 'companies', clientCompanyId));
-          if (companyDoc.exists() && isMounted) {
-            const data = companyDoc.data() as { name?: string; createdAt?: { toMillis?: () => number } };
-            setCompanies([{
-              id: companyDoc.id,
-              name: data.name || '',
-              createdAt: data?.createdAt && typeof data.createdAt.toMillis === 'function'
-                ? data.createdAt.toMillis()
-                : undefined,
-            }]);
-            // Auto-select the company
-            setFormData(prev => ({ ...prev, companyId: companyDoc.id }));
-          }
-        } else {
-          // Show all companies for selection
-          companiesSnapshot = await getDocs(companiesRef);
+        if (!clientCompanyId) {
           if (isMounted) {
-            const allCompanies = companiesSnapshot.docs.map((docSnap) => {
-              const data = docSnap.data() as { name?: string; createdAt?: { toMillis?: () => number } };
-              return {
-                id: docSnap.id,
-                name: data.name || '',
-                createdAt: data?.createdAt && typeof data.createdAt.toMillis === 'function'
-                  ? data.createdAt.toMillis()
-                  : undefined,
-              };
-            }).sort((a, b) => {
-              const aCreated = a.createdAt ?? 0;
-              const bCreated = b.createdAt ?? 0;
-              return bCreated - aCreated;
-            });
-
-            setCompanies(allCompanies);
+            setAssignedCompany(null);
+            setFormData(prev => ({ ...prev, companyId: '' }));
           }
+          return;
+        }
+
+        const companyDoc = await getDoc(doc(db, 'companies', clientCompanyId));
+        if (companyDoc.exists() && isMounted) {
+          const data = companyDoc.data() as { name?: string };
+          const companyInfo = {
+            id: companyDoc.id,
+            name: data.name || 'Unnamed Company',
+          };
+          setAssignedCompany(companyInfo);
+          // Auto-select the company
+          setFormData(prev => ({ ...prev, companyId: companyDoc.id }));
+        } else if (isMounted) {
+          setAssignedCompany(null);
+          setFormData(prev => ({ ...prev, companyId: '' }));
         }
       } catch (error) {
         console.error('Error fetching companies for client portal', error);
         if (isMounted) {
-          setCompanies([]);
+          setAssignedCompany(null);
+          setFormData(prev => ({ ...prev, companyId: '' }));
+        }
+      } finally {
+        if (isMounted) {
+          setCheckingCompany(false);
         }
       }
     });
@@ -173,7 +162,7 @@ export default function CreateLocation() {
         return;
       }
 
-      const selectedCompany = companies.find(c => c.id === formData.companyId);
+      const selectedCompany = assignedCompany;
 
       // Upload images if any
       let imageUrls: string[] = [];
@@ -256,22 +245,17 @@ export default function CreateLocation() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <Label htmlFor="companyId">Company *</Label>
-                  <select
-                    id="companyId"
-                    name="companyId"
-                    value={formData.companyId}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Select a company...</option>
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                  {companies.length === 0 && (
+                  <div className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 flex items-center justify-between">
+                    <span className="text-gray-900 font-medium">
+                      {assignedCompany?.name || (checkingCompany ? 'Checking assignment…' : 'No company assigned')}
+                    </span>
+                    {assignedCompany && (
+                      <span className="text-xs text-gray-500 uppercase tracking-wide">Auto-selected</span>
+                    )}
+                  </div>
+                  {!assignedCompany && !checkingCompany && (
                     <p className="text-sm text-red-500 mt-1">
-                      No company assigned. Please contact an administrator to assign you to a company.
+                      No company assigned. Please contact an administrator to assign you to a company before creating locations.
                     </p>
                   )}
                 </div>
@@ -418,7 +402,7 @@ export default function CreateLocation() {
                     Cancel
                   </Button>
                 </Link>
-                <Button type="submit" disabled={loading || uploadingImages || companies.length === 0}>
+                <Button type="submit" disabled={loading || uploadingImages || !assignedCompany}>
                   {uploadingImages ? 'Uploading Images...' : loading ? 'Creating...' : 'Create Location'}
                 </Button>
               </div>

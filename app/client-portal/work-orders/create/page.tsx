@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import { notifyAdminsOfWorkOrder } from '@/lib/notifications';
@@ -28,6 +29,8 @@ export default function CreateWorkOrder() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [companyInfo, setCompanyInfo] = useState<{ id: string; name?: string } | null>(null);
+  const [checkingCompany, setCheckingCompany] = useState(true);
 
   const [formData, setFormData] = useState({
     locationId: '',
@@ -39,27 +42,67 @@ export default function CreateWorkOrder() {
   });
 
   useEffect(() => {
-    const fetchLocations = async () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setCompanyInfo(null);
+        setLocations([]);
+        setCheckingCompany(false);
+        return;
+      }
 
-      const locationsQuery = query(
-        collection(db, 'locations'),
-        where('clientId', '==', currentUser.uid),
-        where('status', '==', 'approved')
-      );
+      setCheckingCompany(true);
+      try {
+        const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+        if (!clientDoc.exists()) {
+          setCompanyInfo(null);
+          setLocations([]);
+          return;
+        }
 
-      const snapshot = await getDocs(locationsQuery);
-      const locationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().locationName || doc.data().name,
-        address: doc.data().address,
-      }));
+        const clientData = clientDoc.data();
+        if (!clientData.companyId) {
+          setCompanyInfo(null);
+          setLocations([]);
+          return;
+        }
 
-      setLocations(locationsData);
-    };
+        const companyId = clientData.companyId as string;
+        try {
+          const companyDoc = await getDoc(doc(db, 'companies', companyId));
+          if (companyDoc.exists()) {
+            const data = companyDoc.data() as { name?: string };
+            setCompanyInfo({ id: companyDoc.id, name: data.name || 'Assigned Company' });
+          } else {
+            setCompanyInfo({ id: companyId, name: 'Assigned Company' });
+          }
+        } catch {
+          setCompanyInfo({ id: companyId, name: 'Assigned Company' });
+        }
 
-    fetchLocations();
+        const locationsQuery = query(
+          collection(db, 'locations'),
+          where('companyId', '==', companyId),
+          where('status', '==', 'approved')
+        );
+
+        const snapshot = await getDocs(locationsQuery);
+        const locationsData = snapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          name: docSnap.data().locationName || docSnap.data().name,
+          address: docSnap.data().address,
+        }));
+
+        setLocations(locationsData);
+      } catch (error) {
+        console.error('Error fetching locations for work order', error);
+        setCompanyInfo(null);
+        setLocations([]);
+      } finally {
+        setCheckingCompany(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -118,7 +161,18 @@ export default function CreateWorkOrder() {
       }
 
       const clientData = clientDoc.data();
+      if (!clientData.companyId) {
+        toast.error('No company is assigned to your profile. Please contact an administrator.');
+        setLoading(false);
+        return;
+      }
+
       const locationData = locationDoc.data();
+      if (locationData.companyId !== clientData.companyId) {
+        toast.error('You do not have access to the selected location.');
+        setLoading(false);
+        return;
+      }
 
       // Upload images if any
       let imageUrls: string[] = [];
@@ -216,7 +270,23 @@ export default function CreateWorkOrder() {
           <p className="text-gray-600 mt-2">Submit a new maintenance request</p>
         </div>
 
-        {locations.length === 0 ? (
+        {checkingCompany ? (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center text-gray-600">Checking your company access…</div>
+            </CardContent>
+          </Card>
+        ) : !companyInfo ? (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center">
+                <p className="text-red-600">
+                  No company is assigned to your profile yet. Please contact an administrator for access before creating work orders.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : locations.length === 0 ? (
           <Card>
             <CardContent className="py-12">
               <div className="text-center">
@@ -224,7 +294,7 @@ export default function CreateWorkOrder() {
                   You need at least one approved location before creating a work order.
                 </p>
                 <Link href="/client-portal/locations/create">
-                  <Button>Create Location First</Button>
+                  <Button disabled={!companyInfo}>Create Location First</Button>
                 </Link>
               </div>
             </CardContent>
@@ -245,6 +315,7 @@ export default function CreateWorkOrder() {
                       value={formData.locationId}
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={checkingCompany}
                       required
                     >
                       <option value="">Select a location</option>
@@ -388,7 +459,7 @@ export default function CreateWorkOrder() {
                       Cancel
                     </Button>
                   </Link>
-                  <Button type="submit" disabled={loading || uploadingImages}>
+                  <Button type="submit" disabled={loading || uploadingImages || checkingCompany}>
                     {uploadingImages ? 'Uploading Images...' : loading ? 'Creating...' : 'Create Work Order'}
                   </Button>
                 </div>
