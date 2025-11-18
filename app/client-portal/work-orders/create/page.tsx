@@ -422,12 +422,12 @@ export default function CreateWorkOrder() {
                         </div>
                         <input
                           id="images"
+                          name="images"
                           type="file"
                           multiple
                           accept="image/*"
                           onChange={handleFileSelect}
                           className="hidden"
-                          required
                         />
                       </label>
                     </div>

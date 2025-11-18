@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle, XCircle, MapPin, Building, User, Phone, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useViewControls } from '@/contexts/view-controls-context';
 
 interface Location {
   id: string;
@@ -49,6 +50,7 @@ export default function LocationsManagement() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectingLocationId, setRejectingLocationId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const { viewMode, sortOption } = useViewControls();
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -354,6 +356,21 @@ export default function LocationsManagement() {
     }
   };
 
+  const getTimestampValue = (value: any) => {
+    if (!value) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    }
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === 'object' && value?.toDate) {
+      const dateValue = value.toDate();
+      return dateValue instanceof Date ? dateValue.getTime() : 0;
+    }
+    return 0;
+  };
+
   const filteredLocations = locations.filter(location => {
     // Filter by status
     const statusMatch = filter === 'all' || location.status === filter;
@@ -369,6 +386,21 @@ export default function LocationsManagement() {
       (location.propertyType && location.propertyType.toLowerCase().includes(searchLower));
 
     return statusMatch && searchMatch;
+  });
+
+  const sortedLocations = [...filteredLocations].sort((a, b) => {
+    switch (sortOption) {
+      case 'createdAt':
+        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
+      case 'updatedAt':
+        return (
+          getTimestampValue((b as any).updatedAt || b.createdAt) -
+          getTimestampValue((a as any).updatedAt || a.createdAt)
+        );
+      case 'alphabet':
+      default:
+        return (a.locationName || '').localeCompare(b.locationName || '');
+    }
   });
 
   const getStatusColor = (status: string) => {
@@ -430,17 +462,17 @@ export default function LocationsManagement() {
         </div>
 
         {/* Locations Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {filteredLocations.length === 0 ? (
-            <Card className="col-span-full">
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6' : 'space-y-4'}>
+          {sortedLocations.length === 0 ? (
+            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
               <CardContent className="p-8 md:p-12 text-center">
                 <MapPin className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No locations found</p>
               </CardContent>
             </Card>
           ) : (
-            filteredLocations.map((location) => (
-              <Card key={location.id} className="hover:shadow-lg transition-shadow">
+            sortedLocations.map((location) => (
+              <Card key={location.id} className={`hover:shadow-lg transition-shadow ${viewMode === 'list' ? 'w-full' : ''}`}>
                 <CardHeader>
                   <div className="flex justify-between items-start gap-2">
                     <CardTitle className="text-base sm:text-lg break-words">{location.locationName}</CardTitle>

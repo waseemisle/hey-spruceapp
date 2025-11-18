@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useViewControls } from '@/contexts/view-controls-context';
 import { Wrench, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -39,6 +40,7 @@ export default function MaintRequestsPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'in-progress' | 'completed'>('all');
   const [selectedRequest, setSelectedRequest] = useState<MaintRequest | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const { viewMode, sortOption } = useViewControls();
 
   // API Token states
   const [apiTokens, setApiTokens] = useState<ApiToken[]>([]);
@@ -186,6 +188,21 @@ export default function MaintRequestsPage() {
     });
   };
 
+  const getTimestampValue = (value: any) => {
+    if (!value) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    }
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === 'object' && value?.toDate) {
+      const dateValue = value.toDate();
+      return dateValue instanceof Date ? dateValue.getTime() : 0;
+    }
+    return 0;
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
       case 'high': return 'text-red-600 bg-red-50';
@@ -215,6 +232,87 @@ export default function MaintRequestsPage() {
 
     return statusMatch && searchMatch;
   });
+
+  const sortedRequests = [...filteredRequests].sort((a, b) => {
+    switch (sortOption) {
+      case 'createdAt':
+        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
+      case 'updatedAt':
+        return (
+          getTimestampValue((b as any).updatedAt || b.createdAt) -
+          getTimestampValue((a as any).updatedAt || a.createdAt)
+        );
+      case 'alphabet':
+      default:
+        return (a.title || '').localeCompare(b.title || '');
+    }
+  });
+
+  const renderRequestCard = (request: MaintRequest) => (
+    <Card
+      key={request.id}
+      className={`hover:shadow-lg transition-shadow ${
+        viewMode === 'list' ? 'w-full' : ''
+      }`}
+    >
+      <CardHeader>
+        <div className="flex justify-between items-start gap-2">
+          <CardTitle className="text-lg">{request.title}</CardTitle>
+          <div className="flex gap-1 flex-shrink-0">
+            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
+              {request.priority}
+            </span>
+            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
+              {request.status}
+            </span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <MapPin className="h-4 w-4 flex-shrink-0" />
+          <span>{request.venue}</span>
+        </div>
+
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <User className="h-4 w-4 flex-shrink-0" />
+          <span>{request.requestor}</span>
+        </div>
+
+        <div className="text-sm text-gray-600 line-clamp-2">
+          {request.description}
+        </div>
+
+        <div className="flex gap-2 pt-4 border-t">
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => handleViewDetails(request)}
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            View
+          </Button>
+          <select
+            value={request.status}
+            onChange={(e) => handleStatusChange(request.id, e.target.value)}
+            className="text-sm border border-gray-300 rounded-md px-2 py-1"
+          >
+            <option value="pending">Pending</option>
+            <option value="in-progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => handleDelete(request.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   if (loading) {
     return (
@@ -266,75 +364,16 @@ export default function MaintRequestsPage() {
         </div>
 
         {/* Requests Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRequests.length === 0 ? (
-            <Card className="col-span-full">
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+          {sortedRequests.length === 0 ? (
+            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
               <CardContent className="p-12 text-center">
                 <Wrench className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600">No maintenance requests found</p>
               </CardContent>
             </Card>
           ) : (
-            filteredRequests.map((request) => (
-              <Card key={request.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start gap-2">
-                    <CardTitle className="text-lg">{request.title}</CardTitle>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
-                        {request.priority}
-                      </span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
-                        {request.status}
-                      </span>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 flex-shrink-0" />
-                    <span>{request.venue}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <User className="h-4 w-4 flex-shrink-0" />
-                    <span>{request.requestor}</span>
-                  </div>
-
-                  <div className="text-sm text-gray-600 line-clamp-2">
-                    {request.description}
-                  </div>
-
-                  <div className="flex gap-2 pt-4 border-t">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleViewDetails(request)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                    <select
-                      value={request.status}
-                      onChange={(e) => handleStatusChange(request.id, e.target.value)}
-                      className="text-sm border border-gray-300 rounded-md px-2 py-1"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="in-progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                    </select>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDelete(request.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+            sortedRequests.map(renderRequestCard)
           )}
         </div>
 

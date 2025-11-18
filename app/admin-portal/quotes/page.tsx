@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { FileText, DollarSign, Send, Plus, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { notifyQuoteSubmission } from '@/lib/notifications';
+import { useViewControls } from '@/contexts/view-controls-context';
 
 interface LineItem {
   description: string;
@@ -70,6 +71,7 @@ export default function QuotesManagement() {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [markupPercent, setMarkupPercent] = useState('20');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const { viewMode, sortOption } = useViewControls();
 
   // Create Quote Form State
   const [formData, setFormData] = useState({
@@ -296,6 +298,21 @@ export default function QuotesManagement() {
     }
   };
 
+  const getTimestampValue = (value: any) => {
+    if (!value) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    }
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === 'object' && value?.toDate) {
+      const dateValue = value.toDate();
+      return dateValue instanceof Date ? dateValue.getTime() : 0;
+    }
+    return 0;
+  };
+
   const filteredQuotes = quotes.filter(quote => {
     // Filter by status
     const statusMatch = filter === 'all' || quote.status === filter;
@@ -310,6 +327,21 @@ export default function QuotesManagement() {
       (quote.notes && quote.notes.toLowerCase().includes(searchLower));
 
     return statusMatch && searchMatch;
+  });
+
+  const sortedQuotes = [...filteredQuotes].sort((a, b) => {
+    switch (sortOption) {
+      case 'createdAt':
+        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
+      case 'updatedAt':
+        return (
+          getTimestampValue((b as any).updatedAt || b.createdAt) -
+          getTimestampValue((a as any).updatedAt || a.createdAt)
+        );
+      case 'alphabet':
+      default:
+        return (a.workOrderTitle || '').localeCompare(b.workOrderTitle || '');
+    }
   });
 
   const getStatusColor = (status: string) => {
@@ -373,17 +405,20 @@ export default function QuotesManagement() {
         </div>
 
         {/* Quotes Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredQuotes.length === 0 ? (
-            <Card className="col-span-full">
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'}>
+          {sortedQuotes.length === 0 ? (
+            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
               <CardContent className="p-12 text-center">
                 <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600">No quotes found</p>
               </CardContent>
             </Card>
           ) : (
-            filteredQuotes.map((quote) => (
-              <Card key={quote.id} className="hover:shadow-lg transition-shadow">
+            sortedQuotes.map((quote) => (
+              <Card
+                key={quote.id}
+                className={`hover:shadow-lg transition-shadow ${viewMode === 'list' ? 'w-full' : ''}`}
+              >
                 <CardHeader>
                   <div className="space-y-2">
                     <div className="flex justify-between items-start">

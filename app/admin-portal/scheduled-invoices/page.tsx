@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar, Play, Trash2, ToggleLeft, ToggleRight, Edit2, Save, X, Search, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInvoicePDFBase64 } from '@/lib/pdf-generator';
+import { useViewControls } from '@/contexts/view-controls-context';
 
 interface LineItem {
   description: string;
@@ -46,6 +47,7 @@ export default function ScheduledInvoicesManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [executing, setExecuting] = useState<string | null>(null);
+  const { viewMode, sortOption } = useViewControls();
   const [formData, setFormData] = useState({
     clientId: '',
     title: '',
@@ -365,6 +367,21 @@ export default function ScheduledInvoicesManagement() {
     }
   };
 
+  const getTimestampValue = (value: any) => {
+    if (!value) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    }
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === 'object' && value?.toDate) {
+      const dateValue = value.toDate();
+      return dateValue instanceof Date ? dateValue.getTime() : 0;
+    }
+    return 0;
+  };
+
   const handleOpenEdit = (schedule: ScheduledInvoice) => {
     setFormData({
       clientId: schedule.clientId,
@@ -440,6 +457,21 @@ export default function ScheduledInvoicesManagement() {
       schedule.frequency.toLowerCase().includes(searchLower);
 
     return searchMatch;
+  });
+
+  const sortedScheduledInvoices = [...filteredScheduledInvoices].sort((a, b) => {
+    switch (sortOption) {
+      case 'createdAt':
+        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
+      case 'updatedAt':
+        return (
+          getTimestampValue((b as any).updatedAt || b.lastExecution || b.createdAt) -
+          getTimestampValue((a as any).updatedAt || a.lastExecution || a.createdAt)
+        );
+      case 'alphabet':
+      default:
+        return (a.title || '').localeCompare(b.title || '');
+    }
   });
 
   if (loading) {
@@ -622,17 +654,17 @@ export default function ScheduledInvoicesManagement() {
         </div>
 
         {/* Scheduled Invoices List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredScheduledInvoices.length === 0 ? (
-            <Card className="col-span-full">
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-4'}>
+          {sortedScheduledInvoices.length === 0 ? (
+            <Card className={viewMode === 'grid' ? 'col-span-full' : ''}>
               <CardContent className="p-12 text-center">
                 <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-600">No scheduled invoices found</p>
               </CardContent>
             </Card>
           ) : (
-            filteredScheduledInvoices.map((schedule) => (
-              <Card key={schedule.id}>
+            sortedScheduledInvoices.map((schedule) => (
+              <Card key={schedule.id} className={viewMode === 'list' ? 'w-full' : ''}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg">{schedule.title}</CardTitle>

@@ -14,6 +14,8 @@ import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench
 } from 'lucide-react';
+import { ViewControlsProvider } from '@/contexts/view-controls-context';
+import ViewControls from '@/components/view-controls';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -206,9 +208,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             sidebarOpen ? 'md:ml-64' : 'md:ml-0'
           }`}
         >
-          <div className="p-4 md:p-6">
-            {children}
-          </div>
+          <ViewControlsProvider>
+            <div className="p-4 md:p-6 space-y-4">
+              <ViewControls />
+              {children}
+            </div>
+          </ViewControlsProvider>
         </main>
       </div>
     </div>
