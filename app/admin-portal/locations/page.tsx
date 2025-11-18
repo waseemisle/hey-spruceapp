@@ -225,7 +225,7 @@ export default function LocationsManagement() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.clientId || !formData.companyId || !formData.locationName || !formData.street || !formData.city || !formData.state || !formData.zip) {
+    if (!formData.companyId || !formData.locationName || !formData.street || !formData.city || !formData.state || !formData.zip) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -233,19 +233,20 @@ export default function LocationsManagement() {
     setSubmitting(true);
 
     try {
-      const client = clients.find(c => c.id === formData.clientId);
-      if (!client) {
-        toast.error('Invalid client selected');
+      const selectedCompany = companies.find(c => c.id === formData.companyId);
+      if (!selectedCompany) {
+        toast.error('Invalid company selected');
         return;
       }
 
-      const selectedCompany = companies.find(c => c.id === formData.companyId);
+      // Get client info from the company
+      const client = formData.clientId ? clients.find(c => c.id === formData.clientId) : null;
       const locationData = {
-        clientId: formData.clientId,
-        clientName: client.fullName,
-        clientEmail: client.email,
+        clientId: formData.clientId || selectedCompany.clientId || '',
+        clientName: client?.fullName || '',
+        clientEmail: client?.email || '',
         companyId: formData.companyId,
-        companyName: selectedCompany?.name || '',
+        companyName: selectedCompany.name,
         locationName: formData.locationName,
         address: {
           street: formData.street,
@@ -538,10 +539,10 @@ export default function LocationsManagement() {
               <div className="p-4 sm:p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Select Client *</Label>
+                    <Label>Select Client (Optional)</Label>
                     <select
                       value={formData.clientId}
-                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value, companyId: '' })}
+                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
                       className="w-full border border-input bg-background rounded-md p-2 text-foreground"
                       disabled={!!editingId}
                     >
@@ -559,22 +560,24 @@ export default function LocationsManagement() {
 
                   <div>
                     <Label>Company *</Label>
-                    <select
-                      value={formData.companyId}
-                      onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
+                    <input
+                      list="companies-list"
+                      value={companies.find(c => c.id === formData.companyId)?.name || ''}
+                      onChange={(e) => {
+                        const selectedCompany = companies.find(c => c.name === e.target.value);
+                        setFormData({ ...formData, companyId: selectedCompany?.id || '' });
+                      }}
                       className="w-full border border-input bg-background rounded-md p-2 text-foreground"
-                      disabled={!formData.clientId}
-                    >
-                      <option value="">{formData.clientId ? 'Choose a company...' : 'Select client first'}</option>
-                      {formData.clientId && companies
-                        .filter(c => c.clientId && c.clientId === formData.clientId)
-                        .map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                    {formData.clientId && companies.filter(c => c.clientId && c.clientId === formData.clientId).length === 0 && (
+                      placeholder="Search companies..."
+                    />
+                    <datalist id="companies-list">
+                      {companies.map(c => (
+                        <option key={c.id} value={c.name} />
+                      ))}
+                    </datalist>
+                    {companies.length === 0 && (
                       <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                        No companies found for this client. Create a company first in the Companies section.
+                        No companies found. Create a company first in the Companies section.
                       </p>
                     )}
                   </div>
