@@ -191,11 +191,8 @@ function SetPasswordContent() {
             Welcome to Hey Spruce! Please create a password to activate your account.
           </CardDescription>
           <div className="pt-4 space-y-2 bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
-            <p className="text-lg font-bold text-gray-800">
+            <p className="text-lg text-gray-800">
               Setting password for Email: <span className="text-green-600">{email || 'Loading...'}</span>
-            </p>
-            <p className="text-lg font-bold text-gray-800">
-              Setting password for Client UUID: <span className="text-blue-600">{uid || 'Loading from database...'}</span>
             </p>
             {role && (
               <p className="text-sm text-gray-600">
