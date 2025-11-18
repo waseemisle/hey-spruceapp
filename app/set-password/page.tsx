@@ -21,38 +21,23 @@ function SetPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [token, setToken] = useState('');
-  const [email, setEmail] = useState('TEST_EMAIL_NOT_LOADED');
-  const [uid, setUid] = useState('TEST_UID_NOT_LOADED');
+  const [email, setEmail] = useState('');
+  const [uid, setUid] = useState('');
   const [tempPassword, setTempPassword] = useState('');
   const [role, setRole] = useState<'client' | 'subcontractor' | ''>('');
-  const [pageLoaded, setPageLoaded] = useState(false);
 
   useEffect(() => {
-    console.log('🚀🚀🚀 SET PASSWORD PAGE LOADED 🚀🚀🚀');
-    console.log('Current URL:', window.location.href);
-
     const tokenParam = searchParams.get('token');
-    console.log('Token param from URL:', tokenParam);
 
     if (!tokenParam) {
-      console.log('❌ NO TOKEN FOUND IN URL');
       toast.error('Invalid or missing password setup link');
-      // Don't redirect immediately - let's see what's happening
-      // router.push('/portal-login');
-      setPageLoaded(true);
+      router.push('/portal-login');
       return;
     }
 
     try {
       // Decode the token
       const decoded = JSON.parse(Buffer.from(tokenParam, 'base64').toString());
-
-      console.log('🔍🔍🔍 TOKEN DECODED ON PAGE LOAD 🔍🔍🔍');
-      console.log('Full decoded token:', decoded);
-      console.log('Email from token:', decoded.email);
-      console.log('UID from token:', decoded.uid);
-      console.log('Role from token:', decoded.role);
-      console.log('🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍🔍');
 
       // Check if token is expired (24 hours)
       const tokenAge = Date.now() - decoded.timestamp;
@@ -71,26 +56,13 @@ function SetPasswordContent() {
       }
 
       setToken(tokenParam);
-      const emailValue = decoded.email || 'NO_EMAIL_IN_TOKEN';
-      const uidValue = decoded.uid || 'NO_UID_IN_TOKEN';
-      const roleValue = decoded.role || 'NO_ROLE_IN_TOKEN';
-
-      setEmail(emailValue);
-      setUid(uidValue);
+      setEmail(decoded.email || '');
+      setUid(decoded.uid || '');
       setTempPassword(decoded.tempPassword || '');
-      setRole(roleValue);
-      setPageLoaded(true);
-
-      console.log('✅✅✅ STATE SET SUCCESSFULLY ✅✅✅');
-      console.log('Email state:', emailValue);
-      console.log('UID state:', uidValue);
-      console.log('Role state:', roleValue);
-      console.log('✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅');
+      setRole(decoded.role || '');
     } catch (error) {
-      console.error('❌❌❌ Error decoding token:', error);
       toast.error('Invalid password setup link');
-      setPageLoaded(true);
-      // router.push('/portal-login');
+      router.push('/portal-login');
     }
   }, [searchParams, router]);
 
@@ -114,22 +86,8 @@ function SetPasswordContent() {
 
     setLoading(true);
 
-    console.log('========================================');
-    console.log('🔥 SETTING PASSWORD - CLIENT SIDE 🔥');
-    console.log('Email:', email);
-    console.log('UID from token:', uid);
-    console.log('Role from token:', role);
-    console.log('========================================');
-    console.log('🔑 PASSWORD BEING SET:', password);
-    console.log('========================================');
-    console.log('🔑🔑🔑 USER PASSWORD 🔑🔑🔑');
-    console.log('Password:', password);
-    console.log('🔑🔑🔑🔑🔑🔑🔑🔑🔑🔑🔑🔑🔑🔑🔑');
-    console.log('========================================');
-
     try {
-      // Step 0: Get the actual UID from Firestore based on email
-      console.log('🔍 Fetching UID from Firestore based on email...');
+      // Get the actual UID from Firestore based on email
       let actualUid = uid;
       let actualRole = role;
 
@@ -140,33 +98,20 @@ function SetPasswordContent() {
       if (!clientsSnapshot.empty) {
         actualUid = clientsSnapshot.docs[0].id;
         actualRole = 'client';
-        console.log('✅ Found in CLIENTS collection');
-        console.log('Actual Client UID:', actualUid);
       } else {
         // Try subcontractors collection
-        console.log('Not in clients, checking subcontractors...');
         const subsQuery = query(collection(db, 'subcontractors'), where('email', '==', email));
         const subsSnapshot = await getDocs(subsQuery);
 
         if (!subsSnapshot.empty) {
           actualUid = subsSnapshot.docs[0].id;
           actualRole = 'subcontractor';
-          console.log('✅ Found in SUBCONTRACTORS collection');
-          console.log('Actual Subcontractor UID:', actualUid);
         } else {
-          console.error('❌ User not found in either collection with email:', email);
           throw new Error('User not found in database');
         }
       }
 
-      console.log('========================================');
-      console.log('Using UID:', actualUid);
-      console.log('Using Role:', actualRole);
-      console.log('========================================');
-
-      // Step 1: Update Firebase Authentication password using the API
-      console.log('🔐 Updating Firebase Authentication password...');
-
+      // Update Firebase Authentication password using the API
       const authResponse = await fetch('/api/auth/set-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -182,15 +127,10 @@ function SetPasswordContent() {
       const authData = await authResponse.json();
 
       if (!authResponse.ok) {
-        console.error('❌ Auth API error:', authData.error);
-        // Don't fail completely - just log and continue to store password
-        console.log('⚠️ Auth update failed, but continuing to store password in Firestore...');
-      } else {
-        console.log('✓ Password updated in Firebase Authentication');
+        // Don't fail completely - just continue to store password in Firestore
       }
 
-      // Step 2: Store password in Firestore using the actual UID we found
-      console.log('💾 Storing password in Firestore...');
+      // Store password in Firestore using the actual UID we found
       const collectionName = actualRole === 'client' ? 'clients' : 'subcontractors';
       const userDocRef = doc(db, collectionName, actualUid);
 
@@ -199,14 +139,6 @@ function SetPasswordContent() {
         passwordSetAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-
-      console.log('========================================');
-      console.log('✓✓✓ PASSWORD STORED IN FIRESTORE ✓✓✓');
-      console.log('Collection:', collectionName);
-      console.log('UID:', actualUid);
-      console.log('Email:', email);
-      console.log('Password:', password);
-      console.log('========================================');
 
       setSuccess(true);
       toast.success('Password set successfully!');
