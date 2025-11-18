@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
@@ -230,7 +230,7 @@ const fetchCompanies = async () => {
       // Create timeline event
       const timelineEvent = {
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         type: 'approved',
         userId: currentUser.uid,
         userName: adminName,
@@ -247,7 +247,7 @@ const fetchCompanies = async () => {
         approvedBy: {
           id: currentUser.uid,
           name: adminName,
-          timestamp: serverTimestamp(),
+          timestamp: Timestamp.now(),
         }
       };
 
@@ -906,7 +906,7 @@ const handleLocationSelect = (locationId: string) => {
       // Create timeline event
       const timelineEvent = {
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        timestamp: serverTimestamp(),
+        timestamp: Timestamp.now(),
         type: 'shared_for_bidding',
         userId: currentUser.uid,
         userName: adminName,
@@ -923,7 +923,7 @@ const handleLocationSelect = (locationId: string) => {
         ...existingSysInfo,
         sharedForBidding: {
           by: { id: currentUser.uid, name: adminName },
-          timestamp: serverTimestamp(),
+          timestamp: Timestamp.now(),
           subcontractors: selectedSubcontractors.map(subId => {
             const sub = subcontractors.find(s => s.id === subId);
             return { id: subId, name: sub ? sub.fullName : 'Unknown' };
