@@ -3,6 +3,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ViewControlsProvider } from "@/contexts/view-controls-context";
 
 export const metadata: Metadata = {
   title: "Hey Spruce App - Property Maintenance Management",
@@ -26,9 +27,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster />
-          <SonnerToaster position="top-right" richColors />
+          <ViewControlsProvider>
+            {children}
+            <Toaster />
+            <SonnerToaster position="top-right" richColors />
+          </ViewControlsProvider>
         </ThemeProvider>
       </body>
     </html>

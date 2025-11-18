@@ -11,7 +11,6 @@ import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu, X } from 'lucide-react';
-import { ViewControlsProvider } from '@/contexts/view-controls-context';
 import ViewControls from '@/components/view-controls';
 
 export default function SubcontractorLayout({ children }: { children: React.ReactNode }) {
@@ -156,12 +155,10 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
         </aside>
 
         <main className="flex-1 md:ml-64">
-          <ViewControlsProvider>
-            <div className="p-4 md:p-6 space-y-4">
-              <ViewControls />
-              {children}
-            </div>
-          </ViewControlsProvider>
+          <div className="p-4 md:p-6 space-y-4">
+            <ViewControls />
+            {children}
+          </div>
         </main>
       </div>
     </div>
