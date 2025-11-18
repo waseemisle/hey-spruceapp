@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
@@ -80,17 +80,26 @@ export default function ClientLocations() {
           const locationsQuery = query(
             collection(db, 'locations'),
             where('companyId', '==', clientCompanyId),
-            orderBy('createdAt', 'desc')
+            orderBy('createdAt', 'desc'),
+            limit(200)
           );
 
-          unsubscribeSnapshot = onSnapshot(locationsQuery, (snapshot) => {
-            const locationsData = snapshot.docs.map(docSnap => ({
-              id: docSnap.id,
-              ...docSnap.data(),
-            })) as Location[];
-            setLocations(locationsData);
-            setLoading(false);
-          });
+          unsubscribeSnapshot = onSnapshot(
+            locationsQuery,
+            (snapshot) => {
+              const locationsData = snapshot.docs.map(docSnap => ({
+                id: docSnap.id,
+                ...docSnap.data(),
+              })) as Location[];
+              setLocations(locationsData);
+              setLoading(false);
+            },
+            (error) => {
+              console.error('Error listening to company locations', error);
+              setLocations([]);
+              setLoading(false);
+            }
+          );
         } catch (error) {
           console.error('Error loading client locations', error);
           setCompanyInfo(null);
