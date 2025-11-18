@@ -412,7 +412,7 @@ export async function POST(request: Request) {
     const maintRequestsQuery = query(collection(db, 'maint_requests'));
     const maintRequestsSnapshot = await getDocs(maintRequestsQuery);
     const maintRequestCount = maintRequestsSnapshot.size + 1;
-    const maintRequestNumber = `MR-${maintRequestCount.toString().padStart(5, '0')}`;
+    const maintRequestNumber = `MR-${maintRequestCount.toString().padStart(8, '0')}`;
 
     // Create maintenance request document
     const maintRequestData = {
@@ -479,8 +479,8 @@ export async function POST(request: Request) {
         console.log(`Created new location: ${locationName} (${locationId})`);
       }
 
-      // Generate work order number
-      const workOrderNumber = `WO-${Date.now().toString().slice(-6).toUpperCase()}`;
+      // Generate work order number (7 digits)
+      const workOrderNumber = `WO-${Date.now().toString().slice(-7).toUpperCase()}`;
 
       // Create initial timeline event (use Date instead of serverTimestamp in arrays)
       const now = new Date();
@@ -516,6 +516,8 @@ export async function POST(request: Request) {
         clientId: '', // Not assigned to specific client initially
         clientName: requestor || 'API Request',
         clientEmail: '',
+        companyId: 'yirKMXRWAuV2YaOJ1kfA', // The h.wood Group
+        companyName: 'The h.wood Group',
         locationId: locationId,
         location: { id: locationId, locationName: locationName },
         locationName: locationName,
@@ -533,6 +535,7 @@ export async function POST(request: Request) {
         createdViaAPI: true, // Flag to identify API-created work orders
         originalMaintRequestId: docRef.id, // Link back to maint request
         maintRequestNumber: maintRequestNumber, // Reference to maintenance request number
+        isMaintenanceRequestOrder: true, // Flag to indicate this work order was created from a maintenance request
         timeline: [timelineEvent],
         systemInformation: systemInformation,
       });

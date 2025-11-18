@@ -39,6 +39,7 @@ interface WorkOrder {
   createdAt: any;
   quoteCount?: number;
   hasInvoice?: boolean;
+  isMaintenanceRequestOrder?: boolean;
 }
 
 interface Client {
@@ -116,6 +117,7 @@ export default function WorkOrdersManagement() {
     priority: 'medium' as 'low' | 'medium' | 'high',
     estimateBudget: '',
     status: 'approved' as WorkOrder['status'],
+    isMaintenanceRequestOrder: false,
   });
 
   const fetchWorkOrders = async () => {
@@ -323,6 +325,7 @@ const fetchCompanies = async () => {
       priority: 'medium',
       estimateBudget: '',
       status: 'approved',
+      isMaintenanceRequestOrder: false,
     });
     setEditingId(null);
     setShowModal(false);
@@ -671,6 +674,7 @@ const handleLocationSelect = (locationId: string) => {
       priority: workOrder.priority,
       estimateBudget: workOrder.estimateBudget ? workOrder.estimateBudget.toString() : '',
       status: workOrder.status,
+      isMaintenanceRequestOrder: workOrder.isMaintenanceRequestOrder || false,
     });
     setEditingId(workOrder.id);
     setShowModal(true);
@@ -699,7 +703,7 @@ const handleLocationSelect = (locationId: string) => {
         return;
       }
 
-      const workOrderData = {
+      const workOrderData: any = {
         clientId: formData.clientId,
         clientName: client.fullName,
         clientEmail: client.email,
@@ -718,6 +722,11 @@ const handleLocationSelect = (locationId: string) => {
         status: formData.status,
         updatedAt: serverTimestamp(),
       };
+
+      // Preserve isMaintenanceRequestOrder if editing and it was already true
+      if (editingId && formData.isMaintenanceRequestOrder) {
+        workOrderData.isMaintenanceRequestOrder = true;
+      }
 
       if (editingId) {
         // Update existing work order
@@ -1665,6 +1674,31 @@ const filteredLocationsForForm = locations.filter((location) => {
                       <option value="assigned">Assigned</option>
                       <option value="completed">Completed</option>
                     </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="isMaintenanceRequestOrder"
+                        checked={formData.isMaintenanceRequestOrder}
+                        onChange={(e) => {
+                          // Only allow unchecking if it's not a maintenance request order
+                          // If it's already true (from maintenance request), don't allow changing
+                          if (!formData.isMaintenanceRequestOrder) {
+                            setFormData({ ...formData, isMaintenanceRequestOrder: e.target.checked });
+                          }
+                        }}
+                        disabled={formData.isMaintenanceRequestOrder}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <Label htmlFor="isMaintenanceRequestOrder" className={formData.isMaintenanceRequestOrder ? 'text-gray-500' : ''}>
+                        Maintenance Request Order
+                      </Label>
+                      {formData.isMaintenanceRequestOrder && (
+                        <span className="text-xs text-gray-500 ml-2">(This field cannot be edited)</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
