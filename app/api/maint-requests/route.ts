@@ -407,8 +407,16 @@ export async function POST(request: Request) {
     const app = getFirebaseApp();
     const db = getFirestore(app);
 
+    // Generate maintenance request number
+    // Get count of existing maint requests to generate next number
+    const maintRequestsQuery = query(collection(db, 'maint_requests'));
+    const maintRequestsSnapshot = await getDocs(maintRequestsQuery);
+    const maintRequestCount = maintRequestsSnapshot.size + 1;
+    const maintRequestNumber = `MR-${maintRequestCount.toString().padStart(5, '0')}`;
+
     // Create maintenance request document
     const maintRequestData = {
+      maintRequestNumber,
       venue,
       requestor,
       date: new Date(date), // Convert ISO string to Date
@@ -417,6 +425,8 @@ export async function POST(request: Request) {
       image: imageUrl, // Store Cloudinary URL instead of base64
       priority,
       status: 'pending', // Default status
+      workOrderNumber: '', // Will be updated after work order is created
+      workOrderId: '', // Will be updated after work order is created
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -472,10 +482,11 @@ export async function POST(request: Request) {
       // Generate work order number
       const workOrderNumber = `WO-${Date.now().toString().slice(-6).toUpperCase()}`;
 
-      // Create initial timeline event
+      // Create initial timeline event (use Date instead of serverTimestamp in arrays)
+      const now = new Date();
       const timelineEvent = {
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        timestamp: serverTimestamp(),
+        timestamp: now,
         type: 'created',
         userId: 'system',
         userName: 'Automated System',
@@ -495,7 +506,7 @@ export async function POST(request: Request) {
           id: 'system',
           name: 'Automated System (API)',
           role: 'system',
-          timestamp: serverTimestamp(),
+          timestamp: now,
         }
       };
 
@@ -521,11 +532,21 @@ export async function POST(request: Request) {
         createdBy: 'API',
         createdViaAPI: true, // Flag to identify API-created work orders
         originalMaintRequestId: docRef.id, // Link back to maint request
+        maintRequestNumber: maintRequestNumber, // Reference to maintenance request number
         timeline: [timelineEvent],
         systemInformation: systemInformation,
       });
 
       console.log(`Created work order: ${workOrderNumber} (${workOrderRef.id})`);
+
+      // Update maintenance request with work order reference
+      await updateDoc(doc(db, 'maint_requests', docRef.id), {
+        workOrderNumber: workOrderNumber,
+        workOrderId: workOrderRef.id,
+        updatedAt: serverTimestamp(),
+      });
+
+      console.log(`Updated maint request ${maintRequestNumber} with work order reference: ${workOrderNumber}`);
 
       // Notify admins about new maintenance request
       // Get all admin users
@@ -586,9 +607,19 @@ export async function POST(request: Request) {
       // Don't fail the whole request if work order creation fails
     }
 
+    // Get the updated maintenance request data to return
+    const finalMaintRequest = await getDocs(query(
+      collection(db, 'maint_requests'),
+      where('__name__', '==', docRef.id)
+    ));
+    const updatedMaintRequestData = finalMaintRequest.docs[0]?.data();
+
     return NextResponse.json({
       success: true,
       id: docRef.id,
+      maintRequestNumber: maintRequestNumber,
+      workOrderNumber: updatedMaintRequestData?.workOrderNumber || null,
+      workOrderId: updatedMaintRequestData?.workOrderId || null,
       message: 'Maintenance request created successfully',
     });
   } catch (error: any) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import { sendEmail } from '@/lib/nodemailer';
 
 export async function POST(request: Request) {
   try {
@@ -17,28 +17,6 @@ export async function POST(request: Request) {
       pdfBase64,
       workOrderPdfBase64
     } = body;
-
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'matthew@heyspruce.com';
-
-    // Check if we're in development/testing mode without proper Resend setup
-    const isTestMode = !resendApiKey || resendApiKey.includes('YOUR_') || resendApiKey.length < 20;
-
-    if (isTestMode) {
-      console.log('📧 EMAIL (TEST MODE) - Would send to:', toEmail);
-      console.log('   Subject: Invoice #' + invoiceNumber);
-      console.log('   Amount: $' + totalAmount);
-      console.log('   Due Date:', dueDate);
-      if (stripePaymentLink) {
-        console.log('   Payment Link:', stripePaymentLink);
-      }
-
-      return NextResponse.json({
-        success: true,
-        testMode: true,
-        message: 'Email not sent (test mode) - Configure Resend for production'
-      });
-    }
 
     // Build line items HTML
     let lineItemsHtml = '';
@@ -139,74 +117,38 @@ export async function POST(request: Request) {
 
           <p style="font-size: 12px; color: #6b7280; text-align: center;">
             Hey Spruce App | San Francisco, CA 94104<br>
-            Phone: 877-253-2646 | Email: waseem@shurehw.com
+            Phone: 877-253-2646 | Email: matthew@heyspruce.com
           </p>
         </div>
       </body>
       </html>
     `;
 
-    // Prepare attachments for Resend
-    const resendAttachments = [];
+    // Prepare attachments for Nodemailer
+    const attachments = [];
 
     if (pdfBase64) {
-      resendAttachments.push({
+      attachments.push({
         content: pdfBase64,
         filename: `Invoice_${invoiceNumber}.pdf`,
       });
     }
 
     if (workOrderPdfBase64) {
-      resendAttachments.push({
+      attachments.push({
         content: workOrderPdfBase64,
         filename: `WorkOrder_${workOrderTitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
       });
     }
 
-    const resend = new Resend(resendApiKey);
-
-    const emailOptions: any = {
-      from: `Hey Spruce App <${fromEmail}>`,
-      to: [toEmail],
+    const result = await sendEmail({
+      to: toEmail,
       subject: `Invoice #${invoiceNumber} - Payment Due`,
       html: emailHtml,
-    };
+      attachments,
+    });
 
-    if (resendAttachments.length > 0) {
-      emailOptions.attachments = resendAttachments;
-    }
-
-    const { data, error } = await resend.emails.send(emailOptions);
-
-    if (error) {
-      console.error('❌ Resend error response:', {
-        error: error,
-        apiKey: resendApiKey ? `${resendApiKey.substring(0, 10)}...` : 'not set',
-        fromEmail: fromEmail
-      });
-
-      // Log the email that failed to send
-      console.log('📧 Failed email details:', {
-        to: toEmail,
-        subject: `Invoice #${invoiceNumber}`,
-        amount: totalAmount,
-        dueDate: dueDate,
-        paymentLink: stripePaymentLink
-      });
-
-      // Return gracefully - don't block invoice creation
-      return NextResponse.json(
-        {
-          success: false,
-          error: error.message || 'Failed to send email',
-          details: 'Resend API Error',
-          emailLogged: true
-        },
-        { status: 200 } // Return 200 so invoice creation continues
-      );
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, testMode: result.testMode });
   } catch (error) {
     console.error('Error sending invoice email:', error);
     return NextResponse.json(

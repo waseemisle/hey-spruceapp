@@ -24,7 +24,7 @@ Your application sends invitation emails to new users (clients, subcontractors, 
 2. Click **Verify a Single Sender**
 3. Fill in your details:
    - From Name: "Hey Spruce"
-   - From Email Address: Your email (e.g., noreply@heyspruce.com or waseem@shurehw.com)
+   - From Email Address: Your email (e.g., noreply@heyspruce.com or matthew@heyspruce.com)
    - Reply To: Same email or support email
 4. Click **Create**
 5. Check your email and click the verification link

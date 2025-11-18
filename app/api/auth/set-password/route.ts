@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminApp } from '@/lib/firebase-admin';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
     const { token, email, uid, tempPassword, newPassword } = await request.json();
+
+    console.log('========================================');
+    console.log('SET PASSWORD REQUEST RECEIVED');
+    console.log('Email:', email);
+    console.log('UID:', uid);
+    console.log('New Password:', newPassword);
+    console.log('========================================');
 
     // Validate required fields
     if (!token || !email || !uid || !tempPassword || !newPassword) {
@@ -109,6 +118,84 @@ export async function POST(request: NextRequest) {
       const errorData = await updateResponse.json();
       console.error('Firebase update error:', errorData);
       throw new Error(errorData.error?.message || 'Failed to update password');
+    }
+
+    // Store password in Firestore for admin viewing
+    console.log('========================================');
+    console.log('STORING PASSWORD IN FIRESTORE');
+    console.log('UID:', uid);
+    console.log('Password to store:', newPassword);
+
+    try {
+      const adminApp = getAdminApp();
+      const db = getFirestore(adminApp);
+
+      // Check if user is a client
+      const clientDocRef = db.collection('clients').doc(uid);
+      const clientDoc = await clientDocRef.get();
+      console.log('Checking clients collection...');
+      console.log('Client document exists:', clientDoc.exists);
+
+      if (clientDoc.exists) {
+        console.log('Client found! Storing password...');
+        // Use set with merge to ensure password is stored
+        await clientDocRef.set({
+          password: newPassword,
+          passwordSetAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+
+        // Verify it was stored
+        const verifyDoc = await clientDocRef.get();
+        const verifyData = verifyDoc.data();
+        console.log('✓✓✓ PASSWORD SUCCESSFULLY STORED IN FIRESTORE ✓✓✓');
+        console.log('Stored password value:', verifyData?.password);
+        console.log('Client email:', verifyData?.email);
+        console.log('========================================');
+      } else {
+        console.log('Not a client, checking subcontractors collection...');
+        // Check if user is a subcontractor
+        const subcontractorDocRef = db.collection('subcontractors').doc(uid);
+        const subcontractorDoc = await subcontractorDocRef.get();
+        console.log('Subcontractor document exists:', subcontractorDoc.exists);
+
+        if (subcontractorDoc.exists) {
+          console.log('Subcontractor found! Storing password...');
+          // Use set with merge to ensure password is stored
+          await subcontractorDocRef.set({
+            password: newPassword,
+            passwordSetAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+
+          // Verify it was stored
+          const verifyDoc = await subcontractorDocRef.get();
+          const verifyData = verifyDoc.data();
+          console.log('✓✓✓ PASSWORD SUCCESSFULLY STORED IN FIRESTORE ✓✓✓');
+          console.log('Stored password value:', verifyData?.password);
+          console.log('Subcontractor email:', verifyData?.email);
+          console.log('========================================');
+        } else {
+          console.error('❌❌❌ USER NOT FOUND ❌❌❌');
+          console.error('UID:', uid);
+          console.error('Email:', email);
+          console.error('Not found in clients or subcontractors collection');
+          console.log('========================================');
+          return NextResponse.json(
+            { error: 'User not found in database' },
+            { status: 404 }
+          );
+        }
+      }
+    } catch (firestoreError: any) {
+      console.error('❌❌❌ FIRESTORE ERROR ❌❌❌');
+      console.error('Error:', firestoreError);
+      console.error('Error message:', firestoreError?.message);
+      console.error('Error code:', firestoreError?.code);
+      console.error('Error stack:', firestoreError?.stack);
+      console.log('========================================');
+      // Still throw the error to be caught by the outer try-catch
+      throw new Error(`Firestore error: ${firestoreError?.message || 'Unknown error'}`);
     }
 
     return NextResponse.json({

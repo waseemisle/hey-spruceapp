@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import { sendEmail } from '@/lib/nodemailer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,27 +11,6 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       );
-    }
-
-    const RESEND_API_KEY = process.env.RESEND_API_KEY;
-    const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'matthew@heyspruce.com';
-
-    // If no Resend API key, log to console (test mode)
-    if (!RESEND_API_KEY) {
-      console.log('\n========================================');
-      console.log('📧 INVITATION EMAIL (TEST MODE)');
-      console.log('========================================');
-      console.log('To:', email);
-      console.log('Name:', fullName);
-      console.log('Role:', role);
-      console.log('\n🔗 Password Setup Link:');
-      console.log(resetLink);
-      console.log('\n⚠️  Resend not configured - Add RESEND_API_KEY to environment variables');
-      console.log('========================================\n');
-      return NextResponse.json({
-        success: true,
-        message: 'Test mode: Email logged to console'
-      });
     }
 
     // Determine role-specific content
@@ -123,30 +102,27 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
-    // Send email via Resend
-    const resend = new Resend(RESEND_API_KEY);
-
-    const { data, error } = await resend.emails.send({
-      from: `Hey Spruce <${RESEND_FROM_EMAIL}>`,
-      to: [email],
+    // Send email via Nodemailer
+    const result = await sendEmail({
+      to: email,
       subject: `Welcome to Hey Spruce - Set Up Your ${roleTitle} Account`,
       html: emailHtml,
     });
 
-    if (error) {
-      console.error('Resend error:', error);
-      throw new Error(`Resend API error: ${error.message}`);
-    }
-
     return NextResponse.json({
       success: true,
-      message: 'Invitation email sent successfully'
+      message: 'Invitation email sent successfully',
+      testMode: result.testMode
     });
 
-  } catch (error) {
-    console.error('Error sending invitation email:', error);
+  } catch (error: any) {
+    console.error('❌ Error sending invitation email:', error);
+    console.error('❌ Error details:', error.message || error);
     return NextResponse.json(
-      { error: 'Failed to send invitation email' },
+      {
+        error: 'Failed to send invitation email',
+        details: error.message || String(error)
+      },
       { status: 500 }
     );
   }

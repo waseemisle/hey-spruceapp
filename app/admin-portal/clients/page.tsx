@@ -19,6 +19,7 @@ interface Client {
   companyId?: string;
   phone: string;
   assignedLocations?: string[];
+  password?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
 }
@@ -57,6 +58,7 @@ export default function ClientsManagement() {
     companyId: '',
     phone: '',
     assignedLocations: [] as string[],
+    password: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
   });
 
@@ -64,10 +66,19 @@ export default function ClientsManagement() {
     try {
       const clientsQuery = query(collection(db, 'clients'));
       const snapshot = await getDocs(clientsQuery);
-      const clientsData = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        uid: doc.id,
-      })) as Client[];
+      const clientsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Debug: Log password field for troubleshooting
+        console.log('========================================');
+        console.log('FETCHING CLIENT:', data.email);
+        console.log('Has password field:', !!data.password);
+        console.log('Password value:', data.password || 'NOT SET');
+        console.log('========================================');
+        return {
+          ...data,
+          uid: doc.id,
+        };
+      }) as Client[];
       setClients(clientsData);
     } catch (error) {
       console.error('Error fetching clients:', error);
@@ -199,6 +210,7 @@ export default function ClientsManagement() {
       companyId: '',
       phone: '',
       assignedLocations: [],
+      password: '',
       status: 'approved',
     });
     setEditingId(null);
@@ -211,6 +223,11 @@ export default function ClientsManagement() {
   };
 
   const handleOpenEdit = (client: Client) => {
+    console.log('========================================');
+    console.log('OPENING EDIT MODAL FOR CLIENT:', client.email);
+    console.log('Client UID:', client.uid);
+    console.log('Client password field:', client.password || 'NOT SET');
+    console.log('========================================');
     setFormData({
       email: client.email,
       fullName: client.fullName,
@@ -218,6 +235,7 @@ export default function ClientsManagement() {
       phone: client.phone,
       assignedLocations: client.assignedLocations || [],
       status: client.status,
+      password: client.password || '',
     });
     setEditingId(client.uid);
     setShowModal(true);
@@ -274,7 +292,15 @@ export default function ClientsManagement() {
           throw new Error(error.error || 'Failed to create client');
         }
 
-        toast.success('Client created successfully! An invitation email has been sent.');
+        const result = await response.json();
+        
+        if (result.emailSent) {
+          toast.success('Client created successfully! An invitation email has been sent.');
+        } else if (result.emailError) {
+          toast.warning(`Client created successfully, but invitation email failed to send: ${result.emailError}. You can manually send an invitation later.`);
+        } else {
+          toast.success('Client created successfully!');
+        }
       }
 
       resetForm();
@@ -731,6 +757,30 @@ export default function ClientsManagement() {
                       placeholder="(555) 123-4567"
                     />
                   </div>
+
+                  {editingId && (
+                    <div className="md:col-span-2">
+                      <Label>Password (View Only)</Label>
+                      <Input
+                        type="text"
+                        value={formData.password || ''}
+                        readOnly
+                        className="bg-gray-50 cursor-default font-mono"
+                        placeholder="Not set yet - Client will set via invitation link"
+                      />
+                      {formData.password ? (
+                        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                          Password has been set by client
+                        </p>
+                      ) : (
+                        <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 bg-orange-500 rounded-full"></span>
+                          Waiting for client to set password
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <Label>Status *</Label>

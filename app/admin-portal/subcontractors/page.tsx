@@ -19,6 +19,7 @@ interface Subcontractor {
   phone: string;
   skills: string[];
   licenseNumber?: string;
+  password?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
 }
@@ -42,6 +43,7 @@ export default function SubcontractorsManagement() {
     phone: '',
     licenseNumber: '',
     skills: '',
+    password: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
   });
 
@@ -49,10 +51,19 @@ export default function SubcontractorsManagement() {
     try {
       const subsQuery = query(collection(db, 'subcontractors'));
       const snapshot = await getDocs(subsQuery);
-      const subsData = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        uid: doc.id,
-      })) as Subcontractor[];
+      const subsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Debug: Log password field for troubleshooting
+        console.log('========================================');
+        console.log('FETCHING SUBCONTRACTOR:', data.email);
+        console.log('Has password field:', !!data.password);
+        console.log('Password value:', data.password || 'NOT SET');
+        console.log('========================================');
+        return {
+          ...data,
+          uid: doc.id,
+        };
+      }) as Subcontractor[];
       setSubcontractors(subsData);
     } catch (error) {
       console.error('Error fetching subcontractors:', error);
@@ -116,6 +127,7 @@ export default function SubcontractorsManagement() {
       phone: '',
       licenseNumber: '',
       skills: '',
+      password: '',
       status: 'approved',
     });
     setEditingId(null);
@@ -128,6 +140,11 @@ export default function SubcontractorsManagement() {
   };
 
   const handleOpenEdit = (sub: Subcontractor) => {
+    console.log('========================================');
+    console.log('OPENING EDIT MODAL FOR SUBCONTRACTOR:', sub.email);
+    console.log('Subcontractor UID:', sub.uid);
+    console.log('Subcontractor password field:', sub.password || 'NOT SET');
+    console.log('========================================');
     setFormData({
       email: sub.email,
       fullName: sub.fullName,
@@ -135,6 +152,7 @@ export default function SubcontractorsManagement() {
       phone: sub.phone,
       licenseNumber: sub.licenseNumber || '',
       skills: sub.skills?.join(', ') || '',
+      password: sub.password || '',
       status: sub.status,
     });
     setEditingId(sub.uid);
@@ -546,6 +564,30 @@ export default function SubcontractorsManagement() {
                       placeholder="Optional"
                     />
                   </div>
+
+                  {editingId && (
+                    <div className="md:col-span-2">
+                      <Label>Password (View Only)</Label>
+                      <Input
+                        type="text"
+                        value={formData.password || ''}
+                        readOnly
+                        className="bg-gray-50 cursor-default font-mono"
+                        placeholder="Not set yet - Subcontractor will set via invitation link"
+                      />
+                      {formData.password ? (
+                        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                          Password has been set by subcontractor
+                        </p>
+                      ) : (
+                        <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                          <span className="inline-block w-2 h-2 bg-orange-500 rounded-full"></span>
+                          Waiting for subcontractor to set password
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <Label>Status *</Label>

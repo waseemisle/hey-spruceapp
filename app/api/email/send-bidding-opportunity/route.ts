@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import { sendEmail } from '@/lib/nodemailer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,28 +21,6 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       );
-    }
-
-    const RESEND_API_KEY = process.env.RESEND_API_KEY;
-    const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'matthew@heyspruce.com';
-
-    // If no Resend API key, log to console (test mode)
-    if (!RESEND_API_KEY) {
-      console.log('\n========================================');
-      console.log('📧 BIDDING OPPORTUNITY EMAIL (TEST MODE)');
-      console.log('========================================');
-      console.log('To:', toEmail);
-      console.log('Subcontractor:', toName);
-      console.log('Work Order:', workOrderNumber);
-      console.log('Title:', workOrderTitle);
-      if (locationName) console.log('Location:', locationName);
-      if (category) console.log('Category:', category);
-      console.log('\n⚠️  Resend not configured - Add RESEND_API_KEY to environment variables');
-      console.log('========================================\n');
-      return NextResponse.json({
-        success: true,
-        message: 'Test mode: Email logged to console'
-      });
     }
 
     const priorityColor = priority === 'high' ? '#ef4444' : priority === 'medium' ? '#f59e0b' : '#10b981';
@@ -110,11 +88,8 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
-    // Send email via Resend
-    const resend = new Resend(RESEND_API_KEY);
-
-    const data = await resend.emails.send({
-      from: RESEND_FROM_EMAIL,
+    // Send email via Nodemailer
+    const result = await sendEmail({
       to: toEmail,
       subject: `New Bidding Opportunity: ${workOrderTitle}`,
       html: emailHtml,
@@ -122,7 +97,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      messageId: (data as any).id,
+      messageId: result.messageId,
+      testMode: result.testMode,
     });
   } catch (error: any) {
     console.error('Error sending bidding opportunity email:', error);

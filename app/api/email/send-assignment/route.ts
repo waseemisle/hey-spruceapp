@@ -1,21 +1,10 @@
 import { NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import { sendEmail } from '@/lib/nodemailer';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { toEmail, toName, workOrderNumber, workOrderTitle, clientName, locationName, locationAddress } = body;
-
-    const resendApiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'matthew@heyspruce.com';
-
-    if (!resendApiKey) {
-      console.error('Resend API key not configured');
-      return NextResponse.json(
-        { error: 'Email service not configured' },
-        { status: 500 }
-      );
-    }
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -67,31 +56,20 @@ export async function POST(request: Request) {
 
           <p style="font-size: 12px; color: #6b7280; text-align: center;">
             Hey Spruce App | San Francisco, CA 94104<br>
-            Phone: 877-253-2646 | Email: waseem@shurehw.com
+            Phone: 877-253-2646 | Email: matthew@heyspruce.com
           </p>
         </div>
       </body>
       </html>
     `;
 
-    const resend = new Resend(resendApiKey);
-
-    const { data, error } = await resend.emails.send({
-      from: `Hey Spruce App <${fromEmail}>`,
-      to: [toEmail],
+    const result = await sendEmail({
+      to: toEmail,
       subject: `Work Order Assignment: ${workOrderNumber} - ${workOrderTitle}`,
       html: emailHtml,
     });
 
-    if (error) {
-      console.error('Resend error:', error);
-      return NextResponse.json(
-        { error: 'Failed to send email' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, testMode: result.testMode });
   } catch (error) {
     console.error('Error sending assignment email:', error);
     return NextResponse.json(

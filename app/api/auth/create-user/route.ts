@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { sendEmail } from '@/lib/nodemailer';
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,8 @@ export async function POST(request: Request) {
 
     let uid: string;
     let idToken: string;
+    let emailSent = false;
+    let emailError: string | null = null;
 
     if (sendInvitation) {
       // For invitation flow: Create user without password, they'll set it via email link
@@ -64,36 +67,123 @@ export async function POST(request: Request) {
         email,
         uid,
         tempPassword,
+        role,
         timestamp: Date.now(),
         type: 'password_setup'
       })).toString('base64');
 
       const resetLink = `${baseUrl}/set-password?token=${setupToken}`;
 
-      // Send invitation email
+      // Send invitation email directly using sendEmail
       try {
-        const invitationResponse = await fetch(`${baseUrl}/api/email/send-invitation`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email,
-            fullName: userData.fullName || 'User',
-            role,
-            resetLink,
-          }),
+        const fullName = userData.fullName || 'User';
+        const roleTitle = role === 'subcontractor' ? 'Subcontractor' :
+                         role === 'client' ? 'Client' : 'Admin User';
+        const portalName = role === 'subcontractor' ? 'Subcontractor Portal' :
+                          role === 'client' ? 'Client Portal' : 'Admin Portal';
+
+        // Create email HTML
+        const emailHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Welcome to Hey Spruce</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Hey Spruce!</h1>
+              </div>
+
+              <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
+                <p style="font-size: 16px; margin-bottom: 20px;">Hello ${fullName},</p>
+
+                <p style="font-size: 16px; margin-bottom: 20px;">
+                  You've been invited to join Hey Spruce as a <strong>${roleTitle}</strong>.
+                  To get started, you'll need to set up your password.
+                </p>
+
+                <p style="font-size: 16px; margin-bottom: 30px;">
+                  Click the button below to create your password and activate your account:
+                </p>
+
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${resetLink}"
+                     style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                            color: white;
+                            padding: 15px 40px;
+                            text-decoration: none;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            display: inline-block;">
+                    Set Up Password
+                  </a>
+                </div>
+
+                <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+                  Or copy and paste this link into your browser:
+                </p>
+                <p style="font-size: 14px; color: #10b981; word-break: break-all;">
+                  ${resetLink}
+                </p>
+
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+                <p style="font-size: 14px; color: #6b7280; margin-bottom: 10px;">
+                  <strong>Your Account Details:</strong>
+                </p>
+                <ul style="font-size: 14px; color: #6b7280;">
+                  <li><strong>Email:</strong> ${email}</li>
+                  <li><strong>Role:</strong> ${roleTitle}</li>
+                  <li><strong>Portal:</strong> ${portalName}</li>
+                </ul>
+
+                <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+                  Once you've set your password, you can log in at:
+                  <a href="${baseUrl}/portal-login"
+                     style="color: #10b981; text-decoration: none;">
+                    ${baseUrl}/portal-login
+                  </a>
+                </p>
+
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+                <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
+                  If you didn't expect this invitation, you can safely ignore this email.
+                  This link will expire in 24 hours.
+                </p>
+              </div>
+
+              <div style="text-align: center; margin-top: 20px; padding: 20px; color: #9ca3af; font-size: 12px;">
+                <p>&copy; ${new Date().getFullYear()} Hey Spruce. All rights reserved.</p>
+                <p>Shure Hardware - Professional Property Management Solutions</p>
+              </div>
+            </body>
+          </html>
+        `;
+
+        // Send email directly
+        const result = await sendEmail({
+          to: email,
+          subject: `Welcome to Hey Spruce - Set Up Your ${roleTitle} Account`,
+          html: emailHtml,
         });
 
-        if (!invitationResponse.ok) {
-          const errorData = await invitationResponse.json();
-          console.error('Failed to send invitation email:', errorData);
+        emailSent = true;
+        console.log('✅ Invitation email sent successfully to:', email);
+        if (result.testMode) {
+          console.log('⚠️  Email sent in test mode (SMTP not configured)');
         } else {
-          console.log('Invitation email sent successfully to:', email);
+          console.log('📧 Email sent via SMTP, messageId:', result.messageId);
         }
-      } catch (emailError) {
-        console.error('Error sending invitation email:', emailError);
-        // Don't fail the user creation if email fails
+      } catch (err: any) {
+        emailError = err.message || String(err);
+        console.error('❌ Error sending invitation email:', err);
+        console.error('❌ Error details:', err.message || err);
+        // Don't fail the user creation if email fails, but log the error
+        // The user can still be created and manually sent an invitation later
       }
     } else {
       // Legacy flow: Create user with provided password (for public registration)
@@ -195,6 +285,8 @@ export async function POST(request: Request) {
       success: true,
       uid: uid,
       message: `${role} created successfully`,
+      emailSent: emailSent,
+      emailError: emailError,
     });
   } catch (error: any) {
     console.error('Error creating user:', error);

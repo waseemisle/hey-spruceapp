@@ -102,10 +102,19 @@ export default function LocationsManagement() {
     try {
       const companiesQuery = query(collection(db, 'companies'));
       const snapshot = await getDocs(companiesQuery);
-      const companiesData = snapshot.docs.map(d => ({ id: d.id, name: d.data().name as string, clientId: d.data().clientId as string }));
+      const companiesData = snapshot.docs.map(d => {
+        const data = d.data();
+        return { 
+          id: d.id, 
+          name: data.name as string || '', 
+          clientId: (data.clientId as string) || '' 
+        };
+      }).filter(c => c.name); // Only include companies with names
       setCompanies(companiesData);
+      console.log('Fetched companies:', companiesData.length, companiesData);
     } catch (error) {
       console.error('Error fetching companies:', error);
+      toast.error('Failed to load companies');
     }
   };
 
@@ -557,12 +566,17 @@ export default function LocationsManagement() {
                       disabled={!formData.clientId}
                     >
                       <option value="">{formData.clientId ? 'Choose a company...' : 'Select client first'}</option>
-                      {companies
-                        .filter(c => c.clientId === formData.clientId)
+                      {formData.clientId && companies
+                        .filter(c => c.clientId && c.clientId === formData.clientId)
                         .map(c => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                     </select>
+                    {formData.clientId && companies.filter(c => c.clientId && c.clientId === formData.clientId).length === 0 && (
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                        No companies found for this client. Create a company first in the Companies section.
+                      </p>
+                    )}
                   </div>
 
                   <div>

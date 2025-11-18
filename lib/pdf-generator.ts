@@ -72,7 +72,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.setTextColor(...COLORS.gray);
   doc.text('Property Maintenance Management', 20, 35);
   doc.text('San Francisco, California 94104', 20, 39);
-  doc.text('waseem@shurehw.com | 877-253-2646', 20, 43);
+  doc.text('matthew@heyspruce.com | 877-253-2646', 20, 43);
 
   // Invoice Title - Right aligned
   doc.setFontSize(28);
@@ -348,7 +348,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
       { align: 'center' }
     );
     doc.text(
-      'waseem@shurehw.com',
+      'matthew@heyspruce.com',
       pageWidth - 20,
       pageHeight - 10,
       { align: 'right' }
@@ -425,7 +425,7 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
   doc.setTextColor(...COLORS.gray);
   doc.text('Property Maintenance Management', 20, 35);
   doc.text('San Francisco, California 94104', 20, 39);
-  doc.text('waseem@shurehw.com | 877-253-2646', 20, 43);
+  doc.text('matthew@heyspruce.com | 877-253-2646', 20, 43);
 
   // Work Order Title - Right aligned
   doc.setFontSize(28);
@@ -629,7 +629,7 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
       { align: 'center' }
     );
     doc.text(
-      'waseem@shurehw.com',
+      'matthew@heyspruce.com',
       pageWidth - 20,
       pageHeight - 10,
       { align: 'right' }

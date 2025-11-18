@@ -17,6 +17,7 @@ export interface Client {
   phone: string;
   address?: Address;
   assignedLocations?: string[]; // Array of location IDs the client has access to
+  password?: string; // Password stored for admin viewing (view-only)
   status: 'pending' | 'approved' | 'rejected';
   approvedBy?: string;
   approvedAt?: Date;
@@ -33,6 +34,7 @@ export interface Subcontractor {
   skills: string[];
   licenseNumber?: string;
   insuranceInfo?: any;
+  password?: string; // Password stored for admin viewing (view-only)
   status: 'pending' | 'approved' | 'rejected';
   approvedBy?: string;
   approvedAt?: Date;
