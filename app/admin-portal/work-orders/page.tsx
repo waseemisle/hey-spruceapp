@@ -357,12 +357,9 @@ const handleCompanySelect = (companyId: string) => {
 };
 
 const handleLocationSelect = (locationId: string) => {
-  const selectedLocation = locations.find(l => l.id === locationId);
   setFormData((prev) => ({
     ...prev,
     locationId,
-    clientId: selectedLocation?.clientId || prev.clientId,
-    companyId: selectedLocation?.companyId || prev.companyId,
   }));
 };
 
