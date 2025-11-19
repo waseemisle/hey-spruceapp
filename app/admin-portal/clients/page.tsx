@@ -317,11 +317,25 @@ export default function ClientsManagement() {
         return;
       }
 
+      // Get the client data to check if password exists
+      const client = clients.find(c => c.uid === clientId);
+      if (!client) {
+        toast.error('Client not found');
+        setImpersonating(null);
+        return;
+      }
+
+      if (!client.password) {
+        toast.error('Client password not set. Cannot login without password.');
+        setImpersonating(null);
+        return;
+      }
+
       // Get the current user's ID token
       const idToken = await currentUser.getIdToken();
 
-      // Call the view-as API to start session
-      const response = await fetch('/api/auth/view-as', {
+      // Call the impersonate-login API to get impersonation URL
+      const response = await fetch('/api/auth/impersonate-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -336,15 +350,15 @@ export default function ClientsManagement() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to start view-as session');
+        throw new Error(data.error || 'Failed to start impersonation login');
       }
 
-      if (!data.success || !data.redirectUrl) {
-        throw new Error('Failed to start view-as session');
+      if (!data.success || !data.impersonationUrl) {
+        throw new Error('Failed to start impersonation login');
       }
 
-      // Open client portal in a new tab
-      window.open(data.redirectUrl, '_blank');
+      // Open impersonation login page in a new tab
+      window.open(data.impersonationUrl, '_blank');
 
       toast.success('Opening client portal in new tab...');
 

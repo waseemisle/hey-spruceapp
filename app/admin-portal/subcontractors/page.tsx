@@ -221,11 +221,25 @@ export default function SubcontractorsManagement() {
         return;
       }
 
+      // Get the subcontractor data to check if password exists
+      const sub = subcontractors.find(s => s.uid === subId);
+      if (!sub) {
+        toast.error('Subcontractor not found');
+        setImpersonating(null);
+        return;
+      }
+
+      if (!sub.password) {
+        toast.error('Subcontractor password not set. Cannot login without password.');
+        setImpersonating(null);
+        return;
+      }
+
       // Get the current user's ID token
       const idToken = await currentUser.getIdToken();
 
-      // Call the view-as API to start session
-      const response = await fetch('/api/auth/view-as', {
+      // Call the impersonate-login API to get impersonation URL
+      const response = await fetch('/api/auth/impersonate-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -240,15 +254,15 @@ export default function SubcontractorsManagement() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to start view-as session');
+        throw new Error(data.error || 'Failed to start impersonation login');
       }
 
-      if (!data.success || !data.redirectUrl) {
-        throw new Error('Failed to start view-as session');
+      if (!data.success || !data.impersonationUrl) {
+        throw new Error('Failed to start impersonation login');
       }
 
-      // Open subcontractor portal in a new tab
-      window.open(data.redirectUrl, '_blank');
+      // Open impersonation login page in a new tab
+      window.open(data.impersonationUrl, '_blank');
 
       toast.success('Opening subcontractor portal in new tab...');
 
