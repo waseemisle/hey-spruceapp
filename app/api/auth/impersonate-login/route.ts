@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase-admin/auth';
-import { getApps as getAdminApps } from 'firebase-admin/app';
+import { getAdminAuth } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
 
@@ -24,26 +23,24 @@ const getFirebaseApp = () => {
 // Helper function to verify admin token (with fallback)
 async function verifyAdminToken(idToken: string): Promise<string | null> {
   try {
-    // Try to use Firebase Admin if available
-    if (getAdminApps().length > 0 || process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_PRIVATE_KEY) {
-      const adminAuth = getAuth();
-      const decodedToken = await adminAuth.verifyIdToken(idToken);
-      return decodedToken.uid;
-    }
+    // Try to use Firebase Admin SDK
+    const adminAuth = getAdminAuth();
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    return decodedToken.uid;
   } catch (error) {
-    // Fall back to client-side verification
-    console.log('Admin SDK not available, using fallback verification');
-  }
+    // Fall back to client-side verification (less secure)
+    console.log('Admin SDK verification failed, using fallback verification');
+    
+    // Fallback: decode token without verification (less secure, but works without Admin SDK)
+    try {
+      const parts = idToken.split('.');
+      if (parts.length !== 3) return null;
 
-  // Fallback: decode token without verification (less secure, but works without Admin SDK)
-  try {
-    const parts = idToken.split('.');
-    if (parts.length !== 3) return null;
-
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-    return payload.user_id || payload.sub || null;
-  } catch {
-    return null;
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+      return payload.user_id || payload.sub || null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -115,21 +112,67 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!userData?.password) {
-      return NextResponse.json(
-        { error: 'User password not set. Cannot impersonate without password.' },
-        { status: 400 }
-      );
+    // Use Firebase Admin SDK to create a custom token for impersonation
+    // This allows separate auth sessions that won't interfere with admin's session
+    let customToken: string;
+    try {
+      const adminAuth = getAdminAuth();
+      customToken = await adminAuth.createCustomToken(userId, {
+        impersonating: true,
+        originalAdmin: adminUid,
+        role: role,
+      });
+    } catch (error: any) {
+      console.error('Error creating custom token:', error);
+      // If Admin SDK is not available, fall back to email/password method
+      // but this will cause the admin to be logged out
+      if (!userData?.password) {
+        return NextResponse.json(
+          { error: 'User password not set and Admin SDK not available. Cannot impersonate.' },
+          { status: 400 }
+        );
+      }
+      
+      // Fallback to email/password (will log out admin)
+      const tokenData = {
+        email: userData.email,
+        password: userData.password,
+        userId,
+        role,
+        adminUid,
+        expiresAt: Date.now() + 300000, // 5 minutes
+      };
+
+      const impersonationToken = Buffer.from(JSON.stringify(tokenData))
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
+                     (request.headers.get('origin') || 'http://localhost:3000');
+
+      return NextResponse.json({
+        success: true,
+        impersonationToken,
+        impersonationUrl: `${baseUrl}/impersonate-login?token=${impersonationToken}`,
+        useCustomToken: false,
+        user: {
+          id: userId,
+          name: userData?.fullName || userData?.businessName || 'Unknown',
+          email: userData.email,
+          role,
+        },
+      });
     }
 
-    // Create impersonation token with email and password
+    // Create impersonation token with custom token
     const tokenData = {
-      email: userData.email,
-      password: userData.password,
+      customToken,
       userId,
       role,
       adminUid,
-      expiresAt: Date.now() + 300000, // 5 minutes - short lived for security
+      expiresAt: Date.now() + 3600000, // 1 hour - custom tokens are more secure
     };
 
     const impersonationToken = Buffer.from(JSON.stringify(tokenData))

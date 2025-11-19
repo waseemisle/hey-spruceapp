@@ -2,8 +2,9 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, signInWithCustomToken, getAuth } from 'firebase/auth';
+import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps } from 'firebase/app';
 import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -42,7 +43,7 @@ function ImpersonateLoginContent() {
           return;
         }
 
-        const { email, password, role, userId, adminUid } = tokenData;
+        const { customToken, email, password, role, userId, adminUid } = tokenData;
 
         // Store impersonation state in localStorage before logging in
         const impersonationState = {
@@ -55,13 +56,61 @@ function ImpersonateLoginContent() {
         };
         localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
 
-        // Sign in with email and password
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+        // Create a separate Firebase app instance for impersonation
+        // This prevents auth state from interfering with admin's session
+        const impersonationAppName = `impersonation-${Date.now()}`;
+        let impersonationAuth;
+        let impersonationDb;
+        
+        try {
+          // Create a separate Firebase app instance for impersonation
+          // This prevents auth state from interfering with admin's session
+          const existingApps = getApps();
+          let impersonationApp;
+          
+          // Try to find existing impersonation app or create new one
+          const existingImpersonationApp = existingApps.find(app => app.name && app.name.startsWith('impersonation-'));
+          if (existingImpersonationApp) {
+            impersonationApp = existingImpersonationApp;
+          } else {
+            impersonationApp = initializeApp({
+              apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+              authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+              projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+              storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+              messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+              appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+            }, impersonationAppName);
+          }
+          
+          impersonationAuth = getAuth(impersonationApp);
+          impersonationDb = getFirestore(impersonationApp);
+        } catch (error) {
+          console.error('Error creating impersonation app:', error);
+          // Fallback to default app
+          impersonationAuth = auth;
+          impersonationDb = db;
+        }
+
+        // Sign in with custom token (preferred) or email/password (fallback)
+        let user;
+        if (customToken) {
+          // Use custom token with separate app instance - this creates a separate auth session
+          const userCredential = await signInWithCustomToken(impersonationAuth, customToken);
+          user = userCredential.user;
+        } else if (email && password) {
+          // Fallback to email/password (will log out admin in other tabs)
+          const userCredential = await signInWithEmailAndPassword(impersonationAuth, email, password);
+          user = userCredential.user;
+        } else {
+          setStatus('error');
+          setErrorMessage('Invalid impersonation token: missing authentication method');
+          return;
+        }
 
         // Verify the user role matches and update impersonation state with user name
         if (role === 'client') {
-          const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+          const clientDoc = await getDoc(doc(impersonationDb, 'clients', user.uid));
           if (clientDoc.exists()) {
             const clientData = clientDoc.data();
             // Update impersonation state with user name
@@ -73,7 +122,7 @@ function ImpersonateLoginContent() {
             return;
           }
         } else if (role === 'subcontractor') {
-          const subDoc = await getDoc(doc(db, 'subcontractors', user.uid));
+          const subDoc = await getDoc(doc(impersonationDb, 'subcontractors', user.uid));
           if (subDoc.exists()) {
             const subData = subDoc.data();
             // Update impersonation state with user name
