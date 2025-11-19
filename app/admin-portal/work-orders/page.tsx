@@ -385,6 +385,51 @@ const handleLocationSelect = (locationId: string) => {
     }
 
     try {
+      // Try to get amount from accepted quote first
+      let invoiceAmount = 0;
+      let lineItems: any[] = [];
+      
+      const quotesQuery = query(
+        collection(db, 'quotes'),
+        where('workOrderId', '==', workOrder.id),
+        where('status', '==', 'accepted')
+      );
+      const quotesSnapshot = await getDocs(quotesQuery);
+      
+      if (!quotesSnapshot.empty) {
+        // Use accepted quote amount
+        const acceptedQuote = quotesSnapshot.docs[0].data();
+        const quoteAmount = acceptedQuote.clientAmount || acceptedQuote.totalAmount || 0;
+        
+        // Only use quote amount if it's valid (> 0)
+        if (quoteAmount > 0) {
+          invoiceAmount = quoteAmount;
+          lineItems = acceptedQuote.lineItems || [{
+            description: workOrder.title,
+            quantity: 1,
+            unitPrice: invoiceAmount,
+            amount: invoiceAmount,
+          }];
+        }
+      }
+      
+      // If no valid quote amount, fall back to estimated budget
+      if (!invoiceAmount || invoiceAmount <= 0) {
+        invoiceAmount = workOrder.estimateBudget || 0;
+        lineItems = [{
+          description: workOrder.title,
+          quantity: 1,
+          unitPrice: invoiceAmount,
+          amount: invoiceAmount,
+        }];
+      }
+
+      // If still no amount, show error
+      if (!invoiceAmount || invoiceAmount <= 0) {
+        toast.error('Cannot create invoice: Work order must have an estimated budget or an accepted quote with an amount');
+        return;
+      }
+
       // Generate invoice number
       const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
       
@@ -397,15 +442,8 @@ const handleLocationSelect = (locationId: string) => {
         clientName: workOrder.clientName,
         clientEmail: workOrder.clientEmail,
         status: 'draft' as const,
-        totalAmount: workOrder.estimateBudget || 0,
-        lineItems: [
-          {
-            description: workOrder.title,
-            quantity: 1,
-            unitPrice: workOrder.estimateBudget || 0,
-            amount: workOrder.estimateBudget || 0,
-          }
-        ],
+        totalAmount: invoiceAmount,
+        lineItems: lineItems,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         notes: `Invoice for completed work order: ${workOrder.workOrderNumber}`,
         createdAt: serverTimestamp(),
@@ -419,10 +457,9 @@ const handleLocationSelect = (locationId: string) => {
         invoiceData.subcontractorName = workOrder.assignedToName;
       }
 
-      // Validate required fields before creating invoice
-      if (!invoiceData.totalAmount || invoiceData.totalAmount <= 0) {
-        toast.error('Cannot create invoice: Work order must have an estimated budget');
-        return;
+      // Add quote reference if we used a quote
+      if (!quotesSnapshot.empty) {
+        invoiceData.quoteId = quotesSnapshot.docs[0].id;
       }
 
       if (!workOrder.clientEmail) {
