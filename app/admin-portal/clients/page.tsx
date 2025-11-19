@@ -357,7 +357,8 @@ export default function ClientsManagement() {
         throw new Error('Failed to start impersonation login');
       }
 
-      // Open impersonation login page in a new tab
+      // Open impersonation login page in a new tab to preserve admin session
+      // The admin will remain logged in in this tab
       window.open(data.impersonationUrl, '_blank');
 
       toast.success('Opening client portal in new tab...');

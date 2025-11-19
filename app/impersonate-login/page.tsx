@@ -42,16 +42,31 @@ function ImpersonateLoginContent() {
           return;
         }
 
-        const { email, password, role } = tokenData;
+        const { email, password, role, userId, adminUid } = tokenData;
+
+        // Store impersonation state in localStorage before logging in
+        const impersonationState = {
+          isImpersonating: true,
+          adminUid: adminUid,
+          impersonatedUserId: userId,
+          impersonatedUserRole: role,
+          impersonatedUserName: '', // Will be set after fetching user data
+          startedAt: Date.now(),
+        };
+        localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
 
         // Sign in with email and password
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Verify the user role matches
+        // Verify the user role matches and update impersonation state with user name
         if (role === 'client') {
           const clientDoc = await getDoc(doc(db, 'clients', user.uid));
           if (clientDoc.exists()) {
+            const clientData = clientDoc.data();
+            // Update impersonation state with user name
+            impersonationState.impersonatedUserName = clientData.fullName || clientData.companyName || 'Client';
+            localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
             setStatus('success');
             // Redirect to client portal
             router.push('/client-portal');
@@ -60,6 +75,10 @@ function ImpersonateLoginContent() {
         } else if (role === 'subcontractor') {
           const subDoc = await getDoc(doc(db, 'subcontractors', user.uid));
           if (subDoc.exists()) {
+            const subData = subDoc.data();
+            // Update impersonation state with user name
+            impersonationState.impersonatedUserName = subData.fullName || subData.businessName || 'Subcontractor';
+            localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
             setStatus('success');
             // Redirect to subcontractor portal
             router.push('/subcontractor-portal');

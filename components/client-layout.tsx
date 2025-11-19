@@ -12,11 +12,13 @@ import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
+import ImpersonationBanner from '@/components/impersonation-banner';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isImpersonating, setIsImpersonating] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState({
     quotes: 0,
     invoices: 0,
@@ -25,6 +27,24 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
 
   useEffect(() => {
+    // Check for impersonation state
+    const checkImpersonation = () => {
+      try {
+        const stored = localStorage.getItem('impersonationState');
+        if (stored) {
+          const state = JSON.parse(stored);
+          setIsImpersonating(state.isImpersonating === true);
+        } else {
+          setIsImpersonating(false);
+        }
+      } catch {
+        setIsImpersonating(false);
+      }
+    };
+
+    checkImpersonation();
+    const interval = setInterval(checkImpersonation, 1000);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const clientDoc = await getDoc(doc(db, 'clients', firebaseUser.uid));
@@ -76,7 +96,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [router]);
 
   const handleLogout = async () => {
@@ -103,7 +126,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card shadow-sm border-b fixed w-full top-0 z-50">
+      <ImpersonationBanner />
+      <header className={`bg-card shadow-sm border-b fixed w-full z-50 ${isImpersonating ? 'top-[52px]' : 'top-0'}`}>
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center">
             <button
@@ -143,7 +167,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         />
       )}
 
-      <div className="flex pt-16">
+      <div className={`flex ${isImpersonating ? 'pt-[68px]' : 'pt-16'}`}>
         <aside className="hidden md:block w-64 min-h-screen bg-card border-r fixed left-0">
           <nav className="p-4 space-y-1 h-[calc(100vh-4rem)] overflow-y-auto">
             {menuItems.map((item) => (
