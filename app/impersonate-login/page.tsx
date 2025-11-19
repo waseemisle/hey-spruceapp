@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
-export default function ImpersonateLogin() {
+// Force dynamic rendering for this page
+export const dynamic = 'force-dynamic';
+
+function ImpersonateLoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'error' | 'success'>('loading');
@@ -115,6 +118,24 @@ export default function ImpersonateLogin() {
         <p className="text-gray-600 mt-2">Redirecting...</p>
       </div>
     </div>
+  );
+}
+
+export default function ImpersonateLogin() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <h2 className="text-xl font-semibold text-gray-900">Loading...</h2>
+            <p className="text-gray-600 mt-2">Please wait...</p>
+          </div>
+        </div>
+      }
+    >
+      <ImpersonateLoginContent />
+    </Suspense>
   );
 }
 
