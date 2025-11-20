@@ -175,6 +175,7 @@ export interface WorkOrder {
   clientId: string;
   clientName: string;
   clientEmail: string;
+  appyRequestor?: string; // APPY Requestor field - stores the requestor from maintenance API requests
   locationId: string;
   location: Location;
   title: string;

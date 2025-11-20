@@ -19,6 +19,7 @@ interface WorkOrder {
   clientId: string;
   clientName: string;
   clientEmail: string;
+  appyRequestor?: string; // APPY Requestor field - stores the requestor from maintenance API requests
   companyId?: string;
   companyName?: string;
   locationId: string;
@@ -763,6 +764,14 @@ const handleLocationSelect = (locationId: string) => {
         workOrderData.isMaintenanceRequestOrder = true;
       }
 
+      // Preserve appyRequestor if editing - get it from the original work order
+      if (editingId) {
+        const originalWorkOrder = workOrders.find(wo => wo.id === editingId);
+        if (originalWorkOrder?.appyRequestor) {
+          workOrderData.appyRequestor = originalWorkOrder.appyRequestor;
+        }
+      }
+
       if (editingId) {
         // Update existing work order
         await updateDoc(doc(db, 'workOrders', editingId), workOrderData);
@@ -1345,6 +1354,11 @@ const filteredLocationsForForm = locations.filter((location) => {
                     <div className="text-sm">
                       <span className="font-semibold">Client:</span> <span className="text-gray-700">{workOrder.clientName}</span>
                     </div>
+                    {workOrder.appyRequestor && (
+                      <div className="text-sm">
+                        <span className="font-semibold">APPY Requestor:</span> <span className="text-gray-700">{workOrder.appyRequestor}</span>
+                      </div>
+                    )}
                     <div className="text-sm">
                       <span className="font-semibold">Category:</span> <span className="text-gray-700">{workOrder.category}</span>
                     </div>
@@ -1580,6 +1594,22 @@ const filteredLocationsForForm = locations.filter((location) => {
                       ))}
                     </select>
                   </div>
+
+                  {editingId && workOrders.find(wo => wo.id === editingId)?.appyRequestor && (
+                    <div>
+                      <Label>APPY Requestor</Label>
+                      <Input
+                        type="text"
+                        value={workOrders.find(wo => wo.id === editingId)?.appyRequestor || ''}
+                        disabled
+                        className="w-full border border-gray-300 rounded-md p-2 bg-gray-50"
+                        placeholder="N/A"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        This field is set automatically from the maintenance API request
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <Label>Company *</Label>

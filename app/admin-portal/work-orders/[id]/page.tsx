@@ -17,6 +17,7 @@ interface WorkOrder {
   clientId: string;
   clientName: string;
   clientEmail: string;
+  appyRequestor?: string; // APPY Requestor field - stores the requestor from maintenance API requests
   locationId: string;
   locationName?: string;
   locationAddress?: string;
@@ -319,6 +320,12 @@ export default function ViewWorkOrder() {
                   <p className="text-sm text-gray-600">Email</p>
                   <p className="font-semibold">{workOrder.clientEmail}</p>
                 </div>
+                {workOrder.appyRequestor && (
+                  <div>
+                    <p className="text-sm text-gray-600">APPY Requestor</p>
+                    <p className="font-semibold">{workOrder.appyRequestor}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

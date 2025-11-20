@@ -511,11 +511,13 @@ export async function POST(request: Request) {
       };
 
       // Create work order
+      // For APPY API requests, always set client to Jessica
       const workOrderRef = await addDoc(collection(db, 'workOrders'), {
         workOrderNumber,
-        clientId: '', // Not assigned to specific client initially
-        clientName: requestor || 'API Request',
-        clientEmail: '',
+        clientId: 'UDPSxyTkDIcJijrMCVsb0pcOTpU2', // Always set to Jessica for APPY API requests
+        clientName: 'Jessica', // Always set to Jessica for APPY API requests
+        clientEmail: 'jolimon@hwoodgroup.com', // Always set to Jessica's email for APPY API requests
+        appyRequestor: requestor || 'Unknown', // Store the original requestor from the API request
         companyId: 'yirKMXRWAuV2YaOJ1kfA', // The h.wood Group
         companyName: 'The h.wood Group',
         locationId: locationId,

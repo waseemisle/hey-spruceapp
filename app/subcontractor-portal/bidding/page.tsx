@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, serverTimestamp, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, serverTimestamp, getDocs, updateDoc, Timestamp } from 'firebase/firestore';
 import { notifyQuoteSubmission } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
@@ -269,7 +269,7 @@ export default function SubcontractorBidding() {
         // Create timeline event for quote submission
         const timelineEvent = {
           id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          timestamp: serverTimestamp(),
+          timestamp: Timestamp.now(),
           type: 'quote_received',
           userId: currentUser.uid,
           userName: subData.fullName || subData.businessName,
@@ -292,7 +292,7 @@ export default function SubcontractorBidding() {
             subcontractorId: currentUser.uid,
             subcontractorName: subData.fullName || subData.businessName,
             amount: total,
-            timestamp: serverTimestamp(),
+            timestamp: Timestamp.now(),
           }]
         };
 
