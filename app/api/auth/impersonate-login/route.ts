@@ -124,6 +124,21 @@ export async function POST(request: Request) {
       });
     } catch (error: any) {
       console.error('Error creating custom token:', error);
+      
+      // Check if this is a credentials error
+      if (error?.code === 'auth/invalid-credential' || 
+          error?.message?.includes('service account') ||
+          error?.message?.includes('credentials')) {
+        return NextResponse.json(
+          { 
+            error: 'Firebase Admin SDK not properly configured',
+            message: 'Service account credentials are required for impersonation. Please configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in your environment variables.',
+            details: error.message
+          },
+          { status: 500 }
+        );
+      }
+      
       // If Admin SDK is not available, fall back to email/password method
       // but this will cause the admin to be logged out
       if (!userData?.password) {
@@ -197,6 +212,21 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error('Error in impersonation login:', error);
+    
+    // Check if this is a credentials error
+    if (error?.message?.includes('credentials') || 
+        error?.message?.includes('service account') ||
+        error?.message?.includes('Could not load the default credentials')) {
+      return NextResponse.json(
+        { 
+          error: 'Firebase Admin SDK not properly configured',
+          message: 'Service account credentials are required. Please configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in your Vercel environment variables.',
+          details: error.message
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { error: error.message || 'Failed to start impersonation login' },
       { status: 500 }

@@ -21,6 +21,10 @@ export function getAdminApp(): App {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
+  // Check if we're in a production environment (Vercel, etc.)
+  // ADC (Application Default Credentials) doesn't work on Vercel
+  const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
+
   // If all credentials are provided, use them (production setup)
   if (projectId && clientEmail && privateKey) {
     adminApp = initializeApp({
@@ -33,7 +37,24 @@ export function getAdminApp(): App {
     return adminApp;
   }
 
-  // Otherwise, use Application Default Credentials (ADC)
+  // In production (Vercel), require service account credentials
+  // ADC doesn't work on Vercel because it tries to access GCP metadata service
+  if (isProduction) {
+    throw new Error(
+      `Firebase Admin SDK requires service account credentials in production.\n\n` +
+      `Please set the following environment variables in Vercel:\n` +
+      `- FIREBASE_PROJECT_ID (or use NEXT_PUBLIC_FIREBASE_PROJECT_ID)\n` +
+      `- FIREBASE_CLIENT_EMAIL\n` +
+      `- FIREBASE_PRIVATE_KEY\n\n` +
+      `To get these credentials:\n` +
+      `1. Go to Firebase Console → Project Settings → Service Accounts\n` +
+      `2. Click "Generate New Private Key"\n` +
+      `3. Add the values to Vercel environment variables\n\n` +
+      `See FIREBASE_ADMIN_SETUP.md for detailed instructions.`
+    );
+  }
+
+  // For local development, try Application Default Credentials (ADC)
   // This works with gcloud CLI authentication or GOOGLE_APPLICATION_CREDENTIALS
   if (!projectId) {
     throw new Error(
@@ -44,15 +65,15 @@ export function getAdminApp(): App {
       `3. Run: gcloud config set project heyspruceappv2\n` +
       `4. Add to .env.local:\n` +
       `   NEXT_PUBLIC_FIREBASE_PROJECT_ID=heyspruceappv2\n\n` +
-      `For production deployment:\n` +
-      `Add service account credentials to your hosting environment.`
+      `Or add service account credentials to .env.local (recommended).`
     );
   }
 
-  console.log('Using Application Default Credentials for Firebase Admin SDK');
+  console.log('Using Application Default Credentials for Firebase Admin SDK (local development only)');
 
   // Initialize with ADC (Application Default Credentials)
   // This will use gcloud authentication or GOOGLE_APPLICATION_CREDENTIALS env var
+  // Only works in local development or GCP environments
   adminApp = initializeApp({
     projectId,
   });

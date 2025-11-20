@@ -77,6 +77,20 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in recurring work orders cron job:', error);
+    
+    // Check if this is a Firestore index error
+    if (error instanceof Error && error.message.includes('index')) {
+      const indexMatch = error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]+/);
+      const indexUrl = indexMatch ? indexMatch[0] : null;
+      
+      return NextResponse.json({ 
+        error: 'Firestore index required',
+        message: 'This query requires a composite index. Please create it in Firebase Console.',
+        indexUrl: indexUrl,
+        details: error.message
+      }, { status: 500 });
+    }
+    
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
