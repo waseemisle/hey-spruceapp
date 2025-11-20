@@ -35,15 +35,43 @@ export async function POST(request: NextRequest) {
       : 'Normal';
 
     // Format date if provided
-    const formattedDate = date
-      ? new Date(date).toLocaleString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        })
-      : 'Not specified';
+    let formattedDate = 'Not specified';
+    if (date) {
+      try {
+        // Handle different date formats
+        let dateObj: Date;
+        if (date instanceof Date) {
+          dateObj = date;
+        } else if (typeof date === 'string') {
+          dateObj = new Date(date);
+        } else if (date && typeof date === 'object' && 'seconds' in date) {
+          // Handle Firestore Timestamp format
+          dateObj = new Date(date.seconds * 1000);
+        } else if (date && typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
+          // Handle Firestore Timestamp with toDate method
+          dateObj = date.toDate();
+        } else {
+          dateObj = new Date(date);
+        }
+        
+        // Check if date is valid
+        if (!isNaN(dateObj.getTime())) {
+          formattedDate = dateObj.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZoneName: 'short'
+          });
+        } else {
+          formattedDate = 'Invalid Date';
+        }
+      } catch (error) {
+        console.error('Error formatting date:', error, 'Date value:', date);
+        formattedDate = 'Invalid Date';
+      }
+    }
 
     // Create email HTML
     const emailHtml = `

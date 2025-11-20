@@ -582,6 +582,23 @@ export async function POST(request: Request) {
 
         if (adminEmail) {
           try {
+            // Format date for email - convert to ISO string if it's a Date object, otherwise use as-is
+            let dateForEmail: string | undefined;
+            if (date) {
+              try {
+                const dateObj = date instanceof Date ? date : new Date(date);
+                if (!isNaN(dateObj.getTime())) {
+                  dateForEmail = dateObj.toISOString();
+                } else {
+                  console.warn('Invalid date received, using current date for email');
+                  dateForEmail = new Date().toISOString();
+                }
+              } catch (dateError) {
+                console.error('Error processing date for email:', dateError);
+                dateForEmail = new Date().toISOString(); // Fallback to current date
+              }
+            }
+
             await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/email/send-maint-request-notification`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -594,7 +611,7 @@ export async function POST(request: Request) {
                 title: title,
                 description: description,
                 priority: priority,
-                date: date,
+                date: dateForEmail,
                 portalLink: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin-portal/work-orders`,
               }),
             });
