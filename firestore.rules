@@ -38,5 +38,11 @@ service cloud.firestore {
       );
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
     }
+
+    // Categories - admins can manage, all authenticated users can read
+    match /categories/{categoryId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin();
+    }
   }
 }

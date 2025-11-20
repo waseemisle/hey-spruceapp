@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
@@ -22,11 +22,17 @@ interface Location {
   address: string | { street: string; city: string; state: string; zip: string; country: string; };
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 export default function CreateWorkOrder() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [companyInfo, setCompanyInfo] = useState<{ id: string; name?: string } | null>(null);
@@ -36,7 +42,7 @@ export default function CreateWorkOrder() {
     locationId: '',
     title: '',
     description: '',
-    category: 'HVAC',
+    category: '',
     priority: 'medium',
     estimateBudget: '',
   });
@@ -103,6 +109,31 @@ export default function CreateWorkOrder() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categoriesQuery = query(collection(db, 'categories'), orderBy('name', 'asc'));
+        const snapshot = await getDocs(categoriesQuery);
+        const categoriesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name,
+        })) as Category[];
+        setCategories(categoriesData);
+        // Set default category to first one if available and no category is set
+        setFormData(prev => {
+          if (categoriesData.length > 0 && !prev.category) {
+            return { ...prev, category: categoriesData[0].name };
+          }
+          return prev;
+        });
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+
+    fetchCategories();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -337,17 +368,12 @@ export default function CreateWorkOrder() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      <option value="HVAC">HVAC</option>
-                      <option value="Plumbing">Plumbing</option>
-                      <option value="Electrical">Electrical</option>
-                      <option value="Roofing">Roofing</option>
-                      <option value="Flooring">Flooring</option>
-                      <option value="Painting">Painting</option>
-                      <option value="Landscaping">Landscaping</option>
-                      <option value="Cleaning">Cleaning</option>
-                      <option value="Security">Security</option>
-                      <option value="General Maintenance">General Maintenance</option>
-                      <option value="Other">Other</option>
+                      <option value="">Select category...</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.name}>
+                          {category.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

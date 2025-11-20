@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,11 +40,17 @@ interface Company {
   name: string;
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 export default function CreateRecurringWorkOrder() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showAdvancedRecurrence, setShowAdvancedRecurrence] = useState(false);
@@ -124,10 +130,25 @@ const fetchCompanies = async () => {
   }
 };
 
+const fetchCategories = async () => {
+  try {
+    const categoriesQuery = query(collection(db, 'categories'), orderBy('name', 'asc'));
+    const snapshot = await getDocs(categoriesQuery);
+    const categoriesData = snapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+    })) as Category[];
+    setCategories(categoriesData);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+  }
+};
+
   useEffect(() => {
     fetchClients();
     fetchLocations();
-  fetchCompanies();
+    fetchCompanies();
+    fetchCategories();
     setLoading(false);
   }, []);
 
@@ -414,17 +435,11 @@ const handleLocationSelect = (locationId: string) => {
                     className="w-full border border-gray-300 rounded-md p-2"
                   >
                     <option value="">Select category...</option>
-                    <option value="HVAC">HVAC</option>
-                    <option value="Plumbing">Plumbing</option>
-                    <option value="Electrical">Electrical</option>
-                    <option value="Carpentry">Carpentry</option>
-                    <option value="Painting">Painting</option>
-                    <option value="Roofing">Roofing</option>
-                    <option value="Landscaping">Landscaping</option>
-                    <option value="Cleaning">Cleaning</option>
-                    <option value="Appliance Repair">Appliance Repair</option>
-                    <option value="General Maintenance">General Maintenance</option>
-                    <option value="Other">Other</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.name}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
