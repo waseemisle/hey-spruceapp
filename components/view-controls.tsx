@@ -57,7 +57,6 @@ export default function ViewControls({
             onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
             className="border border-input rounded-md p-2 bg-background text-sm"
           >
-            <option value="alphabet">Alphabetical</option>
             <option value="createdAt">Created At</option>
             <option value="updatedAt">Last Modified</option>
           </select>

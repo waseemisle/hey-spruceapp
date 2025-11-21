@@ -331,16 +331,14 @@ export default function QuotesManagement() {
 
   const sortedQuotes = [...filteredQuotes].sort((a, b) => {
     switch (sortOption) {
-      case 'createdAt':
-        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
       case 'updatedAt':
         return (
           getTimestampValue((b as any).updatedAt || b.createdAt) -
           getTimestampValue((a as any).updatedAt || a.createdAt)
         );
-      case 'alphabet':
+      case 'createdAt':
       default:
-        return (a.workOrderTitle || '').localeCompare(b.workOrderTitle || '');
+        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
     }
   });
 

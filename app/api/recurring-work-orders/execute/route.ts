@@ -55,6 +55,8 @@ export async function POST(request: NextRequest) {
         clientName: recurringWorkOrder.clientName,
         clientEmail: recurringWorkOrder.clientEmail,
         clientAddress: recurringWorkOrder.clientAddress,
+        workOrderName: recurringWorkOrder.title,
+        serviceDescription: recurringWorkOrder.description,
         lineItems: [{
           description: recurringWorkOrder.title,
           quantity: 1,

@@ -277,6 +277,8 @@ export default function ScheduledInvoicesManagement() {
         invoiceNumber,
         clientName: schedule.clientName,
         clientEmail: schedule.clientEmail,
+        workOrderName: schedule.title,
+        serviceDescription: schedule.description,
         lineItems: invoiceLineItems,
         subtotal: schedule.amount,
         taxRate: 0,
@@ -461,16 +463,14 @@ export default function ScheduledInvoicesManagement() {
 
   const sortedScheduledInvoices = [...filteredScheduledInvoices].sort((a, b) => {
     switch (sortOption) {
-      case 'createdAt':
-        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
       case 'updatedAt':
         return (
           getTimestampValue((b as any).updatedAt || b.lastExecution || b.createdAt) -
           getTimestampValue((a as any).updatedAt || a.lastExecution || a.createdAt)
         );
-      case 'alphabet':
+      case 'createdAt':
       default:
-        return (a.title || '').localeCompare(b.title || '');
+        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
     }
   });
 

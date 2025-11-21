@@ -95,8 +95,8 @@ export default function Home() {
         </div>
 
         <footer className="mt-16 text-center text-white/60 text-sm">
-          <p>© 2024 Hey Spruce App. All rights reserved.</p>
-          <p className="mt-2">Support: support@heyspruce.com | Phone: 877-253-2646</p>
+          <p>© 2024 Hey Spruce Restaurant Cleaning & Maintenance. All rights reserved.</p>
+          <p className="mt-2">Support: info@heyspruce.com | Phone: 1-877-253-26464</p>
         </footer>
       </div>
     </div>

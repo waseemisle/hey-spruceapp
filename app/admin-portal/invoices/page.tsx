@@ -20,6 +20,7 @@ interface Invoice {
   quoteId?: string;
   workOrderId: string;
   workOrderTitle: string;
+  workOrderDescription?: string;
   clientId: string;
   clientName: string;
   clientEmail: string;
@@ -273,6 +274,9 @@ export default function InvoicesManagement() {
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.clientName,
         clientEmail: invoice.clientEmail,
+        workOrderName: invoice.workOrderTitle,
+        vendorName: invoice.subcontractorName,
+        serviceDescription: invoice.workOrderDescription,
         lineItems: invoice.lineItems,
         subtotal: invoice.totalAmount,
         taxRate: 0,

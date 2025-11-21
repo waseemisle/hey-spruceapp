@@ -18,18 +18,105 @@ export async function POST(request: Request) {
       workOrderPdfBase64
     } = body;
 
-    // Build line items HTML
-    let lineItemsHtml = '';
+    // Calculate subtotals and separate line items
+    let materialsSubtotal = 0;
+    let servicesSubtotal = 0;
+    let paymentFeeSubtotal = 0;
+    const materialsItems: any[] = [];
+    const servicesItems: any[] = [];
+    const paymentFeeItems: any[] = [];
+
     if (lineItems && lineItems.length > 0) {
-      lineItemsHtml = lineItems.map((item: any) => `
+      lineItems.forEach((item: any) => {
+        const description = item.description?.toLowerCase() || '';
+        // Identify payment fees, materials, and services
+        if (description.includes('payment fee') || description.includes('card payment fee') || description.includes('3.9%') || description.includes('processing fee')) {
+          paymentFeeItems.push(item);
+          paymentFeeSubtotal += item.amount || 0;
+        } else if (description.includes('material') || description.includes('parts') || description.includes('supply') || description.includes('switch') || description.includes('component')) {
+          materialsItems.push(item);
+          materialsSubtotal += item.amount || 0;
+        } else {
+          servicesItems.push(item);
+          servicesSubtotal += item.amount || 0;
+        }
+      });
+    }
+
+    // If no separation found, treat all as services except payment fees
+    if (servicesItems.length === 0 && materialsItems.length === 0 && lineItems && lineItems.length > 0) {
+      lineItems.forEach((item: any) => {
+        const description = item.description?.toLowerCase() || '';
+        if (description.includes('payment fee') || description.includes('card payment fee') || description.includes('3.9%') || description.includes('processing fee')) {
+          paymentFeeItems.push(item);
+          paymentFeeSubtotal += item.amount || 0;
+        } else {
+          servicesItems.push(item);
+          servicesSubtotal += item.amount || 0;
+        }
+      });
+    }
+
+    // Calculate subtotal (services + materials)
+    const subtotal = servicesSubtotal + materialsSubtotal;
+    // Calculate subtotal with payment fee
+    const subtotalWithPaymentFee = subtotal + paymentFeeSubtotal;
+    
+    // Calculate tax (assuming 8.25% California state tax on subtotal before payment fee)
+    // But we need to work backwards from totalAmount to find tax if it's already included
+    // For now, estimate tax as difference between total and subtotal with payment fee
+    const estimatedTax = Math.max(0, totalAmount - subtotalWithPaymentFee);
+    const taxRate = estimatedTax > 0 && subtotal > 0 ? (estimatedTax / subtotal) * 100 : 8.25;
+    const taxAmount = estimatedTax > 0 ? estimatedTax : subtotal * 0.0825;
+    
+    // Final total
+    const finalTotal = totalAmount;
+
+    // Build Services HTML
+    let servicesHtml = '';
+    if (servicesItems.length > 0) {
+      servicesHtml = servicesItems.map((item: any) => `
         <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.description}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${item.unitPrice.toFixed(2)}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$${item.amount.toFixed(2)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.description || 'Service'}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${(item.quantity || 1).toFixed(1)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${(item.unitPrice || 0).toFixed(2)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$${(item.amount || 0).toFixed(2)}</td>
         </tr>
       `).join('');
     }
+
+    // Build Materials HTML
+    let materialsHtml = '';
+    if (materialsItems.length > 0) {
+      materialsHtml = materialsItems.map((item: any) => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.description || 'Material'}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${(item.quantity || 1).toFixed(1)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${(item.unitPrice || 0).toFixed(2)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$${(item.amount || 0).toFixed(2)}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Build Payment Fee HTML
+    let paymentFeeHtml = '';
+    if (paymentFeeItems.length > 0) {
+      paymentFeeHtml = paymentFeeItems.map((item: any) => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${item.description || '3.9% card payment fee'}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${(item.quantity || 1).toFixed(1)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${(item.unitPrice || 0).toFixed(2)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$${(item.amount || 0).toFixed(2)}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Format service date (use due date if available, otherwise current date)
+    const serviceDate = dueDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const serviceDateFormatted = serviceDate;
+
+    // Calculate monthly payment amount (example: divide by 12 months for financing)
+    const monthlyPayment = (finalTotal / 12).toFixed(2);
 
     const emailHtml = `
       <!DOCTYPE html>
@@ -37,88 +124,199 @@ export async function POST(request: Request) {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Invoice #${invoiceNumber}</title>
+        <title>Invoice #${invoiceNumber} due from Hey Spruce Restaurant Cleaning & Maintenance - $${finalTotal.toFixed(2)}</title>
       </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">HEY SPRUCE APP</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Property Maintenance Management</p>
-        </div>
-
-        <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
-          <h2 style="color: #667eea; margin-top: 0;">Invoice Ready for Payment</h2>
-
-          <p>Hi ${toName},</p>
-
-          <p>Your invoice and work order for <strong>${workOrderTitle}</strong> are ready. Please find both documents attached to this email.</p>
-
-          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <h3 style="margin-top: 0; color: #667eea;">Invoice Details</h3>
-            <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-            <p><strong>Work Order:</strong> ${workOrderTitle}</p>
-            <p><strong>Due Date:</strong> ${dueDate}</p>
-
-            ${lineItems && lineItems.length > 0 ? `
-              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                <thead>
-                  <tr style="background: #667eea; color: white;">
-                    <th style="padding: 10px; text-align: left;">Description</th>
-                    <th style="padding: 10px; text-align: center;">Qty</th>
-                    <th style="padding: 10px; text-align: right;">Unit Price</th>
-                    <th style="padding: 10px; text-align: right;">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${lineItemsHtml}
-                </tbody>
-              </table>
-            ` : ''}
-
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #667eea;">
-              <p style="font-size: 24px; font-weight: bold; color: #667eea; margin: 0;">
-                Amount Due: $${totalAmount.toLocaleString()}
-              </p>
-            </div>
-
-            ${notes ? `
-              <div style="margin-top: 20px; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
-                <p style="margin: 0; font-size: 14px;"><strong>Note:</strong> ${notes}</p>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          <!-- Top Bar -->
+          <div style="background-color: #ffffff; padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <h1 style="margin: 0; font-size: 16px; font-weight: bold; color: #1f2937;">
+                Invoice ${invoiceNumber} due from Hey Spruce Restaurant Cleaning & Maintenance - $${finalTotal.toFixed(2)}
+              </h1>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <span style="color: #6b7280; font-size: 12px;">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}</span>
               </div>
-            ` : ''}
+            </div>
           </div>
 
+          <!-- Company Name -->
+          <div style="background-color: #ffffff; padding: 20px; text-align: center;">
+            <h2 style="margin: 0; font-size: 24px; font-weight: bold; color: #1f2937;">
+              Hey Spruce Restaurant Cleaning & Maintenance
+            </h2>
+          </div>
+
+          <!-- Logo Placeholder (Circular) -->
+          <div style="background-color: #ffffff; padding: 20px 0; text-align: center;">
+            <div style="width: 100px; height: 100px; margin: 0 auto; border-radius: 50%; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); border: 4px solid #1f2937; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              <span style="color: #1f2937; font-size: 32px; font-weight: bold;">HS</span>
+            </div>
+          </div>
+
+          <!-- Main Heading -->
+          <div style="background-color: #ffffff; padding: 0 20px 20px 20px; text-align: center;">
+            <h3 style="margin: 0; font-size: 20px; font-weight: bold; color: #1f2937;">
+              Your invoice from Hey Spruce Restaurant Cleaning & Maintenance
+            </h3>
+          </div>
+
+          <!-- Payment Financing Option -->
+          <div style="background-color: #e0f2fe; padding: 20px; margin: 0 20px 20px 20px; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+              <div>
+                <p style="margin: 0; font-size: 16px; font-weight: bold; color: #0369a1;">
+                  Pay as low as $${monthlyPayment}/mo*
+                </p>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #0369a1;">
+                  Complete a short application to buy now and pay over time.
+                </p>
+              </div>
+              <a href="#" style="background-color: #0369a1; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block; margin-top: 10px;">
+                APPLY NOW
+              </a>
+            </div>
+          </div>
+
+          <!-- Invoice Content -->
+          <div style="background-color: #ffffff; padding: 20px;">
+            <p style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937;">
+              Hi ${toName.split(' ')[0] || toName},
+            </p>
+
+            <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">
+              Thank you for choosing Hey Spruce Restaurant Cleaning & Maintenance. Please see attached invoice due net 10.
+            </p>
+
+            <!-- Invoice Details -->
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <p style="margin: 0 0 10px 0; font-size: 14px; color: #374151;">
+                <strong>Invoice Number:</strong> #${invoiceNumber}
+              </p>
+              <p style="margin: 0 0 10px 0; font-size: 14px; color: #374151;">
+                <strong>Service Date:</strong> ${serviceDateFormatted}
+              </p>
+              <p style="margin: 0 0 10px 0; font-size: 14px; color: #374151;">
+                <strong>Customer Name:</strong> ${toName}
+              </p>
+              ${notes ? `
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #374151;">
+                  ${notes}
+                </p>
+              ` : ''}
+            </div>
+
+            <!-- Services Section -->
+            ${servicesItems.length > 0 ? `
+              <div style="margin-bottom: 20px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #1f2937;">Services</h4>
+                <table style="width: 100%; border-collapse: collapse; background-color: #ffffff;">
+                  <thead>
+                    <tr style="background-color: #f3f4f6;">
+                      <th style="padding: 10px; text-align: left; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">Description</th>
+                      <th style="padding: 10px; text-align: center; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">qty</th>
+                      <th style="padding: 10px; text-align: right; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">unit price</th>
+                      <th style="padding: 10px; text-align: right; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${servicesHtml}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <!-- Payment Fee Section -->
+            ${paymentFeeItems.length > 0 ? `
+              <div style="margin-bottom: 20px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #1f2937;">3.9% card payment fee</h4>
+                <table style="width: 100%; border-collapse: collapse; background-color: #ffffff;">
+                  <thead>
+                    <tr style="background-color: #f3f4f6;">
+                      <th style="padding: 10px; text-align: left; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">Description</th>
+                      <th style="padding: 10px; text-align: center; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">qty</th>
+                      <th style="padding: 10px; text-align: right; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">unit price</th>
+                      <th style="padding: 10px; text-align: right; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${paymentFeeHtml}
+                  </tbody>
+                </table>
+                <p style="margin: 10px 0 0 0; font-size: 13px; color: #6b7280; font-style: italic;">
+                  If you pay by credit or debit card, a 3.9% processing fee will be added to the total amount. To avoid this fee, you can choose to pay with cash, Zelle, check, or ACH transfer.
+                </p>
+              </div>
+            ` : ''}
+
+            <!-- Materials Section -->
+            ${materialsItems.length > 0 ? `
+              <div style="margin-bottom: 20px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 16px; font-weight: bold; color: #1f2937;">Materials</h4>
+                <table style="width: 100%; border-collapse: collapse; background-color: #ffffff;">
+                  <thead>
+                    <tr style="background-color: #f3f4f6;">
+                      <th style="padding: 10px; text-align: left; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">Description</th>
+                      <th style="padding: 10px; text-align: center; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">qty</th>
+                      <th style="padding: 10px; text-align: right; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">unit price</th>
+                      <th style="padding: 10px; text-align: right; font-size: 14px; font-weight: bold; color: #374151; border-bottom: 2px solid #e5e7eb;">amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${materialsHtml}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <!-- Summary -->
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px;">
+              ${materialsSubtotal > 0 ? `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="font-size: 14px; color: #374151; font-weight: bold;">Materials subtotal:</span>
+                  <span style="font-size: 14px; color: #374151; font-weight: bold;">$${materialsSubtotal.toFixed(2)}</span>
+                </div>
+              ` : ''}
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 14px; color: #374151; font-weight: bold;">Subtotal:</span>
+                <span style="font-size: 14px; color: #374151; font-weight: bold;">$${subtotalWithPaymentFee.toFixed(2)}</span>
+              </div>
+              ${taxAmount > 0 ? `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="font-size: 14px; color: #374151; font-weight: bold;">California State Tax:</span>
+                  <span style="font-size: 14px; color: #374151; font-weight: bold;">$${taxAmount.toFixed(2)}</span>
+                </div>
+              ` : ''}
+              <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+                <span style="font-size: 16px; color: #1f2937; font-weight: bold;">Total job price:</span>
+                <span style="font-size: 16px; color: #1f2937; font-weight: bold;">$${(subtotal + taxAmount).toFixed(2)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 2px solid #1f2937;">
+                <span style="font-size: 20px; color: #1f2937; font-weight: bold;">Amount Due:</span>
+                <span style="font-size: 24px; color: #1f2937; font-weight: bold;">$${finalTotal.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pay Button -->
           ${stripePaymentLink ? `
-            <div style="background: #10b981; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-              <h3 style="color: white; margin-top: 0;">Pay Online with Stripe</h3>
-              <p style="color: white; margin-bottom: 20px;">Click the button below to pay securely with your credit or debit card.</p>
-              <a href="${stripePaymentLink}"
-                 style="background: white; color: #10b981; padding: 14px 40px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 16px;">
-                Pay Now - $${totalAmount.toLocaleString()}
+            <div style="background-color: #ffffff; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+              <a href="${stripePaymentLink}" style="background-color: #0369a1; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 18px; display: inline-block;">
+                Pay
               </a>
             </div>
           ` : ''}
 
-          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <h4 style="margin-top: 0; color: #374151;">Alternative Payment Methods:</h4>
-            <p style="margin: 5px 0; font-size: 14px;">Send check to:<br>
-            <strong>Hey Spruce App</strong><br>
-            P.O. Box 104477<br>
-            Pasadena, CA 91189-4477</p>
+          <!-- Footer -->
+          <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0; font-size: 12px; color: #6b7280;">
+              Hey Spruce Restaurant Cleaning & Maintenance<br>
+              1972 E 20th St, Los Angeles, CA 90058<br>
+              Phone: <a href="tel:1-877-253-26464" style="color: #0369a1; text-decoration: none;">1-877-253-26464</a> | 
+              Email: <a href="mailto:info@heyspruce.com" style="color: #0369a1; text-decoration: none;">info@heyspruce.com</a> | 
+              Website: <a href="https://www.heyspruce.com/" style="color: #0369a1; text-decoration: none;">www.heyspruce.com</a>
+            </p>
           </div>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/client-portal/invoices"
-               style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-              View Invoice in Portal
-            </a>
-          </div>
-
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-          <p style="font-size: 12px; color: #6b7280; text-align: center;">
-            Hey Spruce App | San Francisco, CA 94104<br>
-            Phone: 877-253-2646 | Email: matthew@heyspruce.com
-          </p>
         </div>
       </body>
       </html>

@@ -498,6 +498,9 @@ const handleLocationSelect = (locationId: string) => {
         invoiceNumber: invoiceData.invoiceNumber,
         clientName: invoiceData.clientName,
         clientEmail: invoiceData.clientEmail,
+        workOrderName: workOrder.title,
+        vendorName: workOrder.assignedToName || undefined,
+        serviceDescription: workOrder.description,
         lineItems: invoiceData.lineItems,
         subtotal: invoiceData.totalAmount,
         taxRate: 0,
@@ -1134,16 +1137,14 @@ const handleLocationSelect = (locationId: string) => {
 
   const sortedWorkOrders = [...filteredWorkOrders].sort((a, b) => {
     switch (sortOption) {
-      case 'createdAt':
-        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
       case 'updatedAt':
         return (
           getTimestampValue((b as any).updatedAt || b.createdAt) -
           getTimestampValue((a as any).updatedAt || a.createdAt)
         );
-      case 'alphabet':
+      case 'createdAt':
       default:
-        return (a.title || '').localeCompare(b.title || '');
+        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
     }
   });
 

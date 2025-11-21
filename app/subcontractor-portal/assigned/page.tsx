@@ -54,7 +54,8 @@ export default function SubcontractorAssignedJobs() {
   const [acceptingJobId, setAcceptingJobId] = useState<string | null>(null);
   const [acceptingWorkOrderId, setAcceptingWorkOrderId] = useState<string | null>(null);
   const [serviceDate, setServiceDate] = useState('');
-  const [serviceTime, setServiceTime] = useState('09:00');
+  const [serviceTimeStart, setServiceTimeStart] = useState('09:00');
+  const [serviceTimeEnd, setServiceTimeEnd] = useState('17:00');
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completingWorkOrderId, setCompletingWorkOrderId] = useState<string | null>(null);
   const [completionDetails, setCompletionDetails] = useState('');
@@ -119,11 +120,19 @@ export default function SubcontractorAssignedJobs() {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     setServiceDate(tomorrow.toISOString().split('T')[0]);
+    // Set default time range (9 AM - 5 PM)
+    setServiceTimeStart('09:00');
+    setServiceTimeEnd('17:00');
   };
 
   const handleConfirmAccept = async () => {
-    if (!serviceDate || !serviceTime) {
-      toast.error('Please select both service date and time');
+    if (!serviceDate || !serviceTimeStart) {
+      toast.error('Please select service date and arrival time');
+      return;
+    }
+
+    if (serviceTimeEnd && serviceTimeEnd <= serviceTimeStart) {
+      toast.error('End time must be after start time');
       return;
     }
 
@@ -134,8 +143,9 @@ export default function SubcontractorAssignedJobs() {
       await updateDoc(doc(db, 'assignedJobs', acceptingJobId), {
         status: 'accepted',
         acceptedAt: serverTimestamp(),
-        scheduledServiceDate: new Date(serviceDate + 'T' + serviceTime),
-        scheduledServiceTime: serviceTime,
+        scheduledServiceDate: new Date(serviceDate + 'T' + serviceTimeStart),
+        scheduledServiceTime: serviceTimeStart,
+        scheduledServiceTimeEnd: serviceTimeEnd || null,
       });
 
       // Get work order data for notifications
@@ -145,33 +155,69 @@ export default function SubcontractorAssignedJobs() {
       // Update work order status
       await updateDoc(doc(db, 'workOrders', acceptingWorkOrderId), {
         status: 'accepted_by_subcontractor',
-        scheduledServiceDate: new Date(serviceDate + 'T' + serviceTime),
-        scheduledServiceTime: serviceTime,
+        scheduledServiceDate: new Date(serviceDate + 'T' + serviceTimeStart),
+        scheduledServiceTime: serviceTimeStart,
+        scheduledServiceTimeEnd: serviceTimeEnd || null,
         updatedAt: serverTimestamp(),
       });
 
-      // Notify client of scheduling
+      // Notify client of scheduling (in-app notification)
       if (workOrderData?.clientId) {
-        const scheduledDateTime = new Date(serviceDate + 'T' + serviceTime);
+        const scheduledDateTime = new Date(serviceDate + 'T' + serviceTimeStart);
+        const timeRange = serviceTimeEnd 
+          ? `${serviceTimeStart} - ${serviceTimeEnd}`
+          : serviceTimeStart;
         await notifyScheduledService(
           workOrderData.clientId,
           acceptingWorkOrderId,
           workOrderData.title || workOrderData.workOrderNumber || 'Work Order',
           scheduledDateTime.toLocaleDateString(),
-          serviceTime
+          timeRange
         );
+      }
+
+      // Send email to client
+      if (workOrderData?.clientEmail && workOrderData?.clientName) {
+        try {
+          const emailResponse = await fetch('/api/email/send-scheduled-service', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: workOrderData.clientEmail,
+              toName: workOrderData.clientName,
+              workOrderNumber: workOrderData.workOrderNumber || acceptingWorkOrderId,
+              workOrderTitle: workOrderData.title || 'Work Order',
+              scheduledDate: serviceDate,
+              scheduledTimeStart: serviceTimeStart,
+              scheduledTimeEnd: serviceTimeEnd || null,
+              locationName: workOrderData.locationName || '',
+              locationAddress: workOrderData.locationAddress || workOrderData.location?.address || '',
+            }),
+          });
+
+          if (!emailResponse.ok) {
+            console.error('Failed to send scheduled service email');
+            // Don't fail the whole operation if email fails
+          }
+        } catch (emailError) {
+          console.error('Error sending scheduled service email:', emailError);
+          // Don't fail the whole operation if email fails
+        }
       }
 
       // Notify all admins
       const adminIds = await getAllAdminUserIds();
       if (adminIds.length > 0) {
-        const scheduledDateTime = new Date(serviceDate + 'T' + serviceTime);
+        const scheduledDateTime = new Date(serviceDate + 'T' + serviceTimeStart);
+        const timeRange = serviceTimeEnd 
+          ? `${serviceTimeStart} - ${serviceTimeEnd}`
+          : serviceTimeStart;
         await createNotification({
           recipientIds: adminIds,
           userRole: 'admin',
           type: 'schedule',
           title: 'Work Order Scheduled',
-          message: `Work Order ${workOrderData?.workOrderNumber || acceptingWorkOrderId} scheduled for ${scheduledDateTime.toLocaleString()}`,
+          message: `Work Order ${workOrderData?.workOrderNumber || acceptingWorkOrderId} scheduled for ${scheduledDateTime.toLocaleDateString()} ${timeRange}`,
           link: `/admin-portal/work-orders/${acceptingWorkOrderId}`,
           referenceId: acceptingWorkOrderId,
           referenceType: 'workOrder',
@@ -183,7 +229,8 @@ export default function SubcontractorAssignedJobs() {
       setAcceptingJobId(null);
       setAcceptingWorkOrderId(null);
       setServiceDate('');
-      setServiceTime('09:00');
+      setServiceTimeStart('09:00');
+      setServiceTimeEnd('17:00');
     } catch (error) {
       console.error('Error accepting assignment:', error);
       toast.error('Failed to accept assignment');
@@ -301,6 +348,29 @@ export default function SubcontractorAssignedJobs() {
           completingWorkOrderId,
           workOrderData.workOrderNumber || completingWorkOrderId
         );
+      }
+
+      // Send review request email to client
+      if (workOrderData?.clientEmail && workOrderData?.clientName) {
+        try {
+          const emailResponse = await fetch('/api/email/send-review-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: workOrderData.clientEmail,
+              toName: workOrderData.clientName,
+              workOrderNumber: workOrderData.workOrderNumber || completingWorkOrderId,
+            }),
+          });
+
+          if (!emailResponse.ok) {
+            console.error('Failed to send review request email');
+            // Don't show error to user - email is not critical
+          }
+        } catch (emailError) {
+          console.error('Error sending review request email:', emailError);
+          // Don't show error to user - email is not critical
+        }
       }
 
       toast.success('Job marked as complete with details!');
@@ -595,13 +665,13 @@ export default function SubcontractorAssignedJobs() {
 
               <div className="p-6 space-y-4">
                 <p className="text-gray-600">
-                  Please select when you will start working on this job:
+                  Please select the scheduled date and arrival time window for this job:
                 </p>
 
                 <div>
                   <Label htmlFor="service-date" className="flex items-center gap-2 mb-2">
                     <Calendar className="h-4 w-4" />
-                    Service Date *
+                    Scheduled Date *
                   </Label>
                   <Input
                     id="service-date"
@@ -614,17 +684,35 @@ export default function SubcontractorAssignedJobs() {
                 </div>
 
                 <div>
-                  <Label htmlFor="service-time" className="flex items-center gap-2 mb-2">
+                  <Label htmlFor="service-time-start" className="flex items-center gap-2 mb-2">
                     <Clock className="h-4 w-4" />
-                    Service Time *
+                    Arrival Time Window (Start) *
                   </Label>
                   <Input
-                    id="service-time"
+                    id="service-time-start"
                     type="time"
-                    value={serviceTime}
-                    onChange={(e) => setServiceTime(e.target.value)}
+                    value={serviceTimeStart}
+                    onChange={(e) => setServiceTimeStart(e.target.value)}
                     required
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="service-time-end" className="flex items-center gap-2 mb-2">
+                    <Clock className="h-4 w-4" />
+                    Arrival Time Window (End) *
+                  </Label>
+                  <Input
+                    id="service-time-end"
+                    type="time"
+                    value={serviceTimeEnd}
+                    onChange={(e) => setServiceTimeEnd(e.target.value)}
+                    min={serviceTimeStart}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Client will be notified that service will arrive between these times
+                  </p>
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">
@@ -633,7 +721,7 @@ export default function SubcontractorAssignedJobs() {
                     onClick={handleConfirmAccept}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    Accept & Schedule
+                    Approve Work Order
                   </Button>
                   <Button
                     variant="outline"

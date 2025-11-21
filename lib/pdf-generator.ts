@@ -11,6 +11,9 @@ interface InvoiceData {
     state: string;
     zip: string;
   };
+  workOrderName?: string;
+  vendorName?: string;
+  serviceDescription?: string;
   lineItems: Array<{
     description: string;
     quantity: number;
@@ -70,9 +73,9 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.gray);
-  doc.text('Property Maintenance Management', 20, 35);
-  doc.text('San Francisco, California 94104', 20, 39);
-  doc.text('matthew@heyspruce.com | 877-253-2646', 20, 43);
+  doc.text('Restaurant Cleaning & Maintenance', 20, 35);
+  doc.text('1972 E 20th St, Los Angeles, CA 90058', 20, 39);
+  doc.text('info@heyspruce.com | 1-877-253-26464', 20, 43);
 
   // Invoice Title - Right aligned
   doc.setFontSize(28);
@@ -131,9 +134,79 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.setFontSize(11);
   doc.text(invoice.dueDate, pageWidth - 62, 72);
 
+  // Service Information Section - Added after Bill To section
+  let yPosition = 95;
+  if (invoice.workOrderName || invoice.vendorName || invoice.serviceDescription) {
+    const startY = yPosition;
+    
+    // Calculate height needed for content
+    let contentHeight = 8; // Header
+    if (invoice.workOrderName) {
+      const splitWorkOrderName = doc.splitTextToSize(invoice.workOrderName, pageWidth - 80);
+      contentHeight += Math.max(6, splitWorkOrderName.length * 5) + 2;
+    }
+    if (invoice.vendorName) {
+      contentHeight += 6;
+    }
+    if (invoice.serviceDescription) {
+      const splitServiceDesc = doc.splitTextToSize(invoice.serviceDescription, pageWidth - 50);
+      contentHeight += 5 + Math.max(6, splitServiceDesc.length * 5) + 3;
+    }
+    
+    // Draw background box
+    doc.setFillColor(248, 250, 252); // Very light gray
+    doc.roundedRect(20, startY - 3, pageWidth - 40, contentHeight + 5, 2, 2, 'F');
+    
+    // Draw content
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.primary);
+    doc.text('SERVICE INFORMATION', 25, yPosition + 3);
+    
+    yPosition += 8;
+    
+    // Work Order Name
+    if (invoice.workOrderName) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.dark);
+      doc.text('Work Order:', 25, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.text);
+      const splitWorkOrderName = doc.splitTextToSize(invoice.workOrderName, pageWidth - 80);
+      doc.text(splitWorkOrderName, 70, yPosition);
+      yPosition += Math.max(6, splitWorkOrderName.length * 5) + 2;
+    }
+    
+    // Vendor Name
+    if (invoice.vendorName) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.dark);
+      doc.text('Vendor:', 25, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.text);
+      doc.text(invoice.vendorName, 70, yPosition);
+      yPosition += 6;
+    }
+    
+    // Service Description
+    if (invoice.serviceDescription) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.dark);
+      doc.text('Service:', 25, yPosition);
+      yPosition += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.text);
+      const splitServiceDesc = doc.splitTextToSize(invoice.serviceDescription, pageWidth - 50);
+      doc.text(splitServiceDesc, 25, yPosition);
+      yPosition += Math.max(6, splitServiceDesc.length * 5) + 3;
+    }
+    
+    yPosition += 5; // Extra spacing before table
+  }
+
   // Line Items Table
-  const tableTop = 100;
-  let yPosition = tableTop;
+  const tableTop = yPosition;
+  yPosition = tableTop;
 
   // Modern Table Header with gradient effect
   doc.setFillColor(...COLORS.primary);
@@ -273,8 +346,8 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.text);
   doc.text('• Pay securely online using the Stripe payment link provided in your email', 25, yPosition + 10);
-  doc.text('• Mail check payable to: Hey Spruce App', 25, yPosition + 16);
-  doc.text('  P.O. Box 104477, Pasadena, CA 91189-4477', 25, yPosition + 21);
+  doc.text('• Mail check payable to: Hey Spruce Restaurant Cleaning & Maintenance', 25, yPosition + 16);
+  doc.text('  1972 E 20th St, Los Angeles, CA 90058', 25, yPosition + 21);
 
   yPosition += 32;
 
@@ -342,13 +415,13 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
       pageHeight - 10
     );
     doc.text(
-      `© ${new Date().getFullYear()} Hey Spruce. All rights reserved.`,
+      `© ${new Date().getFullYear()} Hey Spruce Restaurant Cleaning & Maintenance. All rights reserved.`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }
     );
     doc.text(
-      'matthew@heyspruce.com',
+      'info@heyspruce.com | 1-877-253-26464',
       pageWidth - 20,
       pageHeight - 10,
       { align: 'right' }
@@ -423,9 +496,9 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.gray);
-  doc.text('Property Maintenance Management', 20, 35);
-  doc.text('San Francisco, California 94104', 20, 39);
-  doc.text('matthew@heyspruce.com | 877-253-2646', 20, 43);
+  doc.text('Restaurant Cleaning & Maintenance', 20, 35);
+  doc.text('1972 E 20th St, Los Angeles, CA 90058', 20, 39);
+  doc.text('info@heyspruce.com | 1-877-253-26464', 20, 43);
 
   // Work Order Title - Right aligned
   doc.setFontSize(28);
@@ -623,13 +696,13 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
       pageHeight - 10
     );
     doc.text(
-      `© ${new Date().getFullYear()} Hey Spruce. All rights reserved.`,
+      `© ${new Date().getFullYear()} Hey Spruce Restaurant Cleaning & Maintenance. All rights reserved.`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }
     );
     doc.text(
-      'matthew@heyspruce.com',
+      'info@heyspruce.com | 1-877-253-26464',
       pageWidth - 20,
       pageHeight - 10,
       { align: 'right' }

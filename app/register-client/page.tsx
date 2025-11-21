@@ -149,7 +149,7 @@ export default function RegisterClient() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Client Registration</CardTitle>
           <CardDescription className="text-center">
-            Create your client account to manage property maintenance
+            Create your client account to manage restaurant cleaning and maintenance
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
