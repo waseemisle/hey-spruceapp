@@ -8,12 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Plus, Save, X, Search, Users, Edit2, Trash2, Eye } from 'lucide-react';
+import { Building2, Plus, Save, X, Search, Users, Edit2, Trash2, Eye, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
 interface Client { id: string; fullName: string; email: string }
-interface Company { id: string; clientId: string; name: string; email?: string; phone?: string }
+interface Company { id: string; clientId: string; name: string; email?: string; phone?: string; logoUrl?: string }
 
 export default function AdminCompanies() {
   const router = useRouter();
@@ -23,7 +24,10 @@ export default function AdminCompanies() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({ clientId: '', name: '', email: '', phone: '' });
+  const [formData, setFormData] = useState({ clientId: '', name: '', email: '', phone: '', logoUrl: '' });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const fetchAll = async () => {
@@ -49,6 +53,26 @@ export default function AdminCompanies() {
     fetchAll();
   }, []);
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.name.trim()) {
       toast.error('Company name is required');
@@ -56,11 +80,29 @@ export default function AdminCompanies() {
     }
     setSaving(true);
     try {
+      let logoUrl = formData.logoUrl;
+
+      // Upload logo if a new file is selected
+      if (logoFile) {
+        setUploadingLogo(true);
+        try {
+          logoUrl = await uploadToCloudinary(logoFile);
+          toast.success('Logo uploaded successfully');
+        } catch (error: any) {
+          toast.error('Failed to upload logo: ' + error.message);
+          setUploadingLogo(false);
+          setSaving(false);
+          return;
+        }
+        setUploadingLogo(false);
+      }
+
       if (editingId) {
         await updateDoc(doc(db, 'companies', editingId), {
           name: formData.name,
           email: formData.email || '',
           phone: formData.phone || '',
+          logoUrl: logoUrl || '',
           updatedAt: serverTimestamp(),
         });
         toast.success('Company updated');
@@ -70,6 +112,7 @@ export default function AdminCompanies() {
           name: formData.name,
           email: formData.email || '',
           phone: formData.phone || '',
+          logoUrl: logoUrl || '',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -77,24 +120,31 @@ export default function AdminCompanies() {
       }
       setShowModal(false);
       setEditingId(null);
-      setFormData({ clientId: '', name: '', email: '', phone: '' });
+      setFormData({ clientId: '', name: '', email: '', phone: '', logoUrl: '' });
+      setLogoFile(null);
+      setLogoPreview('');
       fetchAll();
     } catch (e: any) {
       toast.error(e.message || 'Failed to create company');
     } finally {
       setSaving(false);
+      setUploadingLogo(false);
     }
   };
 
   const handleOpenCreate = () => {
     setEditingId(null);
-    setFormData({ clientId: '', name: '', email: '', phone: '' });
+    setFormData({ clientId: '', name: '', email: '', phone: '', logoUrl: '' });
+    setLogoFile(null);
+    setLogoPreview('');
     setShowModal(true);
   };
 
   const handleOpenEdit = (c: Company) => {
     setEditingId(c.id);
-    setFormData({ clientId: c.clientId, name: c.name, email: c.email || '', phone: c.phone || '' });
+    setFormData({ clientId: c.clientId, name: c.name, email: c.email || '', phone: c.phone || '', logoUrl: c.logoUrl || '' });
+    setLogoFile(null);
+    setLogoPreview(c.logoUrl || '');
     setShowModal(true);
   };
 
@@ -175,7 +225,16 @@ export default function AdminCompanies() {
               return (
                 <Card key={c.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
-                    <CardTitle className="text-lg">{c.name}</CardTitle>
+                    <div className="flex items-center gap-3">
+                      {c.logoUrl && (
+                        <img
+                          src={c.logoUrl}
+                          alt={c.name}
+                          className="h-12 w-12 object-contain rounded"
+                        />
+                      )}
+                      <CardTitle className="text-lg">{c.name}</CardTitle>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
@@ -248,6 +307,49 @@ export default function AdminCompanies() {
                   <div>
                     <Label>Phone</Label>
                     <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Company Logo</Label>
+                    <div className="mt-2 space-y-2">
+                      {(logoPreview || formData.logoUrl) && (
+                        <div className="relative inline-block">
+                          <img
+                            src={logoPreview || formData.logoUrl}
+                            alt="Logo preview"
+                            className="h-24 w-24 object-contain border rounded p-2 bg-gray-50"
+                          />
+                          {logoFile && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLogoFile(null);
+                                setLogoPreview(formData.logoUrl || '');
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                          <Upload className="h-4 w-4" />
+                          <span className="text-sm">{logoPreview || formData.logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoChange}
+                            className="hidden"
+                            disabled={uploadingLogo}
+                          />
+                        </label>
+                        {uploadingLogo && (
+                          <span className="text-sm text-gray-500">Uploading...</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">Recommended: Square image, max 5MB</p>
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-3 pt-4 border-t">

@@ -93,6 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users, badgeKey: null },
     { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck, badgeKey: null },
     { name: 'Companies', href: '/admin-portal/subsidiaries', icon: Building2, badgeKey: null },
+    { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck, badgeKey: null },
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
     { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
     { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
