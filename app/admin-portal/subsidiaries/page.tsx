@@ -8,23 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Plus, Save, X, Search, Users, Edit2, Trash2, Eye, Upload, Image as ImageIcon } from 'lucide-react';
+import { Building2, Plus, Save, X, Search, Edit2, Trash2, Eye, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
-interface Client { id: string; fullName: string; email: string }
-interface Company { id: string; clientId: string; name: string; email?: string; phone?: string; logoUrl?: string }
+interface Company { id: string; clientId?: string; name: string; email?: string; phone?: string; logoUrl?: string }
 
 export default function AdminCompanies() {
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({ clientId: '', name: '', email: '', phone: '', logoUrl: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', logoUrl: '' });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -33,14 +31,9 @@ export default function AdminCompanies() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [companiesSnap, clientsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'companies'))),
-        getDocs(query(collection(db, 'clients'))),
-      ]);
+      const companiesSnap = await getDocs(query(collection(db, 'companies')));
       const comps = companiesSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as any as Company[];
-      const cls = clientsSnap.docs.map((d) => ({ id: d.id, fullName: d.data().fullName, email: d.data().email })) as Client[];
       setCompanies(comps);
-      setClients(cls);
     } catch (e) {
       console.error(e);
       toast.error('Failed to load data');
@@ -108,7 +101,6 @@ export default function AdminCompanies() {
         toast.success('Company updated');
       } else {
         await addDoc(collection(db, 'companies'), {
-          clientId: formData.clientId,
           name: formData.name,
           email: formData.email || '',
           phone: formData.phone || '',
@@ -120,7 +112,7 @@ export default function AdminCompanies() {
       }
       setShowModal(false);
       setEditingId(null);
-      setFormData({ clientId: '', name: '', email: '', phone: '', logoUrl: '' });
+      setFormData({ name: '', email: '', phone: '', logoUrl: '' });
       setLogoFile(null);
       setLogoPreview('');
       fetchAll();
@@ -134,7 +126,7 @@ export default function AdminCompanies() {
 
   const handleOpenCreate = () => {
     setEditingId(null);
-    setFormData({ clientId: '', name: '', email: '', phone: '', logoUrl: '' });
+    setFormData({ name: '', email: '', phone: '', logoUrl: '' });
     setLogoFile(null);
     setLogoPreview('');
     setShowModal(true);
@@ -142,7 +134,7 @@ export default function AdminCompanies() {
 
   const handleOpenEdit = (c: Company) => {
     setEditingId(c.id);
-    setFormData({ clientId: c.clientId, name: c.name, email: c.email || '', phone: c.phone || '', logoUrl: c.logoUrl || '' });
+    setFormData({ name: c.name, email: c.email || '', phone: c.phone || '', logoUrl: c.logoUrl || '' });
     setLogoFile(null);
     setLogoPreview(c.logoUrl || '');
     setShowModal(true);
@@ -168,12 +160,10 @@ export default function AdminCompanies() {
   const filtered = companies.filter((c) => {
     const q = searchQuery.toLowerCase();
     if (!q) return true;
-    const client = clients.find((cl) => cl.id === c.clientId);
     return (
       c.name.toLowerCase().includes(q) ||
       (c.email || '').toLowerCase().includes(q) ||
-      (c.phone || '').toLowerCase().includes(q) ||
-      (client?.fullName || '').toLowerCase().includes(q)
+      (c.phone || '').toLowerCase().includes(q)
     );
   });
 
@@ -204,7 +194,7 @@ export default function AdminCompanies() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search by company or client..."
+            placeholder="Search by company name, email, or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -221,7 +211,6 @@ export default function AdminCompanies() {
             </Card>
           ) : (
             filtered.map((c) => {
-              const client = clients.find((cl) => cl.id === c.clientId);
               return (
                 <Card key={c.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
@@ -237,10 +226,6 @@ export default function AdminCompanies() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>{client ? `${client.fullName} (${client.email})` : c.clientId}</span>
-                    </div>
                     {c.email && <div>Email: {c.email}</div>}
                     {c.phone && <div>Phone: {c.phone}</div>}
                     <div className="flex gap-2 pt-2">
@@ -273,25 +258,6 @@ export default function AdminCompanies() {
               </div>
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Select Client</Label>
-                    <select
-                      value={formData.clientId}
-                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                      disabled={!!editingId}
-                    >
-                      <option value="">Choose a client...</option>
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.fullName} ({c.email})
-                        </option>
-                      ))}
-                    </select>
-                    {editingId && (
-                      <p className="text-xs text-gray-500 mt-1">Client cannot be changed</p>
-                    )}
-                  </div>
                   <div>
                     <Label>Company Name *</Label>
                     <Input
