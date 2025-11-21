@@ -73,7 +73,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.gray);
-  doc.text('Restaurant Cleaning & Maintenance', 20, 35);
+  doc.text('Cleaning & Maintenance', 20, 35);
   doc.text('1972 E 20th St, Los Angeles, CA 90058', 20, 39);
   doc.text('info@heyspruce.com | 1-877-253-26464', 20, 43);
 
@@ -346,7 +346,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.text);
   doc.text('• Pay securely online using the Stripe payment link provided in your email', 25, yPosition + 10);
-  doc.text('• Mail check payable to: Hey Spruce Restaurant Cleaning & Maintenance', 25, yPosition + 16);
+  doc.text('• Mail check payable to: Cleaning & Maintenance', 25, yPosition + 16);
   doc.text('  1972 E 20th St, Los Angeles, CA 90058', 25, yPosition + 21);
 
   yPosition += 32;
@@ -415,7 +415,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
       pageHeight - 10
     );
     doc.text(
-      `© ${new Date().getFullYear()} Hey Spruce Restaurant Cleaning & Maintenance. All rights reserved.`,
+      `© ${new Date().getFullYear()} Cleaning & Maintenance. All rights reserved.`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }
@@ -496,7 +496,7 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.gray);
-  doc.text('Restaurant Cleaning & Maintenance', 20, 35);
+  doc.text('Cleaning & Maintenance', 20, 35);
   doc.text('1972 E 20th St, Los Angeles, CA 90058', 20, 39);
   doc.text('info@heyspruce.com | 1-877-253-26464', 20, 43);
 
@@ -696,7 +696,7 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
       pageHeight - 10
     );
     doc.text(
-      `© ${new Date().getFullYear()} Hey Spruce Restaurant Cleaning & Maintenance. All rights reserved.`,
+      `© ${new Date().getFullYear()} Cleaning & Maintenance. All rights reserved.`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }

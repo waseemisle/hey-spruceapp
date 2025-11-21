@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Invoice #${invoiceNumber} due from Hey Spruce Restaurant Cleaning & Maintenance - $${finalTotal.toFixed(2)}</title>
+        <title>Invoice #${invoiceNumber} due from Cleaning & Maintenance - $${finalTotal.toFixed(2)}</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
           <div style="background-color: #ffffff; padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <h1 style="margin: 0; font-size: 16px; font-weight: bold; color: #1f2937;">
-                Invoice ${invoiceNumber} due from Hey Spruce Restaurant Cleaning & Maintenance - $${finalTotal.toFixed(2)}
+                Invoice ${invoiceNumber} due from Cleaning & Maintenance - $${finalTotal.toFixed(2)}
               </h1>
               <div style="display: flex; gap: 10px; align-items: center;">
                 <span style="color: #6b7280; font-size: 12px;">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}</span>
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
           <!-- Company Name -->
           <div style="background-color: #ffffff; padding: 20px; text-align: center;">
             <h2 style="margin: 0; font-size: 24px; font-weight: bold; color: #1f2937;">
-              Hey Spruce Restaurant Cleaning & Maintenance
+              Cleaning & Maintenance
             </h2>
           </div>
 
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
           <!-- Main Heading -->
           <div style="background-color: #ffffff; padding: 0 20px 20px 20px; text-align: center;">
             <h3 style="margin: 0; font-size: 20px; font-weight: bold; color: #1f2937;">
-              Your invoice from Hey Spruce Restaurant Cleaning & Maintenance
+              Your invoice from Cleaning & Maintenance
             </h3>
           </div>
 
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
             </p>
 
             <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-              Thank you for choosing Hey Spruce Restaurant Cleaning & Maintenance. Please see attached invoice due net 10.
+              Thank you for choosing Cleaning & Maintenance. Please see attached invoice due net 10.
             </p>
 
             <!-- Invoice Details -->
@@ -310,7 +310,7 @@ export async function POST(request: Request) {
           <!-- Footer -->
           <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
             <p style="margin: 0; font-size: 12px; color: #6b7280;">
-              Hey Spruce Restaurant Cleaning & Maintenance<br>
+              Cleaning & Maintenance<br>
               1972 E 20th St, Los Angeles, CA 90058<br>
               Phone: <a href="tel:1-877-253-26464" style="color: #0369a1; text-decoration: none;">1-877-253-26464</a> | 
               Email: <a href="mailto:info@heyspruce.com" style="color: #0369a1; text-decoration: none;">info@heyspruce.com</a> | 
