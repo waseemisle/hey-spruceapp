@@ -29,6 +29,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
 
   useEffect(() => {
+    // Check if Firebase is initialized
+    if (!auth) {
+      console.error('Firebase auth is not initialized. Please check your .env.local file.');
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         // Check if user is admin

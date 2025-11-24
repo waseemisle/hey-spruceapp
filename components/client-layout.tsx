@@ -46,6 +46,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     checkImpersonation();
     const interval = setInterval(checkImpersonation, 1000);
 
+    // Check if Firebase is initialized
+    if (!auth) {
+      console.error('Firebase auth is not initialized. Please check your .env.local file.');
+      setLoading(false);
+      clearInterval(interval);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const clientDoc = await getDoc(doc(db, 'clients', firebaseUser.uid));

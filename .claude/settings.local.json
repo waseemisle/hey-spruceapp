@@ -53,7 +53,11 @@
       "Bash(start:*)",
       "Bash(if exist \"app\\test-password-storage\" rmdir /s /q \"app\\test-password-storage\")",
       "Bash(if exist \"app\\generate-test-link\" rmdir /s /q \"app\\generate-test-link\")",
-      "Bash(if exist nul del nul)"
+      "Bash(if exist nul del nul)",
+      "Bash(TESTING_REPORT.md)",
+      "Bash(IMPLEMENTATION_SUMMARY.md)",
+      "Bash(dir /b:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []
