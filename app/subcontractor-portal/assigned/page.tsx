@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyWorkOrderCompletion, notifyScheduledService, getAllAdminUserIds } from '@/lib/notifications';
 import { createNotification } from '@/lib/notifications';
 import SubcontractorLayout from '@/components/subcontractor-layout';
@@ -45,6 +45,7 @@ interface WorkOrder {
 }
 
 export default function SubcontractorAssignedJobs() {
+  const { auth, db } = useFirebaseInstance();
   const [assignedJobs, setAssignedJobs] = useState<AssignedJob[]>([]);
   const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -110,7 +111,7 @@ export default function SubcontractorAssignedJobs() {
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [auth, db]);
 
   const handleAcceptAssignment = (assignedJobId: string, workOrderId: string) => {
     setAcceptingJobId(assignedJobId);

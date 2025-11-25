@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,7 @@ interface WorkOrder {
 }
 
 export default function ViewClientWorkOrder() {
+  const { db } = useFirebaseInstance();
   const params = useParams();
   const id = params?.id as string;
 
@@ -74,7 +75,7 @@ export default function ViewClientWorkOrder() {
     };
 
     fetchWorkOrder();
-  }, [id]);
+  }, [id, db]);
 
   const getStatusBadge = (status: string) => {
     const styles = {

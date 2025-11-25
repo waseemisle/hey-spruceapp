@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +43,7 @@ interface Invoice {
 }
 
 export default function ClientInvoices() {
+  const { auth, db } = useFirebaseInstance();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -72,7 +73,7 @@ export default function ClientInvoices() {
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [auth, db]);
 
   const handleDownloadPDF = async (invoice: Invoice) => {
     try {

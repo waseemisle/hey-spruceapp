@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot, where, updateDoc, doc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ interface Message {
 }
 
 export default function SubcontractorMessages() {
+  const { auth, db } = useFirebaseInstance();
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -59,7 +60,7 @@ export default function SubcontractorMessages() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth, db]);
 
   useEffect(() => {
     if (!selectedChat) return;

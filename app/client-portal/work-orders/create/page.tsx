@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import { notifyAdminsOfWorkOrder } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
@@ -109,7 +109,7 @@ export default function CreateWorkOrder() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth, db]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -134,7 +134,7 @@ export default function CreateWorkOrder() {
     };
 
     fetchCategories();
-  }, []);
+  }, [db]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));

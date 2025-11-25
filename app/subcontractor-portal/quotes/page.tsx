@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,7 @@ interface Quote {
 }
 
 export default function SubcontractorQuotes() {
+  const { auth, db } = useFirebaseInstance();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -69,7 +70,7 @@ export default function SubcontractorQuotes() {
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [auth, db]);
 
   const getStatusBadge = (quote: Quote) => {
     if (quote.status === 'accepted') {

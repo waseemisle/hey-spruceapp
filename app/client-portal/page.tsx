@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { onSnapshot, collection, doc, getDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
@@ -15,6 +15,7 @@ import {
 } from '@/lib/dashboard-utils';
 
 export default function ClientDashboard() {
+  const { auth, db } = useFirebaseInstance();
   const [workOrdersData, setWorkOrdersData] = useState({
     workRequired: {
       total: 0,
@@ -69,9 +70,9 @@ export default function ClientDashboard() {
         setAssignedLocations(locations);
 
         // Fetch all dashboard data
-        const workOrders = await calculateWorkOrdersData('client', currentUser.uid, locations);
-        const proposals = await calculateProposalsData('client', currentUser.uid);
-        const invoices = await calculateInvoicesData('client', currentUser.uid);
+        const workOrders = await calculateWorkOrdersData('client', currentUser.uid, locations, db);
+        const proposals = await calculateProposalsData('client', currentUser.uid, db);
+        const invoices = await calculateInvoicesData('client', currentUser.uid, db);
 
         setWorkOrdersData(workOrders);
         setProposalsData(proposals);
@@ -87,17 +88,17 @@ export default function ClientDashboard() {
 
     // Set up real-time listeners
     const unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
-      const workOrders = await calculateWorkOrdersData('client', currentUser.uid, assignedLocations);
+      const workOrders = await calculateWorkOrdersData('client', currentUser.uid, assignedLocations, db);
       setWorkOrdersData(workOrders);
     });
 
     const unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
-      const proposals = await calculateProposalsData('client', currentUser.uid);
+      const proposals = await calculateProposalsData('client', currentUser.uid, db);
       setProposalsData(proposals);
     });
 
     const unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
-      const invoices = await calculateInvoicesData('client', currentUser.uid);
+      const invoices = await calculateInvoicesData('client', currentUser.uid, db);
       setInvoicesData(invoices);
     });
 
@@ -106,7 +107,7 @@ export default function ClientDashboard() {
       unsubscribeQuotes();
       unsubscribeInvoices();
     };
-  }, [assignedLocations]);
+  }, [assignedLocations, auth, db]);
 
   const handleSearch = (searchType: string, searchValue: string) => {
     // Implement search functionality

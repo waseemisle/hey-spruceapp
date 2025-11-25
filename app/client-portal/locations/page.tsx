@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ interface Location {
 }
 
 export default function ClientLocations() {
+  const { auth, db } = useFirebaseInstance();
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,7 +121,7 @@ export default function ClientLocations() {
       unsubscribeSnapshot?.();
       unsubscribeAuth();
     };
-  }, []);
+  }, [auth, db]);
 
   const getStatusBadge = (status: string) => {
     const styles = {

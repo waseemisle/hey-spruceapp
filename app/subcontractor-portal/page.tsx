@@ -3,58 +3,57 @@
 import { useEffect, useState } from 'react';
 import { onSnapshot, collection } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
-import WorkOrdersSection from '@/components/dashboard/work-orders-section';
-import ProposalsSection from '@/components/dashboard/proposals-section';
-import InvoicesSection from '@/components/dashboard/invoices-section';
+import BiddingWorkOrdersSection from '@/components/dashboard/bidding-work-orders-section';
+import MyQuotesSection from '@/components/dashboard/my-quotes-section';
+import AssignedJobsSection from '@/components/dashboard/assigned-jobs-section';
 import {
-  calculateWorkOrdersData,
-  calculateProposalsData,
-  calculateInvoicesData,
+  calculateBiddingWorkOrdersData,
+  calculateMyQuotesData,
+  calculateAssignedJobsData,
 } from '@/lib/dashboard-utils';
 
 export default function SubcontractorDashboard() {
-  const [workOrdersData, setWorkOrdersData] = useState({
-    workRequired: {
-      total: 0,
-      dispatchNotConfirmed: { urgent: 0, total: 0 },
-      declinedByProvider: { urgent: 0, total: 0 },
-      lateToArrive: { urgent: 0, total: 0 },
-    },
-    inProgress: {
-      total: 0,
-      partsOnOrder: { urgent: 0, total: 0 },
-      waitingForQuote: { urgent: 0, total: 0 },
-      unsatisfactory: 0,
-    },
-    awaitingAction: {
-      total: 0,
-      pendingConfirmation: 0,
-      actionRequired: 0,
-      myActionRequired: 0,
-    },
+  const { auth, db } = useFirebaseInstance();
+  const [biddingWorkOrdersData, setBiddingWorkOrdersData] = useState({
+    pending: 0,
+    quoteSubmitted: 0,
+    total: 0,
   });
 
-  const [proposalsData, setProposalsData] = useState({
-    pendingApproval: { urgent: 0, total: 0 },
-    onHold: 0,
+  const [myQuotesData, setMyQuotesData] = useState({
+    pending: 0,
+    underReview: 0,
+    accepted: 0,
     rejected: 0,
-    approved: 0,
+    total: 0,
   });
 
-  const [invoicesData, setInvoicesData] = useState({
-    completedNotInvoiced: 0,
-    openReviewed: { count: 0, amount: '0.00', mixedCurrency: false },
-    onHold: { count: 0, amount: '0.00' },
-    rejected: { count: 0, amount: '0.00' },
+  const [assignedJobsData, setAssignedJobsData] = useState({
+    pendingAcceptance: 0,
+    accepted: 0,
+    inProgress: 0,
+    completed: 0,
+    total: 0,
   });
 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribeBidding: (() => void) | null = null;
+    let unsubscribeQuotes: (() => void) | null = null;
+    let unsubscribeAssigned: (() => void) | null = null;
+    let unsubscribeWorkOrders: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      // Clean up previous listeners
+      unsubscribeBidding?.();
+      unsubscribeQuotes?.();
+      unsubscribeAssigned?.();
+      unsubscribeWorkOrders?.();
+
       if (!user) {
         setLoading(false);
         return;
@@ -62,13 +61,13 @@ export default function SubcontractorDashboard() {
 
       try {
         // Fetch all dashboard data
-        const workOrders = await calculateWorkOrdersData('subcontractor', user.uid);
-        const proposals = await calculateProposalsData('subcontractor', user.uid);
-        const invoices = await calculateInvoicesData('subcontractor', user.uid);
+        const biddingWorkOrders = await calculateBiddingWorkOrdersData(user.uid, db);
+        const myQuotes = await calculateMyQuotesData(user.uid, db);
+        const assignedJobs = await calculateAssignedJobsData(user.uid, db);
 
-        setWorkOrdersData(workOrders);
-        setProposalsData(proposals);
-        setInvoicesData(invoices);
+        setBiddingWorkOrdersData(biddingWorkOrders);
+        setMyQuotesData(myQuotes);
+        setAssignedJobsData(assignedJobs);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -76,30 +75,36 @@ export default function SubcontractorDashboard() {
       }
 
       // Set up real-time listeners
-      const unsubscribeWorkOrders = onSnapshot(collection(db, 'assignedJobs'), async () => {
-        const workOrders = await calculateWorkOrdersData('subcontractor', user.uid);
-        setWorkOrdersData(workOrders);
+      unsubscribeBidding = onSnapshot(collection(db, 'biddingWorkOrders'), async () => {
+        const biddingWorkOrders = await calculateBiddingWorkOrdersData(user.uid, db);
+        setBiddingWorkOrdersData(biddingWorkOrders);
       });
 
-      const unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
-        const proposals = await calculateProposalsData('subcontractor', user.uid);
-        setProposalsData(proposals);
+      unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
+        const myQuotes = await calculateMyQuotesData(user.uid, db);
+        setMyQuotesData(myQuotes);
       });
 
-      const unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
-        const invoices = await calculateInvoicesData('subcontractor', user.uid);
-        setInvoicesData(invoices);
+      unsubscribeAssigned = onSnapshot(collection(db, 'assignedJobs'), async () => {
+        const assignedJobs = await calculateAssignedJobsData(user.uid, db);
+        setAssignedJobsData(assignedJobs);
       });
 
-      return () => {
-        unsubscribeWorkOrders();
-        unsubscribeQuotes();
-        unsubscribeInvoices();
-      };
+      // Also listen to workOrders since assigned jobs depend on work order status
+      unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
+        const assignedJobs = await calculateAssignedJobsData(user.uid, db);
+        setAssignedJobsData(assignedJobs);
+      });
     });
 
-    return () => unsubscribeAuth();
-  }, []);
+    return () => {
+      unsubscribeAuth();
+      unsubscribeBidding?.();
+      unsubscribeQuotes?.();
+      unsubscribeAssigned?.();
+      unsubscribeWorkOrders?.();
+    };
+  }, [auth, db]);
 
   const handleSearch = (searchType: string, searchValue: string) => {
     // Implement search functionality
@@ -128,14 +133,14 @@ export default function SubcontractorDashboard() {
 
         {/* Main Content */}
         <div className="p-6 space-y-6">
-          {/* Work Orders Section */}
-          <WorkOrdersSection data={workOrdersData} portalType="subcontractor" />
+          {/* Bidding Work Orders Section */}
+          <BiddingWorkOrdersSection data={biddingWorkOrdersData} />
 
-          {/* Proposals Section */}
-          <ProposalsSection data={proposalsData} portalType="subcontractor" />
+          {/* My Quotes Section */}
+          <MyQuotesSection data={myQuotesData} />
 
-          {/* Invoices Section */}
-          <InvoicesSection data={invoicesData} portalType="subcontractor" />
+          {/* Assigned Jobs Section */}
+          <AssignedJobsSection data={assignedJobsData} />
         </div>
       </div>
     </SubcontractorLayout>

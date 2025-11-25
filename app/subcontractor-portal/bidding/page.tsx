@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, serverTimestamp, getDocs, updateDoc, Timestamp } from 'firebase/firestore';
 import { notifyQuoteSubmission } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ interface LineItem {
 }
 
 export default function SubcontractorBidding() {
+  const { auth, db } = useFirebaseInstance();
   const [biddingWorkOrders, setBiddingWorkOrders] = useState<BiddingWorkOrder[]>([]);
   const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -103,7 +104,7 @@ export default function SubcontractorBidding() {
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [auth, db]);
 
   const handleQuoteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setQuoteForm(prev => ({ ...prev, [e.target.name]: e.target.value }));

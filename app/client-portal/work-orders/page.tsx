@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ interface WorkOrder {
 }
 
 export default function ClientWorkOrders() {
+  const { auth, db } = useFirebaseInstance();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -174,7 +175,7 @@ export default function ClientWorkOrders() {
       unsubscribeAuth();
       unsubscribeWorkOrders?.();
     };
-  }, []);
+  }, [auth, db]);
 
   const getStatusBadge = (status: string) => {
     const normalized = normalizeStatus(status);

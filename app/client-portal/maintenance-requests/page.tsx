@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ interface MaintRequest {
 }
 
 export default function ClientMaintenanceRequests() {
+  const { auth, db } = useFirebaseInstance();
   const [requests, setRequests] = useState<MaintRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
@@ -81,7 +82,7 @@ export default function ClientMaintenanceRequests() {
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [auth, db]);
 
   const getPriorityBadge = (priority: string) => {
     const badges: Record<string, string> = {

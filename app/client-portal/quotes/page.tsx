@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifySubcontractorAssignment } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,6 +50,7 @@ interface Quote {
 }
 
 export default function ClientQuotes() {
+  const { auth, db } = useFirebaseInstance();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -145,7 +146,7 @@ export default function ClientQuotes() {
       unsubscribeQuotes?.();
       unsubscribeAuth();
     };
-  }, []);
+  }, [auth, db]);
 
   const handleApprove = async (quoteId: string) => {
     toast(`Approve quote for "${quotes.find(q => q.id === quoteId)?.workOrderTitle}"?`, {

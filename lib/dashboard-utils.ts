@@ -1,19 +1,21 @@
-import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
-import { db } from './firebase';
+import { collection, query, where, getDocs, DocumentData, Firestore } from 'firebase/firestore';
+import { db as defaultDb } from './firebase';
 
 // Work Orders Data Calculation
 export async function calculateWorkOrdersData(
   portalType: 'admin' | 'client' | 'subcontractor',
   userId?: string,
-  assignedLocations?: string[]
+  assignedLocations?: string[],
+  db?: Firestore
 ) {
+  const dbInstance = db || defaultDb;
   try {
     let workOrdersQuery;
 
     // Build query based on portal type
     if (portalType === 'admin') {
       // Admin sees all work orders
-      workOrdersQuery = query(collection(db, 'workOrders'));
+      workOrdersQuery = query(collection(dbInstance, 'workOrders'));
     } else if (portalType === 'client') {
       // Client sees work orders for their assigned locations or clientId
       if (assignedLocations && assignedLocations.length > 0) {
@@ -24,7 +26,7 @@ export async function calculateWorkOrdersData(
         for (let i = 0; i < assignedLocations.length; i += batchSize) {
           const batch = assignedLocations.slice(i, i + batchSize);
           workOrdersQuery = query(
-            collection(db, 'workOrders'),
+            collection(dbInstance, 'workOrders'),
             where('locationId', 'in', batch)
           );
           const snapshot = await getDocs(workOrdersQuery);
@@ -35,7 +37,7 @@ export async function calculateWorkOrdersData(
       } else {
         // Fallback to clientId
         workOrdersQuery = query(
-          collection(db, 'workOrders'),
+          collection(dbInstance, 'workOrders'),
           where('clientId', '==', userId)
         );
       }
@@ -43,7 +45,7 @@ export async function calculateWorkOrdersData(
       // Subcontractor sees assigned work orders and bidding opportunities
       // Combine data from assignedJobs and biddingWorkOrders
       const assignedQuery = query(
-        collection(db, 'assignedJobs'),
+        collection(dbInstance, 'assignedJobs'),
         where('subcontractorId', '==', userId)
       );
       const assignedSnapshot = await getDocs(assignedQuery);
@@ -57,7 +59,7 @@ export async function calculateWorkOrdersData(
         for (let i = 0; i < workOrderIds.length; i += batchSize) {
           const batch = workOrderIds.slice(i, i + batchSize);
           workOrdersQuery = query(
-            collection(db, 'workOrders'),
+            collection(dbInstance, 'workOrders'),
             where('__name__', 'in', batch)
           );
           const snapshot = await getDocs(workOrdersQuery);
@@ -185,22 +187,24 @@ function getEmptyWorkOrdersData() {
 // Proposals (Quotes) Data Calculation
 export async function calculateProposalsData(
   portalType: 'admin' | 'client' | 'subcontractor',
-  userId?: string
+  userId?: string,
+  db?: Firestore
 ) {
   try {
+    const dbInstance = db || defaultDb;
     let quotesQuery;
 
     // Build query based on portal type
     if (portalType === 'admin') {
-      quotesQuery = query(collection(db, 'quotes'));
+      quotesQuery = query(collection(dbInstance, 'quotes'));
     } else if (portalType === 'client') {
       quotesQuery = query(
-        collection(db, 'quotes'),
+        collection(dbInstance, 'quotes'),
         where('clientId', '==', userId)
       );
     } else {
       quotesQuery = query(
-        collection(db, 'quotes'),
+        collection(dbInstance, 'quotes'),
         where('subcontractorId', '==', userId)
       );
     }
@@ -262,16 +266,18 @@ function processProposalsData(quotes: DocumentData[], portalType: string) {
 // Invoices Data Calculation
 export async function calculateInvoicesData(
   portalType: 'admin' | 'client' | 'subcontractor',
-  userId?: string
+  userId?: string,
+  db?: Firestore
 ) {
   try {
+    const dbInstance = db || defaultDb;
     let invoicesQuery;
     let workOrdersQuery;
 
     // Build queries based on portal type
     if (portalType === 'admin') {
-      invoicesQuery = query(collection(db, 'invoices'));
-      workOrdersQuery = query(collection(db, 'workOrders'), where('status', '==', 'completed'));
+      invoicesQuery = query(collection(dbInstance, 'invoices'));
+      workOrdersQuery = query(collection(dbInstance, 'workOrders'), where('status', '==', 'completed'));
 
       const invoicesSnapshot = await getDocs(invoicesQuery);
       const invoices = invoicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -282,11 +288,11 @@ export async function calculateInvoicesData(
       return processInvoicesData(invoices, completedWorkOrders);
     } else if (portalType === 'client') {
       invoicesQuery = query(
-        collection(db, 'invoices'),
+        collection(dbInstance, 'invoices'),
         where('clientId', '==', userId)
       );
       workOrdersQuery = query(
-        collection(db, 'workOrders'),
+        collection(dbInstance, 'workOrders'),
         where('clientId', '==', userId),
         where('status', '==', 'completed')
       );
@@ -301,13 +307,13 @@ export async function calculateInvoicesData(
     } else {
       // Subcontractor
       invoicesQuery = query(
-        collection(db, 'invoices'),
+        collection(dbInstance, 'invoices'),
         where('subcontractorId', '==', userId)
       );
 
       // For subcontractors, get completed work orders they were assigned to
       const assignedQuery = query(
-        collection(db, 'assignedJobs'),
+        collection(dbInstance, 'assignedJobs'),
         where('subcontractorId', '==', userId)
       );
       const assignedSnapshot = await getDocs(assignedQuery);
@@ -321,7 +327,7 @@ export async function calculateInvoicesData(
         for (let i = 0; i < workOrderIds.length; i += batchSize) {
           const batch = workOrderIds.slice(i, i + batchSize);
           const woQuery = query(
-            collection(db, 'workOrders'),
+            collection(dbInstance, 'workOrders'),
             where('__name__', 'in', batch),
             where('status', '==', 'completed')
           );
@@ -395,6 +401,175 @@ function processInvoicesData(invoices: DocumentData[], completedWorkOrders: Docu
 
   // Check for mixed currency (simplified - just check if count > 5 for demo)
   data.openReviewed.mixedCurrency = data.openReviewed.count > 5;
+
+  return data;
+}
+
+// Bidding Work Orders Data Calculation
+export async function calculateBiddingWorkOrdersData(userId: string, db?: Firestore) {
+  try {
+    const dbInstance = db || defaultDb;
+    const biddingQuery = query(
+      collection(dbInstance, 'biddingWorkOrders'),
+      where('subcontractorId', '==', userId)
+    );
+
+    const biddingSnapshot = await getDocs(biddingQuery);
+    const biddingWorkOrders = biddingSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    return processBiddingWorkOrdersData(biddingWorkOrders);
+  } catch (error) {
+    console.error('Error calculating bidding work orders data:', error);
+    return {
+      pending: 0,
+      quoteSubmitted: 0,
+      total: 0,
+    };
+  }
+}
+
+function processBiddingWorkOrdersData(biddingWorkOrders: DocumentData[]) {
+  const data = {
+    pending: 0,
+    quoteSubmitted: 0,
+    total: 0,
+  };
+
+  biddingWorkOrders.forEach((bidding) => {
+    data.total++;
+    if (bidding.status === 'pending') {
+      data.pending++;
+    } else if (bidding.status === 'quote_submitted') {
+      data.quoteSubmitted++;
+    }
+  });
+
+  return data;
+}
+
+// My Quotes Data Calculation
+export async function calculateMyQuotesData(userId: string, db?: Firestore) {
+  try {
+    const dbInstance = db || defaultDb;
+    const quotesQuery = query(
+      collection(dbInstance, 'quotes'),
+      where('subcontractorId', '==', userId)
+    );
+
+    const quotesSnapshot = await getDocs(quotesQuery);
+    const quotes = quotesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    return processMyQuotesData(quotes);
+  } catch (error) {
+    console.error('Error calculating my quotes data:', error);
+    return {
+      pending: 0,
+      underReview: 0,
+      accepted: 0,
+      rejected: 0,
+      total: 0,
+    };
+  }
+}
+
+function processMyQuotesData(quotes: DocumentData[]) {
+  const data = {
+    pending: 0,
+    underReview: 0,
+    accepted: 0,
+    rejected: 0,
+    total: 0,
+  };
+
+  quotes.forEach((quote) => {
+    data.total++;
+    const status = quote.status;
+    
+    if (status === 'pending' && !quote.forwardedToClient) {
+      data.pending++;
+    } else if (quote.forwardedToClient && status !== 'accepted' && status !== 'rejected') {
+      data.underReview++;
+    } else if (status === 'accepted') {
+      data.accepted++;
+    } else if (status === 'rejected') {
+      data.rejected++;
+    }
+  });
+
+  return data;
+}
+
+// Assigned Jobs Data Calculation
+export async function calculateAssignedJobsData(userId: string, db?: Firestore) {
+  try {
+    const dbInstance = db || defaultDb;
+    const assignedQuery = query(
+      collection(dbInstance, 'assignedJobs'),
+      where('subcontractorId', '==', userId)
+    );
+
+    const assignedSnapshot = await getDocs(assignedQuery);
+    const assignedJobs = assignedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Get work order IDs to check their status
+    const workOrderIds = assignedJobs.map(job => job.workOrderId);
+    
+    let workOrders: DocumentData[] = [];
+    if (workOrderIds.length > 0) {
+      const batchSize = 10;
+      for (let i = 0; i < workOrderIds.length; i += batchSize) {
+        const batch = workOrderIds.slice(i, i + batchSize);
+        const woQuery = query(
+          collection(dbInstance, 'workOrders'),
+          where('__name__', 'in', batch)
+        );
+        const snapshot = await getDocs(woQuery);
+        workOrders = [...workOrders, ...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))];
+      }
+    }
+
+    return processAssignedJobsData(assignedJobs, workOrders);
+  } catch (error) {
+    console.error('Error calculating assigned jobs data:', error);
+    return {
+      pendingAcceptance: 0,
+      accepted: 0,
+      inProgress: 0,
+      completed: 0,
+      total: 0,
+    };
+  }
+}
+
+function processAssignedJobsData(assignedJobs: DocumentData[], workOrders: DocumentData[]) {
+  const data = {
+    pendingAcceptance: 0,
+    accepted: 0,
+    inProgress: 0,
+    completed: 0,
+    total: 0,
+  };
+
+  const workOrdersMap = new Map(workOrders.map(wo => [wo.id, wo]));
+
+  assignedJobs.forEach((job) => {
+    data.total++;
+    const jobStatus = job.status;
+    const workOrder = workOrdersMap.get(job.workOrderId);
+    const woStatus = workOrder?.status;
+
+    if (jobStatus === 'pending_acceptance') {
+      data.pendingAcceptance++;
+    } else if (jobStatus === 'accepted') {
+      if (woStatus === 'completed') {
+        data.completed++;
+      } else if (woStatus === 'in-progress') {
+        data.inProgress++;
+      } else {
+        data.accepted++;
+      }
+    }
+  });
 
   return data;
 }
