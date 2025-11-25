@@ -30,6 +30,8 @@ interface Client {
   permissions?: {
     shareForBidding?: boolean;
     viewMaintenanceRequests?: boolean;
+    approveRejectOrder?: boolean;
+    rejectedWorkOrders?: boolean;
   };
 }
 
@@ -70,6 +72,8 @@ export default function CompaniesPermissions() {
         permissionsMap[client.id] = {
           shareForBidding: client.permissions?.shareForBidding || false,
           viewMaintenanceRequests: client.permissions?.viewMaintenanceRequests || false,
+          approveRejectOrder: client.permissions?.approveRejectOrder || false,
+          rejectedWorkOrders: client.permissions?.rejectedWorkOrders || false,
         };
       });
       setClientPermissions(permissionsMap);
@@ -85,7 +89,7 @@ export default function CompaniesPermissions() {
     fetchAll();
   }, []);
 
-  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests', value: boolean) => {
+  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests' | 'approveRejectOrder' | 'rejectedWorkOrders', value: boolean) => {
     setClientPermissions((prev) => ({
       ...prev,
       [clientId]: {
@@ -212,6 +216,8 @@ export default function CompaniesPermissions() {
                               const permissions = clientPermissions[client.id] || {
                                 shareForBidding: false,
                                 viewMaintenanceRequests: false,
+                                approveRejectOrder: false,
+                                rejectedWorkOrders: false,
                               };
                               const isSaving = saving === client.id;
 
@@ -293,6 +299,68 @@ export default function CompaniesPermissions() {
                                             </p>
                                           </div>
                                           {permissions.viewMaintenanceRequests ? (
+                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                          ) : (
+                                            <XCircle className="h-5 w-5 text-gray-300" />
+                                          )}
+                                        </div>
+
+                                        {/* Permission 3: Approve/Reject Order */}
+                                        <div className="flex items-start gap-3">
+                                          <Checkbox
+                                            id={`approve-reject-${client.id}`}
+                                            checked={permissions.approveRejectOrder || false}
+                                            onCheckedChange={(checked) =>
+                                              handlePermissionChange(
+                                                client.id,
+                                                'approveRejectOrder',
+                                                checked === true
+                                              )
+                                            }
+                                          />
+                                          <div className="flex-1">
+                                            <Label
+                                              htmlFor={`approve-reject-${client.id}`}
+                                              className="font-medium cursor-pointer"
+                                            >
+                                              Approve/Reject Order
+                                            </Label>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              Allows this client to approve or reject work orders in their portal.
+                                            </p>
+                                          </div>
+                                          {permissions.approveRejectOrder ? (
+                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                          ) : (
+                                            <XCircle className="h-5 w-5 text-gray-300" />
+                                          )}
+                                        </div>
+
+                                        {/* Permission 4: Rejected Work Orders */}
+                                        <div className="flex items-start gap-3">
+                                          <Checkbox
+                                            id={`rejected-${client.id}`}
+                                            checked={permissions.rejectedWorkOrders || false}
+                                            onCheckedChange={(checked) =>
+                                              handlePermissionChange(
+                                                client.id,
+                                                'rejectedWorkOrders',
+                                                checked === true
+                                              )
+                                            }
+                                          />
+                                          <div className="flex-1">
+                                            <Label
+                                              htmlFor={`rejected-${client.id}`}
+                                              className="font-medium cursor-pointer"
+                                            >
+                                              Rejected Work Orders
+                                            </Label>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              Allows this client to view rejected work orders in their portal.
+                                            </p>
+                                          </div>
+                                          {permissions.rejectedWorkOrders ? (
                                             <CheckCircle2 className="h-5 w-5 text-green-500" />
                                           ) : (
                                             <XCircle className="h-5 w-5 text-gray-300" />
