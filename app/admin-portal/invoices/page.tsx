@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search } from 'lucide-react';
+import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload } from 'lucide-react';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { Quote } from '@/types';
 import { toast } from 'sonner';
@@ -54,6 +54,9 @@ export default function InvoicesManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     notes: '',
@@ -419,6 +422,41 @@ export default function InvoicesManagement() {
     }
   };
 
+  const handleUploadPdf = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a PDF file');
+      return;
+    }
+
+    setUploadingPdf(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await fetch('/api/invoices/upload-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process PDF');
+      }
+
+      toast.success('Invoice created successfully from uploaded PDF!');
+      setShowUploadModal(false);
+      setSelectedFile(null);
+      fetchInvoices();
+    } catch (error: any) {
+      console.error('Error uploading PDF:', error);
+      toast.error(error.message || 'Failed to process PDF');
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
   const filteredInvoices = invoices.filter(inv => {
     // Filter by status
     const statusMatch = filter === 'all' || inv.status === filter;
@@ -463,6 +501,10 @@ export default function InvoicesManagement() {
             <h1 className="text-3xl font-bold text-gray-900">Invoices</h1>
             <p className="text-gray-600 mt-2">Generate and manage invoices with Stripe payment links</p>
           </div>
+          <Button onClick={() => setShowUploadModal(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Invoice
+          </Button>
         </div>
 
         {/* Generate from Accepted Quotes */}
@@ -782,6 +824,78 @@ export default function InvoicesManagement() {
                     disabled={submitting}
                   >
                     Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Upload PDF Modal */}
+        {showUploadModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6 border-b">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold">Upload Invoice PDF</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setSelectedFile(null);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <Label>Select PDF File</Label>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="w-full border border-gray-300 rounded-md p-2 mt-1"
+                  />
+                  {selectedFile && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      Selected: {selectedFile.name}
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-blue-900 mb-2">What happens next?</h3>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• We'll extract invoice details from the PDF</li>
+                    <li>• An invoice will be created with HeySpruce branding</li>
+                    <li>• A Stripe payment link will be generated</li>
+                    <li>• The invoice will be available in your system</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowUploadModal(false);
+                      setSelectedFile(null);
+                    }}
+                    disabled={uploadingPdf}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleUploadPdf}
+                    disabled={uploadingPdf || !selectedFile}
+                    className="flex-1"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploadingPdf ? 'Processing...' : 'Upload & Process'}
                   </Button>
                 </div>
               </div>
