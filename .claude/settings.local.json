@@ -57,7 +57,9 @@
       "Bash(TESTING_REPORT.md)",
       "Bash(IMPLEMENTATION_SUMMARY.md)",
       "Bash(dir /b:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(echo:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []

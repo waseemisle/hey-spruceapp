@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
+import { onAuthStateChanged, getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
@@ -28,35 +29,67 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
 
   useEffect(() => {
-    // Check for impersonation state
-    const checkImpersonation = () => {
+    // Check for impersonation state and get the correct auth instance
+    const getAuthInstance = () => {
       try {
         const stored = localStorage.getItem('impersonationState');
         if (stored) {
           const state = JSON.parse(stored);
           setIsImpersonating(state.isImpersonating === true);
+          
+          // If impersonating, use the impersonation Firebase app instance
+          if (state.isImpersonating === true && state.appName) {
+            const existingApps = getApps();
+            const impersonationApp = existingApps.find(app => app.name === state.appName);
+            
+            if (impersonationApp) {
+              return {
+                authInstance: getAuth(impersonationApp),
+                dbInstance: getFirestore(impersonationApp),
+              };
+            } else {
+              // Create the impersonation app if it doesn't exist
+              const newApp = initializeApp({
+                apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+                authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+                projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+                storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+                messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+                appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+              }, state.appName);
+              
+              return {
+                authInstance: getAuth(newApp),
+                dbInstance: getFirestore(newApp),
+              };
+            }
+          }
         } else {
           setIsImpersonating(false);
         }
       } catch {
         setIsImpersonating(false);
       }
+      
+      // Default to regular auth/db
+      return {
+        authInstance: auth,
+        dbInstance: db,
+      };
     };
-
-    checkImpersonation();
-    const interval = setInterval(checkImpersonation, 1000);
 
     // Check if Firebase is initialized
     if (!auth) {
       console.error('Firebase auth is not initialized. Please check your .env.local file.');
       setLoading(false);
-      clearInterval(interval);
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const { authInstance, dbInstance } = getAuthInstance();
+
+    const unsubscribe = onAuthStateChanged(authInstance, async (firebaseUser) => {
       if (firebaseUser) {
-        const clientDoc = await getDoc(doc(db, 'clients', firebaseUser.uid));
+        const clientDoc = await getDoc(doc(dbInstance, 'clients', firebaseUser.uid));
         if (clientDoc.exists() && clientDoc.data().status === 'approved') {
           const clientData = clientDoc.data();
           setUser({ ...firebaseUser, ...clientData });
@@ -67,7 +100,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
           // Listen to quotes count (pending/sent_to_client)
           const quotesQuery = query(
-            collection(db, 'quotes'),
+            collection(dbInstance, 'quotes'),
             where('clientId', '==', firebaseUser.uid),
             where('status', 'in', ['pending', 'sent_to_client'])
           );
@@ -77,7 +110,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
           // Listen to unpaid invoices count
           const invoicesQuery = query(
-            collection(db, 'invoices'),
+            collection(dbInstance, 'invoices'),
             where('clientId', '==', firebaseUser.uid),
             where('status', 'in', ['sent', 'draft'])
           );
@@ -88,7 +121,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           // Listen to unread messages count (if messages collection exists)
           // Note: This will be implemented when messaging system is added
           // const messagesQuery = query(
-          //   collection(db, 'messages'),
+          //   collection(dbInstance, 'messages'),
           //   where('recipientId', '==', firebaseUser.uid),
           //   where('read', '==', false)
           // );
@@ -102,12 +135,32 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             // unsubscribeMessages();
           };
         } else {
-          router.push('/portal-login');
+          // Only redirect if not impersonating (to avoid redirect loop during impersonation login)
+          const stored = localStorage.getItem('impersonationState');
+          const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
+          if (!isCurrentlyImpersonating) {
+            router.push('/portal-login');
+          }
         }
       } else {
-        router.push('/portal-login');
+        // Only redirect if not impersonating (to avoid redirect loop during impersonation login)
+        const stored = localStorage.getItem('impersonationState');
+        const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
+        if (!isCurrentlyImpersonating) {
+          router.push('/portal-login');
+        }
       }
     });
+
+    // Check impersonation state periodically
+    const interval = setInterval(() => {
+      const { authInstance: newAuthInstance, dbInstance: newDbInstance } = getAuthInstance();
+      if (newAuthInstance !== authInstance) {
+        // Auth instance changed, need to re-subscribe
+        unsubscribe();
+        // This will be handled by the effect re-running
+      }
+    }, 1000);
 
     return () => {
       unsubscribe();
@@ -116,7 +169,26 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }, [router]);
 
   const handleLogout = async () => {
-    await auth.signOut();
+    // Get the correct auth instance (impersonation or regular)
+    let authInstance = auth;
+    try {
+      const stored = localStorage.getItem('impersonationState');
+      if (stored) {
+        const state = JSON.parse(stored);
+        if (state.isImpersonating === true && state.appName) {
+          const existingApps = getApps();
+          const impersonationApp = existingApps.find(app => app.name === state.appName);
+          if (impersonationApp) {
+            authInstance = getAuth(impersonationApp);
+          }
+        }
+      }
+    } catch {
+      // Use default auth
+    }
+    
+    await authInstance.signOut();
+    localStorage.removeItem('impersonationState');
     router.push('/');
   };
 

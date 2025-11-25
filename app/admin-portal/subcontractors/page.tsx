@@ -238,7 +238,7 @@ export default function SubcontractorsManagement() {
       // Get the current user's ID token
       const idToken = await currentUser.getIdToken();
 
-      // Call the impersonate-login API to get impersonation URL
+      // Call the impersonate-login API to get impersonation token
       const response = await fetch('/api/auth/impersonate-login', {
         method: 'POST',
         headers: {
@@ -257,13 +257,15 @@ export default function SubcontractorsManagement() {
         throw new Error(data.error || 'Failed to start impersonation login');
       }
 
-      if (!data.success || !data.impersonationUrl) {
+      if (!data.success || !data.impersonationToken) {
         throw new Error('Failed to start impersonation login');
       }
 
       // Open impersonation login page in a new tab to preserve admin session
       // The admin will remain logged in in this tab
-      window.open(data.impersonationUrl, '_blank');
+      // The /impersonate-login page will automatically log in using the token
+      const baseUrl = window.location.origin;
+      window.open(`${baseUrl}/impersonate-login?token=${data.impersonationToken}`, '_blank');
 
       toast.success('Opening subcontractor portal in new tab...');
 

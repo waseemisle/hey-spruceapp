@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { signInWithEmailAndPassword, signInWithCustomToken, getAuth } from 'firebase/auth';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
-import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
 // Force dynamic rendering for this page
@@ -45,31 +44,18 @@ function ImpersonateLoginContent() {
 
         const { customToken, email, password, role, userId, adminUid } = tokenData;
 
-        // Store impersonation state in localStorage before logging in
-        const impersonationState = {
-          isImpersonating: true,
-          adminUid: adminUid,
-          impersonatedUserId: userId,
-          impersonatedUserRole: role,
-          impersonatedUserName: '', // Will be set after fetching user data
-          startedAt: Date.now(),
-        };
-        localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
-
         // Create a separate Firebase app instance for impersonation
         // This prevents auth state from interfering with admin's session
         const impersonationAppName = `impersonation-${Date.now()}`;
+        let impersonationApp;
         let impersonationAuth;
         let impersonationDb;
         
         try {
           // Create a separate Firebase app instance for impersonation
-          // This prevents auth state from interfering with admin's session
           const existingApps = getApps();
-          let impersonationApp;
-          
-          // Try to find existing impersonation app or create new one
           const existingImpersonationApp = existingApps.find(app => app.name && app.name.startsWith('impersonation-'));
+          
           if (existingImpersonationApp) {
             impersonationApp = existingImpersonationApp;
           } else {
@@ -87,10 +73,23 @@ function ImpersonateLoginContent() {
           impersonationDb = getFirestore(impersonationApp);
         } catch (error) {
           console.error('Error creating impersonation app:', error);
-          // Fallback to default app
-          impersonationAuth = auth;
-          impersonationDb = db;
+          setStatus('error');
+          setErrorMessage('Failed to initialize impersonation session');
+          return;
         }
+
+        // Store impersonation state in localStorage before logging in
+        // Include the app name so layouts can use the correct auth instance
+        const impersonationState = {
+          isImpersonating: true,
+          adminUid: adminUid,
+          impersonatedUserId: userId,
+          impersonatedUserRole: role,
+          impersonatedUserName: '', // Will be set after fetching user data
+          startedAt: Date.now(),
+          appName: impersonationAppName, // Store app name for layouts to use
+        };
+        localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
 
         // Sign in with email/password using separate app instance
         // This creates a separate auth session that won't interfere with admin's session
@@ -118,7 +117,7 @@ function ImpersonateLoginContent() {
             impersonationState.impersonatedUserName = clientData.fullName || clientData.companyName || 'Client';
             localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
             setStatus('success');
-            // Redirect to client portal
+            // Redirect to client portal - the layout will detect impersonation and use the correct auth
             router.push('/client-portal');
             return;
           }
@@ -130,7 +129,7 @@ function ImpersonateLoginContent() {
             impersonationState.impersonatedUserName = subData.fullName || subData.businessName || 'Subcontractor';
             localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
             setStatus('success');
-            // Redirect to subcontractor portal
+            // Redirect to subcontractor portal - the layout will detect impersonation and use the correct auth
             router.push('/subcontractor-portal');
             return;
           }

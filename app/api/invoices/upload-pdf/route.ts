@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
-// @ts-ignore
+// @ts-expect-error - pdf-parse does not have TypeScript types
 import pdf from 'pdf-parse';
 
 export async function POST(request: NextRequest) {
