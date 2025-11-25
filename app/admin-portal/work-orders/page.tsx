@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
@@ -82,6 +83,9 @@ interface Category {
 }
 
 export default function WorkOrdersManagement() {
+  const searchParams = useSearchParams();
+  const workOrderType = searchParams?.get('type') || 'all'; // 'all', 'standard', or 'maintenance'
+
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -155,7 +159,19 @@ export default function WorkOrdersManagement() {
           return woData;
         })
       );
-      setWorkOrders(workOrdersData);
+
+      // Filter based on work order type from URL parameter
+      let filteredData = workOrdersData;
+      if (workOrderType === 'standard') {
+        // Only show standard work orders (not maintenance requests)
+        filteredData = workOrdersData.filter(wo => !wo.isMaintenanceRequestOrder);
+      } else if (workOrderType === 'maintenance') {
+        // Only show maintenance request work orders
+        filteredData = workOrdersData.filter(wo => wo.isMaintenanceRequestOrder === true);
+      }
+      // If workOrderType is 'all' or anything else, show all work orders
+
+      setWorkOrders(filteredData);
     } catch (error) {
       console.error('Error fetching work orders:', error);
       toast.error('Failed to load work orders');
@@ -1222,10 +1238,18 @@ const filteredLocationsForForm = locations.filter((location) => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Work Orders</h1>
-            <p className="text-gray-600 mt-2 text-sm sm:text-base">Manage work orders and assignments</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              {workOrderType === 'standard' && 'Standard Work Orders'}
+              {workOrderType === 'maintenance' && 'Maintenance Requests Work Orders'}
+              {workOrderType === 'all' && 'All Work Orders'}
+            </h1>
+            <p className="text-gray-600 mt-2 text-sm sm:text-base">
+              {workOrderType === 'standard' && 'Manage standard work orders (excluding maintenance requests)'}
+              {workOrderType === 'maintenance' && 'Manage work orders created from maintenance requests'}
+              {workOrderType === 'all' && 'Manage all work orders and assignments'}
+            </p>
           </div>
-          <Button 
+          <Button
             onClick={handleOpenCreate}
             className="w-full sm:w-auto"
           >

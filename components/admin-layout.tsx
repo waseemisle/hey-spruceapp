@@ -12,7 +12,7 @@ import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
-  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle
+  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle, ChevronDown, ChevronRight
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 
@@ -21,6 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [workOrdersExpanded, setWorkOrdersExpanded] = useState(true);
   const [badgeCounts, setBadgeCounts] = useState({
     locations: 0,
     workOrders: 0,
@@ -102,15 +103,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Companies', href: '/admin-portal/subsidiaries', icon: Building2, badgeKey: null },
     { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck, badgeKey: null },
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
-    { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
-    { name: 'Rejected Work Orders', href: '/admin-portal/rejected-work-orders', icon: XCircle, badgeKey: null },
-    { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
     { name: 'Maintenance Requests', href: '/admin-portal/maint-requests', icon: Wrench, badgeKey: null },
     { name: 'Categories', href: '/admin-portal/categories', icon: Tag, badgeKey: null },
     { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText, badgeKey: null },
     { name: 'Invoices', href: '/admin-portal/invoices', icon: Receipt, badgeKey: null },
     { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar, badgeKey: null },
     { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
+  ];
+
+  const workOrdersSubMenu = [
+    { name: 'Standard Work Orders', href: '/admin-portal/work-orders/standard', icon: ClipboardList },
+    { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw },
+    { name: 'Maintenance Requests Work Orders', href: '/admin-portal/work-orders/maintenance-requests', icon: Wrench },
+    { name: 'Rejected Work Orders', href: '/admin-portal/rejected-work-orders', icon: XCircle },
   ];
 
   return (
@@ -182,6 +187,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 )}
               </Link>
             ))}
+
+            {/* Work Orders Collapsible Section */}
+            <div>
+              <button
+                onClick={() => setWorkOrdersExpanded(!workOrdersExpanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+              >
+                <ClipboardList className="h-5 w-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Work Orders</span>
+                {badgeCounts.workOrders > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {badgeCounts.workOrders > 99 ? '99+' : badgeCounts.workOrders}
+                  </span>
+                )}
+                {workOrdersExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {workOrdersExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {workOrdersSubMenu.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      href={subItem.href}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
         </aside>
 
@@ -208,6 +249,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 )}
               </Link>
             ))}
+
+            {/* Work Orders Collapsible Section */}
+            <div>
+              <button
+                onClick={() => setWorkOrdersExpanded(!workOrdersExpanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+              >
+                <ClipboardList className="h-5 w-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Work Orders</span>
+                {badgeCounts.workOrders > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                    {badgeCounts.workOrders > 99 ? '99+' : badgeCounts.workOrders}
+                  </span>
+                )}
+                {workOrdersExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {workOrdersExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {workOrdersSubMenu.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      href={subItem.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
         </aside>
 
