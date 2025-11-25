@@ -92,14 +92,15 @@ function ImpersonateLoginContent() {
           impersonationDb = db;
         }
 
-        // Sign in with custom token (preferred) or email/password (fallback)
+        // Sign in with email/password using separate app instance
+        // This creates a separate auth session that won't interfere with admin's session
         let user;
         if (customToken) {
-          // Use custom token with separate app instance - this creates a separate auth session
+          // Use custom token with separate app instance (legacy support)
           const userCredential = await signInWithCustomToken(impersonationAuth, customToken);
           user = userCredential.user;
         } else if (email && password) {
-          // Fallback to email/password (will log out admin in other tabs)
+          // Use email/password with separate app instance - this preserves admin's session
           const userCredential = await signInWithEmailAndPassword(impersonationAuth, email, password);
           user = userCredential.user;
         } else {

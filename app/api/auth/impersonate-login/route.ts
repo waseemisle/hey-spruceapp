@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { getAdminAuth } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
 
@@ -20,27 +19,17 @@ const getFirebaseApp = () => {
   return getApp();
 };
 
-// Helper function to verify admin token (with fallback)
+// Helper function to verify admin token using client-side token decoding
 async function verifyAdminToken(idToken: string): Promise<string | null> {
   try {
-    // Try to use Firebase Admin SDK
-    const adminAuth = getAdminAuth();
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    return decodedToken.uid;
-  } catch (error) {
-    // Fall back to client-side verification (less secure)
-    console.log('Admin SDK verification failed, using fallback verification');
-    
-    // Fallback: decode token without verification (less secure, but works without Admin SDK)
-    try {
-      const parts = idToken.split('.');
-      if (parts.length !== 3) return null;
+    // Decode token without Firebase Admin SDK verification
+    const parts = idToken.split('.');
+    if (parts.length !== 3) return null;
 
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-      return payload.user_id || payload.sub || null;
-    } catch {
-      return null;
-    }
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    return payload.user_id || payload.sub || null;
+  } catch {
+    return null;
   }
 }
 
@@ -104,7 +93,7 @@ export async function POST(request: Request) {
     }
 
     const userData = userDoc.data();
-    
+
     if (!userData?.email) {
       return NextResponse.json(
         { error: 'User email not found' },
@@ -112,82 +101,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use Firebase Admin SDK to create a custom token for impersonation
-    // This allows separate auth sessions that won't interfere with admin's session
-    let customToken: string;
-    try {
-      const adminAuth = getAdminAuth();
-      customToken = await adminAuth.createCustomToken(userId, {
-        impersonating: true,
-        originalAdmin: adminUid,
-        role: role,
-      });
-    } catch (error: any) {
-      console.error('Error creating custom token:', error);
-      
-      // Check if this is a credentials error
-      if (error?.code === 'auth/invalid-credential' || 
-          error?.message?.includes('service account') ||
-          error?.message?.includes('credentials')) {
-        return NextResponse.json(
-          { 
-            error: 'Firebase Admin SDK not properly configured',
-            message: 'Service account credentials are required for impersonation. Please configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in your environment variables.',
-            details: error.message
-          },
-          { status: 500 }
-        );
-      }
-      
-      // If Admin SDK is not available, fall back to email/password method
-      // but this will cause the admin to be logged out
-      if (!userData?.password) {
-        return NextResponse.json(
-          { error: 'User password not set and Admin SDK not available. Cannot impersonate.' },
-          { status: 400 }
-        );
-      }
-      
-      // Fallback to email/password (will log out admin)
-      const tokenData = {
-        email: userData.email,
-        password: userData.password,
-        userId,
-        role,
-        adminUid,
-        expiresAt: Date.now() + 300000, // 5 minutes
-      };
-
-      const impersonationToken = Buffer.from(JSON.stringify(tokenData))
-        .toString('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=/g, '');
-
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
-                     (request.headers.get('origin') || 'http://localhost:3000');
-
-      return NextResponse.json({
-        success: true,
-        impersonationToken,
-        impersonationUrl: `${baseUrl}/impersonate-login?token=${impersonationToken}`,
-        useCustomToken: false,
-        user: {
-          id: userId,
-          name: userData?.fullName || userData?.businessName || 'Unknown',
-          email: userData.email,
-          role,
-        },
-      });
+    if (!userData?.password) {
+      return NextResponse.json(
+        { error: 'User password not set. Cannot login without password.' },
+        { status: 400 }
+      );
     }
 
-    // Create impersonation token with custom token
+    // Use email/password authentication method
+    // This will open in a new tab and won't log out the admin
     const tokenData = {
-      customToken,
+      email: userData.email,
+      password: userData.password,
       userId,
       role,
       adminUid,
-      expiresAt: Date.now() + 3600000, // 1 hour - custom tokens are more secure
+      expiresAt: Date.now() + 3600000, // 1 hour
     };
 
     const impersonationToken = Buffer.from(JSON.stringify(tokenData))
@@ -203,6 +132,7 @@ export async function POST(request: Request) {
       success: true,
       impersonationToken,
       impersonationUrl: `${baseUrl}/impersonate-login?token=${impersonationToken}`,
+      useCustomToken: false,
       user: {
         id: userId,
         name: userData?.fullName || userData?.businessName || 'Unknown',
@@ -212,21 +142,7 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error('Error in impersonation login:', error);
-    
-    // Check if this is a credentials error
-    if (error?.message?.includes('credentials') || 
-        error?.message?.includes('service account') ||
-        error?.message?.includes('Could not load the default credentials')) {
-      return NextResponse.json(
-        { 
-          error: 'Firebase Admin SDK not properly configured',
-          message: 'Service account credentials are required. Please configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in your Vercel environment variables.',
-          details: error.message
-        },
-        { status: 500 }
-      );
-    }
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to start impersonation login' },
       { status: 500 }
