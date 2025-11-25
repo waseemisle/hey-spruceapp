@@ -21,6 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [usersExpanded, setUsersExpanded] = useState(true);
   const [workOrdersExpanded, setWorkOrdersExpanded] = useState(true);
   const [invoicesExpanded, setInvoicesExpanded] = useState(true);
   const [badgeCounts, setBadgeCounts] = useState({
@@ -98,9 +99,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const menuItems = [
     { name: 'Dashboard', href: '/admin-portal', icon: Home, badgeKey: null },
-    { name: 'Clients', href: '/admin-portal/clients', icon: Users, badgeKey: null },
-    { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users, badgeKey: null },
-    { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck, badgeKey: null },
     { name: 'Companies', href: '/admin-portal/subsidiaries', icon: Building2, badgeKey: null },
     { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck, badgeKey: null },
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
@@ -108,6 +106,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Categories', href: '/admin-portal/categories', icon: Tag, badgeKey: null },
     { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText, badgeKey: null },
     { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
+  ];
+
+  const usersSubMenu = [
+    { name: 'Clients', href: '/admin-portal/clients', icon: Users },
+    { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users },
+    { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck },
   ];
 
   const workOrdersSubMenu = [
@@ -191,6 +195,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 )}
               </Link>
             ))}
+
+            {/* Users Collapsible Section */}
+            <div>
+              <button
+                onClick={() => setUsersExpanded(!usersExpanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+              >
+                <Users className="h-5 w-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Users</span>
+                {usersExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {usersExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {usersSubMenu.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      href={subItem.href}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Work Orders Collapsible Section */}
             <div>
@@ -284,6 +319,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 )}
               </Link>
             ))}
+
+            {/* Users Collapsible Section */}
+            <div>
+              <button
+                onClick={() => setUsersExpanded(!usersExpanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+              >
+                <Users className="h-5 w-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Users</span>
+                {usersExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {usersExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {usersSubMenu.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      href={subItem.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Work Orders Collapsible Section */}
             <div>
