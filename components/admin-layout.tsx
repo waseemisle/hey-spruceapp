@@ -22,6 +22,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [usersExpanded, setUsersExpanded] = useState(true);
+  const [companiesExpanded, setCompaniesExpanded] = useState(true);
   const [workOrdersExpanded, setWorkOrdersExpanded] = useState(true);
   const [invoicesExpanded, setInvoicesExpanded] = useState(true);
   const [badgeCounts, setBadgeCounts] = useState({
@@ -99,8 +100,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const menuItems = [
     { name: 'Dashboard', href: '/admin-portal', icon: Home, badgeKey: null },
-    { name: 'Companies', href: '/admin-portal/subsidiaries', icon: Building2, badgeKey: null },
-    { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck, badgeKey: null },
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
     { name: 'Maintenance Requests', href: '/admin-portal/maint-requests', icon: Wrench, badgeKey: null },
     { name: 'Categories', href: '/admin-portal/categories', icon: Tag, badgeKey: null },
@@ -112,6 +111,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Clients', href: '/admin-portal/clients', icon: Users },
     { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users },
     { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck },
+  ];
+
+  const companiesSubMenu = [
+    { name: 'List of Companies', href: '/admin-portal/subsidiaries', icon: Building2 },
+    { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck },
   ];
 
   const workOrdersSubMenu = [
@@ -180,21 +184,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }`}
         >
           <nav className="p-4 space-y-1 overflow-y-auto h-full">
-            {menuItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span>{item.name}</span>
-                {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
-                  </span>
-                )}
-              </Link>
-            ))}
+            {/* Dashboard */}
+            <Link
+              href="/admin-portal"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Home className="h-5 w-5 flex-shrink-0" />
+              <span>Dashboard</span>
+            </Link>
 
             {/* Users Collapsible Section */}
             <div>
@@ -214,6 +211,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {usersExpanded && (
                 <div className="ml-4 mt-1 space-y-1">
                   {usersSubMenu.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      href={subItem.href}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Companies Collapsible Section */}
+            <div>
+              <button
+                onClick={() => setCompaniesExpanded(!companiesExpanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+              >
+                <Building2 className="h-5 w-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Companies</span>
+                {companiesExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {companiesExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {companiesSubMenu.map((subItem) => (
                     <Link
                       key={subItem.name}
                       href={subItem.href}
@@ -293,6 +321,57 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
               )}
             </div>
+
+            {/* Remaining Menu Items */}
+            <Link
+              href="/admin-portal/locations"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Building2 className="h-5 w-5 flex-shrink-0" />
+              <span>Locations</span>
+              {badgeCounts.locations > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                  {badgeCounts.locations > 99 ? '99+' : badgeCounts.locations}
+                </span>
+              )}
+            </Link>
+
+            <Link
+              href="/admin-portal/maint-requests"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Wrench className="h-5 w-5 flex-shrink-0" />
+              <span>Maintenance Requests</span>
+            </Link>
+
+            <Link
+              href="/admin-portal/categories"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Tag className="h-5 w-5 flex-shrink-0" />
+              <span>Categories</span>
+            </Link>
+
+            <Link
+              href="/admin-portal/quotes"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <FileText className="h-5 w-5 flex-shrink-0" />
+              <span>Quotes</span>
+            </Link>
+
+            <Link
+              href="/admin-portal/messages"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <MessageSquare className="h-5 w-5 flex-shrink-0" />
+              <span>Messages</span>
+              {badgeCounts.messages > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                  {badgeCounts.messages > 99 ? '99+' : badgeCounts.messages}
+                </span>
+              )}
+            </Link>
           </nav>
         </aside>
 
@@ -303,22 +382,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }`}
         >
           <nav className="p-4 space-y-1 overflow-y-auto h-full">
-            {menuItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span>{item.name}</span>
-                {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
-                  </span>
-                )}
-              </Link>
-            ))}
+            {/* Dashboard */}
+            <Link
+              href="/admin-portal"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Home className="h-5 w-5 flex-shrink-0" />
+              <span>Dashboard</span>
+            </Link>
 
             {/* Users Collapsible Section */}
             <div>
@@ -338,6 +410,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {usersExpanded && (
                 <div className="ml-4 mt-1 space-y-1">
                   {usersSubMenu.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      href={subItem.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Companies Collapsible Section */}
+            <div>
+              <button
+                onClick={() => setCompaniesExpanded(!companiesExpanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+              >
+                <Building2 className="h-5 w-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Companies</span>
+                {companiesExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {companiesExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {companiesSubMenu.map((subItem) => (
                     <Link
                       key={subItem.name}
                       href={subItem.href}
@@ -420,6 +524,62 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
               )}
             </div>
+
+            {/* Remaining Menu Items */}
+            <Link
+              href="/admin-portal/locations"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Building2 className="h-5 w-5 flex-shrink-0" />
+              <span>Locations</span>
+              {badgeCounts.locations > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                  {badgeCounts.locations > 99 ? '99+' : badgeCounts.locations}
+                </span>
+              )}
+            </Link>
+
+            <Link
+              href="/admin-portal/maint-requests"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Wrench className="h-5 w-5 flex-shrink-0" />
+              <span>Maintenance Requests</span>
+            </Link>
+
+            <Link
+              href="/admin-portal/categories"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Tag className="h-5 w-5 flex-shrink-0" />
+              <span>Categories</span>
+            </Link>
+
+            <Link
+              href="/admin-portal/quotes"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <FileText className="h-5 w-5 flex-shrink-0" />
+              <span>Quotes</span>
+            </Link>
+
+            <Link
+              href="/admin-portal/messages"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <MessageSquare className="h-5 w-5 flex-shrink-0" />
+              <span>Messages</span>
+              {badgeCounts.messages > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                  {badgeCounts.messages > 99 ? '99+' : badgeCounts.messages}
+                </span>
+              )}
+            </Link>
           </nav>
         </aside>
 
