@@ -12,7 +12,7 @@ import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
-  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag
+  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 
@@ -103,6 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck, badgeKey: null },
     { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
     { name: 'Work Orders', href: '/admin-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
+    { name: 'Rejected Work Orders', href: '/admin-portal/rejected-work-orders', icon: XCircle, badgeKey: null },
     { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
     { name: 'Maintenance Requests', href: '/admin-portal/maint-requests', icon: Wrench, badgeKey: null },
     { name: 'Categories', href: '/admin-portal/categories', icon: Tag, badgeKey: null },
