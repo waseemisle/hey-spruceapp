@@ -22,6 +22,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [workOrdersExpanded, setWorkOrdersExpanded] = useState(true);
+  const [invoicesExpanded, setInvoicesExpanded] = useState(true);
   const [badgeCounts, setBadgeCounts] = useState({
     locations: 0,
     workOrders: 0,
@@ -106,8 +107,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Maintenance Requests', href: '/admin-portal/maint-requests', icon: Wrench, badgeKey: null },
     { name: 'Categories', href: '/admin-portal/categories', icon: Tag, badgeKey: null },
     { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText, badgeKey: null },
-    { name: 'Invoices', href: '/admin-portal/invoices', icon: Receipt, badgeKey: null },
-    { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar, badgeKey: null },
     { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
   ];
 
@@ -116,6 +115,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw },
     { name: 'Maintenance Requests Work Orders', href: '/admin-portal/work-orders/maintenance-requests', icon: Wrench },
     { name: 'Rejected Work Orders', href: '/admin-portal/rejected-work-orders', icon: XCircle },
+  ];
+
+  const invoicesSubMenu = [
+    { name: 'Standard Invoices', href: '/admin-portal/invoices/standard', icon: Receipt },
+    { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar },
   ];
 
   return (
@@ -223,6 +227,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
               )}
             </div>
+
+            {/* Invoices Collapsible Section */}
+            <div>
+              <button
+                onClick={() => setInvoicesExpanded(!invoicesExpanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+              >
+                <Receipt className="h-5 w-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Invoices</span>
+                {invoicesExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {invoicesExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {invoicesSubMenu.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      href={subItem.href}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
         </aside>
 
@@ -273,6 +308,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {workOrdersExpanded && (
                 <div className="ml-4 mt-1 space-y-1">
                   {workOrdersSubMenu.map((subItem) => (
+                    <Link
+                      key={subItem.name}
+                      href={subItem.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                      <span>{subItem.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Invoices Collapsible Section */}
+            <div>
+              <button
+                onClick={() => setInvoicesExpanded(!invoicesExpanded)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+              >
+                <Receipt className="h-5 w-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Invoices</span>
+                {invoicesExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </button>
+
+              {invoicesExpanded && (
+                <div className="ml-4 mt-1 space-y-1">
+                  {invoicesSubMenu.map((subItem) => (
                     <Link
                       key={subItem.name}
                       href={subItem.href}

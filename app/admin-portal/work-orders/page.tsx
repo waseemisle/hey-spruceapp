@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -82,7 +82,7 @@ interface Category {
   name: string;
 }
 
-export default function WorkOrdersManagement() {
+function WorkOrdersContent() {
   const searchParams = useSearchParams();
   const workOrderType = searchParams?.get('type') || 'all'; // 'all', 'standard', or 'maintenance'
 
@@ -2137,5 +2137,19 @@ const filteredLocationsForForm = locations.filter((location) => {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+export default function WorkOrdersManagement() {
+  return (
+    <Suspense fallback={
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        </div>
+      </AdminLayout>
+    }>
+      <WorkOrdersContent />
+    </Suspense>
   );
 }
