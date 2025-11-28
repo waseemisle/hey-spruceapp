@@ -80,3 +80,4 @@ export default function MyQuotesSection({ data }: MyQuotesSectionProps) {
 }
 
 
+
