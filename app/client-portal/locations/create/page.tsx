@@ -17,7 +17,6 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 
 export default function CreateLocation() {
-  const { auth, db } = useFirebaseInstance();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);

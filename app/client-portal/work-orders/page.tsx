@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import ViewControls from '@/components/view-controls';
 import { useViewControls } from '@/contexts/view-controls-context';
+import { toast } from 'sonner';
 
 interface WorkOrder {
   id: string;
@@ -29,7 +30,7 @@ interface WorkOrder {
   createdAt: any;
   approvedAt?: any;
   completedAt?: any;
-  rejectedReason?: string;
+  rejectionReason?: string;
   scheduledServiceDate?: any;
   scheduledServiceTime?: string;
   scheduleSharedWithClient?: boolean;
@@ -43,6 +44,8 @@ export default function ClientWorkOrders() {
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { viewMode } = useViewControls();
+  const [hasApproveRejectPermission, setHasApproveRejectPermission] = useState(false);
+  const [processingWorkOrder, setProcessingWorkOrder] = useState<string | null>(null);
 
   const normalizeStatus = (status: string) => {
     if (status === 'quotes_received') {
@@ -81,10 +84,14 @@ export default function ClientWorkOrders() {
 
       if (user) {
         try {
-          // Fetch client document to get assigned locations
+          // Fetch client document to get assigned locations and permissions
           const clientDoc = await getDoc(doc(db, 'clients', user.uid));
           const clientData = clientDoc.data();
           const assignedLocations = clientData?.assignedLocations || [];
+
+          // Check for Approve/Reject Order permission
+          const hasPermission = clientData?.permissions?.approveRejectOrder === true;
+          setHasApproveRejectPermission(hasPermission);
 
           // Fetch work orders based on assigned locations with batching for Firestore 'in' limitation
           if (assignedLocations.length > 0) {
@@ -199,6 +206,55 @@ export default function ClientWorkOrders() {
       high: 'bg-red-100 text-red-800',
     };
     return styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+  };
+
+  const handleApproveWorkOrder = async (workOrderId: string) => {
+    if (!hasApproveRejectPermission) {
+      toast.error('You do not have permission to approve work orders');
+      return;
+    }
+
+    setProcessingWorkOrder(workOrderId);
+    try {
+      await updateDoc(doc(db, 'workOrders', workOrderId), {
+        status: 'approved',
+        approvedAt: serverTimestamp(),
+      });
+      toast.success('Work order approved successfully');
+    } catch (error: any) {
+      console.error('Error approving work order:', error);
+      toast.error(error.message || 'Failed to approve work order');
+    } finally {
+      setProcessingWorkOrder(null);
+    }
+  };
+
+  const handleRejectWorkOrder = async (workOrderId: string) => {
+    if (!hasApproveRejectPermission) {
+      toast.error('You do not have permission to reject work orders');
+      return;
+    }
+
+    const reason = prompt('Please provide a reason for rejection:');
+    if (!reason || reason.trim() === '') {
+      toast.error('Rejection reason is required');
+      return;
+    }
+
+    setProcessingWorkOrder(workOrderId);
+    try {
+      await updateDoc(doc(db, 'workOrders', workOrderId), {
+        status: 'rejected',
+        rejectionReason: reason.trim(),
+        rejectedAt: serverTimestamp(),
+      });
+      toast.success('Work order rejected');
+    } catch (error: any) {
+      console.error('Error rejecting work order:', error);
+      toast.error(error.message || 'Failed to reject work order');
+    } finally {
+      setProcessingWorkOrder(null);
+    }
   };
 
   const filteredWorkOrders = workOrders.filter(wo => {
@@ -346,12 +402,38 @@ export default function ClientWorkOrders() {
                       {workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <Link href={`/client-portal/work-orders/${workOrder.id}`}>
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
-                        </Button>
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        {hasApproveRejectPermission && workOrder.status === 'pending' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-green-600 hover:text-green-700 border-green-600 hover:border-green-700"
+                              onClick={() => handleApproveWorkOrder(workOrder.id)}
+                              disabled={processingWorkOrder === workOrder.id}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700 border-red-600 hover:border-red-700"
+                              onClick={() => handleRejectWorkOrder(workOrder.id)}
+                              disabled={processingWorkOrder === workOrder.id}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        <Link href={`/client-portal/work-orders/${workOrder.id}`}>
+                          <Button size="sm" variant="outline">
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </Button>
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -401,13 +483,13 @@ export default function ClientWorkOrders() {
                     <span>Created {workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                   </div>
 
-                  {workOrder.status === 'rejected' && workOrder.rejectedReason && (
+                  {workOrder.status === 'rejected' && workOrder.rejectionReason && (
                     <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
                       <div className="flex gap-2">
                         <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
                         <div>
                           <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
-                          <p className="text-xs text-red-700">{workOrder.rejectedReason}</p>
+                          <p className="text-xs text-red-700">{workOrder.rejectionReason}</p>
                         </div>
                       </div>
                     </div>
@@ -443,9 +525,32 @@ export default function ClientWorkOrders() {
                     </div>
                   )}
 
-                  <div className="pt-3 mt-auto">
-                    <Link href={`/client-portal/work-orders/${workOrder.id}`}>
-                      <Button size="sm" className="w-full">
+                  <div className="pt-3 mt-auto space-y-2">
+                    {hasApproveRejectPermission && workOrder.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                          onClick={() => handleApproveWorkOrder(workOrder.id)}
+                          disabled={processingWorkOrder === workOrder.id}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-red-600 hover:text-red-700 border-red-600 hover:border-red-700"
+                          onClick={() => handleRejectWorkOrder(workOrder.id)}
+                          disabled={processingWorkOrder === workOrder.id}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                    <Link href={`/client-portal/work-orders/${workOrder.id}`} className="block">
+                      <Button size="sm" className="w-full" variant="outline">
                         <Eye className="h-4 w-4 mr-2" />
                         View Details
                       </Button>

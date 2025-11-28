@@ -28,6 +28,7 @@ interface Category {
 }
 
 export default function CreateWorkOrder() {
+  const { auth, db } = useFirebaseInstance();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);

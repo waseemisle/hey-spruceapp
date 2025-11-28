@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface WorkOrder {
   id: string;
@@ -51,12 +53,32 @@ interface WorkOrder {
 }
 
 export default function ViewClientWorkOrder() {
-  const { db } = useFirebaseInstance();
+  const { auth, db } = useFirebaseInstance();
   const params = useParams();
   const id = params?.id as string;
 
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasApproveRejectPermission, setHasApproveRejectPermission] = useState(false);
+  const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Fetch client permissions
+          const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+          const clientData = clientDoc.data();
+          const hasPermission = clientData?.permissions?.approveRejectOrder === true;
+          setHasApproveRejectPermission(hasPermission);
+        } catch (error) {
+          console.error('Error fetching client permissions:', error);
+        }
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, [auth, db]);
 
   useEffect(() => {
     const fetchWorkOrder = async () => {
@@ -96,6 +118,71 @@ export default function ViewClientWorkOrder() {
       high: 'bg-red-100 text-red-800',
     };
     return styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+  };
+
+  const handleApproveWorkOrder = async () => {
+    if (!hasApproveRejectPermission) {
+      toast.error('You do not have permission to approve work orders');
+      return;
+    }
+
+    if (!workOrder) return;
+
+    setProcessing(true);
+    try {
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        status: 'approved',
+        approvedAt: serverTimestamp(),
+      });
+      toast.success('Work order approved successfully');
+
+      // Refresh work order
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      if (woDoc.exists()) {
+        setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
+      }
+    } catch (error: any) {
+      console.error('Error approving work order:', error);
+      toast.error(error.message || 'Failed to approve work order');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleRejectWorkOrder = async () => {
+    if (!hasApproveRejectPermission) {
+      toast.error('You do not have permission to reject work orders');
+      return;
+    }
+
+    if (!workOrder) return;
+
+    const reason = prompt('Please provide a reason for rejection:');
+    if (!reason || reason.trim() === '') {
+      toast.error('Rejection reason is required');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        status: 'rejected',
+        rejectionReason: reason.trim(),
+        rejectedAt: serverTimestamp(),
+      });
+      toast.success('Work order rejected');
+
+      // Refresh work order
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      if (woDoc.exists()) {
+        setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
+      }
+    } catch (error: any) {
+      console.error('Error rejecting work order:', error);
+      toast.error(error.message || 'Failed to reject work order');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (loading) {
@@ -140,13 +227,36 @@ export default function ViewClientWorkOrder() {
               <p className="text-gray-600 mt-1">Work Order: {workOrder.workOrderNumber}</p>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap items-center">
             <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(workOrder.status)}`}>
               {workOrder.status}
             </span>
             <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getPriorityBadge(workOrder.priority)}`}>
               {workOrder.priority} priority
             </span>
+            {hasApproveRejectPermission && workOrder.status === 'pending' && (
+              <>
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleApproveWorkOrder}
+                  disabled={processing}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700 border-red-600 hover:border-red-700"
+                  onClick={handleRejectWorkOrder}
+                  disabled={processing}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Reject
+                </Button>
+              </>
+            )}
             {(workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && workOrder.assignedSubcontractor && (
               <Link href={`/client-portal/messages?workOrderId=${workOrder.id}`}>
                 <Button size="sm" variant="outline">
