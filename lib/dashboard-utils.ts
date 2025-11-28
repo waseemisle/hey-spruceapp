@@ -509,10 +509,10 @@ export async function calculateAssignedJobsData(userId: string, db?: Firestore) 
     );
 
     const assignedSnapshot = await getDocs(assignedQuery);
-    const assignedJobs = assignedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const assignedJobs = assignedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Array<{ id: string; workOrderId?: string; [key: string]: any }>;
 
     // Get work order IDs to check their status
-    const workOrderIds = assignedJobs.map(job => job.workOrderId);
+    const workOrderIds = assignedJobs.map(job => job.workOrderId).filter((id): id is string => !!id);
     
     let workOrders: DocumentData[] = [];
     if (workOrderIds.length > 0) {

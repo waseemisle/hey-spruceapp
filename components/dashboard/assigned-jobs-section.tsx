@@ -79,3 +79,4 @@ export default function AssignedJobsSection({ data }: AssignedJobsSectionProps) 
   );
 }
 
+
