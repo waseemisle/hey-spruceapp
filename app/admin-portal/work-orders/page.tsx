@@ -75,6 +75,7 @@ interface Subcontractor {
   email: string;
   businessName?: string;
   status: 'pending' | 'approved' | 'rejected';
+  matchesCategory?: boolean;
 }
 
 interface Category {
@@ -852,47 +853,55 @@ const handleLocationSelect = (locationId: string) => {
         return;
       }
 
-      // Map subcontractors data and filter by category
+      // Map subcontractors data and mark matching ones
       const allSubsData = subsSnapshot.docs.map(doc => ({
         id: doc.id,
+        uid: doc.data().uid,
         fullName: doc.data().fullName,
         email: doc.data().email,
         businessName: doc.data().businessName,
         skills: doc.data().skills || [],
       })) as (Subcontractor & { skills: string[] })[];
 
-      // Filter by work order category (if category exists)
-      let filteredSubs = allSubsData;
-      if (workOrder.category) {
-        const categoryLower = workOrder.category.toLowerCase();
-        filteredSubs = allSubsData.filter(sub => {
+      // Mark subcontractors that match the work order category
+      let matchingCount = 0;
+      const subsData = allSubsData.map(sub => {
+        let matchesCategory = false;
+
+        if (workOrder.category) {
+          const categoryLower = workOrder.category.toLowerCase();
           // Check if subcontractor has matching skill/category
           if (!sub.skills || sub.skills.length === 0) {
-            // If no skills specified, include all (backward compatibility)
-            return true;
+            // If no skills specified, don't mark as matching (backward compatibility)
+            matchesCategory = false;
+          } else {
+            matchesCategory = sub.skills.some(skill =>
+              skill.toLowerCase().includes(categoryLower) ||
+              categoryLower.includes(skill.toLowerCase())
+            );
           }
-          return sub.skills.some(skill => 
-            skill.toLowerCase().includes(categoryLower) || 
-            categoryLower.includes(skill.toLowerCase())
-          );
-        });
+        }
 
-        // If no matches found, show all (with warning)
-        if (filteredSubs.length === 0) {
-          toast.warning(`No subcontractors found matching category "${workOrder.category}". Showing all subcontractors.`);
-          filteredSubs = allSubsData;
+        if (matchesCategory) matchingCount++;
+
+        return {
+          id: sub.id,
+          uid: sub.uid,
+          fullName: sub.fullName,
+          email: sub.email,
+          businessName: sub.businessName,
+          matchesCategory,
+        } as Subcontractor;
+      });
+
+      // Show message about matching subcontractors
+      if (workOrder.category) {
+        if (matchingCount === 0) {
+          toast.warning(`No subcontractors found matching category "${workOrder.category}". Showing all ${subsData.length} subcontractor(s).`);
         } else {
-          toast.success(`Found ${filteredSubs.length} subcontractor(s) matching category "${workOrder.category}"`);
+          toast.success(`Found ${matchingCount} subcontractor(s) matching category "${workOrder.category}". Showing all ${subsData.length} subcontractor(s).`);
         }
       }
-
-      // Map to Subcontractor type (remove skills for display)
-      const subsData = filteredSubs.map(sub => ({
-        id: sub.id,
-        fullName: sub.fullName,
-        email: sub.email,
-        businessName: sub.businessName,
-      })) as Subcontractor[];
 
       setSubcontractors(subsData);
       setWorkOrderToShare(workOrder);
@@ -1892,7 +1901,11 @@ const filteredLocationsForForm = locations.filter((location) => {
                         key={sub.id}
                         className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
                           selectedSubcontractors.includes(sub.id)
-                            ? 'bg-blue-50 border-blue-300'
+                            ? sub.matchesCategory
+                              ? 'bg-green-50 border-green-400 ring-2 ring-green-200'
+                              : 'bg-blue-50 border-blue-300'
+                            : sub.matchesCategory
+                            ? 'bg-green-50 border-green-300 hover:border-green-400'
                             : 'bg-white border-gray-200 hover:bg-gray-50'
                         }`}
                         onClick={() => toggleSubcontractorSelection(sub.id)}
@@ -1905,7 +1918,14 @@ const filteredLocationsForForm = locations.filter((location) => {
                           onClick={(e) => e.stopPropagation()}
                         />
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{sub.fullName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900">{sub.fullName}</p>
+                            {sub.matchesCategory && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                                Matches Category
+                              </span>
+                            )}
+                          </div>
                           {sub.businessName && (
                             <p className="text-sm text-gray-600">{sub.businessName}</p>
                           )}
