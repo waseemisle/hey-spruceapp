@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench } from 'lucide-react';
+import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 
@@ -26,6 +26,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     messages: 0,
   });
   const [hasMaintenancePermission, setHasMaintenancePermission] = useState(false);
+  const [hasViewSubcontractorsPermission, setHasViewSubcontractorsPermission] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -96,6 +97,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           // Check maintenance requests permission
           const permissions = clientData.permissions || {};
           setHasMaintenancePermission(permissions.viewMaintenanceRequests || false);
+          setHasViewSubcontractorsPermission(permissions.viewSubcontractors || false);
           setLoading(false);
 
           // Listen to quotes count (pending/sent_to_client)
@@ -205,6 +207,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: null },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: null },
     ...(hasMaintenancePermission ? [{ name: 'Maintenance Requests', href: '/client-portal/maintenance-requests', icon: Wrench, badgeKey: null }] : []),
+    ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
     { name: 'Invoices', href: '/client-portal/invoices', icon: Receipt, badgeKey: 'invoices' },
     { name: 'Messages', href: '/client-portal/messages', icon: MessageSquare, badgeKey: 'messages' },

@@ -32,6 +32,7 @@ interface Client {
     viewMaintenanceRequests?: boolean;
     approveRejectOrder?: boolean;
     rejectedWorkOrders?: boolean;
+    viewSubcontractors?: boolean;
   };
 }
 
@@ -74,6 +75,7 @@ export default function CompaniesPermissions() {
           viewMaintenanceRequests: client.permissions?.viewMaintenanceRequests || false,
           approveRejectOrder: client.permissions?.approveRejectOrder || false,
           rejectedWorkOrders: client.permissions?.rejectedWorkOrders || false,
+          viewSubcontractors: client.permissions?.viewSubcontractors || false,
         };
       });
       setClientPermissions(permissionsMap);
@@ -89,7 +91,7 @@ export default function CompaniesPermissions() {
     fetchAll();
   }, []);
 
-  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests' | 'approveRejectOrder' | 'rejectedWorkOrders', value: boolean) => {
+  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests' | 'approveRejectOrder' | 'rejectedWorkOrders' | 'viewSubcontractors', value: boolean) => {
     setClientPermissions((prev) => ({
       ...prev,
       [clientId]: {
@@ -218,6 +220,7 @@ export default function CompaniesPermissions() {
                                 viewMaintenanceRequests: false,
                                 approveRejectOrder: false,
                                 rejectedWorkOrders: false,
+                                viewSubcontractors: false,
                               };
                               const isSaving = saving === client.id;
 
@@ -361,6 +364,37 @@ export default function CompaniesPermissions() {
                                             </p>
                                           </div>
                                           {permissions.rejectedWorkOrders ? (
+                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                          ) : (
+                                            <XCircle className="h-5 w-5 text-gray-300" />
+                                          )}
+                                        </div>
+
+                                        {/* Permission 5: View Subcontractors */}
+                                        <div className="flex items-start gap-3">
+                                          <Checkbox
+                                            id={`subcontractors-${client.id}`}
+                                            checked={permissions.viewSubcontractors || false}
+                                            onCheckedChange={(checked) =>
+                                              handlePermissionChange(
+                                                client.id,
+                                                'viewSubcontractors',
+                                                checked === true
+                                              )
+                                            }
+                                          />
+                                          <div className="flex-1">
+                                            <Label
+                                              htmlFor={`subcontractors-${client.id}`}
+                                              className="font-medium cursor-pointer"
+                                            >
+                                              View Subcontractors
+                                            </Label>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              Allows this client to view all subcontractors in their portal (read-only).
+                                            </p>
+                                          </div>
+                                          {permissions.viewSubcontractors ? (
                                             <CheckCircle2 className="h-5 w-5 text-green-500" />
                                           ) : (
                                             <XCircle className="h-5 w-5 text-gray-300" />
