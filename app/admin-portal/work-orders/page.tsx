@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt } from 'lucide-react';
+import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 
@@ -118,6 +118,12 @@ function WorkOrdersContent() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [workOrderToAssign, setWorkOrderToAssign] = useState<WorkOrder | null>(null);
   const [selectedSubcontractorForAssign, setSelectedSubcontractorForAssign] = useState<string>('');
+
+  // Import modal states
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
 
 
   const [formData, setFormData] = useState({
@@ -683,6 +689,398 @@ const handleLocationSelect = (locationId: string) => {
     } catch (error) {
       console.error('Error loading subcontractors:', error);
       toast.error('Failed to load subcontractors');
+    }
+  };
+
+  const handleFilePreview = async (file: File) => {
+    try {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
+      
+      if (fileExtension === 'csv') {
+        // Handle CSV file with proper parsing for quoted values
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+        if (lines.length === 0) {
+          toast.error('CSV file is empty');
+          return;
+        }
+        
+        // Simple CSV parser that handles quoted values
+        const parseCSVLine = (line: string): string[] => {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+            
+            if (char === '"') {
+              if (inQuotes && nextChar === '"') {
+                // Escaped quote
+                current += '"';
+                i++; // Skip next quote
+              } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+              }
+            } else if (char === ',' && !inQuotes) {
+              // End of field
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          
+          // Add last field
+          result.push(current.trim());
+          return result;
+        };
+        
+        // Parse header
+        const header = parseCSVLine(lines[0]);
+        
+        // Parse data rows
+        const data = lines.slice(1).map(line => {
+          const values = parseCSVLine(line);
+          const row: any = {};
+          header.forEach((h, idx) => {
+            row[h] = values[idx] || '';
+          });
+          return row;
+        }).filter(row => {
+          // Filter out completely empty rows
+          return row && Object.keys(row).length > 0 && Object.values(row).some(v => 
+            v !== null && v !== undefined && String(v).trim() !== ''
+          );
+        });
+        
+        setImportPreview(data);
+      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // Handle Excel file
+        try {
+          const XLSX = await import('xlsx');
+          const arrayBuffer = await file.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            toast.error('Excel file has no sheets');
+            setImportPreview([]);
+            return;
+          }
+          
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          
+          if (!worksheet) {
+            toast.error('Could not read Excel sheet');
+            setImportPreview([]);
+            return;
+          }
+          
+          const data = XLSX.utils.sheet_to_json(worksheet);
+          
+          if (!data || data.length === 0) {
+            toast.error('Excel file has no data rows');
+            setImportPreview([]);
+            return;
+          }
+          
+          setImportPreview(data as any[]);
+        } catch (xlsxError: any) {
+          console.error('Error reading Excel file:', xlsxError);
+          toast.error(`Failed to read Excel file: ${xlsxError.message || 'Unknown error'}`);
+          setImportPreview([]);
+        }
+      } else {
+        toast.error('Unsupported file format. Please use CSV, XLSX, or XLS files.');
+        setImportPreview([]);
+      }
+    } catch (error) {
+      console.error('Error reading file:', error);
+      toast.error('Failed to read file. Please ensure it is a valid CSV or XLSX file.');
+      setImportPreview([]);
+    }
+  };
+
+  const handleImportWorkOrders = async () => {
+    if (!importFile || importPreview.length === 0) {
+      toast.error('Please select a valid file');
+      return;
+    }
+
+    setImporting(true);
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        toast.error('You must be logged in to import work orders');
+        return;
+      }
+
+      // Get admin user data
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      // Process each row
+      for (let i = 0; i < importPreview.length; i++) {
+        const row = importPreview[i];
+        
+        // Skip empty rows
+        if (!row || Object.keys(row).length === 0 || !Object.values(row).some(v => v !== null && v !== undefined && String(v).trim() !== '')) {
+          continue;
+        }
+        
+        try {
+          // Map CSV fields to work order fields (handle case-insensitive and variations)
+          const getFieldValue = (fieldName: string, variations: string[]): string => {
+            for (const variation of variations) {
+              const value = row[variation];
+              if (value !== undefined && value !== null && value !== '') {
+                return String(value).trim();
+              }
+            }
+            return '';
+          };
+
+          const restaurant = getFieldValue('RESTAURANT', ['RESTAURANT', 'restaurant', 'Restaurant', 'RESTAURANT NAME', 'Restaurant Name']);
+          const serviceType = getFieldValue('SERVICE TYPE', ['SERVICE TYPE', 'service type', 'Service Type', 'SERVICE_TYPE', 'ServiceType']);
+          const lastServiced = getFieldValue('LAST SERVICED', ['LAST SERVICED', 'last serviced', 'Last Serviced', 'LAST_SERVICED', 'LastServiced']);
+          
+          // Handle multiple "NEXT SERVICE NEEDED BY" columns - get the first non-empty one
+          const nextServiceVariations = ['NEXT SERVICE NEEDED BY', 'next service needed by', 'Next Service Needed By', 'NEXT_SERVICE_NEEDED_BY', 'NextServiceNeededBy'];
+          let nextServiceNeededBy = '';
+          for (const variation of nextServiceVariations) {
+            const value = row[variation];
+            if (value !== undefined && value !== null && value !== '') {
+              nextServiceNeededBy = String(value).trim();
+              break;
+            }
+          }
+          // Also check for numbered variations (NEXT SERVICE NEEDED BY 1, NEXT SERVICE NEEDED BY 2, etc.)
+          if (!nextServiceNeededBy) {
+            for (let j = 1; j <= 5; j++) {
+              const numberedVariation = `NEXT SERVICE NEEDED BY ${j}`;
+              const value = row[numberedVariation] || row[numberedVariation.toLowerCase()] || row[numberedVariation.replace(/\s/g, '')];
+              if (value !== undefined && value !== null && value !== '') {
+                nextServiceNeededBy = String(value).trim();
+                break;
+              }
+            }
+          }
+          
+          const frequencyLabel = getFieldValue('FREQUENCY LABEL', ['FREQUENCY LABEL', 'frequency label', 'Frequency Label', 'FREQUENCY_LABEL', 'FrequencyLabel']);
+          const scheduling = getFieldValue('SCHEDULING', ['SCHEDULING', 'scheduling', 'Scheduling']);
+          const notes = getFieldValue('NOTES', ['NOTES', 'notes', 'Notes', 'NOTES/DESCRIPTION', 'Notes/Description']);
+
+          // Skip rows with no restaurant/client name
+          if (!restaurant || restaurant.trim() === '') {
+            // Skip silently - might be an empty row
+            continue;
+          }
+
+          // Find client by restaurant name (improved matching)
+          const restaurantLower = restaurant.toLowerCase().trim();
+          const client = clients.find(c => {
+            const clientNameLower = c.fullName.toLowerCase().trim();
+            // Exact match
+            if (clientNameLower === restaurantLower) return true;
+            // Contains match (either direction)
+            if (clientNameLower.includes(restaurantLower) || restaurantLower.includes(clientNameLower)) return true;
+            // Check if restaurant name matches any part of client name (for cases like "Restaurant Name - Location")
+            const clientParts = clientNameLower.split(/[\s\-_]+/);
+            const restaurantParts = restaurantLower.split(/[\s\-_]+/);
+            return restaurantParts.some(part => clientParts.includes(part)) || clientParts.some(part => restaurantParts.includes(part));
+          });
+
+          if (!client) {
+            errorCount++;
+            errors.push(`Row ${i + 1}: Client "${restaurant}" not found. Available clients: ${clients.map(c => c.fullName).join(', ')}`);
+            continue;
+          }
+
+          // Find or use category
+          let category = serviceType;
+          const categoryExists = categories.find(c => c.name.toLowerCase() === serviceType.toLowerCase());
+          if (!categoryExists && serviceType) {
+            // Use the service type as category name even if it doesn't exist in categories
+            category = serviceType;
+          } else if (categoryExists) {
+            category = categoryExists.name;
+          } else {
+            category = 'General Maintenance'; // Default category
+          }
+
+          // Find a location for this client (use first available location)
+          const clientLocations = locations.filter(l => l.clientId === client.id);
+          if (clientLocations.length === 0) {
+            errorCount++;
+            errors.push(`Row ${i + 1}: No location found for client "${restaurant}"`);
+            continue;
+          }
+
+          const location = clientLocations[0];
+          const companyId = location.companyId || '';
+
+          // Parse dates (handle Excel serial dates and various formats)
+          let lastServicedDate: any = null;
+          let nextServiceDate: any = null;
+
+          const parseDate = (dateValue: string | number): Date | null => {
+            if (!dateValue) return null;
+            
+            // Handle Excel serial date (number)
+            if (typeof dateValue === 'number') {
+              // Excel serial date: days since January 1, 1900
+              const excelEpoch = new Date(1900, 0, 1);
+              excelEpoch.setDate(excelEpoch.getDate() + dateValue - 2); // -2 because Excel incorrectly treats 1900 as a leap year
+              return excelEpoch;
+            }
+            
+            // Handle string dates
+            const dateStr = String(dateValue).trim();
+            if (!dateStr) return null;
+            
+            // Try parsing as-is
+            let parsed = new Date(dateStr);
+            if (!isNaN(parsed.getTime())) {
+              return parsed;
+            }
+            
+            // Try common date formats
+            const formats = [
+              /(\d{1,2})\/(\d{1,2})\/(\d{4})/, // MM/DD/YYYY
+              /(\d{4})-(\d{1,2})-(\d{1,2})/, // YYYY-MM-DD
+              /(\d{1,2})-(\d{1,2})-(\d{4})/, // MM-DD-YYYY
+            ];
+            
+            for (const format of formats) {
+              const match = dateStr.match(format);
+              if (match) {
+                if (format === formats[0]) {
+                  // MM/DD/YYYY
+                  parsed = new Date(parseInt(match[3]), parseInt(match[1]) - 1, parseInt(match[2]));
+                } else if (format === formats[1]) {
+                  // YYYY-MM-DD
+                  parsed = new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+                } else {
+                  // MM-DD-YYYY
+                  parsed = new Date(parseInt(match[3]), parseInt(match[1]) - 1, parseInt(match[2]));
+                }
+                if (!isNaN(parsed.getTime())) {
+                  return parsed;
+                }
+              }
+            }
+            
+            return null;
+          };
+
+          if (lastServiced) {
+            const parsedDate = parseDate(lastServiced);
+            if (parsedDate) {
+              lastServicedDate = Timestamp.fromDate(parsedDate);
+            }
+          }
+
+          if (nextServiceNeededBy) {
+            const parsedDate = parseDate(nextServiceNeededBy);
+            if (parsedDate) {
+              nextServiceDate = Timestamp.fromDate(parsedDate);
+            }
+          }
+
+          // Create work order with unique work order number
+          const timestamp = Date.now();
+          const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+          const workOrderNumber = `WO-${timestamp.toString().slice(-8).toUpperCase()}-${randomSuffix}-${i}`;
+          const workOrderData: any = {
+            workOrderNumber,
+            clientId: client.id,
+            clientName: client.fullName,
+            clientEmail: client.email,
+            locationId: location.id,
+            locationName: location.locationName,
+            locationAddress: location.address && typeof location.address === 'object' 
+              ? `${location.address.street || ''}, ${location.address.city || ''}, ${location.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
+              : (location.address || 'N/A'),
+            title: serviceType || 'Maintenance Service',
+            description: notes || `Service for ${restaurant}. Last serviced: ${lastServiced || 'N/A'}. Next service needed by: ${nextServiceNeededBy || 'N/A'}. Frequency: ${frequencyLabel || 'N/A'}. Scheduling: ${scheduling || 'N/A'}.`,
+            category: category,
+            priority: 'medium' as 'low' | 'medium' | 'high',
+            status: 'approved' as WorkOrder['status'],
+            images: [],
+            isMaintenanceRequestOrder: true,
+            createdAt: serverTimestamp(),
+            // Store all imported fields
+            importedFromCSV: true,
+            importFileName: importFile.name,
+            importDate: serverTimestamp(),
+            importReference: {
+              fileName: importFile.name,
+              importedBy: currentUser.uid,
+              importedByName: adminName,
+              importedAt: serverTimestamp(),
+            },
+            // Store original CSV fields
+            csvFields: {
+              restaurant: restaurant,
+              serviceType: serviceType,
+              lastServiced: lastServiced,
+              nextServiceNeededBy: nextServiceNeededBy,
+              frequencyLabel: frequencyLabel,
+              scheduling: scheduling,
+              notes: notes,
+            },
+            lastServiced: lastServicedDate,
+            nextServiceNeededBy: nextServiceDate,
+            frequencyLabel: frequencyLabel,
+            scheduling: scheduling,
+          };
+
+          if (companyId) {
+            const company = companies.find(c => c.id === companyId);
+            if (company) {
+              workOrderData.companyId = company.id;
+              workOrderData.companyName = company.name;
+            }
+          }
+
+          await addDoc(collection(db, 'workOrders'), workOrderData);
+          successCount++;
+        } catch (error: any) {
+          errorCount++;
+          errors.push(`Row ${i + 1}: ${error.message || 'Unknown error'}`);
+          console.error(`Error importing row ${i + 1}:`, error);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully imported ${successCount} work order(s)`);
+      }
+      if (errorCount > 0) {
+        toast.error(`Failed to import ${errorCount} work order(s). Check console for details.`);
+        console.error('Import errors:', errors);
+      }
+
+      // Reset and close modal
+      setShowImportModal(false);
+      setImportFile(null);
+      setImportPreview([]);
+      // Reset file input
+      const fileInput = document.getElementById('import-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      fetchWorkOrders();
+    } catch (error: any) {
+      console.error('Error importing work orders:', error);
+      toast.error(`Failed to import work orders: ${error.message || 'Unknown error'}`);
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -1258,14 +1656,25 @@ const filteredLocationsForForm = locations.filter((location) => {
               {workOrderType === 'all' && 'Manage all work orders and assignments'}
             </p>
           </div>
-          <Button
-            onClick={handleOpenCreate}
-            className="w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Create Work Order</span>
-            <span className="sm:hidden">Create</span>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => setShowImportModal(true)}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Import Work Orders</span>
+              <span className="sm:hidden">Import</span>
+            </Button>
+            <Button
+              onClick={handleOpenCreate}
+              className="w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Create Work Order</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+          </div>
         </div>
 
         {/* Search and Filter */}
@@ -2146,6 +2555,112 @@ const filteredLocationsForForm = locations.filter((location) => {
                       setWorkOrderToAssign(null);
                       setSelectedSubcontractorForAssign('');
                     }}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Import Work Orders Modal */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl sm:text-2xl font-bold">Import Work Orders</h2>
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setShowImportModal(false);
+                    setImportFile(null);
+                    setImportPreview([]);
+                    // Reset file input
+                    const fileInput = document.getElementById('import-file-input') as HTMLInputElement;
+                    if (fileInput) fileInput.value = '';
+                  }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-6 space-y-4">
+                <div>
+                  <Label>Upload CSV/XLSX File *</Label>
+                  <Input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    id="import-file-input"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setImportFile(file);
+                        handleFilePreview(file);
+                      }
+                    }}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Supported formats: CSV, XLSX, XLS
+                  </p>
+                </div>
+
+                {importPreview.length > 0 && importPreview[0] && Object.keys(importPreview[0]).length > 0 && (
+                  <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <h3 className="font-semibold mb-2">Preview ({importPreview.length} rows)</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            {Object.keys(importPreview[0]).map((key) => (
+                              <th key={key} className="border p-2 text-left font-semibold">
+                                {key}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importPreview.slice(0, 5).map((row, idx) => (
+                            <tr key={idx} className="border-b">
+                              {Object.keys(importPreview[0]).map((key, valIdx) => (
+                                <td key={valIdx} className="border p-2">
+                                  {row[key] !== null && row[key] !== undefined ? String(row[key]) : '-'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {importPreview.length > 5 && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Showing first 5 of {importPreview.length} rows
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    onClick={handleImportWorkOrders}
+                    disabled={!importFile || importing || importPreview.length === 0}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {importing ? 'Importing...' : `Import ${importPreview.length} Work Order(s)`}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowImportModal(false);
+                      setImportFile(null);
+                      setImportPreview([]);
+                      // Reset file input
+                      const fileInput = document.getElementById('import-file-input') as HTMLInputElement;
+                      if (fileInput) fileInput.value = '';
+                    }}
+                    disabled={importing}
                     className="w-full sm:w-auto"
                   >
                     Cancel
