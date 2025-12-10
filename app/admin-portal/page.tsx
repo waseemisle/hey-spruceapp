@@ -8,6 +8,7 @@ import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
 import ProposalsSection from '@/components/dashboard/proposals-section';
 import InvoicesSection from '@/components/dashboard/invoices-section';
+import AdminCalendar from '@/components/calendar/admin-calendar';
 import {
   calculateWorkOrdersData,
   calculateProposalsData,
@@ -122,6 +123,9 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <div className="p-6 space-y-6">
+          {/* Calendar Section */}
+          <AdminCalendar />
+
           {/* Work Orders Section */}
           <WorkOrdersSection data={workOrdersData} portalType="admin" />
 

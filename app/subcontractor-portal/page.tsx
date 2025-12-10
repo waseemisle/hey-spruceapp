@@ -9,6 +9,7 @@ import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import BiddingWorkOrdersSection from '@/components/dashboard/bidding-work-orders-section';
 import MyQuotesSection from '@/components/dashboard/my-quotes-section';
 import AssignedJobsSection from '@/components/dashboard/assigned-jobs-section';
+import SubcontractorCalendar from '@/components/calendar/subcontractor-calendar';
 import {
   calculateBiddingWorkOrdersData,
   calculateMyQuotesData,
@@ -133,6 +134,9 @@ export default function SubcontractorDashboard() {
 
         {/* Main Content */}
         <div className="p-6 space-y-6">
+          {/* Calendar Section */}
+          <SubcontractorCalendar />
+
           {/* Bidding Work Orders Section */}
           <BiddingWorkOrdersSection data={biddingWorkOrdersData} />
 

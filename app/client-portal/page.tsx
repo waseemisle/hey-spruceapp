@@ -8,6 +8,7 @@ import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
 import ProposalsSection from '@/components/dashboard/proposals-section';
 import InvoicesSection from '@/components/dashboard/invoices-section';
+import ClientCalendar from '@/components/calendar/client-calendar';
 import {
   calculateWorkOrdersData,
   calculateProposalsData,
@@ -136,6 +137,9 @@ export default function ClientDashboard() {
 
         {/* Main Content */}
         <div className="p-6 space-y-6">
+          {/* Calendar Section */}
+          <ClientCalendar />
+
           {/* Work Orders Section */}
           <WorkOrdersSection data={workOrdersData} portalType="client" />
 
