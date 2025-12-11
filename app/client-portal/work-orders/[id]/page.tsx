@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
 import { toast } from 'sonner';
+import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 
 interface WorkOrder {
   id: string;
@@ -52,6 +54,38 @@ interface WorkOrder {
   }>;
 }
 
+interface LineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+interface Quote {
+  id: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  workOrderTitle: string;
+  subcontractorId: string;
+  subcontractorName: string;
+  subcontractorEmail: string;
+  laborCost: number;
+  materialCost: number;
+  additionalCosts: number;
+  taxRate: number;
+  taxAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  originalAmount: number;
+  clientAmount?: number;
+  markupPercentage?: number;
+  lineItems: LineItem[];
+  notes?: string;
+  status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
+  estimatedDuration?: string;
+  createdAt: any;
+}
+
 export default function ViewClientWorkOrder() {
   const { auth, db } = useFirebaseInstance();
   const params = useParams();
@@ -60,7 +94,11 @@ export default function ViewClientWorkOrder() {
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasApproveRejectPermission, setHasApproveRejectPermission] = useState(false);
+  const [hasCompareQuotesPermission, setHasCompareQuotesPermission] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
+  const [showCompareDialog, setShowCompareDialog] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -69,8 +107,10 @@ export default function ViewClientWorkOrder() {
           // Fetch client permissions
           const clientDoc = await getDoc(doc(db, 'clients', user.uid));
           const clientData = clientDoc.data();
-          const hasPermission = clientData?.permissions?.approveRejectOrder === true;
-          setHasApproveRejectPermission(hasPermission);
+          const hasApprovePermission = clientData?.permissions?.approveRejectOrder === true;
+          const hasComparePermission = clientData?.permissions?.compareQuotes === true;
+          setHasApproveRejectPermission(hasApprovePermission);
+          setHasCompareQuotesPermission(hasComparePermission);
         } catch (error) {
           console.error('Error fetching client permissions:', error);
         }
@@ -88,6 +128,20 @@ export default function ViewClientWorkOrder() {
         const woDoc = await getDoc(doc(db, 'workOrders', id));
         if (woDoc.exists()) {
           setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
+
+          // Fetch quotes if client has compareQuotes permission
+          if (hasCompareQuotesPermission) {
+            const quotesQuery = query(
+              collection(db, 'quotes'),
+              where('workOrderId', '==', id)
+            );
+            const quotesSnapshot = await getDocs(quotesQuery);
+            const quotesData = quotesSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Quote[];
+            setQuotes(quotesData);
+          }
         }
       } catch (error) {
         console.error('Error fetching work order:', error);
@@ -97,7 +151,7 @@ export default function ViewClientWorkOrder() {
     };
 
     fetchWorkOrder();
-  }, [id, db]);
+  }, [id, db, hasCompareQuotesPermission]);
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -119,6 +173,22 @@ export default function ViewClientWorkOrder() {
     };
     return styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800';
   };
+
+  const handleQuoteSelection = (quoteId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedQuoteIds(prev => [...prev, quoteId]);
+    } else {
+      setSelectedQuoteIds(prev => prev.filter(id => id !== quoteId));
+    }
+  };
+
+  const handleCompareQuotes = () => {
+    if (selectedQuoteIds.length >= 2) {
+      setShowCompareDialog(true);
+    }
+  };
+
+  const selectedQuotes = quotes.filter(q => selectedQuoteIds.includes(q.id));
 
   const handleApproveWorkOrder = async () => {
     if (!hasApproveRejectPermission) {
@@ -423,6 +493,70 @@ export default function ViewClientWorkOrder() {
               </Card>
             )}
 
+            {/* Quotes - Only show if client has compareQuotes permission */}
+            {hasCompareQuotesPermission && quotes.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Quotes
+                    </span>
+                    <span className="text-sm font-normal text-gray-600">
+                      {quotes.length} quote{quotes.length !== 1 ? 's' : ''} received
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {quotes.length >= 2 && (
+                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          Select 2 or more quotes to compare them side-by-side
+                        </p>
+                      </div>
+                    )}
+                    {quotes.map((quote) => (
+                      <div key={quote.id} className={`p-4 border rounded-lg hover:bg-gray-50 ${selectedQuoteIds.includes(quote.id) ? 'bg-purple-50 border-purple-300' : ''}`}>
+                        <div className="flex items-start gap-3">
+                          {quotes.length >= 2 && (
+                            <Checkbox
+                              checked={selectedQuoteIds.includes(quote.id)}
+                              onCheckedChange={(checked) => handleQuoteSelection(quote.id, checked === true)}
+                              className="mt-1"
+                            />
+                          )}
+                          <div className="flex-1 flex justify-between items-start">
+                            <div>
+                              <p className="font-semibold text-gray-900">{quote.subcontractorName}</p>
+                              <p className="text-sm text-gray-600">
+                                {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-purple-600">
+                                ${quote.totalAmount.toLocaleString()}
+                              </p>
+                              <p className="text-xs text-gray-500 capitalize">{quote.status.replace(/_/g, ' ')}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
+                      <Button
+                        onClick={handleCompareQuotes}
+                        className="w-full"
+                      >
+                        <GitCompare className="h-4 w-4 mr-2" />
+                        Compare {selectedQuoteIds.length} Quotes
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Images */}
             {workOrder.images && workOrder.images.length > 0 && (
               <Card>
@@ -538,6 +672,13 @@ export default function ViewClientWorkOrder() {
           </div>
         </div>
       </div>
+
+      {/* Compare Quotes Dialog */}
+      <CompareQuotesDialog
+        quotes={selectedQuotes}
+        isOpen={showCompareDialog}
+        onClose={() => setShowCompareDialog(false)}
+      />
     </ClientLayout>
   );
 }

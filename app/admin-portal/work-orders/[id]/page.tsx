@@ -6,10 +6,12 @@ import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
+import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 
 interface WorkOrder {
   id: string;
@@ -43,11 +45,35 @@ interface WorkOrder {
   scheduledServiceTime?: string;
 }
 
+interface LineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
 interface Quote {
   id: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  workOrderTitle: string;
+  subcontractorId: string;
   subcontractorName: string;
+  subcontractorEmail: string;
+  laborCost: number;
+  materialCost: number;
+  additionalCosts: number;
+  taxRate: number;
+  taxAmount: number;
+  discountAmount: number;
   totalAmount: number;
-  status: string;
+  originalAmount: number;
+  clientAmount?: number;
+  markupPercentage?: number;
+  lineItems: LineItem[];
+  notes?: string;
+  status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
+  estimatedDuration?: string;
   createdAt: any;
 }
 
@@ -58,6 +84,8 @@ export default function ViewWorkOrder() {
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
+  const [showCompareDialog, setShowCompareDialog] = useState(false);
 
   useEffect(() => {
     const fetchWorkOrder = async () => {
@@ -111,6 +139,22 @@ export default function ViewWorkOrder() {
       default: return 'text-gray-600 bg-gray-50';
     }
   };
+
+  const handleQuoteSelection = (quoteId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedQuoteIds(prev => [...prev, quoteId]);
+    } else {
+      setSelectedQuoteIds(prev => prev.filter(id => id !== quoteId));
+    }
+  };
+
+  const handleCompareQuotes = () => {
+    if (selectedQuoteIds.length >= 2) {
+      setShowCompareDialog(true);
+    }
+  };
+
+  const selectedQuotes = quotes.filter(q => selectedQuoteIds.includes(q.id));
 
   if (loading) {
     return (
@@ -273,26 +317,51 @@ export default function ViewWorkOrder() {
                   <p className="text-gray-500 text-center py-8">No quotes received yet</p>
                 ) : (
                   <div className="space-y-3">
+                    {quotes.length >= 2 && (
+                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          Select 2 or more quotes to compare them side-by-side
+                        </p>
+                      </div>
+                    )}
                     {quotes.map((quote) => (
-                      <div key={quote.id} className="p-4 border rounded-lg hover:bg-gray-50">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-semibold text-gray-900">{quote.subcontractorName}</p>
-                            <p className="text-sm text-gray-600">
-                              {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-purple-600">
-                              ${quote.totalAmount.toLocaleString()}
-                            </p>
-                            <p className="text-xs text-gray-500 capitalize">{quote.status}</p>
+                      <div key={quote.id} className={`p-4 border rounded-lg hover:bg-gray-50 ${selectedQuoteIds.includes(quote.id) ? 'bg-purple-50 border-purple-300' : ''}`}>
+                        <div className="flex items-start gap-3">
+                          {quotes.length >= 2 && (
+                            <Checkbox
+                              checked={selectedQuoteIds.includes(quote.id)}
+                              onCheckedChange={(checked) => handleQuoteSelection(quote.id, checked === true)}
+                              className="mt-1"
+                            />
+                          )}
+                          <div className="flex-1 flex justify-between items-start">
+                            <div>
+                              <p className="font-semibold text-gray-900">{quote.subcontractorName}</p>
+                              <p className="text-sm text-gray-600">
+                                {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-purple-600">
+                                ${quote.totalAmount.toLocaleString()}
+                              </p>
+                              <p className="text-xs text-gray-500 capitalize">{quote.status}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
                     ))}
+                    {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
+                      <Button
+                        onClick={handleCompareQuotes}
+                        className="w-full"
+                      >
+                        <GitCompare className="h-4 w-4 mr-2" />
+                        Compare {selectedQuoteIds.length} Quotes
+                      </Button>
+                    )}
                     <Link href={`/admin-portal/quotes?workOrderId=${workOrder.id}`}>
-                      <Button className="w-full mt-2">
+                      <Button variant="outline" className="w-full mt-2">
                         View All Quotes
                       </Button>
                     </Link>
@@ -440,6 +509,13 @@ export default function ViewWorkOrder() {
           </div>
         </div>
       </div>
+
+      {/* Compare Quotes Dialog */}
+      <CompareQuotesDialog
+        quotes={selectedQuotes}
+        isOpen={showCompareDialog}
+        onClose={() => setShowCompareDialog(false)}
+      />
     </AdminLayout>
   );
 }
