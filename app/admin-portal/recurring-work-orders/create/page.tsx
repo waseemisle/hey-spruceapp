@@ -250,22 +250,17 @@ const fetchCategories = async () => {
   };
 
 const handleCompanySelect = (companyId: string) => {
-  const selectedCompany = companies.find(c => c.id === companyId);
   setFormData((prev) => ({
     ...prev,
     companyId,
     locationId: '',
-    clientId: selectedCompany?.clientId || prev.clientId,
   }));
 };
 
 const handleLocationSelect = (locationId: string) => {
-  const selectedLocation = locations.find(l => l.id === locationId);
   setFormData((prev) => ({
     ...prev,
     locationId,
-    clientId: selectedLocation?.clientId || prev.clientId,
-    companyId: selectedLocation?.companyId || prev.companyId,
   }));
 };
 
@@ -297,9 +292,8 @@ const handleLocationSelect = (locationId: string) => {
 
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  const filteredCompanies = formData.clientId
-    ? companies.filter(company => company.clientId === formData.clientId)
-    : companies;
+  // Show all companies (companies are not filtered by client)
+  const filteredCompanies = companies;
 
   const filteredLocations = locations.filter((location) => {
     if (formData.companyId) {
@@ -352,7 +346,7 @@ const handleLocationSelect = (locationId: string) => {
                 <Label>Select Client *</Label>
                 <select
                   value={formData.clientId}
-                  onChange={(e) => setFormData({ ...formData, clientId: e.target.value, companyId: '', locationId: '' })}
+                  onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
                   className="w-full border border-gray-300 rounded-md p-2"
                 >
                   <option value="">Choose a client...</option>
@@ -370,7 +364,6 @@ const handleLocationSelect = (locationId: string) => {
                   value={formData.companyId}
                   onChange={(e) => handleCompanySelect(e.target.value)}
                   className="w-full border border-gray-300 rounded-md p-2"
-                  disabled={!formData.clientId}
                 >
                   <option value="">Choose a company...</option>
                   {filteredCompanies.map(company => (
@@ -379,11 +372,6 @@ const handleLocationSelect = (locationId: string) => {
                     </option>
                   ))}
                 </select>
-                {formData.clientId && filteredCompanies.length === 0 && (
-                  <p className="text-xs text-yellow-600 mt-1">
-                    No companies found for the selected client.
-                  </p>
-                )}
               </div>
 
               <div>
