@@ -370,6 +370,7 @@ const handleLocationSelect = (locationId: string) => {
                   value={formData.companyId}
                   onChange={(e) => handleCompanySelect(e.target.value)}
                   className="w-full border border-gray-300 rounded-md p-2"
+                  disabled={!formData.clientId}
                 >
                   <option value="">Choose a company...</option>
                   {filteredCompanies.map(company => (
