@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Subcontractor {
@@ -35,6 +35,7 @@ export default function SubcontractorsManagement() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [subToDelete, setSubToDelete] = useState<Subcontractor | null>(null);
   const [impersonating, setImpersonating] = useState<string | null>(null);
+  const [resendingEmail, setResendingEmail] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -141,6 +142,57 @@ export default function SubcontractorsManagement() {
     } catch (error) {
       console.error('Error rejecting subcontractor:', error);
       toast.error('Failed to reject subcontractor');
+    }
+  };
+
+  const handleResendApprovalEmail = async (subId: string) => {
+    try {
+      setResendingEmail(subId);
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        toast.error('You must be logged in to resend emails');
+        setResendingEmail(null);
+        return;
+      }
+
+      // Get subcontractor data
+      const subDoc = await getDoc(doc(db, 'subcontractors', subId));
+      if (!subDoc.exists()) {
+        toast.error('Subcontractor not found');
+        setResendingEmail(null);
+        return;
+      }
+
+      const subData = subDoc.data();
+
+      // Get admin name
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
+
+      // Send approval email to subcontractor
+      const response = await fetch('/api/email/send-subcontractor-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: subData.email,
+          toName: subData.fullName,
+          businessName: subData.businessName,
+          approvedBy: adminName,
+          portalLink: `${window.location.origin}/portal-login`,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send email');
+      }
+
+      toast.success('Approval email has been resent successfully');
+    } catch (error: any) {
+      console.error('Error resending approval email:', error);
+      toast.error(error.message || 'Failed to resend approval email');
+    } finally {
+      setResendingEmail(null);
     }
   };
 
@@ -490,6 +542,16 @@ export default function SubcontractorsManagement() {
                     >
                       <LogIn className="h-4 w-4 mr-2" />
                       {impersonating === sub.uid ? 'Logging in...' : 'Login as Subcontractor'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleResendApprovalEmail(sub.uid)}
+                      disabled={resendingEmail === sub.uid}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {resendingEmail === sub.uid ? 'Sending...' : 'Resend Subcontractor Approval Email'}
                     </Button>
                     <div className="flex gap-2">
                       <Button
