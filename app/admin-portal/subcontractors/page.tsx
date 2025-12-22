@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,6 +76,19 @@ export default function SubcontractorsManagement() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      // Get subcontractor data to get email and name
+      const subDoc = await getDoc(doc(db, 'subcontractors', subId));
+      if (!subDoc.exists()) {
+        toast.error('Subcontractor not found');
+        return;
+      }
+
+      const subData = subDoc.data();
+
+      // Get admin name
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
+
       await updateDoc(doc(db, 'subcontractors', subId), {
         status: 'approved',
         approvedBy: currentUser.uid,
@@ -83,7 +96,25 @@ export default function SubcontractorsManagement() {
         updatedAt: serverTimestamp(),
       });
 
-      toast.success('Subcontractor has been approved successfully');
+      // Send approval email to subcontractor
+      try {
+        await fetch('/api/email/send-subcontractor-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: subData.email,
+            toName: subData.fullName,
+            businessName: subData.businessName,
+            approvedBy: adminName,
+            portalLink: `${window.location.origin}/portal-login`,
+          }),
+        });
+      } catch (emailError) {
+        console.error('Failed to send approval email:', emailError);
+        // Don't fail the whole operation if email fails
+      }
+
+      toast.success('Subcontractor has been approved successfully and notified via email');
 
       fetchSubcontractors();
     } catch (error) {
