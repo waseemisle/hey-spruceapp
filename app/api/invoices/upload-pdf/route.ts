@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
-// @ts-expect-error - pdf-parse does not have TypeScript types
-import pdf from 'pdf-parse';
+import * as pdfParse from 'pdf-parse';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +22,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
 
     // Extract text from PDF
-    const data = await pdf(buffer);
+    const data = await (pdfParse as any)(buffer);
     const text = data.text;
 
     console.log('Extracted PDF text:', text);

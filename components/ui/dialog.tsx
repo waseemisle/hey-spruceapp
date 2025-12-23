@@ -67,7 +67,7 @@ export function DialogContent({ children, className }: DialogContentProps) {
 }
 
 type SimpleProps = {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   className?: string;
 };
 
