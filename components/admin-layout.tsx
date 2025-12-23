@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
+import AccountSettingsDialog from './account-settings-dialog';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle, ChevronDown, ChevronRight
@@ -30,6 +31,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     workOrders: 0,
     messages: 0,
   });
+  const firebaseInstances = {
+    authInstance: auth,
+    dbInstance: db,
+    storageInstance: storage,
+  };
   const router = useRouter();
 
   useEffect(() => {
@@ -156,6 +162,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
+            <AccountSettingsDialog
+              user={user}
+              role="admin"
+              instances={firebaseInstances}
+              onProfileUpdated={(updated) => setUser((prev: any) => ({ ...prev, ...updated }))}
+            />
             <Button
               variant="outline"
               size="sm"

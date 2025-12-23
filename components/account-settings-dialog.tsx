@@ -26,7 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
 
-type PortalRole = 'client' | 'subcontractor';
+type PortalRole = 'client' | 'subcontractor' | 'admin';
 
 type FirebaseInstances = {
   authInstance: any;
@@ -88,7 +88,11 @@ export default function AccountSettingsDialog({
         uploadedUrl = await uploadProfilePhoto(photoFile);
       }
 
-      const collectionName = role === 'client' ? 'clients' : 'subcontractors';
+      const collectionName = role === 'client'
+        ? 'clients'
+        : role === 'subcontractor'
+          ? 'subcontractors'
+          : 'adminUsers';
       await updateDoc(doc(instances.dbInstance, collectionName, user.uid), {
         fullName: fullName || user.displayName || user.email,
         profileImageUrl: uploadedUrl || null,
