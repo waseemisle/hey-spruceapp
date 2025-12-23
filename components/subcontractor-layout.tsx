@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
+import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
@@ -14,6 +15,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu, X } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
+import AccountSettingsDialog from './account-settings-dialog';
 
 export default function SubcontractorLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -23,6 +25,11 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
   const [badgeCounts, setBadgeCounts] = useState({
     bidding: 0,
     messages: 0,
+  });
+  const [firebaseInstances, setFirebaseInstances] = useState({
+    authInstance: auth,
+    dbInstance: db,
+    storageInstance: storage,
   });
   const router = useRouter();
 
@@ -44,6 +51,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
               return {
                 authInstance: getAuth(impersonationApp),
                 dbInstance: getFirestore(impersonationApp),
+                storageInstance: getStorage(impersonationApp),
               };
             } else {
               // Create the impersonation app if it doesn't exist
@@ -59,6 +67,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
               return {
                 authInstance: getAuth(newApp),
                 dbInstance: getFirestore(newApp),
+                storageInstance: getStorage(newApp),
               };
             }
           }
@@ -73,21 +82,21 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
       return {
         authInstance: auth,
         dbInstance: db,
+        storageInstance: storage,
       };
     };
 
-    const { authInstance, dbInstance } = getAuthInstance();
-
-    const unsubscribe = onAuthStateChanged(authInstance, async (firebaseUser) => {
-      if (firebaseUser) {
-        const subDoc = await getDoc(doc(dbInstance, 'subcontractors', firebaseUser.uid));
+    const subscribeToAuth = (instances: typeof firebaseInstances) =>
+      onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
+        if (firebaseUser) {
+          const subDoc = await getDoc(doc(instances.dbInstance, 'subcontractors', firebaseUser.uid));
         if (subDoc.exists() && subDoc.data().status === 'approved') {
-          setUser({ ...firebaseUser, ...subDoc.data() });
+            setUser({ ...firebaseUser, ...subDoc.data() });
           setLoading(false);
 
           // Listen to pending bidding work orders count
           const biddingQuery = query(
-            collection(dbInstance, 'biddingWorkOrders'),
+              collection(instances.dbInstance, 'biddingWorkOrders'),
             where('subcontractorId', '==', firebaseUser.uid),
             where('status', '==', 'pending')
           );
@@ -114,15 +123,21 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
           router.push('/portal-login');
         }
       }
-    });
+      });
+
+    let instances = getAuthInstance();
+    setFirebaseInstances(instances);
+    let unsubscribe = subscribeToAuth(instances);
 
     // Check impersonation state periodically
     const interval = setInterval(() => {
-      const { authInstance: newAuthInstance, dbInstance: newDbInstance } = getAuthInstance();
-      if (newAuthInstance !== authInstance) {
-        // Auth instance changed, need to re-subscribe
+      const nextInstances = getAuthInstance();
+      const changed = nextInstances.authInstance !== instances.authInstance;
+      if (changed) {
         unsubscribe();
-        // This will be handled by the effect re-running
+        instances = nextInstances;
+        setFirebaseInstances(nextInstances);
+        unsubscribe = subscribeToAuth(nextInstances);
       }
     }, 1000);
 
@@ -134,23 +149,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
 
   const handleLogout = async () => {
     // Get the correct auth instance (impersonation or regular)
-    let authInstance = auth;
-    try {
-      const stored = localStorage.getItem('impersonationState');
-      if (stored) {
-        const state = JSON.parse(stored);
-        if (state.isImpersonating === true && state.appName) {
-          const existingApps = getApps();
-          const impersonationApp = existingApps.find(app => app.name === state.appName);
-          if (impersonationApp) {
-            authInstance = getAuth(impersonationApp);
-          }
-        }
-      }
-    } catch {
-      // Use default auth
-    }
-    
+    let authInstance = firebaseInstances.authInstance || auth;
     await authInstance.signOut();
     localStorage.removeItem('impersonationState');
     router.push('/');
@@ -192,6 +191,12 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-foreground hidden md:inline">{user?.email}</span>
+            <AccountSettingsDialog
+              user={user}
+              role="subcontractor"
+              instances={firebaseInstances}
+              onProfileUpdated={(updated) => setUser((prev: any) => ({ ...prev, ...updated }))}
+            />
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>

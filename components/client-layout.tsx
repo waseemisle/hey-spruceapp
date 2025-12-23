@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
+import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
@@ -14,6 +15,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
+import AccountSettingsDialog from './account-settings-dialog';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   });
   const [hasMaintenancePermission, setHasMaintenancePermission] = useState(false);
   const [hasViewSubcontractorsPermission, setHasViewSubcontractorsPermission] = useState(false);
+  const [firebaseInstances, setFirebaseInstances] = useState({
+    authInstance: auth,
+    dbInstance: db,
+    storageInstance: storage,
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -47,6 +54,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               return {
                 authInstance: getAuth(impersonationApp),
                 dbInstance: getFirestore(impersonationApp),
+                storageInstance: getStorage(impersonationApp),
               };
             } else {
               // Create the impersonation app if it doesn't exist
@@ -62,6 +70,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               return {
                 authInstance: getAuth(newApp),
                 dbInstance: getFirestore(newApp),
+                storageInstance: getStorage(newApp),
               };
             }
           }
@@ -76,6 +85,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       return {
         authInstance: auth,
         dbInstance: db,
+        storageInstance: storage,
       };
     };
 
@@ -86,14 +96,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       return;
     }
 
-    const { authInstance, dbInstance } = getAuthInstance();
-
-    const unsubscribe = onAuthStateChanged(authInstance, async (firebaseUser) => {
-      if (firebaseUser) {
-        const clientDoc = await getDoc(doc(dbInstance, 'clients', firebaseUser.uid));
+    const subscribeToAuth = (instances: typeof firebaseInstances) =>
+      onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
+        if (firebaseUser) {
+          const clientDoc = await getDoc(doc(instances.dbInstance, 'clients', firebaseUser.uid));
         if (clientDoc.exists() && clientDoc.data().status === 'approved') {
           const clientData = clientDoc.data();
-          setUser({ ...firebaseUser, ...clientData });
+            setUser({ ...firebaseUser, ...clientData });
           // Check maintenance requests permission
           const permissions = clientData.permissions || {};
           setHasMaintenancePermission(permissions.viewMaintenanceRequests || false);
@@ -102,7 +111,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
           // Listen to quotes count (pending/sent_to_client)
           const quotesQuery = query(
-            collection(dbInstance, 'quotes'),
+              collection(instances.dbInstance, 'quotes'),
             where('clientId', '==', firebaseUser.uid),
             where('status', 'in', ['pending', 'sent_to_client'])
           );
@@ -112,7 +121,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
           // Listen to unpaid invoices count
           const invoicesQuery = query(
-            collection(dbInstance, 'invoices'),
+              collection(instances.dbInstance, 'invoices'),
             where('clientId', '==', firebaseUser.uid),
             where('status', 'in', ['sent', 'draft'])
           );
@@ -152,15 +161,21 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           router.push('/portal-login');
         }
       }
-    });
+      });
+
+    let instances = getAuthInstance();
+    setFirebaseInstances(instances);
+    let unsubscribe = subscribeToAuth(instances);
 
     // Check impersonation state periodically
     const interval = setInterval(() => {
-      const { authInstance: newAuthInstance, dbInstance: newDbInstance } = getAuthInstance();
-      if (newAuthInstance !== authInstance) {
-        // Auth instance changed, need to re-subscribe
+      const nextInstances = getAuthInstance();
+      const changed = nextInstances.authInstance !== instances.authInstance;
+      if (changed) {
         unsubscribe();
-        // This will be handled by the effect re-running
+        instances = nextInstances;
+        setFirebaseInstances(nextInstances);
+        unsubscribe = subscribeToAuth(nextInstances);
       }
     }, 1000);
 
@@ -172,23 +187,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const handleLogout = async () => {
     // Get the correct auth instance (impersonation or regular)
-    let authInstance = auth;
-    try {
-      const stored = localStorage.getItem('impersonationState');
-      if (stored) {
-        const state = JSON.parse(stored);
-        if (state.isImpersonating === true && state.appName) {
-          const existingApps = getApps();
-          const impersonationApp = existingApps.find(app => app.name === state.appName);
-          if (impersonationApp) {
-            authInstance = getAuth(impersonationApp);
-          }
-        }
-      }
-    } catch {
-      // Use default auth
-    }
-    
+    let authInstance = firebaseInstances.authInstance || auth;
     await authInstance.signOut();
     localStorage.removeItem('impersonationState');
     router.push('/');
@@ -241,6 +240,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 </span>
               )}
             </div>
+            <AccountSettingsDialog
+              user={user}
+              role="client"
+              instances={firebaseInstances}
+              onProfileUpdated={(updated) => setUser((prev: any) => ({ ...prev, ...updated }))}
+            />
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>
