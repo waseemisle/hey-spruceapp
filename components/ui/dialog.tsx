@@ -32,9 +32,11 @@ export function DialogTrigger({ asChild, children }: DialogTriggerProps) {
   const handleClick = () => ctx.setOpen?.(!ctx.open);
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children, {
+    const child = children as React.ReactElement<any>;
+    return React.cloneElement(child, {
+      ...child.props,
       onClick: (e: React.MouseEvent) => {
-        children.props.onClick?.(e);
+        child.props?.onClick?.(e);
         handleClick();
       },
     });
