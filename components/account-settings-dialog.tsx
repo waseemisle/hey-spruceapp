@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
+import { X } from 'lucide-react';
 
 type PortalRole = 'client' | 'subcontractor' | 'admin';
 
@@ -175,10 +176,15 @@ export default function AccountSettingsDialog({
         <Button variant="outline" size="sm">Account Settings</Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Account Settings</DialogTitle>
-          <DialogDescription>Update your profile and password.</DialogDescription>
-        </DialogHeader>
+        <div className="flex items-start justify-between gap-3">
+          <DialogHeader>
+            <DialogTitle>Account Settings</DialogTitle>
+            <DialogDescription>Update your profile and password.</DialogDescription>
+          </DialogHeader>
+          <Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Close">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
         <div className="space-y-6">
           <div className="flex items-center gap-4">
