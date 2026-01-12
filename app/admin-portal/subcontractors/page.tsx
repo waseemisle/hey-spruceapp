@@ -46,6 +46,7 @@ export default function SubcontractorsManagement() {
   const [skillsSearchQuery, setSkillsSearchQuery] = useState('');
   const [skillsDropdownOpen, setSkillsDropdownOpen] = useState(false);
   const skillsDropdownRef = useRef<HTMLDivElement>(null);
+  const skillsInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -768,33 +769,72 @@ export default function SubcontractorsManagement() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label>Skills</Label>
+                    <Label>Skills (comma-separated) *</Label>
                     <div className="relative" ref={skillsDropdownRef}>
-                      {/* Selected Skills Display */}
-                      <div className="min-h-[40px] border border-gray-300 rounded-md p-2 flex flex-wrap gap-2 items-center bg-white">
-                        {selectedSkills.length > 0 ? (
-                          selectedSkills.map((skill) => (
-                            <span
-                              key={skill}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm"
+                      {/* Input Field with Selected Skills Display */}
+                      <div 
+                        className="min-h-[40px] border border-gray-300 rounded-md p-2 flex flex-wrap gap-2 items-center bg-white cursor-text focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-purple-500"
+                        onClick={() => {
+                          setSkillsDropdownOpen(true);
+                          skillsInputRef.current?.focus();
+                        }}
+                      >
+                        {/* Selected Skills as Tags */}
+                        {selectedSkills.map((skill) => (
+                          <span
+                            key={skill}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm"
+                          >
+                            {skill}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeSkill(skill);
+                              }}
+                              className="hover:text-purple-900 focus:outline-none"
                             >
-                              {skill}
-                              <button
-                                type="button"
-                                onClick={() => removeSkill(skill)}
-                                className="hover:text-purple-900 focus:outline-none"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-gray-400 text-sm">Select skills from categories...</span>
-                        )}
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                        
+                        {/* Typeable Input */}
+                        <input
+                          ref={skillsInputRef}
+                          type="text"
+                          placeholder={selectedSkills.length === 0 ? "Type to search and select skills from categories..." : "Type to search more skills..."}
+                          value={skillsSearchQuery}
+                          onChange={(e) => {
+                            setSkillsSearchQuery(e.target.value);
+                            setSkillsDropdownOpen(true);
+                          }}
+                          onFocus={() => setSkillsDropdownOpen(true)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              setSkillsDropdownOpen(false);
+                              skillsInputRef.current?.blur();
+                            } else if (e.key === 'Enter' && filteredCategories.length > 0) {
+                              e.preventDefault();
+                              const firstCategory = filteredCategories[0];
+                              if (firstCategory && !selectedSkills.includes(firstCategory.name)) {
+                                toggleSkill(firstCategory.name);
+                                setSkillsSearchQuery('');
+                              }
+                            }
+                          }}
+                          className="flex-1 min-w-[200px] outline-none text-sm bg-transparent"
+                          autoComplete="off"
+                        />
+                        
+                        {/* Dropdown Toggle Button */}
                         <button
                           type="button"
-                          onClick={() => setSkillsDropdownOpen(!skillsDropdownOpen)}
-                          className="ml-auto flex items-center text-gray-500 hover:text-gray-700"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSkillsDropdownOpen(!skillsDropdownOpen);
+                          }}
+                          className="flex items-center text-gray-500 hover:text-gray-700"
                         >
                           <ChevronDown className={`h-4 w-4 transition-transform ${skillsDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
@@ -803,36 +843,28 @@ export default function SubcontractorsManagement() {
                       {/* Dropdown */}
                       {skillsDropdownOpen && (
                         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                          {/* Search Input */}
-                          <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
-                            <Input
-                              type="text"
-                              placeholder="Search categories..."
-                              value={skillsSearchQuery}
-                              onChange={(e) => setSkillsSearchQuery(e.target.value)}
-                              className="w-full"
-                              autoFocus
-                            />
-                          </div>
-
                           {/* Category List */}
                           <div className="p-1">
                             {filteredCategories.length === 0 ? (
                               <div className="px-3 py-2 text-sm text-gray-500 text-center">
-                                {skillsSearchQuery ? 'No categories found' : 'No more categories available'}
+                                {skillsSearchQuery ? 'No categories found matching your search' : 'No more categories available'}
                               </div>
                             ) : (
                               filteredCategories.map((category) => (
                                 <button
                                   key={category.id}
                                   type="button"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     toggleSkill(category.name);
                                     setSkillsSearchQuery('');
                                   }}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded flex items-center gap-2"
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded flex items-center gap-2 transition-colors"
                                 >
                                   <span className="flex-1">{category.name}</span>
+                                  {selectedSkills.includes(category.name) && (
+                                    <span className="text-purple-600 text-xs">✓ Selected</span>
+                                  )}
                                 </button>
                               ))
                             )}
@@ -841,7 +873,7 @@ export default function SubcontractorsManagement() {
                       )}
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Select skills from the categories list. You can search and select multiple skills.
+                      Type to search and select skills from categories. You can select multiple skills.
                     </p>
                   </div>
                 </div>
