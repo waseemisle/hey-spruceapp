@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc, getDoc } from 'firebase/firestore';
+import { useEffect, useState, useRef } from 'react';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc, getDoc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock, Send } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock, Send, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Subcontractor {
@@ -24,8 +24,14 @@ interface Subcontractor {
   createdAt: any;
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 export default function SubcontractorsManagement() {
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,6 +42,10 @@ export default function SubcontractorsManagement() {
   const [subToDelete, setSubToDelete] = useState<Subcontractor | null>(null);
   const [impersonating, setImpersonating] = useState<string | null>(null);
   const [resendingEmail, setResendingEmail] = useState<string | null>(null);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [skillsSearchQuery, setSkillsSearchQuery] = useState('');
+  const [skillsDropdownOpen, setSkillsDropdownOpen] = useState(false);
+  const skillsDropdownRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -43,7 +53,6 @@ export default function SubcontractorsManagement() {
     businessName: '',
     phone: '',
     licenseNumber: '',
-    skills: '',
     password: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
   });
@@ -68,9 +77,42 @@ export default function SubcontractorsManagement() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const categoriesQuery = query(collection(db, 'categories'), orderBy('name', 'asc'));
+      const snapshot = await getDocs(categoriesQuery);
+      const categoriesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+      })) as Category[];
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast.error('Failed to load categories');
+    }
+  };
+
   useEffect(() => {
     fetchSubcontractors();
+    fetchCategories();
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (skillsDropdownRef.current && !skillsDropdownRef.current.contains(event.target as Node)) {
+        setSkillsDropdownOpen(false);
+      }
+    };
+
+    if (skillsDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [skillsDropdownOpen]);
 
   const handleApprove = async (subId: string) => {
     try {
@@ -203,10 +245,12 @@ export default function SubcontractorsManagement() {
       businessName: '',
       phone: '',
       licenseNumber: '',
-      skills: '',
       password: '',
       status: 'approved',
     });
+    setSelectedSkills([]);
+    setSkillsSearchQuery('');
+    setSkillsDropdownOpen(false);
     setEditingId(null);
     setShowModal(false);
   };
@@ -223,10 +267,12 @@ export default function SubcontractorsManagement() {
       businessName: sub.businessName,
       phone: sub.phone,
       licenseNumber: sub.licenseNumber || '',
-      skills: sub.skills?.join(', ') || '',
       password: sub.password || '',
       status: sub.status,
     });
+    setSelectedSkills(sub.skills || []);
+    setSkillsSearchQuery('');
+    setSkillsDropdownOpen(false);
     setEditingId(sub.uid);
     setShowModal(true);
   };
@@ -242,13 +288,12 @@ export default function SubcontractorsManagement() {
     try {
       if (editingId) {
         // Update existing subcontractor
-        const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(s => s);
         await updateDoc(doc(db, 'subcontractors', editingId), {
           fullName: formData.fullName,
           businessName: formData.businessName,
           phone: formData.phone,
           licenseNumber: formData.licenseNumber,
-          skills: skillsArray,
+          skills: selectedSkills,
           status: formData.status,
           updatedAt: serverTimestamp(),
         });
@@ -256,8 +301,6 @@ export default function SubcontractorsManagement() {
         toast.success('Subcontractor updated successfully');
       } else {
         // Create new subcontractor via API route with invitation email
-        const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(s => s);
-
         const response = await fetch('/api/auth/create-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -270,7 +313,7 @@ export default function SubcontractorsManagement() {
               businessName: formData.businessName,
               phone: formData.phone,
               licenseNumber: formData.licenseNumber,
-              skills: skillsArray,
+              skills: selectedSkills,
               status: formData.status,
             },
           }),
@@ -293,6 +336,23 @@ export default function SubcontractorsManagement() {
       setSubmitting(false);
     }
   };
+
+  const toggleSkill = (skillName: string) => {
+    setSelectedSkills(prev =>
+      prev.includes(skillName)
+        ? prev.filter(s => s !== skillName)
+        : [...prev, skillName]
+    );
+  };
+
+  const removeSkill = (skillName: string) => {
+    setSelectedSkills(prev => prev.filter(s => s !== skillName));
+  };
+
+  const filteredCategories = categories.filter(category =>
+    category.name.toLowerCase().includes(skillsSearchQuery.toLowerCase()) &&
+    !selectedSkills.includes(category.name)
+  );
 
   const handleImpersonate = async (subId: string) => {
     try {
@@ -708,12 +768,81 @@ export default function SubcontractorsManagement() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label>Skills (comma-separated)</Label>
-                    <Input
-                      value={formData.skills}
-                      onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                      placeholder="HVAC, Plumbing, Electrical"
-                    />
+                    <Label>Skills</Label>
+                    <div className="relative" ref={skillsDropdownRef}>
+                      {/* Selected Skills Display */}
+                      <div className="min-h-[40px] border border-gray-300 rounded-md p-2 flex flex-wrap gap-2 items-center bg-white">
+                        {selectedSkills.length > 0 ? (
+                          selectedSkills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm"
+                            >
+                              {skill}
+                              <button
+                                type="button"
+                                onClick={() => removeSkill(skill)}
+                                className="hover:text-purple-900 focus:outline-none"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-sm">Select skills from categories...</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setSkillsDropdownOpen(!skillsDropdownOpen)}
+                          className="ml-auto flex items-center text-gray-500 hover:text-gray-700"
+                        >
+                          <ChevronDown className={`h-4 w-4 transition-transform ${skillsDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+
+                      {/* Dropdown */}
+                      {skillsDropdownOpen && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                          {/* Search Input */}
+                          <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
+                            <Input
+                              type="text"
+                              placeholder="Search categories..."
+                              value={skillsSearchQuery}
+                              onChange={(e) => setSkillsSearchQuery(e.target.value)}
+                              className="w-full"
+                              autoFocus
+                            />
+                          </div>
+
+                          {/* Category List */}
+                          <div className="p-1">
+                            {filteredCategories.length === 0 ? (
+                              <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                                {skillsSearchQuery ? 'No categories found' : 'No more categories available'}
+                              </div>
+                            ) : (
+                              filteredCategories.map((category) => (
+                                <button
+                                  key={category.id}
+                                  type="button"
+                                  onClick={() => {
+                                    toggleSkill(category.name);
+                                    setSkillsSearchQuery('');
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded flex items-center gap-2"
+                                >
+                                  <span className="flex-1">{category.name}</span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Select skills from the categories list. You can search and select multiple skills.
+                    </p>
                   </div>
                 </div>
 
