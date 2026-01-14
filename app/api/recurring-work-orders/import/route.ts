@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminApp } from '@/lib/firebase-admin';
+import { getAdminAuth } from '@/lib/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { collection, query, getDocs, addDoc, serverTimestamp, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -19,162 +19,52 @@ interface ImportRow {
 
 // Helper function to verify admin role
 async function verifyAdminUser(idToken: string): Promise<string | null> {
-  console.log('=== VERIFY ADMIN USER START ===');
-  console.log('Token length:', idToken.length);
-  console.log('Token preview:', idToken.substring(0, 20) + '...');
-  
   try {
-    console.log('Step 1: Getting Admin Auth...');
+    // Verify ID token using Admin Auth
     const adminAuth = getAdminAuth();
-    console.log('Admin Auth obtained successfully');
-    
     let decodedToken;
     
     try {
-      console.log('Step 2: Verifying ID token...');
       decodedToken = await adminAuth.verifyIdToken(idToken);
-      console.log('Token verified successfully');
     } catch (tokenError: any) {
-      console.error('❌ Token verification failed:', {
-        message: tokenError.message,
-        code: tokenError.code,
-        errorInfo: tokenError.errorInfo,
-        stack: tokenError.stack,
-      });
+      console.error('Token verification failed:', tokenError.message);
       return null;
     }
     
     const uid = decodedToken.uid;
-    const email = decodedToken.email;
-    console.log('✅ Token verified successfully');
-    console.log('UID:', uid);
-    console.log('Email:', email);
-    console.log('Decoded token claims:', {
-      uid: decodedToken.uid,
-      email: decodedToken.email,
-      auth_time: decodedToken.auth_time,
-      exp: decodedToken.exp,
-    });
-
-    // Verify user is in adminUsers collection using Admin SDK
-    console.log('Step 3: Initializing Admin App and Firestore...');
-    const adminApp = getAdminApp();
-    console.log('Admin App obtained:', !!adminApp);
-    console.log('Admin App project ID:', adminApp.options?.projectId);
+    console.log('Token verified, UID:', uid);
     
-    const adminDb = getFirestore(adminApp);
-    console.log('Admin Firestore obtained:', !!adminDb);
-    
-    let adminDoc;
-    
+    // Verify user is in adminUsers collection using client SDK (more reliable)
     try {
-      console.log(`Step 4: Checking adminUsers collection for uid: ${uid}`);
-      const adminUsersRef = adminDb.collection('adminUsers').doc(uid);
-      console.log('Document reference created');
+      const adminDoc = await getDoc(doc(db, 'adminUsers', uid));
       
-      adminDoc = await adminUsersRef.get();
-      console.log('Document fetched:', {
-        exists: adminDoc.exists,
-        id: adminDoc.id,
-      });
+      if (!adminDoc.exists()) {
+        console.error(`Admin user not found in adminUsers collection for uid: ${uid}`);
+        return null;
+      }
+      
+      console.log('✅ Admin verified successfully');
+      return uid;
     } catch (dbError: any) {
-      console.error('❌ Error accessing adminUsers collection:', {
-        message: dbError.message,
-        code: dbError.code,
-        uid: uid,
-        stack: dbError.stack,
-      });
+      console.error('Error accessing adminUsers collection:', dbError.message);
       
-      // Try fallback: use client SDK
-      console.log('Attempting fallback with client SDK...');
+      // Try Admin SDK as fallback
       try {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
-        const clientAdminDoc = await getDoc(doc(db, 'adminUsers', uid));
-        console.log('Client SDK fallback result:', {
-          exists: clientAdminDoc.exists(),
-          id: clientAdminDoc.id,
-        });
+        const adminDb = getFirestore();
+        const adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
         
-        if (clientAdminDoc.exists()) {
-          const clientAdminData = clientAdminDoc.data();
-          console.log('✅ Admin verified via client SDK fallback for uid:', uid, {
-            email: clientAdminData?.email,
-            fullName: clientAdminData?.fullName,
-          });
+        if (adminDoc.exists) {
+          console.log('✅ Admin verified via Admin SDK fallback');
           return uid;
         }
       } catch (fallbackError: any) {
-        console.error('❌ Client SDK fallback also failed:', {
-          message: fallbackError.message,
-          stack: fallbackError.stack,
-        });
+        console.error('Admin SDK fallback also failed:', fallbackError.message);
       }
       
       return null;
     }
-    
-    if (!adminDoc.exists) {
-      console.error(`❌ Admin user not found in adminUsers collection for uid: ${uid}`);
-      console.error('Checking if document exists at all...');
-      
-      // Try to list all admin users to see what's there
-      try {
-        const allAdminsSnapshot = await adminDb.collection('adminUsers').limit(5).get();
-        const adminIds = allAdminsSnapshot.docs.map(doc => doc.id);
-        console.log('Sample admin user IDs in collection:', adminIds);
-      } catch (listError: any) {
-        console.error('Could not list admin users:', listError.message);
-      }
-      
-      // Try fallback: use client SDK
-      console.log('Attempting fallback with client SDK...');
-      try {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
-        const clientAdminDoc = await getDoc(doc(db, 'adminUsers', uid));
-        console.log('Client SDK fallback result:', {
-          exists: clientAdminDoc.exists(),
-          id: clientAdminDoc.id,
-          data: clientAdminDoc.exists() ? clientAdminDoc.data() : null,
-        });
-        
-        if (clientAdminDoc.exists()) {
-          const clientAdminData = clientAdminDoc.data();
-          console.log('✅ Admin verified via client SDK fallback for uid:', uid, {
-            email: clientAdminData?.email,
-            fullName: clientAdminData?.fullName,
-          });
-          return uid;
-        }
-      } catch (fallbackError: any) {
-        console.error('❌ Client SDK fallback also failed:', {
-          message: fallbackError.message,
-          stack: fallbackError.stack,
-        });
-      }
-      
-      return null;
-    }
-
-    const adminData = adminDoc.data();
-    console.log('✅ Admin verified successfully');
-    console.log('Admin data:', {
-      uid: uid,
-      email: adminData?.email,
-      fullName: adminData?.fullName,
-      role: adminData?.role,
-    });
-    console.log('=== VERIFY ADMIN USER END (SUCCESS) ===');
-    return uid;
   } catch (error: any) {
-    console.error('❌ Unexpected error in verifyAdminUser:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack,
-    });
-    console.log('=== VERIFY ADMIN USER END (ERROR) ===');
+    console.error('Unexpected error in verifyAdminUser:', error.message);
     return null;
   }
 }
