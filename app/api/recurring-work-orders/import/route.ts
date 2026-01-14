@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminApp } from '@/lib/firebase-admin';
+import { getAdminAuth } from '@/lib/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -46,12 +46,10 @@ async function verifyAdminUser(idToken: string): Promise<string | null> {
     
     // Verify user is in adminUsers collection using Admin SDK (required for server-side)
     try {
-      // Ensure admin app is initialized
-      const adminApp = getAdminApp();
-      const adminDb = getFirestore(adminApp);
+      const db = getFirestore();
       console.log('Firestore instance obtained, checking adminUsers collection...');
       
-      const adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
+      const adminDoc = await db.collection('adminUsers').doc(uid).get();
       
       console.log('Admin doc exists:', adminDoc.exists);
       if (adminDoc.exists) {
@@ -67,7 +65,7 @@ async function verifyAdminUser(idToken: string): Promise<string | null> {
       // Try to find by email as fallback
       if (email) {
         console.log('Attempting to find admin by email...');
-        const emailQuery = await adminDb.collection('adminUsers')
+        const emailQuery = await db.collection('adminUsers')
           .where('email', '==', email)
           .limit(1)
           .get();
@@ -148,9 +146,8 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
 // Helper function to get location mapping
 async function getLocationMapping(csvLocationName: string): Promise<string | null> {
   try {
-    const adminApp = getAdminApp();
-    const adminDb = getFirestore(adminApp);
-    const snapshot = await adminDb.collection('locationMappings')
+    const db = getFirestore();
+    const snapshot = await db.collection('locationMappings')
       .where('csvLocationName', '==', csvLocationName)
       .get();
     
@@ -168,9 +165,8 @@ async function getLocationMapping(csvLocationName: string): Promise<string | nul
 // Helper function to find company by name
 async function findCompanyByName(name: string): Promise<string | null> {
   try {
-    const adminApp = getAdminApp();
-    const adminDb = getFirestore(adminApp);
-    const snapshot = await adminDb.collection('companies')
+    const db = getFirestore();
+    const snapshot = await db.collection('companies')
       .where('name', '==', name)
       .get();
     
@@ -188,9 +184,8 @@ async function findCompanyByName(name: string): Promise<string | null> {
 // Helper function to find client by name
 async function findClientByName(name: string): Promise<string | null> {
   try {
-    const adminApp = getAdminApp();
-    const adminDb = getFirestore(adminApp);
-    const snapshot = await adminDb.collection('clients')
+    const db = getFirestore();
+    const snapshot = await db.collection('clients')
       .where('fullName', '==', name)
       .get();
     
@@ -208,9 +203,8 @@ async function findClientByName(name: string): Promise<string | null> {
 // Helper function to get or create category
 async function getOrCreateCategory(categoryName: string): Promise<string> {
   try {
-    const adminApp = getAdminApp();
-    const adminDb = getFirestore(adminApp);
-    const snapshot = await adminDb.collection('categories')
+    const db = getFirestore();
+    const snapshot = await db.collection('categories')
       .where('name', '==', categoryName)
       .get();
     
@@ -219,7 +213,7 @@ async function getOrCreateCategory(categoryName: string): Promise<string> {
     }
 
     // Create new category
-    const newCategoryRef = await adminDb.collection('categories').add({
+    const newCategoryRef = await db.collection('categories').add({
       name: categoryName,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -321,9 +315,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get client and company details
-    const adminApp = getAdminApp();
-    const adminDb = getFirestore(adminApp);
-    const clientDocSnap = await adminDb.collection('clients').doc(defaultClientId).get();
+    const db = getFirestore();
+    const clientDocSnap = await db.collection('clients').doc(defaultClientId).get();
     if (!clientDocSnap.exists) {
       return NextResponse.json(
         { error: 'Default client data not found' },
@@ -338,7 +331,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const companyDocSnap = await adminDb.collection('companies').doc(defaultCompanyId).get();
+    const companyDocSnap = await db.collection('companies').doc(defaultCompanyId).get();
     if (!companyDocSnap.exists) {
       return NextResponse.json(
         { error: 'Default company data not found' },
@@ -372,7 +365,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify location exists
-        const locationDocSnap = await adminDb.collection('locations').doc(locationId).get();
+        const locationDocSnap = await db.collection('locations').doc(locationId).get();
         if (!locationDocSnap.exists) {
           errors.push({
             row: i + 1,
@@ -463,7 +456,7 @@ export async function POST(request: NextRequest) {
           updatedAt: FieldValue.serverTimestamp(),
         };
 
-        await adminDb.collection('recurringWorkOrders').add(recurringWorkOrderData);
+        await db.collection('recurringWorkOrders').add(recurringWorkOrderData);
         created.push(workOrderNumber);
       } catch (error: any) {
         console.error(`Error processing row ${i + 1}:`, error);
