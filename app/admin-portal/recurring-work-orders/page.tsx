@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
   RotateCcw, Plus, Edit2, Save, X, Search, Trash2, Eye, 
-  Play, Pause, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Zap
+  Play, Pause, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Zap, Upload, MapPin
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution } from '@/types';
+import RecurringWorkOrdersImportModal from '@/components/recurring-work-orders-import-modal';
 
 export default function RecurringWorkOrdersManagement() {
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
@@ -21,6 +22,7 @@ export default function RecurringWorkOrdersManagement() {
   const [filter, setFilter] = useState<'all' | 'active' | 'paused' | 'cancelled'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -232,14 +234,34 @@ export default function RecurringWorkOrdersManagement() {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recurring Work Orders</h1>
             <p className="text-gray-600 mt-2 text-sm sm:text-base">Manage recurring work orders and their schedules</p>
           </div>
-          <Button 
-            onClick={() => window.location.href = '/admin-portal/recurring-work-orders/create'}
-            className="w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Create Recurring Work Order</span>
-            <span className="sm:hidden">Create</span>
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => window.location.href = '/admin-portal/recurring-work-orders/location-map'}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              <MapPin className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Location Map</span>
+              <span className="sm:hidden">Map</span>
+            </Button>
+            <Button 
+              onClick={() => setShowImportModal(true)}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Import from CSV/Excel</span>
+              <span className="sm:hidden">Import</span>
+            </Button>
+            <Button 
+              onClick={() => window.location.href = '/admin-portal/recurring-work-orders/create'}
+              className="w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Create Recurring Work Order</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -408,6 +430,16 @@ export default function RecurringWorkOrdersManagement() {
             ))
           )}
         </div>
+
+        {/* Import Modal */}
+        <RecurringWorkOrdersImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImportComplete={() => {
+            fetchRecurringWorkOrders();
+            setShowImportModal(false);
+          }}
+        />
       </div>
     </AdminLayout>
   );

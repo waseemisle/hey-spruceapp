@@ -44,5 +44,22 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && isAdmin();
     }
+
+    // Location Mappings - admin only
+    match /locationMappings/{mappingId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+
+    // Recurring Work Orders - admins can manage, clients can read their own
+    match /recurringWorkOrders/{workOrderId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Recurring Work Order Executions - admins can manage, clients can read their own
+    match /recurringWorkOrderExecutions/{executionId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.recurringWorkOrderId != null);
+      allow write: if isSignedIn() && isAdmin();
+    }
   }
 }

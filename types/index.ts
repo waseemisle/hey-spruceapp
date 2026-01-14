@@ -388,6 +388,9 @@ export interface RecurringWorkOrder {
   invoiceSchedule: InvoiceSchedule;
   nextExecution: Date;
   lastExecution?: Date;
+  lastServiced?: Date; // New field from CSV LAST SERVICED
+  nextServiceDates?: Date[]; // Array of up to 5 dates from NEXT SERVICE NEEDED BY
+  notes?: string; // From NOTES column
   totalExecutions: number;
   successfulExecutions: number;
   failedExecutions: number;
@@ -397,11 +400,12 @@ export interface RecurringWorkOrder {
 }
 
 export interface RecurrencePattern {
-  type: 'monthly';
-  interval: number; // Every X months
+  type: 'monthly' | 'weekly'; // Added 'weekly' for BI-WEEKLY
+  interval: number; // Every X months or weeks
   dayOfMonth?: number; // 1-31 for monthly
   endDate?: Date; // Optional end date for the recurrence
   maxOccurrences?: number; // Optional maximum number of occurrences
+  scheduling?: string; // From SCHEDULING column (e.g., "MONDAYS (10AM-5PM)")
 }
 
 export interface InvoiceSchedule {
