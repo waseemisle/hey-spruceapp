@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getFirestore as getAdminFirestore } from '@/lib/firebase-admin';
+import { getAdminAuth } from '@/lib/firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import { collection, query, getDocs, addDoc, serverTimestamp, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 interface ImportRow {
   restaurant: string;
@@ -21,7 +25,7 @@ async function verifyAdminUser(idToken: string): Promise<string | null> {
     const uid = decodedToken.uid;
 
     // Verify user is in adminUsers collection
-    const adminDb = getAdminFirestore();
+    const adminDb = getFirestore();
     const adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
     
     if (!adminDoc.exists) {

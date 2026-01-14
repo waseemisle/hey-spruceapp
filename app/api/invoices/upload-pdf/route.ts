@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
-import * as pdfParse from 'pdf-parse';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,8 +20,10 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Extract text from PDF
-    const data = await (pdfParse as any)(buffer);
+    // Extract text from PDF (dynamic import to avoid build-time issues)
+    const pdfParseModule = await import('pdf-parse');
+    const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+    const data = await pdfParse(buffer);
     const text = data.text;
 
     console.log('Extracted PDF text:', text);
