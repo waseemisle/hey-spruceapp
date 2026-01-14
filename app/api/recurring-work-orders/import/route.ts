@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminApp } from '@/lib/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
@@ -26,30 +26,74 @@ async function verifyAdminUser(idToken: string): Promise<string | null> {
       decodedToken = await adminAuth.verifyIdToken(idToken);
     } catch (tokenError: any) {
       console.error('Token verification failed:', tokenError.message);
+      console.error('Token error code:', tokenError.code);
+      console.error('Token error stack:', tokenError.stack);
       return null;
     }
     
     const uid = decodedToken.uid;
+    const email = decodedToken.email;
+    const customClaims = decodedToken;
     console.log('Token verified, UID:', uid);
+    console.log('Token email:', email);
+    console.log('Token custom claims:', JSON.stringify(customClaims, null, 2));
+    
+    // Check for admin custom claim first (if set)
+    if (customClaims.admin === true || customClaims.role === 'admin') {
+      console.log('✅ Admin verified via custom claim');
+      return uid;
+    }
     
     // Verify user is in adminUsers collection using Admin SDK (required for server-side)
     try {
-      const adminDb = getFirestore();
+      // Ensure admin app is initialized
+      const adminApp = getAdminApp();
+      const adminDb = getFirestore(adminApp);
+      console.log('Firestore instance obtained, checking adminUsers collection...');
+      
       const adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
       
-      if (!adminDoc.exists) {
-        console.error(`Admin user not found in adminUsers collection for uid: ${uid}`);
-        return null;
+      console.log('Admin doc exists:', adminDoc.exists);
+      if (adminDoc.exists) {
+        const adminData = adminDoc.data();
+        console.log('Admin data:', adminData);
+        console.log('✅ Admin verified successfully via adminUsers collection');
+        return uid;
       }
       
-      console.log('✅ Admin verified successfully');
-      return uid;
+      console.error(`❌ Admin user not found in adminUsers collection for uid: ${uid}`);
+      console.error(`User email from token: ${email}`);
+      
+      // Try to find by email as fallback
+      if (email) {
+        console.log('Attempting to find admin by email...');
+        const emailQuery = await adminDb.collection('adminUsers')
+          .where('email', '==', email)
+          .limit(1)
+          .get();
+        
+        if (!emailQuery.empty) {
+          const foundDoc = emailQuery.docs[0];
+          const foundUid = foundDoc.id;
+          console.log(`⚠️ Found admin by email but UID mismatch. Document UID: ${foundUid}, Token UID: ${uid}`);
+          console.log('This suggests the user was created with a different UID. Please ensure the adminUsers document ID matches the Auth UID.');
+        } else {
+          console.error(`❌ No admin found with email: ${email}`);
+          console.error('Please ensure the user exists in the adminUsers collection with the correct UID as the document ID.');
+        }
+      }
+      
+      return null;
     } catch (dbError: any) {
-      console.error('Error accessing adminUsers collection:', dbError.message);
+      console.error('❌ Error accessing adminUsers collection:', dbError.message);
+      console.error('DB error code:', dbError.code);
+      console.error('DB error stack:', dbError.stack);
       return null;
     }
   } catch (error: any) {
-    console.error('Unexpected error in verifyAdminUser:', error.message);
+    console.error('❌ Unexpected error in verifyAdminUser:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error stack:', error.stack);
     return null;
   }
 }
@@ -104,7 +148,8 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
 // Helper function to get location mapping
 async function getLocationMapping(csvLocationName: string): Promise<string | null> {
   try {
-    const adminDb = getFirestore();
+    const adminApp = getAdminApp();
+    const adminDb = getFirestore(adminApp);
     const snapshot = await adminDb.collection('locationMappings')
       .where('csvLocationName', '==', csvLocationName)
       .get();
@@ -123,7 +168,8 @@ async function getLocationMapping(csvLocationName: string): Promise<string | nul
 // Helper function to find company by name
 async function findCompanyByName(name: string): Promise<string | null> {
   try {
-    const adminDb = getFirestore();
+    const adminApp = getAdminApp();
+    const adminDb = getFirestore(adminApp);
     const snapshot = await adminDb.collection('companies')
       .where('name', '==', name)
       .get();
@@ -142,7 +188,8 @@ async function findCompanyByName(name: string): Promise<string | null> {
 // Helper function to find client by name
 async function findClientByName(name: string): Promise<string | null> {
   try {
-    const adminDb = getFirestore();
+    const adminApp = getAdminApp();
+    const adminDb = getFirestore(adminApp);
     const snapshot = await adminDb.collection('clients')
       .where('fullName', '==', name)
       .get();
@@ -161,7 +208,8 @@ async function findClientByName(name: string): Promise<string | null> {
 // Helper function to get or create category
 async function getOrCreateCategory(categoryName: string): Promise<string> {
   try {
-    const adminDb = getFirestore();
+    const adminApp = getAdminApp();
+    const adminDb = getFirestore(adminApp);
     const snapshot = await adminDb.collection('categories')
       .where('name', '==', categoryName)
       .get();
@@ -220,8 +268,22 @@ export async function POST(request: NextRequest) {
     if (!adminUid) {
       console.error('❌ Admin verification failed - user is not an admin or verification error occurred');
       console.log('=== IMPORT REQUEST END (AUTH FAILED) ===');
+      
+      // Get user info from token for better error message
+      let userInfo = '';
+      try {
+        const adminAuth = getAdminAuth();
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        userInfo = ` (UID: ${decodedToken.uid}, Email: ${decodedToken.email || 'N/A'})`;
+      } catch (e) {
+        // Ignore - we already know token verification might have issues
+      }
+      
       return NextResponse.json(
-        { error: 'Only admins can import recurring work orders. Please ensure you are logged in as an admin user.' },
+        { 
+          error: 'Only admins can import recurring work orders. Please ensure you are logged in as an admin user.',
+          details: `The user${userInfo} was not found in the adminUsers collection. Please ensure your user account exists in Firestore under the 'adminUsers' collection with your Auth UID as the document ID.`
+        },
         { status: 403 }
       );
     }
@@ -259,7 +321,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get client and company details
-    const adminDb = getFirestore();
+    const adminApp = getAdminApp();
+    const adminDb = getFirestore(adminApp);
     const clientDocSnap = await adminDb.collection('clients').doc(defaultClientId).get();
     if (!clientDocSnap.exists) {
       return NextResponse.json(
