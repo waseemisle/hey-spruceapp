@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
 import { collection, query, getDocs, addDoc, serverTimestamp, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -24,11 +23,10 @@ async function verifyAdminUser(idToken: string): Promise<string | null> {
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     const uid = decodedToken.uid;
 
-    // Verify user is in adminUsers collection using Admin SDK
-    const adminDb = getFirestore();
-    const adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
+    // Verify user is in adminUsers collection using client SDK
+    const adminDoc = await getDoc(doc(db, 'adminUsers', uid));
     
-    if (!adminDoc.exists) {
+    if (!adminDoc.exists()) {
       console.error(`Admin user not found in adminUsers collection for uid: ${uid}`);
       return null;
     }
