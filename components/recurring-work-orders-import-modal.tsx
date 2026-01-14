@@ -387,7 +387,29 @@ export default function RecurringWorkOrdersImportModal({
       }
 
       // Get ID token (force refresh to ensure it's valid)
+      console.log('Getting ID token for user:', currentUser.uid);
+      console.log('User email:', currentUser.email);
       const idToken = await currentUser.getIdToken(true);
+      console.log('ID token obtained, length:', idToken.length);
+      console.log('Token preview:', idToken.substring(0, 30) + '...');
+
+      console.log('Preparing import request...');
+      console.log('Valid rows count:', validRows.length);
+      
+      const requestBody = {
+        rows: validRows.map(row => ({
+          restaurant: row.restaurant,
+          serviceType: row.serviceType,
+          lastServiced: row.lastServiced,
+          nextServiceDates: row.nextServiceDates,
+          frequencyLabel: row.frequencyLabel,
+          scheduling: row.scheduling,
+          notes: row.notes,
+        })),
+      };
+      
+      console.log('Request body prepared, rows:', requestBody.rows.length);
+      console.log('Making API request to /api/recurring-work-orders/import...');
 
       const response = await fetch('/api/recurring-work-orders/import', {
         method: 'POST',
@@ -395,22 +417,17 @@ export default function RecurringWorkOrdersImportModal({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${idToken}`,
         },
-        body: JSON.stringify({
-          rows: validRows.map(row => ({
-            restaurant: row.restaurant,
-            serviceType: row.serviceType,
-            lastServiced: row.lastServiced,
-            nextServiceDates: row.nextServiceDates,
-            frequencyLabel: row.frequencyLabel,
-            scheduling: row.scheduling,
-            notes: row.notes,
-          })),
-        }),
+        body: JSON.stringify(requestBody),
       });
+      
+      console.log('Response received, status:', response.status);
 
       const result = await response.json();
+      console.log('Response JSON:', result);
 
       if (!response.ok) {
+        console.error('Import failed with status:', response.status);
+        console.error('Error response:', result);
         throw new Error(result.error || 'Import failed');
       }
 
