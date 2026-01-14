@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
-import { collection, query, getDocs, addDoc, serverTimestamp, where, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,11 +32,12 @@ async function verifyAdminUser(idToken: string): Promise<string | null> {
     const uid = decodedToken.uid;
     console.log('Token verified, UID:', uid);
     
-    // Verify user is in adminUsers collection using client SDK (more reliable)
+    // Verify user is in adminUsers collection using Admin SDK (required for server-side)
     try {
-      const adminDoc = await getDoc(doc(db, 'adminUsers', uid));
+      const adminDb = getFirestore();
+      const adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
       
-      if (!adminDoc.exists()) {
+      if (!adminDoc.exists) {
         console.error(`Admin user not found in adminUsers collection for uid: ${uid}`);
         return null;
       }
@@ -47,20 +46,6 @@ async function verifyAdminUser(idToken: string): Promise<string | null> {
       return uid;
     } catch (dbError: any) {
       console.error('Error accessing adminUsers collection:', dbError.message);
-      
-      // Try Admin SDK as fallback
-      try {
-        const adminDb = getFirestore();
-        const adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
-        
-        if (adminDoc.exists) {
-          console.log('✅ Admin verified via Admin SDK fallback');
-          return uid;
-        }
-      } catch (fallbackError: any) {
-        console.error('Admin SDK fallback also failed:', fallbackError.message);
-      }
-      
       return null;
     }
   } catch (error: any) {
@@ -119,11 +104,10 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
 // Helper function to get location mapping
 async function getLocationMapping(csvLocationName: string): Promise<string | null> {
   try {
-    const mappingsQuery = query(
-      collection(db, 'locationMappings'),
-      where('csvLocationName', '==', csvLocationName)
-    );
-    const snapshot = await getDocs(mappingsQuery);
+    const adminDb = getFirestore();
+    const snapshot = await adminDb.collection('locationMappings')
+      .where('csvLocationName', '==', csvLocationName)
+      .get();
     
     if (snapshot.empty) {
       return null;
@@ -139,11 +123,10 @@ async function getLocationMapping(csvLocationName: string): Promise<string | nul
 // Helper function to find company by name
 async function findCompanyByName(name: string): Promise<string | null> {
   try {
-    const companiesQuery = query(
-      collection(db, 'companies'),
-      where('name', '==', name)
-    );
-    const snapshot = await getDocs(companiesQuery);
+    const adminDb = getFirestore();
+    const snapshot = await adminDb.collection('companies')
+      .where('name', '==', name)
+      .get();
     
     if (snapshot.empty) {
       return null;
@@ -159,11 +142,10 @@ async function findCompanyByName(name: string): Promise<string | null> {
 // Helper function to find client by name
 async function findClientByName(name: string): Promise<string | null> {
   try {
-    const clientsQuery = query(
-      collection(db, 'clients'),
-      where('fullName', '==', name)
-    );
-    const snapshot = await getDocs(clientsQuery);
+    const adminDb = getFirestore();
+    const snapshot = await adminDb.collection('clients')
+      .where('fullName', '==', name)
+      .get();
     
     if (snapshot.empty) {
       return null;
@@ -179,21 +161,20 @@ async function findClientByName(name: string): Promise<string | null> {
 // Helper function to get or create category
 async function getOrCreateCategory(categoryName: string): Promise<string> {
   try {
-    const categoriesQuery = query(
-      collection(db, 'categories'),
-      where('name', '==', categoryName)
-    );
-    const snapshot = await getDocs(categoriesQuery);
+    const adminDb = getFirestore();
+    const snapshot = await adminDb.collection('categories')
+      .where('name', '==', categoryName)
+      .get();
     
     if (!snapshot.empty) {
       return snapshot.docs[0].id;
     }
 
     // Create new category
-    const newCategoryRef = await addDoc(collection(db, 'categories'), {
+    const newCategoryRef = await adminDb.collection('categories').add({
       name: categoryName,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     return newCategoryRef.id;
@@ -278,25 +259,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Get client and company details
-    const clientDocRef = doc(db, 'clients', defaultClientId);
-    const clientDocSnap = await getDoc(clientDocRef);
-    if (!clientDocSnap.exists()) {
+    const adminDb = getFirestore();
+    const clientDocSnap = await adminDb.collection('clients').doc(defaultClientId).get();
+    if (!clientDocSnap.exists) {
       return NextResponse.json(
         { error: 'Default client data not found' },
         { status: 400 }
       );
     }
     const clientData = clientDocSnap.data();
+    if (!clientData) {
+      return NextResponse.json(
+        { error: 'Default client data is empty' },
+        { status: 400 }
+      );
+    }
 
-    const companyDocRef = doc(db, 'companies', defaultCompanyId);
-    const companyDocSnap = await getDoc(companyDocRef);
-    if (!companyDocSnap.exists()) {
+    const companyDocSnap = await adminDb.collection('companies').doc(defaultCompanyId).get();
+    if (!companyDocSnap.exists) {
       return NextResponse.json(
         { error: 'Default company data not found' },
         { status: 400 }
       );
     }
     const companyData = companyDocSnap.data();
+    if (!companyData) {
+      return NextResponse.json(
+        { error: 'Default company data is empty' },
+        { status: 400 }
+      );
+    }
 
     const created: string[] = [];
     const errors: Array<{ row: number; error: string }> = [];
@@ -317,9 +309,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify location exists
-        const locationDocRef = doc(db, 'locations', locationId);
-        const locationDocSnap = await getDoc(locationDocRef);
-        if (!locationDocSnap.exists()) {
+        const locationDocSnap = await adminDb.collection('locations').doc(locationId).get();
+        if (!locationDocSnap.exists) {
           errors.push({
             row: i + 1,
             error: `Location with ID "${locationId}" not found in system.`,
@@ -327,7 +318,15 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const locationData = locationDocSnap.data();
+        const locationDataRaw = locationDocSnap.data();
+        if (!locationDataRaw) {
+          errors.push({
+            row: i + 1,
+            error: `Location data is empty for ID "${locationId}".`,
+          });
+          continue;
+        }
+        const locationData = locationDataRaw;
 
         // Get or create category
         const categoryId = await getOrCreateCategory(row.serviceType);
@@ -397,11 +396,11 @@ export async function POST(request: NextRequest) {
           successfulExecutions: 0,
           failedExecutions: 0,
           createdBy: adminUid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         };
 
-        await addDoc(collection(db, 'recurringWorkOrders'), recurringWorkOrderData);
+        await adminDb.collection('recurringWorkOrders').add(recurringWorkOrderData);
         created.push(workOrderNumber);
       } catch (error: any) {
         console.error(`Error processing row ${i + 1}:`, error);
