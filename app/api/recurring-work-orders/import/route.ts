@@ -24,17 +24,24 @@ async function verifyAdminUser(idToken: string): Promise<string | null> {
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     const uid = decodedToken.uid;
 
-    // Verify user is in adminUsers collection
+    // Verify user is in adminUsers collection using Admin SDK
     const adminDb = getFirestore();
     const adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
     
     if (!adminDoc.exists) {
+      console.error(`Admin user not found in adminUsers collection for uid: ${uid}`);
       return null;
     }
 
+    console.log(`Admin verified successfully for uid: ${uid}`);
     return uid;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error verifying admin user:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     return null;
   }
 }

@@ -9,6 +9,8 @@ import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-r
 import { toast } from 'sonner';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface ParsedRow {
   restaurant: string;
@@ -355,15 +357,37 @@ export default function RecurringWorkOrdersImportModal({
     setImportProgress({ current: 0, total: validRows.length });
 
     try {
-      const { auth } = await import('@/lib/firebase');
+      // Get current user - wait for auth if needed
+      let currentUser = auth.currentUser;
       
-      if (!auth.currentUser) {
-        toast.error('You must be logged in');
+      // If no current user immediately, wait briefly for auth state
+      if (!currentUser) {
+        currentUser = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            unsubscribe();
+            reject(new Error('Authentication timeout'));
+          }, 3000);
+          
+          const unsubscribe = onAuthStateChanged(auth, (user) => {
+            clearTimeout(timeout);
+            unsubscribe();
+            if (user) {
+              resolve(user);
+            } else {
+              reject(new Error('No authenticated user found'));
+            }
+          });
+        });
+      }
+      
+      if (!currentUser) {
+        toast.error('You must be logged in to import work orders');
         setIsImporting(false);
         return;
       }
 
-      const idToken = await auth.currentUser.getIdToken();
+      // Get ID token (force refresh to ensure it's valid)
+      const idToken = await currentUser.getIdToken(true);
 
       const response = await fetch('/api/recurring-work-orders/import', {
         method: 'POST',
