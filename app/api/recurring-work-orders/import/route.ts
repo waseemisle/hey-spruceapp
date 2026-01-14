@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminApp } from '@/lib/firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import { collection, query, getDocs, addDoc, serverTimestamp, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -20,21 +21,53 @@ interface ImportRow {
 async function verifyAdminUser(idToken: string): Promise<string | null> {
   try {
     const adminAuth = getAdminAuth();
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    const uid = decodedToken.uid;
-
-    // Verify user is in adminUsers collection using client SDK
-    const adminDoc = await getDoc(doc(db, 'adminUsers', uid));
+    let decodedToken;
     
-    if (!adminDoc.exists()) {
+    try {
+      decodedToken = await adminAuth.verifyIdToken(idToken);
+    } catch (tokenError: any) {
+      console.error('Token verification failed:', {
+        message: tokenError.message,
+        code: tokenError.code,
+        errorInfo: tokenError.errorInfo,
+      });
+      return null;
+    }
+    
+    const uid = decodedToken.uid;
+    console.log(`Token verified successfully for uid: ${uid}`);
+
+    // Verify user is in adminUsers collection using Admin SDK
+    // Ensure admin app is initialized first
+    getAdminApp();
+    const adminDb = getFirestore();
+    let adminDoc;
+    
+    try {
+      adminDoc = await adminDb.collection('adminUsers').doc(uid).get();
+    } catch (dbError: any) {
+      console.error('Error accessing adminUsers collection:', {
+        message: dbError.message,
+        code: dbError.code,
+        uid: uid,
+      });
+      return null;
+    }
+    
+    if (!adminDoc.exists) {
       console.error(`Admin user not found in adminUsers collection for uid: ${uid}`);
+      console.error('Available collections check - this is a debugging log');
       return null;
     }
 
-    console.log(`Admin verified successfully for uid: ${uid}`);
+    const adminData = adminDoc.data();
+    console.log(`Admin verified successfully for uid: ${uid}`, {
+      email: adminData?.email,
+      fullName: adminData?.fullName,
+    });
     return uid;
   } catch (error: any) {
-    console.error('Error verifying admin user:', error);
+    console.error('Unexpected error in verifyAdminUser:', error);
     console.error('Error details:', {
       message: error.message,
       code: error.code,
@@ -183,6 +216,7 @@ export async function POST(request: NextRequest) {
     // Verify admin role
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('Missing or invalid authorization header');
       return NextResponse.json(
         { error: 'Authorization header required' },
         { status: 401 }
@@ -190,14 +224,26 @@ export async function POST(request: NextRequest) {
     }
 
     const idToken = authHeader.substring(7);
+    if (!idToken || idToken.length < 10) {
+      console.error('Invalid token format - token too short or empty');
+      return NextResponse.json(
+        { error: 'Invalid authentication token' },
+        { status: 401 }
+      );
+    }
+
+    console.log('Verifying admin user with token (length:', idToken.length, ')');
     const adminUid = await verifyAdminUser(idToken);
     
     if (!adminUid) {
+      console.error('Admin verification failed - user is not an admin or verification error occurred');
       return NextResponse.json(
-        { error: 'Only admins can import recurring work orders' },
+        { error: 'Only admins can import recurring work orders. Please ensure you are logged in as an admin user.' },
         { status: 403 }
       );
     }
+
+    console.log('Admin verification successful, proceeding with import for admin:', adminUid);
 
     const body = await request.json();
     const { rows } = body as { rows: ImportRow[] };
