@@ -431,10 +431,24 @@ export default function RecurringWorkOrdersImportModal({
         throw new Error(result.error || 'Import failed');
       }
 
-      toast.success(`Successfully imported ${result.created} recurring work order(s)`);
+      // Show success message with details
+      if (result.created > 0) {
+        toast.success(result.message || `Successfully imported ${result.created} recurring work order(s)`);
+      } else {
+        toast.error('No recurring work orders were created. Please check the errors.');
+      }
+      
       if (result.errors && result.errors.length > 0) {
         console.warn('Import errors:', result.errors);
-        toast.warning(`${result.errors.length} row(s) failed to import`);
+        // Show detailed error message
+        const errorDetails = result.errors
+          .slice(0, 5)
+          .map((e: any) => `Row ${e.row}: ${e.error}`)
+          .join('\n');
+        const moreErrors = result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more error(s)` : '';
+        toast.warning(`${result.errors.length} row(s) failed to import:\n${errorDetails}${moreErrors}`, {
+          duration: 10000,
+        });
       }
 
       handleClose();

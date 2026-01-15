@@ -112,22 +112,52 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
   }
 }
 
-// Helper function to get location mapping
-async function getLocationMapping(csvLocationName: string, db: any): Promise<string | null> {
+// Helper function to find location by name (direct lookup, not mapping)
+async function findLocationByName(locationName: string, db: any): Promise<{ id: string; data: any } | null> {
   try {
-    const q = query(
-      collection(db, 'locationMappings'),
-      where('csvLocationName', '==', csvLocationName)
+    // First try exact match
+    let q = query(
+      collection(db, 'locations'),
+      where('locationName', '==', locationName)
     );
-    const snapshot = await getDocs(q);
+    let snapshot = await getDocs(q);
     
-    if (snapshot.empty) {
-      return null;
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0];
+      return { id: doc.id, data: doc.data() };
     }
 
-    return snapshot.docs[0].data().systemLocationId;
+    // Try case-insensitive search by getting all locations and filtering
+    // (Firestore doesn't support case-insensitive queries directly)
+    q = query(collection(db, 'locations'));
+    snapshot = await getDocs(q);
+    
+    const locationNameLower = locationName.toLowerCase().trim();
+    for (const doc of snapshot.docs) {
+      const docData = doc.data();
+      const docLocationName = (docData.locationName || '').toLowerCase().trim();
+      
+      // Exact match
+      if (docLocationName === locationNameLower) {
+        return { id: doc.id, data: docData };
+      }
+      
+      // Contains match (either direction)
+      if (docLocationName.includes(locationNameLower) || locationNameLower.includes(docLocationName)) {
+        return { id: doc.id, data: docData };
+      }
+      
+      // Check if location name matches any part (for cases like "Restaurant Name - Location")
+      const docParts = docLocationName.split(/[\s\-_()]+/);
+      const searchParts = locationNameLower.split(/[\s\-_()]+/);
+      if (searchParts.some(part => docParts.includes(part)) || docParts.some(part => searchParts.includes(part))) {
+        return { id: doc.id, data: docData };
+      }
+    }
+
+    return null;
   } catch (error) {
-    console.error('Error fetching location mapping:', error);
+    console.error('Error finding location:', error);
     return null;
   }
 }
@@ -259,57 +289,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get default company and client
-    const defaultCompanyName = 'The h.wood Group';
-    const defaultClientName = 'Jessica Cabrera-Olimon';
-
-    const defaultCompanyId = await findCompanyByName(defaultCompanyName, db);
-    if (!defaultCompanyId) {
-      return NextResponse.json(
-        { error: `Default company "${defaultCompanyName}" not found. Please create it first.` },
-        { status: 400 }
-      );
-    }
-
-    const defaultClientId = await findClientByName(defaultClientName, db);
-    if (!defaultClientId) {
-      return NextResponse.json(
-        { error: `Default client "${defaultClientName}" not found. Please create it first.` },
-        { status: 400 }
-      );
-    }
-
-    // Get client and company details
-    const clientDocSnap = await getDoc(doc(db, 'clients', defaultClientId));
-    if (!clientDocSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Default client data not found' },
-        { status: 400 }
-      );
-    }
-    const clientData = clientDocSnap.data();
-    if (!clientData) {
-      return NextResponse.json(
-        { error: 'Default client data is empty' },
-        { status: 400 }
-      );
-    }
-
-    const companyDocSnap = await getDoc(doc(db, 'companies', defaultCompanyId));
-    if (!companyDocSnap.exists()) {
-      return NextResponse.json(
-        { error: 'Default company data not found' },
-        { status: 400 }
-      );
-    }
-    const companyData = companyDocSnap.data();
-    if (!companyData) {
-      return NextResponse.json(
-        { error: 'Default company data is empty' },
-        { status: 400 }
-      );
-    }
-
     const created: string[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 
@@ -345,37 +324,61 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Get location mapping
-        const locationId = await getLocationMapping(row.restaurant, db);
-        if (!locationId) {
+        // Find location by restaurant name (direct lookup, not mapping)
+        const locationResult = await findLocationByName(row.restaurant, db);
+        if (!locationResult) {
           errors.push({
             row: i + 1,
-            error: `Location mapping not found for "${row.restaurant}". Please create a mapping first.`,
+            error: `Location not found for "${row.restaurant}". Please create the location first.`,
           });
-          console.error(`Row ${i + 1}: Location mapping not found for "${row.restaurant}"`);
+          console.error(`Row ${i + 1}: Location not found for "${row.restaurant}"`);
           continue;
         }
-        console.log(`Row ${i + 1}: Found location ID: ${locationId}`);
+        
+        const locationId = locationResult.id;
+        const locationData = locationResult.data;
+        console.log(`Row ${i + 1}: Found location "${locationData.locationName}" with ID: ${locationId}`);
 
-        // Verify location exists
-        const locationDocSnap = await getDoc(doc(db, 'locations', locationId));
-        if (!locationDocSnap.exists()) {
+        // Get client and company from location
+        const clientId = locationData.clientId || '';
+        const companyId = locationData.companyId || '';
+
+        if (!clientId) {
           errors.push({
             row: i + 1,
-            error: `Location with ID "${locationId}" not found in system.`,
+            error: `Location "${row.restaurant}" does not have a client assigned.`,
+          });
+          console.error(`Row ${i + 1}: Location has no client ID`);
+          continue;
+        }
+
+        // Get client details
+        const clientDocSnap = await getDoc(doc(db, 'clients', clientId));
+        if (!clientDocSnap.exists()) {
+          errors.push({
+            row: i + 1,
+            error: `Client with ID "${clientId}" not found.`,
+          });
+          console.error(`Row ${i + 1}: Client not found`);
+          continue;
+        }
+        const clientData = clientDocSnap.data();
+        if (!clientData) {
+          errors.push({
+            row: i + 1,
+            error: `Client data is empty for ID "${clientId}".`,
           });
           continue;
         }
 
-        const locationDataRaw = locationDocSnap.data();
-        if (!locationDataRaw) {
-          errors.push({
-            row: i + 1,
-            error: `Location data is empty for ID "${locationId}".`,
-          });
-          continue;
+        // Get company details (if companyId exists)
+        let companyData: any = null;
+        if (companyId) {
+          const companyDocSnap = await getDoc(doc(db, 'companies', companyId));
+          if (companyDocSnap.exists()) {
+            companyData = companyDocSnap.data();
+          }
         }
-        const locationData = locationDataRaw;
 
         // Get or create category
         const categoryId = await getOrCreateCategory(row.serviceType, db);
@@ -436,19 +439,17 @@ export async function POST(request: NextRequest) {
         console.log(`Row ${i + 1}: Creating recurring work order with number: ${workOrderNumber}`);
 
         // Create recurring work order - EACH ROW CREATES A SEPARATE RECURRING WORK ORDER
-        const recurringWorkOrderData = {
+        const recurringWorkOrderData: any = {
           workOrderNumber,
-          clientId: defaultClientId,
-          clientName: clientData.fullName,
-          clientEmail: clientData.email,
+          clientId: clientId,
+          clientName: clientData.fullName || 'Unknown Client',
+          clientEmail: clientData.email || '',
           locationId,
-          companyId: defaultCompanyId,
-          companyName: companyData.name,
-          locationName: locationData.locationName,
+          locationName: locationData.locationName || row.restaurant,
           locationAddress: locationData.address && typeof locationData.address === 'object'
             ? `${locationData.address.street || ''}, ${locationData.address.city || ''}, ${locationData.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
             : (locationData.address || 'N/A'),
-          title: `${row.serviceType} - ${locationData.locationName}`,
+          title: `${row.serviceType} - ${locationData.locationName || row.restaurant}`,
           description: row.notes || `${row.serviceType} recurring service`,
           category: row.serviceType,
           categoryId: categoryId,
@@ -467,6 +468,12 @@ export async function POST(request: NextRequest) {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
+
+        // Add company info if available
+        if (companyId && companyData) {
+          recurringWorkOrderData.companyId = companyId;
+          recurringWorkOrderData.companyName = companyData.name || '';
+        }
 
         const docRef = await addDoc(collection(db, 'recurringWorkOrders'), recurringWorkOrderData);
         console.log(`Row ${i + 1}: Successfully created recurring work order with ID: ${docRef.id}`);
@@ -487,6 +494,12 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`Import complete. Created: ${created.length}, Errors: ${errors.length}`);
+    if (created.length > 0) {
+      console.log('Created work order numbers:', created);
+    }
+    if (errors.length > 0) {
+      console.log('Errors:', errors);
+    }
 
     console.log('=== IMPORT REQUEST END (SUCCESS) ===');
     console.log('Created:', created.length);
@@ -495,7 +508,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       created: created.length,
+      createdWorkOrders: created,
       errors: errors,
+      message: `Successfully created ${created.length} recurring work order(s)${errors.length > 0 ? `, ${errors.length} row(s) had errors` : ''}`,
     });
   } catch (error: any) {
     console.error('❌ Error importing recurring work orders:', error);
