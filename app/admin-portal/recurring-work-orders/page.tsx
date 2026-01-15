@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution } from '@/types';
 import RecurringWorkOrdersImportModal from '@/components/recurring-work-orders-import-modal';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function RecurringWorkOrdersManagement() {
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
@@ -25,6 +26,7 @@ export default function RecurringWorkOrdersManagement() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -175,11 +177,81 @@ export default function RecurringWorkOrdersManagement() {
       // Delete the recurring work order itself
       await deleteDoc(doc(db, 'recurringWorkOrders', recurringWorkOrder.id));
 
+      // Remove from selection if it was selected
+      setSelectedIds(prev => prev.filter(id => id !== recurringWorkOrder.id));
+
       toast.success('Recurring work order and all related data deleted successfully');
       fetchRecurringWorkOrders();
     } catch (error) {
       console.error('Error deleting recurring work order:', error);
       toast.error('Failed to delete recurring work order');
+    }
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id)
+        ? prev.filter(selectedId => selectedId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredRecurringWorkOrders.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredRecurringWorkOrders.map(rwo => rwo.id));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+
+    const selectedCount = selectedIds.length;
+    toast(`Delete ${selectedCount} recurring work order${selectedCount > 1 ? 's' : ''}?`, {
+      description: 'This will also delete all related executions and scheduled emails. This action cannot be undone.',
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          await performBulkDelete();
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const performBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    try {
+      setSubmitting(true);
+      const deletePromises = selectedIds.map(async (id) => {
+        // Delete related executions
+        const executionsQuery = query(
+          collection(db, 'recurringWorkOrderExecutions'),
+          where('recurringWorkOrderId', '==', id)
+        );
+        const executionsSnapshot = await getDocs(executionsQuery);
+        const executionDeletePromises = executionsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(executionDeletePromises);
+
+        // Delete the recurring work order itself
+        await deleteDoc(doc(db, 'recurringWorkOrders', id));
+      });
+
+      await Promise.all(deletePromises);
+
+      toast.success(`Successfully deleted ${selectedIds.length} recurring work order${selectedIds.length > 1 ? 's' : ''} and all related data`);
+      setSelectedIds([]);
+      fetchRecurringWorkOrders();
+    } catch (error) {
+      console.error('Error deleting recurring work orders:', error);
+      toast.error('Failed to delete recurring work orders');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -291,23 +363,53 @@ export default function RecurringWorkOrdersManagement() {
           />
         </div>
 
-        {/* Filter Dropdown */}
-        <div className="flex items-center gap-3">
-          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
-            Filter by Status:
-          </label>
-          <select
-            id="status-filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as typeof filter)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 capitalize"
-          >
-            {['all', 'active', 'paused', 'cancelled'].map((filterOption) => (
-              <option key={filterOption} value={filterOption} className="capitalize">
-                {filterOption} ({recurringWorkOrders.filter(rwo => filterOption === 'all' || rwo.status === filterOption).length})
-              </option>
-            ))}
-          </select>
+        {/* Selection Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="select-all"
+              checked={filteredRecurringWorkOrders.length > 0 && selectedIds.length === filteredRecurringWorkOrders.length}
+              onCheckedChange={toggleSelectAll}
+            />
+            <label htmlFor="select-all" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Select All ({filteredRecurringWorkOrders.length})
+            </label>
+            {selectedIds.length > 0 && (
+              <span className="text-sm text-gray-600">
+                {selectedIds.length} selected
+              </span>
+            )}
+          </div>
+          
+          {selectedIds.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Selected ({selectedIds.length})
+            </Button>
+          )}
+
+          <div className="flex items-center gap-3">
+            <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
+              Filter by Status:
+            </label>
+            <select
+              id="status-filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as typeof filter)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 capitalize"
+            >
+              {['all', 'active', 'paused', 'cancelled'].map((filterOption) => (
+                <option key={filterOption} value={filterOption} className="capitalize">
+                  {filterOption} ({recurringWorkOrders.filter(rwo => filterOption === 'all' || rwo.status === filterOption).length})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Recurring Work Orders Grid */}
@@ -325,7 +427,15 @@ export default function RecurringWorkOrdersManagement() {
                 <CardHeader>
                   <div className="space-y-2">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{recurringWorkOrder.title}</CardTitle>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <Checkbox
+                          id={`select-${recurringWorkOrder.id}`}
+                          checked={selectedIds.includes(recurringWorkOrder.id)}
+                          onCheckedChange={() => toggleSelection(recurringWorkOrder.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <CardTitle className="text-lg truncate">{recurringWorkOrder.title}</CardTitle>
+                      </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status)}`}>
                         {recurringWorkOrder.status.toUpperCase()}
                       </span>
