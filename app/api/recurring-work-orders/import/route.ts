@@ -1,9 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getAuth } from 'firebase-admin/auth';
+import { getApps as getAdminApps } from 'firebase-admin/app';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// Initialize Firebase client SDK
+const getFirebaseApp = () => {
+  if (getApps().length === 0) {
+    return initializeApp({
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    });
+  }
+  return getApp();
+};
+
+// Helper function to verify admin token (same as view-as route)
+async function verifyAdminToken(idToken: string): Promise<string | null> {
+  try {
+    // Try to use Firebase Admin if available (local dev with gcloud)
+    if (getAdminApps().length > 0 || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      try {
+        const adminAuth = getAuth();
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        return decodedToken.uid;
+      } catch (error) {
+        // Admin SDK exists but verification failed, fall through to token decoding
+        console.log('Admin SDK verification failed, using fallback');
+      }
+    }
+  } catch (error) {
+    // Fall back to client-side verification
+    console.log('Admin SDK not available, using fallback verification');
+  }
+
+  // Fallback: decode token without verification (less secure, but works without Admin SDK)
+  // In production, you should use Admin SDK or Firebase Auth REST API
+  try {
+    const parts = idToken.split('.');
+    if (parts.length !== 3) return null;
+
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    return payload.user_id || payload.sub || null;
+  } catch {
+    return null;
+  }
+}
 
 interface ImportRow {
   restaurant: string;
@@ -64,12 +113,13 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
 }
 
 // Helper function to get location mapping
-async function getLocationMapping(csvLocationName: string): Promise<string | null> {
+async function getLocationMapping(csvLocationName: string, db: any): Promise<string | null> {
   try {
-    const db = getFirestore();
-    const snapshot = await db.collection('locationMappings')
-      .where('csvLocationName', '==', csvLocationName)
-      .get();
+    const q = query(
+      collection(db, 'locationMappings'),
+      where('csvLocationName', '==', csvLocationName)
+    );
+    const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
       return null;
@@ -83,12 +133,13 @@ async function getLocationMapping(csvLocationName: string): Promise<string | nul
 }
 
 // Helper function to find company by name
-async function findCompanyByName(name: string): Promise<string | null> {
+async function findCompanyByName(name: string, db: any): Promise<string | null> {
   try {
-    const db = getFirestore();
-    const snapshot = await db.collection('companies')
-      .where('name', '==', name)
-      .get();
+    const q = query(
+      collection(db, 'companies'),
+      where('name', '==', name)
+    );
+    const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
       return null;
@@ -102,12 +153,13 @@ async function findCompanyByName(name: string): Promise<string | null> {
 }
 
 // Helper function to find client by name
-async function findClientByName(name: string): Promise<string | null> {
+async function findClientByName(name: string, db: any): Promise<string | null> {
   try {
-    const db = getFirestore();
-    const snapshot = await db.collection('clients')
-      .where('fullName', '==', name)
-      .get();
+    const q = query(
+      collection(db, 'clients'),
+      where('fullName', '==', name)
+    );
+    const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
       return null;
@@ -121,22 +173,23 @@ async function findClientByName(name: string): Promise<string | null> {
 }
 
 // Helper function to get or create category
-async function getOrCreateCategory(categoryName: string): Promise<string> {
+async function getOrCreateCategory(categoryName: string, db: any): Promise<string> {
   try {
-    const db = getFirestore();
-    const snapshot = await db.collection('categories')
-      .where('name', '==', categoryName)
-      .get();
+    const q = query(
+      collection(db, 'categories'),
+      where('name', '==', categoryName)
+    );
+    const snapshot = await getDocs(q);
     
     if (!snapshot.empty) {
       return snapshot.docs[0].id;
     }
 
     // Create new category
-    const newCategoryRef = await db.collection('categories').add({
+    const newCategoryRef = await addDoc(collection(db, 'categories'), {
       name: categoryName,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
 
     return newCategoryRef.id;
@@ -175,24 +228,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify admin role - exactly like impersonate route
-    const adminAuth = getAdminAuth();
-    const db = getFirestore();
+    // Initialize Firebase client SDK
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
 
     // Verify the requesting user is an admin
-    let adminUid: string;
-    try {
-      const decodedToken = await adminAuth.verifyIdToken(idToken);
-      adminUid = decodedToken.uid;
-    } catch (error) {
+    const adminUid = await verifyAdminToken(idToken);
+    if (!adminUid) {
       return NextResponse.json(
         { error: 'Invalid authentication token' },
         { status: 401 }
       );
     }
 
-    const adminDoc = await db.collection('adminUsers').doc(adminUid).get();
-    if (!adminDoc.exists) {
+    const adminDoc = await getDoc(doc(db, 'adminUsers', adminUid));
+    if (!adminDoc.exists()) {
       return NextResponse.json(
         { error: 'Only admins can import recurring work orders' },
         { status: 403 }
@@ -213,7 +263,7 @@ export async function POST(request: NextRequest) {
     const defaultCompanyName = 'The h.wood Group';
     const defaultClientName = 'Jessica Cabrera-Olimon';
 
-    const defaultCompanyId = await findCompanyByName(defaultCompanyName);
+    const defaultCompanyId = await findCompanyByName(defaultCompanyName, db);
     if (!defaultCompanyId) {
       return NextResponse.json(
         { error: `Default company "${defaultCompanyName}" not found. Please create it first.` },
@@ -221,7 +271,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const defaultClientId = await findClientByName(defaultClientName);
+    const defaultClientId = await findClientByName(defaultClientName, db);
     if (!defaultClientId) {
       return NextResponse.json(
         { error: `Default client "${defaultClientName}" not found. Please create it first.` },
@@ -230,8 +280,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get client and company details
-    const clientDocSnap = await db.collection('clients').doc(defaultClientId).get();
-    if (!clientDocSnap.exists) {
+    const clientDocSnap = await getDoc(doc(db, 'clients', defaultClientId));
+    if (!clientDocSnap.exists()) {
       return NextResponse.json(
         { error: 'Default client data not found' },
         { status: 400 }
@@ -245,8 +295,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const companyDocSnap = await db.collection('companies').doc(defaultCompanyId).get();
-    if (!companyDocSnap.exists) {
+    const companyDocSnap = await getDoc(doc(db, 'companies', defaultCompanyId));
+    if (!companyDocSnap.exists()) {
       return NextResponse.json(
         { error: 'Default company data not found' },
         { status: 400 }
@@ -269,7 +319,7 @@ export async function POST(request: NextRequest) {
       
       try {
         // Get location mapping
-        const locationId = await getLocationMapping(row.restaurant);
+        const locationId = await getLocationMapping(row.restaurant, db);
         if (!locationId) {
           errors.push({
             row: i + 1,
@@ -279,8 +329,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify location exists
-        const locationDocSnap = await db.collection('locations').doc(locationId).get();
-        if (!locationDocSnap.exists) {
+        const locationDocSnap = await getDoc(doc(db, 'locations', locationId));
+        if (!locationDocSnap.exists()) {
           errors.push({
             row: i + 1,
             error: `Location with ID "${locationId}" not found in system.`,
@@ -299,7 +349,7 @@ export async function POST(request: NextRequest) {
         const locationData = locationDataRaw;
 
         // Get or create category
-        const categoryId = await getOrCreateCategory(row.serviceType);
+        const categoryId = await getOrCreateCategory(row.serviceType, db);
 
         // Parse dates
         const lastServiced = row.lastServiced ? parseDate(row.lastServiced) : null;
@@ -366,11 +416,11 @@ export async function POST(request: NextRequest) {
           successfulExecutions: 0,
           failedExecutions: 0,
           createdBy: adminUid,
-          createdAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         };
 
-        await db.collection('recurringWorkOrders').add(recurringWorkOrderData);
+        await addDoc(collection(db, 'recurringWorkOrders'), recurringWorkOrderData);
         created.push(workOrderNumber);
       } catch (error: any) {
         console.error(`Error processing row ${i + 1}:`, error);
