@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
     console.log('Authorization header starts with Bearer:', authHeader?.startsWith('Bearer '));
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('❌ Missing or invalid authorization header');
+      console.error('? Missing or invalid authorization header');
       console.log('Header value:', authHeader ? authHeader.substring(0, 20) + '...' : 'null');
       return NextResponse.json(
         { error: 'Authorization header required' },
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
     console.log('Token preview:', idToken.substring(0, 30) + '...');
     
     if (!idToken || idToken.length < 10) {
-      console.error('❌ Invalid token format - token too short or empty');
+      console.error('? Invalid token format - token too short or empty');
       return NextResponse.json(
         { error: 'Invalid authentication token' },
         { status: 401 }
@@ -417,11 +417,14 @@ export async function POST(request: NextRequest) {
         const nextExecutionTimestamp = Timestamp.fromDate(nextExecution);
 
         // Create recurrence pattern
-        const recurrencePattern = {
+        const recurrencePattern: any = {
           type: recurrenceConfig.type,
           interval: recurrenceConfig.interval,
-          scheduling: row.scheduling || undefined,
         };
+        // Only add scheduling if it has a value (Firestore doesn't accept undefined)
+        if (row.scheduling && row.scheduling.trim() !== '') {
+          recurrencePattern.scheduling = row.scheduling.trim();
+        }
 
         // Create invoice schedule (default to monthly)
         const invoiceSchedule = {
@@ -458,9 +461,6 @@ export async function POST(request: NextRequest) {
           recurrencePattern,
           invoiceSchedule,
           nextExecution: nextExecutionTimestamp,
-          lastServiced: lastServicedTimestamp,
-          nextServiceDates: nextServiceDatesTimestamps,
-          notes: row.notes || undefined,
           totalExecutions: 0,
           successfulExecutions: 0,
           failedExecutions: 0,
@@ -468,6 +468,17 @@ export async function POST(request: NextRequest) {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
+
+        // Only add optional fields if they have values (Firestore doesn't accept undefined)
+        if (lastServicedTimestamp) {
+          recurringWorkOrderData.lastServiced = lastServicedTimestamp;
+        }
+        if (nextServiceDatesTimestamps && nextServiceDatesTimestamps.length > 0) {
+          recurringWorkOrderData.nextServiceDates = nextServiceDatesTimestamps;
+        }
+        if (row.notes && row.notes.trim() !== '') {
+          recurringWorkOrderData.notes = row.notes.trim();
+        }
 
         // Add company info if available
         if (companyId && companyData) {
@@ -513,7 +524,7 @@ export async function POST(request: NextRequest) {
       message: `Successfully created ${created.length} recurring work order(s)${errors.length > 0 ? `, ${errors.length} row(s) had errors` : ''}`,
     });
   } catch (error: any) {
-    console.error('❌ Error importing recurring work orders:', error);
+    console.error('? Error importing recurring work orders:', error);
     console.error('Error details:', {
       message: error.message,
       code: error.code,
