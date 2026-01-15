@@ -30,6 +30,17 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       
       if (docSnap.exists()) {
         const data = docSnap.data();
+        // Parse nextServiceDates array if it exists
+        const nextServiceDates = data.nextServiceDates
+          ? (Array.isArray(data.nextServiceDates)
+              ? data.nextServiceDates.map((d: any) => {
+                  if (d instanceof Date) return d;
+                  if (d?.toDate) return d.toDate();
+                  return new Date(d);
+                })
+              : [])
+          : undefined;
+        
         setRecurringWorkOrder({
           id: docSnap.id,
           ...data,
@@ -37,6 +48,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
           updatedAt: data.updatedAt?.toDate(),
           nextExecution: data.nextExecution?.toDate(),
           lastExecution: data.lastExecution?.toDate(),
+          lastServiced: data.lastServiced?.toDate(),
+          nextServiceDates: nextServiceDates,
         } as RecurringWorkOrder);
       } else {
         toast.error('Recurring work order not found');
@@ -378,6 +391,77 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                 </div>
               </CardContent>
             </Card>
+
+            {/* NEXT SERVICE Executions Section */}
+            {recurringWorkOrder.nextServiceDates && recurringWorkOrder.nextServiceDates.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    NEXT SERVICE Executions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {recurringWorkOrder.nextServiceDates
+                      .slice(0, 5) // Show next 5 executions
+                      .map((date, index) => {
+                        const dateObj = date instanceof Date ? date : new Date(date);
+                        const isPast = dateObj < new Date();
+                        const isToday = dateObj.toDateString() === new Date().toDateString();
+                        
+                        return (
+                          <div
+                            key={index}
+                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                              isPast
+                                ? 'bg-gray-50 border-gray-200'
+                                : isToday
+                                ? 'bg-blue-50 border-blue-300'
+                                : 'bg-green-50 border-green-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full ${
+                                isPast
+                                  ? 'bg-gray-400'
+                                  : isToday
+                                  ? 'bg-blue-500'
+                                  : 'bg-green-500'
+                              }`} />
+                              <div>
+                                <div className="font-semibold text-sm">
+                                  Execution #{index + 1}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {dateObj.toLocaleDateString('en-US', {
+                                    weekday: 'short',
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {isPast
+                                ? 'Past'
+                                : isToday
+                                ? 'Today'
+                                : `${Math.ceil((dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days away`}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    {recurringWorkOrder.nextServiceDates.length > 5 && (
+                      <div className="text-sm text-gray-500 text-center pt-2">
+                        + {recurringWorkOrder.nextServiceDates.length - 5} more execution(s)
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>

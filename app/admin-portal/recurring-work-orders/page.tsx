@@ -46,14 +46,30 @@ export default function RecurringWorkOrdersManagement() {
     try {
       const recurringWorkOrdersQuery = query(collection(db, 'recurringWorkOrders'));
       const snapshot = await getDocs(recurringWorkOrdersQuery);
-      const recurringWorkOrdersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-        nextExecution: doc.data().nextExecution?.toDate(),
-        lastExecution: doc.data().lastExecution?.toDate(),
-      })) as RecurringWorkOrder[];
+      const recurringWorkOrdersData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Parse nextServiceDates array if it exists
+        const nextServiceDates = data.nextServiceDates
+          ? (Array.isArray(data.nextServiceDates)
+              ? data.nextServiceDates.map((d: any) => {
+                  if (d instanceof Date) return d;
+                  if (d?.toDate) return d.toDate();
+                  return new Date(d);
+                })
+              : [])
+          : undefined;
+        
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate(),
+          updatedAt: data.updatedAt?.toDate(),
+          nextExecution: data.nextExecution?.toDate(),
+          lastExecution: data.lastExecution?.toDate(),
+          lastServiced: data.lastServiced?.toDate(),
+          nextServiceDates: nextServiceDates,
+        } as RecurringWorkOrder;
+      });
       setRecurringWorkOrders(recurringWorkOrdersData);
     } catch (error) {
       console.error('Error fetching recurring work orders:', error);

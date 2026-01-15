@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getApps as getAdminApps } from 'firebase-admin/app';
 
@@ -313,11 +313,38 @@ export async function POST(request: NextRequest) {
     const created: string[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 
-    // Process each row
+    console.log(`Processing ${rows.length} rows for import`);
+
+    // Process each row - create a separate recurring work order for EACH row
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
+      console.log(`Processing row ${i + 1}/${rows.length}:`, {
+        restaurant: row.restaurant,
+        serviceType: row.serviceType,
+        frequencyLabel: row.frequencyLabel,
+        nextServiceDatesCount: row.nextServiceDates?.length || 0,
+      });
       
       try {
+        // Validate required fields
+        if (!row.restaurant || row.restaurant.trim() === '') {
+          errors.push({
+            row: i + 1,
+            error: `Restaurant name is required for row ${i + 1}`,
+          });
+          console.error(`Row ${i + 1}: Missing restaurant name`);
+          continue;
+        }
+
+        if (!row.serviceType || row.serviceType.trim() === '') {
+          errors.push({
+            row: i + 1,
+            error: `Service type is required for row ${i + 1}`,
+          });
+          console.error(`Row ${i + 1}: Missing service type`);
+          continue;
+        }
+
         // Get location mapping
         const locationId = await getLocationMapping(row.restaurant, db);
         if (!locationId) {
@@ -325,8 +352,10 @@ export async function POST(request: NextRequest) {
             row: i + 1,
             error: `Location mapping not found for "${row.restaurant}". Please create a mapping first.`,
           });
+          console.error(`Row ${i + 1}: Location mapping not found for "${row.restaurant}"`);
           continue;
         }
+        console.log(`Row ${i + 1}: Found location ID: ${locationId}`);
 
         // Verify location exists
         const locationDocSnap = await getDoc(doc(db, 'locations', locationId));
@@ -355,19 +384,34 @@ export async function POST(request: NextRequest) {
         const lastServiced = row.lastServiced ? parseDate(row.lastServiced) : null;
         const nextServiceDates = row.nextServiceDates
           .map(dateStr => parseDate(dateStr))
-          .filter((date): date is Date => date !== null);
+          .filter((date): date is Date => date !== null)
+          .sort((a, b) => a.getTime() - b.getTime()); // Sort dates chronologically
 
         // Map frequency to recurrence pattern
         const recurrenceConfig = mapFrequencyToRecurrencePattern(row.frequencyLabel);
         
-        // Calculate next execution date
-        const now = new Date();
-        let nextExecution = new Date(now);
-        if (recurrenceConfig.type === 'monthly') {
-          nextExecution.setMonth(now.getMonth() + recurrenceConfig.interval);
-        } else if (recurrenceConfig.type === 'weekly') {
-          nextExecution.setDate(now.getDate() + (recurrenceConfig.interval * 7));
+        // Use the first next service date as nextExecution, or calculate from recurrence pattern if no dates provided
+        let nextExecution: Date;
+        if (nextServiceDates.length > 0) {
+          // Use the earliest date from the nextServiceDates array
+          nextExecution = nextServiceDates[0];
+        } else {
+          // Fallback: Calculate next execution date from recurrence pattern
+          const now = new Date();
+          nextExecution = new Date(now);
+          if (recurrenceConfig.type === 'monthly') {
+            nextExecution.setMonth(now.getMonth() + recurrenceConfig.interval);
+          } else if (recurrenceConfig.type === 'weekly') {
+            nextExecution.setDate(now.getDate() + (recurrenceConfig.interval * 7));
+          }
         }
+
+        // Convert dates to Firestore Timestamps for storage
+        const lastServicedTimestamp = lastServiced ? Timestamp.fromDate(lastServiced) : undefined;
+        const nextServiceDatesTimestamps = nextServiceDates.length > 0
+          ? nextServiceDates.map(date => Timestamp.fromDate(date))
+          : undefined;
+        const nextExecutionTimestamp = Timestamp.fromDate(nextExecution);
 
         // Create recurrence pattern
         const recurrencePattern = {
@@ -384,10 +428,14 @@ export async function POST(request: NextRequest) {
           timezone: 'America/New_York',
         };
 
-        // Generate work order number
-        const workOrderNumber = `RWO-${Date.now().toString().slice(-8).toUpperCase()}-${i.toString().padStart(3, '0')}`;
+        // Generate unique work order number with timestamp and row index
+        const timestamp = Date.now();
+        const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const workOrderNumber = `RWO-${timestamp.toString().slice(-8).toUpperCase()}-${i.toString().padStart(3, '0')}-${randomSuffix}`;
 
-        // Create recurring work order
+        console.log(`Row ${i + 1}: Creating recurring work order with number: ${workOrderNumber}`);
+
+        // Create recurring work order - EACH ROW CREATES A SEPARATE RECURRING WORK ORDER
         const recurringWorkOrderData = {
           workOrderNumber,
           clientId: defaultClientId,
@@ -408,9 +456,9 @@ export async function POST(request: NextRequest) {
           status: 'active' as const,
           recurrencePattern,
           invoiceSchedule,
-          nextExecution,
-          lastServiced: lastServiced || undefined,
-          nextServiceDates: nextServiceDates.length > 0 ? nextServiceDates : undefined,
+          nextExecution: nextExecutionTimestamp,
+          lastServiced: lastServicedTimestamp,
+          nextServiceDates: nextServiceDatesTimestamps,
           notes: row.notes || undefined,
           totalExecutions: 0,
           successfulExecutions: 0,
@@ -420,16 +468,25 @@ export async function POST(request: NextRequest) {
           updatedAt: serverTimestamp(),
         };
 
-        await addDoc(collection(db, 'recurringWorkOrders'), recurringWorkOrderData);
+        const docRef = await addDoc(collection(db, 'recurringWorkOrders'), recurringWorkOrderData);
+        console.log(`Row ${i + 1}: Successfully created recurring work order with ID: ${docRef.id}`);
         created.push(workOrderNumber);
       } catch (error: any) {
         console.error(`Error processing row ${i + 1}:`, error);
+        console.error(`Error details:`, {
+          message: error.message,
+          stack: error.stack,
+          restaurant: row.restaurant,
+          serviceType: row.serviceType,
+        });
         errors.push({
           row: i + 1,
           error: error.message || 'Unknown error',
         });
       }
     }
+
+    console.log(`Import complete. Created: ${created.length}, Errors: ${errors.length}`);
 
     console.log('=== IMPORT REQUEST END (SUCCESS) ===');
     console.log('Created:', created.length);
