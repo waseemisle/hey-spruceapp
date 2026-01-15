@@ -150,7 +150,7 @@ async function findLocationByName(locationName: string, db: any): Promise<{ id: 
       // Check if location name matches any part (for cases like "Restaurant Name - Location")
       const docParts = docLocationName.split(/[\s\-_()]+/);
       const searchParts = locationNameLower.split(/[\s\-_()]+/);
-      if (searchParts.some(part => docParts.includes(part)) || docParts.some(part => searchParts.includes(part))) {
+      if (searchParts.some((part: string) => docParts.includes(part)) || docParts.some((part: string) => searchParts.includes(part))) {
         return { id: doc.id, data: docData };
       }
     }

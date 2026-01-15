@@ -18,7 +18,7 @@ export function Avatar({ className, children }: AvatarProps) {
 type AvatarImageProps = React.ImgHTMLAttributes<HTMLImageElement>;
 
 export function AvatarImage(props: AvatarImageProps) {
-  return <img {...props} className={`h-full w-full object-cover ${props.className || ''}`} />;
+  return <img {...props} alt={props.alt || ''} className={`h-full w-full object-cover ${props.className || ''}`} />;
 }
 
 type AvatarFallbackProps = {
