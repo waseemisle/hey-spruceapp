@@ -347,6 +347,13 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <span className="ml-2">{recurringWorkOrder.category}</span>
                 </div>
 
+                {(recurringWorkOrder as any).subcontractorName && (
+                  <div>
+                    <span className="font-semibold">Assigned Subcontractor:</span>
+                    <span className="ml-2">{(recurringWorkOrder as any).subcontractorName}</span>
+                  </div>
+                )}
+
                 {recurringWorkOrder.estimateBudget && (
                   <div>
                     <span className="font-semibold">Estimate Budget:</span>

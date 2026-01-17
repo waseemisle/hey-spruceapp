@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,9 @@ import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-r
 import { toast } from 'sonner';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { collection, query, getDocs, where } from 'firebase/firestore';
 
 interface ParsedRow {
   restaurant: string;
@@ -22,6 +23,13 @@ interface ParsedRow {
   notes: string;
   rowNumber: number;
   errors: string[];
+  subcontractorId?: string; // Pre-selected subcontractor for this row
+}
+
+interface Subcontractor {
+  id: string;
+  fullName: string;
+  email: string;
 }
 
 interface ImportModalProps {
@@ -40,7 +48,43 @@ export default function RecurringWorkOrdersImportModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch subcontractors when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchSubcontractors();
+    }
+  }, [isOpen]);
+
+  const fetchSubcontractors = async () => {
+    try {
+      const subsQuery = query(
+        collection(db, 'subcontractors'),
+        where('status', '==', 'approved')
+      );
+      const snapshot = await getDocs(subsQuery);
+      const subsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        fullName: doc.data().fullName,
+        email: doc.data().email,
+      })) as Subcontractor[];
+      setSubcontractors(subsData);
+    } catch (error) {
+      console.error('Error fetching subcontractors:', error);
+    }
+  };
+
+  const handleSubcontractorChange = (rowNumber: number, subcontractorId: string) => {
+    setParsedData(prev => 
+      prev.map(row => 
+        row.rowNumber === rowNumber 
+          ? { ...row, subcontractorId: subcontractorId || undefined }
+          : row
+      )
+    );
+  };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -405,6 +449,7 @@ export default function RecurringWorkOrdersImportModal({
           frequencyLabel: row.frequencyLabel,
           scheduling: row.scheduling,
           notes: row.notes,
+          subcontractorId: row.subcontractorId || undefined,
         })),
       };
       
@@ -468,6 +513,7 @@ export default function RecurringWorkOrdersImportModal({
     setIsProcessing(false);
     setIsImporting(false);
     setImportProgress({ current: 0, total: 0 });
+    setSubcontractors([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -555,6 +601,7 @@ export default function RecurringWorkOrdersImportModal({
                       <th className="p-2 text-left border-b">Restaurant</th>
                       <th className="p-2 text-left border-b">Service Type</th>
                       <th className="p-2 text-left border-b">Frequency</th>
+                      <th className="p-2 text-left border-b">Subcontractor</th>
                       <th className="p-2 text-left border-b">Status</th>
                     </tr>
                   </thead>
@@ -568,6 +615,25 @@ export default function RecurringWorkOrdersImportModal({
                         <td className="p-2 border-b">{row.restaurant || '-'}</td>
                         <td className="p-2 border-b">{row.serviceType || '-'}</td>
                         <td className="p-2 border-b">{row.frequencyLabel || '-'}</td>
+                        <td className="p-2 border-b">
+                          {row.errors.length === 0 ? (
+                            <select
+                              value={row.subcontractorId || ''}
+                              onChange={(e) => handleSubcontractorChange(row.rowNumber, e.target.value)}
+                              className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                              disabled={isImporting}
+                            >
+                              <option value="">Select subcontractor...</option>
+                              {subcontractors.map(sub => (
+                                <option key={sub.id} value={sub.id}>
+                                  {sub.fullName}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-gray-400 text-xs">Fix errors first</span>
+                          )}
+                        </td>
                         <td className="p-2 border-b">
                           {row.errors.length > 0 ? (
                             <div className="flex items-center gap-1 text-red-600">

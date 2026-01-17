@@ -391,6 +391,8 @@ export interface RecurringWorkOrder {
   lastServiced?: Date; // New field from CSV LAST SERVICED
   nextServiceDates?: Date[]; // Array of up to 5 dates from NEXT SERVICE NEEDED BY
   notes?: string; // From NOTES column
+  subcontractorId?: string; // Pre-selected subcontractor from import
+  subcontractorName?: string; // Name of pre-selected subcontractor
   totalExecutions: number;
   successfulExecutions: number;
   failedExecutions: number;

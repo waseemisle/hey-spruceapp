@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, getDocs, doc, getDoc, updateDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc, updateDoc, serverTimestamp, orderBy, where } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,12 +45,19 @@ interface Category {
   name: string;
 }
 
+interface Subcontractor {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
 export default function EditRecurringWorkOrder({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showAdvancedRecurrence, setShowAdvancedRecurrence] = useState(false);
@@ -66,6 +73,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     category: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
     estimateBudget: '',
+    subcontractorId: '',
     recurrenceType: 'monthly' as 'monthly' | 'weekly',
     recurrenceInterval: 1,
     recurrenceDaysOfWeek: [] as number[],
@@ -116,6 +124,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           category: recurringWorkOrderData.category || '',
           priority: recurringWorkOrderData.priority || 'medium',
           estimateBudget: recurringWorkOrderData.estimateBudget?.toString() || '',
+          subcontractorId: (recurringWorkOrderData as any).subcontractorId || '',
           recurrenceType: pattern?.type || 'monthly',
           recurrenceInterval: pattern?.interval || 1,
           recurrenceDaysOfWeek: [],
@@ -204,6 +213,24 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     }
   };
 
+  const fetchSubcontractors = async () => {
+    try {
+      const subsQuery = query(
+        collection(db, 'subcontractors'),
+        where('status', '==', 'approved')
+      );
+      const snapshot = await getDocs(subsQuery);
+      const subsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        fullName: doc.data().fullName,
+        email: doc.data().email,
+      })) as Subcontractor[];
+      setSubcontractors(subsData);
+    } catch (error) {
+      console.error('Error fetching subcontractors:', error);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([
@@ -211,6 +238,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         fetchLocations(),
         fetchCompanies(),
         fetchCategories(),
+        fetchSubcontractors(),
         fetchRecurringWorkOrder(),
       ]);
       setLoading(false);
@@ -272,7 +300,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         timezone: formData.timezone,
       } as InvoiceSchedule;
 
-      const updateData = {
+      const updateData: any = {
         clientId: formData.clientId,
         clientName: client.fullName,
         clientEmail: client.email,
@@ -293,6 +321,19 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         nextExecution: nextExecution,
         updatedAt: serverTimestamp(),
       };
+
+      // Add subcontractor info if selected
+      if (formData.subcontractorId) {
+        const subcontractor = subcontractors.find(s => s.id === formData.subcontractorId);
+        if (subcontractor) {
+          updateData.subcontractorId = formData.subcontractorId;
+          updateData.subcontractorName = subcontractor.fullName;
+        }
+      } else {
+        // Remove subcontractor if deselected
+        updateData.subcontractorId = null;
+        updateData.subcontractorName = null;
+      }
 
       await updateDoc(doc(db, 'recurringWorkOrders', params.id), updateData);
 
@@ -527,6 +568,23 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   placeholder="e.g., 5000"
                 />
                 <p className="text-xs text-gray-500 mt-1">Estimated budget per occurrence in USD</p>
+              </div>
+
+              <div>
+                <Label>Assigned Subcontractor (Optional)</Label>
+                <select
+                  value={formData.subcontractorId}
+                  onChange={(e) => setFormData({ ...formData, subcontractorId: e.target.value })}
+                  className="w-full border border-gray-300 rounded-md p-2"
+                >
+                  <option value="">Select subcontractor...</option>
+                  {subcontractors.map(sub => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.fullName} ({sub.email})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Pre-select a subcontractor for this recurring work order</p>
               </div>
             </CardContent>
           </Card>

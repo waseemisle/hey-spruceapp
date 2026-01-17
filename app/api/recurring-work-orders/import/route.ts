@@ -62,6 +62,7 @@ interface ImportRow {
   frequencyLabel: string;
   scheduling: string;
   notes: string;
+  subcontractorId?: string;
 }
 
 
@@ -484,6 +485,21 @@ export async function POST(request: NextRequest) {
         if (companyId && companyData) {
           recurringWorkOrderData.companyId = companyId;
           recurringWorkOrderData.companyName = companyData.name || '';
+        }
+
+        // Add subcontractor info if provided
+        if (row.subcontractorId) {
+          try {
+            const subcontractorDoc = await getDoc(doc(db, 'subcontractors', row.subcontractorId));
+            if (subcontractorDoc.exists()) {
+              const subcontractorData = subcontractorDoc.data();
+              recurringWorkOrderData.subcontractorId = row.subcontractorId;
+              recurringWorkOrderData.subcontractorName = subcontractorData.fullName || '';
+            }
+          } catch (error) {
+            console.warn(`Row ${i + 1}: Could not find subcontractor with ID ${row.subcontractorId}`, error);
+            // Continue without subcontractor rather than failing the import
+          }
         }
 
         const docRef = await addDoc(collection(db, 'recurringWorkOrders'), recurringWorkOrderData);
