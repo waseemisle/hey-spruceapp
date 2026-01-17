@@ -66,7 +66,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     category: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
     estimateBudget: '',
-    recurrenceType: 'monthly' as 'monthly',
+    recurrenceType: 'monthly' as 'monthly' | 'weekly',
     recurrenceInterval: 1,
     recurrenceDaysOfWeek: [] as number[],
     recurrenceDayOfMonth: 1,
