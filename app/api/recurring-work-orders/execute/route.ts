@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    const { recurringWorkOrderId } = await request.json();
+    const { recurringWorkOrderId, executionId } = await request.json();
 
     if (!recurringWorkOrderId) {
       return NextResponse.json({ error: 'Recurring work order ID is required' }, { status: 400 });
@@ -25,28 +25,56 @@ export async function POST(request: NextRequest) {
 
     const recurringWorkOrder = recurringWorkOrderSnap.data();
 
-    // For manual execution, we don't check the scheduled time
-    const now = new Date();
-    const nextExecution = recurringWorkOrder.nextExecution?.toDate() || now;
-
     // Check if recurring work order is active
     if (recurringWorkOrder.status !== 'active') {
       return NextResponse.json({ message: 'Recurring work order is not active' }, { status: 200 });
     }
 
-    // Create execution record
-    const executionNumber = recurringWorkOrder.totalExecutions + 1;
-    const executionData = {
-      recurringWorkOrderId: recurringWorkOrderId,
-      executionNumber,
-      scheduledDate: nextExecution,
-      status: 'pending',
-      emailSent: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
+    let executionRef;
+    let executionNumber;
+    let nextExecution: Date;
 
-    const executionRef = await addDoc(collection(db, 'recurringWorkOrderExecutions'), executionData);
+    // If executionId is provided, execute the existing execution
+    if (executionId) {
+      const existingExecutionRef = doc(db, 'recurringWorkOrderExecutions', executionId);
+      const existingExecutionSnap = await getDoc(existingExecutionRef);
+
+      if (!existingExecutionSnap.exists()) {
+        return NextResponse.json({ error: 'Execution not found' }, { status: 404 });
+      }
+
+      const existingExecution = existingExecutionSnap.data();
+
+      // Verify it belongs to this recurring work order
+      if (existingExecution.recurringWorkOrderId !== recurringWorkOrderId) {
+        return NextResponse.json({ error: 'Execution does not belong to this recurring work order' }, { status: 400 });
+      }
+
+      // Check if execution is pending
+      if (existingExecution.status !== 'pending') {
+        return NextResponse.json({ error: `Execution is already ${existingExecution.status}` }, { status: 400 });
+      }
+
+      executionRef = existingExecutionRef;
+      executionNumber = existingExecution.executionNumber;
+      nextExecution = existingExecution.scheduledDate?.toDate() || new Date();
+    } else {
+      // Create new execution record (original behavior)
+      const now = new Date();
+      nextExecution = recurringWorkOrder.nextExecution?.toDate() || now;
+      executionNumber = recurringWorkOrder.totalExecutions + 1;
+      const executionData = {
+        recurringWorkOrderId: recurringWorkOrderId,
+        executionNumber,
+        scheduledDate: nextExecution,
+        status: 'pending',
+        emailSent: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      executionRef = await addDoc(collection(db, 'recurringWorkOrderExecutions'), executionData);
+    }
 
     try {
       // Generate invoice PDF
@@ -174,13 +202,23 @@ export async function POST(request: NextRequest) {
       );
 
       // Update recurring work order
-      await updateDoc(recurringWorkOrderRef, {
-        totalExecutions: recurringWorkOrder.totalExecutions + 1,
-        successfulExecutions: recurringWorkOrder.successfulExecutions + 1,
+      const updateData: any = {
         lastExecution: serverTimestamp(),
         nextExecution: nextExecutionDate,
         updatedAt: serverTimestamp(),
-      });
+      };
+
+      if (!executionId) {
+        // For new executions, increment both counters
+        updateData.totalExecutions = recurringWorkOrder.totalExecutions + 1;
+        updateData.successfulExecutions = recurringWorkOrder.successfulExecutions + 1;
+      } else {
+        // For existing execution, increment both counters as we're completing a pending execution
+        updateData.totalExecutions = (recurringWorkOrder.totalExecutions || 0) + 1;
+        updateData.successfulExecutions = (recurringWorkOrder.successfulExecutions || 0) + 1;
+      }
+
+      await updateDoc(recurringWorkOrderRef, updateData);
 
       return NextResponse.json({ 
         message: 'Recurring work order executed successfully',

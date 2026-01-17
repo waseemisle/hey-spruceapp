@@ -141,6 +141,18 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     try {
       setSubmitting(true);
       
+      // Find the next pending execution (sorted by execution number ascending to get the next one)
+      const pendingExecutions = executions
+        .filter(exec => exec.status === 'pending')
+        .sort((a, b) => a.executionNumber - b.executionNumber);
+      
+      if (pendingExecutions.length === 0) {
+        toast.error('No pending executions found. Cannot execute next iteration.');
+        return;
+      }
+      
+      const nextExecution = pendingExecutions[0];
+      
       const response = await fetch('/api/recurring-work-orders/execute', {
         method: 'POST',
         headers: {
@@ -148,21 +160,22 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
         },
         body: JSON.stringify({
           recurringWorkOrderId: recurringWorkOrder.id,
+          executionId: nextExecution.id,
         }),
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        toast.success('Recurring work order executed successfully! Email sent to client.');
+        toast.success('Next iteration executed successfully! Email sent to client.');
         fetchRecurringWorkOrder();
         fetchExecutions();
       } else {
-        toast.error(result.error || 'Failed to execute recurring work order');
+        toast.error(result.error || 'Failed to execute next iteration');
       }
     } catch (error) {
-      console.error('Error executing recurring work order:', error);
-      toast.error('Failed to execute recurring work order');
+      console.error('Error executing next iteration:', error);
+      toast.error('Failed to execute next iteration');
     } finally {
       setSubmitting(false);
     }
@@ -248,7 +261,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Zap className="h-4 w-4 mr-2" />
-                Execute Now
+                Execute Next Iteration Now
               </Button>
             )}
             <Button
