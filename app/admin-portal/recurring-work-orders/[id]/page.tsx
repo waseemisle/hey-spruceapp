@@ -392,13 +392,13 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               </CardContent>
             </Card>
 
-            {/* NEXT SERVICE Executions Section */}
+            {/* Work Order History Section */}
             {recurringWorkOrder.nextServiceDates && recurringWorkOrder.nextServiceDates.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5" />
-                    NEXT SERVICE Executions
+                    Work Order History
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
