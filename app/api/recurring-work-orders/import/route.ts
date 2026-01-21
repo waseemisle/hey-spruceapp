@@ -399,32 +399,57 @@ export async function POST(request: NextRequest) {
           }
           clientId = row.clientId;
         } else if (!clientId) {
-          // If no client is assigned to the location and none was provided, try to find a client by company
+          // If no client is assigned to the location and none was provided, try multiple fallback strategies
+          let fallbackClientId: string | null = null;
+          
+          // Strategy 1: Try to find a client associated with the company
           if (companyId) {
-            // Try to find a client associated with the company
             const clientsQuery = query(
               collection(db, 'clients'),
               where('companyId', '==', companyId)
             );
             const clientsSnapshot = await getDocs(clientsQuery);
             if (!clientsSnapshot.empty) {
-              // Use the first client found for this company
-              clientId = clientsSnapshot.docs[0].id;
-              console.log(`Row ${i + 1}: Auto-assigned client ${clientId} from company ${companyId}`);
-            } else {
-              errors.push({
-                row: i + 1,
-                error: `Location "${row.restaurant}" does not have a client assigned and no client was selected. Please assign a client to this location or select one during import.`,
-              });
-              console.error(`Row ${i + 1}: Location has no client ID and no client selected`);
-              continue;
+              fallbackClientId = clientsSnapshot.docs[0].id;
+              console.log(`Row ${i + 1}: Found client ${fallbackClientId} from company ${companyId}`);
             }
+          }
+          
+          // Strategy 2: If no company client found, try to find any client by matching location/restaurant name
+          if (!fallbackClientId) {
+            const allClientsQuery = query(collection(db, 'clients'));
+            const allClientsSnapshot = await getDocs(allClientsQuery);
+            
+            if (!allClientsSnapshot.empty) {
+              // Try to find a client with a matching name (case-insensitive partial match)
+              const restaurantNameLower = row.restaurant.toLowerCase();
+              const matchingClient = allClientsSnapshot.docs.find(doc => {
+                const clientData = doc.data();
+                const clientName = (clientData.fullName || '').toLowerCase();
+                // Check if restaurant name contains client name or vice versa
+                return clientName && (restaurantNameLower.includes(clientName) || clientName.includes(restaurantNameLower.split('(')[0].trim()));
+              });
+              
+              if (matchingClient) {
+                fallbackClientId = matchingClient.id;
+                console.log(`Row ${i + 1}: Found matching client ${fallbackClientId} by name for "${row.restaurant}"`);
+              } else {
+                // Strategy 3: Use the first available client as last resort
+                fallbackClientId = allClientsSnapshot.docs[0].id;
+                console.log(`Row ${i + 1}: Using fallback client ${fallbackClientId} (first available client)`);
+              }
+            }
+          }
+          
+          if (fallbackClientId) {
+            clientId = fallbackClientId;
+            console.log(`Row ${i + 1}: Auto-assigned client ${clientId} for location "${row.restaurant}"`);
           } else {
             errors.push({
               row: i + 1,
-              error: `Location "${row.restaurant}" does not have a client assigned and no client was selected. Please assign a client to this location or select one during import.`,
+              error: `Location "${row.restaurant}" does not have a client assigned and no clients exist in the system. Please create at least one client first.`,
             });
-            console.error(`Row ${i + 1}: Location has no client ID and no client selected`);
+            console.error(`Row ${i + 1}: No clients found in system`);
             continue;
           }
         }
