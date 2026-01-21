@@ -232,7 +232,7 @@ export default function RecurringWorkOrdersImportModal({
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
 
       if (data.length < 2) {
         throw new Error('Excel file must have at least a header row and one data row');
@@ -240,6 +240,25 @@ export default function RecurringWorkOrdersImportModal({
 
       // First row is headers
       const headers = data[0] as string[];
+      
+      // Filter out completely empty rows (rows where all cells are empty or null)
+      const filteredData = data.slice(1).filter(row => {
+        if (!row || row.length === 0) return false;
+        // Check if row has any meaningful non-empty values
+        // A row is considered empty if all cells are empty, null, undefined, or just whitespace
+        const hasData = row.some((cell: any, idx: number) => {
+          if (cell === null || cell === undefined) return false;
+          const value = cell.toString().trim();
+          // Skip if it's an empty string or just whitespace
+          if (!value || value === '') return false;
+          // Skip if it's a string representation of null/undefined
+          if (value.toLowerCase() === 'null' || value.toLowerCase() === 'undefined') return false;
+          return true;
+        });
+        return hasData;
+      });
+      
+      console.log(`Excel file: ${data.length} total rows (including header), ${filteredData.length} rows with data after filtering`);
       
       // Find column indices
       const restaurantIdx = headers.findIndex(h => h.toUpperCase().includes('RESTAURANT'));
@@ -258,11 +277,11 @@ export default function RecurringWorkOrdersImportModal({
         }
       });
 
-      // Convert to CSV-like format
-      const csvData = data.slice(1).map(row => {
+      // Convert to CSV-like format (using filtered data)
+      const csvData = filteredData.map(row => {
         const obj: any = {};
         headers.forEach((header, index) => {
-          obj[header] = row[index] || '';
+          obj[header] = (row[index] || '').toString().trim();
         });
         // Add indexed access
         obj._restaurantIdx = restaurantIdx;
@@ -310,8 +329,16 @@ export default function RecurringWorkOrdersImportModal({
       } else {
         serviceType = (row['SERVICE TYPE'] || row['Service Type'] || '').toString().trim();
       }
-      // If SERVICE TYPE is missing, use a default to avoid errors
-      if (!serviceType) {
+      
+      // Check if this is a truly empty row (no restaurant and no service type)
+      // Skip rows that are completely empty
+      if (!currentRestaurant && !serviceType) {
+        // This is an empty row, skip it
+        return;
+      }
+      
+      // If SERVICE TYPE is missing but we have a restaurant, use a default to avoid errors
+      if (!serviceType && currentRestaurant) {
         serviceType = 'General Maintenance';
       }
 
@@ -421,21 +448,18 @@ export default function RecurringWorkOrdersImportModal({
         notes = (row['NOTES'] || row['Notes'] || '').toString().trim();
       }
 
-      // Only skip completely empty rows (no restaurant and no service type)
-      // Rows with errors should still be added so users can see what's wrong
-      if (currentRestaurant || serviceType) {
-        rows.push({
-          restaurant: currentRestaurant,
-          serviceType,
-          lastServiced,
-          nextServiceDates,
-          frequencyLabel,
-          scheduling,
-          notes,
-          rowNumber,
-          errors,
-        });
-      }
+      // Add the row (we already checked for empty rows above)
+      rows.push({
+        restaurant: currentRestaurant,
+        serviceType,
+        lastServiced,
+        nextServiceDates,
+        frequencyLabel,
+        scheduling,
+        notes,
+        rowNumber,
+        errors,
+      });
     });
 
     return rows;

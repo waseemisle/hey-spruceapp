@@ -294,7 +294,18 @@ export async function POST(request: NextRequest) {
     const created: string[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 
-    console.log(`Processing ${rows.length} rows for import`);
+    console.log(`=== IMPORT START ===`);
+    console.log(`Received ${rows.length} rows from frontend`);
+    console.log(`First row sample:`, rows[0] ? {
+      restaurant: rows[0].restaurant,
+      serviceType: rows[0].serviceType,
+      frequencyLabel: rows[0].frequencyLabel,
+    } : 'No rows');
+    console.log(`Last row sample:`, rows[rows.length - 1] ? {
+      restaurant: rows[rows.length - 1].restaurant,
+      serviceType: rows[rows.length - 1].serviceType,
+      frequencyLabel: rows[rows.length - 1].frequencyLabel,
+    } : 'No rows');
 
     // Process each row - create a separate recurring work order for EACH row
     for (let i = 0; i < rows.length; i++) {
