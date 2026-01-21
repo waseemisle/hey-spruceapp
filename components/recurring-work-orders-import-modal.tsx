@@ -16,8 +16,8 @@ import { collection, query, getDocs, where } from 'firebase/firestore';
 interface ParsedRow {
   restaurant: string;
   serviceType: string;
-  lastServiced: string;
-  nextServiceDates: string[];
+  lastServiced: string | number;
+  nextServiceDates: (string | number)[];
   frequencyLabel: string;
   scheduling: string;
   notes: string;
@@ -342,25 +342,36 @@ export default function RecurringWorkOrdersImportModal({
         serviceType = 'General Maintenance';
       }
 
-      // Get LAST SERVICED
-      let lastServiced = '';
+      // Get LAST SERVICED (handle both strings and numbers from Excel)
+      let lastServiced: string | number = '';
       if (row._lastServicedIdx >= 0 && row._rowArray) {
-        lastServiced = (row._rowArray[row._lastServicedIdx] || '').toString().trim();
+        const value = row._rowArray[row._lastServicedIdx];
+        if (value !== null && value !== undefined) {
+          // Preserve numbers (Excel serial dates or Unix timestamps), convert strings
+          lastServiced = typeof value === 'number' ? value : String(value).trim();
+        }
       } else {
-        lastServiced = (row['LAST SERVICED'] || row['Last Serviced'] || '').toString().trim();
+        const value = row['LAST SERVICED'] || row['Last Serviced'];
+        if (value !== null && value !== undefined) {
+          lastServiced = typeof value === 'number' ? value : String(value).trim();
+        }
       }
 
       // Get NEXT SERVICE NEEDED BY (5 columns)
       // Use indexed access if available (from improved parsing)
-      const nextServiceDates: string[] = [];
+      const nextServiceDates: (string | number)[] = [];
       
       if (row._nextServiceIndices && row._rowArray) {
         // Use indexed access for accurate column mapping
         row._nextServiceIndices.forEach((idx: number) => {
           if (idx >= 0 && idx < row._rowArray.length) {
-            const value = (row._rowArray[idx] || '').toString().trim();
-            if (value) {
-              nextServiceDates.push(value);
+            const value = row._rowArray[idx];
+            if (value !== null && value !== undefined) {
+              // Preserve numbers (Excel serial dates or Unix timestamps), convert strings
+              const processedValue = typeof value === 'number' ? value : String(value).trim();
+              if (processedValue !== '' && processedValue !== null && processedValue !== undefined) {
+                nextServiceDates.push(processedValue);
+              }
             }
           }
         });
@@ -373,9 +384,12 @@ export default function RecurringWorkOrdersImportModal({
         );
         
         nextServiceColumns.forEach(colName => {
-          const value = (row[colName] || '').toString().trim();
-          if (value) {
-            nextServiceDates.push(value);
+          const value = row[colName];
+          if (value !== null && value !== undefined) {
+            const processedValue = typeof value === 'number' ? value : String(value).trim();
+            if (processedValue !== '' && processedValue !== null && processedValue !== undefined) {
+              nextServiceDates.push(processedValue);
+            }
           }
         });
       }
@@ -392,8 +406,27 @@ export default function RecurringWorkOrdersImportModal({
       if (!frequencyLabel && nextServiceDates.length > 0) {
         // Calculate average days between dates to infer frequency
         const dates = nextServiceDates
-          .map(dateStr => {
-            const parts = dateStr.trim().split('/');
+          .map(dateValue => {
+            // Handle numeric dates (Excel serial dates or Unix timestamps)
+            if (typeof dateValue === 'number') {
+              // Check if it's a Unix timestamp in milliseconds
+              if (dateValue > 1000000000000) {
+                return new Date(dateValue);
+              } else if (dateValue > 0 && dateValue < 1000000) {
+                // Excel serial date
+                const excelEpoch = new Date(1900, 0, 1);
+                excelEpoch.setDate(excelEpoch.getDate() + dateValue - 2);
+                return excelEpoch;
+              } else if (dateValue > 0) {
+                // Unix timestamp in seconds
+                return new Date(dateValue * 1000);
+              }
+              return null;
+            }
+            
+            // Handle string dates
+            const dateStr = String(dateValue).trim();
+            const parts = dateStr.split('/');
             if (parts.length === 3) {
               const month = parseInt(parts[0], 10);
               const day = parseInt(parts[1], 10);
@@ -402,9 +435,14 @@ export default function RecurringWorkOrdersImportModal({
                 return new Date(year, month - 1, day);
               }
             }
+            // Try parsing as-is
+            const parsed = new Date(dateStr);
+            if (!isNaN(parsed.getTime())) {
+              return parsed;
+            }
             return null;
           })
-          .filter((date): date is Date => date !== null);
+          .filter((date): date is Date => date !== null && !isNaN(date.getTime()));
         
         if (dates.length >= 2) {
           const daysBetween = (dates[1].getTime() - dates[0].getTime()) / (1000 * 60 * 60 * 24);

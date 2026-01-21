@@ -67,12 +67,41 @@ interface ImportRow {
 }
 
 
-// Helper function to parse date
-function parseDate(dateStr: string): Date | null {
-  if (!dateStr || !dateStr.trim()) return null;
+// Helper function to parse date (handles strings, numbers, Excel serial dates, and Unix timestamps)
+function parseDate(dateValue: string | number): Date | null {
+  if (dateValue === null || dateValue === undefined) return null;
+
+  // Handle numeric values (Excel serial dates or Unix timestamps)
+  if (typeof dateValue === 'number') {
+    // Check if it's a Unix timestamp in milliseconds (typically > 1000000000000 for dates after 2001)
+    if (dateValue > 1000000000000) {
+      // Unix timestamp in milliseconds
+      const date = new Date(dateValue);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    } else if (dateValue > 0 && dateValue < 1000000) {
+      // Likely an Excel serial date (days since January 1, 1900)
+      // Excel serial date: days since January 1, 1900
+      const excelEpoch = new Date(1900, 0, 1);
+      excelEpoch.setDate(excelEpoch.getDate() + dateValue - 2); // -2 because Excel incorrectly treats 1900 as a leap year
+      return excelEpoch;
+    } else if (dateValue > 0) {
+      // Try as Unix timestamp in seconds (convert to milliseconds)
+      const date = new Date(dateValue * 1000);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+    }
+    return null;
+  }
+
+  // Handle string values
+  const dateStr = String(dateValue).trim();
+  if (!dateStr || dateStr === '') return null;
 
   // Try MM/DD/YYYY format
-  const parts = dateStr.trim().split('/');
+  const parts = dateStr.split('/');
   if (parts.length === 3) {
     const month = parseInt(parts[0], 10);
     const day = parseInt(parts[1], 10);
@@ -85,7 +114,7 @@ function parseDate(dateStr: string): Date | null {
     }
   }
 
-  // Try other formats
+  // Try other string formats
   const parsed = new Date(dateStr);
   if (!isNaN(parsed.getTime())) {
     return parsed;
@@ -370,12 +399,34 @@ export async function POST(request: NextRequest) {
           }
           clientId = row.clientId;
         } else if (!clientId) {
-          errors.push({
-            row: i + 1,
-            error: `Location "${row.restaurant}" does not have a client assigned and no client was selected.`,
-          });
-          console.error(`Row ${i + 1}: Location has no client ID and no client selected`);
-          continue;
+          // If no client is assigned to the location and none was provided, try to find a client by company
+          if (companyId) {
+            // Try to find a client associated with the company
+            const clientsQuery = query(
+              collection(db, 'clients'),
+              where('companyId', '==', companyId)
+            );
+            const clientsSnapshot = await getDocs(clientsQuery);
+            if (!clientsSnapshot.empty) {
+              // Use the first client found for this company
+              clientId = clientsSnapshot.docs[0].id;
+              console.log(`Row ${i + 1}: Auto-assigned client ${clientId} from company ${companyId}`);
+            } else {
+              errors.push({
+                row: i + 1,
+                error: `Location "${row.restaurant}" does not have a client assigned and no client was selected. Please assign a client to this location or select one during import.`,
+              });
+              console.error(`Row ${i + 1}: Location has no client ID and no client selected`);
+              continue;
+            }
+          } else {
+            errors.push({
+              row: i + 1,
+              error: `Location "${row.restaurant}" does not have a client assigned and no client was selected. Please assign a client to this location or select one during import.`,
+            });
+            console.error(`Row ${i + 1}: Location has no client ID and no client selected`);
+            continue;
+          }
         }
 
         // Get client details
@@ -409,10 +460,10 @@ export async function POST(request: NextRequest) {
         // Get or create category
         const categoryId = await getOrCreateCategory(row.serviceType, db);
 
-        // Parse dates
-        const lastServiced = row.lastServiced ? parseDate(row.lastServiced) : null;
+        // Parse dates (handle both strings and numbers from Excel)
+        const lastServiced = row.lastServiced ? parseDate(row.lastServiced as string | number) : null;
         const nextServiceDates = row.nextServiceDates
-          .map(dateStr => parseDate(dateStr))
+          .map(dateValue => parseDate(dateValue as string | number))
           .filter((date): date is Date => date !== null)
           .sort((a, b) => a.getTime() - b.getTime()); // Sort dates chronologically
 
