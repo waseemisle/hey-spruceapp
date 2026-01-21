@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
   RotateCcw, Plus, Edit2, Save, X, Search, Trash2, Eye, 
-  Play, Pause, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Zap, Upload, MapPin
+  Play, Pause, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Upload, MapPin
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution } from '@/types';
@@ -117,35 +117,6 @@ export default function RecurringWorkOrdersManagement() {
     }
   };
 
-  const handleExecuteNow = async (recurringWorkOrder: RecurringWorkOrder) => {
-    try {
-      setSubmitting(true);
-      
-      const response = await fetch('/api/recurring-work-orders/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          recurringWorkOrderId: recurringWorkOrder.id,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        toast.success('Recurring work order executed successfully! Email sent to client.');
-        fetchRecurringWorkOrders();
-      } else {
-        toast.error(result.error || 'Failed to execute recurring work order');
-      }
-    } catch (error) {
-      console.error('Error executing recurring work order:', error);
-      toast.error('Failed to execute recurring work order');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleDelete = async (recurringWorkOrder: RecurringWorkOrder) => {
     toast(`Delete recurring work order "${recurringWorkOrder.title}"?`, {
@@ -509,16 +480,6 @@ export default function RecurringWorkOrdersManagement() {
 
                     {recurringWorkOrder.status === 'active' && (
                       <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1 min-w-0 bg-green-600 hover:bg-green-700 text-white"
-                          onClick={() => handleExecuteNow(recurringWorkOrder)}
-                          disabled={submitting}
-                        >
-                          <Zap className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Execute Now</span>
-                          <span className="sm:hidden">Execute</span>
-                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
