@@ -24,9 +24,16 @@ interface ParsedRow {
   rowNumber: number;
   errors: string[];
   subcontractorId?: string; // Pre-selected subcontractor for this row
+  clientId?: string; // Pre-selected client for this row
 }
 
 interface Subcontractor {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
+interface Client {
   id: string;
   fullName: string;
   email: string;
@@ -49,12 +56,14 @@ export default function RecurringWorkOrdersImportModal({
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch subcontractors when modal opens
+  // Fetch subcontractors and clients when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchSubcontractors();
+      fetchClients();
     }
   }, [isOpen]);
 
@@ -76,11 +85,36 @@ export default function RecurringWorkOrdersImportModal({
     }
   };
 
+  const fetchClients = async () => {
+    try {
+      const clientsQuery = query(collection(db, 'clients'));
+      const snapshot = await getDocs(clientsQuery);
+      const clientsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        fullName: doc.data().fullName,
+        email: doc.data().email,
+      })) as Client[];
+      setClients(clientsData);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    }
+  };
+
   const handleSubcontractorChange = (rowNumber: number, subcontractorId: string) => {
     setParsedData(prev => 
       prev.map(row => 
         row.rowNumber === rowNumber 
           ? { ...row, subcontractorId: subcontractorId || undefined }
+          : row
+      )
+    );
+  };
+
+  const handleClientChange = (rowNumber: number, clientId: string) => {
+    setParsedData(prev => 
+      prev.map(row => 
+        row.rowNumber === rowNumber 
+          ? { ...row, clientId: clientId || undefined }
           : row
       )
     );
@@ -276,8 +310,9 @@ export default function RecurringWorkOrdersImportModal({
       } else {
         serviceType = (row['SERVICE TYPE'] || row['Service Type'] || '').toString().trim();
       }
+      // If SERVICE TYPE is missing, use a default to avoid errors
       if (!serviceType) {
-        errors.push('SERVICE TYPE is required');
+        serviceType = 'General Maintenance';
       }
 
       // Get LAST SERVICED
@@ -325,10 +360,49 @@ export default function RecurringWorkOrdersImportModal({
       } else {
         frequencyLabel = (row['FREQUENCY LABEL'] || row['Frequency Label'] || '').toString().trim().toUpperCase();
       }
-      if (!frequencyLabel) {
-        errors.push('FREQUENCY LABEL is required');
-      } else if (!['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY', 'WEEKLY'].includes(frequencyLabel)) {
-        errors.push(`Invalid FREQUENCY LABEL: ${frequencyLabel}. Must be one of: SEMIANNUALLY, QUARTERLY, MONTHLY, BI-WEEKLY, WEEKLY`);
+      
+      // If FREQUENCY LABEL is missing, try to infer it from nextServiceDates
+      if (!frequencyLabel && nextServiceDates.length > 0) {
+        // Calculate average days between dates to infer frequency
+        const dates = nextServiceDates
+          .map(dateStr => {
+            const parts = dateStr.trim().split('/');
+            if (parts.length === 3) {
+              const month = parseInt(parts[0], 10);
+              const day = parseInt(parts[1], 10);
+              const year = parseInt(parts[2], 10);
+              if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                return new Date(year, month - 1, day);
+              }
+            }
+            return null;
+          })
+          .filter((date): date is Date => date !== null);
+        
+        if (dates.length >= 2) {
+          const daysBetween = (dates[1].getTime() - dates[0].getTime()) / (1000 * 60 * 60 * 24);
+          if (daysBetween <= 14) {
+            frequencyLabel = 'BI-WEEKLY';
+          } else if (daysBetween <= 35) {
+            frequencyLabel = 'MONTHLY';
+          } else if (daysBetween <= 100) {
+            frequencyLabel = 'QUARTERLY';
+          } else {
+            frequencyLabel = 'SEMIANNUALLY';
+          }
+        } else {
+          // Default to QUARTERLY if we can't infer
+          frequencyLabel = 'QUARTERLY';
+        }
+      } else if (!frequencyLabel) {
+        // If no dates and no frequency label, default to QUARTERLY
+        frequencyLabel = 'QUARTERLY';
+      }
+      
+      // Validate frequency label value
+      if (!['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY', 'WEEKLY'].includes(frequencyLabel)) {
+        // If invalid, default to QUARTERLY
+        frequencyLabel = 'QUARTERLY';
       }
 
       // Get SCHEDULING
@@ -347,17 +421,21 @@ export default function RecurringWorkOrdersImportModal({
         notes = (row['NOTES'] || row['Notes'] || '').toString().trim();
       }
 
-      rows.push({
-        restaurant: currentRestaurant,
-        serviceType,
-        lastServiced,
-        nextServiceDates,
-        frequencyLabel,
-        scheduling,
-        notes,
-        rowNumber,
-        errors,
-      });
+      // Only skip completely empty rows (no restaurant and no service type)
+      // Rows with errors should still be added so users can see what's wrong
+      if (currentRestaurant || serviceType) {
+        rows.push({
+          restaurant: currentRestaurant,
+          serviceType,
+          lastServiced,
+          nextServiceDates,
+          frequencyLabel,
+          scheduling,
+          notes,
+          rowNumber,
+          errors,
+        });
+      }
     });
 
     return rows;
@@ -450,6 +528,7 @@ export default function RecurringWorkOrdersImportModal({
           scheduling: row.scheduling,
           notes: row.notes,
           subcontractorId: row.subcontractorId || undefined,
+          clientId: row.clientId || undefined,
         })),
       };
       
@@ -514,6 +593,7 @@ export default function RecurringWorkOrdersImportModal({
     setIsImporting(false);
     setImportProgress({ current: 0, total: 0 });
     setSubcontractors([]);
+    setClients([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -601,6 +681,7 @@ export default function RecurringWorkOrdersImportModal({
                       <th className="p-2 text-left border-b">Restaurant</th>
                       <th className="p-2 text-left border-b">Service Type</th>
                       <th className="p-2 text-left border-b">Frequency</th>
+                      <th className="p-2 text-left border-b">Client</th>
                       <th className="p-2 text-left border-b">Subcontractor</th>
                       <th className="p-2 text-left border-b">Status</th>
                     </tr>
@@ -615,6 +696,25 @@ export default function RecurringWorkOrdersImportModal({
                         <td className="p-2 border-b">{row.restaurant || '-'}</td>
                         <td className="p-2 border-b">{row.serviceType || '-'}</td>
                         <td className="p-2 border-b">{row.frequencyLabel || '-'}</td>
+                        <td className="p-2 border-b">
+                          {row.errors.length === 0 ? (
+                            <select
+                              value={row.clientId || ''}
+                              onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
+                              className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                              disabled={isImporting}
+                            >
+                              <option value="">Select client...</option>
+                              {clients.map(client => (
+                                <option key={client.id} value={client.id}>
+                                  {client.fullName}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-gray-400 text-xs">Fix errors first</span>
+                          )}
+                        </td>
                         <td className="p-2 border-b">
                           {row.errors.length === 0 ? (
                             <select

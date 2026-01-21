@@ -63,6 +63,7 @@ interface ImportRow {
   scheduling: string;
   notes: string;
   subcontractorId?: string;
+  clientId?: string;
 }
 
 
@@ -340,16 +341,29 @@ export async function POST(request: NextRequest) {
         const locationData = locationResult.data;
         console.log(`Row ${i + 1}: Found location "${locationData.locationName}" with ID: ${locationId}`);
 
-        // Get client and company from location
-        const clientId = locationData.clientId || '';
+        // Get client and company from location or use provided clientId
+        let clientId = row.clientId || locationData.clientId || '';
         const companyId = locationData.companyId || '';
 
-        if (!clientId) {
+        // If clientId was provided in the row, use it; otherwise use location's clientId
+        if (row.clientId) {
+          // Verify the provided client exists
+          const providedClientDoc = await getDoc(doc(db, 'clients', row.clientId));
+          if (!providedClientDoc.exists()) {
+            errors.push({
+              row: i + 1,
+              error: `Client with ID "${row.clientId}" not found.`,
+            });
+            console.error(`Row ${i + 1}: Provided client not found`);
+            continue;
+          }
+          clientId = row.clientId;
+        } else if (!clientId) {
           errors.push({
             row: i + 1,
-            error: `Location "${row.restaurant}" does not have a client assigned.`,
+            error: `Location "${row.restaurant}" does not have a client assigned and no client was selected.`,
           });
-          console.error(`Row ${i + 1}: Location has no client ID`);
+          console.error(`Row ${i + 1}: Location has no client ID and no client selected`);
           continue;
         }
 
@@ -391,8 +405,9 @@ export async function POST(request: NextRequest) {
           .filter((date): date is Date => date !== null)
           .sort((a, b) => a.getTime() - b.getTime()); // Sort dates chronologically
 
-        // Map frequency to recurrence pattern
-        const recurrenceConfig = mapFrequencyToRecurrencePattern(row.frequencyLabel);
+        // Map frequency to recurrence pattern (use default if missing)
+        const frequencyLabel = row.frequencyLabel || 'QUARTERLY';
+        const recurrenceConfig = mapFrequencyToRecurrencePattern(frequencyLabel);
         
         // Use the first next service date as nextExecution, or calculate from recurrence pattern if no dates provided
         let nextExecution: Date;
