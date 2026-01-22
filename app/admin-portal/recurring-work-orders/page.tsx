@@ -428,6 +428,11 @@ export default function RecurringWorkOrdersManagement() {
                     <div className="text-sm">
                       <span className="font-semibold">Client:</span> {recurringWorkOrder.clientName}
                     </div>
+                    {recurringWorkOrder.locationName && (
+                      <div className="text-sm">
+                        <span className="font-semibold">Location:</span> {recurringWorkOrder.locationName}
+                      </div>
+                    )}
                     <div className="text-sm">
                       <span className="font-semibold">Category:</span> {recurringWorkOrder.category}
                     </div>
