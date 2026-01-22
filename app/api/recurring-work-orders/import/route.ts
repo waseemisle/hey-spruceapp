@@ -143,10 +143,51 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
   }
 }
 
+// Helper function to normalize location name for comparison
+function normalizeLocationName(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+// Helper function to extract base name and location suffix
+function parseLocationName(name: string): { base: string; location: string } {
+  const normalized = normalizeLocationName(name);
+  
+  // Try to extract location from parentheses: "Name (Location)"
+  const parenMatch = normalized.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    return {
+      base: parenMatch[1].trim(),
+      location: parenMatch[2].trim(),
+    };
+  }
+  
+  // Try to extract location from dash: "Name - Location"
+  const dashMatch = normalized.match(/^(.+?)\s*-\s*(.+)$/);
+  if (dashMatch) {
+    return {
+      base: dashMatch[1].trim(),
+      location: dashMatch[2].trim(),
+    };
+  }
+  
+  // No location suffix found
+  return {
+    base: normalized,
+    location: '',
+  };
+}
+
 // Helper function to find location by name (direct lookup, not mapping)
 async function findLocationByName(locationName: string, db: any): Promise<{ id: string; data: any } | null> {
   try {
-    // First try exact match
+    const searchNormalized = normalizeLocationName(locationName);
+    const searchParsed = parseLocationName(locationName);
+    
+    console.log(`[findLocationByName] Searching for: "${locationName}"`);
+    console.log(`[findLocationByName] Normalized: "${searchNormalized}"`);
+    console.log(`[findLocationByName] Parsed: base="${searchParsed.base}", location="${searchParsed.location}"`);
+    
+    // First try exact match (case-sensitive)
     let q = query(
       collection(db, 'locations'),
       where('locationName', '==', locationName)
@@ -155,6 +196,8 @@ async function findLocationByName(locationName: string, db: any): Promise<{ id: 
     
     if (!snapshot.empty) {
       const doc = snapshot.docs[0];
+      const foundName = doc.data().locationName;
+      console.log(`[findLocationByName] Found exact match: "${foundName}"`);
       return { id: doc.id, data: doc.data() };
     }
 
@@ -163,29 +206,82 @@ async function findLocationByName(locationName: string, db: any): Promise<{ id: 
     q = query(collection(db, 'locations'));
     snapshot = await getDocs(q);
     
-    const locationNameLower = locationName.toLowerCase().trim();
+    const candidates: Array<{ id: string; data: any; score: number }> = [];
+    
     for (const doc of snapshot.docs) {
       const docData = doc.data();
-      const docLocationName = (docData.locationName || '').toLowerCase().trim();
+      const docLocationName = docData.locationName || '';
+      const docNormalized = normalizeLocationName(docLocationName);
+      const docParsed = parseLocationName(docLocationName);
       
-      // Exact match
-      if (docLocationName === locationNameLower) {
+      let score = 0;
+      
+      // Strategy 1: Exact normalized match (highest priority)
+      if (docNormalized === searchNormalized) {
+        console.log(`[findLocationByName] Found exact normalized match: "${docLocationName}"`);
         return { id: doc.id, data: docData };
       }
       
-      // Contains match (either direction)
-      if (docLocationName.includes(locationNameLower) || locationNameLower.includes(docLocationName)) {
-        return { id: doc.id, data: docData };
+      // Strategy 2: Both have location suffixes, match base + location
+      if (searchParsed.location && docParsed.location) {
+        if (docParsed.base === searchParsed.base && docParsed.location === searchParsed.location) {
+          console.log(`[findLocationByName] Found base+location match: "${docLocationName}"`);
+          return { id: doc.id, data: docData };
+        }
+        // Base matches but location doesn't - don't match (e.g., "Delilah (West Hollywood)" != "Delilah (Miami)")
+        if (docParsed.base === searchParsed.base && docParsed.location !== searchParsed.location) {
+          continue; // Skip this candidate
+        }
       }
       
-      // Check if location name matches any part (for cases like "Restaurant Name - Location")
-      const docParts = docLocationName.split(/[\s\-_()]+/);
-      const searchParts = locationNameLower.split(/[\s\-_()]+/);
-      if (searchParts.some((part: string) => docParts.includes(part)) || docParts.some((part: string) => searchParts.includes(part))) {
-        return { id: doc.id, data: docData };
+      // Strategy 3: Search has location suffix, doc doesn't - match if base matches
+      if (searchParsed.location && !docParsed.location) {
+        if (docParsed.base === searchParsed.base) {
+          score = 0.8; // Good match but not perfect
+          candidates.push({ id: doc.id, data: docData, score });
+        }
+      }
+      
+      // Strategy 4: Doc has location suffix, search doesn't - match if base matches
+      if (!searchParsed.location && docParsed.location) {
+        if (docParsed.base === searchParsed.base) {
+          score = 0.8; // Good match but not perfect
+          candidates.push({ id: doc.id, data: docData, score });
+        }
+      }
+      
+      // Strategy 5: Neither has location suffix, match base
+      if (!searchParsed.location && !docParsed.location) {
+        if (docParsed.base === searchParsed.base) {
+          console.log(`[findLocationByName] Found base match: "${docLocationName}"`);
+          return { id: doc.id, data: docData };
+        }
+      }
+      
+      // Strategy 6: Contains match (only if no location suffix in search to avoid false matches)
+      // Only use this as a last resort and require the search term to be at least 3 characters
+      if (!searchParsed.location && searchNormalized.length >= 3) {
+        // Only match if search is a significant portion (at least 50%) of the location name
+        const minLength = Math.min(searchNormalized.length, docNormalized.length);
+        const maxLength = Math.max(searchNormalized.length, docNormalized.length);
+        if (minLength / maxLength >= 0.5) {
+          if (docNormalized.includes(searchNormalized) || searchNormalized.includes(docNormalized)) {
+            score = 0.3; // Very low priority - last resort
+            candidates.push({ id: doc.id, data: docData, score });
+          }
+        }
       }
     }
-
+    
+    // If we have candidates, return the highest scoring one
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.score - a.score);
+      const bestMatch = candidates[0];
+      console.log(`[findLocationByName] Found best candidate match (score: ${bestMatch.score}): "${bestMatch.data.locationName}"`);
+      return { id: bestMatch.id, data: bestMatch.data };
+    }
+    
+    console.log(`[findLocationByName] No match found for: "${locationName}"`);
     return null;
   } catch (error) {
     console.error('Error finding location:', error);
@@ -369,9 +465,42 @@ export async function POST(request: NextRequest) {
         // Find location by restaurant name (direct lookup, not mapping)
         const locationResult = await findLocationByName(row.restaurant, db);
         if (!locationResult) {
+          // Get similar location names for better error message
+          const allLocationsQuery = query(collection(db, 'locations'));
+          const allLocationsSnapshot = await getDocs(allLocationsQuery);
+          const allLocationNames = allLocationsSnapshot.docs
+            .map(doc => doc.data().locationName)
+            .filter((name): name is string => !!name)
+            .slice(0, 10); // Limit to first 10 for error message
+          
+          const similarLocations = allLocationNames
+            .filter(name => {
+              const nameLower = normalizeLocationName(name);
+              const searchLower = normalizeLocationName(row.restaurant);
+              const searchParsed = parseLocationName(row.restaurant);
+              const nameParsed = parseLocationName(name);
+              
+              // Check if base names match
+              if (nameParsed.base === searchParsed.base) {
+                return true;
+              }
+              
+              // Check if names are similar
+              return nameLower.includes(searchLower) || searchLower.includes(nameLower);
+            })
+            .slice(0, 5);
+          
+          let errorMsg = `Location not found for "${row.restaurant}".`;
+          if (similarLocations.length > 0) {
+            errorMsg += ` Similar locations found: ${similarLocations.join(', ')}.`;
+          } else if (allLocationNames.length > 0) {
+            errorMsg += ` Available locations include: ${allLocationNames.join(', ')}.`;
+          }
+          errorMsg += ` Please create the location first or check the location name spelling.`;
+          
           errors.push({
             row: i + 1,
-            error: `Location not found for "${row.restaurant}". Please create the location first.`,
+            error: errorMsg,
           });
           console.error(`Row ${i + 1}: Location not found for "${row.restaurant}"`);
           continue;
