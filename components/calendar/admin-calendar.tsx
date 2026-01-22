@@ -42,6 +42,7 @@ interface CalendarEvent {
     clientName: string;
     status: string;
     category: string;
+    isRecurring?: boolean;
   };
 }
 
@@ -255,10 +256,15 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
   };
 
   const handleEventClick = (clickInfo: any) => {
+    const { workOrderId, isRecurring } = clickInfo.event.extendedProps;
     if (onEventClick) {
-      onEventClick(clickInfo.event.extendedProps.workOrderId);
+      onEventClick(workOrderId);
     } else {
-      window.location.href = `/admin-portal/work-orders/${clickInfo.event.extendedProps.workOrderId}`;
+      if (isRecurring) {
+        window.location.href = `/admin-portal/recurring-work-orders/${workOrderId}`;
+      } else {
+        window.location.href = `/admin-portal/work-orders/${workOrderId}`;
+      }
     }
   };
 

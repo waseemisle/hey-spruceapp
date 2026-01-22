@@ -42,6 +42,7 @@ interface CalendarEvent {
     locationAddress: string;
     status: string;
     category: string;
+    isRecurring?: boolean;
   };
 }
 
@@ -317,10 +318,15 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
   };
 
   const handleEventClick = (clickInfo: any) => {
+    const { workOrderId, isRecurring } = clickInfo.event.extendedProps;
     if (onEventClick) {
-      onEventClick(clickInfo.event.extendedProps.workOrderId);
+      onEventClick(workOrderId);
     } else {
-      window.location.href = `/client-portal/work-orders/${clickInfo.event.extendedProps.workOrderId}`;
+      if (isRecurring) {
+        window.location.href = `/client-portal/recurring-work-orders/${workOrderId}`;
+      } else {
+        window.location.href = `/client-portal/work-orders/${workOrderId}`;
+      }
     }
   };
 
