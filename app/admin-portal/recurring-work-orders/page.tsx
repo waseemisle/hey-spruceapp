@@ -276,18 +276,18 @@ export default function RecurringWorkOrdersManagement() {
     }
   };
 
-  const formatRecurrencePattern = (pattern: any) => {
-    if (pattern.type === 'daily') {
-      return `Every ${pattern.interval} day(s)`;
-    } else if (pattern.type === 'weekly') {
-      return `Every ${pattern.interval} week(s)`;
-    } else if (pattern.type === 'monthly') {
-      return `Every ${pattern.interval} month(s)`;
-    } else if (pattern.type === 'yearly') {
-      return `Every ${pattern.interval} year(s)`;
-    } else if (pattern.type === 'custom') {
-      return pattern.customPattern || 'Custom pattern';
+  const formatRecurrencePattern = (rwo: RecurringWorkOrder) => {
+    const label = (rwo as any).recurrencePatternLabel;
+    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'].includes(label)) {
+      return label;
     }
+    const pattern = rwo.recurrencePattern as { type: string; interval: number; customPattern?: string } | undefined;
+    if (!pattern) return 'Unknown pattern';
+    if (pattern.type === 'daily') return `Every ${pattern.interval} day(s)`;
+    if (pattern.type === 'weekly') return `Every ${pattern.interval} week(s)`;
+    if (pattern.type === 'monthly') return `Every ${pattern.interval} month(s)`;
+    if (pattern.type === 'yearly') return `Every ${pattern.interval} year(s)`;
+    if (pattern.type === 'custom') return pattern.customPattern || 'Custom pattern';
     return 'Unknown pattern';
   };
 
@@ -463,7 +463,7 @@ export default function RecurringWorkOrdersManagement() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {formatRecurrencePattern(recurringWorkOrder.recurrencePattern)}
+                      {formatRecurrencePattern(recurringWorkOrder)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {recurringWorkOrder.nextExecution ? new Date(recurringWorkOrder.nextExecution).toLocaleDateString() : 'Not scheduled'}
@@ -562,7 +562,7 @@ export default function RecurringWorkOrdersManagement() {
                       <span className="font-semibold">Category:</span> {recurringWorkOrder.category}
                     </div>
                     <div className="text-sm">
-                      <span className="font-semibold">Recurrence:</span> {formatRecurrencePattern(recurringWorkOrder.recurrencePattern)}
+                      <span className="font-semibold">Recurrence:</span> {formatRecurrencePattern(recurringWorkOrder)}
                     </div>
                     {recurringWorkOrder.estimateBudget && (
                       <div className="text-sm">

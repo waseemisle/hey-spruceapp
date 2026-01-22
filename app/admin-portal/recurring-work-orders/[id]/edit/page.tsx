@@ -64,6 +64,8 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
   const [showAdvancedInvoice, setShowAdvancedInvoice] = useState(false);
   const [recurringWorkOrder, setRecurringWorkOrder] = useState<RecurringWorkOrder | null>(null);
 
+  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'] as const;
+
   const [formData, setFormData] = useState({
     clientId: '',
     companyId: '',
@@ -74,6 +76,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     priority: 'medium' as 'low' | 'medium' | 'high',
     estimateBudget: '',
     subcontractorId: '',
+    recurrencePatternLabel: 'MONTHLY' as (typeof RECURRENCE_PATTERN_OPTIONS)[number],
     recurrenceType: 'monthly' as 'monthly' | 'weekly',
     recurrenceInterval: 1,
     recurrenceDaysOfWeek: [] as number[],
@@ -114,6 +117,16 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         // Populate form with existing data
         const pattern = recurringWorkOrderData.recurrencePattern;
         const invoice = recurringWorkOrderData.invoiceSchedule;
+        const storedLabel = (recurringWorkOrderData as any).recurrencePatternLabel;
+        let recurrencePatternLabel: (typeof RECURRENCE_PATTERN_OPTIONS)[number] = 'MONTHLY';
+        if (storedLabel && RECURRENCE_PATTERN_OPTIONS.includes(storedLabel as any)) {
+          recurrencePatternLabel = storedLabel as (typeof RECURRENCE_PATTERN_OPTIONS)[number];
+        } else if (pattern) {
+          if (pattern.type === 'weekly' && pattern.interval === 2) recurrencePatternLabel = 'BI-WEEKLY';
+          else if (pattern.type === 'monthly' && pattern.interval === 6) recurrencePatternLabel = 'SEMIANNUALLY';
+          else if (pattern.type === 'monthly' && pattern.interval === 3) recurrencePatternLabel = 'QUARTERLY';
+          else if (pattern.type === 'monthly' && pattern.interval === 1) recurrencePatternLabel = 'MONTHLY';
+        }
 
         setFormData({
           clientId: recurringWorkOrderData.clientId || '',
@@ -125,8 +138,9 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           priority: recurringWorkOrderData.priority || 'medium',
           estimateBudget: recurringWorkOrderData.estimateBudget?.toString() || '',
           subcontractorId: (recurringWorkOrderData as any).subcontractorId || '',
+          recurrencePatternLabel,
           recurrenceType: pattern?.type || 'monthly',
-          recurrenceInterval: pattern?.interval || 1,
+          recurrenceInterval: pattern?.interval ?? 1,
           recurrenceDaysOfWeek: [],
           recurrenceDayOfMonth: pattern?.dayOfMonth || 1,
           recurrenceMonthOfYear: 1,
@@ -275,15 +289,18 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         return;
       }
 
-      // Calculate next execution date (Monthly only)
       const now = new Date();
-      let nextExecution = new Date(now);
-      nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
+      const nextExecution = new Date(now);
+      if (formData.recurrenceType === 'weekly') {
+        nextExecution.setDate(now.getDate() + formData.recurrenceInterval * 7);
+      } else {
+        nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
+      }
 
       const recurrencePattern: RecurrencePattern = {
-        type: 'monthly',
+        type: formData.recurrenceType,
         interval: formData.recurrenceInterval,
-        dayOfMonth: formData.recurrenceDayOfMonth,
+        ...(formData.recurrenceType === 'monthly' && { dayOfMonth: formData.recurrenceDayOfMonth }),
         ...(formData.recurrenceEndDate && {
           endDate: new Date(formData.recurrenceEndDate),
         }),
@@ -317,6 +334,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         priority: formData.priority,
         estimateBudget: formData.estimateBudget ? parseFloat(formData.estimateBudget) : null,
         recurrencePattern,
+        recurrencePatternLabel: formData.recurrencePatternLabel,
         invoiceSchedule,
         nextExecution: nextExecution,
         updatedAt: serverTimestamp(),
@@ -364,6 +382,21 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
 
   const handleRecurrenceTypeChange = (type: string) => {
     setFormData({ ...formData, recurrenceType: type as any });
+  };
+
+  const handleRecurrencePatternChange = (label: (typeof RECURRENCE_PATTERN_OPTIONS)[number]) => {
+    let type: 'monthly' | 'weekly' = 'monthly';
+    let interval = 1;
+    if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; }
+    else if (label === 'QUARTERLY') { type = 'monthly'; interval = 3; }
+    else if (label === 'MONTHLY') { type = 'monthly'; interval = 1; }
+    else if (label === 'BI-WEEKLY') { type = 'weekly'; interval = 2; }
+    setFormData({
+      ...formData,
+      recurrencePatternLabel: label,
+      recurrenceType: type,
+      recurrenceInterval: interval,
+    });
   };
 
   const handleInvoiceScheduleTypeChange = (type: string) => {
@@ -600,36 +633,35 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
             <CardContent className="space-y-4">
               <div>
                 <Label>Recurrence Pattern</Label>
-                <div className="text-sm text-gray-600 mt-2 p-3 bg-blue-50 rounded-md">
-                  This work order will repeat <strong>Monthly</strong>
-                </div>
+                <select
+                  className="w-full mt-2 p-2 border rounded-md bg-white"
+                  value={formData.recurrencePatternLabel}
+                  onChange={(e) => handleRecurrencePatternChange(e.target.value as (typeof RECURRENCE_PATTERN_OPTIONS)[number])}
+                >
+                  {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  This work order will repeat <strong>{formData.recurrencePatternLabel}</strong>
+                  {formData.recurrenceType === 'weekly' && ` (every ${formData.recurrenceInterval} week(s))`}
+                  {formData.recurrenceType === 'monthly' && ` (every ${formData.recurrenceInterval} month(s))`}.
+                </p>
               </div>
 
-              <div>
-                <Label>Repeat Every</Label>
-                <div className="flex items-center gap-2">
+              {formData.recurrenceType === 'monthly' && (
+                <div>
+                  <Label>Day of Month</Label>
                   <Input
                     type="number"
                     min="1"
-                    value={formData.recurrenceInterval}
-                    onChange={(e) => setFormData({ ...formData, recurrenceInterval: parseInt(e.target.value) || 1 })}
-                    className="w-20"
+                    max="31"
+                    value={formData.recurrenceDayOfMonth}
+                    onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
                   />
-                  <span className="text-sm text-gray-600">month(s)</span>
+                  <p className="text-xs text-gray-500 mt-1">Day of the month when work order should be created (1-31)</p>
                 </div>
-              </div>
-
-              <div>
-                <Label>Day of Month</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.recurrenceDayOfMonth}
-                  onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
-                />
-                <p className="text-xs text-gray-500 mt-1">Day of the month when work order should be created (1-31)</p>
-              </div>
+              )}
 
               <div className="pt-4 border-t">
                 <Button
@@ -750,7 +782,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                 <span className="font-semibold">Client:</span> {clients.find(c => c.id === formData.clientId)?.fullName || 'Not selected'}
               </div>
               <div className="text-sm">
-                <span className="font-semibold">Recurrence:</span> Every {formData.recurrenceInterval} {formData.recurrenceType}
+                <span className="font-semibold">Recurrence:</span> {formData.recurrencePatternLabel}
               </div>
               <div className="text-sm">
                 <span className="font-semibold">Invoice Schedule:</span> Every {formData.invoiceScheduleInterval} {formData.invoiceScheduleType}

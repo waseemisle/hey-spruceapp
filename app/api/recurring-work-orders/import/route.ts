@@ -762,8 +762,10 @@ export async function POST(request: NextRequest) {
           .sort((a, b) => a.getTime() - b.getTime()); // Sort dates chronologically
 
         // Map frequency to recurrence pattern (use default if missing)
-        const frequencyLabel = row.frequencyLabel || 'QUARTERLY';
-        const recurrenceConfig = mapFrequencyToRecurrencePattern(frequencyLabel);
+        const frequencyLabel = (row.frequencyLabel || 'QUARTERLY').toUpperCase().trim();
+        const validLabels = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'] as const;
+        const recurrencePatternLabel = validLabels.includes(frequencyLabel as any) ? (frequencyLabel as (typeof validLabels)[number]) : 'QUARTERLY';
+        const recurrenceConfig = mapFrequencyToRecurrencePattern(recurrencePatternLabel);
         
         // Use the first next service date as nextExecution, or calculate from recurrence pattern if no dates provided
         let nextExecution: Date;
@@ -831,6 +833,7 @@ export async function POST(request: NextRequest) {
           priority: 'medium' as const,
           status: 'active' as const,
           recurrencePattern,
+          recurrencePatternLabel,
           invoiceSchedule,
           nextExecution: nextExecutionTimestamp,
           totalExecutions: 0,

@@ -123,6 +123,20 @@ export default function RecurringWorkOrdersImportModal({
     );
   };
 
+  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'] as const;
+
+  const handleRecurrencePatternChange = (rowNumber: number, value: string) => {
+    const normalized = value.toUpperCase() as typeof RECURRENCE_PATTERN_OPTIONS[number];
+    if (!RECURRENCE_PATTERN_OPTIONS.includes(normalized)) return;
+    setParsedData(prev => 
+      prev.map(row => 
+        row.rowNumber === rowNumber 
+          ? { ...row, frequencyLabel: normalized }
+          : row
+      )
+    );
+  };
+
   const handleGlobalClientChange = (clientId: string) => {
     setGlobalClientId(clientId);
     // Apply to all valid rows
@@ -210,7 +224,8 @@ export default function RecurringWorkOrdersImportModal({
               const restaurantIdx = headers.findIndex(h => h.toUpperCase().includes('RESTAURANT'));
               const serviceTypeIdx = headers.findIndex(h => h.toUpperCase().includes('SERVICE TYPE'));
               const lastServicedIdx = headers.findIndex(h => h.toUpperCase().includes('LAST SERVICED'));
-              const frequencyIdx = headers.findIndex(h => h.toUpperCase().includes('FREQUENCY'));
+              let frequencyIdx = headers.findIndex(h => h.toUpperCase().includes('FREQUENCY LABEL'));
+              if (frequencyIdx < 0) frequencyIdx = headers.findIndex(h => h.toUpperCase().includes('FREQUENCY'));
               const schedulingIdx = headers.findIndex(h => h.toUpperCase().includes('SCHEDULING'));
               const notesIdx = headers.findIndex(h => h.toUpperCase().includes('NOTES'));
               
@@ -290,7 +305,8 @@ export default function RecurringWorkOrdersImportModal({
       const restaurantIdx = headers.findIndex(h => h.toUpperCase().includes('RESTAURANT'));
       const serviceTypeIdx = headers.findIndex(h => h.toUpperCase().includes('SERVICE TYPE'));
       const lastServicedIdx = headers.findIndex(h => h.toUpperCase().includes('LAST SERVICED'));
-      const frequencyIdx = headers.findIndex(h => h.toUpperCase().includes('FREQUENCY'));
+      let frequencyIdx = headers.findIndex(h => h.toUpperCase().includes('FREQUENCY LABEL'));
+      if (frequencyIdx < 0) frequencyIdx = headers.findIndex(h => h.toUpperCase().includes('FREQUENCY'));
       const schedulingIdx = headers.findIndex(h => h.toUpperCase().includes('SCHEDULING'));
       const notesIdx = headers.findIndex(h => h.toUpperCase().includes('NOTES'));
       
@@ -490,10 +506,10 @@ export default function RecurringWorkOrdersImportModal({
         frequencyLabel = 'QUARTERLY';
       }
       
-      // Validate frequency label value
-      if (!['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY', 'WEEKLY'].includes(frequencyLabel)) {
-        // If invalid, default to QUARTERLY
-        frequencyLabel = 'QUARTERLY';
+      // Validate frequency label value – only allow the four Recurrence Pattern options
+      if (!['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'].includes(frequencyLabel)) {
+        if (frequencyLabel === 'WEEKLY') frequencyLabel = 'BI-WEEKLY';
+        else frequencyLabel = 'QUARTERLY';
       }
 
       // Get SCHEDULING
@@ -555,6 +571,18 @@ export default function RecurringWorkOrdersImportModal({
     return null;
   };
 
+  const toImportRow = (row: ParsedRow) => ({
+    restaurant: row.restaurant,
+    serviceType: row.serviceType,
+    lastServiced: row.lastServiced,
+    nextServiceDates: row.nextServiceDates,
+    frequencyLabel: row.frequencyLabel,
+    scheduling: row.scheduling,
+    notes: row.notes,
+    subcontractorId: row.subcontractorId || undefined,
+    clientId: row.clientId || undefined,
+  });
+
   const handleImport = async () => {
     const validRows = parsedData.filter(r => r.errors.length === 0);
     
@@ -567,25 +595,17 @@ export default function RecurringWorkOrdersImportModal({
     setImportProgress({ current: 0, total: validRows.length });
 
     try {
-      // Get current user - wait for auth if needed
       let currentUser = auth.currentUser;
-      
-      // If no current user immediately, wait briefly for auth state
       if (!currentUser) {
-        currentUser = await new Promise((resolve, reject) => {
+        currentUser = await new Promise<typeof auth.currentUser>((resolve, reject) => {
           const timeout = setTimeout(() => {
-            unsubscribe();
+            unsub();
             reject(new Error('Authentication timeout'));
           }, 3000);
-          
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
+          const unsub = onAuthStateChanged(auth, (user) => {
             clearTimeout(timeout);
-            unsubscribe();
-            if (user) {
-              resolve(user);
-            } else {
-              reject(new Error('No authenticated user found'));
-            }
+            unsub();
+            resolve(user ?? null);
           });
         });
       }
@@ -593,72 +613,64 @@ export default function RecurringWorkOrdersImportModal({
       if (!currentUser) {
         toast.error('You must be logged in to import work orders');
         setIsImporting(false);
+        setImportProgress({ current: 0, total: 0 });
         return;
       }
 
-      // Get ID token (force refresh to ensure it's valid)
-      console.log('Getting ID token for user:', currentUser.uid);
-      console.log('User email:', currentUser.email);
       const idToken = await currentUser.getIdToken(true);
-      console.log('ID token obtained, length:', idToken.length);
-      console.log('Token preview:', idToken.substring(0, 30) + '...');
 
-      console.log('Preparing import request...');
-      console.log('Valid rows count:', validRows.length);
-      
-      const requestBody = {
-        rows: validRows.map(row => ({
-          restaurant: row.restaurant,
-          serviceType: row.serviceType,
-          lastServiced: row.lastServiced,
-          nextServiceDates: row.nextServiceDates,
-          frequencyLabel: row.frequencyLabel,
-          scheduling: row.scheduling,
-          notes: row.notes,
-          subcontractorId: row.subcontractorId || undefined,
-          clientId: row.clientId || undefined,
-        })),
-      };
-      
-      console.log('Request body prepared, rows:', requestBody.rows.length);
-      console.log('Making API request to /api/recurring-work-orders/import...');
+      let totalCreated = 0;
+      const allErrors: Array<{ row: number; error: string }> = [];
 
-      const response = await fetch('/api/recurring-work-orders/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
-      
-      console.log('Response received, status:', response.status);
+      for (let i = 0; i < validRows.length; i++) {
+        setImportProgress({ current: i, total: validRows.length });
+        const row = validRows[i];
+        const requestBody = { rows: [toImportRow(row)] };
 
-      const result = await response.json();
-      console.log('Response JSON:', result);
+        try {
+          const response = await fetch('/api/recurring-work-orders/import', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`,
+            },
+            body: JSON.stringify(requestBody),
+          });
+          const result = await response.json();
 
-      if (!response.ok) {
-        console.error('Import failed with status:', response.status);
-        console.error('Error response:', result);
-        throw new Error(result.error || 'Import failed');
+          if (!response.ok) {
+            throw new Error(result.error || 'Import failed');
+          }
+          totalCreated += result.created ?? 0;
+          if (result.errors && Array.isArray(result.errors)) {
+            for (const e of result.errors) {
+              allErrors.push({ row: row.rowNumber, error: e.error || String(e) });
+            }
+          }
+        } catch (err: any) {
+          allErrors.push({ row: row.rowNumber, error: err.message || 'Unknown error' });
+        }
       }
 
-      // Show success message with details
-      if (result.created > 0) {
-        toast.success(result.message || `Successfully imported ${result.created} recurring work order(s)`);
+      setImportProgress({ current: validRows.length, total: validRows.length });
+
+      if (totalCreated > 0) {
+        toast.success(
+          allErrors.length > 0
+            ? `Imported ${totalCreated} recurring work order(s). ${allErrors.length} row(s) failed.`
+            : `Successfully imported ${totalCreated} recurring work order(s)`
+        );
       } else {
         toast.error('No recurring work orders were created. Please check the errors.');
       }
       
-      if (result.errors && result.errors.length > 0) {
-        console.warn('Import errors:', result.errors);
-        // Show detailed error message
-        const errorDetails = result.errors
+      if (allErrors.length > 0) {
+        const errorDetails = allErrors
           .slice(0, 5)
-          .map((e: any) => `Row ${e.row}: ${e.error}`)
+          .map((e) => `Row ${e.row}: ${e.error}`)
           .join('\n');
-        const moreErrors = result.errors.length > 5 ? `\n... and ${result.errors.length - 5} more error(s)` : '';
-        toast.warning(`${result.errors.length} row(s) failed to import:\n${errorDetails}${moreErrors}`, {
+        const moreErrors = allErrors.length > 5 ? `\n... and ${allErrors.length - 5} more error(s)` : '';
+        toast.warning(`${allErrors.length} row(s) failed to import:\n${errorDetails}${moreErrors}`, {
           duration: 10000,
         });
       }
@@ -813,7 +825,7 @@ export default function RecurringWorkOrdersImportModal({
                       <th className="p-2 text-left border-b">Row</th>
                       <th className="p-2 text-left border-b">Restaurant</th>
                       <th className="p-2 text-left border-b">Service Type</th>
-                      <th className="p-2 text-left border-b">Frequency</th>
+                      <th className="p-2 text-left border-b">Recurrence Pattern</th>
                       <th className="p-2 text-left border-b">Client</th>
                       <th className="p-2 text-left border-b">Subcontractor</th>
                       <th className="p-2 text-left border-b">Status</th>
@@ -828,7 +840,22 @@ export default function RecurringWorkOrdersImportModal({
                         <td className="p-2 border-b">{row.rowNumber}</td>
                         <td className="p-2 border-b">{row.restaurant || '-'}</td>
                         <td className="p-2 border-b">{row.serviceType || '-'}</td>
-                        <td className="p-2 border-b">{row.frequencyLabel || '-'}</td>
+                        <td className="p-2 border-b">
+                          {row.errors.length === 0 ? (
+                            <select
+                              value={row.frequencyLabel || 'QUARTERLY'}
+                              onChange={(e) => handleRecurrencePatternChange(row.rowNumber, e.target.value)}
+                              className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                              disabled={isImporting}
+                            >
+                              {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </td>
                         <td className="p-2 border-b">
                           {row.errors.length === 0 ? (
                             <select
@@ -995,9 +1022,9 @@ export default function RecurringWorkOrdersImportModal({
               </div>
               <div className="w-full bg-blue-200 rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   style={{
-                    width: `${(importProgress.current / importProgress.total) * 100}%`,
+                    width: `${importProgress.total ? (importProgress.current / importProgress.total) * 100 : 0}%`,
                   }}
                 />
               </div>

@@ -385,6 +385,8 @@ export interface RecurringWorkOrder {
   estimateBudget?: number;
   status: 'active' | 'paused' | 'cancelled';
   recurrencePattern: RecurrencePattern;
+  /** Display label from FREQUENCY LABEL / Recurrence Pattern: SEMIANNUALLY, QUARTERLY, MONTHLY, BI-WEEKLY */
+  recurrencePatternLabel?: 'SEMIANNUALLY' | 'QUARTERLY' | 'MONTHLY' | 'BI-WEEKLY';
   invoiceSchedule: InvoiceSchedule;
   nextExecution: Date;
   lastExecution?: Date;

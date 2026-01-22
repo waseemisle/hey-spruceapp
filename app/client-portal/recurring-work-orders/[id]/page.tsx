@@ -121,12 +121,13 @@ export default function ClientRecurringWorkOrderDetails() {
     }
   };
 
-  const formatRecurrencePattern = (pattern: any) => {
-    if (pattern.type === 'weekly') {
-      return `Every ${pattern.interval} week(s)`;
-    } else if (pattern.type === 'monthly') {
-      return `Every ${pattern.interval} month(s)`;
-    }
+  const formatRecurrencePattern = (rwo: { recurrencePattern?: any; recurrencePatternLabel?: string }) => {
+    const label = (rwo as any).recurrencePatternLabel;
+    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'].includes(label)) return label;
+    const pattern = rwo.recurrencePattern;
+    if (!pattern) return 'Unknown pattern';
+    if (pattern.type === 'weekly') return `Every ${pattern.interval} week(s)`;
+    if (pattern.type === 'monthly') return `Every ${pattern.interval} month(s)`;
     return 'Unknown pattern';
   };
 
@@ -239,7 +240,7 @@ export default function ClientRecurringWorkOrderDetails() {
                 <RotateCcw className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-gray-700 mb-1">Recurrence Pattern</p>
-                  <p className="text-gray-900">{formatRecurrencePattern(recurringWorkOrder.recurrencePattern)}</p>
+                  <p className="text-gray-900">{formatRecurrencePattern(recurringWorkOrder)}</p>
                 </div>
               </div>
 

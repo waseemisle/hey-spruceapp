@@ -56,6 +56,8 @@ export default function CreateRecurringWorkOrder() {
   const [showAdvancedRecurrence, setShowAdvancedRecurrence] = useState(false);
   const [showAdvancedInvoice, setShowAdvancedInvoice] = useState(false);
 
+  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'] as const;
+
   const [formData, setFormData] = useState({
     clientId: '',
   companyId: '',
@@ -65,7 +67,8 @@ export default function CreateRecurringWorkOrder() {
     category: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
     estimateBudget: '',
-    recurrenceType: 'monthly' as 'monthly',
+    recurrencePatternLabel: 'MONTHLY' as (typeof RECURRENCE_PATTERN_OPTIONS)[number],
+    recurrenceType: 'monthly' as 'monthly' | 'weekly',
     recurrenceInterval: 1,
     recurrenceDaysOfWeek: [] as number[],
     recurrenceDayOfMonth: 1,
@@ -181,15 +184,19 @@ const fetchCategories = async () => {
         return;
       }
 
-      // Calculate next execution date (Monthly only)
+      // Calculate next execution date from pattern
       const now = new Date();
-      let nextExecution = new Date(now);
-      nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
+      const nextExecution = new Date(now);
+      if (formData.recurrenceType === 'weekly') {
+        nextExecution.setDate(now.getDate() + formData.recurrenceInterval * 7);
+      } else {
+        nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
+      }
 
       const recurrencePattern: RecurrencePattern = {
-        type: 'monthly',
+        type: formData.recurrenceType,
         interval: formData.recurrenceInterval,
-        dayOfMonth: formData.recurrenceDayOfMonth,
+        ...(formData.recurrenceType === 'monthly' && { dayOfMonth: formData.recurrenceDayOfMonth }),
         ...(formData.recurrenceEndDate && {
           endDate: new Date(formData.recurrenceEndDate),
         }),
@@ -227,6 +234,7 @@ const fetchCategories = async () => {
         estimateBudget: formData.estimateBudget ? parseFloat(formData.estimateBudget) : null,
         status: 'active',
         recurrencePattern,
+        recurrencePatternLabel: formData.recurrencePatternLabel,
         invoiceSchedule,
         nextExecution: nextExecution,
         totalExecutions: 0,
@@ -266,6 +274,21 @@ const handleLocationSelect = (locationId: string) => {
 
   const handleRecurrenceTypeChange = (type: string) => {
     setFormData({ ...formData, recurrenceType: type as any });
+  };
+
+  const handleRecurrencePatternChange = (label: (typeof RECURRENCE_PATTERN_OPTIONS)[number]) => {
+    let type: 'monthly' | 'weekly' = 'monthly';
+    let interval = 1;
+    if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; }
+    else if (label === 'QUARTERLY') { type = 'monthly'; interval = 3; }
+    else if (label === 'MONTHLY') { type = 'monthly'; interval = 1; }
+    else if (label === 'BI-WEEKLY') { type = 'weekly'; interval = 2; }
+    setFormData({
+      ...formData,
+      recurrencePatternLabel: label,
+      recurrenceType: type,
+      recurrenceInterval: interval,
+    });
   };
 
   const handleInvoiceScheduleTypeChange = (type: string) => {
@@ -474,36 +497,35 @@ const handleLocationSelect = (locationId: string) => {
             <CardContent className="space-y-4">
               <div>
                 <Label>Recurrence Pattern</Label>
-                <div className="text-sm text-gray-600 mt-2 p-3 bg-blue-50 rounded-md">
-                  This work order will repeat <strong>Monthly</strong>
-                </div>
+                <select
+                  className="w-full mt-2 p-2 border rounded-md bg-white"
+                  value={formData.recurrencePatternLabel}
+                  onChange={(e) => handleRecurrencePatternChange(e.target.value as (typeof RECURRENCE_PATTERN_OPTIONS)[number])}
+                >
+                  {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  This work order will repeat <strong>{formData.recurrencePatternLabel}</strong>
+                  {formData.recurrenceType === 'weekly' && ` (every ${formData.recurrenceInterval} week(s))`}
+                  {formData.recurrenceType === 'monthly' && ` (every ${formData.recurrenceInterval} month(s))`}.
+                </p>
               </div>
 
-              <div>
-                <Label>Repeat Every</Label>
-                <div className="flex items-center gap-2">
+              {formData.recurrenceType === 'monthly' && (
+                <div>
+                  <Label>Day of Month</Label>
                   <Input
                     type="number"
                     min="1"
-                    value={formData.recurrenceInterval}
-                    onChange={(e) => setFormData({ ...formData, recurrenceInterval: parseInt(e.target.value) || 1 })}
-                    className="w-20"
+                    max="31"
+                    value={formData.recurrenceDayOfMonth}
+                    onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
                   />
-                  <span className="text-sm text-gray-600">month(s)</span>
+                  <p className="text-xs text-gray-500 mt-1">Day of the month when work order should be created (1-31)</p>
                 </div>
-              </div>
-
-              <div>
-                <Label>Day of Month</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.recurrenceDayOfMonth}
-                  onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
-                />
-                <p className="text-xs text-gray-500 mt-1">Day of the month when work order should be created (1-31)</p>
-              </div>
+              )}
 
               <div className="pt-4 border-t">
                 <Button
