@@ -57,6 +57,7 @@ export default function RecurringWorkOrdersImportModal({
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [globalClientId, setGlobalClientId] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,6 +123,21 @@ export default function RecurringWorkOrdersImportModal({
     );
   };
 
+  const handleGlobalClientChange = (clientId: string) => {
+    setGlobalClientId(clientId);
+    // Apply to all valid rows
+    if (clientId) {
+      setParsedData(prev => 
+        prev.map(row => 
+          row.errors.length === 0
+            ? { ...row, clientId: clientId }
+            : row
+        )
+      );
+    }
+    // If global client is cleared, individual row selections remain unchanged
+  };
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
@@ -139,10 +155,18 @@ export default function RecurringWorkOrdersImportModal({
 
     try {
       const rows = await parseFile(selectedFile);
-      setParsedData(rows);
+      // Apply global client to new rows if one is selected
+      const rowsWithGlobalClient = globalClientId
+        ? rows.map(row => 
+            row.errors.length === 0 && !row.clientId
+              ? { ...row, clientId: globalClientId }
+              : row
+          )
+        : rows;
+      setParsedData(rowsWithGlobalClient);
       
-      const validRows = rows.filter(r => r.errors.length === 0);
-      const invalidRows = rows.filter(r => r.errors.length > 0);
+      const validRows = rowsWithGlobalClient.filter(r => r.errors.length === 0);
+      const invalidRows = rowsWithGlobalClient.filter(r => r.errors.length > 0);
       
       if (validRows.length === 0) {
         toast.error('No valid rows found in the file');
@@ -658,6 +682,7 @@ export default function RecurringWorkOrdersImportModal({
     setImportProgress({ current: 0, total: 0 });
     setSubcontractors([]);
     setClients([]);
+    setGlobalClientId('');
     setCurrentPage(1);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -755,6 +780,30 @@ export default function RecurringWorkOrdersImportModal({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Global Client Selector */}
+              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <Label htmlFor="global-client-select" className="text-sm font-medium text-gray-700 mb-2 block">
+                  Apply Client to All Orders
+                </Label>
+                <select
+                  id="global-client-select"
+                  value={globalClientId}
+                  onChange={(e) => handleGlobalClientChange(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white text-sm"
+                  disabled={isImporting}
+                >
+                  <option value="">Select a client to apply to all orders...</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>
+                      {client.fullName} ({client.email})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  This will apply the selected client to all orders. You can still override individual orders below.
+                </p>
               </div>
 
               <div className="overflow-x-auto border rounded-lg">
