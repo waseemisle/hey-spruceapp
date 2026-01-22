@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -57,6 +57,8 @@ export default function RecurringWorkOrdersImportModal({
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch subcontractors and clients when modal opens
@@ -656,11 +658,31 @@ export default function RecurringWorkOrdersImportModal({
     setImportProgress({ current: 0, total: 0 });
     setSubcontractors([]);
     setClients([]);
+    setCurrentPage(1);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
     onClose();
   };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(parsedData.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const currentRows = parsedData.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  // Reset to page 1 when data changes
+  useEffect(() => {
+    if (parsedData.length > 0) {
+      setCurrentPage(1);
+    }
+  }, [parsedData.length]);
 
   const validRows = parsedData.filter(r => r.errors.length === 0);
   const invalidRows = parsedData.filter(r => r.errors.length > 0);
@@ -749,7 +771,7 @@ export default function RecurringWorkOrdersImportModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedData.slice(0, 20).map((row) => (
+                    {currentRows.map((row) => (
                       <tr
                         key={row.rowNumber}
                         className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-gray-50'}
@@ -813,9 +835,76 @@ export default function RecurringWorkOrdersImportModal({
                     ))}
                   </tbody>
                 </table>
-                {parsedData.length > 20 && (
-                  <div className="p-2 text-center text-sm text-gray-500">
-                    Showing first 20 rows. Total: {parsedData.length} rows
+                
+                {/* Pagination Controls */}
+                {parsedData.length > 0 && (
+                  <div className="border-t bg-gray-50 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <span>Rows per page:</span>
+                      <select
+                        value={rowsPerPage}
+                        onChange={(e) => {
+                          setRowsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                        disabled={isImporting}
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                      <span className="text-gray-600">
+                        Showing {startIndex + 1} to {Math.min(endIndex, parsedData.length)} of {parsedData.length} rows
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPage(1)}
+                        disabled={currentPage === 1 || isImporting}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1 || isImporting}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      
+                      <div className="flex items-center gap-1 px-2">
+                        <span className="text-sm text-gray-700">
+                          Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+                        </span>
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages || isImporting}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => goToPage(totalPages)}
+                        disabled={currentPage === totalPages || isImporting}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
