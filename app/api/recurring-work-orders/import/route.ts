@@ -177,6 +177,67 @@ function parseLocationName(name: string): { base: string; location: string } {
   };
 }
 
+// Helper function to extract key words from a location name (removes common words)
+function extractKeyWords(name: string): string[] {
+  const commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'club'];
+  // Remove parenthetical content first
+  const withoutParens = name.replace(/\([^)]*\)/g, '').trim();
+  return withoutParens
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => word.length > 0 && !commonWords.includes(word))
+    .filter(word => word.length > 1); // Filter out single character words
+}
+
+// Helper function to extract the primary name part (removes location suffixes and common prefixes)
+function extractPrimaryName(name: string): string {
+  // Remove parenthetical content
+  let primary = name.replace(/\([^)]*\)/g, '').trim();
+  // Remove common prefixes
+  primary = primary.replace(/^(the|a|an)\s+/i, '').trim();
+  // Normalize
+  return normalizeLocationName(primary);
+}
+
+// Helper function to calculate similarity score between two location names
+function calculateSimilarity(searchName: string, dbName: string): number {
+  const searchNormalized = normalizeLocationName(searchName);
+  const dbNormalized = normalizeLocationName(dbName);
+  
+  // Exact match
+  if (searchNormalized === dbNormalized) {
+    return 1.0;
+  }
+  
+  // Extract key words
+  const searchWords = extractKeyWords(searchName);
+  const dbWords = extractKeyWords(dbName);
+  
+  if (searchWords.length === 0 || dbWords.length === 0) {
+    return 0;
+  }
+  
+  // Count matching words
+  const matchingWords = searchWords.filter(word => 
+    dbWords.some(dbWord => dbWord === word || dbWord.includes(word) || word.includes(dbWord))
+  ).length;
+  
+  // Calculate score based on word overlap
+  const wordOverlapScore = matchingWords / Math.max(searchWords.length, dbWords.length);
+  
+  // Check if one name contains the other (after removing common words)
+  const searchKey = searchWords.join(' ');
+  const dbKey = dbWords.join(' ');
+  
+  let containsScore = 0;
+  if (dbKey.includes(searchKey) || searchKey.includes(dbKey)) {
+    containsScore = 0.7;
+  }
+  
+  // Return the higher of the two scores
+  return Math.max(wordOverlapScore, containsScore);
+}
+
 // Helper function to find location by name (direct lookup, not mapping)
 async function findLocationByName(locationName: string, db: any): Promise<{ id: string; data: any } | null> {
   try {
@@ -234,51 +295,130 @@ async function findLocationByName(locationName: string, db: any): Promise<{ id: 
         }
       }
       
-      // Strategy 3: Search has location suffix, doc doesn't - match if base matches
+      // Strategy 3: Search has location suffix, doc doesn't - match if base matches or is similar
       if (searchParsed.location && !docParsed.location) {
-        if (docParsed.base === searchParsed.base) {
-          score = 0.8; // Good match but not perfect
+        // Extract primary names (without location suffixes and common words)
+        const searchPrimary = extractPrimaryName(searchParsed.base);
+        const docPrimary = extractPrimaryName(docParsed.base);
+        
+        // Check if the primary names match or one contains the other
+        const primaryMatches = 
+          docPrimary === searchPrimary ||
+          docPrimary.includes(searchPrimary) ||
+          searchPrimary.includes(docPrimary);
+        
+        if (primaryMatches) {
+          score = 0.95; // Very high score for primary name match
           candidates.push({ id: doc.id, data: docData, score });
+        } else {
+          // Try word-based matching
+          const searchWords = extractKeyWords(searchParsed.base);
+          const docWords = extractKeyWords(docParsed.base);
+          
+          // Check if all key words from search are found in doc (or vice versa for short names)
+          const allWordsMatch = searchWords.length > 0 && searchWords.every(word => 
+            docWords.some(docWord => docWord === word || docWord.includes(word) || word.includes(docWord))
+          );
+          
+          if (allWordsMatch) {
+            score = 0.85;
+            candidates.push({ id: doc.id, data: docData, score });
+          } else {
+            // Try similarity matching as fallback
+            const similarity = calculateSimilarity(searchParsed.base, docParsed.base);
+            if (similarity >= 0.5) {
+              score = similarity * 0.7;
+              candidates.push({ id: doc.id, data: docData, score });
+            }
+          }
         }
       }
       
       // Strategy 4: Doc has location suffix, search doesn't - match if base matches
       if (!searchParsed.location && docParsed.location) {
-        if (docParsed.base === searchParsed.base) {
-          score = 0.8; // Good match but not perfect
+        // Extract primary names
+        const searchPrimary = extractPrimaryName(searchNormalized);
+        const docPrimary = extractPrimaryName(docParsed.base);
+        
+        if (searchPrimary === docPrimary || searchPrimary.includes(docPrimary) || docPrimary.includes(searchPrimary)) {
+          score = 0.85; // Good match
           candidates.push({ id: doc.id, data: docData, score });
+        } else {
+          // Try word-based matching
+          const searchWords = extractKeyWords(searchNormalized);
+          const docWords = extractKeyWords(docParsed.base);
+          
+          const allWordsMatch = searchWords.length > 0 && searchWords.every(word => 
+            docWords.some(docWord => docWord === word || docWord.includes(word) || word.includes(docWord))
+          );
+          
+          if (allWordsMatch) {
+            score = 0.75;
+            candidates.push({ id: doc.id, data: docData, score });
+          } else {
+            // Try similarity matching
+            const similarity = calculateSimilarity(searchNormalized, docParsed.base);
+            if (similarity >= 0.5) {
+              score = similarity * 0.7;
+              candidates.push({ id: doc.id, data: docData, score });
+            }
+          }
         }
       }
       
       // Strategy 5: Neither has location suffix, match base
       if (!searchParsed.location && !docParsed.location) {
-        if (docParsed.base === searchParsed.base) {
-          console.log(`[findLocationByName] Found base match: "${docLocationName}"`);
+        // Extract primary names
+        const searchPrimary = extractPrimaryName(searchNormalized);
+        const docPrimary = extractPrimaryName(docNormalized);
+        
+        if (searchPrimary === docPrimary) {
+          console.log(`[findLocationByName] Found primary name match: "${docLocationName}"`);
           return { id: doc.id, data: docData };
+        } else if (searchPrimary.includes(docPrimary) || docPrimary.includes(searchPrimary)) {
+          score = 0.9;
+          candidates.push({ id: doc.id, data: docData, score });
+        } else {
+          // Try word-based matching
+          const searchWords = extractKeyWords(searchNormalized);
+          const docWords = extractKeyWords(docNormalized);
+          
+          const allWordsMatch = searchWords.length > 0 && searchWords.every(word => 
+            docWords.some(docWord => docWord === word || docWord.includes(word) || word.includes(docWord))
+          );
+          
+          if (allWordsMatch) {
+            score = 0.8;
+            candidates.push({ id: doc.id, data: docData, score });
+          } else {
+            // Try similarity matching
+            const similarity = calculateSimilarity(searchNormalized, docNormalized);
+            if (similarity >= 0.6) {
+              score = similarity;
+              candidates.push({ id: doc.id, data: docData, score });
+            }
+          }
         }
       }
       
-      // Strategy 6: Contains match (only if no location suffix in search to avoid false matches)
-      // Only use this as a last resort and require the search term to be at least 3 characters
-      if (!searchParsed.location && searchNormalized.length >= 3) {
-        // Only match if search is a significant portion (at least 50%) of the location name
-        const minLength = Math.min(searchNormalized.length, docNormalized.length);
-        const maxLength = Math.max(searchNormalized.length, docNormalized.length);
-        if (minLength / maxLength >= 0.5) {
-          if (docNormalized.includes(searchNormalized) || searchNormalized.includes(docNormalized)) {
-            score = 0.3; // Very low priority - last resort
-            candidates.push({ id: doc.id, data: docData, score });
-          }
+      // Strategy 6: Contains match with similarity scoring
+      if (searchNormalized.length >= 3) {
+        const similarity = calculateSimilarity(searchNormalized, docNormalized);
+        if (similarity >= 0.5 && similarity < 0.7) {
+          score = similarity * 0.5; // Lower priority for partial matches
+          candidates.push({ id: doc.id, data: docData, score });
         }
       }
     }
     
-    // If we have candidates, return the highest scoring one
+    // If we have candidates, return the highest scoring one (minimum threshold 0.5)
     if (candidates.length > 0) {
       candidates.sort((a, b) => b.score - a.score);
       const bestMatch = candidates[0];
-      console.log(`[findLocationByName] Found best candidate match (score: ${bestMatch.score}): "${bestMatch.data.locationName}"`);
-      return { id: bestMatch.id, data: bestMatch.data };
+      if (bestMatch.score >= 0.5) {
+        console.log(`[findLocationByName] Found best candidate match (score: ${bestMatch.score}): "${bestMatch.data.locationName}"`);
+        return { id: bestMatch.id, data: bestMatch.data };
+      }
     }
     
     console.log(`[findLocationByName] No match found for: "${locationName}"`);
