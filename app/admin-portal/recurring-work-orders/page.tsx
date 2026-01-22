@@ -16,6 +16,8 @@ import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution } from '@/types';
 import RecurringWorkOrdersImportModal from '@/components/recurring-work-orders-import-modal';
 import { Checkbox } from '@/components/ui/checkbox';
+import ViewControls from '@/components/view-controls';
+import { useViewControls } from '@/contexts/view-controls-context';
 
 export default function RecurringWorkOrdersManagement() {
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
@@ -27,6 +29,7 @@ export default function RecurringWorkOrdersManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const { viewMode, sortOption } = useViewControls();
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -242,6 +245,19 @@ export default function RecurringWorkOrdersManagement() {
     return statusMatch && searchMatch;
   });
 
+  // Sort filtered recurring work orders
+  const sortedRecurringWorkOrders = [...filteredRecurringWorkOrders].sort((a, b) => {
+    if (sortOption === 'createdAt') {
+      const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bDate - aDate; // Newest first
+    } else {
+      const aDate = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const bDate = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return bDate - aDate; // Most recently modified first
+    }
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'text-green-600 bg-green-50';
@@ -383,17 +399,126 @@ export default function RecurringWorkOrdersManagement() {
           </div>
         </div>
 
-        {/* Recurring Work Orders Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {filteredRecurringWorkOrders.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <RotateCcw className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No recurring work orders found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredRecurringWorkOrders.map((recurringWorkOrder) => (
+        {/* View Controls */}
+        <ViewControls />
+
+        {/* Recurring Work Orders Grid/List */}
+        {sortedRecurringWorkOrders.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="p-12 text-center">
+              <RotateCcw className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No recurring work orders found</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'list' ? (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <Checkbox
+                      id="select-all-table"
+                      checked={sortedRecurringWorkOrders.length > 0 && selectedIds.length === sortedRecurringWorkOrders.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Recurrence</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Next Execution</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedRecurringWorkOrders.map((recurringWorkOrder) => (
+                  <tr key={recurringWorkOrder.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <Checkbox
+                        id={`select-${recurringWorkOrder.id}-table`}
+                        checked={selectedIds.includes(recurringWorkOrder.id)}
+                        onCheckedChange={() => toggleSelection(recurringWorkOrder.id)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-medium text-gray-900">{recurringWorkOrder.title}</div>
+                      <div className="text-gray-500 text-xs mt-1 line-clamp-1">{recurringWorkOrder.description}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.workOrderNumber}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.locationName || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.category}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority)}`}>
+                        {recurringWorkOrder.priority.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status)}`}>
+                        {recurringWorkOrder.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {formatRecurrencePattern(recurringWorkOrder.recurrencePattern)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {recurringWorkOrder.nextExecution ? new Date(recurringWorkOrder.nextExecution).toLocaleDateString() : 'Not scheduled'}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        {recurringWorkOrder.status === 'active' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleToggleStatus(recurringWorkOrder)}
+                          >
+                            <Pause className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {recurringWorkOrder.status === 'paused' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleToggleStatus(recurringWorkOrder)}
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(recurringWorkOrder)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            {sortedRecurringWorkOrders.map((recurringWorkOrder) => (
               <Card key={recurringWorkOrder.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="space-y-2">
@@ -519,9 +644,9 @@ export default function RecurringWorkOrdersManagement() {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Import Modal */}
         <RecurringWorkOrdersImportModal
