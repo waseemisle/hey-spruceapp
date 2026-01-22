@@ -76,6 +76,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     priority: 'medium' as 'low' | 'medium' | 'high',
     estimateBudget: '',
     subcontractorId: '',
+    nextExecution: '',
     recurrencePatternLabel: 'MONTHLY' as (typeof RECURRENCE_PATTERN_OPTIONS)[number],
     recurrenceType: 'monthly' as 'monthly' | 'weekly',
     recurrenceInterval: 1,
@@ -138,6 +139,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           priority: recurringWorkOrderData.priority || 'medium',
           estimateBudget: recurringWorkOrderData.estimateBudget?.toString() || '',
           subcontractorId: (recurringWorkOrderData as any).subcontractorId || '',
+          nextExecution: recurringWorkOrderData.nextExecution ? new Date(recurringWorkOrderData.nextExecution).toISOString().split('T')[0] : '',
           recurrencePatternLabel,
           recurrenceType: pattern?.type || 'monthly',
           recurrenceInterval: pattern?.interval ?? 1,
@@ -289,12 +291,18 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         return;
       }
 
-      const now = new Date();
-      const nextExecution = new Date(now);
-      if (formData.recurrenceType === 'weekly') {
-        nextExecution.setDate(now.getDate() + formData.recurrenceInterval * 7);
+      // Use the nextExecution from form if provided, otherwise calculate it
+      let nextExecution: Date;
+      if (formData.nextExecution) {
+        nextExecution = new Date(formData.nextExecution);
       } else {
-        nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
+        const now = new Date();
+        nextExecution = new Date(now);
+        if (formData.recurrenceType === 'weekly') {
+          nextExecution.setDate(now.getDate() + formData.recurrenceInterval * 7);
+        } else {
+          nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
+        }
       }
 
       const recurrencePattern: RecurrencePattern = {
@@ -604,7 +612,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
               </div>
 
               <div>
-                <Label>Assigned Subcontractor (Optional)</Label>
+                <Label>Assigned Subcontractor</Label>
                 <select
                   value={formData.subcontractorId}
                   onChange={(e) => setFormData({ ...formData, subcontractorId: e.target.value })}
@@ -662,6 +670,16 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   <p className="text-xs text-gray-500 mt-1">Day of the month when work order should be created (1-31)</p>
                 </div>
               )}
+
+              <div>
+                <Label>Next Execution Date</Label>
+                <Input
+                  type="date"
+                  value={formData.nextExecution}
+                  onChange={(e) => setFormData({ ...formData, nextExecution: e.target.value })}
+                />
+                <p className="text-xs text-gray-500 mt-1">Date when the next work order will be created</p>
+              </div>
 
               <div className="pt-4 border-t">
                 <Button
