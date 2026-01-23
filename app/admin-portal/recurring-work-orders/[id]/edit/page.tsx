@@ -64,7 +64,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
   const [showAdvancedInvoice, setShowAdvancedInvoice] = useState(false);
   const [recurringWorkOrder, setRecurringWorkOrder] = useState<RecurringWorkOrder | null>(null);
 
-  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'] as const;
+  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -126,6 +126,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           if (pattern.type === 'weekly' && pattern.interval === 2) recurrencePatternLabel = 'BI-WEEKLY';
           else if (pattern.type === 'monthly' && pattern.interval === 6) recurrencePatternLabel = 'SEMIANNUALLY';
           else if (pattern.type === 'monthly' && pattern.interval === 3) recurrencePatternLabel = 'QUARTERLY';
+          else if (pattern.type === 'monthly' && pattern.interval === 2) recurrencePatternLabel = 'BI-MONTHLY';
           else if (pattern.type === 'monthly' && pattern.interval === 1) recurrencePatternLabel = 'MONTHLY';
         }
 
@@ -398,6 +399,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; }
     else if (label === 'QUARTERLY') { type = 'monthly'; interval = 3; }
     else if (label === 'MONTHLY') { type = 'monthly'; interval = 1; }
+    else if (label === 'BI-MONTHLY') { type = 'monthly'; interval = 2; }
     else if (label === 'BI-WEEKLY') { type = 'weekly'; interval = 2; }
     setFormData({
       ...formData,

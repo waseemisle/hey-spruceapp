@@ -133,6 +133,8 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
     return { type: 'monthly', interval: 3 };
   } else if (upper === 'MONTHLY') {
     return { type: 'monthly', interval: 1 };
+  } else if (upper === 'BI-MONTHLY') {
+    return { type: 'monthly', interval: 2 };
   } else if (upper === 'BI-WEEKLY') {
     return { type: 'weekly', interval: 2 };
   } else if (upper === 'WEEKLY') {
@@ -763,7 +765,7 @@ export async function POST(request: NextRequest) {
 
         // Map frequency to recurrence pattern (use default if missing)
         const frequencyLabel = (row.frequencyLabel || 'QUARTERLY').toUpperCase().trim();
-        const validLabels = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'] as const;
+        const validLabels = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
         const recurrencePatternLabel = validLabels.includes(frequencyLabel as any) ? (frequencyLabel as (typeof validLabels)[number]) : 'QUARTERLY';
         const recurrenceConfig = mapFrequencyToRecurrencePattern(recurrencePatternLabel);
         

@@ -203,7 +203,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
   const formatRecurrencePattern = (rwo: RecurringWorkOrder | null) => {
     if (!rwo) return 'Unknown pattern';
     const label = (rwo as any).recurrencePatternLabel;
-    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'].includes(label)) return label;
+    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'].includes(label)) return label;
     const pattern = rwo.recurrencePattern as { type: string; interval: number; customPattern?: string } | undefined;
     if (!pattern) return 'Unknown pattern';
     if (pattern.type === 'daily') return `Every ${pattern.interval} day(s)`;

@@ -123,7 +123,7 @@ export default function ClientRecurringWorkOrderDetails() {
 
   const formatRecurrencePattern = (rwo: { recurrencePattern?: any; recurrencePatternLabel?: string }) => {
     const label = (rwo as any).recurrencePatternLabel;
-    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'].includes(label)) return label;
+    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'].includes(label)) return label;
     const pattern = rwo.recurrencePattern;
     if (!pattern) return 'Unknown pattern';
     if (pattern.type === 'weekly') return `Every ${pattern.interval} week(s)`;

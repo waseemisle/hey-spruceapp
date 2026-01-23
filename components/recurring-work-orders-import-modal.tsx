@@ -123,7 +123,7 @@ export default function RecurringWorkOrdersImportModal({
     );
   };
 
-  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'] as const;
+  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
 
   const handleRecurrencePatternChange = (rowNumber: number, value: string) => {
     const normalized = value.toUpperCase() as typeof RECURRENCE_PATTERN_OPTIONS[number];
@@ -506,8 +506,8 @@ export default function RecurringWorkOrdersImportModal({
         frequencyLabel = 'QUARTERLY';
       }
       
-      // Validate frequency label value – only allow the four Recurrence Pattern options
-      if (!['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'].includes(frequencyLabel)) {
+      // Validate frequency label value – only allow the five Recurrence Pattern options
+      if (!['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'].includes(frequencyLabel)) {
         if (frequencyLabel === 'WEEKLY') frequencyLabel = 'BI-WEEKLY';
         else frequencyLabel = 'QUARTERLY';
       }

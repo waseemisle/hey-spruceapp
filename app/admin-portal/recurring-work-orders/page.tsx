@@ -278,7 +278,7 @@ export default function RecurringWorkOrdersManagement() {
 
   const formatRecurrencePattern = (rwo: RecurringWorkOrder) => {
     const label = (rwo as any).recurrencePatternLabel;
-    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-WEEKLY'].includes(label)) {
+    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'].includes(label)) {
       return label;
     }
     const pattern = rwo.recurrencePattern as { type: string; interval: number; customPattern?: string } | undefined;
