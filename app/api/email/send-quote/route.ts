@@ -104,10 +104,20 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error sending quote email:', error);
+  } catch (error: any) {
+    console.error('❌ Error sending quote email:', error);
+    console.error('❌ Error details:', error.message || error);
+    
+    const errorMessage = error.message || String(error);
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('SENDGRID');
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Failed to send quote email',
+        details: errorMessage,
+        configError: isConfigError,
+        suggestion: isConfigError ? 'Please configure SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables. See SENDGRID_SETUP.md for instructions.' : undefined
+      },
       { status: 500 }
     );
   }
