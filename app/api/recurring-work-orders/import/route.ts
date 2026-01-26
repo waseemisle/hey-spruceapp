@@ -881,6 +881,105 @@ export async function POST(request: NextRequest) {
         const docRef = await addDoc(collection(db, 'recurringWorkOrders'), recurringWorkOrderData);
         console.log(`Row ${i + 1}: Successfully created recurring work order with ID: ${docRef.id}`);
         created.push(workOrderNumber);
+
+        // Create executions and Standard Work Orders for each execution date
+        if (nextServiceDates && nextServiceDates.length > 0) {
+          console.log(`Row ${i + 1}: Creating ${nextServiceDates.length} execution(s) and Standard Work Order(s)`);
+          
+          for (let execIndex = 0; execIndex < nextServiceDates.length; execIndex++) {
+            const executionDate = nextServiceDates[execIndex];
+            const executionNumber = execIndex + 1;
+            
+            try {
+              // Create execution record
+              const executionData = {
+                recurringWorkOrderId: docRef.id,
+                executionNumber: executionNumber,
+                scheduledDate: Timestamp.fromDate(executionDate),
+                status: 'pending',
+                emailSent: false,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              };
+              
+              const executionRef = await addDoc(collection(db, 'recurringWorkOrderExecutions'), executionData);
+              console.log(`Row ${i + 1}: Created execution #${executionNumber} (ID: ${executionRef.id}) for date ${executionDate.toLocaleDateString()}`);
+              
+              // Create Standard Work Order for this execution
+              const standardWorkOrderNumber = `WO-${Date.now().toString().slice(-8).toUpperCase()}-EX${executionNumber}-${execIndex}`;
+              const standardWorkOrderData: any = {
+                workOrderNumber: standardWorkOrderNumber,
+                clientId: clientId,
+                clientName: clientData.fullName || 'Unknown Client',
+                clientEmail: clientData.email || '',
+                locationId: locationId,
+                location: {
+                  id: locationId,
+                  locationName: locationData.locationName || row.restaurant,
+                },
+                locationName: locationData.locationName || row.restaurant,
+                locationAddress: locationData.address && typeof locationData.address === 'object'
+                  ? `${locationData.address.street || ''}, ${locationData.address.city || ''}, ${locationData.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
+                  : (locationData.address || 'N/A'),
+                title: `${row.serviceType} - ${locationData.locationName || row.restaurant} - Execution #${executionNumber}`,
+                description: `${row.notes || `${row.serviceType} recurring service`}\n\nThis work order was created from Recurring Work Order ${workOrderNumber}, Execution #${executionNumber}. Scheduled Date: ${executionDate.toLocaleDateString()}.`,
+                category: row.serviceType,
+                categoryId: categoryId,
+                priority: 'medium' as const,
+                estimateBudget: null, // No estimate budget from CSV
+                status: 'approved' as const, // Start as approved since it's from a recurring work order
+                images: [],
+                scheduledServiceDate: Timestamp.fromDate(executionDate),
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                // Link back to recurring work order and execution
+                recurringWorkOrderId: docRef.id,
+                recurringWorkOrderNumber: workOrderNumber,
+                executionId: executionRef.id,
+                executionNumber: executionNumber,
+                isFromRecurringWorkOrder: true,
+              };
+
+              // Add company info if available
+              if (companyId && companyData) {
+                standardWorkOrderData.companyId = companyId;
+                standardWorkOrderData.companyName = companyData.name || '';
+              }
+
+              // Add subcontractor if pre-assigned
+              if (row.subcontractorId) {
+                try {
+                  const subcontractorDoc = await getDoc(doc(db, 'subcontractors', row.subcontractorId));
+                  if (subcontractorDoc.exists()) {
+                    const subcontractorData = subcontractorDoc.data();
+                    standardWorkOrderData.assignedTo = row.subcontractorId;
+                    standardWorkOrderData.assignedToName = subcontractorData.fullName || '';
+                    standardWorkOrderData.assignedToEmail = subcontractorData.email || '';
+                    standardWorkOrderData.assignedAt = serverTimestamp();
+                    standardWorkOrderData.status = 'assigned';
+                  }
+                } catch (error) {
+                  console.warn(`Row ${i + 1}: Could not find subcontractor for execution #${executionNumber}`, error);
+                }
+              }
+
+              // Create the Standard Work Order
+              const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);
+              console.log(`Row ${i + 1}: Created Standard Work Order ${standardWorkOrderNumber} (ID: ${standardWorkOrderRef.id}) for Execution #${executionNumber}`);
+              
+              // Update execution with work order reference
+              await updateDoc(executionRef, {
+                workOrderId: standardWorkOrderRef.id,
+                workOrderNumber: standardWorkOrderNumber,
+                updatedAt: serverTimestamp(),
+              });
+              
+            } catch (execError: any) {
+              console.error(`Row ${i + 1}: Error creating execution #${executionNumber} or Standard Work Order:`, execError);
+              // Continue with other executions even if one fails
+            }
+          }
+        }
       } catch (error: any) {
         console.error(`Error processing row ${i + 1}:`, error);
         console.error(`Error details:`, {

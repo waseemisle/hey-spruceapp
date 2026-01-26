@@ -429,6 +429,13 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                         const isPast = dateObj < new Date();
                         const isToday = dateObj.toDateString() === new Date().toDateString();
                         
+                        // Find matching execution for this date
+                        const matchingExecution = executions.find(exec => {
+                          const execDate = exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate);
+                          return execDate.toDateString() === dateObj.toDateString() || 
+                                 Math.abs(execDate.getTime() - dateObj.getTime()) < 24 * 60 * 60 * 1000; // Within 24 hours
+                        });
+                        
                         return (
                           <div
                             key={index}
@@ -462,12 +469,25 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                 </div>
                               </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {isPast
-                                ? 'Past'
-                                : isToday
-                                ? 'Today'
-                                : `${Math.ceil((dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days away`}
+                            <div className="flex items-center gap-2">
+                              {matchingExecution?.workOrderId ? (
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  onClick={() => window.open(`/admin-portal/work-orders/${matchingExecution.workOrderId}`, '_blank')}
+                                  className="text-xs"
+                                >
+                                  View Work Order <ExternalLink className="h-3 w-3 ml-1" />
+                                </Button>
+                              ) : (
+                                <div className="text-xs text-gray-500">
+                                  {isPast
+                                    ? 'Past'
+                                    : isToday
+                                    ? 'Today'
+                                    : `${Math.ceil((dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days away`}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );

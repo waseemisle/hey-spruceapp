@@ -123,6 +123,58 @@ export async function POST(request: NextRequest) {
 
       const workOrderPdfBase64 = getWorkOrderPDFBase64(workOrderData);
       
+      // Create Standard Work Order for this execution
+      const standardWorkOrderNumber = `WO-${Date.now().toString().slice(-8).toUpperCase()}-EX${executionNumber}`;
+      const standardWorkOrderData: any = {
+        workOrderNumber: standardWorkOrderNumber,
+        clientId: recurringWorkOrder.clientId,
+        clientName: recurringWorkOrder.clientName,
+        clientEmail: recurringWorkOrder.clientEmail,
+        locationId: recurringWorkOrder.locationId,
+        location: {
+          id: recurringWorkOrder.locationId,
+          locationName: recurringWorkOrder.locationName || '',
+        },
+        locationName: recurringWorkOrder.locationName,
+        locationAddress: recurringWorkOrder.locationAddress,
+        title: `${recurringWorkOrder.title} - Execution #${executionNumber}`,
+        description: `${recurringWorkOrder.description}\n\nThis work order was created from Recurring Work Order ${recurringWorkOrder.workOrderNumber}, Execution #${executionNumber}. Scheduled Date: ${nextExecution.toLocaleDateString()}.`,
+        category: recurringWorkOrder.category,
+        categoryId: recurringWorkOrder.categoryId || '',
+        priority: recurringWorkOrder.priority,
+        estimateBudget: recurringWorkOrder.estimateBudget,
+        status: 'approved', // Start as approved since it's from a recurring work order
+        images: [],
+        scheduledServiceDate: nextExecution,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        // Link back to recurring work order and execution
+        recurringWorkOrderId: recurringWorkOrderId,
+        recurringWorkOrderNumber: recurringWorkOrder.workOrderNumber,
+        executionId: executionRef.id,
+        executionNumber: executionNumber,
+        isFromRecurringWorkOrder: true,
+      };
+
+      // Add company info if available
+      if (recurringWorkOrder.companyId) {
+        standardWorkOrderData.companyId = recurringWorkOrder.companyId;
+        standardWorkOrderData.companyName = recurringWorkOrder.companyName;
+      }
+
+      // Add subcontractor if pre-assigned
+      if (recurringWorkOrder.subcontractorId) {
+        standardWorkOrderData.assignedTo = recurringWorkOrder.subcontractorId;
+        standardWorkOrderData.assignedToName = recurringWorkOrder.subcontractorName;
+        standardWorkOrderData.assignedToEmail = recurringWorkOrder.subcontractorEmail;
+        standardWorkOrderData.assignedAt = serverTimestamp();
+        standardWorkOrderData.status = 'assigned';
+      }
+
+      // Create the Standard Work Order
+      const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);
+      console.log(`Created Standard Work Order ${standardWorkOrderNumber} (ID: ${standardWorkOrderRef.id}) for Execution #${executionNumber}`);
+      
       // Create Stripe payment link
       const stripePaymentLink = await createStripePaymentLink({
         amount: recurringWorkOrder.estimateBudget || 0,
@@ -139,6 +191,8 @@ export async function POST(request: NextRequest) {
         status: 'executed',
         executedDate: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        workOrderId: standardWorkOrderRef.id, // Link to the created Standard Work Order
+        workOrderNumber: standardWorkOrderNumber,
         // Store invoice data for PDF generation on-demand
         invoiceData: {
           invoiceNumber: invoiceData.invoiceNumber,
