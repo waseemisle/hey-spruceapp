@@ -17,11 +17,10 @@ export async function calculateWorkOrdersData(
       // Admin sees all work orders
       workOrdersQuery = query(collection(dbInstance, 'workOrders'));
     } else if (portalType === 'client') {
-      // Client sees work orders for their assigned locations or clientId
-      if (assignedLocations && assignedLocations.length > 0) {
-        // Query in batches if needed (Firestore 'in' limit is 10)
+      // Client sees work orders for their assigned locations AND by clientId (so none are missed)
+      if (assignedLocations && assignedLocations.length > 0 && userId) {
         const batchSize = 10;
-        let allWorkOrders: DocumentData[] = [];
+        const byId = new Map<string, DocumentData>();
 
         for (let i = 0; i < assignedLocations.length; i += batchSize) {
           const batch = assignedLocations.slice(i, i + batchSize);
@@ -30,9 +29,18 @@ export async function calculateWorkOrdersData(
             where('locationId', 'in', batch)
           );
           const snapshot = await getDocs(workOrdersQuery);
-          allWorkOrders = [...allWorkOrders, ...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))];
+          snapshot.docs.forEach(d => byId.set(d.id, { id: d.id, ...d.data() }));
         }
 
+        // Also fetch by clientId so work orders linked to client but not in assignedLocations are included
+        workOrdersQuery = query(
+          collection(dbInstance, 'workOrders'),
+          where('clientId', '==', userId)
+        );
+        const clientIdSnapshot = await getDocs(workOrdersQuery);
+        clientIdSnapshot.docs.forEach(d => byId.set(d.id, { id: d.id, ...d.data() }));
+
+        const allWorkOrders = Array.from(byId.values());
         return processWorkOrdersData(allWorkOrders);
       } else {
         // Fallback to clientId

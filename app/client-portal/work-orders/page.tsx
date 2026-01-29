@@ -124,11 +124,26 @@ function ClientWorkOrdersContent() {
             return;
           }
 
-          // Fetch work orders based on assigned locations with batching for Firestore 'in' limitation
+          // Fetch work orders: by assigned locations (batched) AND by clientId so we don't miss any
           if (assignedLocations.length > 0) {
             // Firestore 'in' query limited to 10 items, so we need to batch
             const batchSize = 10;
             const unsubscribes: (() => void)[] = [];
+
+            const mergeAndSort = (prev: WorkOrder[], incoming: WorkOrder[], removeLocationIds?: string[]) => {
+              let base = prev;
+              if (removeLocationIds?.length) {
+                base = prev.filter(wo => !removeLocationIds.includes(wo.locationId));
+              }
+              const combined = [...base, ...incoming];
+              return Array.from(
+                new Map(combined.map(wo => [wo.id, wo])).values()
+              ).sort((a, b) => {
+                const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
+                const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
+                return bTime.getTime() - aTime.getTime();
+              });
+            };
 
             for (let i = 0; i < assignedLocations.length; i += batchSize) {
               const batch = assignedLocations.slice(i, i + batchSize);
@@ -146,22 +161,7 @@ function ClientWorkOrdersContent() {
                     ...doc.data(),
                   })) as WorkOrder[];
 
-                  // Update work orders by merging all batches
-                  setWorkOrders(prev => {
-                    // Remove work orders from this batch first
-                    const filtered = prev.filter(wo => !batch.includes(wo.locationId));
-                    // Add new batch work orders
-                    const combined = [...filtered, ...batchWorkOrders];
-                    // Remove duplicates and sort by createdAt
-                    const unique = Array.from(
-                      new Map(combined.map(wo => [wo.id, wo])).values()
-                    ).sort((a, b) => {
-                      const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt);
-                      const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt);
-                      return bTime.getTime() - aTime.getTime();
-                    });
-                    return unique;
-                  });
+                  setWorkOrders(prev => mergeAndSort(prev, batchWorkOrders, batch));
                   setLoading(false);
                 },
                 (error) => {
@@ -172,6 +172,29 @@ function ClientWorkOrdersContent() {
 
               unsubscribes.push(unsubscribe);
             }
+
+            // Also fetch by clientId so work orders linked to client but not in assignedLocations are included
+            const clientIdQuery = query(
+              collection(db, 'workOrders'),
+              where('clientId', '==', user.uid),
+              orderBy('createdAt', 'desc')
+            );
+            const clientIdUnsubscribe = onSnapshot(
+              clientIdQuery,
+              (snapshot) => {
+                const clientIdWorkOrders = snapshot.docs.map(doc => ({
+                  id: doc.id,
+                  ...doc.data(),
+                })) as WorkOrder[];
+                setWorkOrders(prev => mergeAndSort(prev, clientIdWorkOrders));
+                setLoading(false);
+              },
+              (error) => {
+                console.error('Error fetching work orders by clientId:', error);
+                setLoading(false);
+              }
+            );
+            unsubscribes.push(clientIdUnsubscribe);
 
             unsubscribeWorkOrders = () => {
               unsubscribes.forEach(unsub => unsub());
