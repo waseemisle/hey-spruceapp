@@ -28,6 +28,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     messages: 0,
   });
   const [hasMaintenancePermission, setHasMaintenancePermission] = useState(false);
+  const [hasMaintenanceRequestsWorkOrdersPermission, setHasMaintenanceRequestsWorkOrdersPermission] = useState(false);
   const [hasViewSubcontractorsPermission, setHasViewSubcontractorsPermission] = useState(false);
   const [hasRecurringWorkOrdersPermission, setHasRecurringWorkOrdersPermission] = useState(false);
   const [firebaseInstances, setFirebaseInstances] = useState({
@@ -107,6 +108,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           // Check maintenance requests permission
           const permissions = clientData.permissions || {};
           setHasMaintenancePermission(permissions.viewMaintenanceRequests || false);
+          setHasMaintenanceRequestsWorkOrdersPermission(permissions.viewMaintenanceRequestsWorkOrders || false);
           setHasViewSubcontractorsPermission(permissions.viewSubcontractors || false);
           setHasRecurringWorkOrdersPermission(permissions.viewRecurringWorkOrders || false);
           setLoading(false);
@@ -208,6 +210,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: null },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: null },
     ...(hasMaintenancePermission ? [{ name: 'Maintenance Requests', href: '/client-portal/maintenance-requests', icon: Wrench, badgeKey: null }] : []),
+    ...(hasMaintenanceRequestsWorkOrdersPermission ? [{ name: 'Maintenance Requests Work Orders', href: '/client-portal/work-orders/maintenance-requests', icon: Wrench, badgeKey: null }] : []),
     ...(hasRecurringWorkOrdersPermission ? [{ name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null }] : []),
     ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },

@@ -30,6 +30,7 @@ interface Client {
   permissions?: {
     shareForBidding?: boolean;
     viewMaintenanceRequests?: boolean;
+    viewMaintenanceRequestsWorkOrders?: boolean;
     approveRejectOrder?: boolean;
     rejectedWorkOrders?: boolean;
     viewSubcontractors?: boolean;
@@ -75,6 +76,7 @@ export default function CompaniesPermissions() {
         permissionsMap[client.id] = {
           shareForBidding: client.permissions?.shareForBidding || false,
           viewMaintenanceRequests: client.permissions?.viewMaintenanceRequests || false,
+          viewMaintenanceRequestsWorkOrders: client.permissions?.viewMaintenanceRequestsWorkOrders || false,
           approveRejectOrder: client.permissions?.approveRejectOrder || false,
           rejectedWorkOrders: client.permissions?.rejectedWorkOrders || false,
           viewSubcontractors: client.permissions?.viewSubcontractors || false,
@@ -95,7 +97,7 @@ export default function CompaniesPermissions() {
     fetchAll();
   }, []);
 
-  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests' | 'approveRejectOrder' | 'rejectedWorkOrders' | 'viewSubcontractors' | 'compareQuotes' | 'viewRecurringWorkOrders', value: boolean) => {
+  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests' | 'viewMaintenanceRequestsWorkOrders' | 'approveRejectOrder' | 'rejectedWorkOrders' | 'viewSubcontractors' | 'compareQuotes' | 'viewRecurringWorkOrders', value: boolean) => {
     setClientPermissions((prev) => ({
       ...prev,
       [clientId]: {
@@ -222,6 +224,7 @@ export default function CompaniesPermissions() {
                               const permissions = clientPermissions[client.id] || {
                                 shareForBidding: false,
                                 viewMaintenanceRequests: false,
+                                viewMaintenanceRequestsWorkOrders: false,
                                 approveRejectOrder: false,
                                 rejectedWorkOrders: false,
                                 viewSubcontractors: false,
@@ -308,6 +311,37 @@ export default function CompaniesPermissions() {
                                             </p>
                                           </div>
                                           {permissions.viewMaintenanceRequests ? (
+                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                          ) : (
+                                            <XCircle className="h-5 w-5 text-gray-300" />
+                                          )}
+                                        </div>
+
+                                        {/* Permission: Maintenance Requests Work Orders */}
+                                        <div className="flex items-start gap-3">
+                                          <Checkbox
+                                            id={`maint-work-orders-${client.id}`}
+                                            checked={permissions.viewMaintenanceRequestsWorkOrders || false}
+                                            onCheckedChange={(checked) =>
+                                              handlePermissionChange(
+                                                client.id,
+                                                'viewMaintenanceRequestsWorkOrders',
+                                                checked === true
+                                              )
+                                            }
+                                          />
+                                          <div className="flex-1">
+                                            <Label
+                                              htmlFor={`maint-work-orders-${client.id}`}
+                                              className="font-medium cursor-pointer"
+                                            >
+                                              Maintenance Requests Work Orders
+                                            </Label>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              Allows this client to view maintenance requests work orders in their portal. The nav will show as &quot;Maintenance Requests Work Orders&quot;.
+                                            </p>
+                                          </div>
+                                          {permissions.viewMaintenanceRequestsWorkOrders ? (
                                             <CheckCircle2 className="h-5 w-5 text-green-500" />
                                           ) : (
                                             <XCircle className="h-5 w-5 text-gray-300" />

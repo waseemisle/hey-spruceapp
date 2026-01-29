@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, updateDoc, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -36,6 +37,7 @@ interface WorkOrder {
   scheduledServiceTime?: string;
   scheduleSharedWithClient?: boolean;
   assignedToName?: string;
+  isMaintenanceRequestOrder?: boolean;
 }
 
 interface Subcontractor {
@@ -47,8 +49,11 @@ interface Subcontractor {
   matchesCategory?: boolean;
 }
 
-export default function ClientWorkOrders() {
+function ClientWorkOrdersContent() {
   const { auth, db } = useFirebaseInstance();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const workOrderType = searchParams?.get('type') || 'all'; // 'all' or 'maintenance'
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -112,6 +117,12 @@ export default function ClientWorkOrders() {
           // Check for Share for Bidding permission
           const hasSharePermission = clientData?.permissions?.shareForBidding === true;
           setHasShareForBiddingPermission(hasSharePermission);
+
+          // If viewing maintenance requests work orders, require permission
+          if (workOrderType === 'maintenance' && !clientData?.permissions?.viewMaintenanceRequestsWorkOrders) {
+            router.replace('/client-portal/work-orders');
+            return;
+          }
 
           // Fetch work orders based on assigned locations with batching for Firestore 'in' limitation
           if (assignedLocations.length > 0) {
@@ -202,7 +213,7 @@ export default function ClientWorkOrders() {
       unsubscribeAuth();
       unsubscribeWorkOrders?.();
     };
-  }, [auth, db]);
+  }, [auth, db, workOrderType, router]);
 
   const getStatusBadge = (status: string) => {
     const normalized = normalizeStatus(status);
@@ -510,7 +521,12 @@ export default function ClientWorkOrders() {
     }
   };
 
-  const filteredWorkOrders = workOrders.filter(wo => {
+  // When type=maintenance, only show work orders created from maintenance requests
+  const workOrdersToShow = workOrderType === 'maintenance'
+    ? workOrders.filter(wo => wo.isMaintenanceRequestOrder === true)
+    : workOrders;
+
+  const filteredWorkOrders = workOrdersToShow.filter(wo => {
     const statusMatch = filter === 'all' || normalizeStatus(wo.status) === filter;
 
     const searchLower = searchQuery.toLowerCase();
@@ -525,10 +541,10 @@ export default function ClientWorkOrders() {
   });
 
   const getStatusCount = (value: string) =>
-    workOrders.filter(wo => normalizeStatus(wo.status) === value).length;
+    workOrdersToShow.filter(wo => normalizeStatus(wo.status) === value).length;
 
   const filterOptions = [
-    { value: 'all', label: 'All', count: workOrders.length },
+    { value: 'all', label: 'All', count: workOrdersToShow.length },
     { value: 'pending', label: 'Pending', count: getStatusCount('pending') },
     { value: 'approved', label: 'Approved', count: getStatusCount('approved') },
     { value: 'bidding', label: 'Bidding', count: getStatusCount('bidding') },
@@ -552,15 +568,21 @@ export default function ClientWorkOrders() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Work Orders</h1>
-            <p className="text-gray-600 mt-2">Manage your maintenance requests</p>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {workOrderType === 'maintenance' ? 'Maintenance Requests Work Orders' : 'Work Orders'}
+            </h1>
+            <p className="text-gray-600 mt-2">
+              {workOrderType === 'maintenance' ? 'Work orders created from maintenance requests' : 'Manage your maintenance requests'}
+            </p>
           </div>
-          <Link href="/client-portal/work-orders/create">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Work Order
-            </Button>
-          </Link>
+          {workOrderType !== 'maintenance' && (
+            <Link href="/client-portal/work-orders/create">
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Work Order
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Search Bar */}
@@ -958,5 +980,19 @@ export default function ClientWorkOrders() {
         </div>
       )}
     </ClientLayout>
+  );
+}
+
+export default function ClientWorkOrders() {
+  return (
+    <Suspense fallback={
+      <ClientLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </ClientLayout>
+    }>
+      <ClientWorkOrdersContent />
+    </Suspense>
   );
 }
