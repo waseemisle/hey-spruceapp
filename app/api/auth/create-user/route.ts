@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/sendgrid';
+import { sendEmail } from '@/lib/mailgun';
 
 export async function POST(request: Request) {
   try {
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
 
       const resetLink = `${baseUrl}/set-password?token=${setupToken}`;
 
-      // Send invitation email directly using sendEmail
+      // Send invitation email directly using sendEmail (Mailgun)
       try {
         const fullName = userData.fullName || 'User';
         const roleTitle = role === 'subcontractor' ? 'Subcontractor' :
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
           </html>
         `;
 
-        // Send email via SendGrid
+        // Send email via Mailgun
         await sendEmail({
           to: email,
           subject: `Welcome to Hey Spruce - Set Up Your ${roleTitle} Account`,
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
         });
 
         emailSent = true;
-        console.log('✅ Invitation email sent successfully via SendGrid to:', email);
+        console.log('✅ Invitation email sent successfully via Mailgun to:', email);
       } catch (err: any) {
         emailError = err.message || String(err);
         console.error('❌ Error sending invitation email:', err);

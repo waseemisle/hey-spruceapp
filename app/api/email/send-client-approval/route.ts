@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/sendgrid';
+import { sendEmail } from '@/lib/mailgun';
 
 export async function POST(request: NextRequest) {
   try {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
-    // Send email via SendGrid
+    // Send email via Mailgun
     await sendEmail({
       to: toEmail,
       subject: 'Your Hey Spruce Account Has Been Approved!',
@@ -99,14 +99,16 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error details:', error.message || error);
     
     const errorMessage = error.message || String(error);
-    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('SENDGRID');
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     
     return NextResponse.json(
       {
         error: 'Failed to send client approval email',
         details: errorMessage,
         configError: isConfigError,
-        suggestion: isConfigError ? 'Please configure SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables. See SENDGRID_SETUP.md for instructions.' : undefined
+        suggestion: isConfigError
+          ? 'Please configure MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM_EMAIL environment variables.'
+          : undefined
       },
       { status: 500 }
     );

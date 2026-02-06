@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/sendgrid';
+import { sendEmail } from '@/lib/mailgun';
 import { formatAddress } from '@/lib/utils';
 
 export async function POST(request: Request) {
@@ -161,14 +161,16 @@ export async function POST(request: Request) {
     console.error('❌ Error details:', error.message || error);
     
     const errorMessage = error.message || String(error);
-    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('SENDGRID');
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     
     return NextResponse.json(
       {
         error: 'Failed to send scheduled service email',
         details: errorMessage,
         configError: isConfigError,
-        suggestion: isConfigError ? 'Please configure SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables. See SENDGRID_SETUP.md for instructions.' : undefined
+        suggestion: isConfigError
+          ? 'Please configure MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM_EMAIL environment variables.'
+          : undefined
       },
       { status: 500 }
     );
