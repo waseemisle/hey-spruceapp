@@ -135,6 +135,38 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
   };
 
+  const handleGenerateWorkOrder = async (executionId: string, executionNumber: number) => {
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/recurring-work-orders/generate-execution-work-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          executionId: executionId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create work order');
+      }
+
+      toast.success(`Work order created for Execution #${executionNumber}`);
+
+      // Refresh data
+      await fetchExecutions();
+      await fetchRecurringWorkOrder();
+    } catch (error: any) {
+      console.error('Error creating work order:', error);
+      toast.error(error.message || 'Failed to create work order');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleCreateWorkOrders = async () => {
     if (!recurringWorkOrder) return;
 
@@ -287,14 +319,6 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             </div>
           </div>
           <div className="flex gap-2">
-            <Button
-              onClick={handleCreateWorkOrders}
-              disabled={submitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Create Work Orders for All Executions
-            </Button>
             {recurringWorkOrder.status === 'active' && (
               <Button
                 onClick={handleExecuteNow}
@@ -521,17 +545,23 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                 >
                                   View Work Order <ExternalLink className="h-3 w-3 ml-1" />
                                 </Button>
+                              ) : matchingExecution ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleGenerateWorkOrder(matchingExecution.id, matchingExecution.executionNumber)}
+                                  disabled={submitting}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                                >
+                                  Generate Work Order
+                                </Button>
                               ) : (
                                 <div className="flex items-center gap-2">
-                                  <div className="text-xs text-red-600 font-semibold">
-                                    No Work Order
-                                  </div>
                                   <div className="text-xs text-gray-500">
                                     {isPast
-                                      ? '(Past)'
+                                      ? 'Past'
                                       : isToday
-                                      ? '(Today)'
-                                      : `(${Math.ceil((dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days away)`}
+                                      ? 'Today'
+                                      : `${Math.ceil((dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days away`}
                                   </div>
                                 </div>
                               )}
@@ -668,7 +698,16 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                             >
                               View <ExternalLink className="h-3 w-3 ml-1" />
                             </Button>
-                          ) : 'Not created'}
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleGenerateWorkOrder(execution.id, execution.executionNumber)}
+                              disabled={submitting}
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                            >
+                              Generate Work Order
+                            </Button>
+                          )}
                         </span>
                       </div>
                     </div>
