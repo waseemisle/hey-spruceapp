@@ -28,8 +28,6 @@ interface Quote {
   laborCost: number;
   materialCost: number;
   additionalCosts: number;
-  taxRate: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   originalAmount: number;
@@ -194,7 +192,6 @@ export default function ClientQuotes() {
               approvedQuoteAmount: quote.clientAmount || quote.totalAmount,
               approvedQuoteLaborCost: quote.laborCost,
               approvedQuoteMaterialCost: quote.materialCost,
-              approvedQuoteTaxAmount: quote.taxAmount,
               approvedQuoteLineItems: quote.lineItems || [],
             });
 

@@ -21,8 +21,6 @@ interface InvoiceData {
     amount: number;
   }>;
   subtotal: number;
-  taxRate: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   dueDate: string;
@@ -301,12 +299,6 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
     doc.text(`-$${invoice.discountAmount.toFixed(2)}`, pageWidth - 25, yPosition, { align: 'right' });
     yPosition += 6;
     doc.setTextColor(...COLORS.text);
-  }
-
-  if (invoice.taxAmount > 0) {
-    doc.text(`Tax (${invoice.taxRate}%):`, totalsX, yPosition);
-    doc.text(`$${invoice.taxAmount.toFixed(2)}`, pageWidth - 25, yPosition, { align: 'right' });
-    yPosition += 6;
   }
 
   // Separator line

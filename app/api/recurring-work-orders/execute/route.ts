@@ -92,8 +92,6 @@ export async function POST(request: NextRequest) {
           amount: recurringWorkOrder.estimateBudget || 0,
         }],
         subtotal: recurringWorkOrder.estimateBudget || 0,
-        taxRate: 0,
-        taxAmount: 0,
         discountAmount: 0,
         totalAmount: recurringWorkOrder.estimateBudget || 0,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 30 days from now

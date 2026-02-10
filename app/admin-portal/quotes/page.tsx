@@ -247,8 +247,6 @@ export default function QuotesManagement() {
         laborCost: 0,
         materialCost: 0,
         additionalCosts: 0,
-        taxRate: 0,
-        taxAmount: 0,
         discountAmount: 0,
         totalAmount,
         originalAmount: totalAmount,
@@ -510,12 +508,6 @@ export default function QuotesManagement() {
                       <div className="flex justify-between">
                         <span>Additional Costs:</span>
                         <span className="font-semibold">${(quote.additionalCosts || 0).toLocaleString()}</span>
-                      </div>
-                    )}
-                    {(quote.taxAmount || 0) > 0 && (
-                      <div className="flex justify-between">
-                        <span>Tax ({quote.taxRate || 0}%):</span>
-                        <span className="font-semibold">${(quote.taxAmount || 0).toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex justify-between pt-2 border-t border-gray-300">

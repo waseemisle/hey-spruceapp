@@ -30,8 +30,6 @@ interface Invoice {
     unitPrice: number;
     amount: number;
   }>;
-  taxRate?: number;
-  taxAmount?: number;
   discountAmount?: number;
   dueDate: any;
   stripePaymentLink?: string;
@@ -88,8 +86,6 @@ export default function ClientInvoices() {
           amount: invoice.totalAmount
         }],
         subtotal: invoice.totalAmount,
-        taxRate: invoice.taxRate || 0,
-        taxAmount: invoice.taxAmount || 0,
         discountAmount: invoice.discountAmount || 0,
         totalAmount: invoice.totalAmount,
         dueDate: invoice.dueDate?.toDate?.()?.toLocaleDateString() || 'N/A',

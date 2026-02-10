@@ -526,8 +526,6 @@ const handleLocationSelect = (locationId: string) => {
         serviceDescription: workOrder.description,
         lineItems: invoiceData.lineItems,
         subtotal: invoiceData.totalAmount,
-        taxRate: 0,
-        taxAmount: 0,
         discountAmount: 0,
         totalAmount: invoiceData.totalAmount,
         dueDate: invoiceData.dueDate.toLocaleDateString(),

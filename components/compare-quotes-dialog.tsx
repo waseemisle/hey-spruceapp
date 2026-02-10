@@ -23,8 +23,6 @@ interface Quote {
   laborCost: number;
   materialCost: number;
   additionalCosts: number;
-  taxRate: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   originalAmount: number;
@@ -146,12 +144,6 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
                         <div className="flex justify-between">
                           <span className="text-gray-600">Additional Costs:</span>
                           <span className="font-semibold">${quote.additionalCosts.toLocaleString()}</span>
-                        </div>
-                      )}
-                      {quote.taxAmount > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Tax ({(quote.taxRate * 100).toFixed(1)}%):</span>
-                          <span className="font-semibold">${quote.taxAmount.toLocaleString()}</span>
                         </div>
                       )}
                       {quote.discountAmount > 0 && (

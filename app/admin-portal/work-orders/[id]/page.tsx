@@ -63,8 +63,6 @@ interface Quote {
   laborCost: number;
   materialCost: number;
   additionalCosts: number;
-  taxRate: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   originalAmount: number;

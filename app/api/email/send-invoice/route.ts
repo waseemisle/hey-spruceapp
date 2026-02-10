@@ -61,14 +61,7 @@ export async function POST(request: Request) {
     const subtotal = servicesSubtotal + materialsSubtotal;
     // Calculate subtotal with payment fee
     const subtotalWithPaymentFee = subtotal + paymentFeeSubtotal;
-    
-    // Calculate tax (assuming 8.25% California state tax on subtotal before payment fee)
-    // But we need to work backwards from totalAmount to find tax if it's already included
-    // For now, estimate tax as difference between total and subtotal with payment fee
-    const estimatedTax = Math.max(0, totalAmount - subtotalWithPaymentFee);
-    const taxRate = estimatedTax > 0 && subtotal > 0 ? (estimatedTax / subtotal) * 100 : 8.25;
-    const taxAmount = estimatedTax > 0 ? estimatedTax : subtotal * 0.0825;
-    
+
     // Final total
     const finalTotal = totalAmount;
 
@@ -281,15 +274,9 @@ export async function POST(request: Request) {
                 <span style="font-size: 14px; color: #374151; font-weight: bold;">Subtotal:</span>
                 <span style="font-size: 14px; color: #374151; font-weight: bold;">$${subtotalWithPaymentFee.toFixed(2)}</span>
               </div>
-              ${taxAmount > 0 ? `
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                  <span style="font-size: 14px; color: #374151; font-weight: bold;">California State Tax:</span>
-                  <span style="font-size: 14px; color: #374151; font-weight: bold;">$${taxAmount.toFixed(2)}</span>
-                </div>
-              ` : ''}
               <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
                 <span style="font-size: 16px; color: #1f2937; font-weight: bold;">Total job price:</span>
-                <span style="font-size: 16px; color: #1f2937; font-weight: bold;">$${(subtotal + taxAmount).toFixed(2)}</span>
+                <span style="font-size: 16px; color: #1f2937; font-weight: bold;">$${subtotalWithPaymentFee.toFixed(2)}</span>
               </div>
               <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 2px solid #1f2937;">
                 <span style="font-size: 20px; color: #1f2937; font-weight: bold;">Amount Due:</span>

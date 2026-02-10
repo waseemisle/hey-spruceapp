@@ -56,7 +56,6 @@ export default function SubcontractorBidding() {
   const [quoteForm, setQuoteForm] = useState({
     laborCost: '',
     materialCost: '',
-    taxRate: '0.0825',
     estimatedDuration: '',
     proposedServiceDate: '',
     proposedServiceTime: '',
@@ -134,10 +133,7 @@ export default function SubcontractorBidding() {
   const calculateTotal = () => {
     const labor = parseFloat(quoteForm.laborCost) || 0;
     const material = parseFloat(quoteForm.materialCost) || 0;
-    const tax = parseFloat(quoteForm.taxRate) || 0;
-    const subtotal = labor + material;
-    const taxAmount = subtotal * tax;
-    return subtotal + taxAmount;
+    return labor + material;
   };
 
   const handleSubmitQuote = async () => {
@@ -145,6 +141,13 @@ export default function SubcontractorBidding() {
 
     if (!quoteForm.laborCost || !quoteForm.materialCost || !quoteForm.estimatedDuration || !quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
       toast.error('Please fill in all required fields (including service date and time)');
+      return;
+    }
+
+    // Validate line items - at least one must have description and amount > 0
+    const validLineItems = lineItems.filter(item => item.description && item.amount > 0);
+    if (validLineItems.length === 0) {
+      toast.error('Please add at least one line item with a description and amount');
       return;
     }
 
@@ -161,10 +164,7 @@ export default function SubcontractorBidding() {
 
       const labor = parseFloat(quoteForm.laborCost);
       const material = parseFloat(quoteForm.materialCost);
-      const taxRate = parseFloat(quoteForm.taxRate);
-      const subtotal = labor + material;
-      const taxAmount = subtotal * taxRate;
-      const total = subtotal + taxAmount;
+      const total = labor + material;
 
       // Fetch client email
       const clientDoc = await getDoc(doc(db, 'clients', selectedWorkOrder.clientId));
@@ -183,8 +183,6 @@ export default function SubcontractorBidding() {
         laborCost: labor,
         materialCost: material,
         additionalCosts: 0,
-        taxRate: taxRate,
-        taxAmount: taxAmount,
         discountAmount: 0,
         totalAmount: total,
         originalAmount: total,
@@ -337,7 +335,6 @@ export default function SubcontractorBidding() {
       setQuoteForm({
         laborCost: '',
         materialCost: '',
-        taxRate: '0.0825',
         estimatedDuration: '',
         proposedServiceDate: '',
         proposedServiceTime: '',
@@ -443,20 +440,6 @@ export default function SubcontractorBidding() {
                   </div>
 
                   <div>
-                    <Label htmlFor="taxRate">Tax Rate (decimal) *</Label>
-                    <Input
-                      id="taxRate"
-                      name="taxRate"
-                      type="number"
-                      step="0.0001"
-                      value={quoteForm.taxRate}
-                      onChange={handleQuoteFormChange}
-                      placeholder="0.0825"
-                      required
-                    />
-                  </div>
-
-                  <div>
                     <Label htmlFor="estimatedDuration">Estimated Duration *</Label>
                     <Input
                       id="estimatedDuration"
@@ -510,39 +493,43 @@ export default function SubcontractorBidding() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <Label>Line Items (Optional)</Label>
+                  <div className="flex justify-between items-center mb-2">
+                    <Label>Line Items *</Label>
                     <Button type="button" onClick={addLineItem} size="sm" variant="outline">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Item
                     </Button>
                   </div>
+                  <p className="text-xs text-gray-500 mb-4">At least one line item with a description and amount is required</p>
 
                   <div className="space-y-3">
                     {lineItems.map((item, index) => (
                       <div key={index} className="grid grid-cols-12 gap-3 items-end">
                         <div className="col-span-5">
                           <Input
-                            placeholder="Description"
+                            placeholder="Description *"
                             value={item.description}
                             onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
+                            required
                           />
                         </div>
                         <div className="col-span-2">
                           <Input
                             type="number"
-                            placeholder="Qty"
+                            placeholder="Qty *"
                             value={item.quantity}
                             onChange={(e) => handleLineItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                            required
                           />
                         </div>
                         <div className="col-span-2">
                           <Input
                             type="number"
                             step="0.01"
-                            placeholder="Unit Price"
+                            placeholder="Unit Price *"
                             value={item.unitPrice}
                             onChange={(e) => handleLineItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                            required
                           />
                         </div>
                         <div className="col-span-2">
@@ -580,18 +567,6 @@ export default function SubcontractorBidding() {
                       <div className="flex justify-between">
                         <span>Material Cost:</span>
                         <span className="font-semibold">${parseFloat(quoteForm.materialCost || '0').toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Subtotal:</span>
-                        <span className="font-semibold">
-                          ${((parseFloat(quoteForm.laborCost || '0') + parseFloat(quoteForm.materialCost || '0'))).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Tax ({(parseFloat(quoteForm.taxRate || '0') * 100).toFixed(2)}%):</span>
-                        <span className="font-semibold">
-                          ${((parseFloat(quoteForm.laborCost || '0') + parseFloat(quoteForm.materialCost || '0')) * parseFloat(quoteForm.taxRate || '0')).toFixed(2)}
-                        </span>
                       </div>
                       <div className="flex justify-between text-xl font-bold border-t pt-2">
                         <span>Total:</span>

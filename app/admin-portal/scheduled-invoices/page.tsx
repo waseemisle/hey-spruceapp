@@ -281,8 +281,6 @@ export default function ScheduledInvoicesManagement() {
         serviceDescription: schedule.description,
         lineItems: invoiceLineItems,
         subtotal: schedule.amount,
-        taxRate: 0,
-        taxAmount: 0,
         discountAmount: 0,
         totalAmount: schedule.amount,
         dueDate: dueDate.toLocaleDateString(),

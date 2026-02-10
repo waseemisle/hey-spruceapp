@@ -57,8 +57,6 @@ describe('Quotes Management - Unit Tests', () => {
         laborCost: 500,
         materialCost: 300,
         additionalCosts: 0,
-        taxAmount: 0,
-        taxRate: 0,
         status: 'pending',
         clientName: 'Test Client',
         lineItems: [],

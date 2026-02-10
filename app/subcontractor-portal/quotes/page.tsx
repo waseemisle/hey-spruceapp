@@ -17,7 +17,6 @@ interface Quote {
   clientName: string;
   laborCost: number;
   materialCost: number;
-  taxRate: number;
   totalAmount: number;
   clientAmount?: number;
   markupPercent?: number;
@@ -223,7 +222,7 @@ export default function SubcontractorQuotes() {
 
                     <div className="border-t pt-4">
                       <h4 className="font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                         <div>
                           <p className="text-gray-600">Labor Cost</p>
                           <p className="font-semibold">${(quote.laborCost || 0).toFixed(2)}</p>
@@ -231,10 +230,6 @@ export default function SubcontractorQuotes() {
                         <div>
                           <p className="text-gray-600">Material Cost</p>
                           <p className="font-semibold">${(quote.materialCost || 0).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Tax ({((quote.taxRate || 0) * 100).toFixed(1)}%)</p>
-                          <p className="font-semibold">${(((quote.laborCost || 0) + (quote.materialCost || 0)) * (quote.taxRate || 0)).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-gray-600">Total</p>

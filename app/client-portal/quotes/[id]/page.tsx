@@ -27,8 +27,6 @@ interface Quote {
   laborCost: number;
   materialCost: number;
   additionalCosts: number;
-  taxRate: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   originalAmount: number;
@@ -170,7 +168,6 @@ export default function QuoteDetail() {
               approvedQuoteAmount: quote.clientAmount || quote.totalAmount,
               approvedQuoteLaborCost: quote.laborCost,
               approvedQuoteMaterialCost: quote.materialCost,
-              approvedQuoteTaxAmount: quote.taxAmount,
               approvedQuoteLineItems: quote.lineItems || [],
             });
 
@@ -398,12 +395,6 @@ export default function QuoteDetail() {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Additional Costs:</span>
                     <span className="font-semibold">${quote.additionalCosts.toLocaleString()}</span>
-                  </div>
-                )}
-                {quote.taxAmount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tax ({quote.taxRate}%):</span>
-                    <span className="font-semibold">${quote.taxAmount.toLocaleString()}</span>
                   </div>
                 )}
                 {quote.discountAmount > 0 && (

@@ -245,8 +245,6 @@ export interface Quote {
   laborCost: number;
   materialCost: number;
   additionalCosts: number;
-  taxRate: number;
-  taxAmount: number;
   discountAmount: number;
   totalAmount: number;
   originalAmount: number;
@@ -288,8 +286,6 @@ export interface Invoice {
   laborCost: number;
   materialCost: number;
   additionalCosts: number;
-  taxRate: number;
-  taxAmount: number;
   discountAmount: number;
   lineItems: LineItem[];
   dueDate: Date;
