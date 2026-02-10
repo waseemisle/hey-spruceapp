@@ -7,7 +7,7 @@ import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -195,6 +195,12 @@ export default function ViewWorkOrder() {
             <p className="text-gray-600 mt-1">Work Order: {workOrder.workOrderNumber}</p>
           </div>
           <div className="flex gap-2">
+            <Link href={`/admin-portal/work-orders?editId=${workOrder.id}`}>
+              <Button size="sm" variant="outline">
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            </Link>
             <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(workOrder.status)}`}>
               {workOrder.status.toUpperCase()}
             </span>

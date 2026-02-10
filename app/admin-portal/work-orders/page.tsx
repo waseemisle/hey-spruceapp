@@ -256,6 +256,18 @@ const fetchCategories = async () => {
     fetchCategories();
   }, []);
 
+  // Auto-open edit modal if editId query parameter is present
+  useEffect(() => {
+    const editId = searchParams?.get('editId');
+    if (editId && workOrders.length > 0 && !loading) {
+      const workOrderToEdit = workOrders.find(wo => wo.id === editId);
+      if (workOrderToEdit) {
+        handleOpenEdit(workOrderToEdit);
+        // Clear the URL parameter after opening the modal
+        window.history.replaceState({}, '', '/admin-portal/work-orders');
+      }
+    }
+  }, [searchParams, workOrders, loading]);
 
   const handleApprove = async (workOrderId: string) => {
     try {
