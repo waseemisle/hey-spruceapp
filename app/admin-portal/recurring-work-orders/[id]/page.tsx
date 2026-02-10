@@ -135,35 +135,36 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
   };
 
-  const handleCreateExecutions = async () => {
+  const handleInitializeExecution = async (scheduledDate: Date, executionIndex: number) => {
     if (!recurringWorkOrder) return;
 
     try {
       setSubmitting(true);
-      const response = await fetch('/api/recurring-work-orders/create-executions', {
+      const response = await fetch('/api/recurring-work-orders/initialize-execution', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           recurringWorkOrderId: recurringWorkOrder.id,
+          scheduledDate: scheduledDate.toISOString(),
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create executions');
+        throw new Error(data.error || 'Failed to initialize execution');
       }
 
-      toast.success(data.message || 'Executions created successfully');
+      toast.success(`Execution #${data.executionId ? executionIndex + 1 : executionIndex + 1} initialized with work order ${data.workOrderNumber}`);
 
       // Refresh data
       await fetchExecutions();
       await fetchRecurringWorkOrder();
     } catch (error: any) {
-      console.error('Error creating executions:', error);
-      toast.error(error.message || 'Failed to create executions');
+      console.error('Error initializing execution:', error);
+      toast.error(error.message || 'Failed to initialize execution');
     } finally {
       setSubmitting(false);
     }
@@ -196,40 +197,6 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     } catch (error: any) {
       console.error('Error creating work order:', error);
       toast.error(error.message || 'Failed to create work order');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCreateWorkOrders = async () => {
-    if (!recurringWorkOrder) return;
-
-    try {
-      setSubmitting(true);
-      const response = await fetch('/api/recurring-work-orders/create-execution-work-orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          recurringWorkOrderId: recurringWorkOrder.id,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create work orders');
-      }
-
-      toast.success(data.message || 'Work orders created successfully');
-
-      // Refresh data
-      await fetchExecutions();
-      await fetchRecurringWorkOrder();
-    } catch (error: any) {
-      console.error('Error creating work orders:', error);
-      toast.error(error.message || 'Failed to create work orders');
     } finally {
       setSubmitting(false);
     }
@@ -353,16 +320,6 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             </div>
           </div>
           <div className="flex gap-2">
-            {executions.length === 0 && recurringWorkOrder.nextServiceDates && recurringWorkOrder.nextServiceDates.length > 0 && (
-              <Button
-                onClick={handleCreateExecutions}
-                disabled={submitting}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Initialize Executions
-              </Button>
-            )}
             {recurringWorkOrder.status === 'active' && (
               <Button
                 onClick={handleExecuteNow}
@@ -599,15 +556,14 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                   Generate Work Order
                                 </Button>
                               ) : (
-                                <div className="flex items-center gap-2">
-                                  <div className="text-xs text-gray-500">
-                                    {isPast
-                                      ? 'Past'
-                                      : isToday
-                                      ? 'Today'
-                                      : `${Math.ceil((dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days away`}
-                                  </div>
-                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleInitializeExecution(dateObj, index)}
+                                  disabled={submitting}
+                                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
+                                >
+                                  Initialize Execution
+                                </Button>
                               )}
                             </div>
                           </div>
