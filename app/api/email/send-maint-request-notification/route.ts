@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
       date,
       portalLink
     } = await request.json();
+    
 
     // Validate required fields
     if (!toEmail || !venue || !title) {
