@@ -135,6 +135,40 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
   };
 
+  const handleCreateExecutions = async () => {
+    if (!recurringWorkOrder) return;
+
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/recurring-work-orders/create-executions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recurringWorkOrderId: recurringWorkOrder.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create executions');
+      }
+
+      toast.success(data.message || 'Executions created successfully');
+
+      // Refresh data
+      await fetchExecutions();
+      await fetchRecurringWorkOrder();
+    } catch (error: any) {
+      console.error('Error creating executions:', error);
+      toast.error(error.message || 'Failed to create executions');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleGenerateWorkOrder = async (executionId: string, executionNumber: number) => {
     try {
       setSubmitting(true);
@@ -319,6 +353,16 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             </div>
           </div>
           <div className="flex gap-2">
+            {executions.length === 0 && recurringWorkOrder.nextServiceDates && recurringWorkOrder.nextServiceDates.length > 0 && (
+              <Button
+                onClick={handleCreateExecutions}
+                disabled={submitting}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Initialize Executions
+              </Button>
+            )}
             {recurringWorkOrder.status === 'active' && (
               <Button
                 onClick={handleExecuteNow}
