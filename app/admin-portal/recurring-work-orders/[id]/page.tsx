@@ -135,24 +135,58 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
   };
 
-  const handleExecuteNow = async () => {
+  const handleCreateWorkOrders = async () => {
     if (!recurringWorkOrder) return;
-    
+
     try {
       setSubmitting(true);
-      
+      const response = await fetch('/api/recurring-work-orders/create-execution-work-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recurringWorkOrderId: recurringWorkOrder.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create work orders');
+      }
+
+      toast.success(data.message || 'Work orders created successfully');
+
+      // Refresh data
+      await fetchExecutions();
+      await fetchRecurringWorkOrder();
+    } catch (error: any) {
+      console.error('Error creating work orders:', error);
+      toast.error(error.message || 'Failed to create work orders');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleExecuteNow = async () => {
+    if (!recurringWorkOrder) return;
+
+    try {
+      setSubmitting(true);
+
       // Find the next pending execution (sorted by execution number ascending to get the next one)
       const pendingExecutions = executions
         .filter(exec => exec.status === 'pending')
         .sort((a, b) => a.executionNumber - b.executionNumber);
-      
+
       if (pendingExecutions.length === 0) {
         toast.error('No pending executions found. Cannot execute next iteration.');
         return;
       }
-      
+
       const nextExecution = pendingExecutions[0];
-      
+
       const response = await fetch('/api/recurring-work-orders/execute', {
         method: 'POST',
         headers: {
@@ -253,6 +287,14 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              onClick={handleCreateWorkOrders}
+              disabled={submitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Create Work Orders for All Executions
+            </Button>
             {recurringWorkOrder.status === 'active' && (
               <Button
                 onClick={handleExecuteNow}
@@ -480,12 +522,17 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                   View Work Order <ExternalLink className="h-3 w-3 ml-1" />
                                 </Button>
                               ) : (
-                                <div className="text-xs text-gray-500">
-                                  {isPast
-                                    ? 'Past'
-                                    : isToday
-                                    ? 'Today'
-                                    : `${Math.ceil((dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days away`}
+                                <div className="flex items-center gap-2">
+                                  <div className="text-xs text-red-600 font-semibold">
+                                    No Work Order
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {isPast
+                                      ? '(Past)'
+                                      : isToday
+                                      ? '(Today)'
+                                      : `(${Math.ceil((dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days away)`}
+                                  </div>
                                 </div>
                               )}
                             </div>
