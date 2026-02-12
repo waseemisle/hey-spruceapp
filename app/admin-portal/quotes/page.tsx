@@ -445,9 +445,9 @@ function QuotesContent() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{quote.subcontractorName}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{quote.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">${(quote.totalAmount || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {quote.clientAmount ? `$${(quote.clientAmount || 0).toLocaleString()}` : '-'}
+                      {quote.clientAmount ? `$${(quote.clientAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(quote.status)}`}>
@@ -512,33 +512,33 @@ function QuotesContent() {
                   <div className="bg-gray-50 p-3 rounded-lg space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span>Labor Cost:</span>
-                      <span className="font-semibold">${(quote.laborCost || 0).toLocaleString()}</span>
+                      <span className="font-semibold">${(quote.laborCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Material Cost:</span>
-                      <span className="font-semibold">${(quote.materialCost || 0).toLocaleString()}</span>
+                      <span className="font-semibold">${(quote.materialCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     {(quote.additionalCosts || 0) > 0 && (
                       <div className="flex justify-between">
                         <span>Additional Costs:</span>
-                        <span className="font-semibold">${(quote.additionalCosts || 0).toLocaleString()}</span>
+                        <span className="font-semibold">${(quote.additionalCosts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     )}
                     <div className="flex justify-between pt-2 border-t border-gray-300">
                       <span className="font-bold">Subcontractor Total:</span>
-                      <span className="font-bold text-lg">${(quote.totalAmount || 0).toLocaleString()}</span>
+                      <span className="font-bold text-lg">${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     {quote.clientAmount && (
                       <>
                         <div className="flex justify-between text-purple-600">
                           <span>Markup ({quote.markupPercentage || 0}%):</span>
                           <span className="font-semibold">
-                            ${((quote.clientAmount || 0) - (quote.totalAmount || 0)).toLocaleString()}
+                            ${((quote.clientAmount || 0) - (quote.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="flex justify-between text-purple-600 font-bold">
                           <span>Client Amount:</span>
-                          <span className="text-lg">${(quote.clientAmount || 0).toLocaleString()}</span>
+                          <span className="text-lg">${(quote.clientAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                       </>
                     )}
@@ -552,7 +552,7 @@ function QuotesContent() {
                         {quote.lineItems.map((item, index) => (
                           <div key={index} className="flex justify-between text-gray-600">
                             <span>{item.description} ({item.quantity || 0}x)</span>
-                            <span>${(item.amount || 0).toLocaleString()}</span>
+                            <span>${(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                         ))}
                       </div>
@@ -582,7 +582,7 @@ function QuotesContent() {
                             max="100"
                           />
                           <div className="text-sm text-gray-600">
-                            Client will pay: ${((quote.totalAmount || 0) * (1 + parseFloat(markupPercent || '0') / 100)).toLocaleString()}
+                            Client will pay: ${((quote.totalAmount || 0) * (1 + parseFloat(markupPercent || '0') / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                           <div className="flex gap-2">
                             <Button
@@ -737,7 +737,7 @@ function QuotesContent() {
                             <div className="flex-1">
                               <Label className="text-xs">Amount</Label>
                               <div className="text-lg font-bold text-purple-600">
-                                ${(item.amount || 0).toLocaleString()}
+                                ${(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </div>
                             </div>
                             {lineItems.length > 1 && (
@@ -760,7 +760,7 @@ function QuotesContent() {
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total Amount:</span>
                       <span className="text-2xl font-bold text-purple-600">
-                        ${(calculateTotal() || 0).toLocaleString()}
+                        ${(calculateTotal() || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>

@@ -347,7 +347,7 @@ export default function ViewWorkOrder() {
                             </div>
                             <div className="text-right">
                               <p className="text-2xl font-bold text-purple-600">
-                                ${(quote.totalAmount || 0).toLocaleString()}
+                                ${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </p>
                               <p className="text-xs text-gray-500 capitalize">{quote.status}</p>
                             </div>
