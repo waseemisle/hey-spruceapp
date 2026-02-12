@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc } from 'firebase/firestore';
+import { useEffect, useState, Suspense } from 'react';
+import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FileText, DollarSign, Send, Plus, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSearchParams } from 'next/navigation';
 import { notifyQuoteSubmission } from '@/lib/notifications';
 import { useViewControls } from '@/contexts/view-controls-context';
 
@@ -61,7 +62,9 @@ interface Subcontractor {
   companyName?: string;
 }
 
-export default function QuotesManagement() {
+function QuotesContent() {
+  const searchParams = useSearchParams();
+  const workOrderIdFilter = searchParams.get('workOrderId');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -86,7 +89,9 @@ export default function QuotesManagement() {
 
   const fetchQuotes = async () => {
     try {
-      const quotesQuery = query(collection(db, 'quotes'));
+      const quotesQuery = workOrderIdFilter
+        ? query(collection(db, 'quotes'), where('workOrderId', '==', workOrderIdFilter))
+        : query(collection(db, 'quotes'));
       const snapshot = await getDocs(quotesQuery);
       const quotesData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -133,7 +138,7 @@ export default function QuotesManagement() {
     fetchQuotes();
     fetchClients();
     fetchSubcontractors();
-  }, []);
+  }, [workOrderIdFilter]);
 
   const handleApplyMarkupAndSend = async (quote: Quote, markup: number) => {
     try {
@@ -366,7 +371,16 @@ export default function QuotesManagement() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Quotes</h1>
-            <p className="text-gray-600 mt-2">Review quotes from subcontractors and forward to clients</p>
+            <p className="text-gray-600 mt-2">
+              {workOrderIdFilter
+                ? 'Showing quotes for this work order'
+                : 'Review quotes from subcontractors and forward to clients'}
+            </p>
+            {workOrderIdFilter && (
+              <a href="/admin-portal/quotes" className="text-sm text-purple-600 hover:underline mt-1 inline-block">
+                View all quotes
+              </a>
+            )}
           </div>
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -785,5 +799,19 @@ export default function QuotesManagement() {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+export default function QuotesManagement() {
+  return (
+    <Suspense fallback={
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        </div>
+      </AdminLayout>
+    }>
+      <QuotesContent />
+    </Suspense>
   );
 }
