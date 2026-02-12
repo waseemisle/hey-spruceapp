@@ -479,105 +479,123 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             </Card>
 
             {/* Work Order History Section */}
-            {recurringWorkOrder.nextServiceDates && recurringWorkOrder.nextServiceDates.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Work Order History
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {recurringWorkOrder.nextServiceDates
-                      .slice(0, 5) // Show next 5 executions
-                      .map((date, index) => {
-                        const dateObj = date instanceof Date ? date : new Date(date);
-                        const isPast = dateObj < new Date();
-                        const isToday = dateObj.toDateString() === new Date().toDateString();
-                        
-                        // Find matching execution for this date
-                        const matchingExecution = executions.find(exec => {
-                          const execDate = exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate);
-                          return execDate.toDateString() === dateObj.toDateString() || 
-                                 Math.abs(execDate.getTime() - dateObj.getTime()) < 24 * 60 * 60 * 1000; // Within 24 hours
-                        });
-                        
-                        return (
-                          <div
-                            key={index}
-                            className={`flex items-center justify-between p-3 rounded-lg border ${
-                              isPast
-                                ? 'bg-gray-50 border-gray-200'
-                                : isToday
-                                ? 'bg-blue-50 border-blue-300'
-                                : 'bg-green-50 border-green-200'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${
-                                isPast
-                                  ? 'bg-gray-400'
-                                  : isToday
-                                  ? 'bg-blue-500'
-                                  : 'bg-green-500'
-                              }`} />
-                              <div>
-                                <div className="font-semibold text-sm">
-                                  Execution #{index + 1}
+            {(() => {
+              // Use nextServiceDates if available, otherwise fall back to execution scheduled dates
+              const serviceDates = recurringWorkOrder.nextServiceDates && recurringWorkOrder.nextServiceDates.length > 0
+                ? recurringWorkOrder.nextServiceDates
+                : executions.length > 0
+                  ? executions
+                      .map(exec => exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate))
+                      .sort((a, b) => a.getTime() - b.getTime())
+                  : [];
+
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Work Order History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {serviceDates.length === 0 ? (
+                      <div className="text-center py-8">
+                        <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600">No service dates scheduled yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {serviceDates
+                          .slice(0, 5) // Show next 5 executions
+                          .map((date, index) => {
+                            const dateObj = date instanceof Date ? date : new Date(date);
+                            const isPast = dateObj < new Date();
+                            const isToday = dateObj.toDateString() === new Date().toDateString();
+
+                            // Find matching execution for this date
+                            const matchingExecution = executions.find(exec => {
+                              const execDate = exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate);
+                              return execDate.toDateString() === dateObj.toDateString() ||
+                                     Math.abs(execDate.getTime() - dateObj.getTime()) < 24 * 60 * 60 * 1000; // Within 24 hours
+                            });
+
+                            return (
+                              <div
+                                key={index}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${
+                                  isPast
+                                    ? 'bg-gray-50 border-gray-200'
+                                    : isToday
+                                    ? 'bg-blue-50 border-blue-300'
+                                    : 'bg-green-50 border-green-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    isPast
+                                      ? 'bg-gray-400'
+                                      : isToday
+                                      ? 'bg-blue-500'
+                                      : 'bg-green-500'
+                                  }`} />
+                                  <div>
+                                    <div className="font-semibold text-sm">
+                                      Execution #{index + 1}
+                                    </div>
+                                    <div className="text-xs text-gray-600">
+                                      {dateObj.toLocaleDateString('en-US', {
+                                        weekday: 'short',
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric'
+                                      })}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-xs text-gray-600">
-                                  {dateObj.toLocaleDateString('en-US', {
-                                    weekday: 'short',
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })}
+                                <div className="flex items-center gap-2">
+                                  {matchingExecution?.workOrderId ? (
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      onClick={() => window.open(`/admin-portal/work-orders/${matchingExecution.workOrderId}`, '_blank')}
+                                      className="text-xs"
+                                    >
+                                      View Work Order <ExternalLink className="h-3 w-3 ml-1" />
+                                    </Button>
+                                  ) : matchingExecution ? (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleGenerateWorkOrder(matchingExecution.id, matchingExecution.executionNumber)}
+                                      disabled={submitting}
+                                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                                    >
+                                      Generate Work Order
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleInitializeExecution(dateObj, index)}
+                                      disabled={submitting}
+                                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
+                                    >
+                                      Initialize Execution
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {matchingExecution?.workOrderId ? (
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  onClick={() => window.open(`/admin-portal/work-orders/${matchingExecution.workOrderId}`, '_blank')}
-                                  className="text-xs"
-                                >
-                                  View Work Order <ExternalLink className="h-3 w-3 ml-1" />
-                                </Button>
-                              ) : matchingExecution ? (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleGenerateWorkOrder(matchingExecution.id, matchingExecution.executionNumber)}
-                                  disabled={submitting}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                                >
-                                  Generate Work Order
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleInitializeExecution(dateObj, index)}
-                                  disabled={submitting}
-                                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
-                                >
-                                  Initialize Execution
-                                </Button>
-                              )}
-                            </div>
+                            );
+                          })}
+                        {serviceDates.length > 5 && (
+                          <div className="text-sm text-gray-500 text-center pt-2">
+                            + {serviceDates.length - 5} more execution(s)
                           </div>
-                        );
-                      })}
-                    {recurringWorkOrder.nextServiceDates.length > 5 && (
-                      <div className="text-sm text-gray-500 text-center pt-2">
-                        + {recurringWorkOrder.nextServiceDates.length - 5} more execution(s)
+                        )}
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             <Card>
               <CardHeader>
