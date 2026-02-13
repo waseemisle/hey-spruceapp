@@ -217,7 +217,6 @@ const fetchCategories = async () => {
 
       const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
       const createdByName = adminDoc.exists() ? (adminDoc.data().fullName ?? 'Admin') : 'Admin';
-      const now = new Date();
       const systemInformation = {
         createdBy: {
           id: currentUser.uid,
