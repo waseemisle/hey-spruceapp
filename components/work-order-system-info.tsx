@@ -12,9 +12,11 @@ interface WorkOrderSystemInfoProps {
   timeline?: WorkOrderTimelineEvent[];
   systemInformation?: WorkOrderSystemInformation;
   viewerRole?: 'admin' | 'client' | 'subcontractor';
+  /** Shown at top of Timeline so creation source is always visible */
+  creationSourceLabel?: string;
 }
 
-export default function WorkOrderSystemInfo({ timeline, systemInformation, viewerRole = 'admin' }: WorkOrderSystemInfoProps) {
+export default function WorkOrderSystemInfo({ timeline, systemInformation, viewerRole = 'admin', creationSourceLabel }: WorkOrderSystemInfoProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   const visibleTimeline = viewerRole === 'client'
@@ -121,6 +123,13 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation, viewe
 
       {isExpanded && (
         <CardContent className="space-y-6">
+          {/* How work order was created - always visible */}
+          {creationSourceLabel && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+              <p className="text-xs font-medium text-blue-800 mb-0.5">How this work order was created</p>
+              <p className="text-sm text-blue-900">{creationSourceLabel}</p>
+            </div>
+          )}
           {/* System Information Summary */}
           {systemInformation && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -177,7 +186,7 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation, viewe
                             {getEventLabel(event.type)}
                           </p>
                           <p className="text-sm text-gray-600 mt-0.5">
-                            {event.details}
+                            {event.details || (event.type === 'created' ? 'Work order created' : '')}
                           </p>
                           {event.metadata && Object.keys(event.metadata).length > 0 && (
                             <div className="mt-1 text-xs text-gray-500">

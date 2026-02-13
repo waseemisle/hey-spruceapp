@@ -155,10 +155,12 @@ export default function ViewWorkOrder() {
     }
   };
 
-  // Helper: get creation details from work order (so Timeline always shows how the WO was created)
-  const getCreatedDetails = (wo: WorkOrder) => {
+  // Helper: get creation details for every type of work order so Timeline always shows how the WO was created
+  const getCreatedDetails = (wo: WorkOrder, existingCreatedEvent?: { details?: string; metadata?: Record<string, unknown> }) => {
     let createdDetails = 'Work order created';
     const metadata: Record<string, any> = {};
+    const creatorName = wo.systemInformation?.createdBy?.name;
+
     if (wo.createdViaAPI || wo.isMaintenanceRequestOrder) {
       const parts = ['Work order created from Maintenance Request'];
       if (wo.maintRequestNumber) parts.push(` (${wo.maintRequestNumber})`);
@@ -173,6 +175,30 @@ export default function ViewWorkOrder() {
     } else if (wo.importedFromCSV) {
       createdDetails = `Work order created via CSV import${wo.importFileName ? ` (${wo.importFileName})` : ''}`;
       metadata.source = 'csv_import';
+    } else if (wo.systemInformation?.createdBy?.role === 'client') {
+      createdDetails = creatorName
+        ? `Work order created by ${creatorName} via Client Portal`
+        : 'Work order created via Client Portal';
+      metadata.source = 'client_portal_ui';
+    } else if (wo.systemInformation?.createdBy?.role === 'admin') {
+      createdDetails = creatorName
+        ? `Work order created by ${creatorName} via Admin Portal`
+        : 'Work order created via Admin Portal';
+      metadata.source = 'admin_portal_ui';
+    } else if (wo.systemInformation?.createdBy?.role === 'system') {
+      createdDetails = creatorName
+        ? `Work order created by ${creatorName} (system)`
+        : 'Work order created by system';
+      metadata.source = 'system';
+    } else if (existingCreatedEvent?.metadata?.source === 'client_portal_ui') {
+      createdDetails = existingCreatedEvent.details?.trim() || `Work order created via Client Portal`;
+      if (existingCreatedEvent.metadata) Object.assign(metadata, existingCreatedEvent.metadata);
+    } else if (existingCreatedEvent?.metadata?.source === 'admin_portal_ui') {
+      createdDetails = existingCreatedEvent.details?.trim() || `Work order created via Admin Portal`;
+      if (existingCreatedEvent.metadata) Object.assign(metadata, existingCreatedEvent.metadata);
+    } else if (existingCreatedEvent?.details && existingCreatedEvent.details.trim() !== '') {
+      createdDetails = existingCreatedEvent.details;
+      if (existingCreatedEvent.metadata) Object.assign(metadata, existingCreatedEvent.metadata);
     } else {
       createdDetails = 'Work order created via portal';
       metadata.source = 'portal_ui';
@@ -181,8 +207,7 @@ export default function ViewWorkOrder() {
   };
 
   // Build a complete timeline: use stored timeline events if available,
-  // otherwise synthesize from work order fields (for legacy work orders).
-  // Always ensure the "created" event shows how the work order was created.
+  // otherwise synthesize from work order fields. Always ensure a "created" event with full creation details is present.
   const buildTimeline = (wo: WorkOrder) => {
     const toDate = (val: any) => {
       if (!val) return null;
@@ -191,37 +216,35 @@ export default function ViewWorkOrder() {
       const d = new Date(val);
       return isNaN(d.getTime()) ? null : d;
     };
-    const { createdDetails, metadata: createdMetadata } = getCreatedDetails(wo);
+    const existingCreated = wo.timeline?.find((e: any) => e && String(e.type) === 'created');
+    const { createdDetails, metadata: createdMetadata } = getCreatedDetails(wo, existingCreated);
+
+    const createdEvent = {
+      id: 'created',
+      timestamp: wo.createdAt ?? null,
+      type: 'created',
+      userId: wo.createdBy || 'unknown',
+      userName: wo.systemInformation?.createdBy?.name ?? (wo.createdViaAPI ? 'Automated System' : 'Unknown'),
+      userRole: (wo.createdViaAPI ? 'system' : 'admin') as 'admin' | 'system',
+      details: createdDetails,
+      metadata: createdMetadata,
+    };
 
     if (wo.timeline && wo.timeline.length > 0) {
-      // Enrich the stored "created" event so Timeline always shows creation source
-      return wo.timeline.map((event: any) => {
-        if (event.type === 'created') {
-          return {
-            ...event,
-            details: createdDetails,
-            metadata: { ...(event.metadata || {}), ...createdMetadata },
-          };
+      let hasCreated = false;
+      const enriched = wo.timeline.map((event: any) => {
+        if (event && String(event.type) === 'created') {
+          hasCreated = true;
+          return { ...event, details: createdDetails, metadata: { ...(event.metadata || {}), ...createdMetadata } };
         }
         return event;
       });
+      if (!hasCreated) return [createdEvent, ...enriched];
+      return enriched;
     }
 
-    // Synthesize timeline from existing fields
-    const events: any[] = [];
-
-    if (wo.createdAt) {
-      events.push({
-        id: 'created',
-        timestamp: wo.createdAt,
-        type: 'created',
-        userId: wo.createdBy || 'unknown',
-        userName: wo.systemInformation?.createdBy?.name || (wo.createdViaAPI ? 'Automated System' : 'Unknown'),
-        userRole: wo.createdViaAPI ? 'system' : 'admin',
-        details: createdDetails,
-        metadata: createdMetadata,
-      });
-    }
+    // Synthesize timeline from existing fields; always include created event first
+    const events: any[] = [createdEvent];
 
     if (wo.approvedAt) {
       events.push({
@@ -585,6 +608,7 @@ export default function ViewWorkOrder() {
               timeline={buildTimeline(workOrder)}
               systemInformation={workOrder.systemInformation}
               viewerRole="admin"
+              creationSourceLabel={getCreatedDetails(workOrder, workOrder.timeline?.find((e: any) => e?.type === 'created')).createdDetails}
             />
 
             {/* Follow-up Notes - Visible after completion */}
