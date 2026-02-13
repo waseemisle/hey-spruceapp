@@ -199,14 +199,14 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation, viewe
                             {event.details || (event.type === 'created' ? 'Work order created' : '')}
                           </p>
                           {event.metadata && Object.keys(event.metadata).length > 0 && (
-                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
+                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
                               {Object.entries(event.metadata).map(([key, value]) => {
                                 const displayValue = value != null && value !== '' ? (typeof value === 'object' ? JSON.stringify(value) : String(value)) : '—';
                                 return (
-                                  <div key={key} className="flex gap-2">
-                                    <span className="font-medium text-gray-500 shrink-0">{formatMetadataKey(key)}:</span>
-                                    <span className="text-gray-700 break-words">{displayValue}</span>
-                                  </div>
+                                  <span key={key} className="inline text-gray-600">
+                                    <span className="font-medium text-gray-500">{formatMetadataKey(key)}:</span>{' '}
+                                    <span className="text-gray-700">{displayValue}</span>
+                                  </span>
                                 );
                               })}
                             </div>
