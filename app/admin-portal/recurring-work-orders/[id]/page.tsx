@@ -123,11 +123,13 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
   }, [recurringWorkOrder?.id, recurringWorkOrder?.createdBy, recurringWorkOrder?.createdByName, recurringWorkOrder?.systemInformation?.createdBy?.name]);
 
   const getCreationSourceLabel = (rwo: RecurringWorkOrder): string => {
-    if (rwo.creationSource === 'csv_import') {
-      return 'Recurring work order created via CSV import';
+    // Only attribute to a person when explicitly created via Admin Portal UI form.
+    // All other recurring work orders (CSV import or unknown) are described as CSV-created to avoid false attribution.
+    if (rwo.creationSource === 'admin_portal_ui') {
+      const creatorName = rwo.createdByName ?? rwo.systemInformation?.createdBy?.name ?? creatorDisplayName ?? 'Admin';
+      return `Recurring work order created by ${creatorName} via Admin Portal`;
     }
-    const creatorName = rwo.createdByName ?? rwo.systemInformation?.createdBy?.name ?? creatorDisplayName ?? 'Admin';
-    return `Recurring work order created by ${creatorName} via Admin Portal`;
+    return 'Recurring work order created via CSV import';
   };
 
   const buildSystemInformation = (rwo: RecurringWorkOrder): WorkOrderSystemInformation => {
@@ -149,7 +151,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     const stored = rwo.timeline;
     const createdAt = rwo.createdAt instanceof Date ? rwo.createdAt : new Date(rwo.createdAt);
     const name = rwo.createdByName ?? rwo.systemInformation?.createdBy?.name ?? creatorDisplayName ?? 'Unknown';
-    const source = rwo.creationSource === 'csv_import' ? 'csv_import' : 'admin_portal_ui';
+    const source = rwo.creationSource === 'admin_portal_ui' ? 'admin_portal_ui' : 'csv_import';
     const createdEvent: WorkOrderTimelineEvent = {
       id: 'created',
       timestamp: createdAt,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import sharp from 'sharp';
+import { APPY_CLIENT_ID, APPY_CLIENT_DISPLAY_NAME, APPY_CLIENT_EMAIL } from '@/lib/appy-client';
 
 // Route segment config - Next.js 14 format
 export const dynamic = 'force-dynamic';
@@ -511,12 +512,12 @@ export async function POST(request: Request) {
       };
 
       // Create work order
-      // For APPY API requests, always set client to Jessica
+      // For APPY API requests, always set client to Jessica Cabrera-Olimon
       const workOrderRef = await addDoc(collection(db, 'workOrders'), {
         workOrderNumber,
-        clientId: 'UDPSxyTkDIcJijrMCVsb0pcOTpU2', // Always set to Jessica for APPY API requests
-        clientName: 'Jessica', // Always set to Jessica for APPY API requests
-        clientEmail: 'jolimon@hwoodgroup.com', // Always set to Jessica's email for APPY API requests
+        clientId: APPY_CLIENT_ID,
+        clientName: APPY_CLIENT_DISPLAY_NAME,
+        clientEmail: APPY_CLIENT_EMAIL,
         appyRequestor: requestor || 'Unknown', // Store the original requestor from the API request
         companyId: 'yirKMXRWAuV2YaOJ1kfA', // The h.wood Group
         companyName: 'The h.wood Group',

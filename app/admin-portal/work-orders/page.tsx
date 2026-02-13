@@ -14,6 +14,7 @@ import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIc
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { createTimelineEvent } from '@/lib/timeline';
+import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 
 interface WorkOrder {
   id: string;
@@ -524,7 +525,7 @@ const handleLocationSelect = (locationId: string) => {
         workOrderId: workOrder.id,
         workOrderTitle: workOrder.title,
         clientId: workOrder.clientId,
-        clientName: workOrder.clientName,
+        clientName: getWorkOrderClientDisplayName(workOrder),
         clientEmail: workOrder.clientEmail,
         status: 'draft' as const,
         totalAmount: invoiceAmount,
@@ -582,7 +583,7 @@ const handleLocationSelect = (locationId: string) => {
           invoiceNumber: invoiceNumber,
           amount: invoiceData.totalAmount,
           customerEmail: workOrder.clientEmail || invoiceData.clientEmail,
-          clientName: workOrder.clientName || invoiceData.clientName,
+          clientName: getWorkOrderClientDisplayName(workOrder) || invoiceData.clientName,
         }),
       });
 
@@ -627,7 +628,7 @@ const handleLocationSelect = (locationId: string) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toEmail: workOrder.clientEmail,
-          toName: workOrder.clientName,
+          toName: getWorkOrderClientDisplayName(workOrder),
           invoiceNumber,
           workOrderTitle: workOrder.title,
           totalAmount: invoiceData.totalAmount,
@@ -657,7 +658,7 @@ const handleLocationSelect = (locationId: string) => {
             userId: currentUser.uid,
             userName: adminName2,
             userRole: 'admin',
-            details: `Invoice ${invoiceNumber} sent to ${workOrder.clientName} by ${adminName2}`,
+            details: `Invoice ${invoiceNumber} sent to ${getWorkOrderClientDisplayName(workOrder)} by ${adminName2}`,
             metadata: { invoiceNumber, totalAmount: invoiceData.totalAmount },
           })],
           systemInformation: {
@@ -1719,6 +1720,7 @@ const handleLocationSelect = (locationId: string) => {
       wo.title?.toLowerCase().includes(searchLower) ||
       wo.description?.toLowerCase().includes(searchLower) ||
       wo.clientName?.toLowerCase().includes(searchLower) ||
+      getWorkOrderClientDisplayName(wo).toLowerCase().includes(searchLower) ||
       wo.workOrderNumber?.toLowerCase().includes(searchLower) ||
       wo.category?.toLowerCase().includes(searchLower);
 
@@ -1908,7 +1910,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                       <div className="text-gray-500 text-xs mt-1 line-clamp-1">{workOrder.description}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{workOrder.workOrderNumber}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{getWorkOrderClientDisplayName(workOrder)}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{workOrder.category}</td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(workOrder.priority)}`}>
@@ -1983,7 +1985,7 @@ const filteredLocationsForForm = locations.filter((location) => {
 
                   <div className="space-y-2 flex-shrink-0">
                     <div className="text-sm">
-                      <span className="font-semibold">Client:</span> <span className="text-gray-700">{workOrder.clientName}</span>
+                      <span className="font-semibold">Client:</span> <span className="text-gray-700">{getWorkOrderClientDisplayName(workOrder)}</span>
                     </div>
                     {workOrder.appyRequestor && (
                       <div className="text-sm">

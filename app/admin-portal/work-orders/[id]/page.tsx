@@ -13,6 +13,7 @@ import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
+import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 
 interface WorkOrder {
   id: string;
@@ -570,7 +571,7 @@ export default function ViewWorkOrder() {
               <CardContent className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-600">Name</p>
-                  <p className="font-semibold">{workOrder.clientName}</p>
+                  <p className="font-semibold">{getWorkOrderClientDisplayName(workOrder)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Email</p>
