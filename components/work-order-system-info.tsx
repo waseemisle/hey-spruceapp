@@ -92,6 +92,16 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation, viewe
     return labels[type] || type;
   };
 
+  const metadataLabelMap: Record<string, string> = {
+    source: 'Source',
+    workOrderNumber: 'Work Order Number',
+    priority: 'Priority',
+    clientName: 'Client',
+    locationName: 'Location',
+  };
+
+  const formatMetadataKey = (key: string) => metadataLabelMap[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
+
   if (!visibleTimeline?.length && !systemInformation) {
     return null;
   }
@@ -189,12 +199,16 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation, viewe
                             {event.details || (event.type === 'created' ? 'Work order created' : '')}
                           </p>
                           {event.metadata && Object.keys(event.metadata).length > 0 && (
-                            <div className="mt-1 text-xs text-gray-500">
-                              {Object.entries(event.metadata).map(([key, value]) => (
-                                <span key={key} className="mr-3">
-                                  {key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                </span>
-                              ))}
+                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
+                              {Object.entries(event.metadata).map(([key, value]) => {
+                                const displayValue = value != null && value !== '' ? (typeof value === 'object' ? JSON.stringify(value) : String(value)) : '—';
+                                return (
+                                  <div key={key} className="flex gap-2">
+                                    <span className="font-medium text-gray-500 shrink-0">{formatMetadataKey(key)}:</span>
+                                    <span className="text-gray-700 break-words">{displayValue}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
