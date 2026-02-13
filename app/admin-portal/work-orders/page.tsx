@@ -684,11 +684,8 @@ const handleLocationSelect = (locationId: string) => {
 
       const emailResult = await emailResponse.json();
 
-      // Add timeline event for invoice sent
-      const currentUser = auth.currentUser;
+      // Add timeline event for invoice sent (currentUser and adminName from above)
       if (currentUser) {
-        const adminDoc2 = await getDoc(doc(db, 'adminUsers', currentUser.uid));
-        const adminName2 = adminDoc2.exists() ? adminDoc2.data().fullName : 'Admin';
         const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
         const woData = woDoc.data();
         const existingTimeline = woData?.timeline || [];
@@ -698,14 +695,14 @@ const handleLocationSelect = (locationId: string) => {
           timeline: [...existingTimeline, createTimelineEvent({
             type: 'invoice_sent',
             userId: currentUser.uid,
-            userName: adminName2,
+            userName: adminName,
             userRole: 'admin',
-            details: `Invoice ${invoiceNumber} sent to ${getWorkOrderClientDisplayName(workOrder)} by ${adminName2}`,
+            details: `Invoice ${invoiceNumber} sent to ${getWorkOrderClientDisplayName(workOrder)} by ${adminName}`,
             metadata: { invoiceNumber, totalAmount: invoiceData.totalAmount },
           })],
           systemInformation: {
             ...existingSysInfo,
-            invoicing: { sentAt: Timestamp.now(), sentBy: { id: currentUser.uid, name: adminName2 } },
+            invoicing: { sentAt: Timestamp.now(), sentBy: { id: currentUser.uid, name: adminName } },
           },
         });
       }

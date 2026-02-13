@@ -171,11 +171,18 @@ export default function ClientQuotes() {
             }
             const workOrderData = workOrderDoc.data();
 
+            const user = auth.currentUser;
+            let clientName = quote.clientName || 'Client';
+            if (user) {
+              const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+              if (clientDoc.exists()) clientName = clientDoc.data().fullName || clientName;
+            }
+
             const existingQuoteTimeline = (quote.timeline || []) as QuoteTimelineEvent[];
             const existingQuoteSysInfo = quote.systemInformation || {};
             const acceptedEvent = createQuoteTimelineEvent({
               type: 'accepted',
-              userId: currentUser?.uid || 'unknown',
+              userId: user?.uid || 'unknown',
               userName: clientName,
               userRole: 'client',
               details: `Quote approved by ${clientName}. Work order assigned to ${quote.subcontractorName}.`,
@@ -188,7 +195,7 @@ export default function ClientQuotes() {
               systemInformation: {
                 ...existingQuoteSysInfo,
                 acceptedBy: {
-                  id: currentUser?.uid || 'unknown',
+                  id: user?.uid || 'unknown',
                   name: clientName,
                   timestamp: Timestamp.now(),
                 },
@@ -203,14 +210,6 @@ export default function ClientQuotes() {
               assignedAt: serverTimestamp(),
               status: 'pending_acceptance',
             });
-
-            // Get client name for timeline
-            const currentUser = auth.currentUser;
-            let clientName = quote.clientName || 'Client';
-            if (currentUser) {
-              const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
-              if (clientDoc.exists()) clientName = clientDoc.data().fullName || clientName;
-            }
 
             const existingTimeline = workOrderData?.timeline || [];
             const existingSysInfo = workOrderData?.systemInformation || {};
@@ -229,7 +228,7 @@ export default function ClientQuotes() {
               approvedQuoteLineItems: quote.lineItems || [],
               timeline: [...existingTimeline, createTimelineEvent({
                 type: 'quote_approved_by_client',
-                userId: currentUser?.uid || 'unknown',
+                userId: user?.uid || 'unknown',
                 userName: clientName,
                 userRole: 'client',
                 details: `Quote from ${quote.subcontractorName} approved by ${clientName}. Work order assigned.`,
@@ -239,7 +238,7 @@ export default function ClientQuotes() {
                 ...existingSysInfo,
                 quoteApprovalByClient: {
                   quoteId,
-                  approvedBy: { id: currentUser?.uid || 'unknown', name: clientName },
+                  approvedBy: { id: user?.uid || 'unknown', name: clientName },
                   timestamp: Timestamp.now(),
                 },
               },
@@ -300,11 +299,18 @@ export default function ClientQuotes() {
           if (reason === null) return;
 
           try {
+            const user = auth.currentUser;
+            let clientName = quote.clientName || 'Client';
+            if (user) {
+              const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+              if (clientDoc.exists()) clientName = clientDoc.data().fullName || clientName;
+            }
+
             const existingQuoteTimeline = (quote.timeline || []) as QuoteTimelineEvent[];
             const existingQuoteSysInfo = quote.systemInformation || {};
             const rejectedEvent = createQuoteTimelineEvent({
               type: 'rejected',
-              userId: currentUser?.uid || 'unknown',
+              userId: user?.uid || 'unknown',
               userName: clientName,
               userRole: 'client',
               details: `Quote from ${quote.subcontractorName} rejected by ${clientName}${reason ? `. Reason: ${reason}` : ''}`,
@@ -318,7 +324,7 @@ export default function ClientQuotes() {
               systemInformation: {
                 ...existingQuoteSysInfo,
                 rejectedBy: {
-                  id: currentUser?.uid || 'unknown',
+                  id: user?.uid || 'unknown',
                   name: clientName,
                   timestamp: Timestamp.now(),
                   reason: reason || undefined,
@@ -329,13 +335,6 @@ export default function ClientQuotes() {
 
             // Add timeline event to work order
             if (quote.workOrderId) {
-              const currentUser = auth.currentUser;
-              let clientName = quote.clientName || 'Client';
-              if (currentUser) {
-                const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
-                if (clientDoc.exists()) clientName = clientDoc.data().fullName || clientName;
-              }
-
               const woDoc = await getDoc(doc(db, 'workOrders', quote.workOrderId));
               const woData = woDoc.data();
               const existingTimeline = woData?.timeline || [];
@@ -343,7 +342,7 @@ export default function ClientQuotes() {
               await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
                 timeline: [...existingTimeline, createTimelineEvent({
                   type: 'quote_rejected_by_client',
-                  userId: currentUser?.uid || 'unknown',
+                  userId: user?.uid || 'unknown',
                   userName: clientName,
                   userRole: 'client',
                   details: `Quote from ${quote.subcontractorName} rejected by ${clientName}${reason ? `. Reason: ${reason}` : ''}`,

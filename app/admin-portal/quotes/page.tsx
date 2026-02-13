@@ -146,6 +146,9 @@ function QuotesContent() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
+
       const markupDecimal = markup / 100;
       const clientAmount = quote.totalAmount * (1 + markupDecimal);
 
@@ -180,8 +183,6 @@ function QuotesContent() {
 
       // Add timeline event to work order
       if (quote.workOrderId) {
-        const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
-        const adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
         const woDoc = await getDoc(doc(db, 'workOrders', quote.workOrderId));
         const woData = woDoc.data();
         const existingTimeline = woData?.timeline || [];
