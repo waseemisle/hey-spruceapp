@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
+import { createTimelineEvent } from '@/lib/timeline';
 
 interface WorkOrder {
   id: string;
@@ -354,12 +355,39 @@ const fetchCategories = async () => {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
+
+      const workOrderDoc = await getDoc(doc(db, 'workOrders', rejectingWorkOrderId));
+      const workOrderData = workOrderDoc.data();
+      const existingTimeline = workOrderData?.timeline || [];
+      const existingSysInfo = workOrderData?.systemInformation || {};
+
+      const timelineEvent = createTimelineEvent({
+        type: 'rejected',
+        userId: currentUser.uid,
+        userName: adminName,
+        userRole: 'admin',
+        details: `Work order rejected by ${adminName}. Reason: ${rejectionReason}`,
+        metadata: { reason: rejectionReason },
+      });
+
       await updateDoc(doc(db, 'workOrders', rejectingWorkOrderId), {
         status: 'rejected',
         rejectedBy: currentUser.uid,
         rejectedAt: serverTimestamp(),
         rejectionReason: rejectionReason,
         updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, timelineEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          rejectedBy: {
+            id: currentUser.uid,
+            name: adminName,
+            timestamp: Timestamp.now(),
+            reason: rejectionReason,
+          },
+        },
       });
 
       toast.success('Work order rejected');
@@ -613,6 +641,32 @@ const handleLocationSelect = (locationId: string) => {
 
       const emailResult = await emailResponse.json();
 
+      // Add timeline event for invoice sent
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const adminDoc2 = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+        const adminName2 = adminDoc2.exists() ? adminDoc2.data().fullName : 'Admin';
+        const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+        const woData = woDoc.data();
+        const existingTimeline = woData?.timeline || [];
+        const existingSysInfo = woData?.systemInformation || {};
+
+        await updateDoc(doc(db, 'workOrders', workOrder.id), {
+          timeline: [...existingTimeline, createTimelineEvent({
+            type: 'invoice_sent',
+            userId: currentUser.uid,
+            userName: adminName2,
+            userRole: 'admin',
+            details: `Invoice ${invoiceNumber} sent to ${workOrder.clientName} by ${adminName2}`,
+            metadata: { invoiceNumber, totalAmount: invoiceData.totalAmount },
+          })],
+          systemInformation: {
+            ...existingSysInfo,
+            invoicing: { sentAt: Timestamp.now(), sentBy: { id: currentUser.uid, name: adminName2 } },
+          },
+        });
+      }
+
       if (emailResult.success) {
         toast.success('Invoice created and sent successfully!');
       } else {
@@ -634,17 +688,45 @@ const handleLocationSelect = (locationId: string) => {
     }
 
     try {
+      // Get admin info and existing timeline
+      const currentUser = auth.currentUser;
+      let schedAdminName = 'Admin';
+      if (currentUser) {
+        const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+        schedAdminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
+      }
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const woData = woDoc.data();
+      const existingTimeline = woData?.timeline || [];
+      const existingSysInfo = woData?.systemInformation || {};
+
+      const serviceDate = workOrder.scheduledServiceDate?.toDate?.() || new Date(workOrder.scheduledServiceDate);
+      const formattedDate = serviceDate.toLocaleDateString();
+      const formattedTime = workOrder.scheduledServiceTime || 'N/A';
+
       // Update work order to mark schedule as shared
       await updateDoc(doc(db, 'workOrders', workOrder.id), {
         scheduleSharedWithClient: true,
         scheduleSharedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, createTimelineEvent({
+          type: 'schedule_shared',
+          userId: currentUser?.uid || 'unknown',
+          userName: schedAdminName,
+          userRole: 'admin',
+          details: `Service schedule shared with client by ${schedAdminName} (${formattedDate} at ${formattedTime})`,
+          metadata: { serviceDate: formattedDate, serviceTime: formattedTime },
+        })],
+        systemInformation: {
+          ...existingSysInfo,
+          scheduledService: {
+            ...(existingSysInfo.scheduledService || {}),
+            sharedWithClientAt: Timestamp.now(),
+          },
+        },
       });
 
       // Notify client about scheduled service
-      const serviceDate = workOrder.scheduledServiceDate?.toDate?.() || new Date(workOrder.scheduledServiceDate);
-      const formattedDate = serviceDate.toLocaleDateString();
-      const formattedTime = workOrder.scheduledServiceTime || 'N/A';
 
       await notifyScheduledService(
         workOrder.clientId,
@@ -1061,6 +1143,24 @@ const handleLocationSelect = (locationId: string) => {
             }
           }
 
+          // Add timeline event for CSV import
+          workOrderData.timeline = [createTimelineEvent({
+            type: 'created',
+            userId: currentUser.uid,
+            userName: adminName,
+            userRole: 'admin',
+            details: `Work order created by ${adminName} via CSV import from ${importFile.name}`,
+            metadata: { source: 'csv_import', fileName: importFile.name },
+          })];
+          workOrderData.systemInformation = {
+            createdBy: {
+              id: currentUser.uid,
+              name: adminName,
+              role: 'admin',
+              timestamp: Timestamp.now(),
+            },
+          };
+
           await addDoc(collection(db, 'workOrders'), workOrderData);
           successCount++;
         } catch (error: any) {
@@ -1114,6 +1214,28 @@ const handleLocationSelect = (locationId: string) => {
         return;
       }
 
+      // Get admin info for timeline
+      const currentUser = auth.currentUser;
+      let adminName = 'Admin';
+      if (currentUser) {
+        const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+        adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
+      }
+
+      const workOrderDoc = await getDoc(doc(db, 'workOrders', workOrderToAssign.id));
+      const woData = workOrderDoc.data();
+      const existingTimeline = woData?.timeline || [];
+      const existingSysInfo = woData?.systemInformation || {};
+
+      const timelineEvent = createTimelineEvent({
+        type: 'assigned',
+        userId: currentUser?.uid || 'unknown',
+        userName: adminName,
+        userRole: 'admin',
+        details: `Work order assigned to ${subcontractor.fullName} by ${adminName}`,
+        metadata: { subcontractorId: subcontractor.uid || subcontractor.id, subcontractorName: subcontractor.fullName },
+      });
+
       // Update work order status and assignment
       await updateDoc(doc(db, 'workOrders', workOrderToAssign.id), {
         status: 'assigned',
@@ -1121,6 +1243,16 @@ const handleLocationSelect = (locationId: string) => {
         assignedToName: subcontractor.fullName,
         assignedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, timelineEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          assignment: {
+            subcontractorId: subcontractor.uid || subcontractor.id,
+            subcontractorName: subcontractor.fullName,
+            assignedBy: { id: currentUser?.uid || 'unknown', name: adminName },
+            timestamp: Timestamp.now(),
+          },
+        },
       });
 
       // Create assignment record for subcontractor portal
@@ -1227,12 +1359,37 @@ const handleLocationSelect = (locationId: string) => {
         toast.success('Work order updated successfully');
       } else {
         // Create new work order
+        const currentUser = auth.currentUser;
+        let adminName = 'Admin';
+        if (currentUser) {
+          const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+          adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
+        }
+
+        const timelineEvent = createTimelineEvent({
+          type: 'created',
+          userId: currentUser?.uid || 'unknown',
+          userName: adminName,
+          userRole: 'admin',
+          details: `Work order created by ${adminName} via Admin Portal`,
+          metadata: { source: 'admin_portal_ui' },
+        });
+
         const workOrderNumber = `WO-${Date.now().toString().slice(-8).toUpperCase()}`;
         await addDoc(collection(db, 'workOrders'), {
           ...workOrderData,
           workOrderNumber,
           images: [],
           createdAt: serverTimestamp(),
+          timeline: [timelineEvent],
+          systemInformation: {
+            createdBy: {
+              id: currentUser?.uid || 'unknown',
+              name: adminName,
+              role: 'admin',
+              timestamp: Timestamp.now(),
+            },
+          },
         });
         toast.success('Work order created successfully');
       }

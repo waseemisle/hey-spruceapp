@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc, orderBy, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Upload, X } from 'lucide-react';
+import { createTimelineEvent } from '@/lib/timeline';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -252,9 +253,19 @@ export default function CreateWorkOrder() {
       fullAddress = fullAddress.trim() || 'N/A';
 
       // Create work order
+      const clientName = clientData.fullName || clientData.companyName || 'Client';
+      const timelineEvent = createTimelineEvent({
+        type: 'created',
+        userId: currentUser.uid,
+        userName: clientName,
+        userRole: 'client',
+        details: `Work order created by ${clientName} via Client Portal`,
+        metadata: { source: 'client_portal_ui' },
+      });
+
       const workOrderRef = await addDoc(collection(db, 'workOrders'), {
         clientId: currentUser.uid,
-        clientName: clientData.fullName || clientData.companyName || '',
+        clientName: clientName,
         clientEmail: clientData.email || '',
         locationId: formData.locationId,
         locationName: locationData.locationName || locationData.name || 'Unnamed Location',
@@ -267,6 +278,15 @@ export default function CreateWorkOrder() {
         images: imageUrls,
         status: 'pending',
         createdAt: serverTimestamp(),
+        timeline: [timelineEvent],
+        systemInformation: {
+          createdBy: {
+            id: currentUser.uid,
+            name: clientName,
+            role: 'client',
+            timestamp: Timestamp.now(),
+          },
+        },
       });
 
       // Generate work order number

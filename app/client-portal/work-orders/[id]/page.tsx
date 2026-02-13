@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { createTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
@@ -14,6 +15,7 @@ import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
 import { toast } from 'sonner';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
+import WorkOrderSystemInfo from '@/components/work-order-system-info';
 
 interface WorkOrder {
   id: string;
@@ -52,6 +54,8 @@ interface WorkOrder {
     unitPrice: number;
     amount: number;
   }>;
+  timeline?: any[];
+  systemInformation?: any;
 }
 
 interface LineItem {
@@ -198,16 +202,49 @@ export default function ViewClientWorkOrder() {
 
     setProcessing(true);
     try {
+      const currentUser = auth.currentUser;
+      let clientName = workOrder.clientName || 'Client';
+      if (currentUser) {
+        const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+        if (clientDoc.exists()) {
+          clientName = clientDoc.data().fullName || clientName;
+        }
+      }
+
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const woData = woDoc.data();
+      const existingTimeline = woData?.timeline || [];
+      const existingSysInfo = woData?.systemInformation || {};
+
+      const timelineEvent = createTimelineEvent({
+        type: 'approved',
+        userId: currentUser?.uid || 'unknown',
+        userName: clientName,
+        userRole: 'client',
+        details: `Work order approved by ${clientName} via Client Portal`,
+        metadata: {},
+      });
+
       await updateDoc(doc(db, 'workOrders', workOrder.id), {
         status: 'approved',
         approvedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, timelineEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          approvedBy: {
+            id: currentUser?.uid || 'unknown',
+            name: clientName,
+            timestamp: Timestamp.now(),
+          },
+        },
       });
       toast.success('Work order approved successfully');
 
       // Refresh work order
-      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
-      if (woDoc.exists()) {
-        setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
+      const refreshDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      if (refreshDoc.exists()) {
+        setWorkOrder({ id: refreshDoc.id, ...refreshDoc.data() } as WorkOrder);
       }
     } catch (error: any) {
       console.error('Error approving work order:', error);
@@ -233,17 +270,51 @@ export default function ViewClientWorkOrder() {
 
     setProcessing(true);
     try {
+      const currentUser = auth.currentUser;
+      let clientName = workOrder.clientName || 'Client';
+      if (currentUser) {
+        const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+        if (clientDoc.exists()) {
+          clientName = clientDoc.data().fullName || clientName;
+        }
+      }
+
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const woData = woDoc.data();
+      const existingTimeline = woData?.timeline || [];
+      const existingSysInfo = woData?.systemInformation || {};
+
+      const timelineEvent = createTimelineEvent({
+        type: 'rejected',
+        userId: currentUser?.uid || 'unknown',
+        userName: clientName,
+        userRole: 'client',
+        details: `Work order rejected by ${clientName}. Reason: ${reason.trim()}`,
+        metadata: { reason: reason.trim() },
+      });
+
       await updateDoc(doc(db, 'workOrders', workOrder.id), {
         status: 'rejected',
         rejectionReason: reason.trim(),
         rejectedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, timelineEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          rejectedBy: {
+            id: currentUser?.uid || 'unknown',
+            name: clientName,
+            timestamp: Timestamp.now(),
+            reason: reason.trim(),
+          },
+        },
       });
       toast.success('Work order rejected');
 
       // Refresh work order
-      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
-      if (woDoc.exists()) {
-        setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
+      const refreshDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      if (refreshDoc.exists()) {
+        setWorkOrder({ id: refreshDoc.id, ...refreshDoc.data() } as WorkOrder);
       }
     } catch (error: any) {
       console.error('Error rejecting work order:', error);
@@ -627,46 +698,54 @@ export default function ViewClientWorkOrder() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">Created</p>
-                  <p className="font-semibold">
-                    {workOrder.createdAt?.toDate?.().toLocaleString() || 'N/A'}
-                  </p>
-                </div>
-                {workOrder.approvedAt && (
+            {workOrder.timeline && workOrder.timeline.length > 0 ? (
+              <WorkOrderSystemInfo
+                timeline={workOrder.timeline}
+                systemInformation={workOrder.systemInformation}
+                viewerRole="client"
+              />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
                   <div>
-                    <p className="text-sm text-gray-600">Approved</p>
+                    <p className="text-sm text-gray-600">Created</p>
                     <p className="font-semibold">
-                      {workOrder.approvedAt?.toDate?.().toLocaleString() || 'N/A'}
+                      {workOrder.createdAt?.toDate?.().toLocaleString() || 'N/A'}
                     </p>
                   </div>
-                )}
-                {workOrder.completedAt && (
-                  <div>
-                    <p className="text-sm text-gray-600">Completed</p>
-                    <p className="font-semibold">
-                      {workOrder.completedAt?.toDate?.().toLocaleString() || 'N/A'}
-                    </p>
-                  </div>
-                )}
-                {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
-                  <div>
-                    <p className="text-sm text-gray-600">Scheduled Service</p>
-                    <p className="font-semibold">
-                      {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {workOrder.approvedAt && (
+                    <div>
+                      <p className="text-sm text-gray-600">Approved</p>
+                      <p className="font-semibold">
+                        {workOrder.approvedAt?.toDate?.().toLocaleString() || 'N/A'}
+                      </p>
+                    </div>
+                  )}
+                  {workOrder.completedAt && (
+                    <div>
+                      <p className="text-sm text-gray-600">Completed</p>
+                      <p className="font-semibold">
+                        {workOrder.completedAt?.toDate?.().toLocaleString() || 'N/A'}
+                      </p>
+                    </div>
+                  )}
+                  {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
+                    <div>
+                      <p className="text-sm text-gray-600">Scheduled Service</p>
+                      <p className="font-semibold">
+                        {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

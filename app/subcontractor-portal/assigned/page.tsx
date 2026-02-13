@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, getDoc, Timestamp } from 'firebase/firestore';
+import { createTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyWorkOrderCompletion, notifyScheduledService, getAllAdminUserIds } from '@/lib/notifications';
@@ -149,9 +150,28 @@ export default function SubcontractorAssignedJobs() {
         scheduledServiceTimeEnd: serviceTimeEnd || null,
       });
 
-      // Get work order data for notifications
+      // Get work order data for notifications and timeline
       const workOrderDoc = await getDoc(doc(db, 'workOrders', acceptingWorkOrderId));
       const workOrderData = workOrderDoc.data();
+      const existingTimeline = workOrderData?.timeline || [];
+      const existingSysInfo = workOrderData?.systemInformation || {};
+
+      // Get subcontractor name
+      const currentUser = auth.currentUser;
+      let subName = workOrderData?.assignedToName || 'Subcontractor';
+      if (currentUser) {
+        const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+        if (subDoc.exists()) subName = subDoc.data().fullName || subName;
+      }
+
+      const timelineEvent = createTimelineEvent({
+        type: 'schedule_set',
+        userId: currentUser?.uid || 'unknown',
+        userName: subName,
+        userRole: 'subcontractor',
+        details: `Assignment accepted by ${subName}. Scheduled for ${serviceDate} at ${serviceTimeStart}${serviceTimeEnd ? ` - ${serviceTimeEnd}` : ''}`,
+        metadata: { serviceDate, serviceTimeStart, serviceTimeEnd: serviceTimeEnd || null },
+      });
 
       // Update work order status
       await updateDoc(doc(db, 'workOrders', acceptingWorkOrderId), {
@@ -160,6 +180,15 @@ export default function SubcontractorAssignedJobs() {
         scheduledServiceTime: serviceTimeStart,
         scheduledServiceTimeEnd: serviceTimeEnd || null,
         updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, timelineEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          scheduledService: {
+            date: new Date(serviceDate + 'T' + serviceTimeStart),
+            time: serviceTimeStart,
+            setBy: { id: currentUser?.uid || 'unknown', name: subName },
+          },
+        },
       });
 
       // Notify client of scheduling (in-app notification)
@@ -256,10 +285,30 @@ export default function SubcontractorAssignedJobs() {
               rejectionReason: reason,
             });
 
+            // Get existing timeline for work order
+            const woDoc = await getDoc(doc(db, 'workOrders', workOrderId));
+            const woData = woDoc.data();
+            const existingTimeline = woData?.timeline || [];
+
+            const currentUser = auth.currentUser;
+            let subName = woData?.assignedToName || 'Subcontractor';
+            if (currentUser) {
+              const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+              if (subDoc.exists()) subName = subDoc.data().fullName || subName;
+            }
+
             // Update work order status
             await updateDoc(doc(db, 'workOrders', workOrderId), {
               status: 'rejected_by_subcontractor',
               updatedAt: serverTimestamp(),
+              timeline: [...existingTimeline, createTimelineEvent({
+                type: 'rejected',
+                userId: currentUser?.uid || 'unknown',
+                userName: subName,
+                userRole: 'subcontractor',
+                details: `Assignment rejected by ${subName}${reason ? `. Reason: ${reason}` : ''}`,
+                metadata: { context: 'assignment_rejection', reason: reason || '' },
+              })],
             });
 
             toast.success('Assignment rejected. The work order will be available for reassignment.');
@@ -329,9 +378,27 @@ export default function SubcontractorAssignedJobs() {
         setUploadingFiles(false);
       }
 
-      // Get work order data for notifications
+      // Get work order data for notifications and timeline
       const workOrderDoc = await getDoc(doc(db, 'workOrders', completingWorkOrderId));
       const workOrderData = workOrderDoc.data();
+      const existingTimeline = workOrderData?.timeline || [];
+      const existingSysInfo = workOrderData?.systemInformation || {};
+
+      const currentUser = auth.currentUser;
+      let subName = workOrderData?.assignedToName || 'Subcontractor';
+      if (currentUser) {
+        const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+        if (subDoc.exists()) subName = subDoc.data().fullName || subName;
+      }
+
+      const timelineEvent = createTimelineEvent({
+        type: 'completed',
+        userId: currentUser?.uid || 'unknown',
+        userName: subName,
+        userRole: 'subcontractor',
+        details: `Work order completed by ${subName}`,
+        metadata: { completionDetails: completionDetails.substring(0, 100) },
+      });
 
       await updateDoc(doc(db, 'workOrders', completingWorkOrderId), {
         status: 'completed',
@@ -340,6 +407,15 @@ export default function SubcontractorAssignedJobs() {
         completionNotes: completionNotes,
         completionImages: completionImageUrls,
         updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, timelineEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          completion: {
+            completedBy: { id: currentUser?.uid || 'unknown', name: subName },
+            timestamp: Timestamp.now(),
+            notes: completionDetails,
+          },
+        },
       });
 
       // Notify client and admin of completion

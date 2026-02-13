@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { createTimelineEvent } from '@/lib/timeline';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -157,6 +158,36 @@ function QuotesContent() {
         sentBy: currentUser.uid,
         updatedAt: serverTimestamp(),
       });
+
+      // Add timeline event to work order
+      if (quote.workOrderId) {
+        const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+        const adminName = adminDoc.exists() ? adminDoc.data().fullName : 'Admin';
+        const woDoc = await getDoc(doc(db, 'workOrders', quote.workOrderId));
+        const woData = woDoc.data();
+        const existingTimeline = woData?.timeline || [];
+        const existingSysInfo = woData?.systemInformation || {};
+
+        await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
+          timeline: [...existingTimeline, createTimelineEvent({
+            type: 'quote_shared_with_client',
+            userId: currentUser.uid,
+            userName: adminName,
+            userRole: 'admin',
+            details: `Quote from ${quote.subcontractorName} sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
+            metadata: { quoteId: quote.id, subcontractorName: quote.subcontractorName, clientAmount, markup },
+          })],
+          systemInformation: {
+            ...existingSysInfo,
+            quoteSharedWithClient: {
+              quoteId: quote.id,
+              by: { id: currentUser.uid, name: adminName },
+              timestamp: Timestamp.now(),
+            },
+          },
+          updatedAt: serverTimestamp(),
+        });
+      }
 
       // Notify client about quote
       if (quote.workOrderId && quote.workOrderNumber) {

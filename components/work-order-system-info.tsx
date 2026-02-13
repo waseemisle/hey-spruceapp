@@ -6,13 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Clock, User, CheckCircle, XCircle, Share2, FileText, Calendar, DollarSign } from 'lucide-react';
 
+const ADMIN_ONLY_EVENTS = ['shared_for_bidding', 'quote_received'];
+
 interface WorkOrderSystemInfoProps {
   timeline?: WorkOrderTimelineEvent[];
   systemInformation?: WorkOrderSystemInformation;
+  viewerRole?: 'admin' | 'client' | 'subcontractor';
 }
 
-export default function WorkOrderSystemInfo({ timeline, systemInformation }: WorkOrderSystemInfoProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export default function WorkOrderSystemInfo({ timeline, systemInformation, viewerRole = 'admin' }: WorkOrderSystemInfoProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const visibleTimeline = viewerRole === 'client'
+    ? timeline?.filter(e => !ADMIN_ONLY_EVENTS.includes(e.type))
+    : timeline;
 
   const getEventIcon = (type: string) => {
     switch (type) {
@@ -83,7 +90,7 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation }: Wor
     return labels[type] || type;
   };
 
-  if (!timeline && !systemInformation) {
+  if (!visibleTimeline?.length && !systemInformation) {
     return null;
   }
 
@@ -91,7 +98,7 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation }: Wor
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">System Information</CardTitle>
+          <CardTitle className="text-lg">Timeline</CardTitle>
           <Button
             variant="ghost"
             size="sm"
@@ -154,11 +161,11 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation }: Wor
           )}
 
           {/* Timeline Events */}
-          {timeline && timeline.length > 0 && (
+          {visibleTimeline && visibleTimeline.length > 0 && (
             <div className="border-t pt-4">
               <h4 className="text-sm font-semibold text-gray-900 mb-3">Activity Timeline</h4>
               <div className="space-y-3">
-                {timeline.map((event, index) => (
+                {visibleTimeline.map((event, index) => (
                   <div key={event.id || index} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0">
                     <div className="mt-0.5">
                       {getEventIcon(event.type)}
@@ -198,8 +205,8 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation }: Wor
             </div>
           )}
 
-          {/* Quotes Received Summary */}
-          {systemInformation?.quotesReceived && systemInformation.quotesReceived.length > 0 && (
+          {/* Quotes Received Summary - hidden for clients */}
+          {viewerRole !== 'client' && systemInformation?.quotesReceived && systemInformation.quotesReceived.length > 0 && (
             <div className="border-t pt-4">
               <h4 className="text-sm font-semibold text-gray-900 mb-3">Quotes Received ({systemInformation.quotesReceived.length})</h4>
               <div className="space-y-2">

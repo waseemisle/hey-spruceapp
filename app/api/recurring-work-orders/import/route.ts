@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { createTimelineEvent } from '@/lib/timeline';
 import { getAuth } from 'firebase-admin/auth';
 import { getApps as getAdminApps } from 'firebase-admin/app';
 
@@ -962,6 +963,19 @@ export async function POST(request: NextRequest) {
                   console.warn(`Row ${i + 1}: Could not find subcontractor for execution #${executionNumber}`, error);
                 }
               }
+
+              // Add timeline event
+              standardWorkOrderData.timeline = [createTimelineEvent({
+                type: 'created',
+                userId: 'system',
+                userName: 'Recurring Work Order System',
+                userRole: 'system',
+                details: `Work order created from Recurring Work Order ${workOrderNumber}, Execution #${executionNumber} (CSV import)`,
+                metadata: { source: 'recurring_work_order_import', recurringWorkOrderId: docRef.id, executionNumber },
+              })];
+              standardWorkOrderData.systemInformation = {
+                createdBy: { id: 'system', name: 'Recurring Work Order System', role: 'system', timestamp: Timestamp.now() },
+              };
 
               // Create the Standard Work Order
               const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);

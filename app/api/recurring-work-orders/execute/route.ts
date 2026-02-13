@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { createTimelineEvent } from '@/lib/timeline';
 import Stripe from 'stripe';
 import { generateInvoicePDF, getInvoicePDFBase64, getWorkOrderPDFBase64 } from '@/lib/pdf-generator';
 
@@ -168,6 +169,19 @@ export async function POST(request: NextRequest) {
         standardWorkOrderData.assignedAt = serverTimestamp();
         standardWorkOrderData.status = 'assigned';
       }
+
+      // Add timeline event
+      standardWorkOrderData.timeline = [createTimelineEvent({
+        type: 'created',
+        userId: 'system',
+        userName: 'Recurring Work Order System',
+        userRole: 'system',
+        details: `Work order created from Recurring Work Order ${recurringWorkOrder.workOrderNumber}, Execution #${executionNumber}`,
+        metadata: { source: 'recurring_work_order', recurringWorkOrderId, executionNumber },
+      })];
+      standardWorkOrderData.systemInformation = {
+        createdBy: { id: 'system', name: 'Recurring Work Order System', role: 'system', timestamp: Timestamp.now() },
+      };
 
       // Create the Standard Work Order
       const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);

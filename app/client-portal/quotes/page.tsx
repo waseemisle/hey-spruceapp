@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs, Timestamp } from 'firebase/firestore';
+import { createTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifySubcontractorAssignment } from '@/lib/notifications';
@@ -181,6 +182,17 @@ export default function ClientQuotes() {
               status: 'pending_acceptance',
             });
 
+            // Get client name for timeline
+            const currentUser = auth.currentUser;
+            let clientName = quote.clientName || 'Client';
+            if (currentUser) {
+              const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+              if (clientDoc.exists()) clientName = clientDoc.data().fullName || clientName;
+            }
+
+            const existingTimeline = workOrderData?.timeline || [];
+            const existingSysInfo = workOrderData?.systemInformation || {};
+
             // Update work order status, assignment, and approved quote pricing
             await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
               status: 'assigned',
@@ -193,6 +205,22 @@ export default function ClientQuotes() {
               approvedQuoteLaborCost: quote.laborCost,
               approvedQuoteMaterialCost: quote.materialCost,
               approvedQuoteLineItems: quote.lineItems || [],
+              timeline: [...existingTimeline, createTimelineEvent({
+                type: 'quote_approved_by_client',
+                userId: currentUser?.uid || 'unknown',
+                userName: clientName,
+                userRole: 'client',
+                details: `Quote from ${quote.subcontractorName} approved by ${clientName}. Work order assigned.`,
+                metadata: { quoteId, subcontractorName: quote.subcontractorName, amount: quote.clientAmount || quote.totalAmount },
+              })],
+              systemInformation: {
+                ...existingSysInfo,
+                quoteApprovalByClient: {
+                  quoteId,
+                  approvedBy: { id: currentUser?.uid || 'unknown', name: clientName },
+                  timestamp: Timestamp.now(),
+                },
+              },
             });
 
             // Notify subcontractor of assignment (in-app notification)
@@ -255,6 +283,33 @@ export default function ClientQuotes() {
               rejectedAt: serverTimestamp(),
               rejectionReason: reason || 'No reason provided',
             });
+
+            // Add timeline event to work order
+            if (quote.workOrderId) {
+              const currentUser = auth.currentUser;
+              let clientName = quote.clientName || 'Client';
+              if (currentUser) {
+                const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+                if (clientDoc.exists()) clientName = clientDoc.data().fullName || clientName;
+              }
+
+              const woDoc = await getDoc(doc(db, 'workOrders', quote.workOrderId));
+              const woData = woDoc.data();
+              const existingTimeline = woData?.timeline || [];
+
+              await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
+                timeline: [...existingTimeline, createTimelineEvent({
+                  type: 'quote_rejected_by_client',
+                  userId: currentUser?.uid || 'unknown',
+                  userName: clientName,
+                  userRole: 'client',
+                  details: `Quote from ${quote.subcontractorName} rejected by ${clientName}${reason ? `. Reason: ${reason}` : ''}`,
+                  metadata: { quoteId, subcontractorName: quote.subcontractorName, reason: reason || '' },
+                })],
+                updatedAt: serverTimestamp(),
+              });
+            }
+
             toast.success('Quote rejected successfully!');
           } catch (error) {
             console.error('Error rejecting quote:', error);

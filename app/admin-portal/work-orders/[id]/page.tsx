@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
+import WorkOrderSystemInfo from '@/components/work-order-system-info';
 
 interface WorkOrder {
   id: string;
@@ -43,6 +44,8 @@ interface WorkOrder {
   completionImages?: string[];
   scheduledServiceDate?: any;
   scheduledServiceTime?: string;
+  timeline?: any[];
+  systemInformation?: any;
 }
 
 interface LineItem {
@@ -421,46 +424,54 @@ export default function ViewWorkOrder() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">Created</p>
-                  <p className="font-semibold">
-                    {workOrder.createdAt?.toDate?.().toLocaleString() || 'N/A'}
-                  </p>
-                </div>
-                {workOrder.approvedAt && (
+            {workOrder.timeline && workOrder.timeline.length > 0 ? (
+              <WorkOrderSystemInfo
+                timeline={workOrder.timeline}
+                systemInformation={workOrder.systemInformation}
+                viewerRole="admin"
+              />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Timeline
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
                   <div>
-                    <p className="text-sm text-gray-600">Approved</p>
+                    <p className="text-sm text-gray-600">Created</p>
                     <p className="font-semibold">
-                      {workOrder.approvedAt?.toDate?.().toLocaleString() || 'N/A'}
+                      {workOrder.createdAt?.toDate?.().toLocaleString() || 'N/A'}
                     </p>
                   </div>
-                )}
-                {workOrder.completedAt && (
-                  <div>
-                    <p className="text-sm text-gray-600">Completed</p>
-                    <p className="font-semibold">
-                      {workOrder.completedAt?.toDate?.().toLocaleString() || 'N/A'}
-                    </p>
-                  </div>
-                )}
-                {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
-                  <div>
-                    <p className="text-sm text-gray-600">Scheduled Service</p>
-                    <p className="font-semibold">
-                      {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {workOrder.approvedAt && (
+                    <div>
+                      <p className="text-sm text-gray-600">Approved</p>
+                      <p className="font-semibold">
+                        {workOrder.approvedAt?.toDate?.().toLocaleString() || 'N/A'}
+                      </p>
+                    </div>
+                  )}
+                  {workOrder.completedAt && (
+                    <div>
+                      <p className="text-sm text-gray-600">Completed</p>
+                      <p className="font-semibold">
+                        {workOrder.completedAt?.toDate?.().toLocaleString() || 'N/A'}
+                      </p>
+                    </div>
+                  )}
+                  {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
+                    <div>
+                      <p className="text-sm text-gray-600">Scheduled Service</p>
+                      <p className="font-semibold">
+                        {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Follow-up Notes - Visible after completion */}
             {workOrder.status === 'completed' && (workOrder.completionDetails || workOrder.completionNotes) && (
