@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -215,6 +215,36 @@ const fetchCategories = async () => {
 
       const workOrderNumber = `RWO-${Date.now().toString().slice(-8).toUpperCase()}`;
 
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const createdByName = adminDoc.exists() ? (adminDoc.data().fullName ?? 'Admin') : 'Admin';
+      const now = new Date();
+      const systemInformation = {
+        createdBy: {
+          id: currentUser.uid,
+          name: createdByName,
+          role: 'admin',
+          timestamp: now,
+        },
+      };
+      const timeline = [
+        {
+          id: `created_${Date.now()}`,
+          timestamp: now,
+          type: 'created',
+          userId: currentUser.uid,
+          userName: createdByName,
+          userRole: 'admin',
+          details: `Recurring work order created by ${createdByName} via Admin Portal`,
+          metadata: {
+            source: 'admin_portal_ui',
+            workOrderNumber,
+            priority: formData.priority,
+            clientName: client.fullName,
+            locationName: location.locationName,
+          },
+        },
+      ];
+
       const recurringWorkOrderData = {
         workOrderNumber,
         clientId: formData.clientId,
@@ -241,6 +271,10 @@ const fetchCategories = async () => {
         successfulExecutions: 0,
         failedExecutions: 0,
         createdBy: currentUser.uid,
+        createdByName,
+        creationSource: 'admin_portal_ui',
+        systemInformation,
+        timeline,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };

@@ -397,6 +397,13 @@ export interface RecurringWorkOrder {
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
+  /** Display name of creator (admin or "Import (CSV)") */
+  createdByName?: string;
+  /** How this recurring work order was created */
+  creationSource?: 'admin_portal_ui' | 'csv_import';
+  /** Same shape as work orders for Timeline card */
+  systemInformation?: WorkOrderSystemInformation;
+  timeline?: WorkOrderTimelineEvent[];
 }
 
 export interface RecurrencePattern {

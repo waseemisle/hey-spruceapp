@@ -548,6 +548,8 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+    const adminName = adminDoc.data()?.fullName ?? 'Admin';
+    const createdByNameImport = `${adminName} (CSV import)`;
 
     const body = await request.json();
     const { rows } = body as { rows: ImportRow[] };
@@ -818,6 +820,34 @@ export async function POST(request: NextRequest) {
 
         console.log(`Row ${i + 1}: Creating recurring work order with number: ${workOrderNumber}`);
 
+        const now = new Date();
+        const systemInformation = {
+          createdBy: {
+            id: adminUid,
+            name: createdByNameImport,
+            role: 'admin',
+            timestamp: Timestamp.fromDate(now),
+          },
+        };
+        const timeline = [
+          {
+            id: `created_${Date.now()}_${i}`,
+            timestamp: Timestamp.fromDate(now),
+            type: 'created',
+            userId: adminUid,
+            userName: createdByNameImport,
+            userRole: 'admin',
+            details: 'Recurring work order created via CSV import',
+            metadata: {
+              source: 'csv_import',
+              workOrderNumber,
+              priority: 'medium',
+              clientName: clientData.fullName || 'Unknown Client',
+              locationName: locationData.locationName || row.restaurant,
+            },
+          },
+        ];
+
         // Create recurring work order - EACH ROW CREATES A SEPARATE RECURRING WORK ORDER
         const recurringWorkOrderData: any = {
           workOrderNumber,
@@ -843,6 +873,10 @@ export async function POST(request: NextRequest) {
           successfulExecutions: 0,
           failedExecutions: 0,
           createdBy: adminUid,
+          createdByName: createdByNameImport,
+          creationSource: 'csv_import',
+          systemInformation,
+          timeline,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };

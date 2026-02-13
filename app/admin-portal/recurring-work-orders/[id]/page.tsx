@@ -13,8 +13,9 @@ import {
   AlertCircle, Download, Mail, ExternalLink, RefreshCw, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { RecurringWorkOrder, RecurringWorkOrderExecution } from '@/types';
+import { RecurringWorkOrder, RecurringWorkOrderExecution, WorkOrderTimelineEvent, WorkOrderSystemInformation } from '@/types';
 import { formatAddress } from '@/lib/utils';
+import WorkOrderSystemInfo from '@/components/work-order-system-info';
 
 export default function RecurringWorkOrderDetails({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
   const [executions, setExecutions] = useState<RecurringWorkOrderExecution[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
 
   const fetchRecurringWorkOrder = async () => {
     try {
@@ -50,6 +52,10 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
           lastExecution: data.lastExecution?.toDate(),
           lastServiced: data.lastServiced?.toDate(),
           nextServiceDates: nextServiceDates,
+          systemInformation: data.systemInformation,
+          timeline: data.timeline,
+          createdByName: data.createdByName,
+          creationSource: data.creationSource,
         } as RecurringWorkOrder);
       } else {
         toast.error('Recurring work order not found');
@@ -92,6 +98,87 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     fetchExecutions();
     setLoading(false);
   }, [params.id]);
+
+  // Resolve creator display name when not stored on the document
+  useEffect(() => {
+    if (!recurringWorkOrder?.createdBy) {
+      setCreatorDisplayName(null);
+      return;
+    }
+    const storedName = recurringWorkOrder.createdByName ?? recurringWorkOrder.systemInformation?.createdBy?.name;
+    if (storedName) {
+      setCreatorDisplayName(storedName);
+      return;
+    }
+    let cancelled = false;
+    getDoc(doc(db, 'adminUsers', recurringWorkOrder.createdBy))
+      .then((adminSnap) => {
+        if (cancelled) return;
+        setCreatorDisplayName(adminSnap.exists() ? (adminSnap.data().fullName ?? 'Admin') : 'Admin');
+      })
+      .catch(() => {
+        if (!cancelled) setCreatorDisplayName('Admin');
+      });
+    return () => { cancelled = true; };
+  }, [recurringWorkOrder?.id, recurringWorkOrder?.createdBy, recurringWorkOrder?.createdByName, recurringWorkOrder?.systemInformation?.createdBy?.name]);
+
+  const getCreationSourceLabel = (rwo: RecurringWorkOrder): string => {
+    if (rwo.creationSource === 'csv_import') {
+      return 'Recurring work order created via CSV import';
+    }
+    const creatorName = rwo.createdByName ?? rwo.systemInformation?.createdBy?.name ?? creatorDisplayName ?? 'Admin';
+    return `Recurring work order created by ${creatorName} via Admin Portal`;
+  };
+
+  const buildSystemInformation = (rwo: RecurringWorkOrder): WorkOrderSystemInformation => {
+    const stored = rwo.systemInformation;
+    if (stored?.createdBy) return stored;
+    const name = rwo.createdByName ?? rwo.systemInformation?.createdBy?.name ?? creatorDisplayName ?? 'Unknown';
+    const createdAt = rwo.createdAt instanceof Date ? rwo.createdAt : new Date(rwo.createdAt);
+    return {
+      createdBy: {
+        id: rwo.createdBy,
+        name,
+        role: 'admin',
+        timestamp: createdAt,
+      },
+    };
+  };
+
+  const buildTimeline = (rwo: RecurringWorkOrder): WorkOrderTimelineEvent[] => {
+    const stored = rwo.timeline;
+    const createdAt = rwo.createdAt instanceof Date ? rwo.createdAt : new Date(rwo.createdAt);
+    const name = rwo.createdByName ?? rwo.systemInformation?.createdBy?.name ?? creatorDisplayName ?? 'Unknown';
+    const source = rwo.creationSource === 'csv_import' ? 'csv_import' : 'admin_portal_ui';
+    const createdEvent: WorkOrderTimelineEvent = {
+      id: 'created',
+      timestamp: createdAt,
+      type: 'created',
+      userId: rwo.createdBy,
+      userName: name,
+      userRole: 'admin',
+      details: getCreationSourceLabel(rwo),
+      metadata: {
+        source,
+        workOrderNumber: rwo.workOrderNumber,
+        priority: rwo.priority,
+        clientName: rwo.clientName,
+        locationName: rwo.locationName,
+      },
+    };
+    if (stored && stored.length > 0) {
+      const hasCreated = stored.some((e: any) => e?.type === 'created');
+      if (hasCreated) {
+        return stored.map((e: any) =>
+          e?.type === 'created'
+            ? { ...e, details: createdEvent.details, metadata: { ...(e.metadata || {}), ...createdEvent.metadata } }
+            : e
+        );
+      }
+      return [createdEvent, ...stored];
+    }
+    return [createdEvent];
+  };
 
   const handleToggleStatus = async () => {
     if (!recurringWorkOrder) return;
@@ -620,8 +707,15 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             </Card>
           </div>
 
-          {/* System Information */}
-          <div>
+          {/* Timeline – same level of detail as regular work orders */}
+          <div className="space-y-4">
+            <WorkOrderSystemInfo
+              timeline={buildTimeline(recurringWorkOrder)}
+              systemInformation={buildSystemInformation(recurringWorkOrder)}
+              viewerRole="admin"
+              creationSourceLabel={getCreationSourceLabel(recurringWorkOrder)}
+            />
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -630,13 +724,6 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <span className="font-semibold">Created:</span>
-                  <div className="text-sm text-gray-600 mt-1">
-                    {new Date(recurringWorkOrder.createdAt).toLocaleDateString()} at {new Date(recurringWorkOrder.createdAt).toLocaleTimeString()}
-                  </div>
-                </div>
-
                 <div>
                   <span className="font-semibold">Last Updated:</span>
                   <div className="text-sm text-gray-600 mt-1">
