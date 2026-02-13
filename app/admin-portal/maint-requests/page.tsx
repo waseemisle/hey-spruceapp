@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useViewControls } from '@/contexts/view-controls-context';
-import { Wrench, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, Plus } from 'lucide-react';
+import { Wrench, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, Plus, ChevronDown, ChevronUp, Code } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MaintRequest {
@@ -23,6 +23,7 @@ interface MaintRequest {
   priority: string;
   status: string;
   createdAt: any;
+  rawData: Record<string, any>;
 }
 
 interface ApiToken {
@@ -42,6 +43,21 @@ export default function MaintRequestsPage() {
   const [showModal, setShowModal] = useState(false);
   const { viewMode, sortOption } = useViewControls();
 
+  // Raw JSON toggle state per card
+  const [expandedJsonCards, setExpandedJsonCards] = useState<Set<string>>(new Set());
+
+  const toggleJsonCard = (id: string) => {
+    setExpandedJsonCards(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   // API Token states
   const [apiTokens, setApiTokens] = useState<ApiToken[]>([]);
   const [showTokenModal, setShowTokenModal] = useState(false);
@@ -55,10 +71,23 @@ export default function MaintRequestsPage() {
     );
 
     const unsubscribe = onSnapshot(maintRequestsQuery, (snapshot) => {
-      const requestsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as MaintRequest[];
+      const requestsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Serialize Firestore timestamps to readable strings for raw JSON display
+        const serializedData: Record<string, any> = { id: doc.id };
+        Object.entries(data).forEach(([key, value]) => {
+          if (value && typeof value === 'object' && typeof value.toDate === 'function') {
+            serializedData[key] = value.toDate().toISOString();
+          } else {
+            serializedData[key] = value;
+          }
+        });
+        return {
+          id: doc.id,
+          ...data,
+          rawData: serializedData,
+        };
+      }) as MaintRequest[];
       setRequests(requestsData);
       setLoading(false);
     });
@@ -308,6 +337,27 @@ export default function MaintRequestsPage() {
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* Raw JSON Response */}
+        <div className="pt-3 border-t">
+          <button
+            onClick={() => toggleJsonCard(request.id)}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors w-full"
+          >
+            <Code className="h-3 w-3" />
+            <span>Raw JSON Response</span>
+            {expandedJsonCards.has(request.id) ? (
+              <ChevronUp className="h-3 w-3 ml-auto" />
+            ) : (
+              <ChevronDown className="h-3 w-3 ml-auto" />
+            )}
+          </button>
+          {expandedJsonCards.has(request.id) && (
+            <pre className="mt-2 p-3 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-60 overflow-y-auto font-mono">
+              {JSON.stringify(request.rawData, null, 2)}
+            </pre>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -385,54 +435,76 @@ export default function MaintRequestsPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedRequests.map((request) => (
-                  <tr key={request.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-gray-900">{request.title}</div>
-                      <div className="text-gray-500 text-xs mt-1 line-clamp-1">{request.description}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{request.venue}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{request.requestor}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
-                        {request.priority}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
-                        {request.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {request.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewDetails(request)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <select
-                          value={request.status}
-                          onChange={(e) => handleStatusChange(request.id, e.target.value)}
-                          className="text-xs border border-gray-300 rounded-md px-2 py-1"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="in-progress">In Progress</option>
-                          <option value="completed">Completed</option>
-                        </select>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDelete(request.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+                  <React.Fragment key={request.id}>
+                    <tr className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-sm">
+                        <div className="font-medium text-gray-900">{request.title}</div>
+                        <div className="text-gray-500 text-xs mt-1 line-clamp-1">{request.description}</div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{request.venue}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{request.requestor}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
+                          {request.priority}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
+                          {request.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {request.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewDetails(request)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <button
+                            onClick={() => toggleJsonCard(request.id)}
+                            className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+                            title="View Raw JSON"
+                          >
+                            <Code className="h-4 w-4 text-gray-600" />
+                          </button>
+                          <select
+                            value={request.status}
+                            onChange={(e) => handleStatusChange(request.id, e.target.value)}
+                            className="text-xs border border-gray-300 rounded-md px-2 py-1"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDelete(request.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedJsonCards.has(request.id) && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-3 bg-gray-50">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Code className="h-3 w-3 text-gray-500" />
+                            <span className="text-xs font-semibold text-gray-500">Raw JSON Response</span>
+                          </div>
+                          <pre className="p-3 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-60 overflow-y-auto font-mono">
+                            {JSON.stringify(request.rawData, null, 2)}
+                          </pre>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -514,6 +586,17 @@ export default function MaintRequestsPage() {
                       <option value="completed">Completed</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Raw JSON Response */}
+                <div className="pt-4 border-t">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Code className="h-4 w-4 text-gray-500" />
+                    <Label className="text-gray-600 font-semibold">Raw JSON Response (Firebase)</Label>
+                  </div>
+                  <pre className="p-4 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-80 overflow-y-auto font-mono">
+                    {JSON.stringify(selectedRequest.rawData, null, 2)}
+                  </pre>
                 </div>
               </div>
             </div>
