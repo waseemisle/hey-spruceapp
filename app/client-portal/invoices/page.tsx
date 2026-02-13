@@ -8,8 +8,9 @@ import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Receipt, Download, CreditCard, Calendar, CheckCircle } from 'lucide-react';
+import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface Invoice {
   id: string;
@@ -266,11 +267,17 @@ export default function ClientInvoices() {
                     )}
                   </div>
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Link href={`/client-portal/invoices/${invoice.id}`} className="flex-1 min-w-[120px]">
+                      <Button variant="outline" className="w-full" size="sm">
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
+                    </Link>
                     <Button
                       onClick={() => handleDownloadPDF(invoice)}
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-[120px]"
                       size="sm"
                     >
                       <Download className="h-4 w-4 mr-2" />

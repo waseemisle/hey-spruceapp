@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, updateDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, addDoc, collection, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifySubcontractorAssignment } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { FileText, Check, X, Calendar, DollarSign, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import QuoteSystemInfo from '@/components/quote-system-info';
+import type { QuoteTimelineEvent, QuoteSystemInformation } from '@/types';
 
 interface Quote {
   id: string;
@@ -46,6 +49,9 @@ interface Quote {
   rejectedAt?: any;
   proposedServiceDate?: any;
   proposedServiceTime?: string;
+  timeline?: QuoteTimelineEvent[];
+  systemInformation?: QuoteSystemInformation;
+  creationSource?: string;
 }
 
 export default function QuoteDetail() {
@@ -55,6 +61,7 @@ export default function QuoteDetail() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [canViewTimeline, setCanViewTimeline] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -89,10 +96,11 @@ export default function QuoteDetail() {
           return;
         }
 
-        // Check if client has access to this quote's location
+        // Check if client has access to this quote's location and permissions
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         const clientData = clientDoc.data();
         const clientAssignedLocations = clientData?.assignedLocations || [];
+        setCanViewTimeline(clientData?.permissions?.viewTimeline === true);
 
         if (clientAssignedLocations.length > 0 && quoteData.workOrderId) {
           const workOrderDoc = await getDoc(doc(db, 'workOrders', quoteData.workOrderId));
@@ -143,10 +151,32 @@ export default function QuoteDetail() {
             }
             const workOrderData = workOrderDoc.data();
 
-            // Update quote status
+            const currentUser = auth.currentUser;
+            const clientDocForName = currentUser ? await getDoc(doc(db, 'clients', currentUser.uid)) : null;
+            const clientName = clientDocForName?.exists() ? clientDocForName.data()?.fullName : quote.clientName || 'Client';
+            const existingQuoteTimeline = (quote.timeline || []) as QuoteTimelineEvent[];
+            const existingQuoteSysInfo = quote.systemInformation || {};
+            const acceptedEvent = createQuoteTimelineEvent({
+              type: 'accepted',
+              userId: currentUser?.uid || 'unknown',
+              userName: clientName,
+              userRole: 'client',
+              details: `Quote approved by ${clientName}. Work order assigned to ${quote.subcontractorName}.`,
+              metadata: { workOrderNumber: workOrderData.workOrderNumber },
+            });
             await updateDoc(doc(db, 'quotes', quote.id), {
               status: 'accepted',
               acceptedAt: serverTimestamp(),
+              timeline: [...existingQuoteTimeline, acceptedEvent],
+              systemInformation: {
+                ...existingQuoteSysInfo,
+                acceptedBy: {
+                  id: currentUser?.uid || 'unknown',
+                  name: clientName,
+                  timestamp: Timestamp.now(),
+                },
+              },
+              updatedAt: serverTimestamp(),
             });
 
             // AUTO-ASSIGN: Create assigned job record
@@ -227,10 +257,37 @@ export default function QuoteDetail() {
           if (reason === null) return;
 
           try {
+            const currentUser = auth.currentUser;
+            let clientName = quote.clientName || 'Client';
+            if (currentUser) {
+              const clientDocForName = await getDoc(doc(db, 'clients', currentUser.uid));
+              if (clientDocForName.exists()) clientName = clientDocForName.data()?.fullName || clientName;
+            }
+            const existingQuoteTimeline = (quote.timeline || []) as QuoteTimelineEvent[];
+            const existingQuoteSysInfo = quote.systemInformation || {};
+            const rejectedEvent = createQuoteTimelineEvent({
+              type: 'rejected',
+              userId: currentUser?.uid || 'unknown',
+              userName: clientName,
+              userRole: 'client',
+              details: `Quote rejected by ${clientName}${reason ? `. Reason: ${reason}` : ''}`,
+              metadata: { reason: reason || '' },
+            });
             await updateDoc(doc(db, 'quotes', quote.id), {
               status: 'rejected',
               rejectedAt: serverTimestamp(),
               rejectionReason: reason || 'No reason provided',
+              timeline: [...existingQuoteTimeline, rejectedEvent],
+              systemInformation: {
+                ...existingQuoteSysInfo,
+                rejectedBy: {
+                  id: currentUser?.uid || 'unknown',
+                  name: clientName,
+                  timestamp: Timestamp.now(),
+                  reason: reason || undefined,
+                },
+              },
+              updatedAt: serverTimestamp(),
             });
             toast.success('Quote rejected successfully!');
             router.push('/client-portal/quotes');
@@ -263,6 +320,91 @@ export default function QuoteDetail() {
       rejected: 'Rejected',
     };
     return labels[status as keyof typeof labels] || status;
+  };
+
+  const toDate = (val: any) => {
+    if (!val) return null;
+    if (val?.toDate) return val.toDate();
+    if (val instanceof Date) return val;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const buildQuoteTimeline = (q: Quote): QuoteTimelineEvent[] => {
+    if (q.timeline && q.timeline.length > 0) {
+      return [...q.timeline].sort((a, b) => {
+        const ta = toDate(a.timestamp)?.getTime() ?? 0;
+        const tb = toDate(b.timestamp)?.getTime() ?? 0;
+        return ta - tb;
+      });
+    }
+    const events: QuoteTimelineEvent[] = [];
+    const createdTs = toDate(q.createdAt);
+    if (createdTs) {
+      events.push({
+        id: 'created',
+        timestamp: q.createdAt,
+        type: 'created',
+        userId: (q as any).createdBy || 'unknown',
+        userName: q.systemInformation?.createdBy?.name || 'Unknown',
+        userRole: (q.creationSource === 'admin_portal' ? 'admin' : 'subcontractor') as 'admin' | 'subcontractor',
+        details: q.creationSource === 'admin_portal' ? 'Quote created via admin portal' : 'Quote submitted via bidding portal',
+        metadata: { source: q.creationSource || 'subcontractor_bidding' },
+      });
+    }
+    const sentTs = toDate(q.sentToClientAt);
+    if (sentTs) {
+      events.push({
+        id: 'sent',
+        timestamp: q.sentToClientAt,
+        type: 'sent_to_client',
+        userId: (q as any).sentBy || 'unknown',
+        userName: q.systemInformation?.sentToClientBy?.name || 'Admin',
+        userRole: 'admin',
+        details: 'Quote sent to client',
+        metadata: q.workOrderNumber ? { workOrderNumber: q.workOrderNumber } : undefined,
+      });
+    }
+    const acceptedTs = toDate(q.acceptedAt);
+    if (acceptedTs) {
+      events.push({
+        id: 'accepted',
+        timestamp: q.acceptedAt,
+        type: 'accepted',
+        userId: q.systemInformation?.acceptedBy?.id || 'unknown',
+        userName: q.systemInformation?.acceptedBy?.name || 'Client',
+        userRole: 'client',
+        details: `Quote approved by ${q.systemInformation?.acceptedBy?.name || 'Client'}. Work order assigned to ${q.subcontractorName}.`,
+        metadata: q.workOrderNumber ? { workOrderNumber: q.workOrderNumber } : undefined,
+      });
+    }
+    const rejectedTs = toDate(q.rejectedAt);
+    if (rejectedTs) {
+      events.push({
+        id: 'rejected',
+        timestamp: q.rejectedAt,
+        type: 'rejected',
+        userId: q.systemInformation?.rejectedBy?.id || 'unknown',
+        userName: q.systemInformation?.rejectedBy?.name || 'Client',
+        userRole: 'client',
+        details: `Quote rejected by ${q.systemInformation?.rejectedBy?.name || 'Client'}${(q as any).rejectionReason ? `. Reason: ${(q as any).rejectionReason}` : ''}`,
+        metadata: (q as any).rejectionReason ? { reason: (q as any).rejectionReason } : undefined,
+      });
+    }
+    return events.sort((a, b) => (toDate(a.timestamp)?.getTime() ?? 0) - (toDate(b.timestamp)?.getTime() ?? 0));
+  };
+
+  const getQuoteCreationSourceLabel = (q: Quote): string => {
+    if (q.systemInformation?.createdBy?.name && q.creationSource === 'admin_portal') {
+      return `Quote created by ${q.systemInformation.createdBy.name} via Admin Portal`;
+    }
+    if (q.creationSource === 'subcontractor_bidding' || q.systemInformation?.createdBy?.role === 'subcontractor') {
+      return `Quote submitted by ${q.subcontractorName} via Bidding Portal`;
+    }
+    if (q.systemInformation?.createdBy?.name) {
+      return `Quote created by ${q.systemInformation.createdBy.name}`;
+    }
+    return 'Quote created via portal';
   };
 
   if (loading) {
@@ -471,6 +613,14 @@ export default function QuoteDetail() {
             )}
           </CardContent>
         </Card>
+
+        {canViewTimeline && (
+          <QuoteSystemInfo
+            timeline={buildQuoteTimeline(quote)}
+            systemInformation={quote.systemInformation}
+            creationSourceLabel={getQuoteCreationSourceLabel(quote)}
+          />
+        )}
       </div>
     </ClientLayout>
   );

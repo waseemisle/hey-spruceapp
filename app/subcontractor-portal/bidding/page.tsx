@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, serverTimestamp, getDocs, updateDoc, Timestamp } from 'firebase/firestore';
+import { createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifyQuoteSubmission } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -170,6 +171,15 @@ export default function SubcontractorBidding() {
       const clientDoc = await getDoc(doc(db, 'clients', selectedWorkOrder.clientId));
       const clientEmail = clientDoc.exists() ? clientDoc.data().email : '';
 
+      const createdByName = subData.fullName || subData.businessName || 'Subcontractor';
+      const timelineEvent = createQuoteTimelineEvent({
+        type: 'created',
+        userId: currentUser.uid,
+        userName: createdByName,
+        userRole: 'subcontractor',
+        details: 'Quote submitted via bidding portal',
+        metadata: { source: 'subcontractor_bidding', workOrderNumber: selectedWorkOrder.workOrderNumber },
+      });
       const quoteRef = await addDoc(collection(db, 'quotes'), {
         workOrderId: selectedWorkOrder.id,
         workOrderNumber: selectedWorkOrder.workOrderNumber,
@@ -193,6 +203,16 @@ export default function SubcontractorBidding() {
         notes: quoteForm.notes,
         status: 'pending',
         createdBy: currentUser.uid,
+        creationSource: 'subcontractor_bidding',
+        timeline: [timelineEvent],
+        systemInformation: {
+          createdBy: {
+            id: currentUser.uid,
+            name: createdByName,
+            role: 'subcontractor',
+            timestamp: Timestamp.now(),
+          },
+        },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

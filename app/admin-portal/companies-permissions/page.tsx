@@ -36,6 +36,7 @@ interface Client {
     viewSubcontractors?: boolean;
     compareQuotes?: boolean;
     viewRecurringWorkOrders?: boolean;
+    viewTimeline?: boolean;
   };
 }
 
@@ -82,6 +83,7 @@ export default function CompaniesPermissions() {
           viewSubcontractors: client.permissions?.viewSubcontractors || false,
           compareQuotes: client.permissions?.compareQuotes || false,
           viewRecurringWorkOrders: client.permissions?.viewRecurringWorkOrders || false,
+          viewTimeline: client.permissions?.viewTimeline || false,
         };
       });
       setClientPermissions(permissionsMap);
@@ -97,7 +99,7 @@ export default function CompaniesPermissions() {
     fetchAll();
   }, []);
 
-  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests' | 'viewMaintenanceRequestsWorkOrders' | 'approveRejectOrder' | 'rejectedWorkOrders' | 'viewSubcontractors' | 'compareQuotes' | 'viewRecurringWorkOrders', value: boolean) => {
+  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests' | 'viewMaintenanceRequestsWorkOrders' | 'approveRejectOrder' | 'rejectedWorkOrders' | 'viewSubcontractors' | 'compareQuotes' | 'viewRecurringWorkOrders' | 'viewTimeline', value: boolean) => {
     setClientPermissions((prev) => ({
       ...prev,
       [clientId]: {
@@ -230,6 +232,7 @@ export default function CompaniesPermissions() {
                                 viewSubcontractors: false,
                                 compareQuotes: false,
                                 viewRecurringWorkOrders: false,
+                                viewTimeline: false,
                               };
                               const isSaving = saving === client.id;
 
@@ -497,6 +500,37 @@ export default function CompaniesPermissions() {
                                             </p>
                                           </div>
                                           {permissions.viewRecurringWorkOrders ? (
+                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                          ) : (
+                                            <XCircle className="h-5 w-5 text-gray-300" />
+                                          )}
+                                        </div>
+
+                                        {/* Permission 8: View Timeline */}
+                                        <div className="flex items-start gap-3">
+                                          <Checkbox
+                                            id={`view-timeline-${client.id}`}
+                                            checked={permissions.viewTimeline || false}
+                                            onCheckedChange={(checked) =>
+                                              handlePermissionChange(
+                                                client.id,
+                                                'viewTimeline',
+                                                checked === true
+                                              )
+                                            }
+                                          />
+                                          <div className="flex-1">
+                                            <Label
+                                              htmlFor={`view-timeline-${client.id}`}
+                                              className="font-medium cursor-pointer"
+                                            >
+                                              View Timeline
+                                            </Label>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              Allows this client to see the Timeline section (how it was created, approved by, activity timeline) on work orders, quotes, and invoices in their portal. When disabled, only admins see timelines.
+                                            </p>
+                                          </div>
+                                          {permissions.viewTimeline ? (
                                             <CheckCircle2 className="h-5 w-5 text-green-500" />
                                           ) : (
                                             <XCircle className="h-5 w-5 text-gray-300" />

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { createInvoiceTimelineEvent } from '@/lib/timeline';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -66,12 +67,33 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
       return;
     }
 
-    // Update invoice status to paid
+    const invSnap = await getDoc(doc(db, 'invoices', invoiceId));
+    const invData = invSnap.data();
+    const existingTimeline = invData?.timeline || [];
+    const existingSysInfo = invData?.systemInformation || {};
+    const paidEvent = createInvoiceTimelineEvent({
+      type: 'paid',
+      userId: 'system',
+      userName: 'Payment System',
+      userRole: 'system',
+      details: 'Payment received via Stripe',
+      metadata: { stripeSessionId: session.id },
+    });
     await updateDoc(doc(db, 'invoices', invoiceId), {
       status: 'paid',
       paidAt: serverTimestamp(),
       stripeSessionId: session.id,
       stripePaymentIntentId: session.payment_intent,
+      timeline: [...existingTimeline, paidEvent],
+      systemInformation: {
+        ...existingSysInfo,
+        paidAt: Timestamp.now(),
+        paidBy: {
+          id: 'system',
+          name: 'Payment System',
+          timestamp: Timestamp.now(),
+        },
+      },
       updatedAt: serverTimestamp(),
     });
 

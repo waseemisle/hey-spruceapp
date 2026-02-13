@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
-import { createTimelineEvent } from '@/lib/timeline';
+import { createTimelineEvent, createInvoiceTimelineEvent } from '@/lib/timeline';
 import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 
 interface WorkOrder {
@@ -518,7 +518,16 @@ const handleLocationSelect = (locationId: string) => {
 
       // Generate invoice number
       const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
-      
+      const currentUser = auth.currentUser;
+      const adminName = currentUser ? (await getDoc(doc(db, 'adminUsers', currentUser.uid))).data()?.fullName : 'Admin';
+      const createdEvent = createInvoiceTimelineEvent({
+        type: 'created',
+        userId: currentUser?.uid || 'system',
+        userName: adminName,
+        userRole: 'admin',
+        details: `Invoice created from work order ${workOrder.workOrderNumber}`,
+        metadata: { source: 'admin_portal', workOrderNumber: workOrder.workOrderNumber },
+      });
       // Create invoice data
       const invoiceData: any = {
         invoiceNumber,
@@ -532,7 +541,19 @@ const handleLocationSelect = (locationId: string) => {
         lineItems: lineItems,
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         notes: `Invoice for completed work order: ${workOrder.workOrderNumber}`,
+        createdBy: currentUser?.uid,
+        creationSource: 'admin_portal',
+        timeline: [createdEvent],
+        systemInformation: {
+          createdBy: {
+            id: currentUser?.uid || 'system',
+            name: adminName,
+            role: 'admin',
+            timestamp: Timestamp.now(),
+          },
+        },
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
 
       // Only add subcontractor fields if they exist
@@ -602,12 +623,33 @@ const handleLocationSelect = (locationId: string) => {
       }
 
       const stripePaymentLink = stripeData.paymentLink;
-
+      const sentEvent = createInvoiceTimelineEvent({
+        type: 'sent',
+        userId: currentUser?.uid || 'system',
+        userName: adminName,
+        userRole: 'admin',
+        details: 'Invoice sent to client with payment link',
+        metadata: { invoiceNumber },
+      });
+      const invSnap = await getDoc(invoiceRef);
+      const invData = invSnap.data();
+      const existingTimeline = invData?.timeline || [];
+      const existingSysInfo = invData?.systemInformation || {};
       // Update invoice with payment link
       await updateDoc(invoiceRef, {
         stripePaymentLink,
         status: 'sent',
         sentAt: serverTimestamp(),
+        timeline: [...existingTimeline, sentEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          sentBy: {
+            id: currentUser?.uid || 'system',
+            name: adminName,
+            timestamp: Timestamp.now(),
+          },
+        },
+        updatedAt: serverTimestamp(),
       });
 
       // Notify client of invoice

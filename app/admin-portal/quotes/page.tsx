@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
-import { createTimelineEvent } from '@/lib/timeline';
+import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -149,6 +149,16 @@ function QuotesContent() {
       const markupDecimal = markup / 100;
       const clientAmount = quote.totalAmount * (1 + markupDecimal);
 
+      const existingQuoteTimeline = (quote as any).timeline || [];
+      const sentEvent = createQuoteTimelineEvent({
+        type: 'sent_to_client',
+        userId: currentUser.uid,
+        userName: adminName,
+        userRole: 'admin',
+        details: `Quote sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
+        metadata: { quoteId: quote.id, workOrderNumber: quote.workOrderNumber },
+      });
+      const existingSysInfo = (quote as any).systemInformation || {};
       await updateDoc(doc(db, 'quotes', quote.id), {
         markupPercentage: markup,
         clientAmount: clientAmount,
@@ -156,6 +166,15 @@ function QuotesContent() {
         status: 'sent_to_client',
         sentToClientAt: serverTimestamp(),
         sentBy: currentUser.uid,
+        timeline: [...existingQuoteTimeline, sentEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          sentToClientBy: {
+            id: currentUser.uid,
+            name: adminName,
+            timestamp: Timestamp.now(),
+          },
+        },
         updatedAt: serverTimestamp(),
       });
 
@@ -270,6 +289,16 @@ function QuotesContent() {
       const totalAmount = calculateTotal();
       const quoteNumber = `QUOTE-${Date.now().toString().slice(-8).toUpperCase()}`;
 
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
+      const createdEvent = createQuoteTimelineEvent({
+        type: 'created',
+        userId: currentUser.uid,
+        userName: adminName,
+        userRole: 'admin',
+        details: 'Quote created via admin portal',
+        metadata: { source: 'admin_portal' },
+      });
       const quoteData = {
         quoteNumber,
         workOrderTitle: formData.workOrderTitle,
@@ -289,6 +318,16 @@ function QuotesContent() {
         notes: formData.notes,
         status: 'pending',
         createdBy: currentUser.uid,
+        creationSource: 'admin_portal',
+        timeline: [createdEvent],
+        systemInformation: {
+          createdBy: {
+            id: currentUser.uid,
+            name: adminName,
+            role: 'admin',
+            timestamp: Timestamp.now(),
+          },
+        },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };

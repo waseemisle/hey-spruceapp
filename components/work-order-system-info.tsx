@@ -14,10 +14,14 @@ interface WorkOrderSystemInfoProps {
   viewerRole?: 'admin' | 'client' | 'subcontractor';
   /** Shown at top of Timeline so creation source is always visible */
   creationSourceLabel?: string;
+  /** When false, the entire Timeline card is hidden (e.g. client/subcontractor without permission). Default true for admin. */
+  canViewTimeline?: boolean;
 }
 
-export default function WorkOrderSystemInfo({ timeline, systemInformation, viewerRole = 'admin', creationSourceLabel }: WorkOrderSystemInfoProps) {
+export default function WorkOrderSystemInfo({ timeline, systemInformation, viewerRole = 'admin', creationSourceLabel, canViewTimeline = true }: WorkOrderSystemInfoProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+
+  if (!canViewTimeline) return null;
 
   const visibleTimeline = viewerRole === 'client'
     ? timeline?.filter(e => !ADMIN_ONLY_EVENTS.includes(e.type))

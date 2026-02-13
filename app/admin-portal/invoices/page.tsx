@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload } from 'lucide-react';
+import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye } from 'lucide-react';
+import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { Quote } from '@/types';
 import { toast } from 'sonner';
@@ -113,6 +115,16 @@ export default function InvoicesManagement() {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30); // 30 days from now
 
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
+      const createdEvent = createInvoiceTimelineEvent({
+        type: 'created',
+        userId: currentUser.uid,
+        userName: adminName,
+        userRole: 'admin',
+        details: 'Invoice created from accepted quote',
+        metadata: { source: 'from_quote', quoteId: quote.id, workOrderNumber: quote.workOrderNumber },
+      });
       const invoiceData = {
         invoiceNumber,
         quoteId: quote.id,
@@ -131,6 +143,16 @@ export default function InvoicesManagement() {
         notes: quote.notes || '',
         terms: 'Payment due within 30 days. Late payments may incur additional fees.',
         createdBy: currentUser.uid,
+        creationSource: 'from_quote',
+        timeline: [createdEvent],
+        systemInformation: {
+          createdBy: {
+            id: currentUser.uid,
+            name: adminName,
+            role: 'admin',
+            timestamp: Timestamp.now(),
+          },
+        },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -175,11 +197,32 @@ export default function InvoicesManagement() {
             updatedAt: serverTimestamp(),
           });
         } else if (stripeData.paymentLink) {
+          const sentEvent = createInvoiceTimelineEvent({
+            type: 'sent',
+            userId: currentUser.uid,
+            userName: adminName,
+            userRole: 'admin',
+            details: 'Invoice sent to client with payment link',
+            metadata: { invoiceNumber },
+          });
+          const invSnap = await getDoc(doc(db, 'invoices', invoiceRef.id));
+          const invData = invSnap.data();
+          const existingTimeline = invData?.timeline || [];
+          const existingSysInfo = invData?.systemInformation || {};
           await updateDoc(doc(db, 'invoices', invoiceRef.id), {
             stripePaymentLink: stripeData.paymentLink,
             stripeSessionId: stripeData.sessionId,
             status: 'sent',
             sentAt: serverTimestamp(),
+            timeline: [...existingTimeline, sentEvent],
+            systemInformation: {
+              ...existingSysInfo,
+              sentBy: {
+                id: currentUser.uid,
+                name: adminName,
+                timestamp: Timestamp.now(),
+              },
+            },
             updatedAt: serverTimestamp(),
           });
 
@@ -374,10 +417,32 @@ export default function InvoicesManagement() {
         toast.error('Invoice not found');
         return;
       }
-
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
+      const sentEvent = createInvoiceTimelineEvent({
+        type: 'sent',
+        userId: currentUser.uid,
+        userName: adminName,
+        userRole: 'admin',
+        details: 'Invoice marked as sent to client',
+        metadata: { invoiceNumber: invoice.invoiceNumber },
+      });
+      const existingTimeline = (invoice as any).timeline || [];
+      const existingSysInfo = (invoice as any).systemInformation || {};
       await updateDoc(doc(db, 'invoices', invoiceId), {
         status: 'sent',
         sentAt: serverTimestamp(),
+        timeline: [...existingTimeline, sentEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          sentBy: {
+            id: currentUser.uid,
+            name: adminName,
+            timestamp: Timestamp.now(),
+          },
+        },
         updatedAt: serverTimestamp(),
       });
 
@@ -617,6 +682,12 @@ export default function InvoicesManagement() {
 
                   {/* Action Buttons */}
                   <div className="space-y-2 pt-2">
+                    <Link href={`/admin-portal/invoices/${invoice.id}`}>
+                      <Button size="sm" variant="outline" className="w-full">
+                        <Eye className="h-4 w-4 mr-2" />
+                        View (Timeline)
+                      </Button>
+                    </Link>
                     <Button
                       size="sm"
                       variant="outline"

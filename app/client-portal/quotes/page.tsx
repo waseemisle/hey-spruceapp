@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs, Timestamp } from 'firebase/firestore';
-import { createTimelineEvent } from '@/lib/timeline';
+import type { QuoteTimelineEvent } from '@/types';
+import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifySubcontractorAssignment } from '@/lib/notifications';
@@ -46,6 +47,8 @@ interface Quote {
   sentToClientAt?: any;
   acceptedAt?: any;
   rejectedAt?: any;
+  timeline?: QuoteTimelineEvent[];
+  systemInformation?: { createdBy?: { name: string }; sentToClientBy?: { name: string }; acceptedBy?: { id: string; name: string; timestamp: any }; rejectedBy?: { id: string; name: string; timestamp: any; reason?: string } };
 }
 
 export default function ClientQuotes() {
@@ -168,10 +171,29 @@ export default function ClientQuotes() {
             }
             const workOrderData = workOrderDoc.data();
 
-            // Update quote status
+            const existingQuoteTimeline = (quote.timeline || []) as QuoteTimelineEvent[];
+            const existingQuoteSysInfo = quote.systemInformation || {};
+            const acceptedEvent = createQuoteTimelineEvent({
+              type: 'accepted',
+              userId: currentUser?.uid || 'unknown',
+              userName: clientName,
+              userRole: 'client',
+              details: `Quote approved by ${clientName}. Work order assigned to ${quote.subcontractorName}.`,
+              metadata: quote.workOrderNumber ? { workOrderNumber: quote.workOrderNumber } : undefined,
+            });
             await updateDoc(doc(db, 'quotes', quoteId), {
               status: 'accepted',
               acceptedAt: serverTimestamp(),
+              timeline: [...existingQuoteTimeline, acceptedEvent],
+              systemInformation: {
+                ...existingQuoteSysInfo,
+                acceptedBy: {
+                  id: currentUser?.uid || 'unknown',
+                  name: clientName,
+                  timestamp: Timestamp.now(),
+                },
+              },
+              updatedAt: serverTimestamp(),
             });
 
             // AUTO-ASSIGN: Create assigned job record
@@ -278,10 +300,31 @@ export default function ClientQuotes() {
           if (reason === null) return;
 
           try {
+            const existingQuoteTimeline = (quote.timeline || []) as QuoteTimelineEvent[];
+            const existingQuoteSysInfo = quote.systemInformation || {};
+            const rejectedEvent = createQuoteTimelineEvent({
+              type: 'rejected',
+              userId: currentUser?.uid || 'unknown',
+              userName: clientName,
+              userRole: 'client',
+              details: `Quote from ${quote.subcontractorName} rejected by ${clientName}${reason ? `. Reason: ${reason}` : ''}`,
+              metadata: { reason: reason || '' },
+            });
             await updateDoc(doc(db, 'quotes', quoteId), {
               status: 'rejected',
               rejectedAt: serverTimestamp(),
               rejectionReason: reason || 'No reason provided',
+              timeline: [...existingQuoteTimeline, rejectedEvent],
+              systemInformation: {
+                ...existingQuoteSysInfo,
+                rejectedBy: {
+                  id: currentUser?.uid || 'unknown',
+                  name: clientName,
+                  timestamp: Timestamp.now(),
+                  reason: reason || undefined,
+                },
+              },
+              updatedAt: serverTimestamp(),
             });
 
             // Add timeline event to work order

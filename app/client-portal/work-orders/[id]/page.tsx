@@ -111,6 +111,7 @@ export default function ViewClientWorkOrder() {
   const [loading, setLoading] = useState(true);
   const [hasApproveRejectPermission, setHasApproveRejectPermission] = useState(false);
   const [hasCompareQuotesPermission, setHasCompareQuotesPermission] = useState(false);
+  const [hasViewTimelinePermission, setHasViewTimelinePermission] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
@@ -125,8 +126,10 @@ export default function ViewClientWorkOrder() {
           const clientData = clientDoc.data();
           const hasApprovePermission = clientData?.permissions?.approveRejectOrder === true;
           const hasComparePermission = clientData?.permissions?.compareQuotes === true;
+          const hasViewTimeline = clientData?.permissions?.viewTimeline === true;
           setHasApproveRejectPermission(hasApprovePermission);
           setHasCompareQuotesPermission(hasComparePermission);
+          setHasViewTimelinePermission(hasViewTimeline);
         } catch (error) {
           console.error('Error fetching client permissions:', error);
         }
@@ -810,12 +813,14 @@ export default function ViewClientWorkOrder() {
               </CardContent>
             </Card>
 
-            <WorkOrderSystemInfo
-              timeline={buildTimeline(workOrder)}
-              systemInformation={workOrder.systemInformation}
-              viewerRole="client"
-              creationSourceLabel={getCreatedDetails(workOrder)}
-            />
+            {hasViewTimelinePermission && (
+              <WorkOrderSystemInfo
+                timeline={buildTimeline(workOrder)}
+                systemInformation={workOrder.systemInformation}
+                viewerRole="client"
+                creationSourceLabel={getCreatedDetails(workOrder)}
+              />
+            )}
           </div>
         </div>
       </div>

@@ -228,6 +228,26 @@ export interface LineItem {
   amount: number;
 }
 
+export type QuoteTimelineEventType = 'created' | 'sent_to_client' | 'accepted' | 'rejected';
+
+export interface QuoteTimelineEvent {
+  id: string;
+  timestamp: Date | any;
+  type: QuoteTimelineEventType;
+  userId: string;
+  userName: string;
+  userRole: 'admin' | 'client' | 'subcontractor' | 'system';
+  details: string;
+  metadata?: Record<string, any>;
+}
+
+export interface QuoteSystemInformation {
+  createdBy?: { id: string; name: string; role: string; timestamp: Date | any };
+  sentToClientBy?: { id: string; name: string; timestamp: Date | any };
+  acceptedBy?: { id: string; name: string; timestamp: Date | any };
+  rejectedBy?: { id: string; name: string; timestamp: Date | any; reason?: string };
+}
+
 export interface Quote {
   id: string;
   workOrderId: string;
@@ -262,11 +282,35 @@ export interface Quote {
   acceptedAt?: Date;
   rejectedAt?: Date;
   rejectionReason?: string;
+  timeline?: QuoteTimelineEvent[];
+  systemInformation?: QuoteSystemInformation;
+  /** How this quote was created (e.g. subcontractor_bidding, admin_portal) */
+  creationSource?: 'subcontractor_bidding' | 'admin_portal';
   createdAt: Date;
   updatedAt: Date;
 }
 
 // Invoice Types
+export type InvoiceTimelineEventType = 'created' | 'sent' | 'paid';
+
+export interface InvoiceTimelineEvent {
+  id: string;
+  timestamp: Date | any;
+  type: InvoiceTimelineEventType;
+  userId: string;
+  userName: string;
+  userRole: 'admin' | 'client' | 'subcontractor' | 'system';
+  details: string;
+  metadata?: Record<string, any>;
+}
+
+export interface InvoiceSystemInformation {
+  createdBy?: { id: string; name: string; role: string; timestamp: Date | any };
+  sentBy?: { id: string; name: string; timestamp: Date | any };
+  paidAt?: Date | any;
+  paidBy?: { id: string; name: string; timestamp: Date | any };
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -296,6 +340,10 @@ export interface Invoice {
   notes: string;
   terms: string;
   createdBy: string;
+  timeline?: InvoiceTimelineEvent[];
+  systemInformation?: InvoiceSystemInformation;
+  /** How this invoice was created (e.g. admin_portal, from_quote, upload) */
+  creationSource?: 'admin_portal' | 'from_quote' | 'upload' | 'scheduled';
   createdAt: Date;
   updatedAt: Date;
 }
