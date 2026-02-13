@@ -56,6 +56,20 @@ interface WorkOrder {
   }>;
   timeline?: any[];
   systemInformation?: any;
+  // Source tracking fields
+  isMaintenanceRequestOrder?: boolean;
+  isFromRecurringWorkOrder?: boolean;
+  importedFromCSV?: boolean;
+  createdViaAPI?: boolean;
+  createdBy?: string;
+  approvedBy?: string;
+  recurringWorkOrderNumber?: string;
+  maintRequestNumber?: string;
+  appyRequestor?: string;
+  importFileName?: string;
+  assignedToName?: string;
+  assignedAt?: any;
+  rejectedAt?: any;
 }
 
 interface LineItem {
@@ -174,6 +188,80 @@ export default function ViewClientWorkOrder() {
       high: 'bg-red-100 text-red-800',
     };
     return styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Helper: get creation details from work order (so Timeline always shows how the WO was created)
+  const getCreatedDetails = (wo: WorkOrder) => {
+    let createdDetails = 'Work order created';
+    if (wo.createdViaAPI || wo.isMaintenanceRequestOrder) {
+      const parts = ['Work order created from Maintenance Request'];
+      if (wo.maintRequestNumber) parts.push(` (${wo.maintRequestNumber})`);
+      if (wo.appyRequestor) parts.push(` — Requestor: ${wo.appyRequestor}`);
+      createdDetails = parts.join('');
+    } else if (wo.isFromRecurringWorkOrder) {
+      createdDetails = `Work order created from Recurring Work Order${wo.recurringWorkOrderNumber ? ` (${wo.recurringWorkOrderNumber})` : ''}`;
+    } else if (wo.importedFromCSV) {
+      createdDetails = 'Work order created via CSV import';
+    } else {
+      createdDetails = 'Work order created via portal';
+    }
+    return createdDetails;
+  };
+
+  // Build a complete timeline from stored events or synthesize from fields.
+  // Always ensure the "created" event shows how the work order was created.
+  const buildTimeline = (wo: WorkOrder) => {
+    const createdDetails = getCreatedDetails(wo);
+
+    if (wo.timeline && wo.timeline.length > 0) {
+      // Enrich the stored "created" event so Timeline always shows creation source
+      return wo.timeline.map((event: any) => {
+        if (event.type === 'created') {
+          return { ...event, details: createdDetails };
+        }
+        return event;
+      });
+    }
+
+    const events: any[] = [];
+
+    if (wo.createdAt) {
+      events.push({
+        id: 'created', timestamp: wo.createdAt, type: 'created',
+        userId: 'unknown', userName: wo.systemInformation?.createdBy?.name || 'System',
+        userRole: 'system', details: createdDetails,
+      });
+    }
+    if (wo.approvedAt) {
+      events.push({
+        id: 'approved', timestamp: wo.approvedAt, type: 'approved',
+        userId: 'unknown', userName: wo.systemInformation?.approvedBy?.name || 'Admin',
+        userRole: 'admin', details: 'Work order approved',
+      });
+    }
+    if (wo.assignedAt && (wo.assignedToName || wo.assignedSubcontractorName)) {
+      events.push({
+        id: 'assigned', timestamp: wo.assignedAt, type: 'assigned',
+        userId: 'unknown', userName: 'Admin', userRole: 'admin',
+        details: `Assigned to ${wo.assignedToName || wo.assignedSubcontractorName}`,
+      });
+    }
+    if (wo.scheduledServiceDate && wo.scheduledServiceTime) {
+      const d = wo.scheduledServiceDate?.toDate ? wo.scheduledServiceDate.toDate() : new Date(wo.scheduledServiceDate);
+      events.push({
+        id: 'schedule_set', timestamp: wo.scheduledServiceDate, type: 'schedule_set',
+        userId: 'unknown', userName: wo.assignedToName || wo.assignedSubcontractorName || 'Subcontractor',
+        userRole: 'subcontractor', details: `Service scheduled for ${d.toLocaleDateString()} at ${wo.scheduledServiceTime}`,
+      });
+    }
+    if (wo.completedAt) {
+      events.push({
+        id: 'completed', timestamp: wo.completedAt, type: 'completed',
+        userId: 'unknown', userName: wo.assignedToName || wo.assignedSubcontractorName || 'Subcontractor',
+        userRole: 'subcontractor', details: 'Work order completed',
+      });
+    }
+    return events;
   };
 
   const handleQuoteSelection = (quoteId: string, checked: boolean) => {
@@ -698,54 +786,11 @@ export default function ViewClientWorkOrder() {
               </CardContent>
             </Card>
 
-            {workOrder.timeline && workOrder.timeline.length > 0 ? (
-              <WorkOrderSystemInfo
-                timeline={workOrder.timeline}
-                systemInformation={workOrder.systemInformation}
-                viewerRole="client"
-              />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Timeline
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <p className="text-sm text-gray-600">Created</p>
-                    <p className="font-semibold">
-                      {workOrder.createdAt?.toDate?.().toLocaleString() || 'N/A'}
-                    </p>
-                  </div>
-                  {workOrder.approvedAt && (
-                    <div>
-                      <p className="text-sm text-gray-600">Approved</p>
-                      <p className="font-semibold">
-                        {workOrder.approvedAt?.toDate?.().toLocaleString() || 'N/A'}
-                      </p>
-                    </div>
-                  )}
-                  {workOrder.completedAt && (
-                    <div>
-                      <p className="text-sm text-gray-600">Completed</p>
-                      <p className="font-semibold">
-                        {workOrder.completedAt?.toDate?.().toLocaleString() || 'N/A'}
-                      </p>
-                    </div>
-                  )}
-                  {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
-                    <div>
-                      <p className="text-sm text-gray-600">Scheduled Service</p>
-                      <p className="font-semibold">
-                        {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            <WorkOrderSystemInfo
+              timeline={buildTimeline(workOrder)}
+              systemInformation={workOrder.systemInformation}
+              viewerRole="client"
+            />
           </div>
         </div>
       </div>

@@ -59,7 +59,10 @@
       "Bash(dir /b:*)",
       "Bash(dir:*)",
       "Bash(echo:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(npx next build:*)"
     ],
     "deny": [],
     "ask": []
