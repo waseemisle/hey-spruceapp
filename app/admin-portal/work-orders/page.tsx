@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
@@ -113,6 +114,9 @@ function WorkOrdersContent() {
   const [rejectingWorkOrderId, setRejectingWorkOrderId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   // Work order type selection modal
   const [showWorkOrderTypeModal, setShowWorkOrderTypeModal] = useState(false);
   
@@ -1727,10 +1731,93 @@ const handleLocationSelect = (locationId: string) => {
       await deleteDoc(doc(db, 'workOrders', workOrder.id));
 
       toast.success('Work order and all related data deleted successfully');
+      setSelectedIds(prev => prev.filter(id => id !== workOrder.id));
       fetchWorkOrders();
     } catch (error) {
       console.error('Error deleting work order:', error);
       toast.error('Failed to delete work order');
+    }
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id)
+        ? prev.filter(selectedId => selectedId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredWorkOrders.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredWorkOrders.map(wo => wo.id));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+
+    const selectedCount = selectedIds.length;
+    toast(`Delete ${selectedCount} work order${selectedCount > 1 ? 's' : ''}?`, {
+      description: 'This will also delete all related quotes, bidding work orders, and invoices. This action cannot be undone.',
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          await performBulkDelete();
+        }
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}
+      }
+    });
+  };
+
+  const performBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    try {
+      setSubmitting(true);
+      const deletePromises = selectedIds.map(async (id) => {
+        // Delete related quotes
+        const quotesQuery = query(
+          collection(db, 'quotes'),
+          where('workOrderId', '==', id)
+        );
+        const quotesSnapshot = await getDocs(quotesQuery);
+        await Promise.all(quotesSnapshot.docs.map(d => deleteDoc(d.ref)));
+
+        // Delete related bidding work orders
+        const biddingQuery = query(
+          collection(db, 'biddingWorkOrders'),
+          where('workOrderId', '==', id)
+        );
+        const biddingSnapshot = await getDocs(biddingQuery);
+        await Promise.all(biddingSnapshot.docs.map(d => deleteDoc(d.ref)));
+
+        // Delete related invoices
+        const invoicesQuery = query(
+          collection(db, 'invoices'),
+          where('workOrderId', '==', id)
+        );
+        const invoicesSnapshot = await getDocs(invoicesQuery);
+        await Promise.all(invoicesSnapshot.docs.map(d => deleteDoc(d.ref)));
+
+        // Delete the work order itself
+        await deleteDoc(doc(db, 'workOrders', id));
+      });
+
+      await Promise.all(deletePromises);
+
+      toast.success(`Successfully deleted ${selectedIds.length} work order${selectedIds.length > 1 ? 's' : ''} and all related data`);
+      setSelectedIds([]);
+      fetchWorkOrders();
+    } catch (error) {
+      console.error('Error deleting work orders:', error);
+      toast.error('Failed to delete work orders');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1918,6 +2005,37 @@ const filteredLocationsForForm = locations.filter((location) => {
           </div>
         </div>
 
+        {/* Selection Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="select-all-wo"
+              checked={filteredWorkOrders.length > 0 && selectedIds.length === filteredWorkOrders.length}
+              onCheckedChange={toggleSelectAll}
+            />
+            <label htmlFor="select-all-wo" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Select All ({filteredWorkOrders.length})
+            </label>
+            {selectedIds.length > 0 && (
+              <span className="text-sm text-gray-600">
+                {selectedIds.length} selected
+              </span>
+            )}
+          </div>
+
+          {selectedIds.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Selected ({selectedIds.length})
+            </Button>
+          )}
+        </div>
+
         {/* Work Orders Grid/List */}
         {sortedWorkOrders.length === 0 ? (
           <Card className="col-span-full">
@@ -1931,6 +2049,12 @@ const filteredLocationsForForm = locations.filter((location) => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="px-4 py-3 w-10">
+                    <Checkbox
+                      checked={sortedWorkOrders.length > 0 && selectedIds.length === sortedWorkOrders.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order #</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
@@ -1944,6 +2068,12 @@ const filteredLocationsForForm = locations.filter((location) => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedWorkOrders.map((workOrder) => (
                   <tr key={workOrder.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <Checkbox
+                        checked={selectedIds.includes(workOrder.id)}
+                        onCheckedChange={() => toggleSelection(workOrder.id)}
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="font-medium text-gray-900">{workOrder.title}</div>
                       <div className="text-gray-500 text-xs mt-1 line-clamp-1">{workOrder.description}</div>
@@ -2004,7 +2134,14 @@ const filteredLocationsForForm = locations.filter((location) => {
                 <CardHeader className="flex-shrink-0 pb-4">
                   <div className="space-y-2">
                     <div className="flex justify-between items-start gap-2">
-                      <CardTitle className="text-lg line-clamp-2 flex-1 min-w-0">{workOrder.title}</CardTitle>
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <Checkbox
+                          checked={selectedIds.includes(workOrder.id)}
+                          onCheckedChange={() => toggleSelection(workOrder.id)}
+                          className="mt-1"
+                        />
+                        <CardTitle className="text-lg line-clamp-2 flex-1 min-w-0">{workOrder.title}</CardTitle>
+                      </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusColor(workOrder.status)}`}>
                         {getStatusLabel(workOrder.status)}
                       </span>
