@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Plus } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Plus, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -39,6 +39,15 @@ interface Client {
   email: string;
 }
 
+interface MatchResult {
+  rowIndex: number;
+  existingId: string;
+  existingData: {
+    lastServiced: string | null;
+    nextServiceDates: string[];
+  };
+}
+
 interface ImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -60,7 +69,11 @@ export default function RecurringWorkOrdersImportModal({
   const [globalClientId, setGlobalClientId] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [importMode, setImportMode] = useState<'create' | 'update_or_create'>('create');
+  const [importMode, setImportMode] = useState<'create' | 'update_or_create'>('update_or_create');
+  const [matchResults, setMatchResults] = useState<MatchResult[] | null>(null);
+  const [isCheckingMatches, setIsCheckingMatches] = useState(false);
+  const [updatingOpen, setUpdatingOpen] = useState(true);
+  const [creatingOpen, setCreatingOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch subcontractors and clients when modal opens
@@ -189,6 +202,13 @@ export default function RecurringWorkOrdersImportModal({
         toast.warning(`Found ${validRows.length} valid rows and ${invalidRows.length} rows with errors`);
       } else {
         toast.success(`Successfully parsed ${validRows.length} rows`);
+      }
+
+      // Trigger match check if in update_or_create mode
+      if (importMode === 'update_or_create' && validRows.length > 0) {
+        checkMatches(rowsWithGlobalClient);
+      } else {
+        setMatchResults(null);
       }
     } catch (error: any) {
       console.error('Error parsing file:', error);
@@ -586,6 +606,61 @@ export default function RecurringWorkOrdersImportModal({
     clientId: row.clientId || undefined,
   });
 
+  const checkMatches = async (rows: ParsedRow[]) => {
+    const validRows = rows.filter(r => r.errors.length === 0);
+    if (validRows.length === 0) {
+      setMatchResults(null);
+      return;
+    }
+
+    setIsCheckingMatches(true);
+    try {
+      let currentUser = auth.currentUser;
+      if (!currentUser) {
+        currentUser = await new Promise<typeof auth.currentUser>((resolve, reject) => {
+          const timeout = setTimeout(() => { unsub(); reject(new Error('Auth timeout')); }, 3000);
+          const unsub = onAuthStateChanged(auth, (user) => {
+            clearTimeout(timeout);
+            unsub();
+            resolve(user ?? null);
+          });
+        });
+      }
+      if (!currentUser) {
+        setMatchResults(null);
+        return;
+      }
+
+      const idToken = await currentUser.getIdToken(true);
+      const response = await fetch('/api/recurring-work-orders/import', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ rows: validRows.map(toImportRow) }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Map the API's rowIndex (index within validRows) back to parsedData index
+        const mapped: MatchResult[] = (data.matches || []).map((m: any) => ({
+          ...m,
+          rowIndex: rows.indexOf(validRows[m.rowIndex]),
+        }));
+        setMatchResults(mapped);
+      } else {
+        console.error('Preview match check failed:', await response.text());
+        setMatchResults(null);
+      }
+    } catch (error) {
+      console.error('Error checking matches:', error);
+      setMatchResults(null);
+    } finally {
+      setIsCheckingMatches(false);
+    }
+  };
+
   const handleImport = async () => {
     const validRows = parsedData.filter(r => r.errors.length === 0);
     
@@ -705,7 +780,11 @@ export default function RecurringWorkOrdersImportModal({
     setSubcontractors([]);
     setClients([]);
     setGlobalClientId('');
-    setImportMode('create');
+    setImportMode('update_or_create');
+    setMatchResults(null);
+    setIsCheckingMatches(false);
+    setUpdatingOpen(true);
+    setCreatingOpen(true);
     setCurrentPage(1);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -732,8 +811,54 @@ export default function RecurringWorkOrdersImportModal({
     }
   }, [parsedData.length]);
 
+  // Trigger match check when mode changes to update_or_create with data already parsed
+  useEffect(() => {
+    if (importMode === 'update_or_create' && parsedData.length > 0) {
+      checkMatches(parsedData);
+    } else {
+      setMatchResults(null);
+    }
+  }, [importMode]);
+
   const validRows = parsedData.filter(r => r.errors.length === 0);
   const invalidRows = parsedData.filter(r => r.errors.length > 0);
+
+  // Compute matched (updating) vs unmatched (creating) row sets
+  const matchedIndices = new Set(matchResults?.map(m => m.rowIndex) ?? []);
+  const updatingRows = importMode === 'update_or_create' && matchResults
+    ? parsedData.filter((_, idx) => matchedIndices.has(idx) && parsedData[idx].errors.length === 0)
+    : [];
+  const creatingRows = importMode === 'update_or_create' && matchResults
+    ? parsedData.filter((_, idx) => !matchedIndices.has(idx))
+    : parsedData;
+
+  // Pagination applies to creating rows section
+  const creatingValidRows = creatingRows.filter(r => r.errors.length === 0);
+  const totalPagesCreating = Math.ceil(creatingRows.length / rowsPerPage);
+  const startIndexCreating = (currentPage - 1) * rowsPerPage;
+  const endIndexCreating = startIndexCreating + rowsPerPage;
+  const currentCreatingRows = creatingRows.slice(startIndexCreating, endIndexCreating);
+
+  // Helper to format date values for display
+  const formatDateValue = (val: string | number): string => {
+    if (!val && val !== 0) return '-';
+    if (typeof val === 'number') {
+      // Excel serial date
+      if (val > 0 && val < 1000000) {
+        const excelEpoch = new Date(1900, 0, 1);
+        excelEpoch.setDate(excelEpoch.getDate() + val - 2);
+        return excelEpoch.toLocaleDateString();
+      }
+      if (val > 1000000000000) return new Date(val).toLocaleDateString();
+      if (val > 0) return new Date(val * 1000).toLocaleDateString();
+      return String(val);
+    }
+    return String(val);
+  };
+
+  // Get match result for a given parsedData index
+  const getMatchForIndex = (idx: number): MatchResult | undefined =>
+    matchResults?.find(m => m.rowIndex === idx);
 
   if (!isOpen) return null;
 
@@ -841,6 +966,12 @@ export default function RecurringWorkOrdersImportModal({
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Preview</h3>
                 <div className="flex items-center gap-4 text-sm">
+                  {isCheckingMatches && (
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Checking matches...</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <span className="text-gray-700">{validRows.length} valid</span>
@@ -853,6 +984,14 @@ export default function RecurringWorkOrdersImportModal({
                   )}
                 </div>
               </div>
+
+              {/* Summary Bar — shown in update_or_create mode with match results */}
+              {importMode === 'update_or_create' && matchResults && !isCheckingMatches && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm font-medium text-blue-800">
+                  <strong>{validRows.length + invalidRows.length}</strong> total rows — <strong>{updatingRows.length}</strong> will be updated | <strong>{creatingRows.filter(r => r.errors.length === 0).length}</strong> will be created
+                  {invalidRows.length > 0 && <span className="text-red-600 ml-2">| {invalidRows.length} with errors</span>}
+                </div>
+              )}
 
               {/* Global Client Selector */}
               <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
@@ -878,172 +1017,440 @@ export default function RecurringWorkOrdersImportModal({
                 </p>
               </div>
 
-              <div className="overflow-x-auto border rounded-lg">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="p-2 text-left border-b">Row</th>
-                      <th className="p-2 text-left border-b">Restaurant</th>
-                      <th className="p-2 text-left border-b">Service Type</th>
-                      <th className="p-2 text-left border-b">Recurrence Pattern</th>
-                      <th className="p-2 text-left border-b">Client</th>
-                      <th className="p-2 text-left border-b">Subcontractor</th>
-                      <th className="p-2 text-left border-b">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentRows.map((row) => (
-                      <tr
-                        key={row.rowNumber}
-                        className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-gray-50'}
+              {/* ===== TWO-SECTION UI (update_or_create with match results) ===== */}
+              {importMode === 'update_or_create' && matchResults && !isCheckingMatches ? (
+                <>
+                  {/* Section 1: Orders Being Updated */}
+                  {updatingRows.length > 0 && (
+                    <div className="mb-6 border border-green-200 rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setUpdatingOpen(prev => !prev)}
+                        className="w-full flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 transition-colors"
                       >
-                        <td className="p-2 border-b">{row.rowNumber}</td>
-                        <td className="p-2 border-b">{row.restaurant || '-'}</td>
-                        <td className="p-2 border-b">{row.serviceType || '-'}</td>
-                        <td className="p-2 border-b">
-                          {row.errors.length === 0 ? (
-                            <select
-                              value={row.frequencyLabel || 'QUARTERLY'}
-                              onChange={(e) => handleRecurrencePatternChange(row.rowNumber, e.target.value)}
-                              className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
-                              disabled={isImporting}
-                            >
-                              {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
-                                <option key={opt} value={opt}>{opt}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="p-2 border-b">
-                          {row.errors.length === 0 ? (
-                            <select
-                              value={row.clientId || ''}
-                              onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
-                              className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
-                              disabled={isImporting}
-                            >
-                              <option value="">Select client...</option>
-                              {clients.map(client => (
-                                <option key={client.id} value={client.id}>
-                                  {client.fullName}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="text-gray-400 text-xs">Fix errors first</span>
-                          )}
-                        </td>
-                        <td className="p-2 border-b">
-                          {row.errors.length === 0 ? (
-                            <select
-                              value={row.subcontractorId || ''}
-                              onChange={(e) => handleSubcontractorChange(row.rowNumber, e.target.value)}
-                              className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
-                              disabled={isImporting}
-                            >
-                              <option value="">Select subcontractor...</option>
-                              {subcontractors.map(sub => (
-                                <option key={sub.id} value={sub.id}>
-                                  {sub.fullName}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="text-gray-400 text-xs">Fix errors first</span>
-                          )}
-                        </td>
-                        <td className="p-2 border-b">
-                          {row.errors.length > 0 ? (
-                            <div className="flex items-center gap-1 text-red-600">
-                              <AlertCircle className="h-3 w-3" />
-                              <span className="text-xs">{row.errors.length} error(s)</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 text-green-600">
-                              <CheckCircle className="h-3 w-3" />
-                              <span className="text-xs">Valid</span>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {/* Pagination Controls */}
-                {parsedData.length > 0 && (
-                  <div className="border-t bg-gray-50 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <span>Rows per page:</span>
-                      <select
-                        value={rowsPerPage}
-                        onChange={(e) => {
-                          setRowsPerPage(Number(e.target.value));
-                          setCurrentPage(1);
-                        }}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
-                        disabled={isImporting}
-                      >
-                        <option value={10}>10</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
-                      <span className="text-gray-600">
-                        Showing {startIndex + 1} to {Math.min(endIndex, parsedData.length)} of {parsedData.length} rows
-                      </span>
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="h-4 w-4 text-green-700" />
+                          <span className="font-semibold text-green-800 text-sm">
+                            Orders Being Updated ({updatingRows.length})
+                          </span>
+                        </div>
+                        {updatingOpen ? <ChevronUp className="h-4 w-4 text-green-700" /> : <ChevronDown className="h-4 w-4 text-green-700" />}
+                      </button>
+                      {updatingOpen && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-green-50/50">
+                              <tr>
+                                <th className="p-2 text-left border-b text-xs">Restaurant</th>
+                                <th className="p-2 text-left border-b text-xs">Service Type</th>
+                                <th className="p-2 text-left border-b text-xs">Frequency</th>
+                                <th className="p-2 text-left border-b text-xs">Last Serviced</th>
+                                <th className="p-2 text-left border-b text-xs">Next Service 1</th>
+                                <th className="p-2 text-left border-b text-xs">Next Service 2</th>
+                                <th className="p-2 text-left border-b text-xs">Next Service 3</th>
+                                <th className="p-2 text-left border-b text-xs">Next Service 4</th>
+                                <th className="p-2 text-left border-b text-xs">Next Service 5</th>
+                                <th className="p-2 text-left border-b text-xs">Client</th>
+                                <th className="p-2 text-left border-b text-xs">Subcontractor</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {updatingRows.map((row) => {
+                                const dataIdx = parsedData.indexOf(row);
+                                const match = getMatchForIndex(dataIdx);
+                                const oldLastServiced = match?.existingData.lastServiced || '-';
+                                const newLastServiced = row.lastServiced ? formatDateValue(row.lastServiced) : '-';
+                                const oldNextDates = match?.existingData.nextServiceDates || [];
+                                const newNextDates = row.nextServiceDates || [];
+
+                                return (
+                                  <tr key={row.rowNumber} className="hover:bg-green-50/30">
+                                    <td className="p-2 border-b text-xs">{row.restaurant}</td>
+                                    <td className="p-2 border-b text-xs">{row.serviceType}</td>
+                                    <td className="p-2 border-b text-xs">{row.frequencyLabel}</td>
+                                    <td className="p-2 border-b text-xs whitespace-nowrap">
+                                      {oldLastServiced !== newLastServiced ? (
+                                        <span>
+                                          <span className="text-gray-400 line-through">{oldLastServiced}</span>
+                                          <ArrowRight className="inline h-3 w-3 mx-1 text-green-600" />
+                                          <span className="font-medium text-green-700">{newLastServiced}</span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-500">{newLastServiced}</span>
+                                      )}
+                                    </td>
+                                    {[0, 1, 2, 3, 4].map(dateIdx => {
+                                      const oldVal = oldNextDates[dateIdx] || '-';
+                                      const newVal = newNextDates[dateIdx] ? formatDateValue(newNextDates[dateIdx]) : '-';
+                                      const changed = oldVal !== newVal;
+                                      return (
+                                        <td key={dateIdx} className="p-2 border-b text-xs whitespace-nowrap">
+                                          {changed ? (
+                                            <span>
+                                              <span className="text-gray-400 line-through">{oldVal}</span>
+                                              <ArrowRight className="inline h-3 w-3 mx-1 text-green-600" />
+                                              <span className="font-medium text-green-700">{newVal}</span>
+                                            </span>
+                                          ) : (
+                                            <span className="text-gray-500">{newVal}</span>
+                                          )}
+                                        </td>
+                                      );
+                                    })}
+                                    <td className="p-2 border-b">
+                                      <select
+                                        value={row.clientId || ''}
+                                        onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
+                                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                        disabled={isImporting}
+                                      >
+                                        <option value="">Select client...</option>
+                                        {clients.map(client => (
+                                          <option key={client.id} value={client.id}>{client.fullName}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="p-2 border-b">
+                                      <select
+                                        value={row.subcontractorId || ''}
+                                        onChange={(e) => handleSubcontractorChange(row.rowNumber, e.target.value)}
+                                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                        disabled={isImporting}
+                                      >
+                                        <option value="">Select subcontractor...</option>
+                                        {subcontractors.map(sub => (
+                                          <option key={sub.id} value={sub.id}>{sub.fullName}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
-                    
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => goToPage(1)}
-                        disabled={currentPage === 1 || isImporting}
-                        className="h-8 w-8 p-0"
-                      >
-                        <ChevronsLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => goToPage(currentPage - 1)}
-                        disabled={currentPage === 1 || isImporting}
-                        className="h-8 w-8 p-0"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      
-                      <div className="flex items-center gap-1 px-2">
-                        <span className="text-sm text-gray-700">
-                          Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+                  )}
+
+                  {/* Section 2: Orders Being Created */}
+                  <div className="mb-4 border border-blue-200 rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setCreatingOpen(prev => !prev)}
+                      className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Plus className="h-4 w-4 text-blue-700" />
+                        <span className="font-semibold text-blue-800 text-sm">
+                          Orders Being Created ({creatingRows.filter(r => r.errors.length === 0).length})
+                          {creatingRows.filter(r => r.errors.length > 0).length > 0 && (
+                            <span className="text-red-600 font-normal ml-1">
+                              + {creatingRows.filter(r => r.errors.length > 0).length} with errors
+                            </span>
+                          )}
                         </span>
                       </div>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => goToPage(currentPage + 1)}
-                        disabled={currentPage === totalPages || isImporting}
-                        className="h-8 w-8 p-0"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => goToPage(totalPages)}
-                        disabled={currentPage === totalPages || isImporting}
-                        className="h-8 w-8 p-0"
-                      >
-                        <ChevronsRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+                      {creatingOpen ? <ChevronUp className="h-4 w-4 text-blue-700" /> : <ChevronDown className="h-4 w-4 text-blue-700" />}
+                    </button>
+                    {creatingOpen && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="p-2 text-left border-b">Row</th>
+                              <th className="p-2 text-left border-b">Restaurant</th>
+                              <th className="p-2 text-left border-b">Service Type</th>
+                              <th className="p-2 text-left border-b">Recurrence Pattern</th>
+                              <th className="p-2 text-left border-b">Client</th>
+                              <th className="p-2 text-left border-b">Subcontractor</th>
+                              <th className="p-2 text-left border-b">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentCreatingRows.map((row) => (
+                              <tr key={row.rowNumber} className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                                <td className="p-2 border-b">{row.rowNumber}</td>
+                                <td className="p-2 border-b">{row.restaurant || '-'}</td>
+                                <td className="p-2 border-b">{row.serviceType || '-'}</td>
+                                <td className="p-2 border-b">
+                                  {row.errors.length === 0 ? (
+                                    <select
+                                      value={row.frequencyLabel || 'QUARTERLY'}
+                                      onChange={(e) => handleRecurrencePatternChange(row.rowNumber, e.target.value)}
+                                      className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                      disabled={isImporting}
+                                    >
+                                      {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">-</span>
+                                  )}
+                                </td>
+                                <td className="p-2 border-b">
+                                  {row.errors.length === 0 ? (
+                                    <select
+                                      value={row.clientId || ''}
+                                      onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
+                                      className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                      disabled={isImporting}
+                                    >
+                                      <option value="">Select client...</option>
+                                      {clients.map(client => (
+                                        <option key={client.id} value={client.id}>{client.fullName}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">Fix errors first</span>
+                                  )}
+                                </td>
+                                <td className="p-2 border-b">
+                                  {row.errors.length === 0 ? (
+                                    <select
+                                      value={row.subcontractorId || ''}
+                                      onChange={(e) => handleSubcontractorChange(row.rowNumber, e.target.value)}
+                                      className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                      disabled={isImporting}
+                                    >
+                                      <option value="">Select subcontractor...</option>
+                                      {subcontractors.map(sub => (
+                                        <option key={sub.id} value={sub.id}>{sub.fullName}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="text-gray-400 text-xs">Fix errors first</span>
+                                  )}
+                                </td>
+                                <td className="p-2 border-b">
+                                  {row.errors.length > 0 ? (
+                                    <div className="flex items-center gap-1 text-red-600">
+                                      <AlertCircle className="h-3 w-3" />
+                                      <span className="text-xs">{row.errors.length} error(s)</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1 text-green-600">
+                                      <CheckCircle className="h-3 w-3" />
+                                      <span className="text-xs">Valid</span>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        {/* Pagination Controls for Creating section */}
+                        {creatingRows.length > 0 && (
+                          <div className="border-t bg-gray-50 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                              <span>Rows per page:</span>
+                              <select
+                                value={rowsPerPage}
+                                onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                                disabled={isImporting}
+                              >
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                              </select>
+                              <span className="text-gray-600">
+                                Showing {startIndexCreating + 1} to {Math.min(endIndexCreating, creatingRows.length)} of {creatingRows.length} rows
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button variant="outline" size="sm" onClick={() => goToPage(1)} disabled={currentPage === 1 || isImporting} className="h-8 w-8 p-0">
+                                <ChevronsLeft className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1 || isImporting} className="h-8 w-8 p-0">
+                                <ChevronLeft className="h-4 w-4" />
+                              </Button>
+                              <div className="flex items-center gap-1 px-2">
+                                <span className="text-sm text-gray-700">
+                                  Page <strong>{currentPage}</strong> of <strong>{totalPagesCreating || 1}</strong>
+                                </span>
+                              </div>
+                              <Button variant="outline" size="sm" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPagesCreating || isImporting} className="h-8 w-8 p-0">
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => goToPage(totalPagesCreating)} disabled={currentPage === totalPagesCreating || isImporting} className="h-8 w-8 p-0">
+                                <ChevronsRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              ) : (
+                /* ===== SINGLE TABLE (create mode or no match results yet) ===== */
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="p-2 text-left border-b">Row</th>
+                        <th className="p-2 text-left border-b">Restaurant</th>
+                        <th className="p-2 text-left border-b">Service Type</th>
+                        <th className="p-2 text-left border-b">Recurrence Pattern</th>
+                        <th className="p-2 text-left border-b">Client</th>
+                        <th className="p-2 text-left border-b">Subcontractor</th>
+                        <th className="p-2 text-left border-b">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentRows.map((row) => (
+                        <tr
+                          key={row.rowNumber}
+                          className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-gray-50'}
+                        >
+                          <td className="p-2 border-b">{row.rowNumber}</td>
+                          <td className="p-2 border-b">{row.restaurant || '-'}</td>
+                          <td className="p-2 border-b">{row.serviceType || '-'}</td>
+                          <td className="p-2 border-b">
+                            {row.errors.length === 0 ? (
+                              <select
+                                value={row.frequencyLabel || 'QUARTERLY'}
+                                onChange={(e) => handleRecurrencePatternChange(row.rowNumber, e.target.value)}
+                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                disabled={isImporting}
+                              >
+                                {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="p-2 border-b">
+                            {row.errors.length === 0 ? (
+                              <select
+                                value={row.clientId || ''}
+                                onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
+                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                disabled={isImporting}
+                              >
+                                <option value="">Select client...</option>
+                                {clients.map(client => (
+                                  <option key={client.id} value={client.id}>{client.fullName}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-gray-400 text-xs">Fix errors first</span>
+                            )}
+                          </td>
+                          <td className="p-2 border-b">
+                            {row.errors.length === 0 ? (
+                              <select
+                                value={row.subcontractorId || ''}
+                                onChange={(e) => handleSubcontractorChange(row.rowNumber, e.target.value)}
+                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                disabled={isImporting}
+                              >
+                                <option value="">Select subcontractor...</option>
+                                {subcontractors.map(sub => (
+                                  <option key={sub.id} value={sub.id}>{sub.fullName}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-gray-400 text-xs">Fix errors first</span>
+                            )}
+                          </td>
+                          <td className="p-2 border-b">
+                            {row.errors.length > 0 ? (
+                              <div className="flex items-center gap-1 text-red-600">
+                                <AlertCircle className="h-3 w-3" />
+                                <span className="text-xs">{row.errors.length} error(s)</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 text-green-600">
+                                <CheckCircle className="h-3 w-3" />
+                                <span className="text-xs">Valid</span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Pagination Controls */}
+                  {parsedData.length > 0 && (
+                    <div className="border-t bg-gray-50 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <span>Rows per page:</span>
+                        <select
+                          value={rowsPerPage}
+                          onChange={(e) => {
+                            setRowsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                          disabled={isImporting}
+                        >
+                          <option value={10}>10</option>
+                          <option value={25}>25</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                        <span className="text-gray-600">
+                          Showing {startIndex + 1} to {Math.min(endIndex, parsedData.length)} of {parsedData.length} rows
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToPage(1)}
+                          disabled={currentPage === 1 || isImporting}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronsLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToPage(currentPage - 1)}
+                          disabled={currentPage === 1 || isImporting}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+
+                        <div className="flex items-center gap-1 px-2">
+                          <span className="text-sm text-gray-700">
+                            Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+                          </span>
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToPage(currentPage + 1)}
+                          disabled={currentPage === totalPages || isImporting}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => goToPage(totalPages)}
+                          disabled={currentPage === totalPages || isImporting}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronsRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Error Details */}
               {invalidRows.length > 0 && (
@@ -1106,7 +1513,17 @@ export default function RecurringWorkOrdersImportModal({
               </>
             ) : (
               <>
-                {importMode === 'update_or_create' ? (
+                {importMode === 'update_or_create' && matchResults ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    {updatingRows.length > 0 && creatingRows.filter(r => r.errors.length === 0).length > 0
+                      ? `Update ${updatingRows.length} & Create ${creatingRows.filter(r => r.errors.length === 0).length} Work Orders`
+                      : updatingRows.length > 0
+                        ? `Update ${updatingRows.length} Work Order(s)`
+                        : `Create ${creatingRows.filter(r => r.errors.length === 0).length} Work Order(s)`
+                    }
+                  </>
+                ) : importMode === 'update_or_create' ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Update or Create {validRows.length} Work Order(s)

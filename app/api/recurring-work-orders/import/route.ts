@@ -567,6 +567,110 @@ async function findExistingRecurringWorkOrder(
   }
 }
 
+// PUT handler — preview/match-check: accepts parsed rows and returns which match existing records
+export async function PUT(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Authorization header required' }, { status: 401 });
+    }
+
+    const idToken = authHeader.substring(7);
+    if (!idToken || idToken.length < 10) {
+      return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 });
+    }
+
+    const app = getFirebaseApp();
+    const db = getFirestore(app);
+
+    const adminUid = await verifyAdminToken(idToken);
+    if (!adminUid) {
+      return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 });
+    }
+
+    const adminDoc = await getDoc(doc(db, 'adminUsers', adminUid));
+    if (!adminDoc.exists()) {
+      return NextResponse.json({ error: 'Only admins can preview recurring work orders' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { rows } = body as { rows: ImportRow[] };
+
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+      return NextResponse.json({ error: 'No rows provided' }, { status: 400 });
+    }
+
+    const matches: Array<{
+      rowIndex: number;
+      existingId: string;
+      existingData: {
+        lastServiced: string | null;
+        nextServiceDates: string[];
+      };
+    }> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      if (!row.restaurant || !row.serviceType) continue;
+
+      // We need to resolve the location name the same way the POST handler does
+      const locationResult = await findLocationByName(row.restaurant, db);
+      const locationName = locationResult?.data?.locationName || row.restaurant;
+
+      const frequencyLabel = (row.frequencyLabel || 'QUARTERLY').toUpperCase().trim();
+      const validLabels = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
+      const recurrencePatternLabel = validLabels.includes(frequencyLabel as any)
+        ? (frequencyLabel as (typeof validLabels)[number])
+        : 'QUARTERLY';
+
+      const existing = await findExistingRecurringWorkOrder(
+        locationName,
+        row.serviceType,
+        recurrencePatternLabel,
+        db
+      );
+
+      if (existing) {
+        // Format existing dates for display
+        const existingLastServiced = existing.data.lastServiced
+          ? (existing.data.lastServiced.toDate
+              ? existing.data.lastServiced.toDate().toLocaleDateString()
+              : new Date(existing.data.lastServiced).toLocaleDateString())
+          : null;
+
+        const existingNextServiceDates: string[] = [];
+        if (existing.data.nextServiceDates && Array.isArray(existing.data.nextServiceDates)) {
+          for (const d of existing.data.nextServiceDates) {
+            if (d && d.toDate) {
+              existingNextServiceDates.push(d.toDate().toLocaleDateString());
+            } else if (d) {
+              existingNextServiceDates.push(new Date(d).toLocaleDateString());
+            }
+          }
+        }
+
+        matches.push({
+          rowIndex: i,
+          existingId: existing.id,
+          existingData: {
+            lastServiced: existingLastServiced,
+            nextServiceDates: existingNextServiceDates,
+          },
+        });
+      }
+    }
+
+    return NextResponse.json({ matches });
+  } catch (error: any) {
+    console.error('Error in preview/match-check:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to check matches' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   console.log('=== IMPORT REQUEST START ===');
   try {
