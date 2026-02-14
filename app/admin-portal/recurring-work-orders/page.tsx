@@ -23,6 +23,7 @@ export default function RecurringWorkOrdersManagement() {
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'paused' | 'cancelled'>('all');
+  const [locationFilter, setLocationFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -229,9 +230,17 @@ export default function RecurringWorkOrdersManagement() {
     }
   };
 
+  // Compute unique locations sorted alphabetically
+  const uniqueLocations = Array.from(
+    new Set(recurringWorkOrders.map(rwo => rwo.locationName).filter((name): name is string => !!name))
+  ).sort((a, b) => a.localeCompare(b));
+
   const filteredRecurringWorkOrders = recurringWorkOrders.filter(rwo => {
     // Filter by status
     const statusMatch = filter === 'all' || rwo.status === filter;
+
+    // Filter by location
+    const locationMatch = locationFilter === 'all' || rwo.locationName === locationFilter;
 
     // Filter by search query
     const searchLower = searchQuery.toLowerCase();
@@ -242,7 +251,7 @@ export default function RecurringWorkOrdersManagement() {
       rwo.workOrderNumber.toLowerCase().includes(searchLower) ||
       rwo.category.toLowerCase().includes(searchLower);
 
-    return statusMatch && searchMatch;
+    return statusMatch && locationMatch && searchMatch;
   });
 
   // Sort filtered recurring work orders
@@ -380,9 +389,26 @@ export default function RecurringWorkOrdersManagement() {
             </Button>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <label htmlFor="location-filter" className="text-sm font-medium text-gray-700">
+              Location:
+            </label>
+            <select
+              id="location-filter"
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 max-w-[220px] truncate"
+            >
+              <option value="all">All Locations ({recurringWorkOrders.length})</option>
+              {uniqueLocations.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc} ({recurringWorkOrders.filter(rwo => rwo.locationName === loc).length})
+                </option>
+              ))}
+            </select>
+
             <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
-              Filter by Status:
+              Status:
             </label>
             <select
               id="status-filter"
