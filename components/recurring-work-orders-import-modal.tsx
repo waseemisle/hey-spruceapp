@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -60,6 +60,7 @@ export default function RecurringWorkOrdersImportModal({
   const [globalClientId, setGlobalClientId] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [importMode, setImportMode] = useState<'create' | 'update_or_create'>('create');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch subcontractors and clients when modal opens
@@ -509,6 +510,8 @@ export default function RecurringWorkOrdersImportModal({
       // Validate frequency label value – only allow the five Recurrence Pattern options
       if (!['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'].includes(frequencyLabel)) {
         if (frequencyLabel === 'WEEKLY') frequencyLabel = 'BI-WEEKLY';
+        else if (frequencyLabel === 'EVERY 2 MONTHS' || frequencyLabel === 'BIMONTHLY') frequencyLabel = 'BI-MONTHLY';
+        else if (frequencyLabel === 'SEMI-ANNUALLY' || frequencyLabel === 'SEMI ANNUALLY') frequencyLabel = 'SEMIANNUALLY';
         else frequencyLabel = 'QUARTERLY';
       }
 
@@ -620,12 +623,13 @@ export default function RecurringWorkOrdersImportModal({
       const idToken = await currentUser.getIdToken(true);
 
       let totalCreated = 0;
+      let totalUpdated = 0;
       const allErrors: Array<{ row: number; error: string }> = [];
 
       for (let i = 0; i < validRows.length; i++) {
         setImportProgress({ current: i, total: validRows.length });
         const row = validRows[i];
-        const requestBody = { rows: [toImportRow(row)] };
+        const requestBody = { rows: [toImportRow(row)], mode: importMode };
 
         try {
           const response = await fetch('/api/recurring-work-orders/import', {
@@ -642,6 +646,7 @@ export default function RecurringWorkOrdersImportModal({
             throw new Error(result.error || 'Import failed');
           }
           totalCreated += result.created ?? 0;
+          totalUpdated += result.updated ?? 0;
           if (result.errors && Array.isArray(result.errors)) {
             for (const e of result.errors) {
               allErrors.push({ row: row.rowNumber, error: e.error || String(e) });
@@ -654,14 +659,19 @@ export default function RecurringWorkOrdersImportModal({
 
       setImportProgress({ current: validRows.length, total: validRows.length });
 
-      if (totalCreated > 0) {
+      const successParts: string[] = [];
+      if (totalCreated > 0) successParts.push(`created ${totalCreated}`);
+      if (totalUpdated > 0) successParts.push(`updated ${totalUpdated}`);
+
+      if (successParts.length > 0) {
+        const successMsg = `Successfully ${successParts.join(' and ')} recurring work order(s)`;
         toast.success(
           allErrors.length > 0
-            ? `Imported ${totalCreated} recurring work order(s). ${allErrors.length} row(s) failed.`
-            : `Successfully imported ${totalCreated} recurring work order(s)`
+            ? `${successMsg}. ${allErrors.length} row(s) failed.`
+            : successMsg
         );
       } else {
-        toast.error('No recurring work orders were created. Please check the errors.');
+        toast.error('No recurring work orders were created or updated. Please check the errors.');
       }
       
       if (allErrors.length > 0) {
@@ -695,6 +705,7 @@ export default function RecurringWorkOrdersImportModal({
     setSubcontractors([]);
     setClients([]);
     setGlobalClientId('');
+    setImportMode('create');
     setCurrentPage(1);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -774,6 +785,55 @@ export default function RecurringWorkOrdersImportModal({
               </div>
             )}
           </div>
+
+          {/* Import Mode Selector */}
+          {parsedData.length > 0 && (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                Import Mode
+              </Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setImportMode('create')}
+                  disabled={isImporting}
+                  className={`flex-1 flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                    importMode === 'create'
+                      ? 'border-blue-500 bg-blue-50 text-blue-800'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <Plus className={`h-5 w-5 ${importMode === 'create' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <div className="text-left">
+                    <div className="font-medium text-sm">Create New</div>
+                    <div className="text-xs opacity-75">Create all rows as new recurring work orders</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportMode('update_or_create')}
+                  disabled={isImporting}
+                  className={`flex-1 flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                    importMode === 'update_or_create'
+                      ? 'border-green-500 bg-green-50 text-green-800'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <RefreshCw className={`h-5 w-5 ${importMode === 'update_or_create' ? 'text-green-600' : 'text-gray-400'}`} />
+                  <div className="text-left">
+                    <div className="font-medium text-sm">Update or Create</div>
+                    <div className="text-xs opacity-75">Update existing orders (match by Location + Service Type + Frequency), create new if not found</div>
+                  </div>
+                </button>
+              </div>
+              {importMode === 'update_or_create' && (
+                <p className="text-xs text-green-700 mt-2 flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3" />
+                  Existing orders will be matched by Restaurant + Service Type + Frequency Label. Dates (Last Serviced, Next Service Needed By) will be updated.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Preview Section */}
           {parsedData.length > 0 && (
@@ -1042,11 +1102,20 @@ export default function RecurringWorkOrdersImportModal({
             {isImporting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Importing...
+                {importMode === 'update_or_create' ? 'Updating/Creating...' : 'Importing...'}
               </>
             ) : (
               <>
-                Import {validRows.length} Work Order(s)
+                {importMode === 'update_or_create' ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Update or Create {validRows.length} Work Order(s)
+                  </>
+                ) : (
+                  <>
+                    Import {validRows.length} Work Order(s)
+                  </>
+                )}
               </>
             )}
           </Button>

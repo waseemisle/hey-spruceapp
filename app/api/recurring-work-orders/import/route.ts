@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc as deleteDocument, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { createTimelineEvent } from '@/lib/timeline';
 import { getAuth } from 'firebase-admin/auth';
 import { getApps as getAdminApps } from 'firebase-admin/app';
@@ -66,6 +66,8 @@ interface ImportRow {
   subcontractorId?: string;
   clientId?: string;
 }
+
+type ImportMode = 'create' | 'update_or_create';
 
 
 // Helper function to parse date (handles strings, numbers, Excel serial dates, and Unix timestamps)
@@ -499,6 +501,72 @@ async function getOrCreateCategory(categoryName: string, db: any): Promise<strin
   }
 }
 
+// Find existing recurring work order by matching (locationName, category, recurrencePatternLabel)
+async function findExistingRecurringWorkOrder(
+  locationName: string,
+  category: string,
+  recurrencePatternLabel: string,
+  db: any
+): Promise<{ id: string; data: any } | null> {
+  try {
+    const normalizedLocationName = normalizeLocationName(locationName);
+    const normalizedCategory = category.trim().toLowerCase();
+    const normalizedLabel = recurrencePatternLabel.trim().toUpperCase();
+
+    console.log(`[findExistingRWO] Searching for match: location="${locationName}", category="${category}", recurrence="${recurrencePatternLabel}"`);
+
+    // Query by category and recurrencePatternLabel first (Firestore can index these)
+    const q = query(
+      collection(db, 'recurringWorkOrders'),
+      where('category', '==', category),
+      where('recurrencePatternLabel', '==', normalizedLabel),
+      where('status', '==', 'active')
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      // Try with case-insensitive category matching by getting all with matching recurrence
+      const q2 = query(
+        collection(db, 'recurringWorkOrders'),
+        where('recurrencePatternLabel', '==', normalizedLabel),
+        where('status', '==', 'active')
+      );
+      const snapshot2 = await getDocs(q2);
+
+      for (const docSnap of snapshot2.docs) {
+        const data = docSnap.data();
+        const docCategory = (data.category || '').trim().toLowerCase();
+        const docLocationName = normalizeLocationName(data.locationName || '');
+
+        if (docCategory === normalizedCategory && docLocationName === normalizedLocationName) {
+          console.log(`[findExistingRWO] Found match (case-insensitive): id=${docSnap.id}, location="${data.locationName}", category="${data.category}"`);
+          return { id: docSnap.id, data };
+        }
+      }
+
+      console.log(`[findExistingRWO] No match found`);
+      return null;
+    }
+
+    // Check location name match from the results
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const docLocationName = normalizeLocationName(data.locationName || '');
+
+      if (docLocationName === normalizedLocationName) {
+        console.log(`[findExistingRWO] Found match: id=${docSnap.id}, location="${data.locationName}", category="${data.category}"`);
+        return { id: docSnap.id, data };
+      }
+    }
+
+    console.log(`[findExistingRWO] No match found for location "${locationName}"`);
+    return null;
+  } catch (error) {
+    console.error('[findExistingRWO] Error:', error);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   console.log('=== IMPORT REQUEST START ===');
   try {
@@ -552,7 +620,7 @@ export async function POST(request: NextRequest) {
     const createdByNameImport = `${adminName} (CSV import)`;
 
     const body = await request.json();
-    const { rows } = body as { rows: ImportRow[] };
+    const { rows, mode: importMode = 'create' } = body as { rows: ImportRow[]; mode?: ImportMode };
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json(
@@ -562,6 +630,7 @@ export async function POST(request: NextRequest) {
     }
 
     const created: string[] = [];
+    const updated: string[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 
     console.log(`=== IMPORT START ===`);
@@ -794,6 +863,207 @@ export async function POST(request: NextRequest) {
           ? nextServiceDates.map(date => Timestamp.fromDate(date))
           : undefined;
         const nextExecutionTimestamp = Timestamp.fromDate(nextExecution);
+
+        // === UPDATE OR CREATE MODE: Check for existing recurring work order ===
+        if (importMode === 'update_or_create') {
+          const existingRWO = await findExistingRecurringWorkOrder(
+            locationData.locationName || row.restaurant,
+            row.serviceType,
+            recurrencePatternLabel,
+            db
+          );
+
+          if (existingRWO) {
+            console.log(`Row ${i + 1}: Found existing RWO (${existingRWO.id}) — updating dates`);
+
+            // Build update payload
+            const updatePayload: any = {
+              updatedAt: serverTimestamp(),
+            };
+
+            if (lastServicedTimestamp) {
+              updatePayload.lastServiced = lastServicedTimestamp;
+            }
+            if (nextServiceDatesTimestamps && nextServiceDatesTimestamps.length > 0) {
+              updatePayload.nextServiceDates = nextServiceDatesTimestamps;
+            }
+            updatePayload.nextExecution = nextExecutionTimestamp;
+
+            // Update scheduling if provided
+            if (row.scheduling && row.scheduling.trim() !== '') {
+              updatePayload['recurrencePattern.scheduling'] = row.scheduling.trim();
+            }
+
+            // Update notes if provided
+            if (row.notes && row.notes.trim() !== '') {
+              updatePayload.notes = row.notes.trim();
+            }
+
+            // Add timeline event for the update
+            const updateTimelineEvent = {
+              id: `updated_import_${Date.now()}_${i}`,
+              timestamp: Timestamp.fromDate(new Date()),
+              type: 'updated',
+              userId: adminUid,
+              userName: createdByNameImport,
+              userRole: 'admin',
+              details: 'Recurring work order updated via CSV import (dates updated)',
+              metadata: {
+                source: 'csv_import_update',
+                fieldsUpdated: [
+                  lastServicedTimestamp ? 'lastServiced' : null,
+                  nextServiceDatesTimestamps ? 'nextServiceDates' : null,
+                  'nextExecution',
+                ].filter(Boolean),
+              },
+            };
+
+            // Get existing timeline and append
+            const existingTimeline = existingRWO.data.timeline || [];
+            updatePayload.timeline = [...existingTimeline, updateTimelineEvent];
+
+            await updateDoc(doc(db, 'recurringWorkOrders', existingRWO.id), updatePayload);
+
+            // Delete old pending executions and their work orders, then create new ones
+            const existingExecutionsQuery = query(
+              collection(db, 'recurringWorkOrderExecutions'),
+              where('recurringWorkOrderId', '==', existingRWO.id),
+              where('status', '==', 'pending')
+            );
+            const existingExecutionsSnapshot = await getDocs(existingExecutionsQuery);
+
+            for (const execDoc of existingExecutionsSnapshot.docs) {
+              const execData = execDoc.data();
+              // Delete associated pending work order if it exists
+              if (execData.workOrderId) {
+                try {
+                  const woDoc = await getDoc(doc(db, 'workOrders', execData.workOrderId));
+                  if (woDoc.exists() && woDoc.data()?.status === 'approved') {
+                    await updateDoc(doc(db, 'workOrders', execData.workOrderId), {
+                      status: 'cancelled',
+                      updatedAt: serverTimestamp(),
+                    });
+                  }
+                } catch (e) {
+                  console.warn(`Could not cancel work order ${execData.workOrderId}:`, e);
+                }
+              }
+              // Delete the old execution
+              await deleteDocument(doc(db, 'recurringWorkOrderExecutions', execDoc.id));
+            }
+
+            // Create new executions for the updated dates
+            if (nextServiceDates.length > 0) {
+              const existingWorkOrderNumber = existingRWO.data.workOrderNumber;
+              console.log(`Row ${i + 1}: Creating ${nextServiceDates.length} new execution(s) for updated RWO`);
+
+              for (let execIndex = 0; execIndex < nextServiceDates.length; execIndex++) {
+                const executionDate = nextServiceDates[execIndex];
+                const executionNumber = execIndex + 1;
+
+                try {
+                  const executionData = {
+                    recurringWorkOrderId: existingRWO.id,
+                    executionNumber,
+                    scheduledDate: Timestamp.fromDate(executionDate),
+                    status: 'pending',
+                    emailSent: false,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                  };
+
+                  const executionRef = await addDoc(collection(db, 'recurringWorkOrderExecutions'), executionData);
+
+                  // Create Standard Work Order for this execution
+                  const standardWorkOrderNumber = `WO-${Date.now().toString().slice(-8).toUpperCase()}-EX${executionNumber}-${execIndex}`;
+                  const standardWorkOrderData: any = {
+                    workOrderNumber: standardWorkOrderNumber,
+                    clientId,
+                    clientName: clientData.fullName || 'Unknown Client',
+                    clientEmail: clientData.email || '',
+                    locationId,
+                    location: {
+                      id: locationId,
+                      locationName: locationData.locationName || row.restaurant,
+                    },
+                    locationName: locationData.locationName || row.restaurant,
+                    locationAddress: locationData.address && typeof locationData.address === 'object'
+                      ? `${locationData.address.street || ''}, ${locationData.address.city || ''}, ${locationData.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
+                      : (locationData.address || 'N/A'),
+                    title: `${row.serviceType} - ${locationData.locationName || row.restaurant} - Execution #${executionNumber}`,
+                    description: `${row.notes || `${row.serviceType} recurring service`}\n\nThis work order was created from Recurring Work Order ${existingWorkOrderNumber}, Execution #${executionNumber} (updated via CSV import). Scheduled Date: ${executionDate.toLocaleDateString()}.`,
+                    category: row.serviceType,
+                    categoryId,
+                    priority: 'medium' as const,
+                    estimateBudget: null,
+                    status: 'approved' as const,
+                    images: [],
+                    scheduledServiceDate: Timestamp.fromDate(executionDate),
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                    recurringWorkOrderId: existingRWO.id,
+                    recurringWorkOrderNumber: existingWorkOrderNumber,
+                    executionId: executionRef.id,
+                    executionNumber,
+                    isFromRecurringWorkOrder: true,
+                  };
+
+                  if (companyId && companyData) {
+                    standardWorkOrderData.companyId = companyId;
+                    standardWorkOrderData.companyName = companyData.name || '';
+                  }
+
+                  if (row.subcontractorId) {
+                    try {
+                      const subcontractorDoc = await getDoc(doc(db, 'subcontractors', row.subcontractorId));
+                      if (subcontractorDoc.exists()) {
+                        const subcontractorData = subcontractorDoc.data();
+                        standardWorkOrderData.assignedTo = row.subcontractorId;
+                        standardWorkOrderData.assignedToName = subcontractorData.fullName || '';
+                        standardWorkOrderData.assignedToEmail = subcontractorData.email || '';
+                        standardWorkOrderData.assignedAt = serverTimestamp();
+                        standardWorkOrderData.status = 'assigned';
+                      }
+                    } catch (error) {
+                      console.warn(`Row ${i + 1}: Could not find subcontractor for execution #${executionNumber}`, error);
+                    }
+                  }
+
+                  standardWorkOrderData.timeline = [createTimelineEvent({
+                    type: 'created',
+                    userId: 'system',
+                    userName: 'Recurring Work Order System',
+                    userRole: 'system',
+                    details: `Work order created from Recurring Work Order ${existingWorkOrderNumber}, Execution #${executionNumber} (CSV import update)`,
+                    metadata: { source: 'recurring_work_order_import_update', recurringWorkOrderId: existingRWO.id, executionNumber },
+                  })];
+                  standardWorkOrderData.systemInformation = {
+                    createdBy: { id: 'system', name: 'Recurring Work Order System', role: 'system', timestamp: Timestamp.now() },
+                  };
+
+                  const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);
+
+                  await updateDoc(executionRef, {
+                    workOrderId: standardWorkOrderRef.id,
+                    workOrderNumber: standardWorkOrderNumber,
+                    updatedAt: serverTimestamp(),
+                  });
+
+                  console.log(`Row ${i + 1}: Created execution #${executionNumber} and WO ${standardWorkOrderNumber} for updated RWO`);
+                } catch (execError: any) {
+                  console.error(`Row ${i + 1}: Error creating execution #${executionNumber} for update:`, execError);
+                }
+              }
+            }
+
+            updated.push(existingRWO.data.workOrderNumber || existingRWO.id);
+            console.log(`Row ${i + 1}: Successfully updated RWO ${existingRWO.data.workOrderNumber}`);
+            continue; // Skip creation, move to next row
+          }
+
+          // No existing match found — fall through to create new
+          console.log(`Row ${i + 1}: No existing RWO found for "${locationData.locationName}" / "${row.serviceType}" / "${recurrencePatternLabel}" — creating new`);
+        }
 
         // Create recurrence pattern
         const recurrencePattern: any = {
@@ -1043,9 +1313,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`Import complete. Created: ${created.length}, Errors: ${errors.length}`);
+    console.log(`Import complete. Created: ${created.length}, Updated: ${updated.length}, Errors: ${errors.length}`);
     if (created.length > 0) {
       console.log('Created work order numbers:', created);
+    }
+    if (updated.length > 0) {
+      console.log('Updated work order numbers:', updated);
     }
     if (errors.length > 0) {
       console.log('Errors:', errors);
@@ -1053,14 +1326,22 @@ export async function POST(request: NextRequest) {
 
     console.log('=== IMPORT REQUEST END (SUCCESS) ===');
     console.log('Created:', created.length);
+    console.log('Updated:', updated.length);
     console.log('Errors:', errors.length);
-    
+
+    const messageParts: string[] = [];
+    if (created.length > 0) messageParts.push(`created ${created.length} recurring work order(s)`);
+    if (updated.length > 0) messageParts.push(`updated ${updated.length} recurring work order(s)`);
+    if (errors.length > 0) messageParts.push(`${errors.length} row(s) had errors`);
+
     return NextResponse.json({
       success: true,
       created: created.length,
+      updated: updated.length,
       createdWorkOrders: created,
+      updatedWorkOrders: updated,
       errors: errors,
-      message: `Successfully created ${created.length} recurring work order(s)${errors.length > 0 ? `, ${errors.length} row(s) had errors` : ''}`,
+      message: `Successfully ${messageParts.join(', ')}`,
     });
   } catch (error: any) {
     console.error('? Error importing recurring work orders:', error);
