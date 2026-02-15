@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Plus, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Plus, ChevronDown, ChevronUp, ArrowRight, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -39,6 +39,11 @@ interface Client {
   email: string;
 }
 
+interface Location {
+  id: string;
+  locationName: string;
+}
+
 interface MatchResult {
   rowIndex: number;
   existingId: string;
@@ -66,6 +71,9 @@ export default function RecurringWorkOrdersImportModal({
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [locationMap, setLocationMap] = useState<Record<string, string>>({}); // restaurant name -> locationId
+  const [unmappedRestaurants, setUnmappedRestaurants] = useState<string[]>([]);
   const [globalClientId, setGlobalClientId] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -76,11 +84,12 @@ export default function RecurringWorkOrdersImportModal({
   const [creatingOpen, setCreatingOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch subcontractors and clients when modal opens
+  // Fetch subcontractors, clients, and locations when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchSubcontractors();
       fetchClients();
+      fetchLocations();
     }
   }, [isOpen]);
 
@@ -115,6 +124,198 @@ export default function RecurringWorkOrdersImportModal({
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
+  };
+
+  const fetchLocations = async () => {
+    try {
+      const locationsQuery = query(collection(db, 'locations'));
+      const snapshot = await getDocs(locationsQuery);
+      const locationsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        locationName: doc.data().locationName || '',
+      })) as Location[];
+      setLocations(locationsData);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+    }
+  };
+
+  // --- Location auto-matching helpers (mirrors API's findLocationByName strategies) ---
+  const normalizeLocationName = (name: string): string => {
+    return name.toLowerCase().trim().replace(/\s+/g, ' ');
+  };
+
+  const parseLocationNameParts = (name: string): { base: string; location: string } => {
+    const normalized = normalizeLocationName(name);
+    const parenMatch = normalized.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+    if (parenMatch) {
+      return { base: parenMatch[1].trim(), location: parenMatch[2].trim() };
+    }
+    const dashMatch = normalized.match(/^(.+?)\s*-\s*(.+)$/);
+    if (dashMatch) {
+      return { base: dashMatch[1].trim(), location: dashMatch[2].trim() };
+    }
+    return { base: normalized, location: '' };
+  };
+
+  const extractKeyWords = (name: string): string[] => {
+    const commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'club'];
+    const withoutParens = name.replace(/\([^)]*\)/g, '').trim();
+    return withoutParens
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(word => word.length > 1 && !commonWords.includes(word));
+  };
+
+  const extractPrimaryName = (name: string): string => {
+    let primary = name.replace(/\([^)]*\)/g, '').trim();
+    primary = primary.replace(/^(the|a|an)\s+/i, '').trim();
+    return normalizeLocationName(primary);
+  };
+
+  const calculateSimilarity = (searchName: string, dbName: string): number => {
+    const searchNormalized = normalizeLocationName(searchName);
+    const dbNormalized = normalizeLocationName(dbName);
+    if (searchNormalized === dbNormalized) return 1.0;
+    const searchWords = extractKeyWords(searchName);
+    const dbWords = extractKeyWords(dbName);
+    if (searchWords.length === 0 || dbWords.length === 0) return 0;
+    const matchingWords = searchWords.filter(word =>
+      dbWords.some(dbWord => dbWord === word || dbWord.includes(word) || word.includes(dbWord))
+    ).length;
+    const wordOverlapScore = matchingWords / Math.max(searchWords.length, dbWords.length);
+    const searchKey = searchWords.join(' ');
+    const dbKey = dbWords.join(' ');
+    let containsScore = 0;
+    if (dbKey.includes(searchKey) || searchKey.includes(dbKey)) {
+      containsScore = 0.7;
+    }
+    return Math.max(wordOverlapScore, containsScore);
+  };
+
+  const autoMatchLocation = (restaurantName: string, dbLocations: Location[]): string | null => {
+    const searchNormalized = normalizeLocationName(restaurantName);
+    const searchParsed = parseLocationNameParts(restaurantName);
+
+    // Strategy 1: Exact normalized match
+    for (const loc of dbLocations) {
+      if (normalizeLocationName(loc.locationName) === searchNormalized) {
+        return loc.id;
+      }
+    }
+
+    // Strategy 2-6: Score-based matching (mirrors API logic)
+    const candidates: Array<{ id: string; score: number }> = [];
+
+    for (const loc of dbLocations) {
+      const docNormalized = normalizeLocationName(loc.locationName);
+      const docParsed = parseLocationNameParts(loc.locationName);
+      let score = 0;
+
+      // Both have location suffixes
+      if (searchParsed.location && docParsed.location) {
+        if (docParsed.base === searchParsed.base && docParsed.location === searchParsed.location) {
+          return loc.id;
+        }
+        if (docParsed.base === searchParsed.base && docParsed.location !== searchParsed.location) {
+          continue;
+        }
+      }
+
+      // Search has suffix, doc doesn't
+      if (searchParsed.location && !docParsed.location) {
+        const searchPrimary = extractPrimaryName(searchParsed.base);
+        const docPrimary = extractPrimaryName(docParsed.base);
+        if (docPrimary === searchPrimary || docPrimary.includes(searchPrimary) || searchPrimary.includes(docPrimary)) {
+          score = 0.95;
+        } else {
+          const searchWords = extractKeyWords(searchParsed.base);
+          const docWords = extractKeyWords(docParsed.base);
+          const allWordsMatch = searchWords.length > 0 && searchWords.every(word =>
+            docWords.some(dw => dw === word || dw.includes(word) || word.includes(dw))
+          );
+          if (allWordsMatch) {
+            score = 0.85;
+          } else {
+            const sim = calculateSimilarity(searchParsed.base, docParsed.base);
+            if (sim >= 0.5) score = sim * 0.7;
+          }
+        }
+      }
+
+      // Doc has suffix, search doesn't
+      if (!searchParsed.location && docParsed.location) {
+        const searchPrimary = extractPrimaryName(searchNormalized);
+        const docPrimary = extractPrimaryName(docParsed.base);
+        if (searchPrimary === docPrimary || searchPrimary.includes(docPrimary) || docPrimary.includes(searchPrimary)) {
+          score = 0.85;
+        } else {
+          const searchWords = extractKeyWords(searchNormalized);
+          const docWords = extractKeyWords(docParsed.base);
+          const allWordsMatch = searchWords.length > 0 && searchWords.every(word =>
+            docWords.some(dw => dw === word || dw.includes(word) || word.includes(dw))
+          );
+          if (allWordsMatch) score = 0.75;
+          else {
+            const sim = calculateSimilarity(searchNormalized, docParsed.base);
+            if (sim >= 0.5) score = sim * 0.7;
+          }
+        }
+      }
+
+      // Neither has suffix
+      if (!searchParsed.location && !docParsed.location) {
+        const searchPrimary = extractPrimaryName(searchNormalized);
+        const docPrimary = extractPrimaryName(docNormalized);
+        if (searchPrimary === docPrimary) {
+          return loc.id;
+        } else if (searchPrimary.includes(docPrimary) || docPrimary.includes(searchPrimary)) {
+          score = 0.9;
+        } else {
+          const searchWords = extractKeyWords(searchNormalized);
+          const docWords = extractKeyWords(docNormalized);
+          const allWordsMatch = searchWords.length > 0 && searchWords.every(word =>
+            docWords.some(dw => dw === word || dw.includes(word) || word.includes(dw))
+          );
+          if (allWordsMatch) score = 0.8;
+          else {
+            const sim = calculateSimilarity(searchNormalized, docNormalized);
+            if (sim >= 0.6) score = sim;
+          }
+        }
+      }
+
+      if (score > 0) {
+        candidates.push({ id: loc.id, score });
+      }
+    }
+
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.score - a.score);
+      if (candidates[0].score >= 0.5) {
+        return candidates[0].id;
+      }
+    }
+
+    return null;
+  };
+
+  const runAutoMatch = (rows: ParsedRow[], dbLocations: Location[]) => {
+    const uniqueRestaurants = [...new Set(rows.filter(r => r.errors.length === 0).map(r => r.restaurant))];
+    const newLocationMap: Record<string, string> = {};
+    const newUnmapped: string[] = [];
+
+    for (const restaurant of uniqueRestaurants) {
+      const matchedId = autoMatchLocation(restaurant, dbLocations);
+      if (matchedId) {
+        newLocationMap[restaurant] = matchedId;
+      } else {
+        newUnmapped.push(restaurant);
+      }
+    }
+
+    setLocationMap(newLocationMap);
+    setUnmappedRestaurants(newUnmapped);
   };
 
   const handleSubcontractorChange = (rowNumber: number, subcontractorId: string) => {
@@ -192,7 +393,12 @@ export default function RecurringWorkOrdersImportModal({
           )
         : rows;
       setParsedData(rowsWithGlobalClient);
-      
+
+      // Run auto-match for location mapping
+      if (locations.length > 0) {
+        runAutoMatch(rowsWithGlobalClient, locations);
+      }
+
       const validRows = rowsWithGlobalClient.filter(r => r.errors.length === 0);
       const invalidRows = rowsWithGlobalClient.filter(r => r.errors.length > 0);
       
@@ -400,8 +606,41 @@ export default function RecurringWorkOrdersImportModal({
         return;
       }
       
-      // If SERVICE TYPE is missing but we have a restaurant, use a default to avoid errors
+      // If SERVICE TYPE is missing but we have a restaurant, check if this is a section header row.
+      // A section header has a restaurant name but no service type, no dates, and no frequency.
+      // Only default to "General Maintenance" if the row has at least one date or a frequency label.
       if (!serviceType && currentRestaurant) {
+        // Check if this row has any date values
+        const hasDateValues = (() => {
+          if (row._nextServiceIndices && row._rowArray) {
+            return row._nextServiceIndices.some((idx: number) => {
+              const val = row._rowArray[idx];
+              return val !== null && val !== undefined && String(val).trim() !== '';
+            });
+          }
+          return false;
+        })();
+
+        // Check if this row has a frequency label
+        let rowFrequency = '';
+        if (row._frequencyIdx >= 0 && row._rowArray) {
+          rowFrequency = (row._rowArray[row._frequencyIdx] || '').toString().trim();
+        } else {
+          rowFrequency = (row['FREQUENCY LABEL'] || row['Frequency Label'] || '').toString().trim();
+        }
+
+        // Check if this row has a last serviced date
+        let rowLastServiced = '';
+        if (row._lastServicedIdx >= 0 && row._rowArray) {
+          const val = row._rowArray[row._lastServicedIdx];
+          rowLastServiced = (val !== null && val !== undefined) ? String(val).trim() : '';
+        }
+
+        if (!hasDateValues && !rowFrequency && !rowLastServiced) {
+          // This is a section header row (restaurant name only, no data) — skip it
+          return;
+        }
+
         serviceType = 'General Maintenance';
       }
 
@@ -604,6 +843,7 @@ export default function RecurringWorkOrdersImportModal({
     notes: row.notes,
     subcontractorId: row.subcontractorId || undefined,
     clientId: row.clientId || undefined,
+    locationId: locationMap[row.restaurant] || undefined,
   });
 
   const checkMatches = async (rows: ParsedRow[]) => {
@@ -779,6 +1019,9 @@ export default function RecurringWorkOrdersImportModal({
     setImportProgress({ current: 0, total: 0 });
     setSubcontractors([]);
     setClients([]);
+    setLocations([]);
+    setLocationMap({});
+    setUnmappedRestaurants([]);
     setGlobalClientId('');
     setImportMode('update_or_create');
     setMatchResults(null);
@@ -810,6 +1053,13 @@ export default function RecurringWorkOrdersImportModal({
       setCurrentPage(1);
     }
   }, [parsedData.length]);
+
+  // Re-run auto-match when locations finish loading after file was already parsed
+  useEffect(() => {
+    if (locations.length > 0 && parsedData.length > 0) {
+      runAutoMatch(parsedData, locations);
+    }
+  }, [locations.length]);
 
   // Trigger match check when mode changes to update_or_create with data already parsed
   useEffect(() => {
@@ -859,6 +1109,11 @@ export default function RecurringWorkOrdersImportModal({
   // Get match result for a given parsedData index
   const getMatchForIndex = (idx: number): MatchResult | undefined =>
     matchResults?.find(m => m.rowIndex === idx);
+
+  // Location mapping status
+  const uniqueRestaurants = [...new Set(validRows.map(r => r.restaurant))];
+  const mappedCount = uniqueRestaurants.filter(r => locationMap[r]).length;
+  const allLocationsMapped = uniqueRestaurants.length > 0 && mappedCount === uniqueRestaurants.length;
 
   if (!isOpen) return null;
 
@@ -955,6 +1210,102 @@ export default function RecurringWorkOrdersImportModal({
                 <p className="text-xs text-green-700 mt-2 flex items-center gap-1">
                   <RefreshCw className="h-3 w-3" />
                   Existing orders will be matched by Restaurant + Service Type + Frequency Label. Dates (Last Serviced, Next Service Needed By) will be updated.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Location Mapping Section */}
+          {parsedData.length > 0 && uniqueRestaurants.length > 0 && (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Location Mapping
+                </Label>
+                <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                  allLocationsMapped
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {mappedCount} of {uniqueRestaurants.length} restaurants mapped
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="p-2 text-left border-b text-xs font-medium text-gray-600">Restaurant (from file)</th>
+                      <th className="p-2 text-left border-b text-xs font-medium text-gray-600">Mapped Location</th>
+                      <th className="p-2 text-left border-b text-xs font-medium text-gray-600 w-16">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {uniqueRestaurants.map((restaurant) => {
+                      const isMapped = !!locationMap[restaurant];
+                      const mappedLocation = isMapped
+                        ? locations.find(l => l.id === locationMap[restaurant])
+                        : null;
+                      return (
+                        <tr key={restaurant} className={isMapped ? 'bg-white' : 'bg-amber-50'}>
+                          <td className="p-2 border-b text-xs font-medium">{restaurant}</td>
+                          <td className="p-2 border-b">
+                            {isMapped && !unmappedRestaurants.includes(restaurant) ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-700">{mappedLocation?.locationName || locationMap[restaurant]}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setUnmappedRestaurants(prev => [...prev, restaurant]);
+                                  }}
+                                  className="text-xs text-blue-600 hover:underline"
+                                  disabled={isImporting}
+                                >
+                                  Change
+                                </button>
+                              </div>
+                            ) : (
+                              <select
+                                value={locationMap[restaurant] || ''}
+                                onChange={(e) => {
+                                  const newMap = { ...locationMap };
+                                  if (e.target.value) {
+                                    newMap[restaurant] = e.target.value;
+                                    setUnmappedRestaurants(prev => prev.filter(r => r !== restaurant));
+                                  } else {
+                                    delete newMap[restaurant];
+                                    if (!unmappedRestaurants.includes(restaurant)) {
+                                      setUnmappedRestaurants(prev => [...prev, restaurant]);
+                                    }
+                                  }
+                                  setLocationMap(newMap);
+                                }}
+                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                disabled={isImporting}
+                              >
+                                <option value="">Select a location...</option>
+                                {locations.map(loc => (
+                                  <option key={loc.id} value={loc.id}>{loc.locationName}</option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
+                          <td className="p-2 border-b text-center">
+                            {isMapped ? (
+                              <CheckCircle className="h-4 w-4 text-green-600 inline" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-amber-500 inline" />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {!allLocationsMapped && (
+                <p className="text-xs text-amber-600 mt-2">
+                  All restaurants must be mapped to a location before importing.
                 </p>
               )}
             </div>
@@ -1504,7 +1855,7 @@ export default function RecurringWorkOrdersImportModal({
           </Button>
           <Button
             onClick={handleImport}
-            disabled={!file || parsedData.length === 0 || validRows.length === 0 || isImporting}
+            disabled={!file || parsedData.length === 0 || validRows.length === 0 || isImporting || !allLocationsMapped}
           >
             {isImporting ? (
               <>

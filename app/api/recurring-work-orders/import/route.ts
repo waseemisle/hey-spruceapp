@@ -65,6 +65,7 @@ interface ImportRow {
   notes: string;
   subcontractorId?: string;
   clientId?: string;
+  locationId?: string;
 }
 
 type ImportMode = 'create' | 'update_or_create';
@@ -614,8 +615,16 @@ export async function PUT(request: NextRequest) {
 
       if (!row.restaurant || !row.serviceType) continue;
 
-      // We need to resolve the location name the same way the POST handler does
-      const locationResult = await findLocationByName(row.restaurant, db);
+      // Use pre-mapped locationId if provided, otherwise fall back to name lookup
+      let locationResult: { id: string; data: any } | null = null;
+      if (row.locationId) {
+        const locationDoc = await getDoc(doc(db, 'locations', row.locationId));
+        if (locationDoc.exists()) {
+          locationResult = { id: locationDoc.id, data: locationDoc.data() };
+        }
+      } else {
+        locationResult = await findLocationByName(row.restaurant, db);
+      }
       const locationName = locationResult?.data?.locationName || row.restaurant;
 
       const frequencyLabel = (row.frequencyLabel || 'QUARTERLY').toUpperCase().trim();
@@ -780,50 +789,61 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Find location by restaurant name (direct lookup, not mapping)
-        const locationResult = await findLocationByName(row.restaurant, db);
-        if (!locationResult) {
-          // Get similar location names for better error message
-          const allLocationsQuery = query(collection(db, 'locations'));
-          const allLocationsSnapshot = await getDocs(allLocationsQuery);
-          const allLocationNames = allLocationsSnapshot.docs
-            .map(doc => doc.data().locationName)
-            .filter((name): name is string => !!name)
-            .slice(0, 10); // Limit to first 10 for error message
-          
-          const similarLocations = allLocationNames
-            .filter(name => {
-              const nameLower = normalizeLocationName(name);
-              const searchLower = normalizeLocationName(row.restaurant);
-              const searchParsed = parseLocationName(row.restaurant);
-              const nameParsed = parseLocationName(name);
-              
-              // Check if base names match
-              if (nameParsed.base === searchParsed.base) {
-                return true;
-              }
-              
-              // Check if names are similar
-              return nameLower.includes(searchLower) || searchLower.includes(nameLower);
-            })
-            .slice(0, 5);
-          
-          let errorMsg = `Location not found for "${row.restaurant}".`;
-          if (similarLocations.length > 0) {
-            errorMsg += ` Similar locations found: ${similarLocations.join(', ')}.`;
-          } else if (allLocationNames.length > 0) {
-            errorMsg += ` Available locations include: ${allLocationNames.join(', ')}.`;
+        // Use pre-mapped locationId if provided, otherwise fall back to name lookup
+        let locationResult: { id: string; data: any } | null = null;
+        if (row.locationId) {
+          const locationDoc = await getDoc(doc(db, 'locations', row.locationId));
+          if (locationDoc.exists()) {
+            locationResult = { id: locationDoc.id, data: locationDoc.data() };
+          } else {
+            errors.push({
+              row: i + 1,
+              error: `Provided locationId "${row.locationId}" not found in database.`,
+            });
+            console.error(`Row ${i + 1}: Provided locationId not found`);
+            continue;
           }
-          errorMsg += ` Please create the location first or check the location name spelling.`;
-          
-          errors.push({
-            row: i + 1,
-            error: errorMsg,
-          });
-          console.error(`Row ${i + 1}: Location not found for "${row.restaurant}"`);
-          continue;
+        } else {
+          locationResult = await findLocationByName(row.restaurant, db);
+          if (!locationResult) {
+            // Get similar location names for better error message
+            const allLocationsQuery = query(collection(db, 'locations'));
+            const allLocationsSnapshot = await getDocs(allLocationsQuery);
+            const allLocationNames = allLocationsSnapshot.docs
+              .map(doc => doc.data().locationName)
+              .filter((name): name is string => !!name)
+              .slice(0, 10);
+
+            const similarLocations = allLocationNames
+              .filter(name => {
+                const nameLower = normalizeLocationName(name);
+                const searchLower = normalizeLocationName(row.restaurant);
+                const searchParsed = parseLocationName(row.restaurant);
+                const nameParsed = parseLocationName(name);
+                if (nameParsed.base === searchParsed.base) {
+                  return true;
+                }
+                return nameLower.includes(searchLower) || searchLower.includes(nameLower);
+              })
+              .slice(0, 5);
+
+            let errorMsg = `Location not found for "${row.restaurant}".`;
+            if (similarLocations.length > 0) {
+              errorMsg += ` Similar locations found: ${similarLocations.join(', ')}.`;
+            } else if (allLocationNames.length > 0) {
+              errorMsg += ` Available locations include: ${allLocationNames.join(', ')}.`;
+            }
+            errorMsg += ` Please create the location first or check the location name spelling.`;
+
+            errors.push({
+              row: i + 1,
+              error: errorMsg,
+            });
+            console.error(`Row ${i + 1}: Location not found for "${row.restaurant}"`);
+            continue;
+          }
         }
-        
+
         const locationId = locationResult.id;
         const locationData = locationResult.data;
         console.log(`Row ${i + 1}: Found location "${locationData.locationName}" with ID: ${locationId}`);
