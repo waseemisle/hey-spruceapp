@@ -944,7 +944,9 @@ export default function RecurringWorkOrdersImportModal({
       for (let i = 0; i < validRows.length; i++) {
         setImportProgress({ current: i, total: validRows.length });
         const row = validRows[i];
-        const requestBody = { rows: [toImportRow(row)], mode: importMode };
+        const importRow = toImportRow(row);
+        const requestBody = { rows: [importRow], mode: importMode };
+        console.log(`[Import] Row ${row.rowNumber} "${row.restaurant}" → locationId=${importRow.locationId || 'NONE'}`);
 
         try {
           const response = await fetch('/api/recurring-work-orders/import', {
@@ -964,10 +966,12 @@ export default function RecurringWorkOrdersImportModal({
           totalUpdated += result.updated ?? 0;
           if (result.errors && Array.isArray(result.errors)) {
             for (const e of result.errors) {
+              console.error(`[Import] Row ${row.rowNumber} "${row.restaurant}" API error:`, e.error || String(e));
               allErrors.push({ row: row.rowNumber, error: e.error || String(e) });
             }
           }
         } catch (err: any) {
+          console.error(`[Import] Row ${row.rowNumber} "${row.restaurant}" FAILED:`, err.message);
           allErrors.push({ row: row.rowNumber, error: err.message || 'Unknown error' });
         }
       }

@@ -790,6 +790,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Use pre-mapped locationId if provided, otherwise fall back to name lookup
+        console.log(`Row ${i + 1}: locationId=${row.locationId || 'NOT PROVIDED'}, restaurant="${row.restaurant}"`);
         let locationResult: { id: string; data: any } | null = null;
         if (row.locationId) {
           const locationDoc = await getDoc(doc(db, 'locations', row.locationId));
