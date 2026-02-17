@@ -188,7 +188,7 @@ function SetPasswordContent() {
             Set Your Password
           </CardTitle>
           <CardDescription className="text-base">
-            Welcome to Hey Spruce! Please create a password to activate your account.
+            Welcome to GroundOps! Please create a password to activate your account.
           </CardDescription>
           <div className="pt-4 space-y-2 bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
             <p className="text-lg text-gray-800">

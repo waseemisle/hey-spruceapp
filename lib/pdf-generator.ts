@@ -28,11 +28,11 @@ interface InvoiceData {
   terms?: string;
 }
 
-// Brand colors matching heyspruce.com
+// Brand colors matching groundops.co
 const COLORS = {
   primary: [100, 116, 139] as [number, number, number], // Green #16a34a
   secondary: [8, 145, 178] as [number, number, number], // Teal #0891b2
-  dark: [30, 41, 59] as [number, number, number], // Dark slate #1e293b
+  dark: [30, 41, 59] as [number, number, number], // Slate #1e293b
   gray: [100, 116, 139] as [number, number, number], // Gray #64748b
   lightGray: [226, 232, 240] as [number, number, number], // Light gray #e2e8f0
   white: [255, 255, 255] as [number, number, number],
@@ -57,9 +57,9 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
     doc.setFontSize(18);
     doc.setTextColor(...COLORS.primary);
     doc.setFont('helvetica', 'bold');
-    doc.text('HEY', 20, 22);
+    doc.text('GROUND', 20, 22);
     doc.setTextColor(...COLORS.secondary);
-    doc.text('SPRUCE', 35, 22);
+    doc.text('OPS', 42, 22);
 
     // Decorative underline for brand
     doc.setDrawColor(...COLORS.primary);
@@ -71,9 +71,9 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.gray);
-  doc.text('Cleaning & Maintenance', 20, 35);
-  doc.text('1972 E 20th St, Los Angeles, CA 90058', 20, 39);
-  doc.text('info@heyspruce.com | 1-877-253-26464', 20, 43);
+  doc.text('GroundOps — Facility Maintenance', 20, 35);
+  doc.text('Los Angeles, CA', 20, 39);
+  doc.text('info@groundops.com | (323) 555-1234', 20, 43);
 
   // Invoice Title - Right aligned
   doc.setFontSize(28);
@@ -338,8 +338,8 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.text);
   doc.text('• Pay securely online using the Stripe payment link provided in your email', 25, yPosition + 10);
-  doc.text('• Mail check payable to: Cleaning & Maintenance', 25, yPosition + 16);
-  doc.text('  1972 E 20th St, Los Angeles, CA 90058', 25, yPosition + 21);
+  doc.text('• Mail check payable to: GroundOps', 25, yPosition + 16);
+  doc.text('  Los Angeles, CA', 25, yPosition + 21);
 
   yPosition += 32;
 
@@ -407,13 +407,13 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
       pageHeight - 10
     );
     doc.text(
-      `© ${new Date().getFullYear()} Cleaning & Maintenance. All rights reserved.`,
+      `© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }
     );
     doc.text(
-      'info@heyspruce.com | 1-877-253-26464',
+      'info@groundops.com | (323) 555-1234',
       pageWidth - 20,
       pageHeight - 10,
       { align: 'right' }
@@ -474,9 +474,9 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
     doc.setFontSize(18);
     doc.setTextColor(...COLORS.primary);
     doc.setFont('helvetica', 'bold');
-    doc.text('HEY', 20, 22);
+    doc.text('GROUND', 20, 22);
     doc.setTextColor(...COLORS.secondary);
-    doc.text('SPRUCE', 35, 22);
+    doc.text('OPS', 42, 22);
 
     // Decorative underline for brand
     doc.setDrawColor(...COLORS.primary);
@@ -488,9 +488,9 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.gray);
-  doc.text('Cleaning & Maintenance', 20, 35);
-  doc.text('1972 E 20th St, Los Angeles, CA 90058', 20, 39);
-  doc.text('info@heyspruce.com | 1-877-253-26464', 20, 43);
+  doc.text('GroundOps — Facility Maintenance', 20, 35);
+  doc.text('Los Angeles, CA', 20, 39);
+  doc.text('info@groundops.com | (323) 555-1234', 20, 43);
 
   // Work Order Title - Right aligned
   doc.setFontSize(28);
@@ -688,13 +688,13 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
       pageHeight - 10
     );
     doc.text(
-      `© ${new Date().getFullYear()} Cleaning & Maintenance. All rights reserved.`,
+      `© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }
     );
     doc.text(
-      'info@heyspruce.com | 1-877-253-26464',
+      'info@groundops.com | (323) 555-1234',
       pageWidth - 20,
       pageHeight - 10,
       { align: 'right' }

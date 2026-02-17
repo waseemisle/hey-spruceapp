@@ -17,8 +17,8 @@ const sizeClasses = {
 export default function Logo({ className = '', href = '/', size = 'md' }: LogoProps) {
   const logoElement = (
     <Image
-      src="https://cdn.prod.website-files.com/67edc7c78e3151d3b06686b2/681007b1b7f5a5cc527f1b94_Hey_SPRUCE_logo_font.png"
-      alt="Hey Spruce Logo"
+      src="https://www.groundops.co/deck/logo.png"
+      alt="GroundOps Logo"
       width={200}
       height={60}
       className={`${sizeClasses[size]} ${className}`}

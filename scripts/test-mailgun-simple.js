@@ -5,8 +5,8 @@ const FormData = require("form-data");
 const Mailgun = require("mailgun.js");
 
 const API_KEY = process.env.MAILGUN_API_KEY;
-const DOMAIN = process.env.MAILGUN_DOMAIN || "heyspruce.com";
-const FROM_EMAIL = process.env.MAILGUN_FROM_EMAIL || "matthew@heyspruce.com";
+const DOMAIN = process.env.MAILGUN_DOMAIN || "groundops.com";
+const FROM_EMAIL = process.env.MAILGUN_FROM_EMAIL || "info@groundops.com";
 const TO_EMAIL = process.env.TEST_EMAIL_TO || "waseemisle@gmail.com";
 
 if (!API_KEY) {

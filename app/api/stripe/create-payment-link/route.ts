@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
             currency: 'usd',
             product_data: {
               name: `Invoice ${invoiceNumber}`,
-              description: `Payment for Hey Spruce Restaurant Cleaning & Maintenance services`,
+              description: `Payment for GroundOps Facility Maintenance services`,
             },
             unit_amount: Math.round(amount * 100), // Convert to cents
           },

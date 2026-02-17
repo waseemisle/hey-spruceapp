@@ -22,7 +22,7 @@ https.get(logoUrl, (response) => {
     const base64 = buffer.toString('base64');
     const dataUrl = `data:image/png;base64,${base64}`;
 
-    const fileContent = `// Hey Spruce Logo in base64 format for PDF embedding
+    const fileContent = `// GroundOps Logo in base64 format for PDF embedding (use https://www.groundops.co/deck/logo.png as source)
 // Auto-generated from ${logoUrl}
 export const SPRUCE_LOGO_BASE64 = \`${dataUrl}\`;
 `;

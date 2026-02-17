@@ -1,10 +1,10 @@
-# Hey Spruce App - Property Maintenance Management System
+# GroundOps — Facility Maintenance Infrastructure
 
 ## 🎉 Application Status
 
 **Version:** 2.0.1 (Phased Development - Option 3)
 **Status:** ✅ Core System Operational
-**Development Server:** http://hey-spruce-appv2.vercel.app
+**Website:** https://www.groundops.co
 
 ---
 

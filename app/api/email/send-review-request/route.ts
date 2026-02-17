@@ -10,8 +10,8 @@ export async function POST(request: Request) {
       workOrderNumber,
     } = body;
 
-    // Logo URL from HeySpruce
-    const logoUrl = 'https://cdn.prod.website-files.com/67edc7c78e3151d3b06686b2/681007b1b7f5a5cc527f1b94_Hey_SPRUCE_logo_font.png';
+    // Logo URL from GroundOps
+    const logoUrl = 'https://www.groundops.co/deck/logo.png';
     
     // Google Maps Review Link
     const googleReviewLink = 'https://www.google.com/maps/place/Spruce+Cleaning+%26+Maintenance/@34.0204789,-118.4117326,10z/data=!3m1!4b1!4m6!3m5!1s0x20a5e683df0722d:0x409439675ca2c8b!8m2!3d34.020479!4d-118.4117326!16s%2Fg%2F11xw24xtqb?entry=ttu&g_ep=EgoyMDI1MTExNy4wIKXMDSoASAFQAw%3D%3D';
@@ -22,19 +22,19 @@ export async function POST(request: Request) {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Rate Your Service - HeySpruce</title>
+        <title>Rate Your Service - GroundOps</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #ffffff;">
         <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff;">
           <!-- Logo Section -->
           <div style="text-align: center; margin-bottom: 40px;">
-            <img src="${logoUrl}" alt="HeySpruce Logo" style="max-width: 200px; height: auto; margin: 0 auto; display: block;" />
+            <img src="${logoUrl}" alt="GroundOps Logo" style="max-width: 200px; height: auto; margin: 0 auto; display: block;" />
           </div>
 
           <!-- Main Heading -->
           <div style="text-align: center; margin-bottom: 40px;">
             <h1 style="font-size: 28px; font-weight: bold; color: #000000; margin: 0 0 10px 0; line-height: 1.3;">
-              Please rate your service with<br>HeySpruce
+              Please rate your service with<br>GroundOps
             </h1>
           </div>
 
@@ -70,19 +70,19 @@ export async function POST(request: Request) {
             <div style="text-align: center; color: #000000; font-size: 14px; line-height: 2;">
               <p style="margin: 5px 0;">
                 <strong>Phone:</strong> 
-                <a href="tel:1-877-253-26464" style="color: #4285f4; text-decoration: none;">1-877-253-26464</a>
+                <a href="tel:3235551234" style="color: #4285f4; text-decoration: none;">(323) 555-1234</a>
               </p>
               <p style="margin: 5px 0;">
                 <strong>Email:</strong> 
-                <a href="mailto:info@heyspruce.com" style="color: #4285f4; text-decoration: none;">info@heyspruce.com</a>
+                <a href="mailto:info@groundops.com" style="color: #4285f4; text-decoration: none;">info@groundops.com</a>
               </p>
               <p style="margin: 5px 0;">
                 <strong>Website:</strong> 
-                <a href="https://www.heyspruce.com/" style="color: #4285f4; text-decoration: none; word-break: break-all;">https://www.heyspruce.com/</a>
+                <a href="https://www.groundops.co/" style="color: #4285f4; text-decoration: none; word-break: break-all;">https://www.groundops.co/</a>
               </p>
               <p style="margin: 5px 0;">
                 <strong>Address:</strong><br>
-                1972 E 20th St, Los Angeles, CA 90058
+                Los Angeles, CA
               </p>
             </div>
           </div>
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
           <!-- Footer Links -->
           <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid #e5e7eb; text-align: center;">
             <div style="font-size: 12px; color: #4285f4;">
-              <a href="#" style="color: #4285f4; text-decoration: none; margin: 0 10px;">HeySpruce Terms & Conditions</a> |
+              <a href="#" style="color: #4285f4; text-decoration: none; margin: 0 10px;">GroundOps Terms & Conditions</a> |
               <a href="#" style="color: #4285f4; text-decoration: none; margin: 0 10px;">Privacy Policy</a> |
               <a href="#" style="color: #4285f4; text-decoration: none; margin: 0 10px;">CA Privacy Notice</a>
             </div>
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
     await sendEmail({
       to: toEmail,
-      subject: `How was your service with HeySpruce? - Work Order ${workOrderNumber}`,
+      subject: `How was your service with GroundOps? - Work Order ${workOrderNumber}`,
       html: emailHtml,
     });
 

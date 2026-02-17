@@ -1,4 +1,4 @@
-# Vercel Deployment Guide for Hey Spruce App
+# Vercel Deployment Guide for GroundOps App
 
 ## 📋 Prerequisites
 
@@ -16,8 +16,8 @@ Add these environment variables in your Vercel project settings:
 ### Mailgun Configuration (Required for Email)
 ```env
 MAILGUN_API_KEY=your_mailgun_api_key_here
-MAILGUN_DOMAIN=heyspruce.com
-MAILGUN_FROM_EMAIL=matthew@heyspruce.com
+MAILGUN_DOMAIN=groundops.com
+MAILGUN_FROM_EMAIL=info@groundops.com
 MAILGUN_API_URL=https://api.mailgun.net
 ```
 

@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your job with Hey Spruce has been scheduled</title>
+        <title>Your job with GroundOps has been scheduled</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
         <div style="background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -67,10 +67,10 @@ export async function POST(request: Request) {
           <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: white;">
             <div style="margin-bottom: 20px;">
               <div style="width: 100px; height: 100px; margin: 0 auto; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 4px solid #1a1a1a; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <span style="color: white; font-size: 42px; font-weight: bold;">HS</span>
+                <span style="color: white; font-size: 42px; font-weight: bold;">GO</span>
               </div>
             </div>
-            <h1 style="color: #1a1a1a; margin: 0; font-size: 26px; font-weight: bold; line-height: 1.3;">Your job with Hey Spruce has been scheduled</h1>
+            <h1 style="color: #1a1a1a; margin: 0; font-size: 26px; font-weight: bold; line-height: 1.3;">Your job with GroundOps has been scheduled</h1>
           </div>
 
           <!-- Content -->
@@ -130,18 +130,18 @@ export async function POST(request: Request) {
           <div style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
             <div style="margin-bottom: 20px;">
               <p style="margin: 0 0 10px 0; font-size: 14px; color: #4b5563;">
-                <a href="tel:1-877-253-26464" style="color: #10b981; text-decoration: none; margin-right: 10px;">1-877-253-26464</a> | 
-                <a href="mailto:info@heyspruce.com" style="color: #10b981; text-decoration: none; margin: 0 10px;">info@heyspruce.com</a>
+                <a href="tel:3235551234" style="color: #10b981; text-decoration: none; margin-right: 10px;">(323) 555-1234</a> | 
+                <a href="mailto:info@groundops.com" style="color: #10b981; text-decoration: none; margin: 0 10px;">info@groundops.com</a>
               </p>
               <p style="margin: 10px 0; font-size: 14px; color: #4b5563;">
-                <a href="https://www.heyspruce.com/" target="_blank" style="color: #10b981; text-decoration: none;">https://www.heyspruce.com/</a>
+                <a href="https://www.groundops.co/" target="_blank" style="color: #10b981; text-decoration: none;">https://www.groundops.co/</a>
               </p>
               <p style="margin: 10px 0 0 0; font-size: 14px; color: #4b5563;">
-                1972 E 20th St, Los Angeles, CA 90058
+                Los Angeles, CA
               </p>
             </div>
             <p style="margin: 20px 0 0 0; font-size: 12px; color: #6b7280;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://www.heyspruce.com'}/terms" target="_blank" style="color: #6b7280; text-decoration: underline;">Terms & Conditions</a>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://www.groundops.co'}/terms" target="_blank" style="color: #6b7280; text-decoration: underline;">Terms & Conditions</a>
             </p>
           </div>
         </div>
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
 
     await sendEmail({
       to: toEmail,
-      subject: `Your job with Hey Spruce has been scheduled - ${workOrderNumber}`,
+      subject: `Your job with GroundOps has been scheduled - ${workOrderNumber}`,
       html: emailHtml,
     });
 

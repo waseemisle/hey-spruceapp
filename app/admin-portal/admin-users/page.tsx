@@ -302,7 +302,7 @@ export default function AdminUsersManagement() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="admin@heyspruce.com"
+                      placeholder="admin@groundops.com"
                       disabled={!!editingId}
                     />
                     {editingId && (

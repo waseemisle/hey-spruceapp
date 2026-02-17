@@ -40,7 +40,7 @@ describe('AdminDashboard', () => {
     render(<AdminDashboard />)
     
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Welcome to your Hey Spruce admin portal')).toBeInTheDocument()
+    expect(screen.getByText('Welcome to your GroundOps admin portal')).toBeInTheDocument()
   })
 
   it('renders all stat cards', async () => {

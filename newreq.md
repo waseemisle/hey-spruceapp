@@ -1,7 +1,7 @@
 # Comprehensive Requirements for HeySpruceApp Update
 
 ## Project Overview
-This is a comprehensive update to the HeySpruceApp - a work order management system built with Next.js 14, Firebase, and TypeScript. The app manages work orders between companies, clients, subcontractors, and administrators.
+This is a comprehensive update to the GroundOps app ? facility maintenance and work order management built with Next.js 14, Firebase, and TypeScript. The app manages work orders between companies, clients, subcontractors, and administrators.
 
 ## Current Technology Stack
 - **Framework**: Next.js 14 (App Router)
@@ -59,13 +59,13 @@ This is a comprehensive update to the HeySpruceApp - a work order management sys
 Company: Edgewood Company
 
 Assigned Clients:
-- Sara (sara@ewood.com) í LocationA only
-- Mara (mara@ewood.com) í LocationA only
-- Tara (tara@ewood.com) í LocationB only
-- Nara (nara@ewood.com) í LocationB only
-- Kara (kara@ewood.com) í LocationC only
-- Lara (lara@ewood.com) í LocationC only
-- Para (para@ewood.com) í LocationC AND LocationA (multiple locations)
+- Sara (sara@ewood.com) ? LocationA only
+- Mara (mara@ewood.com) ? LocationA only
+- Tara (tara@ewood.com) ? LocationB only
+- Nara (nara@ewood.com) ? LocationB only
+- Kara (kara@ewood.com) ? LocationC only
+- Lara (lara@ewood.com) ? LocationC only
+- Para (para@ewood.com) ? LocationC AND LocationA (multiple locations)
 ```
 
 **Current Issue**:
@@ -85,7 +85,7 @@ export interface Client {
   companyId?: string;
   phone: string;
   status: 'pending' | 'approved' | 'rejected';
-  assignedLocations?: string[]; // ê ADD THIS FIELD (array of location IDs)
+  assignedLocations?: string[]; // ? ADD THIS FIELD (array of location IDs)
   approvedBy?: string;
   approvedAt?: Date;
   createdAt: Date;
@@ -212,7 +212,7 @@ export interface WorkOrder {
   id: string;
   workOrderNumber: string;
   // ... existing fields ...
-  timeline: WorkOrderTimelineEvent[]; // ê ADD THIS
+  timeline: WorkOrderTimelineEvent[]; // ? ADD THIS
   systemInformation: {
     createdBy: { id: string; name: string; role: string; timestamp: Date };
     approvedBy?: { id: string; name: string; timestamp: Date };
@@ -308,8 +308,8 @@ export interface WorkOrder {
 ```typescript
 export interface Quote {
   // ... existing fields ...
-  proposedServiceDate: Date; // ê ADD THIS (date subcontractor can do the work)
-  proposedServiceTime: string; // ê ADD THIS (time subcontractor can do the work)
+  proposedServiceDate: Date; // ? ADD THIS (date subcontractor can do the work)
+  proposedServiceTime: string; // ? ADD THIS (time subcontractor can do the work)
   estimatedDuration: string;
   // ... rest of fields ...
 }
@@ -376,7 +376,7 @@ Proposed Service Date: [Date] at [Time]
 View the full quote here: [Link to portal]
 
 Best regards,
-HeySpruceApp Team
+GroundOps Team
 ```
 
 ### 4.3 Subcontractor Email Notification When Work Order Shared
@@ -410,7 +410,7 @@ HeySpruceApp Team
 - File: `app/admin-portal/maint-requests/page.tsx`
 
 **Action Required**:  Simple UI text change
-- Update all references to "Maint Request" í "Maintenance Requests"
+- Update all references to "Maint Request" ? "Maintenance Requests"
 - Update navigation labels
 - Update page titles
 - Update button labels
@@ -532,12 +532,12 @@ await fetch('/api/email/send-maint-request-notification', {
 6. After admin approval, work order becomes visible to assigned clients
 
 **Current Flow**:
-- Maint request arrives í Stored in `maint_requests` collection
+- Maint request arrives ? Stored in `maint_requests` collection
 - Admin manually views in maint requests page
 - Admin manually creates work order separately
 
 **New Flow Required**:
-- Maint request arrives í Auto-create work order í Status: "Pending"
+- Maint request arrives ? Auto-create work order ? Status: "Pending"
 - Auto-create location if doesn't exist
 - Admin sees work order in pending work orders
 - Admin approves work order
@@ -714,7 +714,7 @@ const unsubscribe = onSnapshot(
   },
   (error) => {
     console.error('Error fetching quotes:', error);
-    setLoading(false); // ê ADD THIS
+    setLoading(false); // ? ADD THIS
     toast.error('Failed to load quotes');
   }
 );
@@ -759,16 +759,16 @@ After implementing all changes, thoroughly test the following scenarios:
 1. Create client Sara assigned to LocationA only
 2. Create client Para assigned to LocationA AND LocationC
 3. Create work order for LocationA
-4. Login as Sara í should see work order
+4. Login as Sara ? should see work order
 5. Create work order for LocationB
-6. Login as Sara í should NOT see work order
-7. Login as Para í should see LocationA work order but NOT LocationB
+6. Login as Sara ? should NOT see work order
+7. Login as Para ? should see LocationA work order but NOT LocationB
 
 #### Test 3: Client Approval Workflow
 1. Admin creates new client with email
 2. Client receives invitation email
 3. Client sets password
-4. Client attempts to login í Should be blocked (pending approval)
+4. Client attempts to login ? Should be blocked (pending approval)
 5. Admin approves client
 6. Client receives approval email
 7. Client logs in successfully
@@ -792,15 +792,15 @@ After implementing all changes, thoroughly test the following scenarios:
 
 #### Test 6: Work Order System Information
 1. Create work order
-2. Approve work order í Check timeline shows "Approved by [Admin Name]"
-3. Share for bidding í Check timeline shows "Shared with [Subcontractor Names]"
-4. Subcontractor submits quote í Check timeline shows "Quote received from [Name] - $[Amount]"
-5. Admin shares quote with client í Check timeline
-6. Client approves quote í Check timeline shows "Approved by [Client Name]"
-7. Assigned to subcontractor í Check timeline
-8. Work completed í Check timeline
-9. Invoice sent í Check timeline
-10. Payment received í Check timeline
+2. Approve work order ? Check timeline shows "Approved by [Admin Name]"
+3. Share for bidding ? Check timeline shows "Shared with [Subcontractor Names]"
+4. Subcontractor submits quote ? Check timeline shows "Quote received from [Name] - $[Amount]"
+5. Admin shares quote with client ? Check timeline
+6. Client approves quote ? Check timeline shows "Approved by [Client Name]"
+7. Assigned to subcontractor ? Check timeline
+8. Work completed ? Check timeline
+9. Invoice sent ? Check timeline
+10. Payment received ? Check timeline
 
 #### Test 7: Client Portal Quotes Page
 1. Login as client

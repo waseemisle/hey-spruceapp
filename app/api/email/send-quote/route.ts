@@ -29,8 +29,8 @@ export async function POST(request: Request) {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Hey Spruce Restaurant Cleaning & Maintenance</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Restaurant Cleaning & Maintenance</p>
+          <h1 style="color: white; margin: 0; font-size: 28px;">GroundOps — Facility Maintenance Infrastructure</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Facility Maintenance Infrastructure</p>
         </div>
 
         <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
@@ -86,11 +86,11 @@ export async function POST(request: Request) {
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
 
           <p style="font-size: 12px; color: #6b7280; text-align: center;">
-            Hey Spruce Restaurant Cleaning & Maintenance<br>
-            1972 E 20th St, Los Angeles, CA 90058<br>
-            Phone: <a href="tel:1-877-253-26464" style="color: #667eea; text-decoration: none;">1-877-253-26464</a> | 
-            Email: <a href="mailto:info@heyspruce.com" style="color: #667eea; text-decoration: none;">info@heyspruce.com</a> | 
-            Website: <a href="https://www.heyspruce.com/" style="color: #667eea; text-decoration: none;">www.heyspruce.com</a>
+            GroundOps — Facility Maintenance<br>
+            Los Angeles, CA<br>
+            Phone: <a href="tel:3235551234" style="color: #667eea; text-decoration: none;">(323) 555-1234</a> | 
+            Email: <a href="mailto:info@groundops.com" style="color: #667eea; text-decoration: none;">info@groundops.com</a> | 
+            Website: <a href="https://www.groundops.co/" style="color: #667eea; text-decoration: none;">groundops.co</a>
           </p>
         </div>
       </body>

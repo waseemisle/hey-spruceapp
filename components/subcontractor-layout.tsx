@@ -11,7 +11,6 @@ import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu, X } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
@@ -188,7 +187,6 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
             <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Subcontractor Portal</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-foreground hidden md:inline">{user?.email}</span>
             <AccountSettingsDialog

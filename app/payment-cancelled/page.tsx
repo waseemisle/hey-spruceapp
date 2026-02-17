@@ -101,8 +101,8 @@ function PaymentCancelledContent() {
           <div className="text-center pt-4">
             <p className="text-xs text-gray-500">
               Questions? Contact us at{' '}
-              <a href="mailto:support@heyspruce.com" className="text-blue-600 hover:underline">
-                support@heyspruce.com
+              <a href="mailto:support@groundops.com" className="text-blue-600 hover:underline">
+                support@groundops.com
               </a>
             </p>
           </div>

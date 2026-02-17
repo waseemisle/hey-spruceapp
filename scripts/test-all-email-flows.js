@@ -8,10 +8,10 @@ const path = require("path");
 
 // Mailgun Configuration
 const API_KEY = process.env.MAILGUN_API_KEY;
-const DOMAIN = process.env.MAILGUN_DOMAIN || "heyspruce.com";
-const FROM_EMAIL = process.env.MAILGUN_FROM_EMAIL || "matthew@heyspruce.com";
+const DOMAIN = process.env.MAILGUN_DOMAIN || "groundops.com";
+const FROM_EMAIL = process.env.MAILGUN_FROM_EMAIL || "info@groundops.com";
 const TO_EMAIL = process.env.TEST_EMAIL_TO || "waseemisle@gmail.com";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://hey-spruce-appv2.vercel.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.groundops.co";
 
 if (!API_KEY) {
   console.error("❌ Error: MAILGUN_API_KEY environment variable is required");
@@ -171,15 +171,15 @@ async function sendScheduledService() {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your job with Hey Spruce has been scheduled</title>
+        <title>Your job with GroundOps has been scheduled</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
         <div style="background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: white;">
             <div style="width: 100px; height: 100px; margin: 0 auto; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 4px solid #1a1a1a; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-              <span style="color: white; font-size: 42px; font-weight: bold;">HS</span>
+              <span style="color: white; font-size: 42px; font-weight: bold;">GO</span>
             </div>
-            <h1 style="color: #1a1a1a; margin: 20px 0 0 0; font-size: 26px; font-weight: bold; line-height: 1.3;">Your job with Hey Spruce has been scheduled</h1>
+            <h1 style="color: #1a1a1a; margin: 20px 0 0 0; font-size: 26px; font-weight: bold; line-height: 1.3;">Your job with GroundOps has been scheduled</h1>
           </div>
           <div style="padding: 30px; background-color: white;">
             <div style="margin-bottom: 30px;">
@@ -207,15 +207,15 @@ async function sendScheduledService() {
             </div>
           </div>
           <div style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0 0 10px 0; font-size: 14px; color: #4b5563;"><a href="tel:1-877-253-26464" style="color: #10b981; text-decoration: none; margin-right: 10px;">1-877-253-26464</a> | <a href="mailto:info@heyspruce.com" style="color: #10b981; text-decoration: none; margin: 0 10px;">info@heyspruce.com</a></p>
-            <p style="margin: 10px 0; font-size: 14px; color: #4b5563;"><a href="https://www.heyspruce.com/" target="_blank" style="color: #10b981; text-decoration: none;">https://www.heyspruce.com/</a></p>
-            <p style="margin: 10px 0 0 0; font-size: 14px; color: #4b5563;">1972 E 20th St, Los Angeles, CA 90058</p>
+            <p style="margin: 0 0 10px 0; font-size: 14px; color: #4b5563;"><a href="tel:(323) 555-1234" style="color: #10b981; text-decoration: none; margin-right: 10px;">(323) 555-1234</a> | <a href="mailto:info@groundops.com" style="color: #10b981; text-decoration: none; margin: 0 10px;">info@groundops.com</a></p>
+            <p style="margin: 10px 0; font-size: 14px; color: #4b5563;"><a href="https://www.groundops.com/" target="_blank" style="color: #10b981; text-decoration: none;">https://www.groundops.com/</a></p>
+            <p style="margin: 10px 0 0 0; font-size: 14px; color: #4b5563;">Los Angeles, CA</p>
           </div>
         </div>
       </body>
     </html>
   `;
-  return await sendEmail("Your job with Hey Spruce has been scheduled - WO-2026-001", html);
+  return await sendEmail("Your job with GroundOps has been scheduled - WO-2026-001", html);
 }
 
 // 3. Subcontractor Approval
@@ -234,7 +234,7 @@ async function sendSubcontractorApproval() {
         </div>
         <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
           <p style="font-size: 16px; margin-bottom: 20px;">Hello John Contractor (ABC Cleaning Services),</p>
-          <p style="font-size: 16px; margin-bottom: 20px;">Great news! Your Hey Spruce subcontractor account has been approved by Admin User.</p>
+          <p style="font-size: 16px; margin-bottom: 20px;">Great news! Your GroundOps subcontractor account has been approved by Admin User.</p>
           <div style="background: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
             <p style="margin: 0; font-size: 16px; color: #065f46;"><strong>✓ You can now access the Subcontractor Portal</strong></p>
           </div>
@@ -253,7 +253,7 @@ async function sendSubcontractorApproval() {
       </body>
     </html>
   `;
-  return await sendEmail("Your Hey Spruce Subcontractor Account Has Been Approved!", html);
+  return await sendEmail("Your GroundOps Subcontractor Account Has Been Approved!", html);
 }
 
 // 4. Client Approval
@@ -272,7 +272,7 @@ async function sendClientApproval() {
         </div>
         <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
           <p style="font-size: 16px; margin-bottom: 20px;">Hello Jane Client,</p>
-          <p style="font-size: 16px; margin-bottom: 20px;">Great news! Your Hey Spruce account has been approved by Admin User.</p>
+          <p style="font-size: 16px; margin-bottom: 20px;">Great news! Your GroundOps account has been approved by Admin User.</p>
           <div style="background: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
             <p style="margin: 0; font-size: 16px; color: #065f46;"><strong>✓ You can now access the Client Portal</strong></p>
           </div>
@@ -290,7 +290,7 @@ async function sendClientApproval() {
       </body>
     </html>
   `;
-  return await sendEmail("Your Hey Spruce Account Has Been Approved!", html);
+  return await sendEmail("Your GroundOps Account Has Been Approved!", html);
 }
 
 // 5. Bidding Opportunity
@@ -337,15 +337,15 @@ async function sendReviewRequest() {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Rate Your Service - HeySpruce</title>
+        <title>Rate Your Service - GroundOps</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #ffffff;">
         <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff;">
           <div style="text-align: center; margin-bottom: 40px;">
-            <img src="https://cdn.prod.website-files.com/67edc7c78e3151d3b06686b2/681007b1b7f5a5cc527f1b94_Hey_SPRUCE_logo_font.png" alt="HeySpruce Logo" style="max-width: 200px; height: auto; margin: 0 auto; display: block;" />
+            <img src="https://www.groundops.co/deck/logo.png" alt="GroundOps Logo" style="max-width: 200px; height: auto; margin: 0 auto; display: block;" />
           </div>
           <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="font-size: 28px; font-weight: bold; color: #000000; margin: 0 0 10px 0; line-height: 1.3;">Please rate your service with<br>HeySpruce</h1>
+            <h1 style="font-size: 28px; font-weight: bold; color: #000000; margin: 0 0 10px 0; line-height: 1.3;">Please rate your service with<br>GroundOps</h1>
           </div>
           <div style="text-align: center; margin-bottom: 50px;">
             <div style="margin-bottom: 20px;">
@@ -369,17 +369,17 @@ async function sendReviewRequest() {
           </div>
           <div style="margin-top: 50px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
             <div style="text-align: center; color: #000000; font-size: 14px; line-height: 2;">
-              <p style="margin: 5px 0;"><strong>Phone:</strong> <a href="tel:1-877-253-26464" style="color: #4285f4; text-decoration: none;">1-877-253-26464</a></p>
-              <p style="margin: 5px 0;"><strong>Email:</strong> <a href="mailto:info@heyspruce.com" style="color: #4285f4; text-decoration: none;">info@heyspruce.com</a></p>
-              <p style="margin: 5px 0;"><strong>Website:</strong> <a href="https://www.heyspruce.com/" style="color: #4285f4; text-decoration: none;">https://www.heyspruce.com/</a></p>
-              <p style="margin: 5px 0;"><strong>Address:</strong><br>1972 E 20th St, Los Angeles, CA 90058</p>
+              <p style="margin: 5px 0;"><strong>Phone:</strong> <a href="tel:(323) 555-1234" style="color: #4285f4; text-decoration: none;">(323) 555-1234</a></p>
+              <p style="margin: 5px 0;"><strong>Email:</strong> <a href="mailto:info@groundops.com" style="color: #4285f4; text-decoration: none;">info@groundops.com</a></p>
+              <p style="margin: 5px 0;"><strong>Website:</strong> <a href="https://www.groundops.com/" style="color: #4285f4; text-decoration: none;">https://www.groundops.com/</a></p>
+              <p style="margin: 5px 0;"><strong>Address:</strong><br>Los Angeles, CA</p>
             </div>
           </div>
         </div>
       </body>
     </html>
   `;
-  return await sendEmail("How was your service with HeySpruce? - Work Order WO-2026-001", html);
+  return await sendEmail("How was your service with GroundOps? - Work Order WO-2026-001", html);
 }
 
 // 7. Quote Notification
@@ -429,8 +429,8 @@ async function sendAssignment() {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Hey Spruce Restaurant Cleaning & Maintenance</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Restaurant Cleaning & Maintenance</p>
+          <h1 style="color: white; margin: 0; font-size: 28px;">GroundOps Restaurant GroundOps — Facility Maintenance</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Restaurant GroundOps — Facility Maintenance</p>
         </div>
         <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #10b981; margin-top: 0;">Work Order Assigned to You</h2>
@@ -469,8 +469,8 @@ async function sendQuote() {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Hey Spruce Restaurant Cleaning & Maintenance</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Restaurant Cleaning & Maintenance</p>
+          <h1 style="color: white; margin: 0; font-size: 28px;">GroundOps Restaurant GroundOps — Facility Maintenance</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Restaurant GroundOps — Facility Maintenance</p>
         </div>
         <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #667eea; margin-top: 0;">New Quote Available</h2>
@@ -528,28 +528,28 @@ async function sendInvoice() {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Invoice #INV-2026-001 due from Cleaning & Maintenance - $2,000.00</title>
+        <title>Invoice #INV-2026-001 due from GroundOps — Facility Maintenance - $2,000.00</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
           <div style="background-color: #ffffff; padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <h1 style="margin: 0; font-size: 16px; font-weight: bold; color: #1f2937;">Invoice INV-2026-001 due from Cleaning & Maintenance - $2,000.00</h1>
+              <h1 style="margin: 0; font-size: 16px; font-weight: bold; color: #1f2937;">Invoice INV-2026-001 due from GroundOps — Facility Maintenance - $2,000.00</h1>
               <div style="display: flex; gap: 10px; align-items: center;">
                 <span style="color: #6b7280; font-size: 12px;">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}</span>
               </div>
             </div>
           </div>
           <div style="background-color: #ffffff; padding: 20px; text-align: center;">
-            <h2 style="margin: 0; font-size: 24px; font-weight: bold; color: #1f2937;">Cleaning & Maintenance</h2>
+            <h2 style="margin: 0; font-size: 24px; font-weight: bold; color: #1f2937;">GroundOps — Facility Maintenance</h2>
           </div>
           <div style="background-color: #ffffff; padding: 20px 0; text-align: center;">
             <div style="width: 100px; height: 100px; margin: 0 auto; border-radius: 50%; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); border: 4px solid #1f2937; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-              <span style="color: #1f2937; font-size: 32px; font-weight: bold;">HS</span>
+              <span style="color: #1f2937; font-size: 32px; font-weight: bold;">GO</span>
             </div>
           </div>
           <div style="background-color: #ffffff; padding: 0 20px 20px 20px; text-align: center;">
-            <h3 style="margin: 0; font-size: 20px; font-weight: bold; color: #1f2937;">Your invoice from Cleaning & Maintenance</h3>
+            <h3 style="margin: 0; font-size: 20px; font-weight: bold; color: #1f2937;">Your invoice from GroundOps — Facility Maintenance</h3>
           </div>
           <div style="background-color: #e0f2fe; padding: 20px; margin: 0 20px 20px 20px; border-radius: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
@@ -562,7 +562,7 @@ async function sendInvoice() {
           </div>
           <div style="background-color: #ffffff; padding: 20px;">
             <p style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937;">Hi Jane,</p>
-            <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">Thank you for choosing Cleaning & Maintenance. Please see attached invoice due net 10.</p>
+            <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">Thank you for choosing GroundOps — Facility Maintenance. Please see attached invoice due net 10.</p>
             <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
               <p style="margin: 0 0 10px 0; font-size: 14px; color: #374151;"><strong>Invoice Number:</strong> #INV-2026-001</p>
               <p style="margin: 0 0 10px 0; font-size: 14px; color: #374151;"><strong>Service Date:</strong> ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
@@ -611,7 +611,7 @@ async function sendInvoice() {
             <a href="https://buy.stripe.com/test-link" style="background-color: #0369a1; color: #ffffff; padding: 15px 40px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 18px; display: inline-block;">Pay</a>
           </div>
           <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0; font-size: 12px; color: #6b7280;">Cleaning & Maintenance<br>1972 E 20th St, Los Angeles, CA 90058<br>Phone: <a href="tel:1-877-253-26464" style="color: #0369a1; text-decoration: none;">1-877-253-26464</a> | Email: <a href="mailto:info@heyspruce.com" style="color: #0369a1; text-decoration: none;">info@heyspruce.com</a> | Website: <a href="https://www.heyspruce.com/" style="color: #0369a1; text-decoration: none;">www.heyspruce.com</a></p>
+            <p style="margin: 0; font-size: 12px; color: #6b7280;">GroundOps — Facility Maintenance<br>Los Angeles, CA<br>Phone: <a href="tel:(323) 555-1234" style="color: #0369a1; text-decoration: none;">(323) 555-1234</a> | Email: <a href="mailto:info@groundops.com" style="color: #0369a1; text-decoration: none;">info@groundops.com</a> | Website: <a href="https://www.groundops.com/" style="color: #0369a1; text-decoration: none;">www.groundops.com</a></p>
           </div>
         </div>
       </body>
@@ -643,15 +643,15 @@ async function sendInvitation() {
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to Hey Spruce</title>
+        <title>Welcome to GroundOps</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Hey Spruce!</h1>
+          <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to GroundOps!</h1>
         </div>
         <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
           <p style="font-size: 16px; margin-bottom: 20px;">Hello Waseem,</p>
-          <p style="font-size: 16px; margin-bottom: 20px;">You've been invited to join Hey Spruce as a <strong>Client</strong>. To get started, you'll need to set up your password.</p>
+          <p style="font-size: 16px; margin-bottom: 20px;">You've been invited to join GroundOps as a <strong>Client</strong>. To get started, you'll need to set up your password.</p>
           <p style="font-size: 16px; margin-bottom: 30px;">Click the button below to create your password and activate your account:</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${resetLink}" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; display: inline-block;">Set Up Password</a>
@@ -672,7 +672,7 @@ async function sendInvitation() {
       </body>
     </html>
   `;
-  return await sendEmail("Welcome to Hey Spruce - Set Up Your Client Account", html);
+  return await sendEmail("Welcome to GroundOps - Set Up Your Client Account", html);
 }
 
 // Main execution

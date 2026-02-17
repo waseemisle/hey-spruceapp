@@ -57,7 +57,7 @@ describe('Complete Client Registration and Login Flow', () => {
     // Step 1: Render home page and navigate to client registration
     render(<Home />)
     
-    expect(screen.getByText('Hey Spruce App - Property Maintenance Management System')).toBeInTheDocument()
+    expect(screen.getByText(/Facility Maintenance Infrastructure/i)).toBeInTheDocument()
     expect(screen.getByText('Client Portal')).toBeInTheDocument()
     
     const registerClientLink = screen.getByText('Register as Client')

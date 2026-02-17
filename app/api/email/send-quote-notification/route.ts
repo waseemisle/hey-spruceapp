@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
           </div>
 
           <div style="text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px;">
-            <p>© ${new Date().getFullYear()} Hey Spruce. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.</p>
           </div>
         </body>
       </html>

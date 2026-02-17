@@ -11,8 +11,8 @@ if (!MAILGUN_API_KEY) {
   console.error("❌ Error: MAILGUN_API_KEY environment variable is required");
   process.exit(1);
 }
-const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || "heyspruce.com";
-const MAILGUN_FROM_EMAIL = process.env.MAILGUN_FROM_EMAIL || "matthew@heyspruce.com";
+const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || "groundops.com";
+const MAILGUN_FROM_EMAIL = process.env.MAILGUN_FROM_EMAIL || "info@groundops.com";
 const TO_EMAIL = "waseemisle@gmail.com";
 const API_BASE_URL = process.env.TEST_EMAIL_BASE_URL || "http://localhost:3000";
 

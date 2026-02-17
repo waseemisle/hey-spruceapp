@@ -89,18 +89,18 @@ export async function POST(request: Request) {
             <head>
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Welcome to Hey Spruce</title>
+              <title>Welcome to GroundOps</title>
             </head>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Hey Spruce!</h1>
+                <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to GroundOps!</h1>
               </div>
 
               <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
                 <p style="font-size: 16px; margin-bottom: 20px;">Hello ${fullName},</p>
 
                 <p style="font-size: 16px; margin-bottom: 20px;">
-                  You've been invited to join Hey Spruce as a <strong>${roleTitle}</strong>.
+                  You've been invited to join GroundOps as a <strong>${roleTitle}</strong>.
                   To get started, you'll need to set up your password.
                 </p>
 
@@ -157,8 +157,8 @@ export async function POST(request: Request) {
               </div>
 
               <div style="text-align: center; margin-top: 20px; padding: 20px; color: #9ca3af; font-size: 12px;">
-                <p>&copy; ${new Date().getFullYear()} Hey Spruce. All rights reserved.</p>
-                <p>Shure Hardware - Professional Property Management Solutions</p>
+                <p>&copy; ${new Date().getFullYear()} GroundOps LLC. All rights reserved.</p>
+                <p>Facility Maintenance Infrastructure</p>
               </div>
             </body>
           </html>
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
         // Send email via Mailgun
         await sendEmail({
           to: email,
-          subject: `Welcome to Hey Spruce - Set Up Your ${roleTitle} Account`,
+          subject: `Welcome to GroundOps - Set Up Your ${roleTitle} Account`,
           html: emailHtml,
         });
 

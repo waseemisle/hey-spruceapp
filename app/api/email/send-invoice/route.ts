@@ -297,11 +297,11 @@ export async function POST(request: Request) {
           <!-- Footer -->
           <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
             <p style="margin: 0; font-size: 12px; color: #6b7280;">
-              Cleaning & Maintenance<br>
-              1972 E 20th St, Los Angeles, CA 90058<br>
-              Phone: <a href="tel:1-877-253-26464" style="color: #0369a1; text-decoration: none;">1-877-253-26464</a> | 
-              Email: <a href="mailto:info@heyspruce.com" style="color: #0369a1; text-decoration: none;">info@heyspruce.com</a> | 
-              Website: <a href="https://www.heyspruce.com/" style="color: #0369a1; text-decoration: none;">www.heyspruce.com</a>
+              GroundOps — Facility Maintenance<br>
+              Los Angeles, CA<br>
+              Phone: <a href="tel:3235551234" style="color: #0369a1; text-decoration: none;">(323) 555-1234</a> | 
+              Email: <a href="mailto:info@groundops.com" style="color: #0369a1; text-decoration: none;">info@groundops.com</a> | 
+              Website: <a href="https://www.groundops.co/" style="color: #0369a1; text-decoration: none;">groundops.co</a>
             </p>
           </div>
         </div>

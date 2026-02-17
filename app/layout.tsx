@@ -6,10 +6,10 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ViewControlsProvider } from "@/contexts/view-controls-context";
 
 export const metadata: Metadata = {
-  title: "Hey Spruce Restaurant Cleaning & Maintenance",
-  description: "Restaurant cleaning and maintenance management system for clients, subcontractors, and administrators",
+  title: "GroundOps — Facility Maintenance Infrastructure",
+  description: "Facility maintenance and work order management for clients, subcontractors, and administrators",
   icons: {
-    icon: "https://cdn.prod.website-files.com/67edc7c78e3151d3b06686b2/67edc7c88e3151d3b0668b6b_favicon-fresh-x-webflow-template.svg",
+    icon: "https://www.groundops.co/deck/logo.png",
   },
 };
 
@@ -24,7 +24,8 @@ export default function RootLayout({
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
-          enableSystem
+          forcedTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <ViewControlsProvider>

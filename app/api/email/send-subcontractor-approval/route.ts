@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
             <p style="font-size: 16px; margin-bottom: 20px;">Hello ${toName}${businessName ? ` (${businessName})` : ''},</p>
 
             <p style="font-size: 16px; margin-bottom: 20px;">
-              Great news! Your Hey Spruce subcontractor account has been approved${approvedBy ? ` by ${approvedBy}` : ''}.
+              Great news! Your GroundOps subcontractor account has been approved${approvedBy ? ` by ${approvedBy}` : ''}.
             </p>
 
             <div style="background: #d1fae5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
           </div>
 
           <div style="text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px;">
-            <p>© ${new Date().getFullYear()} Hey Spruce. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.</p>
           </div>
         </body>
       </html>
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Send email via Mailgun
     await sendEmail({
       to: toEmail,
-      subject: 'Your Hey Spruce Subcontractor Account Has Been Approved!',
+      subject: 'Your GroundOps Subcontractor Account Has Been Approved!',
       html: emailHtml,
     });
 

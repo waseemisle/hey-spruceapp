@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the complete testing suite for the Hey Spruce App, covering all testing types: Unit, Smoke, Performance, Acceptance, and End-to-End (E2E) testing.
+This document describes the complete testing suite for the GroundOps app, covering all testing types: Unit, Smoke, Performance, Acceptance, and End-to-End (E2E) testing.
 
 ## Test Structure
 

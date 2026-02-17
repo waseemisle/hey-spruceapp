@@ -38,10 +38,10 @@ This document outlines all requirements for modernizing the application with sta
 
 ## Application URLs
 
-- **Main Landing:** https://hey-spruce-appv2.vercel.app/
-- **Client Portal:** https://hey-spruce-appv2.vercel.app/client-portal/
-- **Admin Portal:** https://hey-spruce-appv2.vercel.app/admin-portal/
-- **Subcontractor Portal:** https://hey-spruce-appv2.vercel.app/subcontractor-portal
+- **Main Landing:** https://www.groundops.co/
+- **Client Portal:** (app URL)/client-portal/
+- **Admin Portal:** (app URL)/admin-portal/
+- **Subcontractor Portal:** (app URL)/subcontractor-portal
 
 ---
 
@@ -2143,7 +2143,7 @@ CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 
 # App
-NEXT_PUBLIC_APP_URL=https://hey-spruce-appv2.vercel.app
+NEXT_PUBLIC_APP_URL=https://www.groundops.co
 ```
 
 ---

@@ -938,7 +938,7 @@ export default function InvoicesManagement() {
                   <h3 className="font-semibold text-blue-900 mb-2">What happens next?</h3>
                   <ul className="text-sm text-blue-800 space-y-1">
                     <li>• We'll extract invoice details from the PDF</li>
-                    <li>• An invoice will be created with HeySpruce branding</li>
+                    <li>• An invoice will be created with GroundOps branding</li>
                     <li>• A Stripe payment link will be generated</li>
                     <li>• The invoice will be available in your system</li>
                   </ul>

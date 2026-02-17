@@ -2,11 +2,11 @@
 // Usage (from repo root, with dev server running, e.g. on http://localhost:3000):
 //   node scripts/test-all-emails.js
 //
-// All test emails are sent to: matthew@heyspruce.com
+// All test emails are sent to the configured TEST_EMAIL_TO or default recipient
 
 const http = require('http');
 
-const RECIPIENT = 'matthew@heyspruce.com';
+const RECIPIENT = process.env.TEST_EMAIL_TO || 'info@groundops.com';
 const BASE_URL = process.env.TEST_EMAIL_BASE_URL || 'http://localhost:3000';
 
 function postJson(path, payload) {
