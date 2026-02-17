@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, limit, startAfter, DocumentSnapshot } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
@@ -145,51 +145,80 @@ function WorkOrdersContent() {
     isMaintenanceRequestOrder: false,
   });
 
-  const fetchWorkOrders = async () => {
+  // Pagination: avoid loading all work orders at once to prevent "Too many outstanding requests"
+  const PAGE_SIZE = 50;
+  const QUERY_CHUNK_SIZE = 30; // Firestore 'in' query limit
+  const [lastWorkOrderDoc, setLastWorkOrderDoc] = useState<DocumentSnapshot | null>(null);
+  const [hasMoreWorkOrders, setHasMoreWorkOrders] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchWorkOrders = async (reset = true) => {
     try {
-      const workOrdersQuery = query(collection(db, 'workOrders'));
-      const snapshot = await getDocs(workOrdersQuery);
-      const workOrdersData = await Promise.all(
-        snapshot.docs.map(async (woDoc) => {
-          const woData = { id: woDoc.id, ...woDoc.data() } as WorkOrder;
-
-          // Fetch quote count for this work order
-          const quotesQuery = query(
-            collection(db, 'quotes'),
-            where('workOrderId', '==', woDoc.id)
-          );
-          const quotesSnapshot = await getDocs(quotesQuery);
-          woData.quoteCount = quotesSnapshot.size;
-
-          // Check if invoice exists for this work order
-          const invoicesQuery = query(
-            collection(db, 'invoices'),
-            where('workOrderId', '==', woDoc.id)
-          );
-          const invoicesSnapshot = await getDocs(invoicesQuery);
-          woData.hasInvoice = !invoicesSnapshot.empty;
-
-          return woData;
-        })
-      );
-
-      // Filter based on work order type from URL parameter
-      let filteredData = workOrdersData;
-      if (workOrderType === 'standard') {
-        // Only show standard work orders (not maintenance requests)
-        filteredData = workOrdersData.filter(wo => !wo.isMaintenanceRequestOrder);
-      } else if (workOrderType === 'maintenance') {
-        // Only show maintenance request work orders
-        filteredData = workOrdersData.filter(wo => wo.isMaintenanceRequestOrder === true);
+      if (reset) {
+        setLoading(true);
+        setLastWorkOrderDoc(null);
+      } else {
+        setLoadingMore(true);
       }
-      // If workOrderType is 'all' or anything else, show all work orders
 
-      setWorkOrders(filteredData);
+      const constraints = [collection(db, 'workOrders')];
+      if (workOrderType === 'standard') {
+        constraints.push(where('isMaintenanceRequestOrder', '==', false));
+      } else if (workOrderType === 'maintenance') {
+        constraints.push(where('isMaintenanceRequestOrder', '==', true));
+      }
+      constraints.push(orderBy('createdAt', 'desc'));
+      constraints.push(limit(PAGE_SIZE));
+      if (!reset && lastWorkOrderDoc) {
+        constraints.push(startAfter(lastWorkOrderDoc));
+      }
+
+      const workOrdersQuery = query(...constraints);
+      const snapshot = await getDocs(workOrdersQuery);
+      const woIds = snapshot.docs.map((d) => d.id);
+
+      // Batch fetch quote counts (Firestore 'in' is limited to 30 items)
+      const quoteCountByWoId = new Map<string, number>();
+      for (let i = 0; i < woIds.length; i += QUERY_CHUNK_SIZE) {
+        const chunk = woIds.slice(i, i + QUERY_CHUNK_SIZE);
+        const q = query(collection(db, 'quotes'), where('workOrderId', 'in', chunk));
+        const quotesSnap = await getDocs(q);
+        quotesSnap.docs.forEach((d) => {
+          const wid = d.data().workOrderId;
+          quoteCountByWoId.set(wid, (quoteCountByWoId.get(wid) ?? 0) + 1);
+        });
+      }
+
+      // Batch fetch invoice existence
+      const hasInvoiceByWoId = new Set<string>();
+      for (let i = 0; i < woIds.length; i += QUERY_CHUNK_SIZE) {
+        const chunk = woIds.slice(i, i + QUERY_CHUNK_SIZE);
+        const q = query(collection(db, 'invoices'), where('workOrderId', 'in', chunk));
+        const invoicesSnap = await getDocs(q);
+        invoicesSnap.docs.forEach((d) => hasInvoiceByWoId.add(d.data().workOrderId));
+      }
+
+      const workOrdersData: WorkOrder[] = snapshot.docs.map((woDoc) => {
+        const woData = { id: woDoc.id, ...woDoc.data() } as WorkOrder;
+        woData.quoteCount = quoteCountByWoId.get(woDoc.id) ?? 0;
+        woData.hasInvoice = hasInvoiceByWoId.has(woDoc.id);
+        return woData;
+      });
+
+      if (reset) {
+        setWorkOrders(workOrdersData);
+      } else {
+        setWorkOrders((prev) => [...prev, ...workOrdersData]);
+      }
+      const lastDoc = snapshot.docs[snapshot.docs.length - 1] ?? null;
+      setLastWorkOrderDoc(lastDoc);
+      setHasMoreWorkOrders(snapshot.docs.length === PAGE_SIZE);
     } catch (error) {
       console.error('Error fetching work orders:', error);
       toast.error('Failed to load work orders');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -255,12 +284,12 @@ const fetchCategories = async () => {
 };
 
   useEffect(() => {
-    fetchWorkOrders();
+    fetchWorkOrders(true);
     fetchClients();
     fetchLocations();
     fetchCompanies();
     fetchCategories();
-  }, []);
+  }, [workOrderType]);
 
   // Auto-open edit modal if editId query parameter is present
   useEffect(() => {
@@ -335,7 +364,7 @@ const fetchCategories = async () => {
       );
 
       toast.success('Work order approved successfully');
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error) {
       console.error('Error approving work order:', error);
       toast.error('Failed to approve work order');
@@ -399,7 +428,7 @@ const fetchCategories = async () => {
       setShowRejectModal(false);
       setRejectingWorkOrderId(null);
       setRejectionReason('');
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error) {
       console.error('Error rejecting work order:', error);
       toast.error('Failed to reject work order');
@@ -718,7 +747,7 @@ const handleLocationSelect = (locationId: string) => {
       }
 
       // Refresh work orders
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error) {
       console.error('Error sending invoice:', error);
       toast.error('Failed to send invoice');
@@ -781,7 +810,7 @@ const handleLocationSelect = (locationId: string) => {
       );
 
       toast.success('Schedule shared with client successfully!');
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error) {
       console.error('Error sharing schedule with client:', error);
       toast.error('Failed to share schedule with client');
@@ -1229,7 +1258,7 @@ const handleLocationSelect = (locationId: string) => {
       // Reset file input
       const fileInput = document.getElementById('import-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error: any) {
       console.error('Error importing work orders:', error);
       toast.error(`Failed to import work orders: ${error.message || 'Unknown error'}`);
@@ -1312,7 +1341,7 @@ const handleLocationSelect = (locationId: string) => {
       setShowAssignModal(false);
       setWorkOrderToAssign(null);
       setSelectedSubcontractorForAssign('');
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error) {
       console.error('Error assigning work order:', error);
       toast.error('Failed to assign work order');
@@ -1439,7 +1468,7 @@ const handleLocationSelect = (locationId: string) => {
       }
 
       resetForm();
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error: any) {
       console.error('Error saving work order:', error);
       toast.error(error.message || 'Failed to save work order');
@@ -1656,7 +1685,7 @@ const handleLocationSelect = (locationId: string) => {
       setShowBiddingModal(false);
       setSelectedSubcontractors([]);
       setWorkOrderToShare(null);
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error) {
       console.error('Error sharing for bidding:', error);
       toast.error('Failed to share work order for bidding');
@@ -1732,7 +1761,7 @@ const handleLocationSelect = (locationId: string) => {
 
       toast.success('Work order and all related data deleted successfully');
       setSelectedIds(prev => prev.filter(id => id !== workOrder.id));
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error) {
       console.error('Error deleting work order:', error);
       toast.error('Failed to delete work order');
@@ -1812,7 +1841,7 @@ const handleLocationSelect = (locationId: string) => {
 
       toast.success(`Successfully deleted ${selectedIds.length} work order${selectedIds.length > 1 ? 's' : ''} and all related data`);
       setSelectedIds([]);
-      fetchWorkOrders();
+      fetchWorkOrders(true);
     } catch (error) {
       console.error('Error deleting work orders:', error);
       toast.error('Failed to delete work orders');
@@ -2366,6 +2395,18 @@ const filteredLocationsForForm = locations.filter((location) => {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        )}
+
+        {sortedWorkOrders.length > 0 && hasMoreWorkOrders && (
+          <div className="flex justify-center py-6">
+            <Button
+              variant="outline"
+              onClick={() => fetchWorkOrders(false)}
+              disabled={loadingMore}
+            >
+              {loadingMore ? 'Loading...' : 'Load more'}
+            </Button>
           </div>
         )}
 
