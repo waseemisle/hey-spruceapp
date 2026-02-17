@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, limit, startAfter, DocumentSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, limit, startAfter, DocumentSnapshot, type QueryConstraint } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
@@ -161,19 +161,20 @@ function WorkOrdersContent() {
         setLoadingMore(true);
       }
 
-      const constraints = [collection(db, 'workOrders')];
+      const collectionRef = collection(db, 'workOrders');
+      const queryConstraints: QueryConstraint[] = [];
       if (workOrderType === 'standard') {
-        constraints.push(where('isMaintenanceRequestOrder', '==', false));
+        queryConstraints.push(where('isMaintenanceRequestOrder', '==', false));
       } else if (workOrderType === 'maintenance') {
-        constraints.push(where('isMaintenanceRequestOrder', '==', true));
+        queryConstraints.push(where('isMaintenanceRequestOrder', '==', true));
       }
-      constraints.push(orderBy('createdAt', 'desc'));
-      constraints.push(limit(PAGE_SIZE));
+      queryConstraints.push(orderBy('createdAt', 'desc'));
+      queryConstraints.push(limit(PAGE_SIZE));
       if (!reset && lastWorkOrderDoc) {
-        constraints.push(startAfter(lastWorkOrderDoc));
+        queryConstraints.push(startAfter(lastWorkOrderDoc));
       }
 
-      const workOrdersQuery = query(...constraints);
+      const workOrdersQuery = query(collectionRef, ...queryConstraints);
       const snapshot = await getDocs(workOrdersQuery);
       const woIds = snapshot.docs.map((d) => d.id);
 
