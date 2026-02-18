@@ -374,7 +374,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -665,7 +665,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                       size="sm"
                                       onClick={() => handleInitializeExecution(dateObj, index)}
                                       disabled={submitting}
-                                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
+                                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
                                     >
                                       Initialize Execution
                                     </Button>

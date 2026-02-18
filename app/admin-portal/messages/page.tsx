@@ -285,7 +285,7 @@ export default function MessagesManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -345,7 +345,7 @@ export default function MessagesManagement() {
                         key={chat.id}
                         onClick={() => setSelectedChat(chat.id)}
                         className={`p-3 rounded-lg cursor-pointer hover:bg-gray-100 ${
-                          selectedChat === chat.id ? 'bg-purple-50 border-2 border-purple-500' : 'bg-gray-50'
+                          selectedChat === chat.id ? 'bg-blue-50 border-2 border-blue-500' : 'bg-gray-50'
                         }`}
                       >
                         <div className="font-semibold text-sm">{otherParticipant?.name || 'Unknown'}</div>
@@ -409,7 +409,7 @@ export default function MessagesManagement() {
                           <div
                             className={`max-w-xs px-4 py-2 rounded-lg ${
                               message.senderId === auth.currentUser?.uid
-                                ? 'bg-purple-600 text-white'
+                                ? 'bg-blue-600 text-white'
                                 : 'bg-white text-gray-900'
                             }`}
                           >
@@ -569,7 +569,7 @@ export default function MessagesManagement() {
                 <div className="overflow-y-auto max-h-96">
                   {loadingUsers ? (
                     <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
                   ) : filteredUsers.length === 0 ? (
                     <div className="text-center py-12">
@@ -582,7 +582,7 @@ export default function MessagesManagement() {
                         <div
                           key={user.id}
                           onClick={() => startChatWithUser(user)}
-                          className="p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 border border-transparent transition-all"
+                          className="p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 border border-transparent transition-all"
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
@@ -590,7 +590,7 @@ export default function MessagesManagement() {
                               <div className="text-xs text-gray-600 mt-1">{user.email}</div>
                             </div>
                             <div className="ml-4">
-                              <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 capitalize">
+                              <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 capitalize">
                                 {user.role}
                               </span>
                             </div>

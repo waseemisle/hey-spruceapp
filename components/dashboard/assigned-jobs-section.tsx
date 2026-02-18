@@ -63,7 +63,7 @@ export default function AssignedJobsSection({ data }: AssignedJobsSectionProps) 
         <div className="space-y-2">
           <h3 className="font-medium text-gray-700 text-sm">In Progress</h3>
           <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600">{data.inProgress}</div>
+            <div className="text-2xl font-bold text-blue-600">{data.inProgress}</div>
           </div>
         </div>
 

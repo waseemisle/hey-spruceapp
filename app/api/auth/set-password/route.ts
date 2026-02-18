@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, email, uid, tempPassword, newPassword } = await request.json();
+    const body = await request.json();
+    const { token, newPassword } = body;
 
-    // Validate required fields
-    if (!token || !email || !uid || !tempPassword || !newPassword) {
+    // Accept either { token, newPassword } or legacy { token, email, uid, tempPassword, newPassword }
+    if (!token || !newPassword) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: token and newPassword' },
         { status: 400 }
       );
     }
@@ -20,38 +21,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Decode and verify token
+    // Decode and verify token (token may be URL-encoded; normalize for base64)
+    let decoded: { email?: string; uid?: string; tempPassword?: string; role?: string; timestamp?: number; type?: string };
     try {
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-
-      // Verify token matches the provided data
-      if (decoded.email !== email || decoded.uid !== uid || decoded.tempPassword !== tempPassword) {
-        return NextResponse.json(
-          { error: 'Token data mismatch' },
-          { status: 400 }
-        );
-      }
-
-      // Check if token is expired (24 hours)
-      const tokenAge = Date.now() - decoded.timestamp;
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-
-      if (tokenAge > maxAge) {
-        return NextResponse.json(
-          { error: 'Token has expired. Please request a new password setup link.' },
-          { status: 400 }
-        );
-      }
-
-      if (decoded.type !== 'password_setup') {
-        return NextResponse.json(
-          { error: 'Invalid token type' },
-          { status: 400 }
-        );
-      }
+      const normalizedToken = token.replace(/ /g, '+'); // some clients turn + into space
+      decoded = JSON.parse(Buffer.from(normalizedToken, 'base64').toString('utf8'));
     } catch (decodeError) {
       return NextResponse.json(
-        { error: 'Invalid token' },
+        { error: 'Invalid or expired setup link. Please use the link from your invitation email or request a new one.' },
+        { status: 400 }
+      );
+    }
+
+    const email = decoded.email;
+    const uid = decoded.uid;
+    const tempPassword = decoded.tempPassword;
+
+    if (!email || !uid || !tempPassword) {
+      return NextResponse.json(
+        { error: 'Invalid setup link. Please request a new invitation.' },
+        { status: 400 }
+      );
+    }
+
+    // Check if token is expired (24 hours)
+    const tokenAge = Date.now() - (decoded.timestamp || 0);
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    if (tokenAge > maxAge) {
+      return NextResponse.json(
+        { error: 'This setup link has expired. Please request a new invitation.' },
+        { status: 400 }
+      );
+    }
+
+    if (decoded.type !== 'password_setup') {
+      return NextResponse.json(
+        { error: 'Invalid setup link. Please request a new invitation.' },
         { status: 400 }
       );
     }
@@ -84,7 +89,17 @@ export async function POST(request: NextRequest) {
     if (!signInResponse.ok) {
       const errorData = await signInResponse.json();
       console.error('Firebase sign-in error:', errorData);
-      throw new Error('Failed to authenticate with temporary password');
+      const code = errorData?.error?.message || '';
+      if (code.includes('INVALID_LOGIN_CREDENTIALS') || code.includes('invalid-credential')) {
+        return NextResponse.json(
+          { error: 'Invalid or expired setup link. Please use the exact link from your invitation email or ask for a new one.' },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'Failed to verify setup link. Please request a new invitation.' },
+        { status: 400 }
+      );
     }
 
     const signInData = await signInResponse.json();
@@ -110,8 +125,20 @@ export async function POST(request: NextRequest) {
       throw new Error(errorData.error?.message || 'Failed to update password');
     }
 
-    // Note: Password is stored in Firestore from the client side
-    // This API only handles the Firebase Auth password update
+    // Optionally update Firestore passwordSetAt (non-blocking)
+    const role = decoded.role;
+    const collectionName = role === 'admin' ? 'adminUsers' : role === 'client' ? 'clients' : 'subcontractors';
+    try {
+      const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
+      const { getAdminApp } = await import('@/lib/firebase-admin');
+      const adminDb = getFirestore(getAdminApp());
+      await adminDb.collection(collectionName).doc(uid).update({
+        passwordSetAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (firestoreErr) {
+      console.warn('Firestore passwordSetAt update skipped (non-critical):', firestoreErr);
+    }
 
     return NextResponse.json({
       success: true,

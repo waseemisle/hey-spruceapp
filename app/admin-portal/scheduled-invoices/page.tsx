@@ -476,7 +476,7 @@ export default function ScheduledInvoicesManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -579,7 +579,7 @@ export default function ScheduledInvoicesManagement() {
                           <div className="md:col-span-2 flex items-end gap-2">
                             <div className="flex-1">
                               <Label className="text-xs">Amount</Label>
-                              <div className="text-lg font-bold text-purple-600">
+                              <div className="text-lg font-bold text-blue-600">
                                 ${item.amount.toLocaleString()}
                               </div>
                             </div>
@@ -600,10 +600,10 @@ export default function ScheduledInvoicesManagement() {
                   </div>
 
                   {/* Total */}
-                  <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total Amount:</span>
-                      <span className="text-2xl font-bold text-purple-600">
+                      <span className="text-2xl font-bold text-blue-600">
                         ${calculateTotal().toLocaleString()}
                       </span>
                     </div>
@@ -872,7 +872,7 @@ export default function ScheduledInvoicesManagement() {
                             <div className="md:col-span-2 flex items-end gap-2">
                               <div className="flex-1">
                                 <Label className="text-xs">Amount</Label>
-                                <div className="text-lg font-bold text-purple-600">
+                                <div className="text-lg font-bold text-blue-600">
                                   ${item.amount.toLocaleString()}
                                 </div>
                               </div>
@@ -893,10 +893,10 @@ export default function ScheduledInvoicesManagement() {
                     </div>
 
                     {/* Total */}
-                    <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">Total Amount:</span>
-                        <span className="text-2xl font-bold text-purple-600">
+                        <span className="text-2xl font-bold text-blue-600">
                           ${calculateTotal().toLocaleString()}
                         </span>
                       </div>

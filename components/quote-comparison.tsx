@@ -90,7 +90,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-3xl font-bold text-purple-600">
+                <p className="text-3xl font-bold text-blue-600">
                   ${quote.totalAmount.toLocaleString()}
                 </p>
                 <p className="text-xs text-gray-500 capitalize">{quote.status}</p>
@@ -219,9 +219,9 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
               
               <CardContent className="space-y-4">
                 {/* Total Amount - Highlight */}
-                <div className="text-center py-3 bg-purple-50 rounded-lg">
+                <div className="text-center py-3 bg-blue-50 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Total Amount</p>
-                  <p className="text-3xl font-bold text-purple-600">
+                  <p className="text-3xl font-bold text-blue-600">
                     ${quote.totalAmount.toLocaleString()}
                   </p>
                 </div>

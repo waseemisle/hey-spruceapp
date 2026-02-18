@@ -173,7 +173,7 @@ export default function AdminUsersManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -219,7 +219,7 @@ export default function AdminUsersManagement() {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <ShieldCheck className="h-5 w-5 text-purple-600" />
+                      <ShieldCheck className="h-5 w-5 text-blue-600" />
                       {admin.fullName}
                     </CardTitle>
                   </div>

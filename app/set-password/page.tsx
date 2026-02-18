@@ -8,8 +8,32 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { db } from '@/lib/firebase';
-import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+
+/** Decode base64 token in the browser. Handles URL corruption: + can become space in query params. */
+function decodeSetupToken(tokenParam: string): {
+  email: string;
+  uid: string;
+  tempPassword: string;
+  role: string;
+  type?: string;
+  timestamp?: number;
+} | null {
+  try {
+    const normalized = tokenParam.replace(/ /g, '+');
+    const jsonString = atob(normalized);
+    const decoded = JSON.parse(jsonString);
+    return {
+      email: decoded.email || '',
+      uid: decoded.uid || '',
+      tempPassword: decoded.tempPassword || '',
+      role: decoded.role || '',
+      type: decoded.type,
+      timestamp: decoded.timestamp,
+    };
+  } catch {
+    return null;
+  }
+}
 
 function SetPasswordContent() {
   const searchParams = useSearchParams();
@@ -20,14 +44,12 @@ function SetPasswordContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [token, setToken] = useState('');
+  const [rawToken, setRawToken] = useState('');
   const [email, setEmail] = useState('');
-  const [uid, setUid] = useState('');
-  const [tempPassword, setTempPassword] = useState('');
-  const [role, setRole] = useState<'client' | 'subcontractor' | ''>('');
+  const [role, setRole] = useState<'client' | 'subcontractor' | 'admin' | ''>('');
 
   useEffect(() => {
-    const tokenParam = searchParams.get('token');
+    let tokenParam = searchParams.get('token') || '';
 
     if (!tokenParam) {
       toast.error('Invalid or missing password setup link');
@@ -35,35 +57,30 @@ function SetPasswordContent() {
       return;
     }
 
-    try {
-      // Decode the token
-      const decoded = JSON.parse(Buffer.from(tokenParam, 'base64').toString());
-
-      // Check if token is expired (24 hours)
-      const tokenAge = Date.now() - decoded.timestamp;
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-
-      if (tokenAge > maxAge) {
-        toast.error('This password setup link has expired. Please request a new one.');
-        router.push('/portal-login');
-        return;
-      }
-
-      if (decoded.type !== 'password_setup') {
-        toast.error('Invalid token type');
-        router.push('/portal-login');
-        return;
-      }
-
-      setToken(tokenParam);
-      setEmail(decoded.email || '');
-      setUid(decoded.uid || '');
-      setTempPassword(decoded.tempPassword || '');
-      setRole(decoded.role || '');
-    } catch (error) {
+    tokenParam = decodeURIComponent(tokenParam);
+    const normalizedToken = tokenParam.replace(/ /g, '+');
+    const decoded = decodeSetupToken(normalizedToken);
+    if (!decoded) {
       toast.error('Invalid password setup link');
       router.push('/portal-login');
+      return;
     }
+    if (decoded.type !== 'password_setup') {
+      toast.error('Invalid token type');
+      router.push('/portal-login');
+      return;
+    }
+    const tokenAge = Date.now() - (decoded.timestamp || 0);
+    const maxAge = 24 * 60 * 60 * 1000;
+    if (tokenAge > maxAge) {
+      toast.error('This password setup link has expired. Please request a new one.');
+      router.push('/portal-login');
+      return;
+    }
+
+    setRawToken(normalizedToken);
+    setEmail(decoded.email);
+    setRole(decoded.role as 'client' | 'subcontractor' | 'admin' | '');
   }, [searchParams, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,66 +101,29 @@ function SetPasswordContent() {
       return;
     }
 
+    if (!rawToken) {
+      toast.error('Invalid setup link. Please use the link from your invitation email.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Get the actual UID from Firestore based on email
-      let actualUid = uid;
-      let actualRole = role;
-
-      // Try to find user in clients collection
-      const clientsQuery = query(collection(db, 'clients'), where('email', '==', email));
-      const clientsSnapshot = await getDocs(clientsQuery);
-
-      if (!clientsSnapshot.empty) {
-        actualUid = clientsSnapshot.docs[0].id;
-        actualRole = 'client';
-      } else {
-        // Try subcontractors collection
-        const subsQuery = query(collection(db, 'subcontractors'), where('email', '==', email));
-        const subsSnapshot = await getDocs(subsQuery);
-
-        if (!subsSnapshot.empty) {
-          actualUid = subsSnapshot.docs[0].id;
-          actualRole = 'subcontractor';
-        } else {
-          throw new Error('User not found in database');
-        }
-      }
-
-      // Update Firebase Authentication password using the API
-      const authResponse = await fetch('/api/auth/set-password', {
+      const res = await fetch('/api/auth/set-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          email,
-          uid: actualUid,
-          tempPassword,
-          newPassword: password,
-        }),
+        body: JSON.stringify({ token: rawToken, newPassword: password }),
       });
 
-      const authData = await authResponse.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (!authResponse.ok) {
-        // Don't fail completely - just continue to store password in Firestore
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to set password');
       }
 
-      // Store password in Firestore using the actual UID we found
-      const collectionName = actualRole === 'client' ? 'clients' : 'subcontractors';
-      const userDocRef = doc(db, collectionName, actualUid);
-
-      await updateDoc(userDocRef, {
-        password: password,
-        passwordSetAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-
       setSuccess(true);
-      toast.success('Password set successfully!');
+      toast.success('Password set successfully! You can now sign in.');
 
-      // Redirect to login after 2 seconds
       setTimeout(() => {
         router.push('/portal-login');
       }, 2000);
@@ -196,7 +176,7 @@ function SetPasswordContent() {
             </p>
             {role && (
               <p className="text-sm text-gray-600">
-                Role: <span className="font-medium text-purple-600">{role}</span>
+                Role: <span className="font-medium text-blue-600">{role}</span>
               </p>
             )}
           </div>

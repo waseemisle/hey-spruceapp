@@ -366,7 +366,7 @@ export default function MaintRequestsPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -683,7 +683,7 @@ export default function MaintRequestsPage() {
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                  <Key className="h-4 w-4 text-purple-600" />
+                                  <Key className="h-4 w-4 text-blue-600" />
                                   <span className="font-semibold">{token.name}</span>
                                 </div>
                                 <div className="mt-2 space-y-1 text-sm text-gray-600">

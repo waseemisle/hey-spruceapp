@@ -98,7 +98,7 @@ export default function ClientSubcontractorsView() {
     return (
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </ClientLayout>
     );
@@ -176,7 +176,7 @@ export default function ClientSubcontractorsView() {
                       {sub.skills.map((skill, index) => (
                         <span
                           key={index}
-                          className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs"
+                          className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
                         >
                           {skill}
                         </span>

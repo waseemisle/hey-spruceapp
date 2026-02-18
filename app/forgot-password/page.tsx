@@ -97,7 +97,7 @@ export default function ForgotPassword() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-violet-600 to-purple-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
@@ -135,7 +135,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-violet-600 to-purple-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Reset Password</CardTitle>
@@ -167,17 +167,17 @@ export default function ForgotPassword() {
             </Button>
             <div className="text-sm text-center text-gray-600">
               Remember your password?{' '}
-              <Link href="/portal-login" className="text-purple-600 hover:underline">
+              <Link href="/portal-login" className="text-blue-500 hover:underline">
                 Back to Login
               </Link>
             </div>
             <div className="text-sm text-center text-gray-600">
               Don't have an account?{' '}
-              <Link href="/register-client" className="text-purple-600 hover:underline">
+              <Link href="/register-client" className="text-blue-500 hover:underline">
                 Register as Client
               </Link>
               {' or '}
-              <Link href="/register-subcontractor" className="text-purple-600 hover:underline">
+              <Link href="/register-subcontractor" className="text-blue-500 hover:underline">
                 Subcontractor
               </Link>
             </div>

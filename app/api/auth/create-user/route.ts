@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         type: 'password_setup'
       })).toString('base64');
 
-      const resetLink = `${baseUrl}/set-password?token=${setupToken}`;
+      const resetLink = `${baseUrl}/set-password?token=${encodeURIComponent(setupToken)}`;
 
       // Send invitation email directly using sendEmail (Mailgun)
       try {

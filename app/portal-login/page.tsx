@@ -128,7 +128,7 @@ export default function PortalLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-violet-600 to-purple-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
@@ -164,7 +164,7 @@ export default function PortalLogin() {
               />
             </div>
             <div className="text-sm text-right">
-              <Link href="/forgot-password" className="text-purple-600 hover:underline">
+              <Link href="/forgot-password" className="text-blue-500 hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -179,11 +179,11 @@ export default function PortalLogin() {
             </Button>
             <div className="text-sm text-center text-gray-600">
               Don't have an account?{' '}
-              <Link href="/register-client" className="text-purple-600 hover:underline">
+              <Link href="/register-client" className="text-blue-500 hover:underline">
                 Register as Client
               </Link>
               {' or '}
-              <Link href="/register-subcontractor" className="text-purple-600 hover:underline">
+              <Link href="/register-subcontractor" className="text-blue-500 hover:underline">
                 Subcontractor
               </Link>
             </div>

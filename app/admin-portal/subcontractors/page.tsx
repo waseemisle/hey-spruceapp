@@ -490,7 +490,7 @@ export default function SubcontractorsManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -585,7 +585,7 @@ export default function SubcontractorsManagement() {
                       {sub.skills.map((skill, index) => (
                         <span
                           key={index}
-                          className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs"
+                          className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
                         >
                           {skill}
                         </span>
@@ -773,7 +773,7 @@ export default function SubcontractorsManagement() {
                     <div className="relative" ref={skillsDropdownRef}>
                       {/* Input Field with Selected Skills Display */}
                       <div 
-                        className="min-h-[40px] border border-gray-300 rounded-md p-2 flex flex-wrap gap-2 items-center bg-white cursor-text focus-within:ring-2 focus-within:ring-purple-500 focus-within:border-purple-500"
+                        className="min-h-[40px] border border-gray-300 rounded-md p-2 flex flex-wrap gap-2 items-center bg-white cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
                         onClick={() => {
                           setSkillsDropdownOpen(true);
                           skillsInputRef.current?.focus();
@@ -783,7 +783,7 @@ export default function SubcontractorsManagement() {
                         {selectedSkills.map((skill) => (
                           <span
                             key={skill}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
                           >
                             {skill}
                             <button
@@ -792,7 +792,7 @@ export default function SubcontractorsManagement() {
                                 e.stopPropagation();
                                 removeSkill(skill);
                               }}
-                              className="hover:text-purple-900 focus:outline-none"
+                              className="hover:text-blue-900 focus:outline-none"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -859,11 +859,11 @@ export default function SubcontractorsManagement() {
                                     toggleSkill(category.name);
                                     setSkillsSearchQuery('');
                                   }}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-purple-50 rounded flex items-center gap-2 transition-colors"
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded flex items-center gap-2 transition-colors"
                                 >
                                   <span className="flex-1">{category.name}</span>
                                   {selectedSkills.includes(category.name) && (
-                                    <span className="text-purple-600 text-xs">✓ Selected</span>
+                                    <span className="text-blue-600 text-xs">✓ Selected</span>
                                   )}
                                 </button>
                               ))

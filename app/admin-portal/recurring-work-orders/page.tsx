@@ -304,7 +304,7 @@ export default function RecurringWorkOrdersManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -397,7 +397,7 @@ export default function RecurringWorkOrdersManagement() {
               id="location-filter"
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 max-w-[220px] truncate"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[220px] truncate"
             >
               <option value="all">All Locations ({recurringWorkOrders.length})</option>
               {uniqueLocations.map((loc) => (
@@ -414,7 +414,7 @@ export default function RecurringWorkOrdersManagement() {
               id="status-filter"
               value={filter}
               onChange={(e) => setFilter(e.target.value as typeof filter)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 capitalize"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 capitalize"
             >
               {['all', 'active', 'paused', 'cancelled'].map((filterOption) => (
                 <option key={filterOption} value={filterOption} className="capitalize">

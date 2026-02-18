@@ -25,7 +25,7 @@ export default function QuoteSystemInfo({ timeline, systemInformation, creationS
       case 'created':
         return <FileText className="h-4 w-4 text-blue-600" />;
       case 'sent_to_client':
-        return <Send className="h-4 w-4 text-purple-600" />;
+        return <Send className="h-4 w-4 text-blue-600" />;
       case 'accepted':
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'rejected':
@@ -110,10 +110,10 @@ export default function QuoteSystemInfo({ timeline, systemInformation, creationS
                 </div>
               )}
               {systemInformation.sentToClientBy && (
-                <div className="bg-purple-50 p-3 rounded-lg">
-                  <p className="text-xs text-purple-700 mb-1">Sent to Client By</p>
-                  <p className="text-sm font-medium text-purple-900">{systemInformation.sentToClientBy.name}</p>
-                  <p className="text-xs text-purple-600">{formatTimestamp(systemInformation.sentToClientBy.timestamp)}</p>
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-xs text-blue-700 mb-1">Sent to Client By</p>
+                  <p className="text-sm font-medium text-blue-900">{systemInformation.sentToClientBy.name}</p>
+                  <p className="text-xs text-blue-600">{formatTimestamp(systemInformation.sentToClientBy.timestamp)}</p>
                 </div>
               )}
               {systemInformation.acceptedBy && (

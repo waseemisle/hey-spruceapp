@@ -605,7 +605,7 @@ export default function SubcontractorAssignedJobs() {
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
                             {workOrder.priority} priority
                           </span>
-                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                             {workOrder.category}
                           </span>
                         </div>

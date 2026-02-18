@@ -118,9 +118,9 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
 
                   <CardContent className="space-y-4">
                     {/* Total Amount - Highlight */}
-                    <div className="text-center py-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200">
                       <p className="text-xs text-gray-600 mb-1 font-medium">Total Amount</p>
-                      <p className="text-3xl font-bold text-purple-600">
+                      <p className="text-3xl font-bold text-blue-600">
                         ${quote.totalAmount.toLocaleString()}
                       </p>
                       <p className="text-xs text-gray-500 mt-1 capitalize">{quote.status.replace(/_/g, ' ')}</p>

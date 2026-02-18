@@ -140,7 +140,7 @@ export default function ViewWorkOrder() {
       case 'approved': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
       case 'bidding': return 'text-blue-600 bg-blue-50';
-      case 'quotes_received': return 'text-purple-600 bg-purple-50';
+      case 'quotes_received': return 'text-blue-600 bg-blue-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
       default: return 'text-gray-600 bg-gray-50';
@@ -342,7 +342,7 @@ export default function ViewWorkOrder() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -513,7 +513,7 @@ export default function ViewWorkOrder() {
                       </div>
                     )}
                     {quotes.map((quote) => (
-                      <div key={quote.id} className={`p-4 border rounded-lg hover:bg-gray-50 ${selectedQuoteIds.includes(quote.id) ? 'bg-purple-50 border-purple-300' : ''}`}>
+                      <div key={quote.id} className={`p-4 border rounded-lg hover:bg-gray-50 ${selectedQuoteIds.includes(quote.id) ? 'bg-blue-50 border-blue-300' : ''}`}>
                         <div className="flex items-start gap-3">
                           {quotes.length >= 2 && (
                             <Checkbox
@@ -530,7 +530,7 @@ export default function ViewWorkOrder() {
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-2xl font-bold text-purple-600">
+                              <p className="text-2xl font-bold text-blue-600">
                                 ${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </p>
                               <p className="text-xs text-gray-500 capitalize">{quote.status}</p>

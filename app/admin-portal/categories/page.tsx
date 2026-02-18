@@ -150,7 +150,7 @@ export default function CategoriesManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -198,7 +198,7 @@ export default function CategoriesManagement() {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Tag className="h-5 w-5 text-purple-600" />
+                      <Tag className="h-5 w-5 text-blue-600" />
                       {category.name}
                     </CardTitle>
                   </div>

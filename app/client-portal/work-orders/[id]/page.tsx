@@ -176,7 +176,7 @@ export default function ViewClientWorkOrder() {
     const styles = {
       pending: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-blue-100 text-blue-800',
-      bidding: 'bg-purple-100 text-purple-800',
+      bidding: 'bg-blue-100 text-blue-800',
       assigned: 'bg-green-100 text-green-800',
       completed: 'bg-gray-100 text-gray-800',
       rejected: 'bg-red-100 text-red-800',
@@ -701,7 +701,7 @@ export default function ViewClientWorkOrder() {
                       </div>
                     )}
                     {quotes.map((quote) => (
-                      <div key={quote.id} className={`p-4 border rounded-lg hover:bg-gray-50 ${selectedQuoteIds.includes(quote.id) ? 'bg-purple-50 border-purple-300' : ''}`}>
+                      <div key={quote.id} className={`p-4 border rounded-lg hover:bg-gray-50 ${selectedQuoteIds.includes(quote.id) ? 'bg-blue-50 border-blue-300' : ''}`}>
                         <div className="flex items-start gap-3">
                           {quotes.length >= 2 && (
                             <Checkbox
@@ -718,7 +718,7 @@ export default function ViewClientWorkOrder() {
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="text-2xl font-bold text-purple-600">
+                              <p className="text-2xl font-bold text-blue-600">
                                 ${quote.totalAmount.toLocaleString()}
                               </p>
                               <p className="text-xs text-gray-500 capitalize">{quote.status.replace(/_/g, ' ')}</p>

@@ -267,7 +267,7 @@ export default function LocationMapPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -400,7 +400,7 @@ export default function LocationMapPage() {
                     id="systemLocationId"
                     value={formData.systemLocationId}
                     onChange={(e) => setFormData({ ...formData, systemLocationId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select a location</option>
                     {locations.map((location) => (

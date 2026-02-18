@@ -36,7 +36,7 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation, viewe
       case 'rejected':
         return <XCircle className="h-4 w-4 text-red-600" />;
       case 'shared_for_bidding':
-        return <Share2 className="h-4 w-4 text-purple-600" />;
+        return <Share2 className="h-4 w-4 text-blue-600" />;
       case 'quote_received':
         return <DollarSign className="h-4 w-4 text-green-600" />;
       case 'quote_shared_with_client':
