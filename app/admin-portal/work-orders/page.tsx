@@ -163,11 +163,8 @@ function WorkOrdersContent() {
 
       const collectionRef = collection(db, 'workOrders');
       const queryConstraints: QueryConstraint[] = [];
-      if (workOrderType === 'standard') {
-        queryConstraints.push(where('isMaintenanceRequestOrder', '==', false));
-      } else if (workOrderType === 'maintenance') {
-        queryConstraints.push(where('isMaintenanceRequestOrder', '==', true));
-      }
+      // Note: combining where('isMaintenanceRequestOrder',...) with orderBy('createdAt') requires
+      // a composite Firestore index, so we filter by type client-side instead.
       queryConstraints.push(orderBy('createdAt', 'desc'));
       queryConstraints.push(limit(PAGE_SIZE));
       if (!reset && lastWorkOrderDoc) {
@@ -1867,6 +1864,12 @@ const handleLocationSelect = (locationId: string) => {
   };
 
   const filteredWorkOrders = workOrders.filter(wo => {
+    // Filter by work order type (client-side, avoids requiring a Firestore composite index)
+    const typeMatch =
+      workOrderType === 'all' ||
+      (workOrderType === 'standard' && !wo.isMaintenanceRequestOrder) ||
+      (workOrderType === 'maintenance' && !!wo.isMaintenanceRequestOrder);
+
     // Filter by status
     const statusMatch = filter === 'all' || wo.status === filter;
 
@@ -1880,7 +1883,7 @@ const handleLocationSelect = (locationId: string) => {
       wo.workOrderNumber?.toLowerCase().includes(searchLower) ||
       wo.category?.toLowerCase().includes(searchLower);
 
-    return statusMatch && searchMatch;
+    return typeMatch && statusMatch && searchMatch;
   });
 
   const sortedWorkOrders = [...filteredWorkOrders].sort((a, b) => {
@@ -1902,7 +1905,7 @@ const handleLocationSelect = (locationId: string) => {
       case 'approved': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
       case 'bidding': return 'text-blue-600 bg-blue-50';
-      case 'quotes_received': return 'text-purple-600 bg-purple-50';
+      case 'quotes_received': return 'text-blue-600 bg-blue-50';
       case 'to_be_started': return 'text-orange-600 bg-orange-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
@@ -1959,7 +1962,7 @@ const filteredLocationsForForm = locations.filter((location) => {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -2786,7 +2789,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                 
                 <div className="space-y-3">
                   <button
-                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 cursor-pointer"
+                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateNormalWorkOrder}
                   >
                     <div className="font-semibold text-lg text-gray-900">Normal Work Order</div>
@@ -2796,7 +2799,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                   </button>
 
                   <button
-                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 cursor-pointer"
+                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateRecurringWorkOrder}
                   >
                     <div className="font-semibold text-lg text-gray-900">Recurring Work Order</div>
@@ -3067,7 +3070,7 @@ export default function WorkOrdersManagement() {
     <Suspense fallback={
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     }>
