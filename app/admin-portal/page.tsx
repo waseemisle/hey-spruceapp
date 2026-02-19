@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { onSnapshot, collection } from 'firebase/firestore';
+import { useEffect, useState, useRef } from 'react';
+import { onSnapshot, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
@@ -14,6 +14,12 @@ import {
   calculateProposalsData,
   calculateInvoicesData,
 } from '@/lib/dashboard-utils';
+import { Building2, ChevronDown, X } from 'lucide-react';
+
+interface Company {
+  id: string;
+  name: string;
+}
 
 export default function AdminDashboard() {
   const [workOrdersData, setWorkOrdersData] = useState({
@@ -53,14 +59,102 @@ export default function AdminDashboard() {
 
   const [loading, setLoading] = useState(true);
 
+  // Company selector state
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [companyClientIds, setCompanyClientIds] = useState<string[]>([]);
+  const [companySearch, setCompanySearch] = useState('');
+  const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
+  const companyDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Ref so onSnapshot callbacks always use the latest selectedCompanyId
+  const selectedCompanyIdRef = useRef<string | null>(null);
+  const isInitialMountRef = useRef(true);
+
+  // Sync ref with state
+  useEffect(() => {
+    selectedCompanyIdRef.current = selectedCompanyId;
+  }, [selectedCompanyId]);
+
+  // Fetch companies on mount
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'companies'));
+        const data = snapshot.docs.map(d => ({ id: d.id, name: d.data().name as string }));
+        data.sort((a, b) => a.name.localeCompare(b.name));
+        setCompanies(data);
+      } catch (err) {
+        console.error('Error fetching companies:', err);
+      }
+    };
+    fetchCompanies();
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(e.target as Node)) {
+        setIsCompanyDropdownOpen(false);
+        setCompanySearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // When company changes, fetch its client IDs and refresh dashboard data
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    const refresh = async () => {
+      const companyId = selectedCompanyId || undefined;
+
+      // Fetch client IDs for the selected company (for calendar recurring WOs)
+      if (selectedCompanyId) {
+        try {
+          const clientsSnap = await getDocs(
+            query(collection(db, 'clients'), where('companyId', '==', selectedCompanyId))
+          );
+          setCompanyClientIds(clientsSnap.docs.map(d => d.id));
+        } catch (err) {
+          console.error('Error fetching company clients:', err);
+          setCompanyClientIds([]);
+        }
+      } else {
+        setCompanyClientIds([]);
+      }
+
+      try {
+        const [wod, pd, id] = await Promise.all([
+          calculateWorkOrdersData('admin', undefined, undefined, undefined, companyId),
+          calculateProposalsData('admin', undefined, undefined, companyId),
+          calculateInvoicesData('admin', undefined, undefined, companyId),
+        ]);
+        setWorkOrdersData(wod);
+        setProposalsData(pd);
+        setInvoicesData(id);
+      } catch (err) {
+        console.error('Error refreshing dashboard:', err);
+      }
+    };
+
+    refresh();
+  }, [selectedCompanyId]);
+
+  // Initial fetch + real-time listeners
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch all dashboard data
-        const workOrders = await calculateWorkOrdersData('admin');
-        const proposals = await calculateProposalsData('admin');
-        const invoices = await calculateInvoicesData('admin');
-
+        const companyId = selectedCompanyIdRef.current || undefined;
+        const [workOrders, proposals, invoices] = await Promise.all([
+          calculateWorkOrdersData('admin', undefined, undefined, undefined, companyId),
+          calculateProposalsData('admin', undefined, undefined, companyId),
+          calculateInvoicesData('admin', undefined, undefined, companyId),
+        ]);
         setWorkOrdersData(workOrders);
         setProposalsData(proposals);
         setInvoicesData(invoices);
@@ -75,17 +169,20 @@ export default function AdminDashboard() {
 
     // Set up real-time listeners
     const unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
-      const workOrders = await calculateWorkOrdersData('admin');
+      const companyId = selectedCompanyIdRef.current || undefined;
+      const workOrders = await calculateWorkOrdersData('admin', undefined, undefined, undefined, companyId);
       setWorkOrdersData(workOrders);
     });
 
     const unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
-      const proposals = await calculateProposalsData('admin');
+      const companyId = selectedCompanyIdRef.current || undefined;
+      const proposals = await calculateProposalsData('admin', undefined, undefined, companyId);
       setProposalsData(proposals);
     });
 
     const unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
-      const invoices = await calculateInvoicesData('admin');
+      const companyId = selectedCompanyIdRef.current || undefined;
+      const invoices = await calculateInvoicesData('admin', undefined, undefined, companyId);
       setInvoicesData(invoices);
     });
 
@@ -97,10 +194,14 @@ export default function AdminDashboard() {
   }, []);
 
   const handleSearch = (searchType: string, searchValue: string) => {
-    // Implement search functionality
     console.log('Search:', searchType, searchValue);
-    // TODO: Navigate to appropriate page with search filters
   };
+
+  const selectedCompany = companies.find(c => c.id === selectedCompanyId);
+
+  const filteredCompanies = companies.filter(c =>
+    c.name.toLowerCase().includes(companySearch.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -123,12 +224,110 @@ export default function AdminDashboard() {
 
         {/* Main Content */}
         <div className="p-6 space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Welcome to your GroundOps admin portal</p>
+          {/* Header + Company Selector */}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-muted-foreground mt-1">Welcome to your GroundOps admin portal</p>
+            </div>
+
+            {/* Company Selector */}
+            <div className="relative" ref={companyDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsCompanyDropdownOpen(v => !v)}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 transition-colors min-w-[200px]"
+              >
+                <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
+                <span className="text-sm text-gray-700 flex-1 text-left truncate max-w-[200px]">
+                  {selectedCompany ? selectedCompany.name : 'All Companies'}
+                </span>
+                {selectedCompanyId ? (
+                  <span
+                    role="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setSelectedCompanyId(null);
+                      setIsCompanyDropdownOpen(false);
+                      setCompanySearch('');
+                    }}
+                    className="p-0.5 hover:bg-gray-100 rounded cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5 text-gray-400" />
+                  </span>
+                ) : (
+                  <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${isCompanyDropdownOpen ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+
+              {isCompanyDropdownOpen && (
+                <div className="absolute top-full right-0 z-50 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
+                  <div className="p-2 border-b border-gray-100">
+                    <input
+                      type="text"
+                      placeholder="Search companies..."
+                      value={companySearch}
+                      onChange={e => setCompanySearch(e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    <button
+                      type="button"
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${!selectedCompanyId ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'}`}
+                      onClick={() => {
+                        setSelectedCompanyId(null);
+                        setIsCompanyDropdownOpen(false);
+                        setCompanySearch('');
+                      }}
+                    >
+                      All Companies
+                    </button>
+                    {filteredCompanies.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-gray-400">No companies found</p>
+                    ) : (
+                      filteredCompanies.map(company => (
+                        <button
+                          key={company.id}
+                          type="button"
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${selectedCompanyId === company.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'}`}
+                          onClick={() => {
+                            setSelectedCompanyId(company.id);
+                            setIsCompanyDropdownOpen(false);
+                            setCompanySearch('');
+                          }}
+                        >
+                          {company.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Active company banner */}
+          {selectedCompany && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+              <Building2 className="h-4 w-4 shrink-0" />
+              <span>Showing data for <strong>{selectedCompany.name}</strong></span>
+              <button
+                type="button"
+                onClick={() => setSelectedCompanyId(null)}
+                className="ml-auto text-blue-500 hover:text-blue-700 text-xs underline"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
           {/* Calendar Section */}
-          <AdminCalendar />
+          <AdminCalendar
+            companyId={selectedCompanyId || undefined}
+            companyClientIds={companyClientIds.length > 0 ? companyClientIds : undefined}
+          />
 
           {/* Work Orders Section */}
           <WorkOrdersSection data={workOrdersData} portalType="admin" />

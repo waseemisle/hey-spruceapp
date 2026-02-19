@@ -51,9 +51,11 @@ interface AdminCalendarProps {
   selectedLocations?: string[];
   selectedStatuses?: string[];
   onEventClick?: (workOrderId: string) => void;
+  companyId?: string;
+  companyClientIds?: string[];
 }
 
-export default function AdminCalendar({ selectedClients, selectedLocations, selectedStatuses, onEventClick }: AdminCalendarProps) {
+export default function AdminCalendar({ selectedClients, selectedLocations, selectedStatuses, onEventClick, companyId, companyClientIds }: AdminCalendarProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
@@ -100,21 +102,26 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
   useEffect(() => {
     // Filter work orders
     let filteredWorkOrders = workOrders;
-    
+
+    // Apply company filter
+    if (companyId) {
+      filteredWorkOrders = filteredWorkOrders.filter(wo => (wo as any).companyId === companyId);
+    }
+
     if (selectedClients && selectedClients.length > 0) {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
+      filteredWorkOrders = filteredWorkOrders.filter(wo =>
         selectedClients.includes(wo.clientName)
       );
     }
-    
+
     if (selectedLocations && selectedLocations.length > 0) {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
+      filteredWorkOrders = filteredWorkOrders.filter(wo =>
         selectedLocations.includes(wo.locationName)
       );
     }
-    
+
     if (selectedStatuses && selectedStatuses.length > 0) {
-      filteredWorkOrders = filteredWorkOrders.filter(wo => 
+      filteredWorkOrders = filteredWorkOrders.filter(wo =>
         selectedStatuses.includes(wo.status)
       );
     }
@@ -190,6 +197,10 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
     // Convert recurring work orders to calendar events
     const recurringEvents: CalendarEvent[] = recurringWorkOrders
       .filter(rwo => {
+        // Apply company filter for recurring work orders
+        if (companyClientIds && companyClientIds.length > 0 && !companyClientIds.includes(rwo.clientId)) {
+          return false;
+        }
         // Apply filters to recurring work orders
         if (selectedClients && selectedClients.length > 0 && !selectedClients.includes(rwo.clientName)) {
           return false;
@@ -231,7 +242,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
 
     // Combine both event types
     setEvents([...workOrderEvents, ...recurringEvents]);
-  }, [workOrders, recurringWorkOrders, selectedClients, selectedLocations, selectedStatuses]);
+  }, [workOrders, recurringWorkOrders, selectedClients, selectedLocations, selectedStatuses, companyId, companyClientIds]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

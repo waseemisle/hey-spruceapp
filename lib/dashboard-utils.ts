@@ -6,7 +6,8 @@ export async function calculateWorkOrdersData(
   portalType: 'admin' | 'client' | 'subcontractor',
   userId?: string,
   assignedLocations?: string[],
-  db?: Firestore
+  db?: Firestore,
+  companyId?: string
 ) {
   const dbInstance = db || defaultDb;
   try {
@@ -82,7 +83,12 @@ export async function calculateWorkOrdersData(
     const workOrdersSnapshot = portalType !== 'subcontractor' || !userId
       ? await getDocs(workOrdersQuery!)
       : { docs: [] };
-    const workOrders = workOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let workOrders = workOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Apply company filter for admin
+    if (portalType === 'admin' && companyId) {
+      workOrders = workOrders.filter(wo => (wo as any).companyId === companyId);
+    }
 
     return processWorkOrdersData(workOrders);
   } catch (error) {
@@ -196,7 +202,8 @@ function getEmptyWorkOrdersData() {
 export async function calculateProposalsData(
   portalType: 'admin' | 'client' | 'subcontractor',
   userId?: string,
-  db?: Firestore
+  db?: Firestore,
+  companyId?: string
 ) {
   try {
     const dbInstance = db || defaultDb;
@@ -218,7 +225,16 @@ export async function calculateProposalsData(
     }
 
     const quotesSnapshot = await getDocs(quotesQuery);
-    const quotes = quotesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let quotes = quotesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Apply company filter for admin
+    if (portalType === 'admin' && companyId) {
+      const woSnapshot = await getDocs(
+        query(collection(dbInstance, 'workOrders'), where('companyId', '==', companyId))
+      );
+      const workOrderIds = new Set(woSnapshot.docs.map(d => d.id));
+      quotes = quotes.filter(q => (q as any).workOrderId && workOrderIds.has((q as any).workOrderId));
+    }
 
     return processProposalsData(quotes, portalType);
   } catch (error) {
@@ -275,7 +291,8 @@ function processProposalsData(quotes: DocumentData[], portalType: string) {
 export async function calculateInvoicesData(
   portalType: 'admin' | 'client' | 'subcontractor',
   userId?: string,
-  db?: Firestore
+  db?: Firestore,
+  companyId?: string
 ) {
   try {
     const dbInstance = db || defaultDb;
@@ -287,11 +304,24 @@ export async function calculateInvoicesData(
       invoicesQuery = query(collection(dbInstance, 'invoices'));
       workOrdersQuery = query(collection(dbInstance, 'workOrders'), where('status', '==', 'completed'));
 
-      const invoicesSnapshot = await getDocs(invoicesQuery);
-      const invoices = invoicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const [invoicesSnapshot, workOrdersSnapshot] = await Promise.all([
+        getDocs(invoicesQuery),
+        getDocs(workOrdersQuery),
+      ]);
+      let invoices = invoicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let completedWorkOrders = workOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      const workOrdersSnapshot = await getDocs(workOrdersQuery);
-      const completedWorkOrders = workOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Apply company filter for admin
+      if (companyId) {
+        const allWoSnapshot = await getDocs(
+          query(collection(dbInstance, 'workOrders'), where('companyId', '==', companyId))
+        );
+        const allWorkOrderIds = new Set(allWoSnapshot.docs.map(d => d.id));
+        completedWorkOrders = completedWorkOrders.filter(wo => allWorkOrderIds.has(wo.id));
+        invoices = invoices.filter(inv =>
+          (inv as any).workOrderId ? allWorkOrderIds.has((inv as any).workOrderId) : false
+        );
+      }
 
       return processInvoicesData(invoices, completedWorkOrders);
     } else if (portalType === 'client') {
