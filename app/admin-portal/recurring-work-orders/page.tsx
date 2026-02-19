@@ -514,6 +514,7 @@ export default function RecurringWorkOrdersManagement() {
                           <Button
                             size="sm"
                             variant="outline"
+                            title="Pause Executions"
                             onClick={() => handleToggleStatus(recurringWorkOrder)}
                           >
                             <Pause className="h-4 w-4" />
@@ -523,6 +524,7 @@ export default function RecurringWorkOrdersManagement() {
                           <Button
                             size="sm"
                             variant="outline"
+                            title="Resume Executions"
                             onClick={() => handleToggleStatus(recurringWorkOrder)}
                           >
                             <Play className="h-4 w-4" />
@@ -643,7 +645,8 @@ export default function RecurringWorkOrdersManagement() {
                           onClick={() => handleToggleStatus(recurringWorkOrder)}
                         >
                           <Pause className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Pause</span>
+                          <span className="hidden sm:inline">Pause Executions</span>
+                          <span className="sm:hidden">Pause</span>
                         </Button>
                         <Button
                           size="sm"
@@ -664,7 +667,7 @@ export default function RecurringWorkOrdersManagement() {
                         onClick={() => handleToggleStatus(recurringWorkOrder)}
                       >
                         <Play className="h-4 w-4 mr-2" />
-                        Resume
+                        Resume Executions
                       </Button>
                     )}
                   </div>

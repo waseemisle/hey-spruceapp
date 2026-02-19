@@ -226,8 +226,15 @@ export default function RecurringWorkOrdersImportModal({
       if (searchParsed.location && !docParsed.location) {
         const searchPrimary = extractPrimaryName(searchParsed.base);
         const docPrimary = extractPrimaryName(docParsed.base);
-        if (docPrimary === searchPrimary || docPrimary.includes(searchPrimary) || searchPrimary.includes(docPrimary)) {
+        if (docPrimary === searchPrimary) {
           score = 0.95;
+        } else if (searchPrimary.includes(docPrimary)) {
+          // Search base is more specific than doc name (e.g., file: "Toro Grill (LA)", db: "Toro")
+          score = 0.85;
+        } else if (docPrimary.includes(searchPrimary)) {
+          // Doc name has extra words beyond search base (e.g., file: "Delilah (Dallas)", db: "Delilah LA")
+          // Extra words may be a different location identifier — require manual mapping
+          score = 0.4;
         } else {
           const searchWords = extractKeyWords(searchParsed.base);
           const docWords = extractKeyWords(docParsed.base);
@@ -1517,6 +1524,7 @@ export default function RecurringWorkOrdersImportModal({
                               <th className="p-2 text-left border-b">Restaurant</th>
                               <th className="p-2 text-left border-b">Service Type</th>
                               <th className="p-2 text-left border-b">Recurrence Pattern</th>
+                              <th className="p-2 text-left border-b">Start Service Date</th>
                               <th className="p-2 text-left border-b">Client</th>
                               <th className="p-2 text-left border-b">Subcontractor</th>
                               <th className="p-2 text-left border-b">Status</th>
@@ -1543,6 +1551,9 @@ export default function RecurringWorkOrdersImportModal({
                                   ) : (
                                     <span className="text-gray-400 text-xs">-</span>
                                   )}
+                                </td>
+                                <td className="p-2 border-b text-xs whitespace-nowrap">
+                                  {row.nextServiceDates.length > 0 ? formatDateValue(row.nextServiceDates[0]) : '-'}
                                 </td>
                                 <td className="p-2 border-b">
                                   {row.errors.length === 0 ? (
@@ -1651,6 +1662,7 @@ export default function RecurringWorkOrdersImportModal({
                         <th className="p-2 text-left border-b">Restaurant</th>
                         <th className="p-2 text-left border-b">Service Type</th>
                         <th className="p-2 text-left border-b">Recurrence Pattern</th>
+                        <th className="p-2 text-left border-b">Start Service Date</th>
                         <th className="p-2 text-left border-b">Client</th>
                         <th className="p-2 text-left border-b">Subcontractor</th>
                         <th className="p-2 text-left border-b">Status</th>
@@ -1680,6 +1692,9 @@ export default function RecurringWorkOrdersImportModal({
                             ) : (
                               <span className="text-gray-400 text-xs">-</span>
                             )}
+                          </td>
+                          <td className="p-2 border-b text-xs whitespace-nowrap">
+                            {row.nextServiceDates.length > 0 ? formatDateValue(row.nextServiceDates[0]) : '-'}
                           </td>
                           <td className="p-2 border-b">
                             {row.errors.length === 0 ? (
