@@ -345,12 +345,33 @@ const fetchCategories = async () => {
         systemInformation: updatedSysInfo,
       });
 
-      // Notify client about work order approval
+      // Notify client about work order approval (in-app)
       await notifyClientOfWorkOrderApproval(
         workOrderData.clientId,
         workOrderId,
         workOrderData.workOrderNumber || workOrderId
       );
+
+      // Send WhatsApp notification to client
+      try {
+        const clientDoc = await getDoc(doc(db, 'clients', workOrderData.clientId));
+        const clientPhone = clientDoc.data()?.phone;
+        if (clientPhone) {
+          await fetch('/api/whatsapp/send-approval', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toPhone: clientPhone,
+              clientName: workOrderData.clientName,
+              workOrderNumber: workOrderData.workOrderNumber || workOrderId,
+              workOrderTitle: workOrderData.title,
+            }),
+          });
+        }
+      } catch (whatsappErr) {
+        // Don't block approval if WhatsApp fails
+        console.error('WhatsApp notification failed:', whatsappErr);
+      }
 
       toast.success('Work order approved successfully');
       fetchWorkOrders();
