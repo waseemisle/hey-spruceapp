@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, limit, startAfter, DocumentSnapshot, type QueryConstraint } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload } from 'lucide-react';
+import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { createTimelineEvent, createInvoiceTimelineEvent } from '@/lib/timeline';
@@ -145,33 +145,16 @@ function WorkOrdersContent() {
     isMaintenanceRequestOrder: false,
   });
 
-  // Pagination: avoid loading all work orders at once to prevent "Too many outstanding requests"
-  const PAGE_SIZE = 50;
   const QUERY_CHUNK_SIZE = 30; // Firestore 'in' query limit
-  const [lastWorkOrderDoc, setLastWorkOrderDoc] = useState<DocumentSnapshot | null>(null);
-  const [hasMoreWorkOrders, setHasMoreWorkOrders] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchWorkOrders = async (reset = true) => {
+  // Client-side pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  const fetchWorkOrders = async () => {
     try {
-      if (reset) {
-        setLoading(true);
-        setLastWorkOrderDoc(null);
-      } else {
-        setLoadingMore(true);
-      }
-
-      const collectionRef = collection(db, 'workOrders');
-      const queryConstraints: QueryConstraint[] = [];
-      // Note: combining where('isMaintenanceRequestOrder',...) with orderBy('createdAt') requires
-      // a composite Firestore index, so we filter by type client-side instead.
-      queryConstraints.push(orderBy('createdAt', 'desc'));
-      queryConstraints.push(limit(PAGE_SIZE));
-      if (!reset && lastWorkOrderDoc) {
-        queryConstraints.push(startAfter(lastWorkOrderDoc));
-      }
-
-      const workOrdersQuery = query(collectionRef, ...queryConstraints);
+      setLoading(true);
+      const workOrdersQuery = query(collection(db, 'workOrders'), orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(workOrdersQuery);
       const woIds = snapshot.docs.map((d) => d.id);
 
@@ -203,20 +186,12 @@ function WorkOrdersContent() {
         return woData;
       });
 
-      if (reset) {
-        setWorkOrders(workOrdersData);
-      } else {
-        setWorkOrders((prev) => [...prev, ...workOrdersData]);
-      }
-      const lastDoc = snapshot.docs[snapshot.docs.length - 1] ?? null;
-      setLastWorkOrderDoc(lastDoc);
-      setHasMoreWorkOrders(snapshot.docs.length === PAGE_SIZE);
+      setWorkOrders(workOrdersData);
     } catch (error) {
       console.error('Error fetching work orders:', error);
       toast.error('Failed to load work orders');
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
 
@@ -282,7 +257,7 @@ const fetchCategories = async () => {
 };
 
   useEffect(() => {
-    fetchWorkOrders(true);
+    fetchWorkOrders();
     fetchClients();
     fetchLocations();
     fetchCompanies();
@@ -362,7 +337,7 @@ const fetchCategories = async () => {
       );
 
       toast.success('Work order approved successfully');
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error) {
       console.error('Error approving work order:', error);
       toast.error('Failed to approve work order');
@@ -426,7 +401,7 @@ const fetchCategories = async () => {
       setShowRejectModal(false);
       setRejectingWorkOrderId(null);
       setRejectionReason('');
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error) {
       console.error('Error rejecting work order:', error);
       toast.error('Failed to reject work order');
@@ -745,7 +720,7 @@ const handleLocationSelect = (locationId: string) => {
       }
 
       // Refresh work orders
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error) {
       console.error('Error sending invoice:', error);
       toast.error('Failed to send invoice');
@@ -808,7 +783,7 @@ const handleLocationSelect = (locationId: string) => {
       );
 
       toast.success('Schedule shared with client successfully!');
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error) {
       console.error('Error sharing schedule with client:', error);
       toast.error('Failed to share schedule with client');
@@ -1256,7 +1231,7 @@ const handleLocationSelect = (locationId: string) => {
       // Reset file input
       const fileInput = document.getElementById('import-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error: any) {
       console.error('Error importing work orders:', error);
       toast.error(`Failed to import work orders: ${error.message || 'Unknown error'}`);
@@ -1339,7 +1314,7 @@ const handleLocationSelect = (locationId: string) => {
       setShowAssignModal(false);
       setWorkOrderToAssign(null);
       setSelectedSubcontractorForAssign('');
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error) {
       console.error('Error assigning work order:', error);
       toast.error('Failed to assign work order');
@@ -1466,7 +1441,7 @@ const handleLocationSelect = (locationId: string) => {
       }
 
       resetForm();
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error: any) {
       console.error('Error saving work order:', error);
       toast.error(error.message || 'Failed to save work order');
@@ -1683,7 +1658,7 @@ const handleLocationSelect = (locationId: string) => {
       setShowBiddingModal(false);
       setSelectedSubcontractors([]);
       setWorkOrderToShare(null);
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error) {
       console.error('Error sharing for bidding:', error);
       toast.error('Failed to share work order for bidding');
@@ -1759,7 +1734,7 @@ const handleLocationSelect = (locationId: string) => {
 
       toast.success('Work order and all related data deleted successfully');
       setSelectedIds(prev => prev.filter(id => id !== workOrder.id));
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error) {
       console.error('Error deleting work order:', error);
       toast.error('Failed to delete work order');
@@ -1839,7 +1814,7 @@ const handleLocationSelect = (locationId: string) => {
 
       toast.success(`Successfully deleted ${selectedIds.length} work order${selectedIds.length > 1 ? 's' : ''} and all related data`);
       setSelectedIds([]);
-      fetchWorkOrders(true);
+      fetchWorkOrders();
     } catch (error) {
       console.error('Error deleting work orders:', error);
       toast.error('Failed to delete work orders');
@@ -1886,6 +1861,11 @@ const handleLocationSelect = (locationId: string) => {
     return typeMatch && statusMatch && searchMatch;
   });
 
+  // Reset to page 1 whenever filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filter, workOrderType]);
+
   const sortedWorkOrders = [...filteredWorkOrders].sort((a, b) => {
     switch (sortOption) {
       case 'updatedAt':
@@ -1898,6 +1878,17 @@ const handleLocationSelect = (locationId: string) => {
         return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
     }
   });
+
+  // Client-side pagination slice
+  const totalPages = Math.max(1, Math.ceil(sortedWorkOrders.length / rowsPerPage));
+  const paginatedWorkOrders = sortedWorkOrders.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -2006,36 +1997,32 @@ const filteredLocationsForForm = locations.filter((location) => {
         </div>
 
         {/* Search and Filter */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search work orders..."
+              placeholder="Search work orders by title, client, number, category..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-10"
             />
           </div>
-
-          <div>
-            <Label className="text-sm text-gray-600 mb-1">Filter by Status</Label>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as typeof filter)}
-              className="w-full border border-gray-300 rounded-md p-2 bg-white"
-            >
-              <option value="all">All ({workOrders.length})</option>
-              <option value="pending">Pending ({workOrders.filter(w => w.status === 'pending').length})</option>
-              <option value="approved">Approved ({workOrders.filter(w => w.status === 'approved').length})</option>
-              <option value="bidding">Bidding ({workOrders.filter(w => w.status === 'bidding').length})</option>
-              <option value="quotes_received">Quotes Received ({workOrders.filter(w => w.status === 'quotes_received').length})</option>
-              <option value="to_be_started">To Be Started ({workOrders.filter(w => w.status === 'to_be_started').length})</option>
-              <option value="assigned">Assigned ({workOrders.filter(w => w.status === 'assigned').length})</option>
-              <option value="completed">Completed ({workOrders.filter(w => w.status === 'completed').length})</option>
-              <option value="accepted_by_subcontractor">Accepted by Subcontractor ({workOrders.filter(w => w.status === 'accepted_by_subcontractor').length})</option>
-              <option value="rejected_by_subcontractor">Rejected by Subcontractor ({workOrders.filter(w => w.status === 'rejected_by_subcontractor').length})</option>
-            </select>
-          </div>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as typeof filter)}
+            className="h-10 border border-gray-300 rounded-md px-3 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:w-56"
+          >
+            <option value="all">All Statuses ({filteredWorkOrders.length})</option>
+            <option value="pending">Pending ({workOrders.filter(w => w.status === 'pending').length})</option>
+            <option value="approved">Approved ({workOrders.filter(w => w.status === 'approved').length})</option>
+            <option value="bidding">Bidding ({workOrders.filter(w => w.status === 'bidding').length})</option>
+            <option value="quotes_received">Quotes Received ({workOrders.filter(w => w.status === 'quotes_received').length})</option>
+            <option value="to_be_started">To Be Started ({workOrders.filter(w => w.status === 'to_be_started').length})</option>
+            <option value="assigned">Assigned ({workOrders.filter(w => w.status === 'assigned').length})</option>
+            <option value="completed">Completed ({workOrders.filter(w => w.status === 'completed').length})</option>
+            <option value="accepted_by_subcontractor">Accepted by Sub ({workOrders.filter(w => w.status === 'accepted_by_subcontractor').length})</option>
+            <option value="rejected_by_subcontractor">Rejected by Sub ({workOrders.filter(w => w.status === 'rejected_by_subcontractor').length})</option>
+          </select>
         </div>
 
         {/* Selection Controls */}
@@ -2099,7 +2086,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sortedWorkOrders.map((workOrder) => (
+                {paginatedWorkOrders.map((workOrder) => (
                   <tr key={workOrder.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <Checkbox
@@ -2159,7 +2146,7 @@ const filteredLocationsForForm = locations.filter((location) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {sortedWorkOrders.map((workOrder) => (
+            {paginatedWorkOrders.map((workOrder) => (
               <Card
                 key={workOrder.id}
                 className="h-full flex flex-col min-h-[500px] hover:shadow-lg transition-shadow"
@@ -2402,15 +2389,41 @@ const filteredLocationsForForm = locations.filter((location) => {
           </div>
         )}
 
-        {sortedWorkOrders.length > 0 && hasMoreWorkOrders && (
-          <div className="flex justify-center py-6">
-            <Button
-              variant="outline"
-              onClick={() => fetchWorkOrders(false)}
-              disabled={loadingMore}
-            >
-              {loadingMore ? 'Loading...' : 'Load more'}
-            </Button>
+        {/* Pagination */}
+        {sortedWorkOrders.length > 0 && (
+          <div className="border-t bg-gray-50 rounded-b-lg px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span>Rows per page:</span>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-gray-500">
+                {((currentPage - 1) * rowsPerPage) + 1}–{Math.min(currentPage * rowsPerPage, sortedWorkOrders.length)} of {sortedWorkOrders.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => goToPage(1)} disabled={currentPage === 1}>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-gray-700 px-3">
+                Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+              </span>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages}>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
 
