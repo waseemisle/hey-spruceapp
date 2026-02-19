@@ -179,6 +179,60 @@ export default function RecurringWorkOrdersManagement() {
     }
   };
 
+  const performBulkPause = async () => {
+    const activeIds = selectedIds.filter(id =>
+      recurringWorkOrders.find(r => r.id === id)?.status === 'active'
+    );
+    if (activeIds.length === 0) return;
+
+    try {
+      setSubmitting(true);
+      await Promise.all(
+        activeIds.map(id =>
+          updateDoc(doc(db, 'recurringWorkOrders', id), {
+            status: 'paused',
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+      toast.success(`Paused ${activeIds.length} recurring work order${activeIds.length > 1 ? 's' : ''}`);
+      setSelectedIds([]);
+      fetchRecurringWorkOrders();
+    } catch (error) {
+      console.error('Error pausing recurring work orders:', error);
+      toast.error('Failed to pause recurring work orders');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const performBulkResume = async () => {
+    const pausedIds = selectedIds.filter(id =>
+      recurringWorkOrders.find(r => r.id === id)?.status === 'paused'
+    );
+    if (pausedIds.length === 0) return;
+
+    try {
+      setSubmitting(true);
+      await Promise.all(
+        pausedIds.map(id =>
+          updateDoc(doc(db, 'recurringWorkOrders', id), {
+            status: 'active',
+            updatedAt: serverTimestamp(),
+          })
+        )
+      );
+      toast.success(`Resumed ${pausedIds.length} recurring work order${pausedIds.length > 1 ? 's' : ''}`);
+      setSelectedIds([]);
+      fetchRecurringWorkOrders();
+    } catch (error) {
+      console.error('Error resuming recurring work orders:', error);
+      toast.error('Failed to resume recurring work orders');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
 
@@ -377,17 +431,49 @@ export default function RecurringWorkOrdersManagement() {
             )}
           </div>
           
-          {selectedIds.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={handleBulkDelete}
-              disabled={submitting}
-              className="w-full sm:w-auto"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Selected ({selectedIds.length})
-            </Button>
-          )}
+          {selectedIds.length > 0 && (() => {
+            const selectedActiveCount = selectedIds.filter(id =>
+              recurringWorkOrders.find(r => r.id === id)?.status === 'active'
+            ).length;
+            const selectedPausedCount = selectedIds.filter(id =>
+              recurringWorkOrders.find(r => r.id === id)?.status === 'paused'
+            ).length;
+            return (
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                {selectedActiveCount > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={performBulkPause}
+                    disabled={submitting}
+                    className="flex-1 sm:flex-none"
+                  >
+                    <Pause className="h-4 w-4 mr-2" />
+                    Pause {selectedActiveCount} Active
+                  </Button>
+                )}
+                {selectedPausedCount > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={performBulkResume}
+                    disabled={submitting}
+                    className="flex-1 sm:flex-none"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Resume {selectedPausedCount} Paused
+                  </Button>
+                )}
+                <Button
+                  variant="destructive"
+                  onClick={handleBulkDelete}
+                  disabled={submitting}
+                  className="flex-1 sm:flex-none"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete {selectedIds.length}
+                </Button>
+              </div>
+            );
+          })()}
 
           <div className="flex flex-wrap items-center gap-3">
             <label htmlFor="location-filter" className="text-sm font-medium text-gray-700">
