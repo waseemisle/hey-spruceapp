@@ -203,19 +203,6 @@ export default function AdminDashboard() {
     c.name.toLowerCase().includes(companySearch.toLowerCase())
   );
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading dashboard...</p>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
       <div className="min-h-screen bg-gray-50">
@@ -323,20 +310,31 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Calendar Section */}
-          <AdminCalendar
-            companyId={selectedCompanyId || undefined}
-            companyClientIds={companyClientIds.length > 0 ? companyClientIds : undefined}
-          />
+          {loading ? (
+            <div className="flex items-center justify-center py-24">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Loading dashboard...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Calendar Section */}
+              <AdminCalendar
+                companyId={selectedCompanyId || undefined}
+                companyClientIds={companyClientIds.length > 0 ? companyClientIds : undefined}
+              />
 
-          {/* Work Orders Section */}
-          <WorkOrdersSection data={workOrdersData} portalType="admin" />
+              {/* Work Orders Section */}
+              <WorkOrdersSection data={workOrdersData} portalType="admin" />
 
-          {/* Proposals Section */}
-          <ProposalsSection data={proposalsData} portalType="admin" />
+              {/* Proposals Section */}
+              <ProposalsSection data={proposalsData} portalType="admin" />
 
-          {/* Invoices Section */}
-          <InvoicesSection data={invoicesData} portalType="admin" />
+              {/* Invoices Section */}
+              <InvoicesSection data={invoicesData} portalType="admin" />
+            </>
+          )}
         </div>
       </div>
     </AdminLayout>
