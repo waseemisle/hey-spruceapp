@@ -948,12 +948,13 @@ export default function RecurringWorkOrdersImportModal({
       let totalUpdated = 0;
       const allErrors: Array<{ row: number; error: string }> = [];
 
-      for (let i = 0; i < validRows.length; i++) {
-        setImportProgress({ current: i, total: validRows.length });
-        const row = validRows[i];
-        const importRow = toImportRow(row);
-        const requestBody = { rows: [importRow], mode: importMode };
-        console.log(`[Import] Row ${row.rowNumber} "${row.restaurant}" → locationId=${importRow.locationId || 'NONE'}`);
+      // Send rows in batches of 20 to minimize API round-trips (82 rows = 5 calls instead of 82)
+      const BATCH_SIZE = 20;
+      for (let batchStart = 0; batchStart < validRows.length; batchStart += BATCH_SIZE) {
+        setImportProgress({ current: batchStart, total: validRows.length });
+        const batchRows = validRows.slice(batchStart, batchStart + BATCH_SIZE);
+        const importRows = batchRows.map(toImportRow);
+        const requestBody = { rows: importRows, mode: importMode };
 
         try {
           const response = await fetch('/api/recurring-work-orders/import', {
@@ -973,13 +974,15 @@ export default function RecurringWorkOrdersImportModal({
           totalUpdated += result.updated ?? 0;
           if (result.errors && Array.isArray(result.errors)) {
             for (const e of result.errors) {
-              console.error(`[Import] Row ${row.rowNumber} "${row.restaurant}" API error:`, e.error || String(e));
-              allErrors.push({ row: row.rowNumber, error: e.error || String(e) });
+              allErrors.push({ row: e.row, error: e.error || String(e) });
             }
           }
         } catch (err: any) {
-          console.error(`[Import] Row ${row.rowNumber} "${row.restaurant}" FAILED:`, err.message);
-          allErrors.push({ row: row.rowNumber, error: err.message || 'Unknown error' });
+          console.error(`[Import] Batch starting at row ${batchStart + 1} FAILED:`, err.message);
+          // Mark all rows in this batch as errored
+          batchRows.forEach(row => {
+            allErrors.push({ row: row.rowNumber, error: err.message || 'Unknown error' });
+          });
         }
       }
 
@@ -1852,16 +1855,28 @@ export default function RecurringWorkOrdersImportModal({
           {isImporting && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-800">Importing...</span>
+                <span className="text-sm font-medium text-blue-800">
+                  {importProgress.current === 0
+                    ? `Sending ${importProgress.total} rows to server...`
+                    : importProgress.current >= importProgress.total
+                    ? 'Finishing up...'
+                    : `Processed ${importProgress.current} / ${importProgress.total} rows...`}
+                </span>
                 <span className="text-sm text-blue-600">
-                  {importProgress.current} / {importProgress.total}
+                  {importProgress.total
+                    ? `${Math.round((importProgress.current / importProgress.total) * 100)}%`
+                    : '0%'}
                 </span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
+              <div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  className={`h-2 rounded-full transition-all duration-500 ${
+                    importProgress.current === 0 ? 'animate-pulse bg-blue-400' : 'bg-blue-600'
+                  }`}
                   style={{
-                    width: `${importProgress.total ? (importProgress.current / importProgress.total) * 100 : 0}%`,
+                    width: importProgress.current === 0
+                      ? '15%'
+                      : `${importProgress.total ? (importProgress.current / importProgress.total) * 100 : 0}%`,
                   }}
                 />
               </div>
