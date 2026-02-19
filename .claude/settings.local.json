@@ -69,7 +69,8 @@
       "Bash(python3:*)",
       "Bash(pip3 install:*)",
       "WebFetch(domain:www.groundops.co)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(code:*)"
     ],
     "deny": [],
     "ask": []

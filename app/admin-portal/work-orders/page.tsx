@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, writeBatch } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
@@ -116,6 +116,7 @@ function WorkOrdersContent() {
   
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleteProgress, setDeleteProgress] = useState('');
 
   // Work order type selection modal
   const [showWorkOrderTypeModal, setShowWorkOrderTypeModal] = useState(false);
@@ -980,6 +981,10 @@ const handleLocationSelect = (locationId: string) => {
       let errorCount = 0;
       const errors: string[] = [];
 
+      // Batched writes — commit every 499 ops (Firestore limit is 500)
+      let currentBatch = writeBatch(db);
+      let batchOpCount = 0;
+
       // Process each row
       for (let i = 0; i < importPreview.length; i++) {
         const row = importPreview[i];
@@ -1222,13 +1227,28 @@ const handleLocationSelect = (locationId: string) => {
             },
           };
 
-          await addDoc(collection(db, 'workOrders'), workOrderData);
+          // Collect into current batch (batch.set requires a pre-generated ref)
+          const newRef = doc(collection(db, 'workOrders'));
+          currentBatch.set(newRef, workOrderData);
+          batchOpCount++;
           successCount++;
+
+          // Commit and start a new batch every 499 ops
+          if (batchOpCount >= 499) {
+            await currentBatch.commit();
+            currentBatch = writeBatch(db);
+            batchOpCount = 0;
+          }
         } catch (error: any) {
           errorCount++;
           errors.push(`Row ${i + 1}: ${error.message || 'Unknown error'}`);
           console.error(`Error importing row ${i + 1}:`, error);
         }
+      }
+
+      // Commit any remaining ops
+      if (batchOpCount > 0) {
+        await currentBatch.commit();
       }
 
       if (successCount > 0) {
@@ -1793,46 +1813,52 @@ const handleLocationSelect = (locationId: string) => {
 
   const performBulkDelete = async () => {
     if (selectedIds.length === 0) return;
+    const totalCount = selectedIds.length;
 
     try {
       setSubmitting(true);
-      const deletePromises = selectedIds.map(async (id) => {
-        // Delete related quotes
-        const quotesQuery = query(
-          collection(db, 'quotes'),
-          where('workOrderId', '==', id)
-        );
-        const quotesSnapshot = await getDocs(quotesQuery);
-        await Promise.all(quotesSnapshot.docs.map(d => deleteDoc(d.ref)));
+      setDeleteProgress('Fetching related records…');
 
-        // Delete related bidding work orders
-        const biddingQuery = query(
-          collection(db, 'biddingWorkOrders'),
-          where('workOrderId', '==', id)
-        );
-        const biddingSnapshot = await getDocs(biddingQuery);
-        await Promise.all(biddingSnapshot.docs.map(d => deleteDoc(d.ref)));
+      // Build chunks of 30 for Firestore 'in' queries
+      const IN_CHUNK = 30;
+      const idChunks: string[][] = [];
+      for (let i = 0; i < selectedIds.length; i += IN_CHUNK) {
+        idChunks.push(selectedIds.slice(i, i + IN_CHUNK));
+      }
 
-        // Delete related invoices
-        const invoicesQuery = query(
-          collection(db, 'invoices'),
-          where('workOrderId', '==', id)
-        );
-        const invoicesSnapshot = await getDocs(invoicesQuery);
-        await Promise.all(invoicesSnapshot.docs.map(d => deleteDoc(d.ref)));
+      // Fetch all related docs across all collections in parallel using 'in' queries
+      const [quoteSnaps, biddingSnaps, invoiceSnaps] = await Promise.all([
+        Promise.all(idChunks.map(chunk => getDocs(query(collection(db, 'quotes'), where('workOrderId', 'in', chunk))))),
+        Promise.all(idChunks.map(chunk => getDocs(query(collection(db, 'biddingWorkOrders'), where('workOrderId', 'in', chunk))))),
+        Promise.all(idChunks.map(chunk => getDocs(query(collection(db, 'invoices'), where('workOrderId', 'in', chunk))))),
+      ]);
 
-        // Delete the work order itself
-        await deleteDoc(doc(db, 'workOrders', id));
-      });
+      // Collect all refs to delete
+      const refsToDelete: any[] = [];
+      quoteSnaps.forEach(snap => snap.docs.forEach(d => refsToDelete.push(d.ref)));
+      biddingSnaps.forEach(snap => snap.docs.forEach(d => refsToDelete.push(d.ref)));
+      invoiceSnaps.forEach(snap => snap.docs.forEach(d => refsToDelete.push(d.ref)));
+      selectedIds.forEach(id => refsToDelete.push(doc(db, 'workOrders', id)));
 
-      await Promise.all(deletePromises);
+      // Commit deletes in batches of 500 (Firestore limit)
+      const BATCH_SIZE = 500;
+      const totalBatches = Math.ceil(refsToDelete.length / BATCH_SIZE);
+      for (let i = 0; i < refsToDelete.length; i += BATCH_SIZE) {
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        setDeleteProgress(`Deleting batch ${batchNum} / ${totalBatches}…`);
+        const batch = writeBatch(db);
+        refsToDelete.slice(i, i + BATCH_SIZE).forEach(ref => batch.delete(ref));
+        await batch.commit();
+      }
 
-      toast.success(`Successfully deleted ${selectedIds.length} work order${selectedIds.length > 1 ? 's' : ''} and all related data`);
+      toast.success(`Successfully deleted ${totalCount} work order${totalCount > 1 ? 's' : ''} and all related data`);
       setSelectedIds([]);
+      setDeleteProgress('');
       fetchWorkOrders();
     } catch (error) {
       console.error('Error deleting work orders:', error);
       toast.error('Failed to delete work orders');
+      setDeleteProgress('');
     } finally {
       setSubmitting(false);
     }
@@ -2059,15 +2085,20 @@ const filteredLocationsForForm = locations.filter((location) => {
           </div>
 
           {selectedIds.length > 0 && (
-            <Button
-              variant="destructive"
-              onClick={handleBulkDelete}
-              disabled={submitting}
-              className="w-full sm:w-auto"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Selected ({selectedIds.length})
-            </Button>
+            <div className="flex items-center gap-3">
+              {deleteProgress && (
+                <span className="text-sm text-gray-500">{deleteProgress}</span>
+              )}
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={submitting}
+                className="w-full sm:w-auto"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {submitting && deleteProgress ? deleteProgress : `Delete Selected (${selectedIds.length})`}
+              </Button>
+            </div>
           )}
         </div>
 
