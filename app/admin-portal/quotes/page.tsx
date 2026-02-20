@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
 import { notifyQuoteSubmission } from '@/lib/notifications';
 import { useViewControls } from '@/contexts/view-controls-context';
+import ProposalDecisionEngine from '@/components/proposal-decision-engine';
 
 interface LineItem {
   description: string;
@@ -578,6 +579,13 @@ function QuotesContent() {
                     <div><span className="font-semibold">From:</span> {quote.subcontractorName}</div>
                     <div><span className="font-semibold">Client:</span> {quote.clientName}</div>
                   </div>
+
+                  {/* AI Decision Engine */}
+                  <ProposalDecisionEngine
+                    quote={quote}
+                    allQuotes={quotes}
+                    onApprove={quote.status === 'pending' ? () => { setSelectedQuote(quote); setMarkupPercent('20'); } : undefined}
+                  />
 
                   {/* Cost Breakdown */}
                   <div className="bg-gray-50 p-3 rounded-lg space-y-1 text-sm">

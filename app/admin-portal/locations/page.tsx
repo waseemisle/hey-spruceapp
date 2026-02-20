@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, MapPin, Building, User, Phone, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle, XCircle, MapPin, Building, Building2, User, Phone, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 
@@ -577,6 +578,12 @@ export default function LocationsManagement() {
                   )}
 
                   <div className="flex flex-wrap gap-2 pt-4">
+                    <Link href={`/admin-portal/locations/${location.id}`}>
+                      <Button size="sm" variant="outline" className="min-w-[80px]">
+                        <Building2 className="h-4 w-4 sm:mr-2" />
+                        <span className="hidden sm:inline">View</span>
+                      </Button>
+                    </Link>
                     <Button
                       size="sm"
                       variant="outline"

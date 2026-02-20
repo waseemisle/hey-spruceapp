@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import AccountSettingsDialog from './account-settings-dialog';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
-  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle, ChevronDown, ChevronRight, BarChart2
+  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle, ChevronDown, ChevronRight, BarChart2, Search, Package, Award
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 
@@ -99,6 +99,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const firebaseReady = !!auth;
+  // Firebase not configured (e.g. missing env vars on Vercel) — show clear error and do not render app
+  if (!firebaseReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="max-w-md text-center space-y-4">
+          <h1 className="text-xl font-semibold text-foreground">Firebase not configured</h1>
+          <p className="text-muted-foreground">
+            Set your Firebase environment variables so the app can connect. For local development, add them to <code className="bg-muted px-1 rounded text-sm">.env.local</code>. For production (e.g. Vercel), add them in your project&apos;s Environment Variables.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Required: <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_API_KEY</code>, <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN</code>, <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_PROJECT_ID</code>, and the other <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_*</code> variables.
+          </p>
         </div>
       </div>
     );
@@ -371,6 +389,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <FileText className="h-5 w-5 flex-shrink-0" />
               <span>Quotes</span>
             </Link>
+            <Link
+              href="/admin-portal/rfps"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <FileText className="h-5 w-5 flex-shrink-0" />
+              <span>RFPs</span>
+            </Link>
 
             <Link
               href="/admin-portal/messages"
@@ -386,11 +411,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
 
             <Link
+              href="/admin-portal/provider-search"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Search className="h-5 w-5 flex-shrink-0" />
+              <span>Provider Search</span>
+            </Link>
+            <Link
+              href="/admin-portal/contractor-scorecard"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Award className="h-5 w-5 flex-shrink-0" />
+              <span>Contractor Scorecard</span>
+            </Link>
+
+            <Link
               href="/admin-portal/reports"
               className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
             >
               <BarChart2 className="h-5 w-5 flex-shrink-0" />
               <span>Reports</span>
+            </Link>
+            <Link
+              href="/admin-portal/analytics"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <BarChart2 className="h-5 w-5 flex-shrink-0" />
+              <span>Analytics</span>
+            </Link>
+            <Link
+              href="/admin-portal/assets"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Package className="h-5 w-5 flex-shrink-0" />
+              <span>Assets</span>
             </Link>
           </nav>
         </aside>
@@ -586,6 +640,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <FileText className="h-5 w-5 flex-shrink-0" />
               <span>Quotes</span>
             </Link>
+            <Link
+              href="/admin-portal/rfps"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <FileText className="h-5 w-5 flex-shrink-0" />
+              <span>RFPs</span>
+            </Link>
 
             <Link
               href="/admin-portal/messages"
@@ -602,12 +664,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
 
             <Link
+              href="/admin-portal/provider-search"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Search className="h-5 w-5 flex-shrink-0" />
+              <span>Provider Search</span>
+            </Link>
+            <Link
+              href="/admin-portal/contractor-scorecard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Award className="h-5 w-5 flex-shrink-0" />
+              <span>Contractor Scorecard</span>
+            </Link>
+
+            <Link
               href="/admin-portal/reports"
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
             >
               <BarChart2 className="h-5 w-5 flex-shrink-0" />
               <span>Reports</span>
+            </Link>
+            <Link
+              href="/admin-portal/analytics"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <BarChart2 className="h-5 w-5 flex-shrink-0" />
+              <span>Analytics</span>
+            </Link>
+            <Link
+              href="/admin-portal/assets"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Package className="h-5 w-5 flex-shrink-0" />
+              <span>Assets</span>
             </Link>
           </nav>
         </aside>

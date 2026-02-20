@@ -477,6 +477,11 @@ const fetchCategories = async () => {
     window.location.href = '/admin-portal/recurring-work-orders/create';
   };
 
+  const handleCreateGuidedWorkOrder = () => {
+    setShowWorkOrderTypeModal(false);
+    window.location.href = '/admin-portal/work-orders/create/guided';
+  };
+
 const handleCompanySelect = (companyId: string) => {
   setFormData((prev) => ({
     ...prev,
@@ -2885,6 +2890,16 @@ const filteredLocationsForForm = locations.filter((location) => {
                     <div className="font-semibold text-lg text-gray-900">Recurring Work Order</div>
                     <div className="text-sm text-gray-600 mt-1">
                       Create a recurring work order that repeats automatically (daily, weekly, monthly, yearly, or custom)
+                    </div>
+                  </button>
+
+                  <button
+                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
+                    onClick={handleCreateGuidedWorkOrder}
+                  >
+                    <div className="font-semibold text-lg text-gray-900">Guided Work Order</div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      Step-by-step wizard with location, problem search, duplicate detection, and troubleshooting tips
                     </div>
                   </button>
                 </div>

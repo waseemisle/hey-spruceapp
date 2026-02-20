@@ -10,6 +10,7 @@ export async function calculateWorkOrdersData(
   companyId?: string
 ) {
   const dbInstance = db || defaultDb;
+  if (!dbInstance) return getEmptyWorkOrdersData();
   try {
     let workOrdersQuery;
 
@@ -205,8 +206,16 @@ export async function calculateProposalsData(
   db?: Firestore,
   companyId?: string
 ) {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) {
+    return {
+      pendingApproval: { urgent: 0, total: 0 },
+      onHold: 0,
+      rejected: 0,
+      approved: 0,
+    };
+  }
   try {
-    const dbInstance = db || defaultDb;
     let quotesQuery;
 
     // Build query based on portal type
@@ -294,8 +303,16 @@ export async function calculateInvoicesData(
   db?: Firestore,
   companyId?: string
 ) {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) {
+    return {
+      completedNotInvoiced: 0,
+      openReviewed: { count: 0, amount: '0.00', mixedCurrency: false },
+      onHold: { count: 0, amount: '0.00' },
+      rejected: { count: 0, amount: '0.00' },
+    };
+  }
   try {
-    const dbInstance = db || defaultDb;
     let invoicesQuery;
     let workOrdersQuery;
 
@@ -445,8 +462,11 @@ function processInvoicesData(invoices: DocumentData[], completedWorkOrders: Docu
 
 // Bidding Work Orders Data Calculation
 export async function calculateBiddingWorkOrdersData(userId: string, db?: Firestore) {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) {
+    return { pending: 0, quoteSubmitted: 0, total: 0 };
+  }
   try {
-    const dbInstance = db || defaultDb;
     const biddingQuery = query(
       collection(dbInstance, 'biddingWorkOrders'),
       where('subcontractorId', '==', userId)
@@ -487,8 +507,11 @@ function processBiddingWorkOrdersData(biddingWorkOrders: DocumentData[]) {
 
 // My Quotes Data Calculation
 export async function calculateMyQuotesData(userId: string, db?: Firestore) {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) {
+    return { pending: 0, underReview: 0, accepted: 0, rejected: 0, total: 0 };
+  }
   try {
-    const dbInstance = db || defaultDb;
     const quotesQuery = query(
       collection(dbInstance, 'quotes'),
       where('subcontractorId', '==', userId)
@@ -539,8 +562,11 @@ function processMyQuotesData(quotes: DocumentData[]) {
 
 // Assigned Jobs Data Calculation
 export async function calculateAssignedJobsData(userId: string, db?: Firestore) {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) {
+    return { pendingAcceptance: 0, accepted: 0, inProgress: 0, completed: 0, total: 0 };
+  }
   try {
-    const dbInstance = db || defaultDb;
     const assignedQuery = query(
       collection(dbInstance, 'assignedJobs'),
       where('subcontractorId', '==', userId)

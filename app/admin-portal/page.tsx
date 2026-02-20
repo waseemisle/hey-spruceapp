@@ -76,8 +76,9 @@ export default function AdminDashboard() {
     selectedCompanyIdRef.current = selectedCompanyId;
   }, [selectedCompanyId]);
 
-  // Fetch companies on mount
+  // Fetch companies on mount (skip when Firebase not initialized)
   useEffect(() => {
+    if (!db) return;
     const fetchCompanies = async () => {
       try {
         const snapshot = await getDocs(collection(db, 'companies'));
@@ -105,6 +106,7 @@ export default function AdminDashboard() {
 
   // When company changes, fetch its client IDs and refresh dashboard data
   useEffect(() => {
+    if (!db) return;
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
       return;
@@ -145,8 +147,12 @@ export default function AdminDashboard() {
     refresh();
   }, [selectedCompanyId]);
 
-  // Initial fetch + real-time listeners
+  // Initial fetch + real-time listeners (skip when Firebase not initialized)
   useEffect(() => {
+    if (!db) {
+      setLoading(false);
+      return;
+    }
     const fetchDashboardData = async () => {
       try {
         const companyId = selectedCompanyIdRef.current || undefined;

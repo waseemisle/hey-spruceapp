@@ -70,7 +70,15 @@
       "Bash(pip3 install:*)",
       "WebFetch(domain:www.groundops.co)",
       "Bash(node:*)",
-      "Bash(code:*)"
+      "Bash(code:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(sudo apt-get install:*)",
+      "Bash(snap install:*)",
+      "Bash(# Get video info and duration using gst-discoverer or python gstreamer python3 -c \"\" import gi gi.require_version\\(''Gst'', ''1.0''\\) gi.require_version\\(''GstPbutils'', ''1.0''\\) from gi.repository import Gst, GstPbutils, GLib Gst.init\\(None\\) uri = ''file:///home/waseem/Desktop/hey-spruceapp/ServiceChannel/servicechannelvideo.mp4'' disco = GstPbutils.Discoverer.new\\(10 * Gst.SECOND\\) info = disco.discover_uri\\(uri\\) dur = info.get_duration\\(\\) / Gst.SECOND print\\(f''Duration: {dur:.1f} seconds''\\) \"\" || gst-discoverer-1.0 /home/waseem/Desktop/hey-spruceapp/ServiceChannel/servicechannelvideo.mp4 2>&1)",
+      "Bash(ffprobe:*)",
+      "Bash(pip install:*)",
+      "WebFetch(domain:servicechannel.com)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []
