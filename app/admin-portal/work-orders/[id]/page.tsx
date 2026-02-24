@@ -6,6 +6,8 @@ import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X } from 'lucide-react';
@@ -128,6 +130,17 @@ export default function ViewWorkOrder() {
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
   const [biddingSubmitting, setBiddingSubmitting] = useState(false);
+
+  // Inline edit mode
+  const [editMode, setEditMode] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: '', description: '', category: '', priority: 'medium', status: 'pending',
+    estimateBudget: '', clientId: '', locationId: '', scheduledServiceDate: '', scheduledServiceTime: '',
+  });
+  const [editClients, setEditClients] = useState<{ id: string; fullName: string; email: string }[]>([]);
+  const [editLocations, setEditLocations] = useState<{ id: string; locationName: string; clientId?: string; companyId?: string }[]>([]);
+  const [editCategories, setEditCategories] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     const fetchWorkOrder = async () => {
@@ -398,6 +411,79 @@ export default function ViewWorkOrder() {
     }
   };
 
+  const enterEditMode = async () => {
+    if (!workOrder) return;
+    setEditForm({
+      title: workOrder.title || '',
+      description: workOrder.description || '',
+      category: workOrder.category || '',
+      priority: workOrder.priority || 'medium',
+      status: workOrder.status || 'pending',
+      estimateBudget: workOrder.estimateBudget != null ? String(workOrder.estimateBudget) : '',
+      clientId: workOrder.clientId || '',
+      locationId: workOrder.locationId || '',
+      scheduledServiceDate: workOrder.scheduledServiceDate?.toDate
+        ? workOrder.scheduledServiceDate.toDate().toISOString().split('T')[0]
+        : '',
+      scheduledServiceTime: workOrder.scheduledServiceTime || '',
+    });
+    const [clientsSnap, locationsSnap, categoriesSnap] = await Promise.all([
+      getDocs(collection(db, 'clients')),
+      getDocs(collection(db, 'locations')),
+      getDocs(collection(db, 'categories')),
+    ]);
+    setEditClients(clientsSnap.docs.map(d => ({ id: d.id, fullName: d.data().fullName, email: d.data().email })));
+    setEditLocations(locationsSnap.docs.map(d => ({ id: d.id, locationName: d.data().locationName, clientId: d.data().clientId, companyId: d.data().companyId })));
+    setEditCategories(categoriesSnap.docs.map(d => ({ id: d.id, name: d.data().name })));
+    setEditMode(true);
+    setActiveTab('overview');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!workOrder) return;
+    setEditSaving(true);
+    try {
+      const selectedClient = editClients.find(c => c.id === editForm.clientId);
+      const selectedLocation = editLocations.find(l => l.id === editForm.locationId);
+      const updates: any = {
+        title: editForm.title,
+        description: editForm.description,
+        category: editForm.category,
+        priority: editForm.priority,
+        status: editForm.status,
+        estimateBudget: editForm.estimateBudget ? parseFloat(editForm.estimateBudget) : null,
+        updatedAt: serverTimestamp(),
+      };
+      if (selectedClient) {
+        updates.clientId = selectedClient.id;
+        updates.clientName = selectedClient.fullName;
+        updates.clientEmail = selectedClient.email;
+      }
+      if (selectedLocation) {
+        updates.locationId = selectedLocation.id;
+        updates.locationName = selectedLocation.locationName;
+      }
+      if (editForm.scheduledServiceDate) {
+        updates.scheduledServiceDate = new Date(editForm.scheduledServiceDate);
+      }
+      if (editForm.scheduledServiceTime) {
+        updates.scheduledServiceTime = editForm.scheduledServiceTime;
+      }
+      await updateDoc(doc(db, 'workOrders', workOrder.id), updates);
+      setWorkOrder(prev => prev ? {
+        ...prev, ...updates,
+        scheduledServiceDate: editForm.scheduledServiceDate ? { toDate: () => new Date(editForm.scheduledServiceDate) } : prev.scheduledServiceDate,
+      } : prev);
+      toast.success('Work order updated successfully');
+      setEditMode(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save changes');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const handleShareForBidding = async () => {
     if (!workOrder) return;
     try {
@@ -598,15 +684,49 @@ export default function ViewWorkOrder() {
             </Button>
           </Link>
           <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-foreground truncate">{workOrder.title}</h1>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getStatusColor(workOrder.status)}`}>
-                {workOrder.status.replace(/_/g, ' ').toUpperCase()}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getPriorityColor(workOrder.priority)}`}>
-                {workOrder.priority.toUpperCase()}
-              </span>
-            </div>
+            {editMode ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <Input
+                  value={editForm.title}
+                  onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                  className="text-xl font-bold h-10 max-w-sm"
+                  placeholder="Work Order Title"
+                />
+                <select
+                  value={editForm.status}
+                  onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
+                  className="border rounded-md px-3 py-1.5 text-sm font-medium"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="bidding">Bidding</option>
+                  <option value="quotes_received">Quotes Received</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="accepted_by_subcontractor">Accepted by Sub</option>
+                  <option value="completed">Completed</option>
+                </select>
+                <select
+                  value={editForm.priority}
+                  onChange={e => setEditForm(f => ({ ...f, priority: e.target.value }))}
+                  className="border rounded-md px-3 py-1.5 text-sm font-medium"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold text-foreground truncate">{workOrder.title}</h1>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getStatusColor(workOrder.status)}`}>
+                  {workOrder.status.replace(/_/g, ' ').toUpperCase()}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getPriorityColor(workOrder.priority)}`}>
+                  {workOrder.priority.toUpperCase()}
+                </span>
+              </div>
+            )}
             <p className="text-muted-foreground text-sm mt-0.5">
               WO #{workOrder.workOrderNumber} &nbsp;·&nbsp;
               <span className="flex-inline items-center gap-1">
@@ -632,12 +752,21 @@ export default function ViewWorkOrder() {
                 </Button>
               </Link>
             )}
-            <Link href={`/admin-portal/work-orders?editId=${workOrder.id}`}>
-              <Button size="sm" variant="outline">
+            {!editMode ? (
+              <Button size="sm" variant="outline" onClick={enterEditMode}>
                 <Edit2 className="h-4 w-4 mr-2" />
                 Edit
               </Button>
-            </Link>
+            ) : (
+              <>
+                <Button size="sm" onClick={handleSaveEdit} loading={editSaving} disabled={editSaving}>
+                  Save Changes
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditMode(false)} disabled={editSaving}>
+                  Cancel
+                </Button>
+              </>
+            )}
             {workOrder.status === 'completed' && workOrder.ratingCompleteToSpecs === undefined && (
               <Button size="sm" onClick={() => setShowRatingDialog(true)}>
                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -738,40 +867,82 @@ export default function ViewWorkOrder() {
                   <CardContent className="space-y-4">
                     <div>
                       <h3 className="font-semibold text-muted-foreground text-sm mb-1">Description</h3>
-                      <p className="text-foreground">{workOrder.description}</p>
+                      {editMode ? (
+                        <Textarea
+                          value={editForm.description}
+                          onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                          className="min-h-[100px] resize-none"
+                          placeholder="Detailed description of the work needed..."
+                        />
+                      ) : (
+                        <p className="text-foreground">{workOrder.description}</p>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <h3 className="font-semibold text-muted-foreground text-sm mb-1">Category</h3>
-                        <p className="text-foreground">{workOrder.category}</p>
-                      </div>
-                      {workOrder.estimateBudget && (
-                        <div>
-                          <h3 className="font-semibold text-muted-foreground text-sm mb-1">Estimate Budget</h3>
-                          <p className="text-foreground font-semibold">${workOrder.estimateBudget.toLocaleString()}</p>
-                        </div>
-                      )}
-                    </div>
-                    {workOrder.scheduledServiceDate && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Date</h3>
-                          <p className="text-foreground flex items-center gap-1">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'}
-                          </p>
-                        </div>
-                        {workOrder.scheduledServiceTime && (
-                          <div>
-                            <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Time</h3>
-                            <p className="text-foreground flex items-center gap-1">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              {workOrder.scheduledServiceTime}
-                            </p>
-                          </div>
+                        {editMode ? (
+                          <select
+                            value={editForm.category}
+                            onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                            className="w-full border rounded-md p-2 text-sm"
+                          >
+                            <option value="">Select category...</option>
+                            {editCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </select>
+                        ) : (
+                          <p className="text-foreground">{workOrder.category}</p>
                         )}
                       </div>
-                    )}
+                      <div>
+                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Estimate Budget</h3>
+                        {editMode ? (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editForm.estimateBudget}
+                            onChange={e => setEditForm(f => ({ ...f, estimateBudget: e.target.value }))}
+                            placeholder="e.g., 5000"
+                            onWheel={e => e.currentTarget.blur()}
+                          />
+                        ) : (
+                          workOrder.estimateBudget
+                            ? <p className="text-foreground font-semibold">${workOrder.estimateBudget.toLocaleString()}</p>
+                            : <p className="text-muted-foreground text-sm">Not set</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Date</h3>
+                        {editMode ? (
+                          <Input
+                            type="date"
+                            value={editForm.scheduledServiceDate}
+                            onChange={e => setEditForm(f => ({ ...f, scheduledServiceDate: e.target.value }))}
+                          />
+                        ) : (
+                          workOrder.scheduledServiceDate
+                            ? <p className="text-foreground flex items-center gap-1"><Calendar className="h-4 w-4 text-muted-foreground" />{workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'}</p>
+                            : <p className="text-muted-foreground text-sm">Not scheduled</p>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Time</h3>
+                        {editMode ? (
+                          <Input
+                            type="time"
+                            value={editForm.scheduledServiceTime}
+                            onChange={e => setEditForm(f => ({ ...f, scheduledServiceTime: e.target.value }))}
+                          />
+                        ) : (
+                          workOrder.scheduledServiceTime
+                            ? <p className="text-foreground flex items-center gap-1"><Clock className="h-4 w-4 text-muted-foreground" />{workOrder.scheduledServiceTime}</p>
+                            : <p className="text-muted-foreground text-sm">Not set</p>
+                        )}
+                      </div>
+                    </div>
                     {workOrder.rejectionReason && (
                       <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
                         <h3 className="font-semibold text-destructive mb-2 flex items-center gap-1">
@@ -786,6 +957,12 @@ export default function ViewWorkOrder() {
                           <CheckCircle className="h-4 w-4" /> Completion Details
                         </h3>
                         <p className="text-green-700 dark:text-green-300 text-sm whitespace-pre-wrap">{workOrder.completionDetails}</p>
+                      </div>
+                    )}
+                    {editMode && (
+                      <div className="flex gap-3 pt-2 border-t">
+                        <Button onClick={handleSaveEdit} loading={editSaving} disabled={editSaving}>Save Changes</Button>
+                        <Button variant="outline" onClick={() => setEditMode(false)} disabled={editSaving}>Cancel</Button>
                       </div>
                     )}
                   </CardContent>
@@ -823,17 +1000,49 @@ export default function ViewWorkOrder() {
                 <Card>
                   <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Client</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <div><p className="text-muted-foreground">Name</p><p className="font-semibold">{getWorkOrderClientDisplayName(workOrder)}</p></div>
-                    <div><p className="text-muted-foreground">Email</p><p className="font-semibold">{workOrder.clientEmail}</p></div>
-                    {workOrder.appyRequestor && <div><p className="text-muted-foreground">APPY Requestor</p><p className="font-semibold">{workOrder.appyRequestor}</p></div>}
+                    {editMode ? (
+                      <div>
+                        <Label className="text-muted-foreground">Client</Label>
+                        <select
+                          value={editForm.clientId}
+                          onChange={e => setEditForm(f => ({ ...f, clientId: e.target.value }))}
+                          className="w-full border rounded-md p-2 text-sm mt-1"
+                        >
+                          <option value="">Choose a client...</option>
+                          {editClients.map(c => <option key={c.id} value={c.id}>{c.fullName} ({c.email})</option>)}
+                        </select>
+                      </div>
+                    ) : (
+                      <>
+                        <div><p className="text-muted-foreground">Name</p><p className="font-semibold">{getWorkOrderClientDisplayName(workOrder)}</p></div>
+                        <div><p className="text-muted-foreground">Email</p><p className="font-semibold">{workOrder.clientEmail}</p></div>
+                        {workOrder.appyRequestor && <div><p className="text-muted-foreground">APPY Requestor</p><p className="font-semibold">{workOrder.appyRequestor}</p></div>}
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Location</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
-                    <div><p className="text-muted-foreground">Location Name</p><p className="font-semibold">{workOrder.locationName}</p></div>
-                    <div><p className="text-muted-foreground">Address</p><p className="font-semibold">{formatAddress(workOrder.locationAddress)}</p></div>
+                    {editMode ? (
+                      <div>
+                        <Label className="text-muted-foreground">Location</Label>
+                        <select
+                          value={editForm.locationId}
+                          onChange={e => setEditForm(f => ({ ...f, locationId: e.target.value }))}
+                          className="w-full border rounded-md p-2 text-sm mt-1"
+                        >
+                          <option value="">Choose a location...</option>
+                          {editLocations.map(l => <option key={l.id} value={l.id}>{l.locationName}</option>)}
+                        </select>
+                      </div>
+                    ) : (
+                      <>
+                        <div><p className="text-muted-foreground">Location Name</p><p className="font-semibold">{workOrder.locationName}</p></div>
+                        <div><p className="text-muted-foreground">Address</p><p className="font-semibold">{formatAddress(workOrder.locationAddress)}</p></div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
