@@ -186,7 +186,23 @@ export async function POST(request: NextRequest) {
       // Create the Standard Work Order
       const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);
       console.log(`Created Standard Work Order ${standardWorkOrderNumber} (ID: ${standardWorkOrderRef.id}) for Execution #${executionNumber}`);
-      
+
+      // Send email notifications to admins with work order emails enabled
+      fetch(`${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/email/send-work-order-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workOrderId: standardWorkOrderRef.id,
+          workOrderNumber: standardWorkOrderNumber,
+          title: standardWorkOrderData.title,
+          clientName: recurringWorkOrder.clientName,
+          locationName: recurringWorkOrder.locationName,
+          priority: recurringWorkOrder.priority,
+          workOrderType: 'recurring',
+          description: recurringWorkOrder.description,
+        }),
+      }).catch(err => console.error('Failed to send recurring WO notification emails:', err));
+
       // Create Stripe payment link
       const stripePaymentLink = await createStripePaymentLink({
         amount: recurringWorkOrder.estimateBudget || 0,

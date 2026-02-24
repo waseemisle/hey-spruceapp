@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Phone, Plus, Edit2, Save, X, Search, Trash2, ShieldCheck } from 'lucide-react';
+import { User, Mail, Phone, Plus, Edit2, Save, X, Search, Trash2, ShieldCheck, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AdminUser {
@@ -17,6 +17,7 @@ interface AdminUser {
   fullName: string;
   phone: string;
   createdAt: any;
+  workOrderEmailNotifications: boolean;
 }
 
 export default function AdminUsersManagement() {
@@ -39,9 +40,10 @@ export default function AdminUsersManagement() {
     try {
       const adminsQuery = query(collection(db, 'adminUsers'));
       const snapshot = await getDocs(adminsQuery);
-      const adminsData = snapshot.docs.map(doc => ({
-        ...doc.data(),
-        uid: doc.id,
+      const adminsData = snapshot.docs.map(docSnap => ({
+        ...docSnap.data(),
+        uid: docSnap.id,
+        workOrderEmailNotifications: docSnap.data().workOrderEmailNotifications !== false,
       })) as AdminUser[];
       setAdminUsers(adminsData);
     } catch (error) {
@@ -161,6 +163,23 @@ export default function AdminUsersManagement() {
     }
   };
 
+  const handleToggleWorkOrderEmail = async (admin: AdminUser) => {
+    const newValue = !admin.workOrderEmailNotifications;
+    try {
+      await updateDoc(doc(db, 'adminUsers', admin.uid), {
+        workOrderEmailNotifications: newValue,
+        updatedAt: serverTimestamp(),
+      });
+      setAdminUsers(prev =>
+        prev.map(a => a.uid === admin.uid ? { ...a, workOrderEmailNotifications: newValue } : a)
+      );
+      toast.success(`Work order email notifications ${newValue ? 'enabled' : 'disabled'} for ${admin.fullName}`);
+    } catch (error) {
+      console.error('Error updating notification preference:', error);
+      toast.error('Failed to update notification preference');
+    }
+  };
+
   const filteredAdmins = adminUsers.filter(admin => {
     const searchLower = searchQuery.toLowerCase();
     return !searchQuery ||
@@ -232,6 +251,27 @@ export default function AdminUsersManagement() {
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Phone className="h-4 w-4" />
                     <span>{admin.phone}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-t border-gray-100 mt-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <Bell className="h-4 w-4 text-blue-500" />
+                      <span>Work Order Emails</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleWorkOrderEmail(admin)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                        admin.workOrderEmailNotifications ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                      title={admin.workOrderEmailNotifications ? 'Disable work order email notifications' : 'Enable work order email notifications'}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          admin.workOrderEmailNotifications ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
                   </div>
 
                   <div className="flex gap-2 pt-4">

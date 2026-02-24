@@ -577,51 +577,52 @@ export async function POST(request: Request) {
 
       await Promise.all(notificationPromises);
 
-      // Send email to all admins
+      // Send email to admins who have work order email notifications enabled
       for (const adminDoc of adminsSnapshot.docs) {
         const adminData = adminDoc.data();
         const adminEmail = adminData.email;
         const adminName = adminData.fullName || 'Admin';
 
-        if (adminEmail) {
-          try {
-            // Format date for email - convert to ISO string if it's a Date object, otherwise use as-is
-            let dateForEmail: string | undefined;
-            if (date) {
-              try {
-                const dateObj = date instanceof Date ? date : new Date(date);
-                if (!isNaN(dateObj.getTime())) {
-                  dateForEmail = dateObj.toISOString();
-                } else {
-                  console.warn('Invalid date received, using current date for email');
-                  dateForEmail = new Date().toISOString();
-                }
-              } catch (dateError) {
-                console.error('Error processing date for email:', dateError);
-                dateForEmail = new Date().toISOString(); // Fallback to current date
-              }
-            }
+        // Skip admins who have explicitly disabled work order email notifications
+        if (!adminEmail || adminData.workOrderEmailNotifications === false) continue;
 
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/email/send-maint-request-notification`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                toEmail: adminEmail,
-                toName: adminName,
-                maintRequestId: docRef.id,
-                venue: venue,
-                requestor: requestor,
-                title: title,
-                description: description,
-                priority: priority,
-                date: dateForEmail,
-                portalLink: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin-portal/work-orders`,
-              }),
-            });
-          } catch (emailError) {
-            console.error('Failed to send email to admin:', adminEmail, emailError);
-            // Don't fail the whole request if email fails
+        try {
+          // Format date for email - convert to ISO string if it's a Date object, otherwise use as-is
+          let dateForEmail: string | undefined;
+          if (date) {
+            try {
+              const dateObj = date instanceof Date ? date : new Date(date);
+              if (!isNaN(dateObj.getTime())) {
+                dateForEmail = dateObj.toISOString();
+              } else {
+                console.warn('Invalid date received, using current date for email');
+                dateForEmail = new Date().toISOString();
+              }
+            } catch (dateError) {
+              console.error('Error processing date for email:', dateError);
+              dateForEmail = new Date().toISOString(); // Fallback to current date
+            }
           }
+
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/email/send-maint-request-notification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: adminEmail,
+              toName: adminName,
+              maintRequestId: docRef.id,
+              venue: venue,
+              requestor: requestor,
+              title: title,
+              description: description,
+              priority: priority,
+              date: dateForEmail,
+              portalLink: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin-portal/work-orders`,
+            }),
+          });
+        } catch (emailError) {
+          console.error('Failed to send email to admin:', adminEmail, emailError);
+          // Don't fail the whole request if email fails
         }
       }
 

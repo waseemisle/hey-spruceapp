@@ -295,8 +295,24 @@ export default function CreateWorkOrder() {
         workOrderNumber,
       });
 
-      // Notify all admins
+      // Notify all admins (in-app)
       await notifyAdminsOfWorkOrder(workOrderRef.id, workOrderNumber, clientData.fullName || clientData.companyName || 'Client');
+
+      // Send email notifications to admins with work order emails enabled
+      fetch('/api/email/send-work-order-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workOrderId: workOrderRef.id,
+          workOrderNumber,
+          title: formData.title,
+          clientName: clientData.fullName || clientData.companyName || 'Client',
+          locationName: locationData.locationName || locationData.name || 'Unnamed Location',
+          priority: formData.priority,
+          workOrderType: 'standard',
+          description: formData.description,
+        }),
+      }).catch(err => console.error('Failed to send work order notification emails:', err));
 
       toast.success('Work order created successfully! Awaiting admin approval.');
       router.push('/client-portal/work-orders');

@@ -233,6 +233,22 @@ export default function GuidedWorkOrderCreate() {
         assignedSubcontractorName: serviceProviderId ? subcontractors.find((s) => s.id === serviceProviderId)?.fullName : null,
       });
 
+      // Send email notifications to admins with work order emails enabled
+      fetch('/api/email/send-work-order-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workOrderId: docRef.id,
+          workOrderNumber,
+          title,
+          clientName: client?.fullName || 'Client',
+          locationName: selectedLocation.locationName,
+          priority,
+          workOrderType: 'standard',
+          description: description.trim(),
+        }),
+      }).catch(err => console.error('Failed to send work order notification emails:', err));
+
       toast.success('Work order created successfully');
       router.push(`/admin-portal/work-orders/${docRef.id}`);
     } catch (e: any) {
