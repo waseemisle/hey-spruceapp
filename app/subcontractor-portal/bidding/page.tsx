@@ -497,11 +497,19 @@ export default function SubcontractorBidding() {
                   <p className="text-xs text-gray-500 mb-4">At least one line item with a description and amount is required</p>
 
                   <div className="space-y-3">
+                    {/* Column headers */}
+                    <div className="grid grid-cols-12 gap-3 px-1">
+                      <div className="col-span-5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</div>
+                      <div className="col-span-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qty</div>
+                      <div className="col-span-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Unit Price</div>
+                      <div className="col-span-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</div>
+                      <div className="col-span-1"></div>
+                    </div>
                     {lineItems.map((item, index) => (
-                      <div key={index} className="grid grid-cols-12 gap-3 items-end">
+                      <div key={index} className="grid grid-cols-12 gap-3 items-center">
                         <div className="col-span-5">
                           <Input
-                            placeholder="Description *"
+                            placeholder="e.g. Labor Cost"
                             value={item.description}
                             onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
                             required
