@@ -610,7 +610,7 @@ export default function SubcontractorBidding() {
                   <Button
                     type="button"
                     onClick={handleSubmitQuote}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                     className="bg-green-600 hover:bg-green-700"
                   >
                     {submitting ? 'Submitting...' : 'Submit Quote'}

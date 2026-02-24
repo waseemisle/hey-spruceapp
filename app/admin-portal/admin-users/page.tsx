@@ -358,7 +358,7 @@ export default function AdminUsersManagement() {
                   <Button
                     className="flex-1"
                     onClick={handleSubmit}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                   >
                     <Save className="h-4 w-4 mr-2" />
                     {submitting ? 'Saving...' : (editingId ? 'Update' : 'Create')}
@@ -366,7 +366,7 @@ export default function AdminUsersManagement() {
                   <Button
                     variant="outline"
                     onClick={resetForm}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                   >
                     Cancel
                   </Button>

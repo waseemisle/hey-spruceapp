@@ -319,11 +319,11 @@ export default function AdminCompanies() {
                   </div>
                 </div>
                 <div className="flex gap-3 pt-4 border-t">
-                  <Button className="flex-1" onClick={handleSave} disabled={saving}>
+                  <Button className="flex-1" onClick={handleSave} loading={saving} disabled={saving}>
                     <Save className="h-4 w-4 mr-2" />
                     {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
                   </Button>
-                  <Button variant="outline" onClick={() => setShowModal(false)} disabled={saving}>
+                  <Button variant="outline" onClick={() => setShowModal(false)} loading={saving} disabled={saving}>
                     Cancel
                   </Button>
                 </div>

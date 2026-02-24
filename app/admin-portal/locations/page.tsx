@@ -800,7 +800,7 @@ export default function LocationsManagement() {
                   <Button
                     className="flex-1 w-full sm:w-auto"
                     onClick={handleSubmit}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                   >
                     <Save className="h-4 w-4 mr-2" />
                     {submitting ? 'Saving...' : (editingId ? 'Update' : 'Create')}
@@ -808,7 +808,7 @@ export default function LocationsManagement() {
                   <Button
                     variant="outline"
                     onClick={resetForm}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                     className="w-full sm:w-auto"
                   >
                     Cancel

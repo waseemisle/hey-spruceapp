@@ -662,7 +662,7 @@ export default function ReportsPage() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={fetchAll} loading={loading} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowSaveDialog(v => !v)}>

@@ -287,7 +287,7 @@ export default function LocationMapPage() {
             <Button
               onClick={handleCreatePredefinedMappings}
               variant="outline"
-              disabled={submitting}
+              loading={submitting} disabled={submitting}
               className="w-full sm:w-auto"
             >
               <MapPin className="h-4 w-4 mr-2" />
@@ -413,7 +413,7 @@ export default function LocationMapPage() {
                 <div className="flex gap-2 pt-4">
                   <Button
                     onClick={handleSubmit}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                     className="flex-1"
                   >
                     <Save className="h-4 w-4 mr-2" />
@@ -422,7 +422,7 @@ export default function LocationMapPage() {
                   <Button
                     variant="outline"
                     onClick={handleCloseModal}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                     className="flex-1"
                   >
                     <X className="h-4 w-4 mr-2" />

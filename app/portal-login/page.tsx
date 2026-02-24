@@ -173,7 +173,7 @@ export default function PortalLogin() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loading}
+              loading={loading} disabled={loading}
             >
               {loading ? 'Logging in...' : 'Login'}
             </Button>

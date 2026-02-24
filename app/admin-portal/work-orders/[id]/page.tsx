@@ -520,13 +520,13 @@ export default function ViewWorkOrder() {
               <h3 className="text-lg font-semibold mb-2">Leave a Rating for this Work Order</h3>
               <p className="text-muted-foreground text-sm mb-4">Is the work complete and to specifications?</p>
               <div className="flex gap-3">
-                <Button className="flex-1" onClick={() => handleWorkOrderRating(true)} disabled={ratingSubmitting}>
+                <Button className="flex-1" onClick={() => handleWorkOrderRating(true)} loading={ratingSubmitting} disabled={ratingSubmitting}>
                   Yes
                 </Button>
-                <Button variant="outline" className="flex-1" onClick={() => handleWorkOrderRating(false)} disabled={ratingSubmitting}>
+                <Button variant="outline" className="flex-1" onClick={() => handleWorkOrderRating(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
                   No
                 </Button>
-                <Button variant="ghost" onClick={() => setShowRatingDialog(false)} disabled={ratingSubmitting}>
+                <Button variant="ghost" onClick={() => setShowRatingDialog(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
                   Cancel
                 </Button>
               </div>

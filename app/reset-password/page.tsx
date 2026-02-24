@@ -235,7 +235,7 @@ function ResetPasswordForm() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loading}
+              loading={loading} disabled={loading}
             >
               {loading ? 'Updating Password...' : 'Update Password'}
             </Button>

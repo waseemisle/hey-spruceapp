@@ -555,7 +555,7 @@ export default function GuidedWorkOrderCreate() {
                 <Button variant="outline" onClick={() => setStep(1)}>
                   Back
                 </Button>
-                <Button onClick={handleNext} disabled={submitting}>
+                <Button onClick={handleNext} loading={submitting} disabled={submitting}>
                   {submitting ? 'Creating...' : 'Create Work Order'}
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>

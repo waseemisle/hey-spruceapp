@@ -921,7 +921,7 @@ export default function SubcontractorAssignedJobs() {
                   <Button
                     className="flex-1 bg-green-600 hover:bg-green-700"
                     onClick={handleConfirmComplete}
-                    disabled={uploadingFiles}
+                    loading={uploadingFiles} disabled={uploadingFiles}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
                     {uploadingFiles ? 'Uploading Files...' : 'Mark as Complete'}

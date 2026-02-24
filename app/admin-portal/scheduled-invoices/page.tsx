@@ -928,11 +928,11 @@ export default function ScheduledInvoicesManagement() {
                     </div>
                   )}
                   <div className="flex gap-3 pt-4 border-t">
-                    <Button type="submit" className="flex-1" disabled={submitting}>
+                    <Button type="submit" className="flex-1" loading={submitting} disabled={submitting}>
                       <Save className="h-4 w-4 mr-2" />
                       {submitting ? 'Saving...' : 'Update Schedule'}
                     </Button>
-                    <Button type="button" variant="outline" onClick={resetEditForm} disabled={submitting}>
+                    <Button type="button" variant="outline" onClick={resetEditForm} loading={submitting} disabled={submitting}>
                       Cancel
                     </Button>
                   </div>

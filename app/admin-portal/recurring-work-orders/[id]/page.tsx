@@ -412,7 +412,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             {recurringWorkOrder.status === 'active' && (
               <Button
                 onClick={handleExecuteNow}
-                disabled={submitting}
+                loading={submitting} disabled={submitting}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Zap className="h-4 w-4 mr-2" />
@@ -430,7 +430,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               <Button
                 variant="outline"
                 onClick={handleToggleStatus}
-                disabled={submitting}
+                loading={submitting} disabled={submitting}
               >
                 <Pause className="h-4 w-4 mr-2" />
                 Pause
@@ -439,7 +439,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             {recurringWorkOrder.status === 'paused' && (
               <Button
                 onClick={handleToggleStatus}
-                disabled={submitting}
+                loading={submitting} disabled={submitting}
               >
                 <Play className="h-4 w-4 mr-2" />
                 Resume
@@ -449,7 +449,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               <Button
                 variant="destructive"
                 onClick={handleCancel}
-                disabled={submitting}
+                loading={submitting} disabled={submitting}
               >
                 <XCircle className="h-4 w-4 mr-2" />
                 Cancel

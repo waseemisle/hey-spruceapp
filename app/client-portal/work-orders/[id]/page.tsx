@@ -494,7 +494,7 @@ export default function ViewClientWorkOrder() {
                   size="sm"
                   className="bg-green-600 hover:bg-green-700 text-white"
                   onClick={handleApproveWorkOrder}
-                  disabled={processing}
+                  loading={processing} disabled={processing}
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve
@@ -504,7 +504,7 @@ export default function ViewClientWorkOrder() {
                   variant="outline"
                   className="text-red-600 hover:text-red-700 border-red-600 hover:border-red-700"
                   onClick={handleRejectWorkOrder}
-                  disabled={processing}
+                  loading={processing} disabled={processing}
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Reject

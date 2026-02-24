@@ -2118,7 +2118,7 @@ const filteredLocationsForForm = locations.filter((location) => {
               <Button
                 variant="destructive"
                 onClick={handleBulkDelete}
-                disabled={submitting}
+                loading={submitting} disabled={submitting}
                 className="w-full sm:w-auto"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
@@ -2705,7 +2705,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                   <Button
                     className="flex-1"
                     onClick={handleSubmit}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                   >
                     <Save className="h-4 w-4 mr-2" />
                     {submitting ? 'Saving...' : (editingId ? 'Update' : 'Create')}
@@ -2713,7 +2713,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                   <Button
                     variant="outline"
                     onClick={resetForm}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                     className="w-full sm:w-auto"
                   >
                     Cancel

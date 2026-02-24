@@ -444,7 +444,7 @@ export default function RecurringWorkOrdersManagement() {
                   <Button
                     variant="outline"
                     onClick={performBulkPause}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                     className="flex-1 sm:flex-none"
                   >
                     <Pause className="h-4 w-4 mr-2" />
@@ -455,7 +455,7 @@ export default function RecurringWorkOrdersManagement() {
                   <Button
                     variant="outline"
                     onClick={performBulkResume}
-                    disabled={submitting}
+                    loading={submitting} disabled={submitting}
                     className="flex-1 sm:flex-none"
                   >
                     <Play className="h-4 w-4 mr-2" />
@@ -465,7 +465,7 @@ export default function RecurringWorkOrdersManagement() {
                 <Button
                   variant="destructive"
                   onClick={handleBulkDelete}
-                  disabled={submitting}
+                  loading={submitting} disabled={submitting}
                   className="flex-1 sm:flex-none"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />

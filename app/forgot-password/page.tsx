@@ -161,7 +161,7 @@ export default function ForgotPassword() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loading}
+              loading={loading} disabled={loading}
             >
               {loading ? 'Sending...' : 'Send Reset Email'}
             </Button>

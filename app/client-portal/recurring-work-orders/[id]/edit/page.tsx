@@ -296,7 +296,7 @@ export default function ClientEditRecurringWorkOrder() {
             <div className="flex gap-2 pt-4">
               <Button
                 onClick={handleSubmit}
-                disabled={submitting}
+                loading={submitting} disabled={submitting}
                 className="flex-1"
               >
                 <Save className="h-4 w-4 mr-2" />

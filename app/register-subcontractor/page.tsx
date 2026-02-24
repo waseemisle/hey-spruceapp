@@ -227,7 +227,7 @@ export default function RegisterSubcontractor() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loading}
+              loading={loading} disabled={loading}
             >
               {loading ? 'Creating Account...' : 'Register'}
             </Button>

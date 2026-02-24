@@ -696,7 +696,7 @@ const handleLocationSelect = (locationId: string) => {
           <Button
             className="flex-1"
             onClick={handleSubmit}
-            disabled={submitting}
+            loading={submitting} disabled={submitting}
           >
             <Save className="h-4 w-4 mr-2" />
             {submitting ? 'Creating...' : 'Create Recurring Work Order'}
