@@ -152,6 +152,7 @@ function QuotesContent() {
 
       const markupDecimal = markup / 100;
       const clientAmount = quote.totalAmount * (1 + markupDecimal);
+      const isResend = quote.status === 'sent_to_client';
 
       const existingQuoteTimeline = (quote as any).timeline || [];
       const sentEvent = createQuoteTimelineEvent({
@@ -159,7 +160,9 @@ function QuotesContent() {
         userId: currentUser.uid,
         userName: adminName,
         userRole: 'admin',
-        details: `Quote sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
+        details: isResend
+          ? `Quote resent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`
+          : `Quote sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
         metadata: { quoteId: quote.id, workOrderNumber: quote.workOrderNumber },
       });
       const existingSysInfo = (quote as any).systemInformation || {};
@@ -195,7 +198,9 @@ function QuotesContent() {
             userId: currentUser.uid,
             userName: adminName,
             userRole: 'admin',
-            details: `Quote from ${quote.subcontractorName} sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
+            details: isResend
+              ? `Quote from ${quote.subcontractorName} resent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`
+              : `Quote from ${quote.subcontractorName} sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
             metadata: { quoteId: quote.id, subcontractorName: quote.subcontractorName, clientAmount, markup },
           })],
           systemInformation: {
@@ -221,7 +226,7 @@ function QuotesContent() {
         );
       }
 
-      toast.success(`Quote forwarded to client with ${markup}% markup`);
+      toast.success(isResend ? `Quote resent to client with ${markup}% markup` : `Quote forwarded to client with ${markup}% markup`);
       setSelectedQuote(null);
       fetchQuotes();
     } catch (error) {
@@ -584,7 +589,7 @@ function QuotesContent() {
                   <ProposalDecisionEngine
                     quote={quote}
                     allQuotes={quotes}
-                    onApprove={quote.status === 'pending' ? () => { setSelectedQuote(quote); setMarkupPercent('20'); } : undefined}
+                    onApprove={(quote.status === 'pending' || quote.status === 'sent_to_client') ? () => { setSelectedQuote(quote); setMarkupPercent(String(quote.markupPercentage || 20)); } : undefined}
                   />
 
                   {/* Cost Breakdown */}
@@ -646,8 +651,8 @@ function QuotesContent() {
                     </div>
                   )}
 
-                  {/* Action: Forward to Client with Markup */}
-                  {quote.status === 'pending' && (
+                  {/* Action: Forward / Resend to Client with Markup */}
+                  {(quote.status === 'pending' || quote.status === 'sent_to_client') && (
                     <div className="pt-4 border-t">
                       {selectedQuote?.id === quote.id ? (
                         <div className="space-y-3">
@@ -670,7 +675,7 @@ function QuotesContent() {
                               onClick={() => handleApplyMarkupAndSend(quote, parseFloat(markupPercent))}
                             >
                               <Send className="h-4 w-4 mr-2" />
-                              Send to Client
+                              {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Send to Client'}
                             </Button>
                             <Button
                               size="sm"
@@ -684,14 +689,14 @@ function QuotesContent() {
                       ) : (
                         <Button
                           size="sm"
-                          className="w-full"
+                          className={`w-full ${quote.status === 'sent_to_client' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
                           onClick={() => {
                             setSelectedQuote(quote);
-                            setMarkupPercent('20');
+                            setMarkupPercent(String(quote.markupPercentage || 20));
                           }}
                         >
-                          <DollarSign className="h-4 w-4 mr-2" />
-                          Forward to Client
+                          <Send className="h-4 w-4 mr-2" />
+                          {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Forward to Client'}
                         </Button>
                       )}
                     </div>
