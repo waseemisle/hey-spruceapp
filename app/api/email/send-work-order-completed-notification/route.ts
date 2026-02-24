@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
 
     const portalLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/admin-portal/work-orders${workOrderId ? `/${workOrderId}` : ''}`;
 
+    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
+
     const errors: string[] = [];
 
     await Promise.all(
@@ -75,7 +77,10 @@ export async function POST(request: NextRequest) {
               <title>Work Order Completed</title>
             </head>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <div style="background-color: #162040; padding: 16px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+                <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 60px; width: auto;" />
+              </div>
+              <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px; text-align: center;">
                 <div style="font-size: 40px; margin-bottom: 8px;">✅</div>
                 <h1 style="color: white; margin: 0; font-size: 26px;">Work Order Completed</h1>
                 <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0 0; font-size: 15px;">${workOrderNumber}</p>

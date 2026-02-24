@@ -17,7 +17,7 @@ const sizeClasses = {
 export default function Logo({ className = '', href = '/', size = 'md' }: LogoProps) {
   const logoElement = (
     <Image
-      src="https://www.groundops.co/deck/logo.png"
+      src="/logo.png"
       alt="GroundOps Logo"
       width={200}
       height={60}

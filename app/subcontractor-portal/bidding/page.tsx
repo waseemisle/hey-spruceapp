@@ -67,6 +67,8 @@ export default function SubcontractorBidding() {
   ]);
 
   useEffect(() => {
+    let unsubscribeWorkOrders: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         const biddingQuery = query(
@@ -76,33 +78,53 @@ export default function SubcontractorBidding() {
           orderBy('sharedAt', 'desc')
         );
 
-        const unsubscribeSnapshot = onSnapshot(biddingQuery, async (snapshot) => {
-          const biddingData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
+        const unsubscribeSnapshot = onSnapshot(biddingQuery, (snapshot) => {
+          const biddingData = snapshot.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
           })) as BiddingWorkOrder[];
 
           setBiddingWorkOrders(biddingData);
 
-          // Fetch work order details
-          const workOrdersMap = new Map<string, WorkOrder>();
-          for (const bidding of biddingData) {
-            const woDoc = await getDoc(doc(db, 'workOrders', bidding.workOrderId));
-            if (woDoc.exists()) {
-              workOrdersMap.set(bidding.workOrderId, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
-            }
+          if (unsubscribeWorkOrders) {
+            unsubscribeWorkOrders();
+            unsubscribeWorkOrders = null;
           }
-          setWorkOrders(workOrdersMap);
-          setLoading(false);
+
+          const workOrderIds = [...new Set(biddingData.map(b => b.workOrderId))];
+
+          if (workOrderIds.length > 0) {
+            const workOrdersQuery = query(
+              collection(db, 'workOrders'),
+              where('__name__', 'in', workOrderIds)
+            );
+            unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (woSnapshot) => {
+              const workOrdersMap = new Map<string, WorkOrder>();
+              woSnapshot.docs.forEach(woDoc => {
+                workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
+              });
+              setWorkOrders(workOrdersMap);
+              setLoading(false);
+            });
+          } else {
+            setWorkOrders(new Map());
+            setLoading(false);
+          }
         });
 
-        return () => unsubscribeSnapshot();
+        return () => {
+          unsubscribeSnapshot();
+          if (unsubscribeWorkOrders) unsubscribeWorkOrders();
+        };
       } else {
         setLoading(false);
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeWorkOrders) unsubscribeWorkOrders();
+    };
   }, [auth, db]);
 
   const handleQuoteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

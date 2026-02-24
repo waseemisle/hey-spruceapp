@@ -547,10 +547,10 @@ export default function ViewWorkOrder() {
 
       await notifyBiddingOpportunity(selectedSubcontractors, workOrder.id, workOrderNumber, workOrder.title);
 
-      for (const subId of selectedSubcontractors) {
+      await Promise.all(selectedSubcontractors.map(async (subId) => {
         const sub = subcontractors.find(s => s.id === subId);
         if (sub?.email) {
-          fetch('/api/email/send-bidding-opportunity', {
+          await fetch('/api/email/send-bidding-opportunity', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -563,7 +563,7 @@ export default function ViewWorkOrder() {
             }),
           }).catch(console.error);
         }
-      }
+      }));
 
       const currentUser = auth.currentUser;
       const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;

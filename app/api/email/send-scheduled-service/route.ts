@@ -53,6 +53,8 @@ export async function POST(request: Request) {
     // Using the static Google Maps embed (works without API key)
     const mapEmbedUrl = `https://www.google.com/maps?q=${encodedAddress}&output=embed`;
 
+    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
+
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -66,9 +68,7 @@ export async function POST(request: Request) {
           <!-- Header with Logo -->
           <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: white;">
             <div style="margin-bottom: 20px;">
-              <div style="width: 100px; height: 100px; margin: 0 auto; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 4px solid #1a1a1a; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <span style="color: white; font-size: 42px; font-weight: bold;">GO</span>
-              </div>
+              <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 70px; width: auto; display: block; margin: 0 auto 15px auto;" />
             </div>
             <h1 style="color: #1a1a1a; margin: 0; font-size: 26px; font-weight: bold; line-height: 1.3;">Your job with GroundOps has been scheduled</h1>
           </div>

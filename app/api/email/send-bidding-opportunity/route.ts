@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
     const priorityColor = priority === 'high' ? '#ef4444' : priority === 'medium' ? '#f59e0b' : '#10b981';
     const priorityLabel = priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'Normal';
 
+    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
+
     // Create email HTML
     const emailHtml = `
       <!DOCTYPE html>
@@ -36,7 +38,10 @@ export async function POST(request: NextRequest) {
           <title>New Bidding Opportunity</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <div style="background-color: #162040; padding: 16px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+            <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 60px; width: auto;" />
+          </div>
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
             <h1 style="color: white; margin: 0; font-size: 28px;">New Bidding Opportunity</h1>
           </div>
 

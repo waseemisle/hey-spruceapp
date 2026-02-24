@@ -1632,9 +1632,9 @@ const handleLocationSelect = (locationId: string) => {
         workOrderToShare.title
       );
 
-      // Send email notifications to all selected subcontractors
+      // Send email notifications to all selected subcontractors in parallel
       try {
-        for (const subId of selectedSubcontractors) {
+        await Promise.all(selectedSubcontractors.map(async (subId) => {
           const sub = subcontractors.find(s => s.id === subId);
           if (sub && sub.email) {
             await fetch('/api/email/send-bidding-opportunity', {
@@ -1653,7 +1653,7 @@ const handleLocationSelect = (locationId: string) => {
               }),
             });
           }
-        }
+        }));
       } catch (emailError) {
         console.error('Failed to send bidding opportunity emails:', emailError);
         // Don't fail the whole operation if emails fail

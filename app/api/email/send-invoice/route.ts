@@ -111,6 +111,8 @@ export async function POST(request: Request) {
     // Calculate monthly payment amount (example: divide by 12 months for financing)
     const monthlyPayment = (finalTotal / 12).toFixed(2);
 
+    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
+
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -121,6 +123,10 @@ export async function POST(request: Request) {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          <!-- Logo Bar -->
+          <div style="background-color: #162040; padding: 16px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+            <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 60px; width: auto;" />
+          </div>
           <!-- Top Bar -->
           <div style="background-color: #ffffff; padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -140,12 +146,8 @@ export async function POST(request: Request) {
             </h2>
           </div>
 
-          <!-- Logo Placeholder (Circular) -->
-          <div style="background-color: #ffffff; padding: 20px 0; text-align: center;">
-            <div style="width: 100px; height: 100px; margin: 0 auto; border-radius: 50%; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); border: 4px solid #1f2937; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-              <span style="color: #1f2937; font-size: 32px; font-weight: bold;">HS</span>
-            </div>
-          </div>
+          <!-- Logo -->
+          <div style="background-color: #ffffff; padding: 10px 0; text-align: center;"><img src="${LOGO_URL}" alt="GroundOps" style="max-height: 70px; width: auto; display: block; margin: 0 auto;" /></div>
 
           <!-- Main Heading -->
           <div style="background-color: #ffffff; padding: 0 20px 20px 20px; text-align: center;">

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     } = body;
 
     // Logo URL from GroundOps
-    const logoUrl = 'https://www.groundops.co/deck/logo.png';
+    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
     
     // Google Maps Review Link
     const googleReviewLink = 'https://www.google.com/maps/place/Spruce+Cleaning+%26+Maintenance/@34.0204789,-118.4117326,10z/data=!3m1!4b1!4m6!3m5!1s0x20a5e683df0722d:0x409439675ca2c8b!8m2!3d34.020479!4d-118.4117326!16s%2Fg%2F11xw24xtqb?entry=ttu&g_ep=EgoyMDI1MTExNy4wIKXMDSoASAFQAw%3D%3D';
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff;">
           <!-- Logo Section -->
           <div style="text-align: center; margin-bottom: 40px;">
-            <img src="${logoUrl}" alt="GroundOps Logo" style="max-width: 200px; height: auto; margin: 0 auto; display: block;" />
+            <img src="${LOGO_URL}" alt="GroundOps Logo" style="max-width: 200px; height: auto; margin: 0 auto; display: block;" />
           </div>
 
           <!-- Main Heading -->

@@ -6,6 +6,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { toEmail, toName, workOrderNumber, workOrderTitle, clientName, locationName, locationAddress } = body;
 
+    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
+
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -15,7 +17,10 @@ export async function POST(request: Request) {
         <title>Work Order Assignment - ${workOrderNumber}</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+        <div style="background-color: #162040; padding: 16px 20px; text-align: center; border-radius: 10px 10px 0 0;">
+          <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 60px; width: auto;" />
+        </div>
+        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
           <h1 style="color: white; margin: 0; font-size: 28px;">GroundOps — Facility Maintenance Infrastructure</h1>
           <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Facility Maintenance Infrastructure</p>
         </div>
