@@ -55,8 +55,6 @@ export default function SubcontractorBidding() {
   const [submitting, setSubmitting] = useState(false);
 
   const [quoteForm, setQuoteForm] = useState({
-    laborCost: '',
-    materialCost: '',
     estimatedDuration: '',
     proposedServiceDate: '',
     proposedServiceTime: '',
@@ -64,7 +62,8 @@ export default function SubcontractorBidding() {
   });
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: '', quantity: 1, unitPrice: 0, amount: 0 },
+    { description: 'Labor Cost', quantity: 1, unitPrice: 0, amount: 0 },
+    { description: 'Material Cost', quantity: 1, unitPrice: 0, amount: 0 },
   ]);
 
   useEffect(() => {
@@ -132,15 +131,13 @@ export default function SubcontractorBidding() {
   };
 
   const calculateTotal = () => {
-    const labor = parseFloat(quoteForm.laborCost) || 0;
-    const material = parseFloat(quoteForm.materialCost) || 0;
-    return labor + material;
+    return lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
   };
 
   const handleSubmitQuote = async () => {
     if (!selectedWorkOrder) return;
 
-    if (!quoteForm.laborCost || !quoteForm.materialCost || !quoteForm.estimatedDuration || !quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
+    if (!quoteForm.estimatedDuration || !quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
       toast.error('Please fill in all required fields (including service date and time)');
       return;
     }
@@ -163,9 +160,13 @@ export default function SubcontractorBidding() {
 
       const subData = subDoc.data();
 
-      const labor = parseFloat(quoteForm.laborCost);
-      const material = parseFloat(quoteForm.materialCost);
-      const total = labor + material;
+      const total = calculateTotal();
+      const labor = lineItems
+        .filter(item => item.description.toLowerCase().includes('labor'))
+        .reduce((sum, item) => sum + item.amount, 0);
+      const material = lineItems
+        .filter(item => item.description.toLowerCase().includes('material'))
+        .reduce((sum, item) => sum + item.amount, 0);
 
       // Fetch client email
       const clientDoc = await getDoc(doc(db, 'clients', selectedWorkOrder.clientId));
@@ -353,14 +354,15 @@ export default function SubcontractorBidding() {
       setShowQuoteForm(false);
       setSelectedWorkOrder(null);
       setQuoteForm({
-        laborCost: '',
-        materialCost: '',
         estimatedDuration: '',
         proposedServiceDate: '',
         proposedServiceTime: '',
         notes: '',
       });
-      setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+      setLineItems([
+        { description: 'Labor Cost', quantity: 1, unitPrice: 0, amount: 0 },
+        { description: 'Material Cost', quantity: 1, unitPrice: 0, amount: 0 },
+      ]);
     } catch (error) {
       console.error('Error submitting quote:', error);
       toast.error('Failed to submit quote');
@@ -431,34 +433,6 @@ export default function SubcontractorBidding() {
             <CardContent>
               <form className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="laborCost">Labor Cost *</Label>
-                    <Input
-                      id="laborCost"
-                      name="laborCost"
-                      type="number"
-                      step="0.01"
-                      value={quoteForm.laborCost}
-                      onChange={handleQuoteFormChange}
-                      placeholder="0.00"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="materialCost">Material Cost *</Label>
-                    <Input
-                      id="materialCost"
-                      name="materialCost"
-                      type="number"
-                      step="0.01"
-                      value={quoteForm.materialCost}
-                      onChange={handleQuoteFormChange}
-                      placeholder="0.00"
-                      required
-                    />
-                  </div>
-
                   <div>
                     <Label htmlFor="estimatedDuration">Estimated Duration *</Label>
                     <Input
@@ -580,15 +554,16 @@ export default function SubcontractorBidding() {
                   <div className="bg-gray-50 p-6 rounded-lg">
                     <h3 className="font-semibold text-lg mb-4">Quote Summary</h3>
                     <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Labor Cost:</span>
-                        <span className="font-semibold">${parseFloat(quoteForm.laborCost || '0').toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Material Cost:</span>
-                        <span className="font-semibold">${parseFloat(quoteForm.materialCost || '0').toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-xl font-bold border-t pt-2">
+                      {lineItems.filter(item => item.description && item.amount > 0).map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-gray-700">{item.description} {item.quantity > 1 ? `(×${item.quantity})` : ''}</span>
+                          <span className="font-semibold">${item.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                      {lineItems.filter(item => item.description && item.amount > 0).length === 0 && (
+                        <p className="text-sm text-gray-500">Add line items above to see the summary</p>
+                      )}
+                      <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2">
                         <span>Total:</span>
                         <span className="text-green-600">${calculateTotal().toFixed(2)}</span>
                       </div>
