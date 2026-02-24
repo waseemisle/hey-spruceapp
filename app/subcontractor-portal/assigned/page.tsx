@@ -450,6 +450,22 @@ export default function SubcontractorAssignedJobs() {
         }
       }
 
+      // Send completion email notification to admins
+      fetch('/api/email/send-work-order-completed-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workOrderId: completingWorkOrderId,
+          workOrderNumber: workOrderData?.workOrderNumber || completingWorkOrderId,
+          title: workOrderData?.title || 'Work Order',
+          clientName: workOrderData?.clientName || '',
+          locationName: workOrderData?.locationName || '',
+          priority: workOrderData?.priority || 'medium',
+          completedBy: subName,
+          completionDetails: completionDetails,
+        }),
+      }).catch(err => console.error('Failed to send completion notification emails:', err));
+
       toast.success('Job marked as complete with details!');
       setShowCompletionModal(false);
       setCompletingWorkOrderId(null);
