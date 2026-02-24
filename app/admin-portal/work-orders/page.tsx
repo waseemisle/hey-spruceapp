@@ -2384,7 +2384,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                         </div>
                       )}
 
-                      {workOrder.status === 'approved' && (
+                      {(workOrder.status === 'approved' || workOrder.status === 'bidding') && (
                         <Button
                           size="sm"
                           className="w-full"
