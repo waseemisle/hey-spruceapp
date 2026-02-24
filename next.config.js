@@ -6,6 +6,7 @@ const nextConfig = {
     return [
       {
         source: '/portal-login',
+        has: [{ type: 'host', value: 'hey-spruce-appv2.vercel.app' }],
         destination: 'https://groundopscos.vercel.app/portal-login',
         permanent: true,
       },
