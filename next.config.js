@@ -2,6 +2,15 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/portal-login',
+        destination: 'https://groundopscos.vercel.app/portal-login',
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
