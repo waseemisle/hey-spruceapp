@@ -360,6 +360,11 @@ export default function SubcontractorAssignedJobs() {
       return;
     }
 
+    if (!completionFiles || completionFiles.length === 0) {
+      toast.error('Please upload at least one completion image or file');
+      return;
+    }
+
     if (!completingWorkOrderId) return;
 
     try {
@@ -885,19 +890,19 @@ export default function SubcontractorAssignedJobs() {
                 </div>
 
                 <div>
-                  <Label htmlFor="completion-images" className="mb-2 flex items-center gap-2">
+                  <Label htmlFor="completion-images" className="mb-2 flex items-center gap-2 font-semibold">
                     <ImageIcon className="h-4 w-4" />
-                    Completion Images/Files (Optional)
+                    Completion Images/Files (Required) *
                   </Label>
                   <div className="mt-2">
-                    <label htmlFor="completion-images" className="flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-green-400 focus:outline-none">
+                    <label htmlFor="completion-images" className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-md appearance-none cursor-pointer focus:outline-none ${completionPreviewUrls.length > 0 ? 'border-green-400' : 'border-red-300 hover:border-red-400'}`}>
                       <div className="flex flex-col items-center space-y-2">
-                        <Upload className="h-8 w-8 text-gray-400" />
+                        <Upload className={`h-8 w-8 ${completionPreviewUrls.length > 0 ? 'text-green-500' : 'text-red-400'}`} />
                         <span className="text-sm text-gray-600">
-                          Click to upload completion images/files
+                          {completionPreviewUrls.length > 0 ? `${completionPreviewUrls.length} file(s) selected — click to add more` : 'Click to upload completion images/files'}
                         </span>
                         <span className="text-xs text-gray-500">
-                          (Photos of completed work, before/after, etc.)
+                          {completionPreviewUrls.length > 0 ? '' : 'At least one photo of completed work is required'}
                         </span>
                       </div>
                       <input
