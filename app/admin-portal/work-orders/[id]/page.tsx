@@ -1,20 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
 import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
+import { notifyBiddingOpportunity } from '@/lib/notifications';
 import { toast } from 'sonner';
 
 interface WorkOrder {
@@ -68,6 +69,15 @@ interface WorkOrder {
   ratedBy?: string;
 }
 
+interface Subcontractor {
+  id: string;
+  uid?: string;
+  fullName: string;
+  email: string;
+  businessName?: string;
+  matchesCategory?: boolean;
+}
+
 interface LineItem {
   description: string;
   quantity: number;
@@ -114,6 +124,10 @@ export default function ViewWorkOrder() {
   const [relatedInvoices, setRelatedInvoices] = useState<any[]>([]);
   const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [showBiddingModal, setShowBiddingModal] = useState(false);
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
+  const [biddingSubmitting, setBiddingSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchWorkOrder = async () => {
@@ -384,6 +398,126 @@ export default function ViewWorkOrder() {
     }
   };
 
+  const handleShareForBidding = async () => {
+    if (!workOrder) return;
+    try {
+      const subsSnapshot = await getDocs(query(collection(db, 'subcontractors'), where('status', '==', 'approved')));
+      if (subsSnapshot.empty) { toast.error('No approved subcontractors found'); return; }
+
+      const allSubs = subsSnapshot.docs.map(d => ({
+        id: d.id,
+        uid: d.data().uid,
+        fullName: d.data().fullName,
+        email: d.data().email,
+        businessName: d.data().businessName,
+        skills: d.data().skills || [],
+      }));
+
+      let matchingCount = 0;
+      const subsData: Subcontractor[] = allSubs.map(sub => {
+        let matchesCategory = false;
+        if (workOrder.category && sub.skills.length > 0) {
+          const cat = workOrder.category.toLowerCase();
+          matchesCategory = sub.skills.some((s: string) => s.toLowerCase().includes(cat) || cat.includes(s.toLowerCase()));
+        }
+        if (matchesCategory) matchingCount++;
+        return { id: sub.id, uid: sub.uid, fullName: sub.fullName, email: sub.email, businessName: sub.businessName, matchesCategory };
+      });
+
+      if (workOrder.category) {
+        if (matchingCount === 0) toast.warning(`No subcontractors match "${workOrder.category}". Showing all ${subsData.length}.`);
+        else toast.success(`${matchingCount} subcontractor(s) match "${workOrder.category}".`);
+      }
+
+      setSubcontractors(subsData);
+      setSelectedSubcontractors([]);
+      setShowBiddingModal(true);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load subcontractors');
+    }
+  };
+
+  const handleSubmitBidding = async () => {
+    if (!workOrder || selectedSubcontractors.length === 0) {
+      toast.error('Please select at least one subcontractor');
+      return;
+    }
+    setBiddingSubmitting(true);
+    try {
+      const workOrderNumber = workOrder.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
+
+      await Promise.all(selectedSubcontractors.map(async subId => {
+        const sub = subcontractors.find(s => s.id === subId);
+        if (!sub) return;
+        await addDoc(collection(db, 'biddingWorkOrders'), {
+          workOrderId: workOrder.id, workOrderNumber,
+          subcontractorId: subId, subcontractorName: sub.fullName, subcontractorEmail: sub.email,
+          workOrderTitle: workOrder.title, workOrderDescription: workOrder.description,
+          clientId: workOrder.clientId, clientName: workOrder.clientName,
+          status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
+        });
+      }));
+
+      await notifyBiddingOpportunity(selectedSubcontractors, workOrder.id, workOrderNumber, workOrder.title);
+
+      for (const subId of selectedSubcontractors) {
+        const sub = subcontractors.find(s => s.id === subId);
+        if (sub?.email) {
+          fetch('/api/email/send-bidding-opportunity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: sub.email, toName: sub.fullName,
+              workOrderNumber, workOrderTitle: workOrder.title,
+              workOrderDescription: workOrder.description,
+              locationName: workOrder.locationName, category: workOrder.category,
+              priority: workOrder.priority,
+              portalLink: `${window.location.origin}/subcontractor-portal/bidding`,
+            }),
+          }).catch(console.error);
+        }
+      }
+
+      const currentUser = auth.currentUser;
+      const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;
+      const adminName = adminDoc?.exists() ? adminDoc.data().fullName : 'Admin';
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const woData = woDoc.data();
+      const selectedSubNames = selectedSubcontractors.map(id => subcontractors.find(s => s.id === id)?.fullName || 'Unknown').join(', ');
+
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        status: 'bidding', workOrderNumber,
+        sharedForBiddingAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        timeline: [...(woData?.timeline || []), {
+          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: Timestamp.now(), type: 'shared_for_bidding',
+          userId: currentUser?.uid || 'unknown', userName: adminName, userRole: 'admin',
+          details: `Shared for bidding with ${selectedSubcontractors.length} subcontractor(s): ${selectedSubNames}`,
+          metadata: { subcontractorIds: selectedSubcontractors, subcontractorCount: selectedSubcontractors.length },
+        }],
+        systemInformation: {
+          ...(woData?.systemInformation || {}),
+          sharedForBidding: {
+            by: { id: currentUser?.uid || 'unknown', name: adminName },
+            timestamp: Timestamp.now(),
+            subcontractors: selectedSubcontractors.map(id => ({ id, name: subcontractors.find(s => s.id === id)?.fullName || 'Unknown' })),
+          },
+        },
+      });
+
+      setWorkOrder(prev => prev ? { ...prev, status: 'bidding' } : prev);
+      toast.success(`Shared with ${selectedSubcontractors.length} subcontractor(s) for bidding`);
+      setShowBiddingModal(false);
+      setSelectedSubcontractors([]);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to share work order for bidding');
+    } finally {
+      setBiddingSubmitting(false);
+    }
+  };
+
   const handleWorkOrderRating = async (completeToSpecs: boolean) => {
     if (!workOrder) return;
     setRatingSubmitting(true);
@@ -483,7 +617,13 @@ export default function ViewWorkOrder() {
               )}
             </p>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex gap-2 flex-shrink-0 flex-wrap">
+            {(workOrder.status === 'approved' || workOrder.status === 'bidding') && (
+              <Button size="sm" onClick={handleShareForBidding}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share for Bidding
+              </Button>
+            )}
             {(workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && workOrder.assignedSubcontractor && (
               <Link href={`/admin-portal/messages?workOrderId=${workOrder.id}`}>
                 <Button size="sm" variant="outline">
@@ -915,6 +1055,88 @@ export default function ViewWorkOrder() {
           )}
         </div>
       </div>
+
+      {/* Share for Bidding Modal */}
+      {showBiddingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold">Share for Bidding</h2>
+                  <p className="text-sm text-gray-600 mt-1">Select subcontractors to share this work order with</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6">
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-semibold text-blue-900 mb-1">{workOrder?.title}</h3>
+                <p className="text-sm text-blue-700">{workOrder?.workOrderNumber}</p>
+              </div>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="selectAll"
+                    checked={selectedSubcontractors.length === subcontractors.length && subcontractors.length > 0}
+                    onChange={() => setSelectedSubcontractors(selectedSubcontractors.length === subcontractors.length ? [] : subcontractors.map(s => s.id))}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="selectAll" className="text-sm font-medium text-gray-700">Select All ({subcontractors.length})</label>
+                </div>
+                <div className="text-sm text-gray-600">{selectedSubcontractors.length} selected</div>
+              </div>
+              <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
+                {subcontractors.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">No approved subcontractors found</p>
+                ) : (
+                  subcontractors.map(sub => (
+                    <div
+                      key={sub.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                        selectedSubcontractors.includes(sub.id)
+                          ? sub.matchesCategory ? 'bg-green-50 border-green-400 ring-2 ring-green-200' : 'bg-blue-50 border-blue-300'
+                          : sub.matchesCategory ? 'bg-green-50 border-green-300 hover:border-green-400' : 'bg-white border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => setSelectedSubcontractors(prev => prev.includes(sub.id) ? prev.filter(id => id !== sub.id) : [...prev, sub.id])}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSubcontractors.includes(sub.id)}
+                        onChange={() => {}}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        onClick={e => e.stopPropagation()}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900">{sub.fullName}</p>
+                          {sub.matchesCategory && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">Matches Category</span>
+                          )}
+                        </div>
+                        {sub.businessName && <p className="text-sm text-gray-600">{sub.businessName}</p>}
+                        <p className="text-sm text-gray-500">{sub.email}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t mt-6">
+                <Button variant="outline" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); }} disabled={biddingSubmitting} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitBidding} loading={biddingSubmitting} disabled={biddingSubmitting || selectedSubcontractors.length === 0} className="flex-1">
+                  <Share2 className="h-4 w-4 mr-2" />
+                  {biddingSubmitting ? 'Sharing...' : `Share with ${selectedSubcontractors.length} Subcontractor(s)`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Compare Quotes Dialog */}
       <CompareQuotesDialog
