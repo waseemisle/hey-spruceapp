@@ -6,8 +6,8 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import {
   Search, X, ClipboardList, Users, Building2, Receipt,
-  FileText, Tag, Wrench, RotateCcw, MessageSquare, Package,
-  MapPin, XCircle, Calendar, Award, BarChart2,
+  FileText, Tag, Wrench, RotateCcw, Package,
+  MapPin, Award,
 } from 'lucide-react';
 
 interface SearchResultItem {
@@ -35,10 +35,10 @@ const COLLECTION_CONFIGS = [
     Icon: ClipboardList,
     iconColor: 'text-blue-500',
     hrefFn: (id: string) => `/admin-portal/work-orders/${id}`,
-    titleFn: (d: any) => d.title || d.workOrderNumber || `Work Order ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.workOrderNumber || d.title || d.id,
     subtitleFn: (d: any) => [d.status, d.category, d.clientName].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.title, d.workOrderNumber, d.description, d.status, d.category, d.clientName, d.assignedTo].filter(Boolean).join(' '),
+      [d.id, d.title, d.workOrderNumber, d.orderNumber, d.description, d.status, d.category, d.clientName, d.clientId, d.assignedTo, d.subcontractorName].filter(Boolean).join(' '),
   },
   {
     name: 'clients',
@@ -50,7 +50,7 @@ const COLLECTION_CONFIGS = [
       d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || d.id,
     subtitleFn: (d: any) => [d.email, d.phone, d.company || d.companyName].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.name, d.firstName, d.lastName, d.email, d.phone, d.company, d.companyName].filter(Boolean).join(' '),
+      [d.id, d.name, d.firstName, d.lastName, d.email, d.phone, d.company, d.companyName, d.displayName, d.fullName].filter(Boolean).join(' '),
   },
   {
     name: 'subcontractors',
@@ -62,7 +62,7 @@ const COLLECTION_CONFIGS = [
       d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || d.id,
     subtitleFn: (d: any) => [d.email, d.phone, d.trade, d.specialty].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.name, d.firstName, d.lastName, d.email, d.phone, d.trade, d.specialty, d.company].filter(Boolean).join(' '),
+      [d.id, d.name, d.firstName, d.lastName, d.email, d.phone, d.trade, d.specialty, d.company, d.displayName, d.fullName].filter(Boolean).join(' '),
   },
   {
     name: 'invoices',
@@ -70,11 +70,11 @@ const COLLECTION_CONFIGS = [
     Icon: Receipt,
     iconColor: 'text-purple-500',
     hrefFn: (id: string) => `/admin-portal/invoices/${id}`,
-    titleFn: (d: any) => d.invoiceNumber || d.title || `Invoice ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.invoiceNumber || d.title || d.id,
     subtitleFn: (d: any) =>
       [d.clientName, d.status, d.totalAmount != null ? `$${d.totalAmount}` : null].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.invoiceNumber, d.title, d.clientName, d.status, d.subcontractorName].filter(Boolean).join(' '),
+      [d.id, d.invoiceNumber, d.title, d.clientName, d.status, d.subcontractorName].filter(Boolean).join(' '),
   },
   {
     name: 'quotes',
@@ -82,11 +82,11 @@ const COLLECTION_CONFIGS = [
     Icon: FileText,
     iconColor: 'text-yellow-500',
     hrefFn: (_id: string) => `/admin-portal/quotes`,
-    titleFn: (d: any) => d.workOrderTitle || d.quoteNumber || `Quote ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.quoteNumber || d.workOrderTitle || d.id,
     subtitleFn: (d: any) =>
       [d.clientName, d.subcontractorName, d.status].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.workOrderTitle, d.quoteNumber, d.clientName, d.subcontractorName, d.status, d.workOrderNumber].filter(Boolean).join(' '),
+      [d.id, d.workOrderTitle, d.quoteNumber, d.clientName, d.subcontractorName, d.status, d.workOrderNumber].filter(Boolean).join(' '),
   },
   {
     name: 'locations',
@@ -94,10 +94,10 @@ const COLLECTION_CONFIGS = [
     Icon: MapPin,
     iconColor: 'text-red-500',
     hrefFn: (id: string) => `/admin-portal/locations/${id}`,
-    titleFn: (d: any) => d.name || d.address || `Location ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.name || d.address || d.id,
     subtitleFn: (d: any) => [d.address, d.city, d.state].filter(Boolean).join(', '),
     searchFn: (d: any) =>
-      [d.name, d.address, d.city, d.state, d.zip, d.clientName].filter(Boolean).join(' '),
+      [d.id, d.name, d.address, d.city, d.state, d.zip, d.clientName, d.locationName].filter(Boolean).join(' '),
   },
   {
     name: 'subsidiaries',
@@ -105,10 +105,10 @@ const COLLECTION_CONFIGS = [
     Icon: Building2,
     iconColor: 'text-teal-500',
     hrefFn: (id: string) => `/admin-portal/subsidiaries/${id}`,
-    titleFn: (d: any) => d.name || `Company ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.name || d.id,
     subtitleFn: (d: any) => [d.industry, d.city, d.state].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.name, d.industry, d.city, d.state, d.email, d.phone].filter(Boolean).join(' '),
+      [d.id, d.name, d.industry, d.city, d.state, d.email, d.phone].filter(Boolean).join(' '),
   },
   {
     name: 'maint_requests',
@@ -116,10 +116,10 @@ const COLLECTION_CONFIGS = [
     Icon: Wrench,
     iconColor: 'text-amber-600',
     hrefFn: (_id: string) => `/admin-portal/maint-requests`,
-    titleFn: (d: any) => d.title || `Request ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.title || d.id,
     subtitleFn: (d: any) => [d.venue, d.requestor, d.status, d.priority].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.title, d.description, d.venue, d.requestor, d.status, d.priority].filter(Boolean).join(' '),
+      [d.id, d.title, d.description, d.venue, d.requestor, d.status, d.priority].filter(Boolean).join(' '),
   },
   {
     name: 'recurringWorkOrders',
@@ -127,10 +127,10 @@ const COLLECTION_CONFIGS = [
     Icon: RotateCcw,
     iconColor: 'text-cyan-500',
     hrefFn: (id: string) => `/admin-portal/recurring-work-orders/${id}`,
-    titleFn: (d: any) => d.title || d.workOrderNumber || `Recurring WO ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.workOrderNumber || d.title || d.id,
     subtitleFn: (d: any) => [d.status, d.frequency, d.clientName].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.title, d.workOrderNumber, d.status, d.frequency, d.clientName, d.category].filter(Boolean).join(' '),
+      [d.id, d.title, d.workOrderNumber, d.status, d.frequency, d.clientName, d.category].filter(Boolean).join(' '),
   },
   {
     name: 'categories',
@@ -138,9 +138,9 @@ const COLLECTION_CONFIGS = [
     Icon: Tag,
     iconColor: 'text-pink-500',
     hrefFn: (_id: string) => `/admin-portal/categories`,
-    titleFn: (d: any) => d.name || `Category ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.name || d.id,
     subtitleFn: (d: any) => d.description || '',
-    searchFn: (d: any) => [d.name, d.description].filter(Boolean).join(' '),
+    searchFn: (d: any) => [d.id, d.name, d.description].filter(Boolean).join(' '),
   },
   {
     name: 'assets',
@@ -148,10 +148,10 @@ const COLLECTION_CONFIGS = [
     Icon: Package,
     iconColor: 'text-indigo-500',
     hrefFn: (_id: string) => `/admin-portal/assets`,
-    titleFn: (d: any) => d.name || d.serialNumber || `Asset ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.name || d.serialNumber || d.id,
     subtitleFn: (d: any) => [d.type, d.status, d.location].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.name, d.serialNumber, d.type, d.status, d.location, d.description].filter(Boolean).join(' '),
+      [d.id, d.name, d.serialNumber, d.type, d.status, d.location, d.description].filter(Boolean).join(' '),
   },
   {
     name: 'rfps',
@@ -159,10 +159,10 @@ const COLLECTION_CONFIGS = [
     Icon: FileText,
     iconColor: 'text-violet-500',
     hrefFn: (_id: string) => `/admin-portal/rfps`,
-    titleFn: (d: any) => d.title || d.rfpNumber || `RFP ${d.id?.slice(0, 6)}`,
+    titleFn: (d: any) => d.title || d.rfpNumber || d.id,
     subtitleFn: (d: any) => [d.status, d.clientName, d.category].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.title, d.rfpNumber, d.status, d.clientName, d.description, d.category].filter(Boolean).join(' '),
+      [d.id, d.title, d.rfpNumber, d.status, d.clientName, d.description, d.category].filter(Boolean).join(' '),
   },
 ];
 
@@ -211,6 +211,7 @@ export default function GlobalSearchDialog() {
           const snap = await getDocs(collection(db, cfg.name));
           snap.forEach((d) => {
             const data = { id: d.id, ...d.data() };
+            const searchText = (cfg.searchFn(data) + ' ' + d.id).toLowerCase();
             allItems.push({
               id: d.id,
               title: cfg.titleFn(data) || d.id,
@@ -219,15 +220,17 @@ export default function GlobalSearchDialog() {
               href: cfg.hrefFn(d.id),
               Icon: cfg.Icon,
               iconColor: cfg.iconColor,
-              searchText: cfg.searchFn(data).toLowerCase(),
+              searchText,
             });
           });
-        } catch {
-          // skip collections that fail (e.g. don't exist yet)
+        } catch (err) {
+          console.error(`[GlobalSearch] Failed to fetch collection "${cfg.name}":`, err);
         }
       })
     );
-    cacheRef.current = { items: allItems, fetchedAt: Date.now() };
+    if (allItems.length > 0) {
+      cacheRef.current = { items: allItems, fetchedAt: Date.now() };
+    }
     setLoading(false);
     return allItems;
   }, []);
