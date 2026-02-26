@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   CheckCircle, XCircle, User, Mail, Phone, Building, Plus, Edit2, Save, X,
-  Search, Trash2, Lock, Eye, LayoutGrid, List, MapPin, Users, Clock, BadgeCheck,
+  Search, Trash2, Lock, Eye, MapPin, Users, Clock, BadgeCheck,
 } from 'lucide-react';
+import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 
 interface Client {
@@ -76,7 +77,7 @@ export default function ClientsManagement() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const { viewMode } = useViewControls();
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -379,21 +380,6 @@ export default function ClientsManagement() {
             ))}
           </div>
 
-          {/* View toggle */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <List className="h-4 w-4" />
-            </button>
-          </div>
         </div>
 
         {/* Empty state */}

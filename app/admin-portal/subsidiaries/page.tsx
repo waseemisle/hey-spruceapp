@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Building2, Plus, Save, X, Search, Edit2, Trash2, Eye, Upload, Mail, Phone, Users, MapPin } from 'lucide-react';
+import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
@@ -36,6 +37,7 @@ function avatarColor(id: string): string {
 
 export default function AdminCompanies() {
   const router = useRouter();
+  const { viewMode } = useViewControls();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [clientCounts, setClientCounts] = useState<Record<string, number>>({});
   const [locationCounts, setLocationCounts] = useState<Record<string, number>>({});
@@ -228,16 +230,19 @@ export default function AdminCompanies() {
           />
         </div>
 
-        {/* Company Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.length === 0 ? (
-            <div className="col-span-full bg-white rounded-xl border border-gray-200 p-12 text-center">
-              <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No companies found</p>
-              {searchQuery && <p className="text-sm text-gray-400 mt-1">Try adjusting your search</p>}
-            </div>
-          ) : (
-            filtered.map((c) => {
+        {/* Empty state */}
+        {filtered.length === 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">No companies found</p>
+            {searchQuery && <p className="text-sm text-gray-400 mt-1">Try adjusting your search</p>}
+          </div>
+        )}
+
+        {/* Grid View */}
+        {viewMode === 'grid' && filtered.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filtered.map((c) => {
               const clients = clientCounts[c.id] || 0;
               const locations = locationCounts[c.id] || 0;
               return (
@@ -245,11 +250,9 @@ export default function AdminCompanies() {
                   key={c.id}
                   className="hover:shadow-lg transition-all duration-200 border border-gray-200 overflow-hidden group"
                 >
-                  {/* Color accent bar */}
                   <div className={`h-1 w-full bg-gradient-to-r ${avatarColor(c.id)}`} />
 
                   <CardContent className="p-5 space-y-4">
-                    {/* Company Identity */}
                     <div className="flex items-start gap-4">
                       {c.logoUrl ? (
                         <img
@@ -279,7 +282,6 @@ export default function AdminCompanies() {
                       </div>
                     </div>
 
-                    {/* Stats */}
                     <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
                       <div className="flex items-center gap-1.5 text-sm text-gray-600">
                         <Users className="h-4 w-4 text-purple-500" />
@@ -294,40 +296,93 @@ export default function AdminCompanies() {
                       </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        className="flex-1 gap-1.5"
-                        onClick={() => router.push(`/admin-portal/subsidiaries/${c.id}`)}
-                      >
+                      <Button size="sm" className="flex-1 gap-1.5" onClick={() => router.push(`/admin-portal/subsidiaries/${c.id}`)}>
                         <Eye className="h-3.5 w-3.5" />
                         View Details
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5"
-                        onClick={() => handleOpenEdit(c)}
-                      >
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => handleOpenEdit(c)}>
                         <Edit2 className="h-3.5 w-3.5" />
                         Edit
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200"
-                        onClick={() => performDelete(c)}
-                      >
+                      <Button size="sm" variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200" onClick={() => performDelete(c)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        )}
+
+        {/* List View */}
+        {viewMode === 'list' && filtered.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-5 py-3 font-medium text-gray-500">Company</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Contact</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Clients</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Locations</th>
+                  <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filtered.map((c) => {
+                  const clients = clientCounts[c.id] || 0;
+                  const locations = locationCounts[c.id] || 0;
+                  const color = avatarColor(c.id);
+                  return (
+                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          {c.logoUrl ? (
+                            <img src={c.logoUrl} alt={c.name} className="h-9 w-9 object-contain rounded-lg border border-gray-200 bg-gray-50 p-0.5 flex-shrink-0" />
+                          ) : (
+                            <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
+                              {getInitials(c.name)}
+                            </div>
+                          )}
+                          <p className="font-medium text-gray-900">{c.name}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 hidden sm:table-cell">
+                        {c.email && <p className="text-gray-700">{c.email}</p>}
+                        {c.phone && <p className="text-xs text-gray-500">{c.phone}</p>}
+                        {!c.email && !c.phone && <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5 hidden md:table-cell">
+                        <span className="text-xs bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded-full">
+                          {clients} {clients === 1 ? 'client' : 'clients'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 hidden md:table-cell">
+                        <span className="text-xs bg-green-50 text-green-700 border border-green-100 px-2 py-0.5 rounded-full">
+                          {locations} {locations === 1 ? 'location' : 'locations'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => router.push(`/admin-portal/subsidiaries/${c.id}`)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleOpenEdit(c)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => performDelete(c)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
