@@ -7,10 +7,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyBiddingOpportunity } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye, CheckCircle, XCircle, Share2, X } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye, CheckCircle, XCircle, Share2, X, ClipboardCheck, Clock, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import ViewControls from '@/components/view-controls';
 import { useViewControls } from '@/contexts/view-controls-context';
@@ -48,6 +47,22 @@ interface Subcontractor {
   status: 'pending' | 'approved' | 'rejected';
   matchesCategory?: boolean;
 }
+
+const STATUS_CONFIG: Record<string, { label: string; className: string; dot: string }> = {
+  pending: { label: 'Pending', className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+  approved: { label: 'Approved', className: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+  bidding: { label: 'Bidding', className: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
+  assigned: { label: 'Assigned', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  accepted_by_subcontractor: { label: 'Scheduled', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  completed: { label: 'Completed', className: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-400' },
+  rejected: { label: 'Rejected', className: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500' },
+};
+
+const PRIORITY_CONFIG: Record<string, { className: string; dot: string }> = {
+  low: { className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  medium: { className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+  high: { className: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500' },
+};
 
 function ClientWorkOrdersContent() {
   const { auth, db } = useFirebaseInstance();
@@ -576,11 +591,18 @@ function ClientWorkOrdersContent() {
     { value: 'completed', label: 'Completed', count: getStatusCount('completed') },
   ];
 
+  const stats = {
+    total: workOrdersToShow.length,
+    open: workOrdersToShow.filter(wo => ['pending', 'approved', 'bidding', 'assigned', 'accepted_by_subcontractor'].includes(normalizeStatus(wo.status))).length,
+    completed: getStatusCount('completed'),
+    pending: getStatusCount('pending'),
+  };
+
   if (loading) {
     return (
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
       </ClientLayout>
     );
@@ -589,327 +611,373 @@ function ClientWorkOrdersContent() {
   return (
     <ClientLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <ClipboardList className="h-7 w-7 text-blue-600" />
               {workOrderType === 'maintenance' ? 'Maintenance Requests Work Orders' : 'Work Orders'}
             </h1>
-            <p className="text-gray-600 mt-2">
+            <p className="text-sm text-gray-500 mt-0.5">
               {workOrderType === 'maintenance' ? 'Work orders created from maintenance requests' : 'Manage your maintenance requests'}
             </p>
           </div>
           {workOrderType !== 'maintenance' && (
             <Link href="/client-portal/work-orders/create">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
+              <Button className="gap-2 self-start sm:self-auto">
+                <Plus className="h-4 w-4" />
                 Create Work Order
               </Button>
             </Link>
           )}
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search work orders by title, description, category, or location..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total', value: stats.total, icon: ClipboardList, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+            { label: 'Open / Active', value: stats.open, icon: BarChart3, color: 'text-amber-600 bg-amber-50 border-amber-100' },
+            { label: 'Completed', value: stats.completed, icon: ClipboardCheck, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+            { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-purple-600 bg-purple-50 border-purple-100' },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className={`rounded-xl border p-4 flex items-center gap-3 ${color}`}>
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              <div>
+                <p className="text-xl font-bold leading-none">{value}</p>
+                <p className="text-xs mt-0.5 opacity-75">{label}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex items-center gap-3">
-            <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
-              Filter by Status:
-            </label>
-            <select
-              id="status-filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {filterOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label} ({option.count})
-                </option>
-              ))}
-            </select>
+        {/* Toolbar */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search work orders by title, description, category, or location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
+
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 overflow-x-auto">
+            {filterOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setFilter(option.value)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+                  filter === option.value ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {option.label} ({option.count})
+              </button>
+            ))}
+          </div>
+
           <ViewControls hideSort />
         </div>
 
+        {/* Empty State */}
         {filteredWorkOrders.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <ClipboardList className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {filter === 'all' ? 'No work orders yet' : `No ${filter} work orders`}
-              </h3>
-              <p className="text-gray-600 text-center mb-4">
-                {filter === 'all' ? 'Get started by creating your first work order' : 'Try a different filter'}
-              </p>
-              {filter === 'all' && (
-                <Link href="/client-portal/work-orders/create">
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Work Order
-                  </Button>
-                </Link>
-              )}
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
+            <div className="h-14 w-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ClipboardList className="h-7 w-7 text-gray-400" />
+            </div>
+            <p className="text-gray-900 font-medium">
+              {filter === 'all' ? 'No work orders yet' : `No ${filter} work orders`}
+            </p>
+            <p className="text-gray-500 text-sm mt-1">
+              {filter === 'all' ? 'Get started by creating your first work order' : 'Try a different filter'}
+            </p>
+            {filter === 'all' && workOrderType !== 'maintenance' && (
+              <Link href="/client-portal/work-orders/create">
+                <Button className="mt-4 gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Work Order
+                </Button>
+              </Link>
+            )}
+          </div>
         ) : viewMode === 'list' ? (
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+          /* List View */
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-5 py-3 font-medium text-gray-500">Work Order</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Location</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Category</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Priority</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Created</th>
+                  <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredWorkOrders.map((workOrder) => (
-                  <tr key={workOrder.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900">{workOrder.title}</div>
-                      {workOrder.workOrderNumber && (
-                        <div className="text-xs text-gray-500">WO: {workOrder.workOrderNumber}</div>
-                      )}
-                      <div className="text-xs text-gray-500 mt-1 line-clamp-2">{workOrder.description}</div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.locationName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.category}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(workOrder.status)}`}>
-                        {getStatusLabel(workOrder.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
-                        {workOrder.priority}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        {hasApproveRejectPermission && workOrder.status === 'pending' && (
-                          <>
+              <tbody className="divide-y divide-gray-100">
+                {filteredWorkOrders.map((workOrder) => {
+                  const statusCfg = STATUS_CONFIG[normalizeStatus(workOrder.status)] || STATUS_CONFIG.pending;
+                  const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || PRIORITY_CONFIG.medium;
+                  return (
+                    <tr key={workOrder.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <p className="font-medium text-gray-900">{workOrder.title}</p>
+                        {workOrder.workOrderNumber && (
+                          <p className="text-xs text-gray-500">WO: {workOrder.workOrderNumber}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{workOrder.description}</p>
+                      </td>
+                      <td className="px-4 py-3.5 hidden sm:table-cell text-gray-600">{workOrder.locationName}</td>
+                      <td className="px-4 py-3.5 hidden md:table-cell text-gray-600">{workOrder.category}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${statusCfg.className}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />
+                          {statusCfg.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 hidden sm:table-cell">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${priorityCfg.className}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${priorityCfg.dot}`} />
+                          {workOrder.priority}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 hidden md:table-cell text-gray-600">
+                        {workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2 justify-end">
+                          {hasApproveRejectPermission && workOrder.status === 'pending' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-green-600 hover:text-green-700 border-green-600 hover:border-green-700"
+                                onClick={() => handleApproveWorkOrder(workOrder.id)}
+                                disabled={processingWorkOrder === workOrder.id}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700 border-red-600 hover:border-red-700"
+                                onClick={() => handleRejectWorkOrder(workOrder.id)}
+                                disabled={processingWorkOrder === workOrder.id}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          {hasShareForBiddingPermission && workOrder.status === 'approved' && (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-green-600 hover:text-green-700 border-green-600 hover:border-green-700"
-                              onClick={() => handleApproveWorkOrder(workOrder.id)}
-                              disabled={processingWorkOrder === workOrder.id}
+                              onClick={() => handleShareForBidding(workOrder)}
                             >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
+                              <Share2 className="h-4 w-4 mr-1" />
+                              Share
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700 border-red-600 hover:border-red-700"
-                              onClick={() => handleRejectWorkOrder(workOrder.id)}
-                              disabled={processingWorkOrder === workOrder.id}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
+                          )}
+                          <Link href={`/client-portal/work-orders/${workOrder.id}`}>
+                            <Button size="sm" variant="outline">
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
                             </Button>
-                          </>
-                        )}
-                        {hasShareForBiddingPermission && workOrder.status === 'approved' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleShareForBidding(workOrder)}
-                          >
-                            <Share2 className="h-4 w-4 mr-1" />
-                            Share
-                          </Button>
-                        )}
-                        <Link href={`/client-portal/work-orders/${workOrder.id}`}>
-                          <Button size="sm" variant="outline">
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
-                          </Button>
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredWorkOrders.map((workOrder) => (
-              <Card key={workOrder.id} className="h-full flex flex-col hover:shadow-lg transition-shadow">
-                <CardHeader className="flex-shrink-0">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg mb-2 line-clamp-2">{workOrder.title}</CardTitle>
-                      {workOrder.workOrderNumber && (
-                        <p className="text-sm text-gray-600 mb-2">WO: {workOrder.workOrderNumber}</p>
+          /* Grid View */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredWorkOrders.map((workOrder) => {
+              const statusCfg = STATUS_CONFIG[normalizeStatus(workOrder.status)] || STATUS_CONFIG.pending;
+              const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || PRIORITY_CONFIG.medium;
+              return (
+                <div key={workOrder.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                  <div className={`h-1 w-full bg-gradient-to-r ${
+                    normalizeStatus(workOrder.status) === 'completed' ? 'from-gray-400 to-gray-500' :
+                    normalizeStatus(workOrder.status) === 'rejected' ? 'from-red-500 to-red-600' :
+                    normalizeStatus(workOrder.status) === 'assigned' || normalizeStatus(workOrder.status) === 'accepted_by_subcontractor' ? 'from-emerald-500 to-emerald-600' :
+                    'from-blue-500 to-blue-600'
+                  }`} />
+
+                  <div className="p-5 flex flex-col flex-1">
+                    {/* Top row */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-gray-900 text-sm line-clamp-2">{workOrder.title}</p>
+                        {workOrder.workOrderNumber && (
+                          <p className="text-xs text-gray-500 mt-0.5">WO: {workOrder.workOrderNumber}</p>
+                        )}
+                      </div>
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${statusCfg.className}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />
+                        {statusCfg.label}
+                      </span>
+                    </div>
+
+                    {/* Priority */}
+                    <div className="mb-3">
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${priorityCfg.className}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${priorityCfg.dot}`} />
+                        {workOrder.priority} priority
+                      </span>
+                    </div>
+
+                    {/* Details */}
+                    <div className="space-y-2 text-sm text-gray-600 flex-1">
+                      {workOrder.locationName && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 font-medium w-16 flex-shrink-0">Location</span>
+                          <span className="truncate">{workOrder.locationName}</span>
+                        </div>
                       )}
-                      <div className="flex gap-2 flex-wrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(workOrder.status)}`}>
-                          {getStatusLabel(workOrder.status)}
-                        </span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
-                          {workOrder.priority} priority
-                        </span>
+                      {workOrder.category && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 font-medium w-16 flex-shrink-0">Category</span>
+                          <span className="truncate">{workOrder.category}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <span className="text-xs">{workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                       </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 flex-1 flex flex-col">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">Location:</p>
-                    <p className="text-sm text-gray-600">{workOrder.locationName}</p>
-                  </div>
 
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">Category:</p>
-                    <p className="text-sm text-gray-600">{workOrder.category}</p>
-                  </div>
+                    {workOrder.description && (
+                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">{workOrder.description}</p>
+                    )}
 
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-1">Description:</p>
-                    <p className="text-sm text-gray-600 line-clamp-3">{workOrder.description}</p>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Calendar className="h-4 w-4" />
-                    <span>Created {workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
-                  </div>
-
-                  {workOrder.status === 'rejected' && workOrder.rejectionReason && (
-                    <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                      <div className="flex gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
-                          <p className="text-xs text-red-700">{workOrder.rejectionReason}</p>
+                    {workOrder.status === 'rejected' && workOrder.rejectionReason && (
+                      <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                        <div className="flex gap-2">
+                          <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
+                            <p className="text-xs text-red-700">{workOrder.rejectionReason}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {workOrder.scheduleSharedWithClient && workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
-                    <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                      <div className="flex gap-2">
-                        <Calendar className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-semibold text-green-800 mb-1">Scheduled Service:</p>
-                          <p className="text-sm text-green-700 font-medium">
-                            {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
-                          </p>
-                          {workOrder.assignedToName && (
-                            <p className="text-xs text-green-600 mt-1">Assigned to: {workOrder.assignedToName}</p>
-                          )}
+                    {workOrder.scheduleSharedWithClient && workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
+                      <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex gap-2">
+                          <Calendar className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-xs font-semibold text-green-800 mb-1">Scheduled Service:</p>
+                            <p className="text-sm text-green-700 font-medium">
+                              {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
+                            </p>
+                            {workOrder.assignedToName && (
+                              <p className="text-xs text-green-600 mt-1">Assigned to: {workOrder.assignedToName}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {workOrder.images && workOrder.images.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto">
-                      {workOrder.images.map((image, idx) => (
-                        <img
-                          key={idx}
-                          src={image}
-                          alt={`Work order ${idx + 1}`}
-                          className="h-20 w-20 object-cover rounded-lg"
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="pt-3 mt-auto space-y-2">
-                    {hasApproveRejectPermission && workOrder.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                          onClick={() => handleApproveWorkOrder(workOrder.id)}
-                          disabled={processingWorkOrder === workOrder.id}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 text-red-600 hover:text-red-700 border-red-600 hover:border-red-700"
-                          onClick={() => handleRejectWorkOrder(workOrder.id)}
-                          disabled={processingWorkOrder === workOrder.id}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
+                    {workOrder.images && workOrder.images.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto mt-3">
+                        {workOrder.images.map((image, idx) => (
+                          <img
+                            key={idx}
+                            src={image}
+                            alt={`Work order ${idx + 1}`}
+                            className="h-20 w-20 object-cover rounded-lg flex-shrink-0"
+                          />
+                        ))}
                       </div>
                     )}
-                    {hasShareForBiddingPermission && workOrder.status === 'approved' && (
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleShareForBidding(workOrder)}
-                      >
-                        <Share2 className="h-4 w-4 mr-2" />
-                        Share for Bidding
-                      </Button>
-                    )}
-                    <Link href={`/client-portal/work-orders/${workOrder.id}`} className="block">
-                      <Button size="sm" className="w-full" variant="outline">
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
-                    </Link>
+
+                    {/* Actions */}
+                    <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                      {hasApproveRejectPermission && workOrder.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                            onClick={() => handleApproveWorkOrder(workOrder.id)}
+                            disabled={processingWorkOrder === workOrder.id}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-red-600 hover:text-red-700 border-red-600 hover:border-red-700 gap-1"
+                            onClick={() => handleRejectWorkOrder(workOrder.id)}
+                            disabled={processingWorkOrder === workOrder.id}
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                      {hasShareForBiddingPermission && workOrder.status === 'approved' && (
+                        <Button
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={() => handleShareForBidding(workOrder)}
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                          Share for Bidding
+                        </Button>
+                      )}
+                      <Link href={`/client-portal/work-orders/${workOrder.id}`} className="block">
+                        <Button size="sm" variant="secondary" className="w-full gap-2">
+                          <Eye className="h-3.5 w-3.5" />
+                          View Details
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Share for Bidding Modal */}
       {showBiddingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-bold">Share for Bidding</h2>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <h2 className="text-xl font-bold text-gray-900">Share for Bidding</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">
                     Select subcontractors to share this work order with
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
                   onClick={() => {
                     setShowBiddingModal(false);
                     setSelectedSubcontractors([]);
                     setWorkOrderToShare(null);
                   }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <X className="h-4 w-4" />
-                </Button>
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
               </div>
             </div>
 
-            <div className="p-4 sm:p-6">
+            <div className="p-6">
               {workOrderToShare && (
-                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                   <h3 className="font-semibold text-blue-900 mb-1">{workOrderToShare.title}</h3>
                   <p className="text-sm text-blue-700">{workOrderToShare.workOrderNumber}</p>
                 </div>
@@ -933,7 +1001,7 @@ function ClientWorkOrdersContent() {
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
+              <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-200 rounded-xl p-4">
                 {subcontractors.length === 0 ? (
                   <p className="text-center text-gray-500 py-8">No approved subcontractors found</p>
                 ) : (
@@ -1011,7 +1079,7 @@ export default function ClientWorkOrders() {
     <Suspense fallback={
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
       </ClientLayout>
     }>

@@ -366,7 +366,7 @@ export default function MaintRequestsPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -517,7 +517,7 @@ export default function MaintRequestsPage() {
 
         {/* Details Modal */}
         {showModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b sticky top-0 bg-white z-10">
                 <div className="flex justify-between items-center">
@@ -605,7 +605,7 @@ export default function MaintRequestsPage() {
 
         {/* API Token Management Modal */}
         {showTokenModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b sticky top-0 bg-white z-10">
                 <div className="flex justify-between items-center">

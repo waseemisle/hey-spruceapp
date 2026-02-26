@@ -2020,7 +2020,7 @@ const filteredLocationsForForm = locations.filter((location) => {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -2501,7 +2501,7 @@ const filteredLocationsForForm = locations.filter((location) => {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
                 <div className="flex justify-between items-center">
@@ -2726,7 +2726,7 @@ const filteredLocationsForForm = locations.filter((location) => {
 
         {/* Share for Bidding Modal */}
         {showBiddingModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
                 <div className="flex justify-between items-center">
@@ -2854,7 +2854,7 @@ const filteredLocationsForForm = locations.filter((location) => {
 
         {/* Work Order Type Selection Modal */}
         {showWorkOrderTypeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-lg max-w-md w-full">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
@@ -2920,7 +2920,7 @@ const filteredLocationsForForm = locations.filter((location) => {
 
         {/* Reject Reason Modal */}
         {showRejectModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-lg max-w-md w-full">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
@@ -2979,7 +2979,7 @@ const filteredLocationsForForm = locations.filter((location) => {
 
         {/* Assign to Subcontractor Modal */}
         {showAssignModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-lg max-w-md w-full">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
@@ -3052,7 +3052,7 @@ const filteredLocationsForForm = locations.filter((location) => {
 
         {/* Import Work Orders Modal */}
         {showImportModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
                 <div className="flex justify-between items-center">
@@ -3165,7 +3165,7 @@ export default function WorkOrdersManagement() {
     <Suspense fallback={
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     }>

@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { User, Mail, Phone, Building, Award, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageContainer } from '@/components/ui/page-container';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCards } from '@/components/ui/stat-cards';
+import { Users } from 'lucide-react';
 
 interface Subcontractor {
   uid: string;
@@ -20,6 +24,27 @@ interface Subcontractor {
   skills: string[];
   licenseNumber?: string;
   status: 'pending' | 'approved' | 'rejected';
+}
+
+const AVATAR_COLORS = [
+  'from-blue-500 to-blue-700',
+  'from-purple-500 to-purple-700',
+  'from-green-500 to-green-700',
+  'from-orange-500 to-orange-700',
+  'from-rose-500 to-rose-700',
+  'from-teal-500 to-teal-700',
+  'from-indigo-500 to-indigo-700',
+  'from-amber-500 to-amber-700',
+];
+
+function getInitials(name: string): string {
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function avatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
 export default function ClientSubcontractorsView() {
@@ -38,7 +63,6 @@ export default function ClientSubcontractorsView() {
             const clientData = clientDoc.data();
             const permissions = clientData.permissions || {};
 
-            // Check if user has viewSubcontractors permission
             if (permissions.viewSubcontractors) {
               setHasPermission(true);
               await fetchSubcontractors();
@@ -62,7 +86,6 @@ export default function ClientSubcontractorsView() {
 
   const fetchSubcontractors = async () => {
     try {
-      // Fetch only approved subcontractors
       const subsQuery = query(
         collection(db, 'subcontractors'),
         where('status', '==', 'approved')
@@ -70,10 +93,7 @@ export default function ClientSubcontractorsView() {
       const snapshot = await getDocs(subsQuery);
       const subsData = snapshot.docs.map(doc => {
         const data = doc.data();
-        return {
-          ...data,
-          uid: doc.id,
-        };
+        return { ...data, uid: doc.id };
       }) as Subcontractor[];
       setSubcontractors(subsData);
     } catch (error) {
@@ -98,7 +118,7 @@ export default function ClientSubcontractorsView() {
     return (
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </ClientLayout>
     );
@@ -107,88 +127,106 @@ export default function ClientSubcontractorsView() {
   if (!hasPermission) {
     return (
       <ClientLayout>
-        <Card>
-          <CardContent className="p-12 text-center">
-            <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">You do not have permission to view subcontractors.</p>
-            <p className="text-sm text-gray-500 mt-2">Please contact your administrator to request access.</p>
-          </CardContent>
-        </Card>
+        <PageContainer>
+          <EmptyState
+            icon={User}
+            title="Access restricted"
+            subtitle="You do not have permission to view subcontractors. Please contact your administrator to request access."
+          />
+        </PageContainer>
       </ClientLayout>
     );
   }
 
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Subcontractors</h1>
-          <p className="text-gray-600 mt-2">View all approved subcontractors</p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Subcontractors"
+          subtitle="View all approved subcontractors"
+          icon={Users}
+        />
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <StatCards
+          items={[
+            { label: 'Total', value: subcontractors.length, icon: Users, color: 'blue' },
+          ]}
+        />
+
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search subcontractors by name, business, email, phone, license, or skills..."
+            placeholder="Search by name, business, email, phone, license, or skills..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
 
-        {/* Subcontractors Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSubcontractors.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No subcontractors found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredSubcontractors.map((sub) => (
-              <Card key={sub.uid} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle className="text-lg">{sub.fullName}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Building className="h-4 w-4" />
-                    <span>{sub.businessName}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Mail className="h-4 w-4" />
-                    <span>{sub.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Phone className="h-4 w-4" />
-                    <span>{sub.phone}</span>
-                  </div>
-                  {sub.licenseNumber && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Award className="h-4 w-4" />
-                      <span>{sub.licenseNumber}</span>
+        {filteredSubcontractors.length === 0 ? (
+          <EmptyState
+            icon={User}
+            title="No subcontractors found"
+            subtitle="Try adjusting your search"
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredSubcontractors.map((sub) => {
+              const color = avatarColor(sub.uid);
+              return (
+                <div
+                  key={sub.uid}
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  <div className={`h-1 w-full bg-gradient-to-r ${color}`} />
+                  <div className="p-5">
+                    <div className="flex items-center gap-3 min-w-0 mb-4">
+                      <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                        {getInitials(sub.fullName)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm truncate">{sub.fullName}</p>
+                        <p className="text-xs text-gray-500 truncate flex items-center gap-1 mt-0.5">
+                          <Building className="h-3 w-3 flex-shrink-0" />
+                          {sub.businessName}
+                        </p>
+                      </div>
                     </div>
-                  )}
-                  {sub.skills && sub.skills.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-2">
-                      {sub.skills.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs"
-                        >
-                          {skill}
-                        </span>
-                      ))}
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <span className="truncate">{sub.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <span>{sub.phone}</span>
+                      </div>
+                      {sub.licenseNumber && (
+                        <div className="flex items-center gap-2">
+                          <Award className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <span className="text-xs">{sub.licenseNumber}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      </div>
+                    {sub.skills && sub.skills.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex flex-wrap gap-1">
+                          {sub.skills.slice(0, 3).map((skill, i) => (
+                            <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
+                          ))}
+                          {sub.skills.length > 3 && (
+                            <span className="text-xs text-gray-400">+{sub.skills.length - 3}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </PageContainer>
     </ClientLayout>
   );
 }

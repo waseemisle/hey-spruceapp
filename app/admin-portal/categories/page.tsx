@@ -4,12 +4,15 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tag, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageContainer } from '@/components/ui/page-container';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCards } from '@/components/ui/stat-cards';
 
 interface Category {
   id: string;
@@ -150,7 +153,7 @@ export default function CategoriesManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </AdminLayout>
     );
@@ -158,21 +161,24 @@ export default function CategoriesManagement() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Categories</h1>
-            <p className="text-gray-600 mt-2">Manage work order categories</p>
-          </div>
-          <Button onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Category
-          </Button>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Categories"
+          subtitle="Manage work order categories"
+          icon={Tag}
+          iconClassName="text-blue-600"
+          action={
+            <Button onClick={handleOpenCreate} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add New Category
+            </Button>
+          }
+        />
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <StatCards items={[{ label: 'Total', value: categories.length, icon: Tag, color: 'blue' }]} />
+
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search categories..."
             value={searchQuery}
@@ -181,58 +187,45 @@ export default function CategoriesManagement() {
           />
         </div>
 
-        {/* Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCategories.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <Tag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">
-                  {searchQuery ? 'No categories found matching your search' : 'No categories yet. Create your first category!'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredCategories.map((category) => (
-              <Card key={category.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Tag className="h-5 w-5 text-blue-600" />
-                      {category.name}
-                    </CardTitle>
+        {filteredCategories.length === 0 ? (
+          <EmptyState
+            icon={Tag}
+            title={searchQuery ? 'No categories found' : 'No categories yet'}
+            subtitle={searchQuery ? 'Try adjusting your search' : 'Create your first category'}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredCategories.map((category) => (
+              <div
+                key={category.id}
+                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+              >
+                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
+                <div className="p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Tag className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                    <h3 className="font-semibold text-gray-900">{category.name}</h3>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleOpenEdit(category)}
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
+                  <div className="flex gap-2 pt-3 border-t border-gray-100">
+                    <Button size="sm" variant="outline" className="flex-1 gap-2" onClick={() => handleOpenEdit(category)}>
+                      <Edit2 className="h-3.5 w-3.5" />
                       Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDeleteCategory(category)}
-                    >
-                      <Trash2 className="h-4 w-4" />
+                    <Button size="sm" variant="destructive" onClick={() => handleDeleteCategory(category)}>
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">
                     {editingId ? 'Edit Category' : 'Create New Category'}
@@ -281,8 +274,8 @@ export default function CategoriesManagement() {
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && categoryToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Category</h2>
                 <p className="text-gray-700 mb-4">
@@ -317,7 +310,7 @@ export default function CategoriesManagement() {
             </div>
           </div>
         )}
-      </div>
+      </PageContainer>
     </AdminLayout>
   );
 }

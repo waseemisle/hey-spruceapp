@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, where, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +12,9 @@ import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageContainer } from '@/components/ui/page-container';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Company { id: string; clientId?: string; name: string; email?: string; phone?: string; logoUrl?: string }
 
@@ -176,7 +178,7 @@ export default function AdminCompanies() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </AdminLayout>
     );
@@ -184,43 +186,37 @@ export default function AdminCompanies() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <Building2 className="h-8 w-8 text-blue-600" />
-              Companies
-            </h1>
-            <p className="text-gray-500 mt-1">Manage client companies and their details</p>
-          </div>
-          <Button onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Company
-          </Button>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Companies"
+          subtitle="Manage client companies and their details"
+          icon={Building2}
+          iconClassName="text-blue-600"
+          action={
+            <Button onClick={handleOpenCreate} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Company
+            </Button>
+          }
+        />
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Companies', value: companies.length, icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: 'Total Clients', value: totalClients, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50' },
-            { label: 'Total Locations', value: totalLocations, icon: MapPin, color: 'text-green-600', bg: 'bg-green-50' },
+            { label: 'Total Companies', value: companies.length, icon: Building2, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+            { label: 'Total Clients', value: totalClients, icon: Users, color: 'text-purple-600 bg-purple-50 border-purple-100' },
+            { label: 'Total Locations', value: totalLocations, icon: MapPin, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
           ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex items-center gap-4">
-              <div className={`${s.bg} rounded-lg p-3`}>
-                <s.icon className={`h-5 w-5 ${s.color}`} />
-              </div>
+            <div key={s.label} className={`rounded-xl border p-4 flex items-center gap-3 ${s.color}`}>
+              <s.icon className="h-5 w-5 flex-shrink-0" />
               <div>
-                <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-sm text-gray-500">{s.label}</p>
+                <p className="text-xl font-bold leading-none">{s.value}</p>
+                <p className="text-xs mt-0.5 opacity-75">{s.label}</p>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Search */}
-        <div className="relative">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search by name, email, or phone..."
@@ -230,29 +226,26 @@ export default function AdminCompanies() {
           />
         </div>
 
-        {/* Empty state */}
         {filtered.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 font-medium">No companies found</p>
-            {searchQuery && <p className="text-sm text-gray-400 mt-1">Try adjusting your search</p>}
-          </div>
+          <EmptyState
+            icon={Building2}
+            title="No companies found"
+            subtitle={searchQuery ? 'Try adjusting your search' : 'Add your first company'}
+          />
         )}
 
-        {/* Grid View */}
         {viewMode === 'grid' && filtered.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((c) => {
               const clients = clientCounts[c.id] || 0;
               const locations = locationCounts[c.id] || 0;
               return (
-                <Card
+                <div
                   key={c.id}
-                  className="hover:shadow-lg transition-all duration-200 border border-gray-200 overflow-hidden group"
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                 >
                   <div className={`h-1 w-full bg-gradient-to-r ${avatarColor(c.id)}`} />
-
-                  <CardContent className="p-5 space-y-4">
+                  <div className="p-5 space-y-4">
                     <div className="flex items-start gap-4">
                       {c.logoUrl ? (
                         <img
@@ -309,8 +302,8 @@ export default function AdminCompanies() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -383,13 +376,13 @@ export default function AdminCompanies() {
             </table>
           </div>
         )}
-      </div>
+      </PageContainer>
 
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl">
-            <div className="p-6 border-b flex items-center justify-between">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
+            <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Edit Company' : 'Add Company'}</h2>
                 <p className="text-sm text-gray-500 mt-0.5">{editingId ? 'Update company details' : 'Create a new company'}</p>

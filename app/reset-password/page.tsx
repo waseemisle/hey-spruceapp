@@ -118,7 +118,7 @@ function ResetPasswordForm() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-4 text-gray-600">Verifying reset link...</p>
             </div>
           </CardContent>
@@ -256,7 +256,7 @@ export default function ResetPassword() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-4 text-gray-600">Loading...</p>
             </div>
           </CardContent>

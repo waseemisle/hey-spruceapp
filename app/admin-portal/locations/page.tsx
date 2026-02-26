@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +11,10 @@ import Link from 'next/link';
 import { CheckCircle, XCircle, MapPin, Building, Building2, User, Phone, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageContainer } from '@/components/ui/page-container';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCards } from '@/components/ui/stat-cards';
 
 interface Location {
   id: string;
@@ -404,18 +407,25 @@ export default function LocationsManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-50';
-      case 'approved': return 'text-green-600 bg-green-50';
-      case 'rejected': return 'text-red-600 bg-red-50';
-      default: return 'text-muted-foreground bg-muted';
+      case 'pending': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'approved': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'rejected': return 'bg-red-50 text-red-700 border-red-200';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
+  };
+
+  const stats = {
+    total: locations.length,
+    approved: locations.filter(l => l.status === 'approved').length,
+    pending: locations.filter(l => l.status === 'pending').length,
+    rejected: locations.filter(l => l.status === 'rejected').length,
   };
 
   if (loading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </AdminLayout>
     );
@@ -423,69 +433,74 @@ export default function LocationsManagement() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Locations</h1>
-            <p className="text-muted-foreground mt-2">Manage client location requests and approvals</p>
-          </div>
-          <Button onClick={handleOpenCreate} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Location
-          </Button>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search locations by name, client, address, or property type..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {['all', 'pending', 'approved', 'rejected'].map((filterOption) => (
-            <Button
-              key={filterOption}
-              variant={filter === filterOption ? 'default' : 'outline'}
-              onClick={() => setFilter(filterOption as typeof filter)}
-              className="capitalize text-xs sm:text-sm"
-            >
-              {filterOption} ({locations.filter(l => filterOption === 'all' || l.status === filterOption).length})
+      <PageContainer>
+        <PageHeader
+          title="Locations"
+          subtitle="Manage client location requests and approvals"
+          icon={Building2}
+          iconClassName="text-blue-600"
+          action={
+            <Button onClick={handleOpenCreate} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create Location
             </Button>
-          ))}
+          }
+        />
+
+        <StatCards
+          items={[
+            { label: 'Total', value: stats.total, icon: Building2, color: 'blue' },
+            { label: 'Approved', value: stats.approved, icon: CheckCircle, color: 'emerald' },
+            { label: 'Pending', value: stats.pending, icon: MapPin, color: 'amber' },
+            { label: 'Rejected', value: stats.rejected, icon: XCircle, color: 'red' },
+          ]}
+        />
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search by name, client, address, or property type..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {(['all', 'approved', 'pending', 'rejected'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
+                  filter === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {f} ({f === 'all' ? stats.total : f === 'approved' ? stats.approved : f === 'pending' ? stats.pending : stats.rejected})
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Locations Grid/List */}
         {sortedLocations.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="p-8 md:p-12 text-center">
-              <MapPin className="h-10 w-10 md:h-12 md:w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No locations found</p>
-            </CardContent>
-          </Card>
+          <EmptyState icon={MapPin} title="No locations found" subtitle="Try adjusting your search or filters" />
         ) : viewMode === 'list' ? (
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Address</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Property Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="text-left px-5 py-3 font-medium text-gray-500">Location Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Client</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Address</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Property Type</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Contact</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
+                  <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {sortedLocations.map((location) => (
                   <tr key={location.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-5 py-3.5">
                       <div className="font-medium text-gray-900">{location.locationName}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{location.clientName}</td>
@@ -495,12 +510,12 @@ export default function LocationsManagement() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{location.propertyType || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{location.contactPhone || '-'}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(location.status)}`}>
-                        {location.status.toUpperCase()}
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${getStatusColor(location.status)}`}>
+                        {location.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <Button
                           size="sm"
@@ -541,91 +556,72 @@ export default function LocationsManagement() {
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedLocations.map((location) => (
-              <Card key={location.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
+              <div
+                key={location.id}
+                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+              >
+                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
+                <div className="p-5 space-y-3">
                   <div className="flex justify-between items-start gap-2">
-                    <CardTitle className="text-base sm:text-lg break-words">{location.locationName}</CardTitle>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusColor(location.status)}`}>
-                      {location.status.toUpperCase()}
+                    <h3 className="font-semibold text-gray-900 text-sm break-words">{location.locationName}</h3>
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${getStatusColor(location.status)}`}>
+                      {location.status}
                     </span>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="h-4 w-4 flex-shrink-0" />
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <User className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
                     <span className="break-words">{location.clientName}</span>
                   </div>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <div className="flex items-start gap-2 text-sm text-gray-600">
+                    <MapPin className="h-3.5 w-3.5 mt-0.5 text-gray-400 flex-shrink-0" />
                     <div className="break-words">
                       <div>{location.address.street}</div>
-                      <div>{location.address.city}, {location.address.state} {location.address.zip}</div>
+                      <div className="text-xs text-gray-500">{location.address.city}, {location.address.state} {location.address.zip}</div>
                     </div>
                   </div>
                   {location.propertyType && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Building className="h-4 w-4 flex-shrink-0" />
-                      <span className="break-words">{location.propertyType}</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Building className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                      <span>{location.propertyType}</span>
                     </div>
                   )}
                   {location.contactPhone && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Phone className="h-4 w-4 flex-shrink-0" />
-                      <span className="break-words">{location.contactPhone}</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Phone className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                      <span>{location.contactPhone}</span>
                     </div>
                   )}
-
-                  <div className="flex flex-wrap gap-2 pt-4">
+                  <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
                     <Link href={`/admin-portal/locations/${location.id}`}>
-                      <Button size="sm" variant="outline" className="min-w-[80px]">
-                        <Building2 className="h-4 w-4 sm:mr-2" />
-                        <span className="hidden sm:inline">View</span>
+                      <Button size="sm" variant="secondary" className="gap-2">
+                        <Building2 className="h-3.5 w-3.5" />
+                        View
                       </Button>
                     </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 min-w-[80px]"
-                      onClick={() => handleOpenEdit(location)}
-                    >
-                      <Edit2 className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Edit</span>
+                    <Button size="sm" variant="outline" className="gap-2" onClick={() => handleOpenEdit(location)}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                      Edit
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="min-w-[40px]"
-                      onClick={() => handleDeleteLocation(location)}
-                      aria-label="Delete location"
-                    >
-                      <Trash2 className="h-4 w-4" />
+                    <Button size="sm" variant="destructive" onClick={() => handleDeleteLocation(location)} aria-label="Delete location">
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                     {location.status === 'pending' && (
                       <>
-                        <Button
-                          size="sm"
-                          className="flex-1 min-w-[100px]"
-                          onClick={() => handleApprove(location.id)}
-                        >
-                          <CheckCircle className="h-4 w-4 sm:mr-2" />
-                          <span className="hidden sm:inline">Approve</span>
+                        <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => handleApprove(location.id)}>
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Approve
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="flex-1 min-w-[100px]"
-                          onClick={() => handleReject(location.id)}
-                        >
-                          <XCircle className="h-4 w-4 sm:mr-2" />
-                          <span className="hidden sm:inline">Reject</span>
+                        <Button size="sm" variant="destructive" className="gap-2" onClick={() => handleReject(location.id)}>
+                          <XCircle className="h-3.5 w-3.5" />
+                          Reject
                         </Button>
                       </>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -633,8 +629,8 @@ export default function LocationsManagement() {
         {/* Create/Edit Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
+            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center gap-4">
                   <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                     {editingId ? 'Edit Location' : 'Create New Location'}
@@ -822,8 +818,8 @@ export default function LocationsManagement() {
         {/* Reject Reason Modal */}
         {showRejectModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-card rounded-lg max-w-md w-full shadow-lg">
-              <div className="p-4 sm:p-6 border-b">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center gap-4">
                   <h2 className="text-xl sm:text-2xl font-bold text-foreground">Reject Location</h2>
                   <Button
@@ -877,7 +873,7 @@ export default function LocationsManagement() {
             </div>
           </div>
         )}
-      </div>
+      </PageContainer>
     </AdminLayout>
   );
 }

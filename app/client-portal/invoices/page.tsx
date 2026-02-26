@@ -6,11 +6,14 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageContainer } from '@/components/ui/page-container';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCards } from '@/components/ui/stat-cards';
 
 interface Invoice {
   id: string;
@@ -110,12 +113,12 @@ export default function ClientInvoices() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      draft: 'bg-gray-100 text-gray-800',
-      sent: 'bg-blue-100 text-blue-800',
-      paid: 'bg-green-100 text-green-800',
-      overdue: 'bg-red-100 text-red-800',
+      draft: 'bg-gray-50 text-gray-700 border-gray-200',
+      sent: 'bg-blue-50 text-blue-700 border-blue-200',
+      paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      overdue: 'bg-red-50 text-red-700 border-red-200',
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[status as keyof typeof styles] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
   const getStatusLabel = (status: string) => {
@@ -148,7 +151,7 @@ export default function ClientInvoices() {
     return (
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
       </ClientLayout>
     );
@@ -156,40 +159,43 @@ export default function ClientInvoices() {
 
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Invoices</h1>
-          <p className="text-gray-600 mt-2">View and pay your invoices</p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Invoices"
+          subtitle="View and pay your invoices"
+          icon={Receipt}
+          iconClassName="text-blue-600"
+        />
+
+        <StatCards
+          items={[
+            { label: 'Total', value: invoices.length, icon: Receipt, color: 'blue' },
+            { label: 'Awaiting Payment', value: invoices.filter(i => i.status === 'sent').length, icon: CreditCard, color: 'amber' },
+            { label: 'Paid', value: invoices.filter(i => i.status === 'paid').length, icon: CheckCircle, color: 'emerald' },
+            { label: 'Overdue', value: invoices.filter(i => i.status === 'overdue').length, icon: Receipt, color: 'red' },
+          ]}
+        />
 
         {totalUnpaid > 0 && (
-          <Card className="bg-yellow-50 border-yellow-200">
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Receipt className="h-8 w-8 text-yellow-600" />
-                  <div>
-                    <p className="font-semibold text-gray-900">Outstanding Balance</p>
-                    <p className="text-2xl font-bold text-yellow-600">${totalUnpaid.toLocaleString()}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600">
-                  {invoices.filter(i => i.status === 'sent' || i.status === 'overdue').length} unpaid invoice(s)
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-xl border p-4 flex items-center gap-3 text-amber-600 bg-amber-50 border-amber-100">
+            <Receipt className="h-5 w-5 flex-shrink-0" />
+            <div>
+              <p className="text-xs mt-0.5 opacity-75">Outstanding Balance</p>
+              <p className="text-xl font-bold leading-none">${totalUnpaid.toLocaleString()}</p>
+            </div>
+            <p className="ml-auto text-sm text-amber-700">
+              {invoices.filter(i => i.status === 'sent' || i.status === 'overdue').length} unpaid invoice(s)
+            </p>
+          </div>
         )}
 
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 overflow-x-auto">
           {filterOptions.map(option => (
             <button
               key={option.value}
               onClick={() => setFilter(option.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-                filter === option.value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+                filter === option.value ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               {option.label} ({option.count})
@@ -198,109 +204,72 @@ export default function ClientInvoices() {
         </div>
 
         {filteredInvoices.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Receipt className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {filter === 'all' ? 'No invoices yet' : `No ${filter} invoices`}
-              </h3>
-              <p className="text-gray-600 text-center">
-                {filter === 'all'
-                  ? 'Invoices will appear here once quotes are approved.'
-                  : 'Try a different filter'}
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Receipt}
+            title={filter === 'all' ? 'No invoices yet' : `No ${filter} invoices`}
+            subtitle={filter === 'all' ? 'Invoices will appear here once quotes are approved.' : 'Try a different filter'}
+          />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredInvoices.map((invoice) => (
-              <Card key={invoice.id} className={invoice.status === 'overdue' ? 'border-red-300' : ''}>
-                <CardHeader>
+              <div
+                key={invoice.id}
+                className={`bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow ${invoice.status === 'overdue' ? 'border-red-200' : 'border-gray-200'}`}
+              >
+                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
+                <div className="p-5 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-lg mb-1">{invoice.invoiceNumber}</CardTitle>
+                      <h3 className="font-semibold text-gray-900">{invoice.invoiceNumber}</h3>
                       <p className="text-sm text-gray-600">{invoice.workOrderTitle}</p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(invoice.status)}`}>
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${getStatusBadge(invoice.status)}`}>
                       {getStatusLabel(invoice.status)}
                     </span>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-3xl font-bold text-gray-900">${invoice.totalAmount.toLocaleString()}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <div className="flex items-center gap-2 text-gray-600 mb-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>Invoice Date</span>
-                      </div>
-                      <p className="font-medium text-gray-900">
-                        {invoice.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                      </p>
+                  <p className="text-2xl font-bold text-gray-900">${invoice.totalAmount.toLocaleString()}</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                      <span>{invoice.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                     </div>
-
                     {invoice.dueDate && (
-                      <div>
-                        <div className="flex items-center gap-2 text-gray-600 mb-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>Due Date</span>
-                        </div>
-                        <p className="font-medium text-gray-900">
-                          {invoice.dueDate?.toDate?.().toLocaleDateString() || 'N/A'}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                        <span>Due {invoice.dueDate?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                       </div>
                     )}
-
                     {invoice.status === 'paid' && invoice.paidAt && (
-                      <div className="col-span-2">
-                        <div className="flex items-center gap-2 text-green-600 mb-1">
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Paid On</span>
-                        </div>
-                        <p className="font-medium text-gray-900">
-                          {invoice.paidAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                        </p>
+                      <div className="col-span-2 flex items-center gap-2 text-emerald-600">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        <span>Paid {invoice.paidAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                       </div>
                     )}
                   </div>
-
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <Link href={`/client-portal/invoices/${invoice.id}`} className="flex-1 min-w-[120px]">
-                      <Button variant="outline" className="w-full" size="sm">
-                        <Eye className="h-4 w-4 mr-2" />
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+                    <Link href={`/client-portal/invoices/${invoice.id}`} className="flex-1 min-w-[100px]">
+                      <Button variant="secondary" className="w-full gap-2" size="sm">
+                        <Eye className="h-3.5 w-3.5" />
                         View
                       </Button>
                     </Link>
-                    <Button
-                      onClick={() => handleDownloadPDF(invoice)}
-                      variant="outline"
-                      className="flex-1 min-w-[120px]"
-                      size="sm"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download PDF
+                    <Button onClick={() => handleDownloadPDF(invoice)} variant="outline" className="gap-2" size="sm">
+                      <Download className="h-3.5 w-3.5" />
+                      PDF
                     </Button>
-
                     {(invoice.status === 'sent' || invoice.status === 'overdue') && invoice.stripePaymentLink && (
-                      <Button
-                        onClick={() => handlePayNow(invoice)}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                        size="sm"
-                      >
-                        <CreditCard className="h-4 w-4 mr-2" />
+                      <Button onClick={() => handlePayNow(invoice)} className="gap-2 bg-emerald-600 hover:bg-emerald-700" size="sm">
+                        <CreditCard className="h-3.5 w-3.5" />
                         Pay Now
                       </Button>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         )}
-      </div>
+      </PageContainer>
     </ClientLayout>
   );
 }

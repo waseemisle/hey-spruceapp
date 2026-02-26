@@ -11,9 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, AlertCircle, DollarSign, Plus, X, Search } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, DollarSign, Plus, X, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageContainer } from '@/components/ui/page-container';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCards } from '@/components/ui/stat-cards';
 
 interface BiddingWorkOrder {
   id: string;
@@ -411,18 +415,18 @@ export default function SubcontractorBidding() {
 
   const getPriorityBadge = (priority: string) => {
     const styles = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-red-100 text-red-800',
+      low: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      medium: 'bg-amber-50 text-amber-700 border-amber-200',
+      high: 'bg-red-50 text-red-700 border-red-200',
     };
-    return styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[priority as keyof typeof styles] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
   if (loading) {
     return (
       <SubcontractorLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </SubcontractorLayout>
     );
@@ -431,24 +435,23 @@ export default function SubcontractorBidding() {
   if (showQuoteForm && selectedWorkOrder) {
     return (
       <SubcontractorLayout>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Submit Quote</h1>
-              <p className="text-gray-600 mt-1">{selectedWorkOrder.title}</p>
-              {selectedWorkOrder.workOrderNumber && (
-                <p className="text-sm text-gray-500 mt-1">Work Order: {selectedWorkOrder.workOrderNumber}</p>
-              )}
-            </div>
-            <Button variant="outline" onClick={() => {
-              setShowQuoteForm(false);
-              setSelectedWorkOrder(null);
-            }}>
-              Cancel
-            </Button>
-          </div>
+        <PageContainer>
+          <PageHeader
+            title="Submit Quote"
+            subtitle={selectedWorkOrder.workOrderNumber ? `Work Order: ${selectedWorkOrder.workOrderNumber}` : selectedWorkOrder.title}
+            icon={DollarSign}
+            iconClassName="text-blue-600"
+            action={
+              <Button variant="outline" onClick={() => {
+                setShowQuoteForm(false);
+                setSelectedWorkOrder(null);
+              }}>
+                Cancel
+              </Button>
+            }
+          />
 
-          <Card>
+          <Card className="rounded-xl border border-gray-200 shadow-sm">
             <CardHeader>
               <CardTitle>Quote Details</CardTitle>
             </CardHeader>
@@ -624,24 +627,31 @@ export default function SubcontractorBidding() {
               </form>
             </CardContent>
           </Card>
-        </div>
+        </PageContainer>
       </SubcontractorLayout>
     );
   }
 
   return (
     <SubcontractorLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Available Work Orders</h1>
-          <p className="text-gray-600 mt-2">Submit quotes for available jobs</p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Available Work Orders"
+          subtitle="Submit quotes for available jobs"
+          icon={ClipboardList}
+          iconClassName="text-blue-600"
+        />
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <StatCards
+          items={[
+            { label: 'Pending', value: biddingWorkOrders.length, icon: ClipboardList, color: 'blue' },
+          ]}
+        />
+
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search work orders by title, description, client, category, or location..."
+            placeholder="Search by title, description, client, category, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -649,62 +659,56 @@ export default function SubcontractorBidding() {
         </div>
 
         {filteredBiddingWorkOrders.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <ClipboardList className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No work orders available</h3>
-              <p className="text-gray-600 text-center">
-                Check back later for new bidding opportunities
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={ClipboardList}
+            title="No work orders available"
+            subtitle="Check back later for new bidding opportunities"
+          />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filteredBiddingWorkOrders.map((bidding) => {
               const workOrder = workOrders.get(bidding.workOrderId);
               if (!workOrder) return null;
 
               return (
-                <Card key={bidding.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-2">{workOrder.title}</CardTitle>
-                        {workOrder.workOrderNumber && (
-                          <p className="text-sm text-gray-600 mb-2">WO: {workOrder.workOrderNumber}</p>
-                        )}
-                        <div className="flex gap-2 flex-wrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
-                            {workOrder.priority} priority
-                          </span>
-                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                            {workOrder.category}
-                          </span>
-                        </div>
+                <div
+                  key={bidding.id}
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
+                  <div className="p-5 space-y-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-base mb-1">{workOrder.title}</h3>
+                      {workOrder.workOrderNumber && (
+                        <p className="text-xs text-gray-500 mb-2">WO: {workOrder.workOrderNumber}</p>
+                      )}
+                      <div className="flex gap-1.5 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${getPriorityBadge(workOrder.priority)}`}>
+                          {workOrder.priority} priority
+                        </span>
+                        <span className="inline-flex text-xs font-medium px-2 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-100">
+                          {workOrder.category}
+                        </span>
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
+
                     <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Client:</p>
+                      <p className="text-sm font-medium text-gray-700 mb-0.5">Client</p>
                       <p className="text-sm text-gray-600">{workOrder.clientName}</p>
                     </div>
 
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-gray-600">
+                    <div className="flex items-start gap-2 text-sm text-gray-600">
+                      <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div>
                         <div>{workOrder.locationName}</div>
-                        <div className="text-xs">{formatAddress(workOrder.locationAddress)}</div>
+                        <div className="text-xs text-gray-500">{formatAddress(workOrder.locationAddress)}</div>
                       </div>
                     </div>
 
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Description:</p>
-                      <p className="text-sm text-gray-600 line-clamp-3">{workOrder.description}</p>
-                    </div>
+                    <p className="text-sm text-gray-600 line-clamp-3">{workOrder.description}</p>
 
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Calendar className="h-4 w-4" />
+                      <Calendar className="h-3.5 w-3.5" />
                       <span>Shared {bidding.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                     </div>
 
@@ -715,29 +719,31 @@ export default function SubcontractorBidding() {
                             key={idx}
                             src={image}
                             alt={`Work order ${idx + 1}`}
-                            className="h-20 w-20 object-cover rounded-lg"
+                            className="h-16 w-16 object-cover rounded-lg flex-shrink-0"
                           />
                         ))}
                       </div>
                     )}
 
-                    <Button
-                      onClick={() => {
-                        setSelectedWorkOrder(workOrder);
-                        setShowQuoteForm(true);
-                      }}
-                      className="w-full mt-4"
-                    >
-                      <DollarSign className="h-4 w-4 mr-2" />
-                      Submit Quote
-                    </Button>
-                  </CardContent>
-                </Card>
+                    <div className="pt-3 border-t border-gray-100">
+                      <Button
+                        onClick={() => {
+                          setSelectedWorkOrder(workOrder);
+                          setShowQuoteForm(true);
+                        }}
+                        className="w-full gap-2"
+                      >
+                        <DollarSign className="h-3.5 w-3.5" />
+                        Submit Quote
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
         )}
-      </div>
+      </PageContainer>
     </SubcontractorLayout>
   );
 }

@@ -285,7 +285,7 @@ export default function MessagesManagement() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
       </AdminLayout>
     );
@@ -451,7 +451,7 @@ export default function MessagesManagement() {
 
         {/* Delete Message Modal */}
         {showDeleteMessageModal && messageToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-md w-full">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Message</h2>
@@ -489,7 +489,7 @@ export default function MessagesManagement() {
 
         {/* Delete Thread Modal */}
         {showDeleteThreadModal && threadToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-md w-full">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Conversation</h2>
@@ -535,7 +535,7 @@ export default function MessagesManagement() {
 
         {/* New Chat Modal */}
         {showNewChatModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">

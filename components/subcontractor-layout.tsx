@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu, X } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 import AccountSettingsDialog from './account-settings-dialog';
@@ -187,8 +188,9 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
             <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Subcontractor Portal</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            <ThemeToggle />
             <NotificationBell />
-            <span className="text-sm text-foreground hidden md:inline">{user?.email}</span>
+            <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
             <AccountSettingsDialog
               user={user}
               role="subcontractor"
@@ -256,7 +258,9 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
 
         <main className="flex-1 md:ml-64">
           <div className="p-4 md:p-6 space-y-4">
-            <ViewControls />
+            <div className="flex items-center gap-4">
+              <ViewControls className="flex-1" />
+            </div>
             {children}
           </div>
         </main>

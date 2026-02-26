@@ -129,7 +129,7 @@ export default function ClientMaintenanceRequests() {
     return (
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
       </ClientLayout>
     );
@@ -238,7 +238,7 @@ export default function ClientMaintenanceRequests() {
 
         {/* Detail Modal */}
         {showModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white">
                 <h2 className="text-2xl font-bold">{selectedRequest.title}</h2>

@@ -8,10 +8,9 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyWorkOrderCompletion, notifyScheduledService, getAllAdminUserIds } from '@/lib/notifications';
 import { createNotification } from '@/lib/notifications';
 import SubcontractorLayout from '@/components/subcontractor-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock, Upload, Image as ImageIcon } from 'lucide-react';
+import { ClipboardList, CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { formatAddress } from '@/lib/utils';
@@ -44,6 +43,26 @@ interface WorkOrder {
   createdAt: any;
   completedAt?: any;
 }
+
+const PRIORITY_CONFIG: Record<string, { className: string; dot: string }> = {
+  low: { className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  medium: { className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+  high: { className: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500' },
+};
+
+const JOB_STATUS_CONFIG: Record<string, { className: string; dot: string; label: string }> = {
+  pending_acceptance: { className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: 'Pending Acceptance' },
+  accepted: { className: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500', label: 'Accepted' },
+  rejected: { className: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500', label: 'Rejected' },
+  completed: { className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', label: 'Completed' },
+};
+
+const CARD_ACCENTS: Record<string, string> = {
+  pending_acceptance: 'from-amber-400 to-orange-500',
+  accepted: 'from-blue-400 to-blue-600',
+  rejected: 'from-red-400 to-red-600',
+  completed: 'from-emerald-400 to-emerald-600',
+};
 
 export default function SubcontractorAssignedJobs() {
   const { auth, db } = useFirebaseInstance();
@@ -194,7 +213,7 @@ export default function SubcontractorAssignedJobs() {
       // Notify client of scheduling (in-app notification)
       if (workOrderData?.clientId) {
         const scheduledDateTime = new Date(serviceDate + 'T' + serviceTimeStart);
-        const timeRange = serviceTimeEnd 
+        const timeRange = serviceTimeEnd
           ? `${serviceTimeStart} - ${serviceTimeEnd}`
           : serviceTimeStart;
         await notifyScheduledService(
@@ -239,7 +258,7 @@ export default function SubcontractorAssignedJobs() {
       const adminIds = await getAllAdminUserIds();
       if (adminIds.length > 0) {
         const scheduledDateTime = new Date(serviceDate + 'T' + serviceTimeStart);
-        const timeRange = serviceTimeEnd 
+        const timeRange = serviceTimeEnd
           ? `${serviceTimeStart} - ${serviceTimeEnd}`
           : serviceTimeStart;
         await createNotification({
@@ -484,26 +503,6 @@ export default function SubcontractorAssignedJobs() {
     }
   };
 
-  const getPriorityBadge = (priority: string) => {
-    const styles = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-red-100 text-red-800',
-    };
-    return styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      pending_acceptance: 'bg-yellow-100 text-yellow-800',
-      accepted: 'bg-blue-100 text-blue-800',
-      rejected: 'bg-red-100 text-red-800',
-      assigned: 'bg-blue-100 text-blue-800',
-      completed: 'bg-green-100 text-green-800',
-    };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
-  };
-
   const filteredJobs = assignedJobs.filter(job => {
     const workOrder = workOrders.get(job.workOrderId);
     if (!workOrder) return false;
@@ -531,7 +530,7 @@ export default function SubcontractorAssignedJobs() {
     { value: 'all', label: 'All', count: assignedJobs.length },
     {
       value: 'pending',
-      label: 'Pending Acceptance',
+      label: 'Pending',
       count: assignedJobs.filter(job => job.status === 'pending_acceptance').length
     },
     {
@@ -546,11 +545,18 @@ export default function SubcontractorAssignedJobs() {
     },
   ];
 
+  const statsData = [
+    { label: 'Total Jobs', value: assignedJobs.length, color: 'border-blue-200 bg-blue-50', textColor: 'text-blue-700', icon: <ClipboardList className="h-5 w-5 text-blue-500" /> },
+    { label: 'Pending', value: filterOptions[1].count, color: 'border-amber-200 bg-amber-50', textColor: 'text-amber-700', icon: <Clock className="h-5 w-5 text-amber-500" /> },
+    { label: 'In Progress', value: filterOptions[2].count, color: 'border-blue-200 bg-blue-50', textColor: 'text-blue-700', icon: <CheckSquare className="h-5 w-5 text-blue-500" /> },
+    { label: 'Completed', value: filterOptions[3].count, color: 'border-emerald-200 bg-emerald-50', textColor: 'text-emerald-700', icon: <CheckCircle className="h-5 w-5 text-emerald-500" /> },
+  ];
+
   if (loading) {
     return (
       <SubcontractorLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </SubcontractorLayout>
     );
@@ -559,124 +565,152 @@ export default function SubcontractorAssignedJobs() {
   return (
     <SubcontractorLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Assigned Jobs</h1>
-          <p className="text-gray-600 mt-2">Manage your assigned work orders</p>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <ClipboardList className="h-7 w-7 text-blue-600" />
+              Assigned Jobs
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">Manage your assigned work orders</p>
+          </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search assigned jobs by title, description, client, category, or location..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {statsData.map((stat) => (
+            <div key={stat.label} className={`rounded-xl border p-4 flex items-center gap-3 ${stat.color}`}>
+              <div className="flex-shrink-0">{stat.icon}</div>
+              <div>
+                <div className={`text-xl font-bold leading-none ${stat.textColor}`}>{stat.value}</div>
+                <div className="text-xs mt-0.5 opacity-75">{stat.label}</div>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div className="flex items-center gap-3">
-          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
-            Filter by Status:
-          </label>
-          <select
-            id="status-filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-          >
+        {/* Toolbar */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search assigned jobs by title, description, client, category, or location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex bg-gray-100 rounded-lg p-1 gap-1 flex-shrink-0">
             {filterOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label} ({option.count})
-              </option>
+              <button
+                key={option.value}
+                onClick={() => setFilter(option.value)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                  filter === option.value
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {option.label} <span className="text-xs opacity-70">({option.count})</span>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
+        {/* Jobs Grid */}
         {filteredJobs.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <CheckSquare className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {filter === 'all' ? 'No assigned jobs yet' : `No ${filter} jobs`}
-              </h3>
-              <p className="text-gray-600 text-center">
-                {filter === 'all'
-                  ? 'Jobs will appear here once your quotes are accepted'
-                  : 'Try a different filter'}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
+            <ClipboardList className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              {filter === 'all' ? 'No assigned jobs yet' : `No ${filter} jobs`}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {filter === 'all'
+                ? 'Jobs will appear here once your quotes are accepted'
+                : 'Try a different filter'}
+            </p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredJobs.map((job) => {
               const workOrder = workOrders.get(job.workOrderId);
               if (!workOrder) return null;
 
+              const effectiveStatus = workOrder.status === 'completed' ? 'completed' : job.status;
+              const accentGradient = CARD_ACCENTS[effectiveStatus] || 'from-gray-400 to-gray-600';
+              const jobStatusCfg = JOB_STATUS_CONFIG[effectiveStatus] || JOB_STATUS_CONFIG['pending_acceptance'];
+              const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || { className: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-400' };
+
               return (
-                <Card key={job.id} className="h-full flex flex-col hover:shadow-lg transition-shadow">
-                <CardHeader className="flex-shrink-0">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg mb-2 line-clamp-2">{workOrder.title}</CardTitle>
-                        <div className="flex gap-2 flex-wrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(job.status)}`}>
-                            {job.status.replace('_', ' ')}
-                          </span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(workOrder.priority)}`}>
-                            {workOrder.priority} priority
-                          </span>
-                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                            {workOrder.category}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3 flex-1 flex flex-col">
+                <div
+                  key={job.id}
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col"
+                >
+                  <div className={`h-1 w-full bg-gradient-to-r ${accentGradient}`} />
+                  <div className="p-5 flex flex-col flex-1 space-y-4">
+                    {/* Title + Badges */}
                     <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Client:</p>
-                      <p className="text-sm text-gray-600">{workOrder.clientName}</p>
-                      <p className="text-xs text-gray-500">{workOrder.clientEmail}</p>
-                    </div>
-
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-gray-600">
-                        <div className="font-medium">{workOrder.locationName}</div>
-                        <div className="text-xs">{formatAddress(workOrder.locationAddress)}</div>
+                      <h3 className="font-semibold text-gray-900 text-base line-clamp-2 mb-2">{workOrder.title}</h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${jobStatusCfg.className}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${jobStatusCfg.dot}`} />
+                          {jobStatusCfg.label}
+                        </span>
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${priorityCfg.className}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${priorityCfg.dot}`} />
+                          {workOrder.priority} priority
+                        </span>
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
+                          {workOrder.category}
+                        </span>
                       </div>
                     </div>
 
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Description:</p>
-                      <p className="text-sm text-gray-600">{workOrder.description}</p>
+                    {/* Client */}
+                    <div className="text-sm">
+                      <p className="font-medium text-gray-700">Client</p>
+                      <p className="text-gray-600">{workOrder.clientName}</p>
+                      <p className="text-xs text-gray-400">{workOrder.clientEmail}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    {/* Location */}
+                    <div className="flex items-start gap-2 text-sm text-gray-600">
+                      <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="flex items-center gap-2 text-gray-600 mb-1">
-                          <Calendar className="h-4 w-4" />
-                          <span>Assigned</span>
+                        <div className="font-medium text-gray-700">{workOrder.locationName}</div>
+                        <div className="text-xs text-gray-400">{formatAddress(workOrder.locationAddress)}</div>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-sm text-gray-600 line-clamp-2">{workOrder.description}</p>
+
+                    {/* Dates */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="flex items-center gap-1.5 text-gray-400 mb-0.5">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span className="text-xs">Assigned</span>
                         </div>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-gray-800 text-xs">
                           {job.assignedAt?.toDate?.().toLocaleDateString() || 'N/A'}
                         </p>
                       </div>
 
                       {workOrder.completedAt && (
                         <div>
-                          <div className="flex items-center gap-2 text-green-600 mb-1">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>Completed</span>
+                          <div className="flex items-center gap-1.5 text-emerald-500 mb-0.5">
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            <span className="text-xs">Completed</span>
                           </div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-gray-800 text-xs">
                             {workOrder.completedAt?.toDate?.().toLocaleDateString() || 'N/A'}
                           </p>
                         </div>
                       )}
                     </div>
 
+                    {/* Images */}
                     {workOrder.images && workOrder.images.length > 0 && (
                       <div className="flex gap-2 overflow-x-auto">
                         {workOrder.images.map((image, idx) => (
@@ -684,28 +718,29 @@ export default function SubcontractorAssignedJobs() {
                             key={idx}
                             src={image}
                             alt={`Work order ${idx + 1}`}
-                            className="h-20 w-20 object-cover rounded-lg"
+                            className="h-16 w-16 object-cover rounded-lg flex-shrink-0"
                           />
                         ))}
                       </div>
                     )}
 
-                    <div className="mt-auto pt-4 space-y-2">
+                    {/* Actions */}
+                    <div className="mt-auto pt-2 space-y-2">
                       {job.status === 'pending_acceptance' && (
                         <div className="flex gap-2">
                           <Button
                             onClick={() => handleAcceptAssignment(job.id, workOrder.id)}
-                            className="flex-1 bg-green-600 hover:bg-green-700"
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-9 text-sm"
                           >
-                            <CheckCircle className="h-4 w-4 mr-2" />
+                            <CheckCircle className="h-4 w-4 mr-1.5" />
                             Accept
                           </Button>
                           <Button
                             onClick={() => handleRejectAssignment(job.id, workOrder.id)}
                             variant="destructive"
-                            className="flex-1"
+                            className="flex-1 h-9 text-sm"
                           >
-                            <X className="h-4 w-4 mr-2" />
+                            <X className="h-4 w-4 mr-1.5" />
                             Reject
                           </Button>
                         </div>
@@ -714,29 +749,29 @@ export default function SubcontractorAssignedJobs() {
                       {job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (
                         <Button
                           onClick={() => handleMarkComplete(workOrder.id)}
-                          className="w-full bg-green-600 hover:bg-green-700"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 h-9 text-sm"
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
+                          <CheckCircle className="h-4 w-4 mr-1.5" />
                           Mark as Complete
                         </Button>
                       )}
 
                       {workOrder.status === 'completed' && (
-                        <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                           <div className="flex items-center gap-2">
-                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <CheckCircle className="h-4 w-4 text-emerald-600 flex-shrink-0" />
                             <div>
-                              <p className="font-semibold text-green-800">Job Completed!</p>
-                              <p className="text-sm text-green-700">
-                                Completed on {workOrder.completedAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                              <p className="text-sm font-semibold text-emerald-800">Job Completed</p>
+                              <p className="text-xs text-emerald-600">
+                                {workOrder.completedAt?.toDate?.().toLocaleDateString() || 'N/A'}
                               </p>
                             </div>
                           </div>
                         </div>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -744,10 +779,10 @@ export default function SubcontractorAssignedJobs() {
 
         {/* Accept Assignment Modal with Service Date/Time */}
         {showAcceptModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
-              <div className="p-6 border-b flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Schedule Service</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Schedule Service</h2>
                 <Button
                   variant="outline"
                   size="sm"
@@ -762,7 +797,7 @@ export default function SubcontractorAssignedJobs() {
               </div>
 
               <div className="p-6 space-y-4">
-                <p className="text-gray-600">
+                <p className="text-sm text-gray-600">
                   Please select the scheduled date and arrival time window for this job:
                 </p>
 
@@ -815,7 +850,7 @@ export default function SubcontractorAssignedJobs() {
 
                 <div className="flex gap-3 pt-4 border-t">
                   <Button
-                    className="flex-1"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                     onClick={handleConfirmAccept}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
@@ -839,10 +874,10 @@ export default function SubcontractorAssignedJobs() {
 
         {/* Completion Form Modal */}
         {showCompletionModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full">
-              <div className="p-6 border-b flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Complete Work Order</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Complete Work Order</h2>
                 <Button
                   variant="outline"
                   size="sm"
@@ -858,7 +893,7 @@ export default function SubcontractorAssignedJobs() {
               </div>
 
               <div className="p-6 space-y-4">
-                <p className="text-gray-600">
+                <p className="text-sm text-gray-600">
                   Please provide details about the work you completed. This information will be shared with the admin and client.
                 </p>
 
@@ -871,7 +906,7 @@ export default function SubcontractorAssignedJobs() {
                     value={completionDetails}
                     onChange={(e) => setCompletionDetails(e.target.value)}
                     placeholder="Describe what work was completed, parts used, issues encountered, etc."
-                    className="w-full border border-gray-300 rounded-md p-3 min-h-32 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    className="w-full border border-gray-300 rounded-lg p-3 min-h-32 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                     required
                   />
                 </div>
@@ -885,7 +920,7 @@ export default function SubcontractorAssignedJobs() {
                     value={completionNotes}
                     onChange={(e) => setCompletionNotes(e.target.value)}
                     placeholder="Any additional information, recommendations, or follow-up needed"
-                    className="w-full border border-gray-300 rounded-md p-3 min-h-24 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    className="w-full border border-gray-300 rounded-lg p-3 min-h-24 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                   />
                 </div>
 
@@ -895,9 +930,9 @@ export default function SubcontractorAssignedJobs() {
                     Completion Images/Files (Required) *
                   </Label>
                   <div className="mt-2">
-                    <label htmlFor="completion-images" className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-md appearance-none cursor-pointer focus:outline-none ${completionPreviewUrls.length > 0 ? 'border-green-400' : 'border-red-300 hover:border-red-400'}`}>
+                    <label htmlFor="completion-images" className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg appearance-none cursor-pointer focus:outline-none ${completionPreviewUrls.length > 0 ? 'border-emerald-400' : 'border-red-300 hover:border-red-400'}`}>
                       <div className="flex flex-col items-center space-y-2">
-                        <Upload className={`h-8 w-8 ${completionPreviewUrls.length > 0 ? 'text-green-500' : 'text-red-400'}`} />
+                        <Upload className={`h-8 w-8 ${completionPreviewUrls.length > 0 ? 'text-emerald-500' : 'text-red-400'}`} />
                         <span className="text-sm text-gray-600">
                           {completionPreviewUrls.length > 0 ? `${completionPreviewUrls.length} file(s) selected — click to add more` : 'Click to upload completion images/files'}
                         </span>
@@ -940,7 +975,7 @@ export default function SubcontractorAssignedJobs() {
 
                 <div className="flex gap-3 pt-4 border-t">
                   <Button
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                     onClick={handleConfirmComplete}
                     loading={uploadingFiles} disabled={uploadingFiles}
                   >

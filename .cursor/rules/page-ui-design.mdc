@@ -1,0 +1,61 @@
+---
+description: Page UI and styling — match admin-portal/subcontractors design across all portals
+globs: app/**/page.tsx
+alwaysApply: false
+---
+
+# Page UI Design System (Reference: admin-portal/subcontractors)
+
+All portal pages (admin, client, subcontractor) must follow the same UI and styling as the admin Subcontractors page.
+
+## Layout & Structure
+
+- Wrap page content in `PageContainer` (or a root `<div className="space-y-6">`).
+- Use `PageHeader` for the top section: title with icon (`text-2xl font-bold text-gray-900`, icon `h-7 w-7 text-blue-600`), optional subtitle `text-sm text-gray-500 mt-0.5`, optional primary action button.
+
+## Stats (when applicable)
+
+- Use `StatCards` or a grid: `grid grid-cols-2 sm:grid-cols-4 gap-3`.
+- Each stat card: `rounded-xl border p-4 flex items-center gap-3` with semantic colors, e.g. `text-blue-600 bg-blue-50 border-blue-100`, icon `h-5 w-5`, value `text-xl font-bold leading-none`, label `text-xs mt-0.5 opacity-75`.
+
+## Toolbar
+
+- Search: `relative flex-1`, icon `absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400`, input `pl-10`.
+- Filter pills: `flex items-center gap-1 bg-gray-100 rounded-lg p-1`; active pill `bg-white shadow-sm text-gray-900`, inactive `text-gray-500 hover:text-gray-700`; pills `px-3 py-1.5 rounded-md text-sm font-medium capitalize`.
+
+## Cards (grid or list)
+
+- Container: `bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow`.
+- Optional top accent: `h-1 w-full bg-gradient-to-r {color}` (e.g. `from-blue-500 to-blue-700`).
+- Content padding: `p-5`.
+- Status badges: `inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border` with semantic classes (e.g. `bg-emerald-50 text-emerald-700 border-emerald-200`), plus a small dot `h-1.5 w-1.5 rounded-full`.
+
+## Tables (list view)
+
+- Wrapper: `bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden`.
+- Header row: `border-b border-gray-100 bg-gray-50`, cells `px-5 py-3 font-medium text-gray-500`.
+- Body: `divide-y divide-gray-100`, hover `hover:bg-gray-50 transition-colors`.
+
+## Empty state
+
+- Use `EmptyState` or: `bg-white rounded-xl border border-gray-200 p-16 text-center`, icon in `h-14 w-14 bg-gray-100 rounded-full`, title `text-gray-900 font-medium`, subtitle `text-gray-500 text-sm mt-1`.
+
+## Modals
+
+- Overlay: `fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4`.
+- Content: `bg-white rounded-2xl ... shadow-2xl`.
+- Header: `p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl`.
+
+## Loading
+
+- Spinner: `animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600` (consistent across portals).
+
+## Shared components
+
+- `@/components/ui/page-header` — title, subtitle, icon, action.
+- `@/components/ui/page-container` — `space-y-6` wrapper.
+- `@/components/ui/stat-cards` — grid of colored stat cards.
+- `@/components/ui/filter-pills` — filter tabs.
+- `@/components/ui/empty-state` — icon, title, subtitle.
+
+When adding or editing portal pages, apply these patterns so the app looks consistent with the admin Subcontractors page.

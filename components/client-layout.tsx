@@ -313,7 +313,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
         <main className="flex-1 md:ml-64">
           <div className="p-4 md:p-6 space-y-4">
-            <ViewControls />
+            <div className="flex items-center gap-4">
+              <ViewControls className="flex-1" />
+            </div>
             {children}
           </div>
         </main>

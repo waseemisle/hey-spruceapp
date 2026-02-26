@@ -5,11 +5,14 @@ import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc } fro
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Building2, Plus, MapPin, Calendar, Search, Eye, X } from 'lucide-react';
 import Link from 'next/link';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageContainer } from '@/components/ui/page-container';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCards } from '@/components/ui/stat-cards';
 
 interface Location {
   id: string;
@@ -125,11 +128,11 @@ export default function ClientLocations() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
+      pending: 'bg-amber-50 text-amber-700 border-amber-200',
+      approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      rejected: 'bg-red-50 text-red-700 border-red-200',
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[status as keyof typeof styles] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
   const handleViewDetails = (location: Location) => {
@@ -166,7 +169,7 @@ export default function ClientLocations() {
     return (
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </ClientLayout>
     );
@@ -174,35 +177,42 @@ export default function ClientLocations() {
 
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Locations</h1>
-            <p className="text-gray-600 mt-2">Manage your property locations</p>
-          </div>
-          <Link href="/client-portal/locations/create">
-            <Button disabled={!companyInfo || checkingCompany}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add New Location
-            </Button>
-          </Link>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="My Locations"
+          subtitle="Manage your property locations"
+          icon={Building2}
+          iconClassName="text-blue-600"
+          action={
+            <Link href="/client-portal/locations/create">
+              <Button disabled={!companyInfo || checkingCompany} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add New Location
+              </Button>
+            </Link>
+          }
+        />
 
         {!companyInfo && !checkingCompany && (
-          <Card>
-            <CardContent className="py-6">
-              <p className="text-red-600 font-medium">
-                No company is assigned to your profile yet. Please contact an administrator to gain access to your company locations.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-xl border border-amber-200 bg-amber-50/50 p-6">
+            <p className="text-amber-800 font-medium">
+              No company is assigned to your profile yet. Please contact an administrator to gain access to your company locations.
+            </p>
+          </div>
         )}
 
         {companyInfo && (
           <>
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <StatCards
+              items={[
+                { label: 'Total', value: locations.length, icon: Building2, color: 'blue' },
+                { label: 'Approved', value: locations.filter(l => l.status === 'approved').length, icon: Building2, color: 'emerald' },
+                { label: 'Pending', value: locations.filter(l => l.status === 'pending').length, icon: Building2, color: 'amber' },
+              ]}
+            />
+
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search locations by name, address, city, state, or property type..."
                 value={searchQuery}
@@ -212,88 +222,77 @@ export default function ClientLocations() {
             </div>
 
             {filteredLocations.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Building2 className="h-16 w-16 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No locations yet</h3>
-                  <p className="text-gray-600 text-center mb-4">
-                    Get started by adding your first property location
-                  </p>
-                  <Link href="/client-portal/locations/create">
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Location
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={Building2}
+                title="No locations yet"
+                subtitle="Get started by adding your first property location"
+              />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredLocations.map((location) => (
-                  <Card key={location.id}>
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{location.name || (location as any).locationName}</CardTitle>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(location.status)}`}>
+                  <div
+                    key={location.id}
+                    className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  >
+                    <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
+                    <div className="p-5">
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <h3 className="font-semibold text-gray-900 text-sm truncate flex-1">
+                          {location.name || (location as any).locationName}
+                        </h3>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border flex-shrink-0 ${getStatusBadge(location.status)}`}>
                           {location.status}
                         </span>
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                        <div className="text-sm text-gray-600">
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
                           <div>
-                            {typeof location.address === 'object'
-                              ? location.address.street
-                              : location.address}
-                          </div>
-                          <div>
-                            {typeof location.address === 'object'
-                              ? `${location.address.city}, ${location.address.state} ${location.address.zip}`
-                              : `${location.city}, ${location.state} ${location.zipCode}`}
+                            <div>
+                              {typeof location.address === 'object'
+                                ? location.address.street
+                                : location.address}
+                            </div>
+                            <div>
+                              {typeof location.address === 'object'
+                                ? `${location.address.city}, ${location.address.state} ${location.address.zip}`
+                                : `${location.city}, ${location.state} ${location.zipCode}`}
+                            </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <span>{location.propertyType}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <span>Created {location.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
+                        </div>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">{location.propertyType}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">
-                          Created {location.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                        </span>
-                      </div>
-
                       {location.status === 'rejected' && location.rejectedReason && (
-                        <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                        <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
                           <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
                           <p className="text-xs text-red-700">{location.rejectedReason}</p>
                         </div>
                       )}
-
                       {location.notes && (
                         <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                           <p className="text-xs text-gray-600">{location.notes}</p>
                         </div>
                       )}
-
-                      <div className="pt-3 border-t">
+                      <div className="mt-4 pt-4 border-t border-gray-100">
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="w-full"
+                          variant="secondary"
+                          className="w-full gap-2"
                           onClick={() => handleViewDetails(location)}
                         >
-                          <Eye className="h-4 w-4 mr-2" />
+                          <Eye className="h-3.5 w-3.5" />
                           View Details
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -302,9 +301,9 @@ export default function ClientLocations() {
 
         {/* Details Modal */}
         {showModal && selectedLocation && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">{selectedLocation.name || (selectedLocation as any).locationName}</h2>
                   <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
@@ -392,7 +391,7 @@ export default function ClientLocations() {
             </div>
           </div>
         )}
-      </div>
+      </PageContainer>
     </ClientLayout>
   );
 }

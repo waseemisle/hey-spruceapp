@@ -319,7 +319,7 @@ export default function AdminDashboard() {
           {loading ? (
             <div className="flex items-center justify-center py-24">
               <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="mt-4 text-gray-600">Loading dashboard...</p>
               </div>
             </div>
