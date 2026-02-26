@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc, getDoc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock, Send, ChevronDown } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock, Send, ChevronDown, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Subcontractor {
@@ -30,6 +31,7 @@ interface Category {
 }
 
 export default function SubcontractorsManagement() {
+  const router = useRouter();
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -594,6 +596,15 @@ export default function SubcontractorsManagement() {
                   )}
 
                   <div className="flex flex-col gap-2 pt-4">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => router.push(`/admin-portal/subcontractors/${sub.uid}`)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
                     <Button
                       size="sm"
                       variant="default"

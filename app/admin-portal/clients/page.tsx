@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, getDoc, doc, updateDoc, serverTimestamp, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, XCircle, User, Mail, Phone, Building, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock } from 'lucide-react';
+import { CheckCircle, XCircle, User, Mail, Phone, Building, Plus, Edit2, Save, X, Search, Trash2, LogIn, Lock, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Client {
@@ -39,6 +40,7 @@ interface Location {
 }
 
 export default function ClientsManagement() {
+  const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -603,6 +605,15 @@ export default function ClientsManagement() {
                   )}
 
                   <div className="flex flex-col gap-2 pt-4">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => router.push(`/admin-portal/clients/${client.uid}`)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
                     <Button
                       size="sm"
                       variant="default"
