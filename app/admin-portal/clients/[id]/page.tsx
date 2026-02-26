@@ -250,18 +250,20 @@ export default function ClientDetailPage() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
+  const backButton = (
+    <Button
+      variant="ghost"
+      className="gap-2 text-gray-600 hover:text-gray-900 shrink-0"
+      onClick={() => router.push('/admin-portal/clients')}
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Back to Clients
+    </Button>
+  );
+
   return (
-    <AdminLayout>
+    <AdminLayout headerExtra={backButton}>
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
-        {/* Back */}
-        <Button
-          variant="ghost"
-          className="gap-2 text-gray-600 hover:text-gray-900 -ml-2"
-          onClick={() => router.push('/admin-portal/clients')}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Clients
-        </Button>
 
         {/* Entity Header */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-5">

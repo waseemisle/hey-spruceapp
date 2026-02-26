@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({ children, headerExtra }: { children: React.ReactNode; headerExtra?: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -714,7 +714,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }`}
         >
           <div className="p-4 md:p-6 space-y-4">
-            <ViewControls />
+            <div className="flex items-center gap-4">
+              {headerExtra}
+              <ViewControls className="flex-1" />
+            </div>
             {children}
           </div>
         </main>
