@@ -38,7 +38,7 @@ const COLLECTION_CONFIGS = [
     titleFn: (d: any) => d.workOrderNumber || d.title || d.id,
     subtitleFn: (d: any) => [d.status, d.category, d.clientName].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.id, d.title, d.workOrderNumber, d.orderNumber, d.description, d.status, d.category, d.clientName, d.clientId, d.assignedTo, d.subcontractorName].filter(Boolean).join(' '),
+      [d.id, d.title, d.workOrderNumber, d.orderNumber, d.description, d.status, d.category, d.clientName, d.clientId, d.assignedTo, d.assignedToName, d.subcontractorName].filter(Boolean).join(' '),
   },
   {
     name: 'clients',
@@ -46,11 +46,10 @@ const COLLECTION_CONFIGS = [
     Icon: Users,
     iconColor: 'text-green-500',
     hrefFn: (id: string) => `/admin-portal/clients/${id}`,
-    titleFn: (d: any) =>
-      d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || d.id,
-    subtitleFn: (d: any) => [d.email, d.phone, d.company || d.companyName].filter(Boolean).join(' · '),
+    titleFn: (d: any) => d.fullName || d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || d.id,
+    subtitleFn: (d: any) => [d.email, d.phone, d.companyName || d.company].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.id, d.name, d.firstName, d.lastName, d.email, d.phone, d.company, d.companyName, d.displayName, d.fullName].filter(Boolean).join(' '),
+      [d.id, d.fullName, d.name, d.firstName, d.lastName, d.email, d.phone, d.company, d.companyName, d.displayName].filter(Boolean).join(' '),
   },
   {
     name: 'subcontractors',
@@ -58,11 +57,10 @@ const COLLECTION_CONFIGS = [
     Icon: Award,
     iconColor: 'text-orange-500',
     hrefFn: (id: string) => `/admin-portal/subcontractors/${id}`,
-    titleFn: (d: any) =>
-      d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || d.id,
-    subtitleFn: (d: any) => [d.email, d.phone, d.trade, d.specialty].filter(Boolean).join(' · '),
+    titleFn: (d: any) => d.fullName || d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || d.id,
+    subtitleFn: (d: any) => [d.businessName, d.email, d.phone].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.id, d.name, d.firstName, d.lastName, d.email, d.phone, d.trade, d.specialty, d.company, d.displayName, d.fullName].filter(Boolean).join(' '),
+      [d.id, d.fullName, d.name, d.businessName, d.firstName, d.lastName, d.email, d.phone, d.trade, d.specialty, d.company, d.displayName].filter(Boolean).join(' '),
   },
   {
     name: 'invoices',
@@ -74,7 +72,7 @@ const COLLECTION_CONFIGS = [
     subtitleFn: (d: any) =>
       [d.clientName, d.status, d.totalAmount != null ? `$${d.totalAmount}` : null].filter(Boolean).join(' · '),
     searchFn: (d: any) =>
-      [d.id, d.invoiceNumber, d.title, d.clientName, d.status, d.subcontractorName].filter(Boolean).join(' '),
+      [d.id, d.invoiceNumber, d.title, d.clientName, d.status, d.subcontractorName, d.assignedToName].filter(Boolean).join(' '),
   },
   {
     name: 'quotes',
@@ -100,7 +98,7 @@ const COLLECTION_CONFIGS = [
       [d.id, d.name, d.address, d.city, d.state, d.zip, d.clientName, d.locationName].filter(Boolean).join(' '),
   },
   {
-    name: 'subsidiaries',
+    name: 'companies',
     category: 'Companies',
     Icon: Building2,
     iconColor: 'text-teal-500',
@@ -210,24 +208,30 @@ export default function GlobalSearchDialog() {
         try {
           const snap = await getDocs(collection(db, cfg.name));
           snap.forEach((d) => {
-            const data = { id: d.id, ...d.data() };
-            const searchText = (cfg.searchFn(data) + ' ' + d.id).toLowerCase();
-            allItems.push({
-              id: d.id,
-              title: cfg.titleFn(data) || d.id,
-              subtitle: cfg.subtitleFn(data) || undefined,
-              category: cfg.category,
-              href: cfg.hrefFn(d.id),
-              Icon: cfg.Icon,
-              iconColor: cfg.iconColor,
-              searchText,
-            });
+            try {
+              const data = { id: d.id, ...d.data() };
+              const searchText = (cfg.searchFn(data) + ' ' + d.id).toLowerCase();
+              allItems.push({
+                id: d.id,
+                title: cfg.titleFn(data) || d.id,
+                subtitle: cfg.subtitleFn(data) || undefined,
+                category: cfg.category,
+                href: cfg.hrefFn(d.id),
+                Icon: cfg.Icon,
+                iconColor: cfg.iconColor,
+                searchText,
+              });
+            } catch (docErr) {
+              console.error(`[GlobalSearch] Error processing doc ${d.id} in "${cfg.name}":`, docErr);
+            }
           });
+          console.log(`[GlobalSearch] Loaded ${snap.size} docs from "${cfg.name}"`);
         } catch (err) {
           console.error(`[GlobalSearch] Failed to fetch collection "${cfg.name}":`, err);
         }
       })
     );
+    console.log(`[GlobalSearch] Total items loaded: ${allItems.length}`);
     if (allItems.length > 0) {
       cacheRef.current = { items: allItems, fetchedAt: Date.now() };
     }
