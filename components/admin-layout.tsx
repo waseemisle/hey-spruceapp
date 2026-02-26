@@ -16,6 +16,7 @@ import {
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle, ChevronDown, ChevronRight, BarChart2, Search, Package, Award
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
+import GlobalSearchDialog from '@/components/global-search-dialog';
 
 export default function AdminLayout({ children, headerExtra }: { children: React.ReactNode; headerExtra?: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -175,6 +176,9 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             </button>
             <Logo href="/admin-portal" size="sm" />
             <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Admin Portal</span>
+          </div>
+          <div className="flex-1 flex justify-center px-4">
+            <GlobalSearchDialog />
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
