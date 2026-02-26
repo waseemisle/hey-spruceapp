@@ -1,16 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, where, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Search, Users, CheckCircle2, XCircle, Save, Shield } from 'lucide-react';
+import {
+  Building2, Search, Users, CheckCircle2, XCircle, Save, Shield,
+  Mail, Phone, ChevronDown, ChevronUp, Eye, Lock,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useRouter } from 'next/navigation';
 
 interface Company {
   id: string;
@@ -40,12 +44,87 @@ interface Client {
   };
 }
 
+type PermKey = keyof NonNullable<Client['permissions']>;
+
+const PERMISSION_DEFS: { key: PermKey; label: string; desc: string }[] = [
+  {
+    key: 'shareForBidding',
+    label: 'Share for Bidding',
+    desc: 'Client can share work orders with subcontractors for bidding. Quotes will be shared without markup.',
+  },
+  {
+    key: 'viewMaintenanceRequests',
+    label: 'View Maintenance Requests',
+    desc: 'Client can view maintenance requests in their portal.',
+  },
+  {
+    key: 'viewMaintenanceRequestsWorkOrders',
+    label: 'Maintenance Requests Work Orders',
+    desc: 'Client can view maintenance request work orders. Nav will show as "Maintenance Requests Work Orders".',
+  },
+  {
+    key: 'approveRejectOrder',
+    label: 'Approve / Reject Order',
+    desc: 'Client can approve or reject work orders in their portal.',
+  },
+  {
+    key: 'rejectedWorkOrders',
+    label: 'Rejected Work Orders',
+    desc: 'Client can view rejected work orders in their portal.',
+  },
+  {
+    key: 'viewSubcontractors',
+    label: 'View Subcontractors',
+    desc: 'Client can view all subcontractors (read-only).',
+  },
+  {
+    key: 'compareQuotes',
+    label: 'Compare Quotes',
+    desc: 'Client can compare multiple quotes side-by-side with detailed subcontractor information.',
+  },
+  {
+    key: 'viewRecurringWorkOrders',
+    label: 'Recurring Work Orders',
+    desc: 'Client can view and edit recurring work orders in their portal.',
+  },
+  {
+    key: 'viewTimeline',
+    label: 'View Timeline',
+    desc: 'Client can see the Timeline section (creation, approval, activity) on work orders, quotes, and invoices.',
+  },
+];
+
+const AVATAR_COLORS = [
+  'from-blue-500 to-blue-700',
+  'from-purple-500 to-purple-700',
+  'from-green-500 to-green-700',
+  'from-orange-500 to-orange-700',
+  'from-rose-500 to-rose-700',
+  'from-teal-500 to-teal-700',
+];
+
+function getInitials(name: string): string {
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function avatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function enabledCount(perms: Client['permissions'] = {}): number {
+  return PERMISSION_DEFS.filter((p) => perms[p.key]).length;
+}
+
 export default function CompaniesPermissions() {
+  const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
+  const [expandedClient, setExpandedClient] = useState<string | null>(null);
   const [clientPermissions, setClientPermissions] = useState<Record<string, Client['permissions']>>({});
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -57,21 +136,14 @@ export default function CompaniesPermissions() {
         getDocs(query(collection(db, 'clients'))),
       ]);
 
-      const comps = companiesSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as Company[];
-
+      const comps = companiesSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as Company[];
       const cls = clientsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-        permissions: d.data().permissions || {},
+        id: d.id, ...d.data(), permissions: d.data().permissions || {},
       })) as Client[];
 
       setCompanies(comps);
       setClients(cls);
 
-      // Initialize permissions state
       const permissionsMap: Record<string, Client['permissions']> = {};
       cls.forEach((client) => {
         permissionsMap[client.id] = {
@@ -95,53 +167,42 @@ export default function CompaniesPermissions() {
     }
   };
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const handlePermissionChange = (clientId: string, permission: 'shareForBidding' | 'viewMaintenanceRequests' | 'viewMaintenanceRequestsWorkOrders' | 'approveRejectOrder' | 'rejectedWorkOrders' | 'viewSubcontractors' | 'compareQuotes' | 'viewRecurringWorkOrders' | 'viewTimeline', value: boolean) => {
+  const handlePermissionChange = (clientId: string, permission: PermKey, value: boolean) => {
     setClientPermissions((prev) => ({
       ...prev,
-      [clientId]: {
-        ...prev[clientId],
-        [permission]: value,
-      },
+      [clientId]: { ...prev[clientId], [permission]: value },
     }));
   };
 
   const handleSavePermissions = async (clientId: string) => {
     setSaving(clientId);
     try {
-      const permissions = clientPermissions[clientId];
       await updateDoc(doc(db, 'clients', clientId), {
-        permissions: permissions || {},
+        permissions: clientPermissions[clientId] || {},
         updatedAt: serverTimestamp(),
       });
-      toast.success('Permissions updated successfully');
-      fetchAll(); // Refresh to sync state
+      toast.success('Permissions updated');
+      fetchAll();
     } catch (error: any) {
-      console.error(error);
       toast.error(error.message || 'Failed to update permissions');
     } finally {
       setSaving(null);
     }
   };
 
-  const getCompanyClients = (companyId: string) => {
-    return clients.filter((c) => c.companyId === companyId);
-  };
+  const getCompanyClients = (companyId: string) => clients.filter((c) => c.companyId === companyId);
 
-  const filtered = companies.filter((c) => {
-    const q = searchQuery.toLowerCase();
-    if (!q) return true;
-    return c.name.toLowerCase().includes(q);
-  });
+  const filtered = companies.filter((c) =>
+    !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
         </div>
       </AdminLayout>
     );
@@ -150,18 +211,24 @@ export default function CompaniesPermissions() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        {/* Header */}
+        <div className="flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <Shield className="h-8 w-8" />
+              <Shield className="h-8 w-8 text-blue-600" />
               Companies Permissions
             </h1>
-            <p className="text-gray-600 mt-2">Manage permissions for companies and their clients</p>
+            <p className="text-gray-500 mt-1">Manage portal access permissions for each company's clients</p>
+          </div>
+          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
+            <Lock className="h-4 w-4" />
+            <span>{PERMISSION_DEFS.length} permission types</span>
           </div>
         </div>
 
+        {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search companies..."
             value={searchQuery}
@@ -170,384 +237,223 @@ export default function CompaniesPermissions() {
           />
         </div>
 
+        {/* Company List */}
         <div className="space-y-4">
           {filtered.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No companies found</p>
-              </CardContent>
-            </Card>
+            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+              <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">No companies found</p>
+            </div>
           ) : (
             filtered.map((company) => {
               const companyClients = getCompanyClients(company.id);
               const isExpanded = expandedCompany === company.id;
+              const totalEnabled = companyClients.reduce(
+                (sum, cl) => sum + enabledCount(clientPermissions[cl.id] || {}),
+                0
+              );
+              const totalPossible = companyClients.length * PERMISSION_DEFS.length;
 
               return (
-                <Card key={company.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {company.logoUrl && (
+                <div
+                  key={company.id}
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+                >
+                  {/* Color accent */}
+                  <div className={`h-1 w-full bg-gradient-to-r ${avatarColor(company.id)}`} />
+
+                  {/* Company Header */}
+                  <div className="p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 min-w-0">
+                        {/* Avatar */}
+                        {company.logoUrl ? (
                           <img
                             src={company.logoUrl}
                             alt={company.name}
-                            className="h-12 w-12 object-contain rounded"
+                            className="h-12 w-12 object-contain rounded-xl border border-gray-200 bg-gray-50 p-1 flex-shrink-0"
                           />
+                        ) : (
+                          <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${avatarColor(company.id)} flex items-center justify-center text-white font-bold text-base flex-shrink-0`}>
+                            {getInitials(company.name)}
+                          </div>
                         )}
-                        <div>
-                          <CardTitle className="text-lg">{company.name}</CardTitle>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {companyClients.length} client{companyClients.length !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExpandedCompany(isExpanded ? null : company.id)}
-                      >
-                        {isExpanded ? 'Collapse' : 'Expand'}
-                      </Button>
-                    </div>
-                  </CardHeader>
 
-                  {isExpanded && (
-                    <CardContent>
-                      {companyClients.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                          <p className="text-gray-600">No clients associated with this company</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="grid gap-4">
-                            {companyClients.map((client) => {
-                              const permissions = clientPermissions[client.id] || {
-                                shareForBidding: false,
-                                viewMaintenanceRequests: false,
-                                viewMaintenanceRequestsWorkOrders: false,
-                                approveRejectOrder: false,
-                                rejectedWorkOrders: false,
-                                viewSubcontractors: false,
-                                compareQuotes: false,
-                                viewRecurringWorkOrders: false,
-                                viewTimeline: false,
-                              };
-                              const isSaving = saving === client.id;
-
-                              return (
-                                <Card key={client.id} className="bg-gray-50">
-                                  <CardContent className="p-4">
-                                    <div className="space-y-4">
-                                      <div className="flex items-center justify-between">
-                                        <div>
-                                          <h3 className="font-semibold text-gray-900">{client.fullName}</h3>
-                                          <p className="text-sm text-gray-600">{client.email}</p>
-                                        </div>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => handleSavePermissions(client.id)}
-                                          disabled={isSaving}
-                                        >
-                                          <Save className="h-4 w-4 mr-2" />
-                                          {isSaving ? 'Saving...' : 'Save'}
-                                        </Button>
-                                      </div>
-
-                                      <div className="space-y-3 pt-2 border-t">
-                                        {/* Permission 1: Share for Bidding */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`share-${client.id}`}
-                                            checked={permissions.shareForBidding || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'shareForBidding',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`share-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              Share for Bidding
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to share work orders with subcontractors for bidding.
-                                              When enabled, the client can select subcontractors and share work orders.
-                                              Subcontractor quotes will be shared with the client (without markup).
-                                            </p>
-                                          </div>
-                                          {permissions.shareForBidding ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-
-                                        {/* Permission 2: View Maintenance Requests */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`maint-${client.id}`}
-                                            checked={permissions.viewMaintenanceRequests || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'viewMaintenanceRequests',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`maint-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              View Maintenance Requests
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to view maintenance requests in their portal.
-                                            </p>
-                                          </div>
-                                          {permissions.viewMaintenanceRequests ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-
-                                        {/* Permission: Maintenance Requests Work Orders */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`maint-work-orders-${client.id}`}
-                                            checked={permissions.viewMaintenanceRequestsWorkOrders || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'viewMaintenanceRequestsWorkOrders',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`maint-work-orders-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              Maintenance Requests Work Orders
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to view maintenance requests work orders in their portal. The nav will show as &quot;Maintenance Requests Work Orders&quot;.
-                                            </p>
-                                          </div>
-                                          {permissions.viewMaintenanceRequestsWorkOrders ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-
-                                        {/* Permission 3: Approve/Reject Order */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`approve-reject-${client.id}`}
-                                            checked={permissions.approveRejectOrder || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'approveRejectOrder',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`approve-reject-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              Approve/Reject Order
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to approve or reject work orders in their portal.
-                                            </p>
-                                          </div>
-                                          {permissions.approveRejectOrder ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-
-                                        {/* Permission 4: Rejected Work Orders */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`rejected-${client.id}`}
-                                            checked={permissions.rejectedWorkOrders || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'rejectedWorkOrders',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`rejected-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              Rejected Work Orders
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to view rejected work orders in their portal.
-                                            </p>
-                                          </div>
-                                          {permissions.rejectedWorkOrders ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-
-                                        {/* Permission 5: View Subcontractors */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`subcontractors-${client.id}`}
-                                            checked={permissions.viewSubcontractors || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'viewSubcontractors',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`subcontractors-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              View Subcontractors
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to view all subcontractors in their portal (read-only).
-                                            </p>
-                                          </div>
-                                          {permissions.viewSubcontractors ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-
-                                        {/* Permission 6: Compare Quotes */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`compare-quotes-${client.id}`}
-                                            checked={permissions.compareQuotes || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'compareQuotes',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`compare-quotes-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              Compare Quotes
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to compare multiple quotes side-by-side for work orders with detailed subcontractor information.
-                                            </p>
-                                          </div>
-                                          {permissions.compareQuotes ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-
-                                        {/* Permission 7: Recurring Work Orders */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`recurring-work-orders-${client.id}`}
-                                            checked={permissions.viewRecurringWorkOrders || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'viewRecurringWorkOrders',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`recurring-work-orders-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              Recurring Work Orders
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to view and edit recurring work orders in their portal.
-                                            </p>
-                                          </div>
-                                          {permissions.viewRecurringWorkOrders ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-
-                                        {/* Permission 8: View Timeline */}
-                                        <div className="flex items-start gap-3">
-                                          <Checkbox
-                                            id={`view-timeline-${client.id}`}
-                                            checked={permissions.viewTimeline || false}
-                                            onCheckedChange={(checked) =>
-                                              handlePermissionChange(
-                                                client.id,
-                                                'viewTimeline',
-                                                checked === true
-                                              )
-                                            }
-                                          />
-                                          <div className="flex-1">
-                                            <Label
-                                              htmlFor={`view-timeline-${client.id}`}
-                                              className="font-medium cursor-pointer"
-                                            >
-                                              View Timeline
-                                            </Label>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              Allows this client to see the Timeline section (how it was created, approved by, activity timeline) on work orders, quotes, and invoices in their portal. When disabled, only admins see timelines.
-                                            </p>
-                                          </div>
-                                          {permissions.viewTimeline ? (
-                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                          ) : (
-                                            <XCircle className="h-5 w-5 text-gray-300" />
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              );
-                            })}
+                        {/* Info */}
+                        <div className="min-w-0">
+                          <h2 className="font-semibold text-gray-900 text-base">{company.name}</h2>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1">
+                            {company.email && (
+                              <span className="flex items-center gap-1 text-sm text-gray-500">
+                                <Mail className="h-3.5 w-3.5" />
+                                {company.email}
+                              </span>
+                            )}
+                            {company.phone && (
+                              <span className="flex items-center gap-1 text-sm text-gray-500">
+                                <Phone className="h-3.5 w-3.5" />
+                                {company.phone}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1 text-sm text-gray-500">
+                              <Users className="h-3.5 w-3.5" />
+                              {companyClients.length} {companyClients.length === 1 ? 'client' : 'clients'}
+                            </span>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Right side actions */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Permission summary */}
+                        {companyClients.length > 0 && (
+                          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                            {totalEnabled}/{totalPossible} enabled
+                          </span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => router.push(`/admin-portal/subsidiaries/${company.id}`)}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={isExpanded ? 'default' : 'outline'}
+                          className="gap-1.5"
+                          onClick={() => setExpandedCompany(isExpanded ? null : company.id)}
+                        >
+                          {isExpanded ? (
+                            <><ChevronUp className="h-3.5 w-3.5" /> Collapse</>
+                          ) : (
+                            <><ChevronDown className="h-3.5 w-3.5" /> Permissions</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded: Clients + Permissions */}
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 bg-gray-50/50">
+                      {companyClients.length === 0 ? (
+                        <div className="py-10 text-center">
+                          <Users className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                          <p className="text-gray-500 text-sm">No clients associated with this company</p>
+                        </div>
+                      ) : (
+                        <div className="p-4 space-y-3">
+                          {companyClients.map((client) => {
+                            const permissions = clientPermissions[client.id] || {};
+                            const isSaving = saving === client.id;
+                            const enabled = enabledCount(permissions);
+                            const isClientExpanded = expandedClient === client.id;
+
+                            return (
+                              <div
+                                key={client.id}
+                                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+                              >
+                                {/* Client Header */}
+                                <div
+                                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                  onClick={() => setExpandedClient(isClientExpanded ? null : client.id)}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                                      {getInitials(client.fullName)}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-semibold text-gray-900 text-sm">{client.fullName}</p>
+                                      <p className="text-xs text-gray-500 truncate">{client.email}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    {/* Permission pill */}
+                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                                      enabled === 0
+                                        ? 'bg-gray-100 text-gray-500'
+                                        : enabled === PERMISSION_DEFS.length
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-blue-100 text-blue-700'
+                                    }`}>
+                                      {enabled}/{PERMISSION_DEFS.length}
+                                      <span className="hidden sm:inline"> active</span>
+                                    </span>
+                                    {isClientExpanded
+                                      ? <ChevronUp className="h-4 w-4 text-gray-400" />
+                                      : <ChevronDown className="h-4 w-4 text-gray-400" />
+                                    }
+                                  </div>
+                                </div>
+
+                                {/* Permission toggles */}
+                                {isClientExpanded && (
+                                  <div className="border-t border-gray-100 p-4 space-y-0">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                                      {PERMISSION_DEFS.map((perm, idx) => {
+                                        const isEnabled = permissions[perm.key] || false;
+                                        return (
+                                          <div
+                                            key={perm.key}
+                                            className={`bg-white p-3.5 flex items-start gap-3 hover:bg-gray-50 transition-colors ${
+                                              idx === PERMISSION_DEFS.length - 1 && PERMISSION_DEFS.length % 2 !== 0
+                                                ? 'md:col-span-2'
+                                                : ''
+                                            }`}
+                                          >
+                                            <Checkbox
+                                              id={`${perm.key}-${client.id}`}
+                                              checked={isEnabled}
+                                              onCheckedChange={(checked) =>
+                                                handlePermissionChange(client.id, perm.key, checked === true)
+                                              }
+                                              className="mt-0.5"
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                              <Label
+                                                htmlFor={`${perm.key}-${client.id}`}
+                                                className="font-medium text-sm cursor-pointer text-gray-900"
+                                              >
+                                                {perm.label}
+                                              </Label>
+                                              <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{perm.desc}</p>
+                                            </div>
+                                            {isEnabled ? (
+                                              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                                            ) : (
+                                              <XCircle className="h-4 w-4 text-gray-300 flex-shrink-0 mt-0.5" />
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+
+                                    <div className="flex justify-end pt-3">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleSavePermissions(client.id)}
+                                        disabled={isSaving}
+                                        className="gap-1.5"
+                                      >
+                                        <Save className="h-3.5 w-3.5" />
+                                        {isSaving ? 'Saving...' : 'Save Permissions'}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
-                    </CardContent>
+                    </div>
                   )}
-                </Card>
+                </div>
               );
             })
           )}
@@ -556,4 +462,3 @@ export default function CompaniesPermissions() {
     </AdminLayout>
   );
 }
-
