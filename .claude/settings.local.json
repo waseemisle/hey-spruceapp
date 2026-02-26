@@ -78,7 +78,8 @@
       "Bash(ffprobe:*)",
       "Bash(pip install:*)",
       "WebFetch(domain:servicechannel.com)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git diff app/admin-portal/clients/[id]/page.tsx components/admin-layout.tsx)"
     ],
     "deny": [],
     "ask": []
