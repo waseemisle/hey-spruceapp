@@ -733,7 +733,7 @@ export default function MaintRequestsPage() {
                     <p className="mt-3">Example using curl:</p>
                     <pre className="bg-blue-900 text-blue-100 p-3 rounded-lg overflow-x-auto text-xs">
 {`curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
-  https://hey-spruce-appv2.vercel.app/api/maint-requests`}
+  https://groundopscos.vercel.app/api/maint-requests`}
                     </pre>
                   </CardContent>
                 </Card>
