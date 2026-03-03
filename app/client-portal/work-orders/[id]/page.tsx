@@ -9,7 +9,7 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -102,6 +102,16 @@ interface Quote {
   createdAt: any;
 }
 
+const STATUS_PIPELINE = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'bidding', label: 'Bidding' },
+  { key: 'quotes_received', label: 'Quotes Received' },
+  { key: 'assigned', label: 'Assigned' },
+  { key: 'accepted_by_subcontractor', label: 'In Progress' },
+  { key: 'completed', label: 'Completed' },
+];
+
 export default function ViewClientWorkOrder() {
   const { auth, db } = useFirebaseInstance();
   const params = useParams();
@@ -116,20 +126,17 @@ export default function ViewClientWorkOrder() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'attachments' | 'quotes' | 'history'>('overview');
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          // Fetch client permissions
           const clientDoc = await getDoc(doc(db, 'clients', user.uid));
           const clientData = clientDoc.data();
-          const hasApprovePermission = clientData?.permissions?.approveRejectOrder === true;
-          const hasComparePermission = clientData?.permissions?.compareQuotes === true;
-          const hasViewTimeline = clientData?.permissions?.viewTimeline === true;
-          setHasApproveRejectPermission(hasApprovePermission);
-          setHasCompareQuotesPermission(hasComparePermission);
-          setHasViewTimelinePermission(hasViewTimeline);
+          setHasApproveRejectPermission(clientData?.permissions?.approveRejectOrder === true);
+          setHasCompareQuotesPermission(clientData?.permissions?.compareQuotes === true);
+          setHasViewTimelinePermission(clientData?.permissions?.viewTimeline === true);
         } catch (error) {
           console.error('Error fetching client permissions:', error);
         }
@@ -148,7 +155,6 @@ export default function ViewClientWorkOrder() {
         if (woDoc.exists()) {
           setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
 
-          // Fetch quotes if client has compareQuotes permission
           if (hasCompareQuotesPermission) {
             const quotesQuery = query(
               collection(db, 'quotes'),
@@ -172,28 +178,28 @@ export default function ViewClientWorkOrder() {
     fetchWorkOrder();
   }, [id, db, hasCompareQuotesPermission]);
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-blue-100 text-blue-800',
-      bidding: 'bg-blue-100 text-blue-800',
-      assigned: 'bg-green-100 text-green-800',
-      completed: 'bg-gray-100 text-gray-800',
-      rejected: 'bg-red-100 text-red-800',
-    };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'text-yellow-600 bg-yellow-50';
+      case 'approved': return 'text-green-600 bg-green-50';
+      case 'rejected': return 'text-red-600 bg-red-50';
+      case 'bidding': return 'text-blue-600 bg-blue-50';
+      case 'quotes_received': return 'text-blue-600 bg-blue-50';
+      case 'assigned': return 'text-indigo-600 bg-indigo-50';
+      case 'completed': return 'text-emerald-600 bg-emerald-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
   };
 
-  const getPriorityBadge = (priority: string) => {
-    const styles = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-red-100 text-red-800',
-    };
-    return styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-50';
+      case 'medium': return 'text-orange-600 bg-orange-50';
+      case 'low': return 'text-green-600 bg-green-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
   };
 
-  // Helper: get creation details for every type of work order so Timeline always shows how the WO was created
   const getCreatedDetails = (wo: WorkOrder, existingCreatedEvent?: { details?: string; metadata?: Record<string, unknown> }) => {
     let createdDetails = 'Work order created';
     const creatorName = wo.systemInformation?.createdBy?.name;
@@ -231,7 +237,6 @@ export default function ViewClientWorkOrder() {
     return createdDetails;
   };
 
-  // Build a complete timeline from stored events or synthesize from fields. Always include a "created" event with full details.
   const buildTimeline = (wo: WorkOrder) => {
     const existingCreated = wo.timeline?.find((e: any) => e?.type === 'created');
     const createdDetails = getCreatedDetails(wo, existingCreated);
@@ -312,7 +317,6 @@ export default function ViewClientWorkOrder() {
       toast.error('You do not have permission to approve work orders');
       return;
     }
-
     if (!workOrder) return;
 
     setProcessing(true);
@@ -356,7 +360,6 @@ export default function ViewClientWorkOrder() {
       });
       toast.success('Work order approved successfully');
 
-      // Refresh work order
       const refreshDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
       if (refreshDoc.exists()) {
         setWorkOrder({ id: refreshDoc.id, ...refreshDoc.data() } as WorkOrder);
@@ -374,7 +377,6 @@ export default function ViewClientWorkOrder() {
       toast.error('You do not have permission to reject work orders');
       return;
     }
-
     if (!workOrder) return;
 
     const reason = prompt('Please provide a reason for rejection:');
@@ -426,7 +428,6 @@ export default function ViewClientWorkOrder() {
       });
       toast.success('Work order rejected');
 
-      // Refresh work order
       const refreshDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
       if (refreshDoc.exists()) {
         setWorkOrder({ id: refreshDoc.id, ...refreshDoc.data() } as WorkOrder);
@@ -465,29 +466,48 @@ export default function ViewClientWorkOrder() {
     );
   }
 
+  const currentStepIdx = STATUS_PIPELINE.findIndex(s => s.key === workOrder.status);
+  const totalImages = (workOrder.images?.length ?? 0) + (workOrder.completionImages?.length ?? 0);
+
+  const TABS = [
+    { key: 'overview', label: 'Overview', icon: FileText },
+    { key: 'attachments', label: `Attachments${totalImages > 0 ? ` (${totalImages})` : ''}`, icon: Paperclip },
+    ...(hasCompareQuotesPermission ? [{ key: 'quotes', label: `Quotes${quotes.length > 0 ? ` (${quotes.length})` : ''}`, icon: Receipt }] : []),
+    ...(hasViewTimelinePermission ? [{ key: 'history', label: 'History', icon: History }] : []),
+  ] as { key: typeof activeTab; label: string; icon: any }[];
+
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-start gap-3 flex-wrap">
           <Link href="/client-portal/work-orders">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
           </Link>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">{workOrder.title}</h1>
-            {workOrder.workOrderNumber && (
-              <p className="text-gray-600 mt-1">Work Order: {workOrder.workOrderNumber}</p>
-            )}
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold text-foreground truncate">{workOrder.title}</h1>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getStatusColor(workOrder.status)}`}>
+                {workOrder.status.replace(/_/g, ' ').toUpperCase()}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getPriorityColor(workOrder.priority)}`}>
+                {workOrder.priority.toUpperCase()}
+              </span>
+            </div>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {workOrder.workOrderNumber && <>WO #{workOrder.workOrderNumber} &nbsp;·&nbsp;</>}
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3 w-3 inline" /> {workOrder.locationName}
+              </span>
+              {workOrder.createdAt?.toDate && (
+                <> &nbsp;·&nbsp; <Calendar className="h-3 w-3 inline" /> {workOrder.createdAt.toDate().toLocaleDateString()}</>
+              )}
+            </p>
           </div>
-          <div className="flex gap-2 flex-wrap items-center">
-            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(workOrder.status)}`}>
-              {workOrder.status}
-            </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getPriorityBadge(workOrder.priority)}`}>
-              {workOrder.priority} priority
-            </span>
+          <div className="flex gap-2 flex-shrink-0 flex-wrap">
             {hasApproveRejectPermission && workOrder.status === 'pending' && (
               <>
                 <Button
@@ -522,306 +542,339 @@ export default function ViewClientWorkOrder() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Details */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Work Order Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-gray-700 mb-2">Description</h3>
-                  <p className="text-gray-600">{workOrder.description}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-1">Category</h3>
-                    <p className="text-gray-600">{workOrder.category}</p>
+        {/* Status Pipeline */}
+        {currentStepIdx >= 0 && (
+          <div className="bg-card border rounded-xl p-4 overflow-x-auto">
+            <div className="flex items-center min-w-max gap-0">
+              {STATUS_PIPELINE.map((step, idx) => {
+                const isDone = idx < currentStepIdx;
+                const isCurrent = idx === currentStepIdx;
+                return (
+                  <div key={step.key} className="flex items-center">
+                    <div className={`flex flex-col items-center px-3 ${isCurrent ? 'opacity-100' : isDone ? 'opacity-80' : 'opacity-40'}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                        isCurrent ? 'bg-primary border-primary text-primary-foreground' :
+                        isDone ? 'bg-green-500 border-green-500 text-white' :
+                        'bg-muted border-muted-foreground/30 text-muted-foreground'
+                      }`}>
+                        {isDone ? <CheckCircle className="h-4 w-4" /> : idx + 1}
+                      </div>
+                      <span className={`text-xs mt-1 text-center whitespace-nowrap ${isCurrent ? 'font-semibold text-primary' : isDone ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                    {idx < STATUS_PIPELINE.length - 1 && (
+                      <div className={`h-0.5 w-8 ${idx < currentStepIdx ? 'bg-green-500' : 'bg-muted'}`} />
+                    )}
                   </div>
-                  {workOrder.estimateBudget && (
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Tab Navigation */}
+        <div className="border-b">
+          <div className="flex gap-0 overflow-x-auto">
+            {TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div>
+
+          {/* OVERVIEW TAB */}
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader><CardTitle>Work Order Details</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
                     <div>
-                      <h3 className="font-semibold text-gray-700 mb-1">Estimate Budget</h3>
-                      <p className="text-gray-600">${workOrder.estimateBudget.toLocaleString()}</p>
+                      <h3 className="font-semibold text-muted-foreground text-sm mb-1">Description</h3>
+                      <p className="text-foreground">{workOrder.description}</p>
                     </div>
-                  )}
-                </div>
-
-                {workOrder.status === 'rejected' && workOrder.rejectionReason && (
-                  <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                    <div className="flex gap-2">
-                      <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
-                        <p className="text-xs text-red-700">{workOrder.rejectionReason}</p>
+                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Category</h3>
+                        <p className="text-foreground">{workOrder.category}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Estimate Budget</h3>
+                        {workOrder.estimateBudget
+                          ? <p className="text-foreground font-semibold">${workOrder.estimateBudget.toLocaleString()}</p>
+                          : <p className="text-muted-foreground text-sm">Not set</p>
+                        }
                       </div>
                     </div>
-                  </div>
-                )}
+                    {(workOrder.scheduledServiceDate || workOrder.scheduledServiceTime) && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Date</h3>
+                          {workOrder.scheduledServiceDate
+                            ? <p className="text-foreground flex items-center gap-1"><Calendar className="h-4 w-4 text-muted-foreground" />{workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'}</p>
+                            : <p className="text-muted-foreground text-sm">Not scheduled</p>
+                          }
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Time</h3>
+                          {workOrder.scheduledServiceTime
+                            ? <p className="text-foreground flex items-center gap-1"><Clock className="h-4 w-4 text-muted-foreground" />{workOrder.scheduledServiceTime}</p>
+                            : <p className="text-muted-foreground text-sm">Not set</p>
+                          }
+                        </div>
+                      </div>
+                    )}
+                    {workOrder.rejectionReason && (
+                      <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+                        <h3 className="font-semibold text-destructive mb-2 flex items-center gap-1">
+                          <AlertCircle className="h-4 w-4" /> Rejection Reason
+                        </h3>
+                        <p className="text-destructive/80 text-sm">{workOrder.rejectionReason}</p>
+                      </div>
+                    )}
+                    {workOrder.status === 'completed' && workOrder.completionDetails && (
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <h3 className="font-semibold text-green-800 mb-2 flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4" /> Completion Details
+                        </h3>
+                        <p className="text-green-700 text-sm whitespace-pre-wrap">{workOrder.completionDetails}</p>
+                        {workOrder.completionNotes && (
+                          <div className="mt-3 pt-3 border-t border-green-300">
+                            <p className="text-xs font-semibold text-green-800 mb-1">Follow-up Notes</p>
+                            <p className="text-green-700 text-sm whitespace-pre-wrap">{workOrder.completionNotes}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-                {workOrder.status === 'completed' && (workOrder.completionDetails || workOrder.completionNotes) && (
-                  <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <h3 className="font-semibold text-green-800">Completion Details</h3>
+                {/* Approved Quote Pricing */}
+                {workOrder.approvedQuoteAmount && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5 text-green-600" />
+                        Approved Quote
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-lg font-semibold text-gray-700">Total Amount</span>
+                          <span className="text-3xl font-bold text-green-600">
+                            ${workOrder.approvedQuoteAmount.toLocaleString()}
+                          </span>
+                        </div>
+                        {(workOrder.approvedQuoteLaborCost || workOrder.approvedQuoteMaterialCost || workOrder.approvedQuoteTaxAmount) && (
+                          <div className="space-y-2 pt-3 border-t border-green-300">
+                            {(workOrder.approvedQuoteLaborCost ?? 0) > 0 && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Labor Cost</span>
+                                <span className="font-medium">${(workOrder.approvedQuoteLaborCost ?? 0).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {(workOrder.approvedQuoteMaterialCost ?? 0) > 0 && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Material Cost</span>
+                                <span className="font-medium">${(workOrder.approvedQuoteMaterialCost ?? 0).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {(workOrder.approvedQuoteTaxAmount ?? 0) > 0 && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Tax</span>
+                                <span className="font-medium">${(workOrder.approvedQuoteTaxAmount ?? 0).toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {workOrder.approvedQuoteLineItems && workOrder.approvedQuoteLineItems.length > 0 && (
+                        <div className="border-t pt-4">
+                          <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
+                                  <th className="px-4 py-2 text-center font-semibold text-gray-700">Qty</th>
+                                  <th className="px-4 py-2 text-right font-semibold text-gray-700">Rate</th>
+                                  <th className="px-4 py-2 text-right font-semibold text-gray-700">Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {workOrder.approvedQuoteLineItems.map((item, idx) => (
+                                  <tr key={idx}>
+                                    <td className="px-4 py-2">{item.description}</td>
+                                    <td className="px-4 py-2 text-center">{item.quantity}</td>
+                                    <td className="px-4 py-2 text-right">${item.unitPrice.toLocaleString()}</td>
+                                    <td className="px-4 py-2 text-right font-semibold">${item.amount.toLocaleString()}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                      {workOrder.assignedSubcontractorName && (
+                        <div className="text-sm text-gray-600 pt-3 border-t">
+                          <span className="font-semibold">Contractor:</span> {workOrder.assignedSubcontractorName}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Sidebar */}
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Location</CardTitle></CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div><p className="text-muted-foreground">Location Name</p><p className="font-semibold">{workOrder.locationName}</p></div>
+                    <div><p className="text-muted-foreground">Address</p><p className="font-semibold">{formatAddress(workOrder.locationAddress)}</p></div>
+                  </CardContent>
+                </Card>
+
+                {workOrder.assignedToName && (
+                  <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5" />Assigned To</CardTitle></CardHeader>
+                    <CardContent className="text-sm">
+                      <p className="font-semibold">{workOrder.assignedToName}</p>
+                      {workOrder.assignedAt && <p className="text-muted-foreground text-xs mt-1">Assigned {workOrder.assignedAt?.toDate?.().toLocaleDateString()}</p>}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ATTACHMENTS TAB */}
+          {activeTab === 'attachments' && (
+            <div className="space-y-6">
+              {workOrder.images && workOrder.images.length > 0 && (
+                <Card>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Work Order Images ({workOrder.images.length})</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {workOrder.images.map((image, idx) => (
+                        <img key={idx} src={image} alt={`Image ${idx + 1}`}
+                          className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
+                          onClick={() => window.open(image, '_blank')} />
+                      ))}
                     </div>
-                    {workOrder.completionDetails && (
-                      <div className="mb-3">
-                        <h4 className="font-semibold text-gray-700 mb-1 text-sm">Work Completed</h4>
-                        <p className="text-gray-600 text-sm whitespace-pre-wrap">{workOrder.completionDetails}</p>
-                      </div>
-                    )}
-                    {workOrder.completionNotes && (
-                      <div className="mb-3">
-                        <h4 className="font-semibold text-gray-700 mb-1 text-sm">Follow-up Notes</h4>
-                        <p className="text-gray-600 text-sm whitespace-pre-wrap">{workOrder.completionNotes}</p>
-                      </div>
-                    )}
-                    {workOrder.assignedSubcontractorName && (
-                      <div className="pt-2 border-t border-green-300">
-                        <p className="text-xs text-gray-600">Completed by</p>
-                        <p className="font-semibold text-sm">{workOrder.assignedSubcontractorName}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              )}
+              {workOrder.completionImages && workOrder.completionImages.length > 0 && (
+                <Card>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600" />Completion Images ({workOrder.completionImages.length})</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {workOrder.completionImages.map((image, idx) => (
+                        <img key={idx} src={image} alt={`Completion ${idx + 1}`}
+                          className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
+                          onClick={() => window.open(image, '_blank')} />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {totalImages === 0 && (
+                <div className="text-center py-16">
+                  <Paperclip className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No attachments uploaded.</p>
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Approved Quote Pricing */}
-            {workOrder.approvedQuoteAmount && (
+          {/* QUOTES TAB */}
+          {activeTab === 'quotes' && hasCompareQuotesPermission && (
+            <div className="max-w-3xl">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-green-600" />
-                    Approved Quote
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-lg font-semibold text-gray-700">Total Amount</span>
-                      <span className="text-3xl font-bold text-green-600">
-                        ${workOrder.approvedQuoteAmount.toLocaleString()}
-                      </span>
-                    </div>
-
-                    {(workOrder.approvedQuoteLaborCost || workOrder.approvedQuoteMaterialCost || workOrder.approvedQuoteTaxAmount) && (
-                      <div className="space-y-2 pt-3 border-t border-green-300">
-                        {(workOrder.approvedQuoteLaborCost ?? 0) > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Labor Cost</span>
-                            <span className="font-medium text-gray-900">
-                              ${(workOrder.approvedQuoteLaborCost ?? 0).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                        {(workOrder.approvedQuoteMaterialCost ?? 0) > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Material Cost</span>
-                            <span className="font-medium text-gray-900">
-                              ${(workOrder.approvedQuoteMaterialCost ?? 0).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                        {(workOrder.approvedQuoteTaxAmount ?? 0) > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Tax</span>
-                            <span className="font-medium text-gray-900">
-                              ${(workOrder.approvedQuoteTaxAmount ?? 0).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {workOrder.approvedQuoteLineItems && workOrder.approvedQuoteLineItems.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
-                              <th className="px-4 py-2 text-center font-semibold text-gray-700">Qty</th>
-                              <th className="px-4 py-2 text-right font-semibold text-gray-700">Rate</th>
-                              <th className="px-4 py-2 text-right font-semibold text-gray-700">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {workOrder.approvedQuoteLineItems.map((item, idx) => (
-                              <tr key={idx}>
-                                <td className="px-4 py-2">{item.description}</td>
-                                <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                <td className="px-4 py-2 text-right">${item.unitPrice.toLocaleString()}</td>
-                                <td className="px-4 py-2 text-right font-semibold">${item.amount.toLocaleString()}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {workOrder.assignedSubcontractorName && (
-                    <div className="text-sm text-gray-600 pt-3 border-t">
-                      <span className="font-semibold">Contractor:</span> {workOrder.assignedSubcontractorName}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Quotes - Only show if client has compareQuotes permission */}
-            {hasCompareQuotesPermission && quotes.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Quotes
-                    </span>
-                    <span className="text-sm font-normal text-gray-600">
-                      {quotes.length} quote{quotes.length !== 1 ? 's' : ''} received
-                    </span>
+                    <FileText className="h-5 w-5" />
+                    Quotes ({quotes.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {quotes.length >= 2 && (
-                      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          Select 2 or more quotes to compare them side-by-side
-                        </p>
-                      </div>
-                    )}
-                    {quotes.map((quote) => (
-                      <div key={quote.id} className={`p-4 border rounded-lg hover:bg-gray-50 ${selectedQuoteIds.includes(quote.id) ? 'bg-blue-50 border-blue-300' : ''}`}>
-                        <div className="flex items-start gap-3">
-                          {quotes.length >= 2 && (
-                            <Checkbox
-                              checked={selectedQuoteIds.includes(quote.id)}
-                              onCheckedChange={(checked) => handleQuoteSelection(quote.id, checked === true)}
-                              className="mt-1"
-                            />
-                          )}
-                          <div className="flex-1 flex justify-between items-start">
-                            <div>
-                              <p className="font-semibold text-gray-900">{quote.subcontractorName}</p>
-                              <p className="text-sm text-gray-600">
-                                {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-2xl font-bold text-blue-600">
-                                ${quote.totalAmount.toLocaleString()}
-                              </p>
-                              <p className="text-xs text-gray-500 capitalize">{quote.status.replace(/_/g, ' ')}</p>
+                  {quotes.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {quotes.length >= 2 && (
+                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                          <p className="text-sm text-primary">Select 2 or more quotes to compare them side-by-side</p>
+                        </div>
+                      )}
+                      {quotes.map((quote) => (
+                        <div key={quote.id} className={`p-4 border rounded-lg hover:bg-muted/30 transition-colors ${selectedQuoteIds.includes(quote.id) ? 'bg-primary/5 border-primary/30' : ''}`}>
+                          <div className="flex items-start gap-3">
+                            {quotes.length >= 2 && (
+                              <Checkbox
+                                checked={selectedQuoteIds.includes(quote.id)}
+                                onCheckedChange={(checked) => handleQuoteSelection(quote.id, checked === true)}
+                                className="mt-1"
+                              />
+                            )}
+                            <div className="flex-1 flex justify-between items-start">
+                              <div>
+                                <p className="font-semibold">{quote.subcontractorName}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                                </p>
+                                {quote.notes && <p className="text-sm text-muted-foreground mt-1">{quote.notes}</p>}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold text-primary">
+                                  ${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </p>
+                                <p className="text-xs text-muted-foreground capitalize">{quote.status.replace(/_/g, ' ')}</p>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
-                      <Button
-                        onClick={handleCompareQuotes}
-                        className="w-full"
-                      >
-                        <GitCompare className="h-4 w-4 mr-2" />
-                        Compare {selectedQuoteIds.length} Quotes
-                      </Button>
-                    )}
-                  </div>
+                      ))}
+                      {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
+                        <Button onClick={handleCompareQuotes} className="w-full">
+                          <GitCompare className="h-4 w-4 mr-2" />
+                          Compare {selectedQuoteIds.length} Quotes
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            )}
+            </div>
+          )}
 
-            {/* Images */}
-            {workOrder.images && workOrder.images.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ImageIcon className="h-5 w-5" />
-                    Images ({workOrder.images.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {workOrder.images.map((image, idx) => (
-                      <img
-                        key={idx}
-                        src={image}
-                        alt={`Work order image ${idx + 1}`}
-                        className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => window.open(image, '_blank')}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Completion Images */}
-            {workOrder.status === 'completed' && workOrder.completionImages && workOrder.completionImages.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    Completion Images ({workOrder.completionImages.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {workOrder.completionImages.map((image, idx) => (
-                      <img
-                        key={idx}
-                        src={image}
-                        alt={`Completion image ${idx + 1}`}
-                        className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => window.open(image, '_blank')}
-                      />
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Location
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">Location Name</p>
-                  <p className="font-semibold">{workOrder.locationName}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Address</p>
-                  <p className="font-semibold">{formatAddress(workOrder.locationAddress)}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {hasViewTimelinePermission && (
+          {/* HISTORY TAB */}
+          {activeTab === 'history' && hasViewTimelinePermission && (
+            <div className="max-w-3xl">
               <WorkOrderSystemInfo
                 timeline={buildTimeline(workOrder)}
                 systemInformation={workOrder.systemInformation}
                 viewerRole="client"
                 creationSourceLabel={getCreatedDetails(workOrder)}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
