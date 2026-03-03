@@ -1,18 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Building2, Plus, MapPin, Calendar, Search, Eye, X } from 'lucide-react';
+import { Building2, Plus, MapPin, Calendar, Search, Eye, X, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
+
+interface WorkOrder {
+  id: string;
+  workOrderNumber?: string;
+  title: string;
+  status: string;
+  priority?: string;
+}
 
 interface Location {
   id: string;
@@ -41,6 +49,8 @@ export default function ClientLocations() {
   const [showModal, setShowModal] = useState(false);
   const [companyInfo, setCompanyInfo] = useState<{ id: string; name?: string } | null>(null);
   const [checkingCompany, setCheckingCompany] = useState(true);
+  const [locationWorkOrders, setLocationWorkOrders] = useState<WorkOrder[]>([]);
+  const [loadingWorkOrders, setLoadingWorkOrders] = useState(false);
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
@@ -135,9 +145,22 @@ export default function ClientLocations() {
     return styles[status as keyof typeof styles] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
-  const handleViewDetails = (location: Location) => {
+  const handleViewDetails = async (location: Location) => {
     setSelectedLocation(location);
     setShowModal(true);
+    setLocationWorkOrders([]);
+    setLoadingWorkOrders(true);
+    try {
+      const woSnap = await getDocs(
+        query(collection(db, 'workOrders'), where('locationId', '==', location.id))
+      );
+      const wos = woSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder));
+      setLocationWorkOrders(wos.slice(0, 10));
+    } catch (e) {
+      console.error('Error fetching work orders for location', e);
+    } finally {
+      setLoadingWorkOrders(false);
+    }
   };
 
   const filteredLocations = locations.filter(location => {
@@ -387,6 +410,35 @@ export default function ClientLocations() {
                     </div>
                   </div>
                 )}
+
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <ClipboardList className="h-4 w-4 text-gray-500" />
+                    <p className="text-sm font-semibold text-gray-800">Recent Work Orders at this Location</p>
+                  </div>
+                  {loadingWorkOrders ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+                    </div>
+                  ) : locationWorkOrders.length === 0 ? (
+                    <p className="text-sm text-gray-500">No work orders at this location.</p>
+                  ) : (
+                    <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+                      {locationWorkOrders.map((wo) => (
+                        <li key={wo.id} className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                          <Link
+                            href={`/client-portal/work-orders/${wo.id}`}
+                            className="text-sm text-blue-600 hover:underline font-medium truncate flex-1"
+                            onClick={() => setShowModal(false)}
+                          >
+                            {wo.workOrderNumber ? `${wo.workOrderNumber} — ` : ''}{wo.title}
+                          </Link>
+                          <span className="ml-3 text-xs text-gray-500 flex-shrink-0 capitalize">{wo.status.replace(/_/g, ' ')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             </div>
           </div>
