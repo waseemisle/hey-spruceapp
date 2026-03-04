@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye } from 'lucide-react';
+import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { Quote } from '@/types';
@@ -39,17 +39,30 @@ interface Invoice {
   dueDate: any;
   stripePaymentLink?: string;
   stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  autoChargeAttempted?: boolean;
+  autoChargeStatus?: 'pending' | 'succeeded' | 'failed' | 'requires_action';
+  autoChargeError?: string;
   notes?: string;
   terms?: string;
   createdAt: any;
 }
 
+interface ClientBilling {
+  defaultPaymentMethodId?: string;
+  savedCardLast4?: string;
+  savedCardBrand?: string;
+  autoPayEnabled?: boolean;
+}
+
 export default function InvoicesManagement() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [clientBillingMap, setClientBillingMap] = useState<Record<string, ClientBilling>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'paid' | 'overdue'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [chargingInvoice, setChargingInvoice] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,11 +92,65 @@ export default function InvoicesManagement() {
         ...doc.data(),
       })) as Invoice[];
       setInvoices(invoicesData);
+
+      // Load billing info for unique clients that have unpaid invoices
+      const unpaidClientIds = [...new Set(
+        invoicesData
+          .filter(inv => inv.status === 'sent' || inv.status === 'overdue')
+          .map(inv => inv.clientId)
+      )];
+      if (unpaidClientIds.length > 0) {
+        const billingMap: Record<string, ClientBilling> = {};
+        await Promise.all(unpaidClientIds.map(async (clientId) => {
+          try {
+            const clientSnap = await getDoc(doc(db, 'clients', clientId));
+            if (clientSnap.exists()) {
+              const d = clientSnap.data();
+              billingMap[clientId] = {
+                defaultPaymentMethodId: d.defaultPaymentMethodId,
+                savedCardLast4: d.savedCardLast4,
+                savedCardBrand: d.savedCardBrand,
+                autoPayEnabled: d.autoPayEnabled,
+              };
+            }
+          } catch {}
+        }));
+        setClientBillingMap(billingMap);
+      }
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast.error('Failed to load invoices');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAutoCharge = async (invoice: Invoice) => {
+    const billing = clientBillingMap[invoice.clientId];
+    if (!billing?.defaultPaymentMethodId) {
+      toast.error('This client has no saved card. Ask them to add one via their portal.');
+      return;
+    }
+    if (!confirm(`Auto-charge $${invoice.totalAmount.toLocaleString()} from ${invoice.clientName}'s saved ${billing.savedCardBrand || 'card'} ending in ${billing.savedCardLast4}?`)) return;
+    setChargingInvoice(invoice.id);
+    try {
+      const res = await fetch('/api/stripe/charge-saved-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId: invoice.id, clientId: invoice.clientId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Charge failed');
+      if (data.status === 'succeeded') {
+        toast.success(`$${invoice.totalAmount.toLocaleString()} charged successfully! Invoice marked as paid.`);
+      } else {
+        toast.warning(`Charge requires authentication from the client (status: ${data.status}).`);
+      }
+      fetchInvoices();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to charge invoice');
+    } finally {
+      setChargingInvoice(null);
     }
   };
 
@@ -680,6 +747,34 @@ export default function InvoicesManagement() {
                     </div>
                   )}
 
+                  {/* Auto-Charge Status */}
+                  {invoice.autoChargeAttempted && (
+                    <div className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${
+                      invoice.autoChargeStatus === 'succeeded' ? 'bg-emerald-50 text-emerald-700' :
+                      invoice.autoChargeStatus === 'failed' ? 'bg-red-50 text-red-700' :
+                      'bg-amber-50 text-amber-700'
+                    }`}>
+                      {invoice.autoChargeStatus === 'succeeded'
+                        ? <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        : <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                      }
+                      <span>
+                        Auto-charge: <strong>{invoice.autoChargeStatus}</strong>
+                        {invoice.autoChargeError && ` — ${invoice.autoChargeError}`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Saved Card Indicator */}
+                  {(invoice.status === 'sent' || invoice.status === 'overdue') && clientBillingMap[invoice.clientId]?.defaultPaymentMethodId && (
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg">
+                      <CreditCard className="h-3.5 w-3.5" />
+                      <span>
+                        Client has saved {clientBillingMap[invoice.clientId]?.savedCardBrand || 'card'} ending in {clientBillingMap[invoice.clientId]?.savedCardLast4}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Action Buttons */}
                   <div className="space-y-2 pt-2">
                     <Link href={`/admin-portal/invoices/${invoice.id}`}>
@@ -732,6 +827,21 @@ export default function InvoicesManagement() {
                           </Button>
                         )}
                       </>
+                    )}
+
+                    {/* Auto-Charge: visible for sent/overdue when client has saved card */}
+                    {(invoice.status === 'sent' || invoice.status === 'overdue') &&
+                      clientBillingMap[invoice.clientId]?.defaultPaymentMethodId &&
+                      invoice.autoChargeStatus !== 'succeeded' && (
+                      <Button
+                        size="sm"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => handleAutoCharge(invoice)}
+                        disabled={chargingInvoice === invoice.id}
+                      >
+                        <Zap className="h-4 w-4 mr-2" />
+                        {chargingInvoice === invoice.id ? 'Charging…' : 'Auto-Charge Saved Card'}
+                      </Button>
                     )}
 
                     <Button

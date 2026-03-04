@@ -23,6 +23,19 @@ export interface Client {
   approvedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  // Stripe billing fields
+  stripeCustomerId?: string;
+  defaultPaymentMethodId?: string;
+  savedCardLast4?: string;
+  savedCardBrand?: string;
+  savedCardExpMonth?: number;
+  savedCardExpYear?: number;
+  autoPayEnabled?: boolean;
+  // Fixed recurring subscription
+  stripeSubscriptionId?: string;
+  subscriptionAmount?: number;
+  subscriptionBillingDay?: number; // day of month (1-31)
+  subscriptionStatus?: 'active' | 'paused' | 'cancelled';
 }
 
 export interface Subcontractor {
@@ -336,6 +349,7 @@ export interface Invoice {
   paidAt?: Date;
   stripePaymentLink?: string;
   stripeSessionId?: string;
+  stripePaymentIntentId?: string;
   pdfUrl?: string;
   notes: string;
   terms: string;
@@ -344,6 +358,10 @@ export interface Invoice {
   systemInformation?: InvoiceSystemInformation;
   /** How this invoice was created (e.g. admin_portal, from_quote, upload) */
   creationSource?: 'admin_portal' | 'from_quote' | 'upload' | 'scheduled';
+  // Auto-charge fields
+  autoChargeAttempted?: boolean;
+  autoChargeStatus?: 'pending' | 'succeeded' | 'failed' | 'requires_action';
+  autoChargeError?: string;
   createdAt: Date;
   updatedAt: Date;
 }

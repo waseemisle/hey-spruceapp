@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
-import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye } from 'lucide-react';
+import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye, Zap, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
@@ -38,6 +38,9 @@ interface Invoice {
   dueDate: any;
   stripePaymentLink?: string;
   stripeSessionId?: string;
+  autoChargeAttempted?: boolean;
+  autoChargeStatus?: string;
+  autoChargeError?: string;
   paidAt?: any;
   notes?: string;
   terms?: string;
@@ -49,10 +52,21 @@ export default function ClientInvoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [autoPayEnabled, setAutoPayEnabled] = useState(false);
+  const [savedCardLast4, setSavedCardLast4] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // Load client billing info once
+        getDoc(doc(db, 'clients', user.uid)).then((snap) => {
+          if (snap.exists()) {
+            const d = snap.data();
+            setAutoPayEnabled(d.autoPayEnabled || false);
+            setSavedCardLast4(d.savedCardLast4 || null);
+          }
+        });
+
         const invoicesQuery = query(
           collection(db, 'invoices'),
           where('clientId', '==', user.uid),
@@ -189,6 +203,35 @@ export default function ClientInvoices() {
           </div>
         )}
 
+        {/* Auto-Pay Banner */}
+        {autoPayEnabled && savedCardLast4 ? (
+          <div className="rounded-xl border p-3.5 flex items-center gap-3 bg-emerald-50 border-emerald-100 text-emerald-700">
+            <CheckCircle className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Auto-Pay Enabled</p>
+              <p className="text-xs opacity-75">Invoices will be charged automatically to card ending in {savedCardLast4}</p>
+            </div>
+            <Link href="/client-portal/payment-methods">
+              <Button variant="outline" size="sm" className="text-emerald-700 border-emerald-300 hover:border-emerald-400 shrink-0 text-xs">
+                Manage
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-xl border p-3.5 flex items-center gap-3 bg-blue-50 border-blue-100 text-blue-700">
+            <CreditCard className="h-5 w-5 flex-shrink-0 text-blue-500" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">Save a card for automatic payments</p>
+              <p className="text-xs opacity-75">Set up auto-pay so invoices are charged automatically</p>
+            </div>
+            <Link href="/client-portal/payment-methods">
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shrink-0 text-xs">
+                Set Up
+              </Button>
+            </Link>
+          </div>
+        )}
+
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 overflow-x-auto">
           {filterOptions.map(option => (
             <button
@@ -246,6 +289,25 @@ export default function ClientInvoices() {
                       </div>
                     )}
                   </div>
+                  {/* Auto-charge status */}
+                  {invoice.autoChargeAttempted && (
+                    <div className={`text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${
+                      invoice.autoChargeStatus === 'succeeded' ? 'bg-emerald-50 text-emerald-700' :
+                      invoice.autoChargeStatus === 'failed' ? 'bg-red-50 text-red-700' :
+                      'bg-amber-50 text-amber-700'
+                    }`}>
+                      {invoice.autoChargeStatus === 'succeeded'
+                        ? <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        : <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                      }
+                      <span>
+                        {invoice.autoChargeStatus === 'succeeded' ? 'Auto-charged successfully' :
+                         invoice.autoChargeStatus === 'failed' ? `Auto-charge failed: ${invoice.autoChargeError || 'contact support'}` :
+                         `Auto-charge: ${invoice.autoChargeStatus}`}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
                     <Link href={`/client-portal/invoices/${invoice.id}`} className="flex-1 min-w-[100px]">
                       <Button variant="secondary" className="w-full gap-2" size="sm">
@@ -257,7 +319,7 @@ export default function ClientInvoices() {
                       <Download className="h-3.5 w-3.5" />
                       PDF
                     </Button>
-                    {(invoice.status === 'sent' || invoice.status === 'overdue') && invoice.stripePaymentLink && (
+                    {(invoice.status === 'sent' || invoice.status === 'overdue') && invoice.stripePaymentLink && invoice.autoChargeStatus !== 'succeeded' && (
                       <Button onClick={() => handlePayNow(invoice)} className="gap-2 bg-emerald-600 hover:bg-emerald-700" size="sm">
                         <CreditCard className="h-3.5 w-3.5" />
                         Pay Now

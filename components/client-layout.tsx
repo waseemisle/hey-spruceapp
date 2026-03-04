@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw } from 'lucide-react';
+import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 import AccountSettingsDialog from './account-settings-dialog';
@@ -215,6 +215,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
     { name: 'Invoices', href: '/client-portal/invoices', icon: Receipt, badgeKey: 'invoices' },
+    { name: 'Payment Methods', href: '/client-portal/payment-methods', icon: CreditCard, badgeKey: null },
     { name: 'Messages', href: '/client-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
   ];
 
