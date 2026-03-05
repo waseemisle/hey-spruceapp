@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -52,7 +52,7 @@ function ordinalSuffix(n: number) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-export default function PaymentMethodsPage() {
+function PaymentMethodsContent() {
   const { auth, db } = useFirebaseInstance();
   const searchParams = useSearchParams();
   const [clientData, setClientData] = useState<ClientData | null>(null);
@@ -291,5 +291,21 @@ export default function PaymentMethodsPage() {
         </div>
       </PageContainer>
     </ClientLayout>
+  );
+}
+
+export default function PaymentMethodsPage() {
+  return (
+    <Suspense
+      fallback={
+        <ClientLayout>
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </ClientLayout>
+      }
+    >
+      <PaymentMethodsContent />
+    </Suspense>
   );
 }
