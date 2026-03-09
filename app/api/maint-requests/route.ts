@@ -118,44 +118,26 @@ async function compressBase64Image(base64Image: string, maxSizeMB: number = 3.5)
 
 // Upload image to Cloudinary (server-side)
 async function uploadImageToCloudinary(base64Image: string): Promise<string> {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'danaxelcn';
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
-
-  if (!cloudName || !uploadPreset) {
-    throw new Error('Cloudinary configuration missing');
-  }
-
-  // Extract base64 data and mime type
-  const matches = base64Image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-  if (!matches || matches.length !== 3) {
-    throw new Error('Invalid base64 image format');
-  }
-
-  const mimeType = matches[1];
-  const base64Data = matches[2];
-  const buffer = Buffer.from(base64Data, 'base64');
-
-  // Create FormData for Cloudinary upload
-  // In Node.js 18+, FormData is available globally
-  const formData = new FormData();
-  
-  // Create a Blob from the buffer
-  const blob = new Blob([buffer], { type: mimeType });
-  formData.append('file', blob);
-  formData.append('upload_preset', uploadPreset);
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'duo4kzgx4';
+  const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || 'WebAppUpload';
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
     {
       method: 'POST',
-      body: formData,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        file: base64Image,
+        upload_preset: uploadPreset,
+        public_id: `maint_request_${Date.now()}`,
+      }),
     }
   );
 
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Cloudinary upload error:', errorText);
-    throw new Error(`Failed to upload image to Cloudinary: ${response.statusText}`);
+    throw new Error(`Cloudinary ${response.status}: ${errorText}`);
   }
 
   const data = await response.json();
