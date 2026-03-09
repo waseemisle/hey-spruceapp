@@ -129,9 +129,7 @@ async function uploadImageToCloudinary(base64Image: string): Promise<string> {
       body: JSON.stringify({
         file: base64Image,
         upload_preset: uploadPreset,
-        public_id: `maint_request_${Date.now()}`,
-        display_name: `maint_request_${Date.now()}`,
-        use_filename: false,
+        filename_override: `maint_request_${Date.now()}`,
       }),
     }
   );
