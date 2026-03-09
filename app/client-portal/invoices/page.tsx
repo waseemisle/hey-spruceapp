@@ -15,6 +15,7 @@ import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
+
 interface Invoice {
   id: string;
   invoiceNumber: string;
