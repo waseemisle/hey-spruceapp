@@ -11,7 +11,8 @@ import { Building2, Plus, Save, X, Search, Edit2, Trash2, Eye, Upload, Mail, Pho
 import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { uploadToCloudinary } from '@/lib/cloudinary-upload';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -110,7 +111,9 @@ export default function AdminCompanies() {
       if (logoFile) {
         setUploadingLogo(true);
         try {
-          logoUrl = await uploadToCloudinary(logoFile);
+          const storageRef = ref(storage, `company-logos/${Date.now()}-${logoFile.name}`);
+          await uploadBytes(storageRef, logoFile);
+          logoUrl = await getDownloadURL(storageRef);
           toast.success('Logo uploaded successfully');
         } catch (error: any) {
           toast.error('Failed to upload logo: ' + error.message);
