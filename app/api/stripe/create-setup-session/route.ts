@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://hey-spruce-appv2.vercel.app';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
 
     // Create Checkout session in setup mode
     const session = await stripe.checkout.sessions.create({

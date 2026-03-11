@@ -653,6 +653,7 @@ const handleLocationSelect = (locationId: string) => {
           amount: invoiceData.totalAmount,
           customerEmail: workOrder.clientEmail || invoiceData.clientEmail,
           clientName: getWorkOrderClientDisplayName(workOrder) || invoiceData.clientName,
+          clientId: workOrder.clientId || invoiceData.clientId,
         }),
       });
 

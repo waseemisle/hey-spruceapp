@@ -37,7 +37,7 @@ const nextConfig = {
     ],
   },
   env: {
-    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'https://hey-spruce-appv2.vercel.app',
+    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app',
   },
   webpack: (config, { isServer }) => {
     // Ensure path aliases work correctly in both client and server builds

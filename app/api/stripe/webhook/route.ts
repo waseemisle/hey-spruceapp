@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 
@@ -129,6 +129,48 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
     });
 
     console.log(`Invoice ${invoiceId} marked as paid (checkout)`);
+
+    // If session used setup_future_usage, save the payment method to the client
+    const clientId = session.metadata?.clientId;
+    if (clientId && session.payment_intent) {
+      try {
+        const paymentIntentId = typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent.id;
+        const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+        const paymentMethodId = typeof pi.payment_method === 'string'
+          ? pi.payment_method
+          : pi.payment_method?.id;
+
+        if (paymentMethodId && pi.setup_future_usage === 'off_session') {
+          const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+          const card = pm.card;
+
+          await updateDoc(doc(db, 'clients', clientId), {
+            defaultPaymentMethodId: paymentMethodId,
+            savedCardLast4: card?.last4 || '',
+            savedCardBrand: card?.brand || '',
+            savedCardExpMonth: card?.exp_month || null,
+            savedCardExpYear: card?.exp_year || null,
+            autoPayEnabled: true,
+            updatedAt: serverTimestamp(),
+          });
+
+          // Set as default on Stripe customer too
+          const clientDoc = await getDoc(doc(db, 'clients', clientId));
+          const stripeCustomerId = clientDoc.data()?.stripeCustomerId;
+          if (stripeCustomerId) {
+            await stripe.customers.update(stripeCustomerId, {
+              invoice_settings: { default_payment_method: paymentMethodId },
+            });
+          }
+
+          console.log(`Saved payment method for client ${clientId} from first payment: ${paymentMethodId}`);
+        }
+      } catch (pmError) {
+        console.error('Error saving payment method from checkout payment:', pmError);
+      }
+    }
   } catch (error) {
     console.error('Error updating invoice status:', error);
   }
@@ -253,15 +295,73 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
   }
 }
 
-/** Subscription (fixed recurring) invoice paid — log it */
+/** Subscription (fixed recurring) invoice paid — create invoice record in Firestore */
 async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
   try {
-    // Subscription invoices don't map to our invoices directly
-    // but we can log or update client record
-    const clientId = stripeInvoice.metadata?.clientId;
-    if (clientId) {
-      console.log(`Subscription invoice paid for client ${clientId}: ${stripeInvoice.id}`);
+    // Skip $0 invoices (e.g. trial or setup invoice)
+    if (!stripeInvoice.amount_paid || stripeInvoice.amount_paid === 0) return;
+
+    // Get clientId from subscription metadata (invoice metadata may be empty)
+    let clientId = stripeInvoice.metadata?.clientId;
+    let subscriptionId: string | undefined;
+    if (!clientId && stripeInvoice.subscription) {
+      subscriptionId = typeof stripeInvoice.subscription === 'string'
+        ? stripeInvoice.subscription
+        : stripeInvoice.subscription.id;
+      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      clientId = sub.metadata?.clientId;
     }
+
+    if (!clientId) {
+      console.log(`Subscription invoice paid but no clientId found: ${stripeInvoice.id}`);
+      return;
+    }
+
+    // Load client data
+    const clientDoc = await getDoc(doc(db, 'clients', clientId));
+    if (!clientDoc.exists()) return;
+    const clientData = clientDoc.data();
+
+    const amount = stripeInvoice.amount_paid / 100; // Stripe amounts are in cents
+    const invoiceNumber = `SPRUCE-SUB-${Date.now().toString().slice(-8).toUpperCase()}`;
+
+    const paidEvent = createInvoiceTimelineEvent({
+      type: 'paid',
+      userId: 'system',
+      userName: 'Subscription Auto-Pay',
+      userRole: 'system',
+      details: `Fixed recurring subscription payment — $${amount.toFixed(2)} auto-charged`,
+      metadata: { stripeInvoiceId: stripeInvoice.id },
+    });
+
+    await addDoc(collection(db, 'invoices'), {
+      invoiceNumber,
+      clientId,
+      clientName: clientData.fullName || '',
+      clientEmail: clientData.email || '',
+      status: 'paid',
+      totalAmount: amount,
+      stripePaymentIntentId: typeof stripeInvoice.payment_intent === 'string'
+        ? stripeInvoice.payment_intent
+        : stripeInvoice.payment_intent?.id || '',
+      autoChargeAttempted: true,
+      autoChargeStatus: 'succeeded',
+      workOrderTitle: `Monthly Subscription — ${clientData.subscriptionAmount ? `$${clientData.subscriptionAmount}/month` : ''}`,
+      lineItems: [{
+        description: 'Monthly recurring service',
+        quantity: 1,
+        unitPrice: amount,
+        amount,
+      }],
+      paidAt: serverTimestamp(),
+      creationSource: 'subscription',
+      stripeSubscriptionId: subscriptionId || clientData.stripeSubscriptionId || '',
+      timeline: [paidEvent],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`Subscription invoice paid for client ${clientId}: ${stripeInvoice.id} — $${amount}`);
   } catch (error) {
     console.error('Error handling invoice.paid (subscription):', error);
   }

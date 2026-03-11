@@ -400,8 +400,8 @@ async function createStripePaymentLink(data: {
       ],
       mode: 'payment',
       customer_email: data.clientEmail,
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://hey-spruce-appv2.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://hey-spruce-appv2.vercel.app'}/payment-cancelled`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app'}/payment-cancelled`,
       metadata: {
         invoiceNumber: data.invoiceNumber,
         clientName: data.clientName,

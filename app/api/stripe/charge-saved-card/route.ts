@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
 
     const amountCents = Math.round(invoiceData.totalAmount * 100);
 
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
+
     // Create off-session PaymentIntent
     const paymentIntent = await stripe.paymentIntents.create(
       {
@@ -63,6 +65,9 @@ export async function POST(request: NextRequest) {
         payment_method: clientData.defaultPaymentMethodId,
         off_session: true,
         confirm: true,
+        // return_url required by Stripe even for off-session payments
+        // in case the card requires 3DS re-authentication
+        return_url: `${baseUrl}/payment-success?invoice_id=${invoiceId}`,
         description: `Invoice ${invoiceData.invoiceNumber} — ${invoiceData.clientName}`,
         metadata: {
           invoiceId,

@@ -6,8 +6,8 @@ const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
 const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY;
 const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || 'heyspruce.com';
-const MAILGUN_FROM = process.env.MAILGUN_FROM || 'matthew@heyspruce.com';
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://hey-spruce-appv2.vercel.app';
+const MAILGUN_FROM = process.env.MAILGUN_FROM || 'info@groundops.co';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
 
 const email = 'waseemisle@gmail.com';
 const fullName = 'Waseem';

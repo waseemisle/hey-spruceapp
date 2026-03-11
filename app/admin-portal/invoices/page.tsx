@@ -250,6 +250,7 @@ export default function InvoicesManagement() {
             amount: invoiceData.totalAmount,
             customerEmail: quote.clientEmail || invoiceData.clientEmail,
             clientName: quote.clientName || invoiceData.clientName,
+            clientId: quote.clientId || invoiceData.clientId,
           }),
         });
 
@@ -349,6 +350,7 @@ export default function InvoicesManagement() {
           amount: invoice.totalAmount,
           customerEmail: invoice.clientEmail,
           clientName: invoice.clientName || 'Client',
+          clientId: invoice.clientId,
         }),
       });
 

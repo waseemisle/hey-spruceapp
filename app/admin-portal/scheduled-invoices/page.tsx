@@ -252,6 +252,7 @@ export default function ScheduledInvoicesManagement() {
             amount: schedule.amount,
             customerEmail: schedule.clientEmail,
             clientName: schedule.clientName,
+            clientId: schedule.clientId,
           }),
         });
 
