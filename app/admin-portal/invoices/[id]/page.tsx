@@ -71,6 +71,18 @@ interface Invoice {
 
 type InvoiceTab = 'charges' | 'history' | 'attachments' | 'checkinout' | 'related' | 'approval';
 
+interface ClientBilling {
+  savedCardLast4?: string;
+  savedCardBrand?: string;
+  savedCardExpMonth?: number;
+  savedCardExpYear?: number;
+  defaultPaymentMethodId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: string;
+  subscriptionAmount?: number;
+  subscriptionBillingDay?: number;
+}
+
 export default function AdminInvoiceDetail() {
   const params = useParams();
   const router = useRouter();
@@ -78,6 +90,7 @@ export default function AdminInvoiceDetail() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<InvoiceTab>('charges');
   const [relatedInvoices, setRelatedInvoices] = useState<Invoice[]>([]);
+  const [clientBilling, setClientBilling] = useState<ClientBilling | null>(null);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -94,6 +107,24 @@ export default function AdminInvoiceDetail() {
         }
         const data = { id: snap.id, ...snap.data() } as Invoice;
         setInvoice(data);
+        // Fetch client billing info
+        if (data.clientId) {
+          const clientSnap = await getDoc(doc(db, 'clients', data.clientId));
+          if (clientSnap.exists()) {
+            const cd = clientSnap.data();
+            setClientBilling({
+              savedCardLast4: cd.savedCardLast4,
+              savedCardBrand: cd.savedCardBrand,
+              savedCardExpMonth: cd.savedCardExpMonth,
+              savedCardExpYear: cd.savedCardExpYear,
+              defaultPaymentMethodId: cd.defaultPaymentMethodId,
+              stripeSubscriptionId: cd.stripeSubscriptionId,
+              subscriptionStatus: cd.subscriptionStatus,
+              subscriptionAmount: cd.subscriptionAmount,
+              subscriptionBillingDay: cd.subscriptionBillingDay,
+            });
+          }
+        }
         if (data.workOrderId) {
           const relatedSnap = await getDocs(
             query(collection(db, 'invoices'), where('workOrderId', '==', data.workOrderId))
@@ -303,6 +334,25 @@ export default function AdminInvoiceDetail() {
                 <p className="text-sm text-muted-foreground">
                   Completed: {toDate(invoice.completedDate)?.toLocaleDateString() ?? 'N/A'}
                 </p>
+              )}
+              {/* Client billing info */}
+              {clientBilling && (clientBilling.defaultPaymentMethodId || clientBilling.stripeSubscriptionId) && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {clientBilling.defaultPaymentMethodId && clientBilling.savedCardLast4 && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      <CreditCard className="h-3 w-3" />
+                      Client has saved {clientBilling.savedCardBrand
+                        ? clientBilling.savedCardBrand.charAt(0).toUpperCase() + clientBilling.savedCardBrand.slice(1)
+                        : 'card'} ending in {clientBilling.savedCardLast4}
+                    </span>
+                  )}
+                  {clientBilling.stripeSubscriptionId && clientBilling.subscriptionStatus === 'active' && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                      <span>⚡</span>
+                      Client has Fixed Recurring Plan: ${(clientBilling.subscriptionAmount || 0).toLocaleString()}/month
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </CardHeader>

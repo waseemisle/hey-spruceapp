@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  collection, query, getDocs, addDoc, doc, getDoc,
+  collection, query, getDocs, addDoc, doc, getDoc, updateDoc,
   serverTimestamp, orderBy,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -270,7 +270,7 @@ export default function CreateInvoicePage() {
 
       const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
 
-      await addDoc(collection(db, 'invoices'), {
+      const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
         clientId: formData.clientId,
         clientName: formData.clientName,
@@ -310,6 +310,34 @@ export default function CreateInvoicePage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Generate Stripe payment link if there's a total amount
+      if (totalAmount > 0) {
+        try {
+          const res = await fetch('/api/stripe/create-payment-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              invoiceId: invoiceRef.id,
+              invoiceNumber,
+              amount: totalAmount,
+              customerEmail: formData.clientEmail,
+              clientName: formData.clientName,
+              clientId: formData.clientId,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.paymentLink) {
+            await updateDoc(doc(db, 'invoices', invoiceRef.id), {
+              stripePaymentLink: data.paymentLink,
+              stripeSessionId: data.sessionId,
+            });
+          }
+        } catch (stripeErr) {
+          console.error('Stripe payment link error:', stripeErr);
+          // Non-fatal: invoice is created, just without payment link
+        }
+      }
 
       toast.success('Invoice created successfully');
       router.push('/admin-portal/invoices');
