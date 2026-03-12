@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Receipt, Download, ArrowLeft, History, Paperclip, MapPin, FileText, CreditCard, GitBranch } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Receipt, Download, ArrowLeft, History, Paperclip, MapPin, FileText, CreditCard, GitBranch, Edit2, Zap, X, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
+import { toast } from 'sonner';
 import type { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
 
 interface LaborLine {
@@ -91,6 +94,11 @@ export default function AdminInvoiceDetail() {
   const [activeTab, setActiveTab] = useState<InvoiceTab>('charges');
   const [relatedInvoices, setRelatedInvoices] = useState<Invoice[]>([]);
   const [clientBilling, setClientBilling] = useState<ClientBilling | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({ status: '', notes: '', terms: '' });
+  const [editLineItems, setEditLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([]);
+  const [saving, setSaving] = useState(false);
+  const [charging, setCharging] = useState(false);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -161,6 +169,87 @@ export default function AdminInvoiceDetail() {
       notes: invoice.notes,
       terms: invoice.terms,
     });
+  };
+
+  const handleOpenEdit = () => {
+    if (!invoice) return;
+    setEditForm({
+      status: invoice.status,
+      notes: invoice.notes || '',
+      terms: invoice.terms || '',
+    });
+    setEditLineItems(
+      invoice.lineItems?.length
+        ? invoice.lineItems.map(li => ({ ...li }))
+        : [{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]
+    );
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!invoice) return;
+    setSaving(true);
+    try {
+      const newTotal = editLineItems.reduce((s, li) => s + (li.amount || 0), 0);
+      await updateDoc(doc(db, 'invoices', invoice.id), {
+        status: editForm.status,
+        notes: editForm.notes,
+        terms: editForm.terms,
+        lineItems: editLineItems,
+        totalAmount: newTotal,
+        updatedAt: serverTimestamp(),
+      });
+      setInvoice(prev => prev ? { ...prev, status: editForm.status as any, notes: editForm.notes, terms: editForm.terms, lineItems: editLineItems, totalAmount: newTotal } : prev);
+      setShowEditModal(false);
+      toast.success('Invoice updated');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateEditLineItem = (index: number, field: string, raw: string) => {
+    setEditLineItems(prev => {
+      const updated = [...prev];
+      const item = { ...updated[index] };
+      if (field === 'description') {
+        item.description = raw;
+      } else {
+        const num = parseFloat(raw) || 0;
+        (item as any)[field] = num;
+        if (field === 'quantity') item.amount = num * item.unitPrice;
+        if (field === 'unitPrice') item.amount = item.quantity * num;
+        if (field === 'amount') item.amount = num;
+      }
+      updated[index] = item;
+      return updated;
+    });
+  };
+
+  const handleAutoCharge = async () => {
+    if (!invoice || !clientBilling) return;
+    if (!confirm(`Auto-charge $${invoice.totalAmount.toLocaleString()} from ${invoice.clientName}'s saved ${clientBilling.savedCardBrand || 'card'} ending in ${clientBilling.savedCardLast4}?`)) return;
+    setCharging(true);
+    try {
+      const res = await fetch('/api/stripe/charge-saved-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId: invoice.id, clientId: invoice.clientId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Charge failed');
+      if (data.status === 'succeeded') {
+        toast.success(`Charged $${invoice.totalAmount.toLocaleString()} successfully!`);
+        setInvoice(prev => prev ? { ...prev, status: 'paid' } : prev);
+      } else {
+        toast.warning(`Charge status: ${data.status}. Client may need to authenticate.`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to charge');
+    } finally {
+      setCharging(false);
+    }
   };
 
   const toDate = (val: any) => {
@@ -297,16 +386,32 @@ export default function AdminInvoiceDetail() {
               {invoice.status}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button onClick={handleDownloadPDF} variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
-              Print
+              Download PDF
             </Button>
+            <Button onClick={handleOpenEdit} variant="outline" size="sm">
+              <Edit2 className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            {(invoice.status === 'sent' || invoice.status === 'overdue') &&
+              clientBilling?.defaultPaymentMethodId && (
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={handleAutoCharge}
+                disabled={charging}
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                {charging ? 'Charging…' : 'Auto-Charge Saved Card'}
+              </Button>
+            )}
             {invoice.status !== 'paid' && invoice.stripePaymentLink && (
               <Button size="sm" asChild>
                 <a href={invoice.stripePaymentLink} target="_blank" rel="noopener noreferrer">
                   <CreditCard className="h-4 w-4 mr-2" />
-                  Pay
+                  Pay via Stripe
                 </a>
               </Button>
             )}
@@ -578,6 +683,106 @@ export default function AdminInvoiceDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
+              <h2 className="text-xl font-bold">Edit Invoice</h2>
+              <Button variant="outline" size="sm" onClick={() => setShowEditModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Status */}
+              <div>
+                <Label>Status</Label>
+                <select
+                  className="mt-1 w-full border border-gray-300 rounded-md p-2 text-sm"
+                  value={editForm.status}
+                  onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                >
+                  {['draft', 'sent', 'paid', 'overdue'].map(s => (
+                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Line Items */}
+              <div>
+                <Label className="mb-2 block">Line Items</Label>
+                <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase px-1 mb-1">
+                  <div className="col-span-5">Description</div>
+                  <div className="col-span-2 text-right">Qty</div>
+                  <div className="col-span-2 text-right">Unit Price</div>
+                  <div className="col-span-2 text-right">Amount</div>
+                  <div className="col-span-1" />
+                </div>
+                {editLineItems.map((li, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-2 items-center mb-2">
+                    <div className="col-span-12 md:col-span-5">
+                      <Input value={li.description} onChange={e => updateEditLineItem(i, 'description', e.target.value)} placeholder="Description" />
+                    </div>
+                    <div className="col-span-4 md:col-span-2">
+                      <Input type="number" min="0" step="0.01" value={li.quantity} onChange={e => updateEditLineItem(i, 'quantity', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                    </div>
+                    <div className="col-span-4 md:col-span-2">
+                      <Input type="number" min="0" step="0.01" value={li.unitPrice} onChange={e => updateEditLineItem(i, 'unitPrice', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                    </div>
+                    <div className="col-span-3 md:col-span-2">
+                      <Input type="number" min="0" step="0.01" value={li.amount} onChange={e => updateEditLineItem(i, 'amount', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                    </div>
+                    <div className="col-span-1 flex justify-center">
+                      {editLineItems.length > 1 && (
+                        <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-700 p-1 h-auto"
+                          onClick={() => setEditLineItems(prev => prev.filter((_, idx) => idx !== i))}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" onClick={() => setEditLineItems(prev => [...prev, { description: '', quantity: 1, unitPrice: 0, amount: 0 }])}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Line Item
+                </Button>
+                <div className="text-right mt-2">
+                  <span className="text-sm text-gray-500">Total: </span>
+                  <span className="font-bold">${editLineItems.reduce((s, li) => s + (li.amount || 0), 0).toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label>Notes</Label>
+                <textarea
+                  className="mt-1 w-full border border-gray-300 rounded-md p-2 min-h-[80px] text-sm"
+                  value={editForm.notes}
+                  onChange={e => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+
+              {/* Terms */}
+              <div>
+                <Label>Terms</Label>
+                <textarea
+                  className="mt-1 w-full border border-gray-300 rounded-md p-2 min-h-[80px] text-sm"
+                  value={editForm.terms}
+                  onChange={e => setEditForm(prev => ({ ...prev, terms: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <Button className="flex-1" onClick={handleSaveEdit} disabled={saving}>
+                {saving ? 'Saving…' : 'Save Changes'}
+              </Button>
+              <Button variant="outline" onClick={() => setShowEditModal(false)} disabled={saving}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
