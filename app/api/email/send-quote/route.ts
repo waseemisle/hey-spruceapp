@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: Request) {
   try {
@@ -107,12 +108,13 @@ export async function POST(request: Request) {
       subject: `Quote #${quoteNumber} - ${workOrderTitle}`,
       html: emailHtml,
     });
+    await logEmail({ type: 'quote', to: toEmail, subject: `Quote #${quoteNumber} - ${workOrderTitle}`, status: 'sent', context: { toName, quoteNumber, workOrderTitle, totalAmount, clientAmount, markupPercentage, notes } });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('❌ Error sending quote email:', error);
     console.error('❌ Error details:', error.message || error);
-    
+
     const errorMessage = error.message || String(error);
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     

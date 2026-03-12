@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import AccountSettingsDialog from './account-settings-dialog';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
-  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle, ChevronDown, ChevronRight, BarChart2, Search, Package, Award
+  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle, ChevronDown, ChevronRight, BarChart2, Search, Package, Award, Mail
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -450,6 +450,13 @@ export default function AdminLayout({ children, headerExtra }: { children: React
               <Package className="h-5 w-5 flex-shrink-0" />
               <span>Assets</span>
             </Link>
+            <Link
+              href="/admin-portal/email-logs"
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Mail className="h-5 w-5 flex-shrink-0" />
+              <span>Email Logs</span>
+            </Link>
           </nav>
         </aside>
 
@@ -707,6 +714,14 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             >
               <Package className="h-5 w-5 flex-shrink-0" />
               <span>Assets</span>
+            </Link>
+            <Link
+              href="/admin-portal/email-logs"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+            >
+              <Mail className="h-5 w-5 flex-shrink-0" />
+              <span>Email Logs</span>
             </Link>
           </nav>
         </aside>

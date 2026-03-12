@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
       subject: 'Your GroundOps Subcontractor Account Has Been Approved!',
       html: emailHtml,
     });
+    await logEmail({ type: 'subcontractor-approval', to: toEmail, subject: 'Your GroundOps Subcontractor Account Has Been Approved!', status: 'sent', context: { toName, businessName, approvedBy } });
 
     return NextResponse.json({
       success: true,
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ Error sending subcontractor approval email:', error);
     console.error('❌ Error details:', error.message || error);
-    
+
     const errorMessage = error.message || String(error);
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: Request) {
   try {
@@ -105,12 +106,13 @@ export async function POST(request: Request) {
       subject: `How was your service with GroundOps? - Work Order ${workOrderNumber}`,
       html: emailHtml,
     });
+    await logEmail({ type: 'review-request', to: toEmail, subject: `How was your service with GroundOps? - Work Order ${workOrderNumber}`, status: 'sent', context: { toName, workOrderNumber } });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('❌ Error sending review request email:', error);
     console.error('❌ Error details:', error.message || error);
-    
+
     const errorMessage = error.message || String(error);
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     

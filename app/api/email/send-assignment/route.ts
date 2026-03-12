@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: Request) {
+  let body: any = {};
   try {
-    const body = await request.json();
+    body = await request.json();
     const { toEmail, toName, workOrderNumber, workOrderTitle, clientName, locationName, locationAddress } = body;
 
     const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
@@ -76,13 +78,15 @@ export async function POST(request: Request) {
       subject: `Work Order Assignment: ${workOrderNumber} - ${workOrderTitle}`,
       html: emailHtml,
     });
+    await logEmail({ type: 'assignment', to: toEmail, subject: `Work Order Assignment: ${workOrderNumber} - ${workOrderTitle}`, status: 'sent', context: { toName, workOrderNumber, workOrderTitle, clientName, locationName, locationAddress } });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('❌ Error sending assignment email:', error);
     console.error('❌ Error details:', error.message || error);
-    
+
     const errorMessage = error.message || String(error);
+    await logEmail({ type: 'assignment', to: body?.toEmail || '', subject: `Work Order Assignment`, status: 'failed', context: { toName: body?.toName, workOrderNumber: body?.workOrderNumber }, error: errorMessage });
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     
     return NextResponse.json(

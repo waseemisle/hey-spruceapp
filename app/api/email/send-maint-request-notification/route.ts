@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -158,11 +159,13 @@ export async function POST(request: NextRequest) {
     `;
 
     // Send email via Mailgun
+    const subject = `${priority === 'high' || priority === 'urgent' ? '🚨 URGENT: ' : ''}New Maintenance Request: ${title}`;
     await sendEmail({
       to: toEmail,
-      subject: `${priority === 'high' || priority === 'urgent' ? '🚨 URGENT: ' : ''}New Maintenance Request: ${title}`,
+      subject,
       html: emailHtml,
     });
+    await logEmail({ type: 'maint-request-notification', to: toEmail, subject, status: 'sent', context: { toName, maintRequestId, venue, requestor, title, priority } });
 
     return NextResponse.json({
       success: true,
@@ -170,7 +173,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ Error sending maint request notification email:', error);
     console.error('❌ Error details:', error.message || error);
-    
+
     const errorMessage = error.message || String(error);
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     

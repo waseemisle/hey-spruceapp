@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { logEmail } from '@/lib/email-logger';
 
 const getFirebaseApp = () => {
   if (getApps().length === 0) {
@@ -179,15 +180,18 @@ export async function POST(request: NextRequest) {
           </html>
         `;
 
+        const subject = `${priority === 'high' || priority === 'urgent' ? '🚨 ' : ''}New Work Order: ${workOrderNumber} — ${title}`;
         try {
           await sendEmail({
             to: admin.email,
-            subject: `${priority === 'high' || priority === 'urgent' ? '🚨 ' : ''}New Work Order: ${workOrderNumber} — ${title}`,
+            subject,
             html: emailHtml,
           });
+          await logEmail({ type: 'work-order-notification', to: admin.email, subject, status: 'sent', context: { workOrderId, workOrderNumber, title, clientName, locationName, priority, workOrderType } });
         } catch (err: any) {
           console.error(`Failed to send email to ${admin.email}:`, err.message);
           errors.push(admin.email);
+          await logEmail({ type: 'work-order-notification', to: admin.email, subject, status: 'failed', context: { workOrderId, workOrderNumber, title, clientName, locationName, priority, workOrderType }, error: err.message });
         }
       })
     );

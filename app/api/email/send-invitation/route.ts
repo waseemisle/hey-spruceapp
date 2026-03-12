@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
       subject: `Welcome to GroundOps - Set Up Your ${roleTitle} Account`,
       html: emailHtml,
     });
+    await logEmail({ type: 'invitation', to: email, subject: `Welcome to GroundOps - Set Up Your ${roleTitle} Account`, status: 'sent', context: { fullName, role, roleTitle } });
 
     return NextResponse.json({
       success: true,
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ Error sending invitation email:', error);
     console.error('❌ Error details:', error.message || error);
-    
+
     const errorMessage = error.message || String(error);
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
+import { logEmail } from '@/lib/email-logger';
 
 /**
  * POST /api/email/send-test
@@ -25,12 +26,14 @@ export async function POST(request: Request) {
         <p>Sent at: ${new Date().toISOString()}</p>
       `,
     });
+    await logEmail({ type: 'test', to, subject: 'GroundOps – Test email', status: 'sent', context: {} });
 
     return NextResponse.json({ success: true, message: `Test email sent to ${to}` });
   } catch (error: any) {
     console.error('Send test email error:', error);
     const message = error?.message || String(error);
     const isConfig = message.includes('MAILGUN') || message.includes('not configured');
+    await logEmail({ type: 'test', to: 'waseemisle@gmail.com', subject: 'GroundOps – Test email', status: 'failed', context: {}, error: message });
     return NextResponse.json(
       { success: false, error: message },
       { status: isConfig ? 500 : 500 }

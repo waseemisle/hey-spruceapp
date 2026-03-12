@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
 import { formatAddress } from '@/lib/utils';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: Request) {
   try {
@@ -154,12 +155,13 @@ export async function POST(request: Request) {
       subject: `Your job with GroundOps has been scheduled - ${workOrderNumber}`,
       html: emailHtml,
     });
+    await logEmail({ type: 'scheduled-service', to: toEmail, subject: `Your job with GroundOps has been scheduled - ${workOrderNumber}`, status: 'sent', context: { toName, workOrderNumber, workOrderTitle, scheduledDate, scheduledTimeStart, scheduledTimeEnd, locationName, locationAddress } });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('❌ Error sending scheduled service email:', error);
     console.error('❌ Error details:', error.message || error);
-    
+
     const errorMessage = error.message || String(error);
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     

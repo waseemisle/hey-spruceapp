@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/mailgun';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: Request) {
+  let toEmail: string = '', toName: string = '', invoiceNumber: string = '', workOrderTitle: string = '', totalAmount: number = 0;
   try {
     const body = await request.json();
-    const {
+    ({
       toEmail,
       toName,
       invoiceNumber,
       workOrderTitle,
       totalAmount,
+    } = body);
+    const {
       dueDate,
       lineItems,
       notes,
@@ -338,13 +342,15 @@ export async function POST(request: Request) {
       html: emailHtml,
       attachments,
     });
+    await logEmail({ type: 'invoice', to: toEmail, subject: `Invoice #${invoiceNumber} - Payment Due`, status: 'sent', context: { toName, invoiceNumber, workOrderTitle, totalAmount, dueDate, notes, hasAttachment: !!pdfBase64, hasWorkOrderAttachment: !!workOrderPdfBase64 } });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('❌ Error sending invoice email:', error);
     console.error('❌ Error details:', error.message || error);
-    
+
     const errorMessage = error.message || String(error);
+    await logEmail({ type: 'invoice', to: toEmail || '', subject: `Invoice - Payment Due`, status: 'failed', context: { toName, invoiceNumber, workOrderTitle, totalAmount }, error: errorMessage });
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
     
     return NextResponse.json(
