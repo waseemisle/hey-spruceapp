@@ -631,10 +631,18 @@ export default function InvoicesManagement() {
             <h1 className="text-3xl font-bold text-gray-900">Invoices</h1>
             <p className="text-gray-600 mt-2">Generate and manage invoices with Stripe payment links</p>
           </div>
-          <Button onClick={() => setShowUploadModal(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Invoice
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href="/admin-portal/invoices/new">
+              <Button variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Invoice
+              </Button>
+            </Link>
+            <Button onClick={() => setShowUploadModal(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Invoice
+            </Button>
+          </div>
         </div>
 
         {/* Generate from Accepted Quotes */}
@@ -848,12 +856,12 @@ export default function InvoicesManagement() {
 
                     <Button
                       size="sm"
-                      variant="destructive"
-                      className="w-full"
+                      variant="outline"
+                      className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                       onClick={() => handleDeleteInvoice(invoice)}
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Invoice
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Delete
                     </Button>
                   </div>
                 </CardContent>
