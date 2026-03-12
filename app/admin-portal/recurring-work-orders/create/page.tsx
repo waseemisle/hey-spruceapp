@@ -172,10 +172,11 @@ export default function CreateRecurringWorkOrder() {
     recurrenceCustomPattern: '',
     recurrenceEndDate: '',
     recurrenceMaxOccurrences: '',
-    invoiceScheduleType: 'monthly' as 'monthly',
+    invoiceScheduleType: 'monthly' as 'monthly' | 'bi-monthly',
     invoiceScheduleInterval: 1,
     invoiceScheduleDaysOfWeek: [] as number[],
     invoiceScheduleDayOfMonth: 1,
+    invoiceScheduleSecondDayOfMonth: 15,
     invoiceScheduleMonthOfYear: 1,
     invoiceScheduleCustomPattern: '',
     invoiceTime: '09:00',
@@ -307,9 +308,12 @@ export default function CreateRecurringWorkOrder() {
       } as RecurrencePattern;
 
       const invoiceSchedule: InvoiceSchedule = {
-        type: 'monthly',
-        interval: formData.invoiceScheduleInterval,
+        type: formData.invoiceScheduleType,
+        interval: formData.invoiceScheduleType === 'bi-monthly' ? 1 : formData.invoiceScheduleInterval,
         dayOfMonth: formData.invoiceScheduleDayOfMonth,
+        ...(formData.invoiceScheduleType === 'bi-monthly' && {
+          secondDayOfMonth: formData.invoiceScheduleSecondDayOfMonth,
+        }),
         time: formData.invoiceTime,
         timezone: formData.timezone,
       } as InvoiceSchedule;
@@ -484,6 +488,17 @@ export default function CreateRecurringWorkOrder() {
     value: opt,
     label: opt,
   }));
+
+  const invoiceScheduleTypeOptions: SearchableSelectOption[] = [
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'bi-monthly', label: 'Bi-Monthly (twice per month)' },
+  ];
+
+  const getOrdinalSuffix = (n: number) => {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  };
 
   if (loading) {
     return (
@@ -744,36 +759,78 @@ export default function CreateRecurringWorkOrder() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Invoice Schedule Pattern</Label>
-                <div className="text-sm text-gray-600 mt-2 p-3 bg-blue-50 rounded-md">
-                  Invoices will be sent <strong>Monthly</strong>
-                </div>
-              </div>
-
-              <div>
-                <Label>Send Invoice Every</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={formData.invoiceScheduleInterval}
-                    onChange={(e) => setFormData({ ...formData, invoiceScheduleInterval: parseInt(e.target.value) || 1 })}
-                    className="w-20"
+                <div className="mt-1">
+                  <SearchableSelect
+                    options={invoiceScheduleTypeOptions}
+                    value={formData.invoiceScheduleType}
+                    onChange={(val) => setFormData({ ...formData, invoiceScheduleType: val as 'monthly' | 'bi-monthly' })}
+                    placeholder="Select schedule..."
                   />
-                  <span className="text-sm text-gray-600">month(s)</span>
                 </div>
               </div>
 
-              <div>
-                <Label>Day of Month</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.invoiceScheduleDayOfMonth}
-                  onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
-                />
-                <p className="text-xs text-gray-500 mt-1">Day of the month when invoice should be sent (1-31)</p>
-              </div>
+              {formData.invoiceScheduleType === 'monthly' && (
+                <>
+                  <div>
+                    <Label>Send Invoice Every</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={formData.invoiceScheduleInterval}
+                        onChange={(e) => setFormData({ ...formData, invoiceScheduleInterval: parseInt(e.target.value) || 1 })}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-gray-600">month(s)</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Day of Month</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={formData.invoiceScheduleDayOfMonth}
+                      onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Day of the month when invoice should be sent (1-31)</p>
+                  </div>
+                </>
+              )}
+
+              {formData.invoiceScheduleType === 'bi-monthly' && (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-500">Two invoices will be sent each month — one on the 1st date and one on the 2nd date.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>1st Invoice Day</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={formData.invoiceScheduleDayOfMonth}
+                        onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">e.g., 1 = 1st of month</p>
+                    </div>
+                    <div>
+                      <Label>2nd Invoice Day</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={formData.invoiceScheduleSecondDayOfMonth}
+                        onChange={(e) => setFormData({ ...formData, invoiceScheduleSecondDayOfMonth: parseInt(e.target.value) || 15 })}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">e.g., 15 = 15th of month</p>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-md text-sm text-blue-700">
+                    Invoices will be sent on the <strong>{formData.invoiceScheduleDayOfMonth}{getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}</strong> and <strong>{formData.invoiceScheduleSecondDayOfMonth}{getOrdinalSuffix(formData.invoiceScheduleSecondDayOfMonth)}</strong> of each month.
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -818,7 +875,10 @@ export default function CreateRecurringWorkOrder() {
                   : `Every ${formData.recurrenceInterval} ${formData.recurrenceType}`}
               </div>
               <div className="text-sm">
-                <span className="font-semibold">Invoice Schedule:</span> Every {formData.invoiceScheduleInterval} {formData.invoiceScheduleType}
+                <span className="font-semibold">Invoice Schedule:</span>{' '}
+                {formData.invoiceScheduleType === 'bi-monthly'
+                  ? `Bi-Monthly — ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)} & ${formData.invoiceScheduleSecondDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleSecondDayOfMonth)} of each month`
+                  : `Every ${formData.invoiceScheduleInterval} month(s) on the ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}`}
               </div>
               <div className="text-sm">
                 <span className="font-semibold">Invoice Time:</span> {formData.invoiceTime} {formData.timezone}
