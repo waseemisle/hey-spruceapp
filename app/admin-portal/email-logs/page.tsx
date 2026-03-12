@@ -19,7 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Mail, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { EmailType } from '@/lib/email-logger';
 
 interface EmailLog {
@@ -102,6 +103,7 @@ function ContextRow({ label, value }: { label: string; value: any }) {
 
 export default function EmailLogsPage() {
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -110,27 +112,44 @@ export default function EmailLogsPage() {
   const [allLoaded, setAllLoaded] = useState(false);
   const [page, setPage] = useState(0);
 
-  useEffect(() => {
-    async function loadAll() {
-      try {
-        const snap = await getDocs(
-          query(collection(db, 'emailLogs'), orderBy('sentAt', 'desc'), limit(500)),
-        );
-        setAllLogs(
-          snap.docs.map((d) => ({
-            id: d.id,
-            ...(d.data() as Omit<EmailLog, 'id'>),
-          })),
-        );
-        setAllLoaded(true);
-      } catch (err) {
-        console.error('Failed to load email logs:', err);
-      } finally {
-        setLoading(false);
-      }
+  async function loadAll() {
+    setLoading(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'emailLogs'), orderBy('sentAt', 'desc'), limit(500)),
+      );
+      setAllLogs(
+        snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<EmailLog, 'id'>),
+        })),
+      );
+      setAllLoaded(true);
+    } catch (err) {
+      console.error('Failed to load email logs:', err);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     loadAll();
   }, []);
+
+  async function syncMailgunLogs() {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/email/sync-mailgun-logs', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Sync failed');
+      toast.success(`Synced ${data.imported} emails from Mailgun`);
+      await loadAll();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to sync Mailgun logs');
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   // Reset page when filters change
   useEffect(() => {
@@ -166,9 +185,20 @@ export default function EmailLogsPage() {
               </p>
             </div>
           </div>
-          <span className="bg-muted px-3 py-1 rounded-full text-sm font-medium">
-            {allLoaded ? `${filtered.length} of ${allLogs.length} emails` : 'Loading...'}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="bg-muted px-3 py-1 rounded-full text-sm font-medium">
+              {allLoaded ? `${filtered.length} of ${allLogs.length} emails` : 'Loading...'}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={syncMailgunLogs}
+              disabled={syncing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync from Mailgun'}
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
