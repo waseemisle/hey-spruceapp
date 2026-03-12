@@ -195,36 +195,80 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
       });
 
     // Convert recurring work orders to calendar events
-    const recurringEvents: CalendarEvent[] = recurringWorkOrders
-      .filter(rwo => {
-        // Apply company filter for recurring work orders
-        if (companyClientIds && companyClientIds.length > 0 && !companyClientIds.includes(rwo.clientId)) {
-          return false;
+    const recurringEvents: CalendarEvent[] = [];
+
+    const filteredRecurring = recurringWorkOrders.filter(rwo => {
+      if (companyClientIds && companyClientIds.length > 0 && !companyClientIds.includes(rwo.clientId)) return false;
+      if (selectedClients && selectedClients.length > 0 && !selectedClients.includes(rwo.clientName)) return false;
+      if (selectedLocations && selectedLocations.length > 0 && !selectedLocations.includes(rwo.locationName || '')) return false;
+      return true;
+    });
+
+    for (const rwo of filteredRecurring) {
+      const daysOfWeek: number[] | undefined = (rwo.recurrencePattern as any)?.daysOfWeek;
+      const patternStartDate: any = (rwo.recurrencePattern as any)?.startDate;
+
+      if (daysOfWeek && daysOfWeek.length > 0) {
+        // DAILY pattern — generate one event per matching day for the next 90 days from start date
+        const start = patternStartDate
+          ? (patternStartDate instanceof Date ? patternStartDate : patternStartDate?.toDate?.() ?? new Date(patternStartDate))
+          : (rwo.nextExecution instanceof Date ? rwo.nextExecution : new Date(rwo.nextExecution));
+
+        const windowStart = new Date(start);
+        windowStart.setHours(0, 0, 0, 0);
+
+        const endDate: any = (rwo.recurrencePattern as any)?.endDate;
+        const windowEnd = endDate
+          ? (endDate instanceof Date ? endDate : endDate?.toDate?.() ?? new Date(endDate))
+          : (() => { const d = new Date(); d.setDate(d.getDate() + 90); return d; })();
+
+        const cursor = new Date(windowStart);
+        let occurrenceIdx = 0;
+
+        while (cursor <= windowEnd) {
+          if (daysOfWeek.includes(cursor.getDay())) {
+            const eventStart = new Date(cursor);
+            eventStart.setHours(9, 0, 0, 0);
+            const eventEnd = new Date(eventStart);
+            eventEnd.setHours(11, 0, 0, 0);
+
+            recurringEvents.push({
+              id: `recurring-${rwo.id}-${occurrenceIdx}`,
+              title: `🔄 ${rwo.title} - ${rwo.clientName}`,
+              start: eventStart,
+              end: eventEnd,
+              backgroundColor: '#fbbf24',
+              borderColor: '#f59e0b',
+              textColor: '#ffffff',
+              extendedProps: {
+                workOrderId: rwo.id,
+                workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
+                locationName: rwo.locationName || 'Unknown Location',
+                locationAddress: formatAddress(rwo.locationAddress),
+                clientName: rwo.clientName,
+                status: 'recurring',
+                category: rwo.category,
+                isRecurring: true,
+              },
+            });
+            occurrenceIdx++;
+          }
+          cursor.setDate(cursor.getDate() + 1);
         }
-        // Apply filters to recurring work orders
-        if (selectedClients && selectedClients.length > 0 && !selectedClients.includes(rwo.clientName)) {
-          return false;
-        }
-        if (selectedLocations && selectedLocations.length > 0 && !selectedLocations.includes(rwo.locationName || '')) {
-          return false;
-        }
-        return rwo.nextExecution;
-      })
-      .map(rwo => {
+      } else if (rwo.nextExecution) {
+        // Non-daily: show single nextExecution event
         const nextExec = rwo.nextExecution instanceof Date ? rwo.nextExecution : new Date(rwo.nextExecution);
-        
         const startDateTime = new Date(nextExec);
         startDateTime.setHours(9, 0, 0, 0);
-
         const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 2);
+        endDateTime.setHours(11, 0, 0, 0);
 
-        return {
+        recurringEvents.push({
           id: `recurring-${rwo.id}`,
           title: `🔄 ${rwo.title} - ${rwo.clientName} (Recurring)`,
           start: startDateTime,
           end: endDateTime,
-          backgroundColor: '#fbbf24', // Yellow for recurring
+          backgroundColor: '#fbbf24',
           borderColor: '#f59e0b',
           textColor: '#ffffff',
           extendedProps: {
@@ -237,8 +281,9 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             category: rwo.category,
             isRecurring: true,
           },
-        };
-      });
+        });
+      }
+    }
 
     // Combine both event types
     setEvents([...workOrderEvents, ...recurringEvents]);

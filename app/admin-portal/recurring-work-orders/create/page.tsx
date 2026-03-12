@@ -170,6 +170,7 @@ export default function CreateRecurringWorkOrder() {
     recurrenceDayOfMonth: 1,
     recurrenceMonthOfYear: 1,
     recurrenceCustomPattern: '',
+    recurrenceStartDate: '',
     recurrenceEndDate: '',
     recurrenceMaxOccurrences: '',
     invoiceScheduleType: 'monthly' as 'monthly' | 'bi-monthly',
@@ -263,6 +264,11 @@ export default function CreateRecurringWorkOrder() {
       return;
     }
 
+    if (formData.recurrencePatternLabel === 'DAILY' && !formData.recurrenceStartDate) {
+      toast.error('Please select a starting date for the daily recurrence');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -287,17 +293,38 @@ export default function CreateRecurringWorkOrder() {
       }
 
       const now = new Date();
-      const nextExecution = new Date(now);
-      if (formData.recurrenceType === 'weekly') {
-        nextExecution.setDate(now.getDate() + formData.recurrenceInterval * 7);
+
+      // For DAILY: compute nextExecution as the first matching day on/after startDate
+      let nextExecution: Date;
+      if (formData.recurrencePatternLabel === 'DAILY' && formData.recurrenceStartDate && formData.recurrenceDaysOfWeek.length > 0) {
+        const startDate = new Date(formData.recurrenceStartDate);
+        startDate.setHours(9, 0, 0, 0);
+        let candidate = new Date(startDate);
+        for (let i = 0; i < 7; i++) {
+          if (formData.recurrenceDaysOfWeek.includes(candidate.getDay())) {
+            nextExecution = candidate;
+            break;
+          }
+          candidate = new Date(candidate);
+          candidate.setDate(candidate.getDate() + 1);
+        }
+        nextExecution = nextExecution! || startDate;
       } else {
-        nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
+        nextExecution = new Date(now);
+        if (formData.recurrenceType === 'weekly') {
+          nextExecution.setDate(now.getDate() + formData.recurrenceInterval * 7);
+        } else {
+          nextExecution.setMonth(now.getMonth() + formData.recurrenceInterval);
+        }
       }
 
       const recurrencePattern: RecurrencePattern = {
         type: formData.recurrenceType,
         interval: formData.recurrenceInterval,
-        ...(formData.recurrencePatternLabel === 'DAILY' && { daysOfWeek: formData.recurrenceDaysOfWeek }),
+        ...(formData.recurrencePatternLabel === 'DAILY' && {
+          daysOfWeek: formData.recurrenceDaysOfWeek,
+          startDate: new Date(formData.recurrenceStartDate),
+        }),
         ...(formData.recurrenceType === 'monthly' && { dayOfMonth: formData.recurrenceDayOfMonth }),
         ...(formData.recurrenceEndDate && {
           endDate: new Date(formData.recurrenceEndDate),
@@ -667,34 +694,70 @@ export default function CreateRecurringWorkOrder() {
                 </p>
               </div>
 
-              {/* Daily: day-of-week checkboxes */}
+              {/* Daily: day-of-week checkboxes + starting date */}
               {formData.recurrencePatternLabel === 'DAILY' && (
-                <div>
-                  <Label>Select Days *</Label>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {daysOfWeek.map((day, index) => (
-                      <label
-                        key={day}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
-                          formData.recurrenceDaysOfWeek.includes(index)
-                            ? 'bg-blue-50 border-blue-400 text-blue-700'
-                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.recurrenceDaysOfWeek.includes(index)}
-                          onChange={() => toggleDayOfWeek(index)}
-                          className="accent-blue-600"
-                        />
-                        <span className="text-sm font-medium">{day}</span>
-                      </label>
-                    ))}
+                <>
+                  <div>
+                    <Label>Select Days *</Label>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {daysOfWeek.map((day, index) => (
+                        <label
+                          key={day}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
+                            formData.recurrenceDaysOfWeek.includes(index)
+                              ? 'bg-blue-50 border-blue-400 text-blue-700'
+                              : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.recurrenceDaysOfWeek.includes(index)}
+                            onChange={() => toggleDayOfWeek(index)}
+                            className="accent-blue-600"
+                          />
+                          <span className="text-sm font-medium">{day}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {formData.recurrenceDaysOfWeek.length === 0 && (
+                      <p className="text-xs text-yellow-600 mt-1">Select at least one day.</p>
+                    )}
                   </div>
-                  {formData.recurrenceDaysOfWeek.length === 0 && (
-                    <p className="text-xs text-yellow-600 mt-1">Select at least one day.</p>
-                  )}
-                </div>
+
+                  <div>
+                    <Label>Starting Date *</Label>
+                    <Input
+                      type="date"
+                      className="mt-1"
+                      value={formData.recurrenceStartDate}
+                      onChange={(e) => setFormData({ ...formData, recurrenceStartDate: e.target.value })}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      The first day occurrences will begin. Events will appear on the calendar for each selected day from this date onward.
+                    </p>
+                    {formData.recurrenceDaysOfWeek.length > 0 && formData.recurrenceStartDate && (() => {
+                      const start = new Date(formData.recurrenceStartDate);
+                      const upcoming: string[] = [];
+                      let d = new Date(start);
+                      let count = 0;
+                      while (upcoming.length < 5 && count < 14) {
+                        if (formData.recurrenceDaysOfWeek.includes(d.getDay())) {
+                          upcoming.push(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+                        }
+                        d.setDate(d.getDate() + 1);
+                        count++;
+                      }
+                      return upcoming.length > 0 ? (
+                        <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                          <p className="text-xs font-semibold text-blue-700 mb-1">First 5 upcoming occurrences:</p>
+                          <ul className="text-xs text-blue-600 space-y-0.5">
+                            {upcoming.map((d, i) => <li key={i}>• {d}</li>)}
+                          </ul>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                </>
               )}
 
               {formData.recurrenceType === 'monthly' && (
@@ -871,7 +934,7 @@ export default function CreateRecurringWorkOrder() {
               <div className="text-sm">
                 <span className="font-semibold">Recurrence:</span>{' '}
                 {formData.recurrencePatternLabel === 'DAILY'
-                  ? `Daily — ${formData.recurrenceDaysOfWeek.length > 0 ? formData.recurrenceDaysOfWeek.map(d => daysOfWeek[d]).join(', ') : 'No days selected'}`
+                  ? `Daily — ${formData.recurrenceDaysOfWeek.length > 0 ? formData.recurrenceDaysOfWeek.map(d => daysOfWeek[d]).join(', ') : 'No days selected'}${formData.recurrenceStartDate ? ` from ${new Date(formData.recurrenceStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}`
                   : `Every ${formData.recurrenceInterval} ${formData.recurrenceType}`}
               </div>
               <div className="text-sm">

@@ -447,8 +447,8 @@ export interface RecurringWorkOrder {
   estimateBudget?: number;
   status: 'active' | 'paused' | 'cancelled';
   recurrencePattern: RecurrencePattern;
-  /** Display label from FREQUENCY LABEL / Recurrence Pattern: SEMIANNUALLY, QUARTERLY, MONTHLY, BI-MONTHLY, BI-WEEKLY */
-  recurrencePatternLabel?: 'SEMIANNUALLY' | 'QUARTERLY' | 'MONTHLY' | 'BI-MONTHLY' | 'BI-WEEKLY';
+  /** Display label from FREQUENCY LABEL / Recurrence Pattern: DAILY, SEMIANNUALLY, QUARTERLY, MONTHLY, BI-MONTHLY, BI-WEEKLY */
+  recurrencePatternLabel?: 'DAILY' | 'SEMIANNUALLY' | 'QUARTERLY' | 'MONTHLY' | 'BI-MONTHLY' | 'BI-WEEKLY';
   invoiceSchedule: InvoiceSchedule;
   nextExecution: Date;
   lastExecution?: Date;
@@ -476,6 +476,8 @@ export interface RecurrencePattern {
   type: 'monthly' | 'weekly'; // Added 'weekly' for BI-WEEKLY
   interval: number; // Every X months or weeks
   dayOfMonth?: number; // 1-31 for monthly
+  daysOfWeek?: number[]; // 0=Sun…6=Sat, used for DAILY pattern
+  startDate?: Date; // Starting date for DAILY patterns
   endDate?: Date; // Optional end date for the recurrence
   maxOccurrences?: number; // Optional maximum number of occurrences
   scheduling?: string; // From SCHEDULING column (e.g., "MONDAYS (10AM-5PM)")
