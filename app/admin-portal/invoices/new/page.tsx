@@ -40,6 +40,11 @@ interface Client {
   email: string;
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 interface LineItem {
   description: string;
   quantity: number;
@@ -135,6 +140,7 @@ export default function CreateInvoicePage() {
 
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -163,9 +169,10 @@ export default function CreateInvoicePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [woSnap, clientSnap] = await Promise.all([
+        const [woSnap, clientSnap, catSnap] = await Promise.all([
           getDocs(query(collection(db, 'workOrders'))),
           getDocs(query(collection(db, 'clients'))),
+          getDocs(query(collection(db, 'categories'), orderBy('name', 'asc'))),
         ]);
         setWorkOrders(woSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder)));
         setClients(clientSnap.docs.map(d => ({
@@ -173,6 +180,7 @@ export default function CreateInvoicePage() {
           fullName: d.data().fullName,
           email: d.data().email,
         })));
+        setCategories(catSnap.docs.map(d => ({ id: d.id, name: d.data().name })));
       } catch (err) {
         console.error(err);
       } finally {
@@ -455,12 +463,14 @@ export default function CreateInvoicePage() {
 
                 <div>
                   <Label>Category</Label>
-                  <Input
-                    className="mt-1"
-                    value={formData.category}
-                    onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                    placeholder="e.g., HVAC"
-                  />
+                  <div className="mt-1">
+                    <SearchableSelect
+                      options={categories.map(c => ({ value: c.name, label: c.name }))}
+                      value={formData.category}
+                      onChange={val => setFormData(prev => ({ ...prev, category: val }))}
+                      placeholder="Select category..."
+                    />
+                  </div>
                 </div>
 
                 <div>
