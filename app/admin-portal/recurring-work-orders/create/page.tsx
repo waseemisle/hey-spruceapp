@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, addDoc, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -9,9 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  ArrowLeft, Save, X, Calendar, Clock, RotateCcw, 
-  ChevronDown, ChevronUp, Settings
+import {
+  ArrowLeft, Save, Calendar, Clock, RotateCcw,
+  ChevronDown, ChevronUp, Settings, Search, Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurrencePattern, InvoiceSchedule } from '@/types';
@@ -45,6 +45,103 @@ interface Category {
   name: string;
 }
 
+interface SearchableSelectOption {
+  value: string;
+  label: string;
+}
+
+interface SearchableSelectProps {
+  options: SearchableSelectOption[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}
+
+function SearchableSelect({ options, value, onChange, placeholder = 'Select...', disabled = false }: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = options.find(o => o.value === value);
+  const filtered = options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()));
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleOpen = () => {
+    if (disabled) return;
+    setOpen(true);
+    setSearch('');
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const handleSelect = (val: string) => {
+    onChange(val);
+    setOpen(false);
+    setSearch('');
+  };
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button
+        type="button"
+        onClick={handleOpen}
+        disabled={disabled}
+        className={`w-full flex items-center justify-between border border-gray-300 rounded-md p-2 bg-white text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:border-gray-400 cursor-pointer'}`}
+      >
+        <span className={selected ? 'text-gray-900' : 'text-gray-400'}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+          <div className="p-2 border-b border-gray-100">
+            <div className="flex items-center gap-2 px-2 py-1 border border-gray-200 rounded-md">
+              <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search..."
+                className="flex-1 text-sm outline-none bg-transparent"
+              />
+            </div>
+          </div>
+          <ul className="max-h-52 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-gray-400">No results found</li>
+            ) : (
+              filtered.map(opt => (
+                <li
+                  key={opt.value}
+                  onMouseDown={() => handleSelect(opt.value)}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${opt.value === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                >
+                  {opt.label}
+                  {opt.value === value && <Check className="h-3.5 w-3.5 text-blue-600" />}
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CreateRecurringWorkOrder() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
@@ -54,13 +151,12 @@ export default function CreateRecurringWorkOrder() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showAdvancedRecurrence, setShowAdvancedRecurrence] = useState(false);
-  const [showAdvancedInvoice, setShowAdvancedInvoice] = useState(false);
 
-  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
+  const RECURRENCE_PATTERN_OPTIONS = ['DAILY', 'SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
 
   const [formData, setFormData] = useState({
     clientId: '',
-  companyId: '',
+    companyId: '',
     locationId: '',
     title: '',
     description: '',
@@ -105,47 +201,47 @@ export default function CreateRecurringWorkOrder() {
     try {
       const locationsQuery = query(collection(db, 'locations'));
       const snapshot = await getDocs(locationsQuery);
-    const locationsData = snapshot.docs.map(doc => ({
-      id: doc.id,
-      clientId: doc.data().clientId,
-      companyId: doc.data().companyId,
-      locationName: doc.data().locationName,
-      address: doc.data().address,
-    })) as Location[];
+      const locationsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        clientId: doc.data().clientId,
+        companyId: doc.data().companyId,
+        locationName: doc.data().locationName,
+        address: doc.data().address,
+      })) as Location[];
       setLocations(locationsData);
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
   };
 
-const fetchCompanies = async () => {
-  try {
-    const companiesQuery = query(collection(db, 'companies'));
-    const snapshot = await getDocs(companiesQuery);
-    const companiesData = snapshot.docs.map(doc => ({
-      id: doc.id,
-      name: doc.data().name,
-      clientId: doc.data().clientId,
-    })) as Company[];
-    setCompanies(companiesData);
-  } catch (error) {
-    console.error('Error fetching companies:', error);
-  }
-};
+  const fetchCompanies = async () => {
+    try {
+      const companiesQuery = query(collection(db, 'companies'));
+      const snapshot = await getDocs(companiesQuery);
+      const companiesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+        clientId: doc.data().clientId,
+      })) as Company[];
+      setCompanies(companiesData);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    }
+  };
 
-const fetchCategories = async () => {
-  try {
-    const categoriesQuery = query(collection(db, 'categories'), orderBy('name', 'asc'));
-    const snapshot = await getDocs(categoriesQuery);
-    const categoriesData = snapshot.docs.map(doc => ({
-      id: doc.id,
-      name: doc.data().name,
-    })) as Category[];
-    setCategories(categoriesData);
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-  }
-};
+  const fetchCategories = async () => {
+    try {
+      const categoriesQuery = query(collection(db, 'categories'), orderBy('name', 'asc'));
+      const snapshot = await getDocs(categoriesQuery);
+      const categoriesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+      })) as Category[];
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
 
   useEffect(() => {
     fetchClients();
@@ -158,6 +254,11 @@ const fetchCategories = async () => {
   const handleSubmit = async () => {
     if (!formData.clientId || !formData.companyId || !formData.locationId || !formData.title || !formData.description || !formData.category) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (formData.recurrencePatternLabel === 'DAILY' && formData.recurrenceDaysOfWeek.length === 0) {
+      toast.error('Please select at least one day for the daily recurrence');
       return;
     }
 
@@ -184,7 +285,6 @@ const fetchCategories = async () => {
         return;
       }
 
-      // Calculate next execution date from pattern
       const now = new Date();
       const nextExecution = new Date(now);
       if (formData.recurrenceType === 'weekly') {
@@ -196,6 +296,7 @@ const fetchCategories = async () => {
       const recurrencePattern: RecurrencePattern = {
         type: formData.recurrenceType,
         interval: formData.recurrenceInterval,
+        ...(formData.recurrencePatternLabel === 'DAILY' && { daysOfWeek: formData.recurrenceDaysOfWeek }),
         ...(formData.recurrenceType === 'monthly' && { dayOfMonth: formData.recurrenceDayOfMonth }),
         ...(formData.recurrenceEndDate && {
           endDate: new Date(formData.recurrenceEndDate),
@@ -253,7 +354,7 @@ const fetchCategories = async () => {
         companyId: company.id,
         companyName: company.name,
         locationName: location.locationName,
-        locationAddress: location.address && typeof location.address === 'object' 
+        locationAddress: location.address && typeof location.address === 'object'
           ? `${location.address.street || ''}, ${location.address.city || ''}, ${location.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
           : (location.address || 'N/A'),
         title: formData.title,
@@ -290,29 +391,26 @@ const fetchCategories = async () => {
     }
   };
 
-const handleCompanySelect = (companyId: string) => {
-  setFormData((prev) => ({
-    ...prev,
-    companyId,
-    locationId: '',
-  }));
-};
+  const handleCompanySelect = (companyId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      companyId,
+      locationId: '',
+    }));
+  };
 
-const handleLocationSelect = (locationId: string) => {
-  setFormData((prev) => ({
-    ...prev,
-    locationId,
-  }));
-};
-
-  const handleRecurrenceTypeChange = (type: string) => {
-    setFormData({ ...formData, recurrenceType: type as any });
+  const handleLocationSelect = (locationId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      locationId,
+    }));
   };
 
   const handleRecurrencePatternChange = (label: (typeof RECURRENCE_PATTERN_OPTIONS)[number]) => {
     let type: 'monthly' | 'weekly' = 'monthly';
     let interval = 1;
-    if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; }
+    if (label === 'DAILY') { type = 'weekly'; interval = 1; }
+    else if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; }
     else if (label === 'QUARTERLY') { type = 'monthly'; interval = 3; }
     else if (label === 'MONTHLY') { type = 'monthly'; interval = 1; }
     else if (label === 'BI-MONTHLY') { type = 'monthly'; interval = 2; }
@@ -322,11 +420,8 @@ const handleLocationSelect = (locationId: string) => {
       recurrencePatternLabel: label,
       recurrenceType: type,
       recurrenceInterval: interval,
+      recurrenceDaysOfWeek: label === 'DAILY' ? formData.recurrenceDaysOfWeek : [],
     });
-  };
-
-  const handleInvoiceScheduleTypeChange = (type: string) => {
-    setFormData({ ...formData, invoiceScheduleType: type as any });
   };
 
   const toggleDayOfWeek = (day: number) => {
@@ -334,23 +429,11 @@ const handleLocationSelect = (locationId: string) => {
     if (days.includes(day)) {
       setFormData({ ...formData, recurrenceDaysOfWeek: days.filter(d => d !== day) });
     } else {
-      setFormData({ ...formData, recurrenceDaysOfWeek: [...days, day] });
-    }
-  };
-
-  const toggleInvoiceDayOfWeek = (day: number) => {
-    const days = formData.invoiceScheduleDaysOfWeek;
-    if (days.includes(day)) {
-      setFormData({ ...formData, invoiceScheduleDaysOfWeek: days.filter(d => d !== day) });
-    } else {
-      setFormData({ ...formData, invoiceScheduleDaysOfWeek: [...days, day] });
+      setFormData({ ...formData, recurrenceDaysOfWeek: [...days, day].sort((a, b) => a - b) });
     }
   };
 
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-  // Show all companies (companies are not filtered by client)
-  const filteredCompanies = companies;
 
   const filteredLocations = locations.filter((location) => {
     if (formData.companyId) {
@@ -361,6 +444,46 @@ const handleLocationSelect = (locationId: string) => {
     }
     return true;
   });
+
+  // SearchableSelect option arrays
+  const clientOptions: SearchableSelectOption[] = clients.map(c => ({
+    value: c.id,
+    label: `${c.fullName} (${c.email})`,
+  }));
+
+  const companyOptions: SearchableSelectOption[] = companies.map(c => ({
+    value: c.id,
+    label: c.name,
+  }));
+
+  const locationOptions: SearchableSelectOption[] = filteredLocations.map(l => ({
+    value: l.id,
+    label: l.locationName,
+  }));
+
+  const categoryOptions: SearchableSelectOption[] = categories.map(c => ({
+    value: c.name,
+    label: c.name,
+  }));
+
+  const priorityOptions: SearchableSelectOption[] = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+  ];
+
+  const timezoneOptions: SearchableSelectOption[] = [
+    { value: 'America/New_York', label: 'Eastern Time' },
+    { value: 'America/Chicago', label: 'Central Time' },
+    { value: 'America/Denver', label: 'Mountain Time' },
+    { value: 'America/Los_Angeles', label: 'Pacific Time' },
+    { value: 'UTC', label: 'UTC' },
+  ];
+
+  const recurrencePatternOptions: SearchableSelectOption[] = RECURRENCE_PATTERN_OPTIONS.map(opt => ({
+    value: opt,
+    label: opt,
+  }));
 
   if (loading) {
     return (
@@ -401,51 +524,39 @@ const handleLocationSelect = (locationId: string) => {
             <CardContent className="space-y-4">
               <div>
                 <Label>Select Client *</Label>
-                <select
-                  value={formData.clientId}
-                  onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                >
-                  <option value="">Choose a client...</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.fullName} ({client.email})
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <SearchableSelect
+                    options={clientOptions}
+                    value={formData.clientId}
+                    onChange={(val) => setFormData({ ...formData, clientId: val })}
+                    placeholder="Choose a client..."
+                  />
+                </div>
               </div>
 
               <div>
                 <Label>Company *</Label>
-                <select
-                  value={formData.companyId}
-                  onChange={(e) => handleCompanySelect(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                >
-                  <option value="">Choose a company...</option>
-                  {filteredCompanies.map(company => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <SearchableSelect
+                    options={companyOptions}
+                    value={formData.companyId}
+                    onChange={handleCompanySelect}
+                    placeholder="Choose a company..."
+                  />
+                </div>
               </div>
 
               <div>
                 <Label>Select Location *</Label>
-                <select
-                  value={formData.locationId}
-                  onChange={(e) => handleLocationSelect(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                  disabled={!formData.companyId}
-                >
-                  <option value="">Choose a location...</option>
-                  {filteredLocations.map(location => (
-                    <option key={location.id} value={location.id}>
-                      {location.locationName}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <SearchableSelect
+                    options={locationOptions}
+                    value={formData.locationId}
+                    onChange={handleLocationSelect}
+                    placeholder="Choose a location..."
+                    disabled={!formData.companyId}
+                  />
+                </div>
                 {formData.companyId && filteredLocations.length === 0 && (
                   <p className="text-xs text-yellow-600 mt-1">
                     No locations found for the selected company.
@@ -475,31 +586,26 @@ const handleLocationSelect = (locationId: string) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Category *</Label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  >
-                    <option value="">Select category...</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.name}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      options={categoryOptions}
+                      value={formData.category}
+                      onChange={(val) => setFormData({ ...formData, category: val })}
+                      placeholder="Select category..."
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <Label>Priority *</Label>
-                  <select
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      options={priorityOptions}
+                      value={formData.priority}
+                      onChange={(val) => setFormData({ ...formData, priority: val as any })}
+                      placeholder="Select priority..."
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -531,21 +637,50 @@ const handleLocationSelect = (locationId: string) => {
             <CardContent className="space-y-4">
               <div>
                 <Label>Recurrence Pattern</Label>
-                <select
-                  className="w-full mt-2 p-2 border rounded-md bg-white"
-                  value={formData.recurrencePatternLabel}
-                  onChange={(e) => handleRecurrencePatternChange(e.target.value as (typeof RECURRENCE_PATTERN_OPTIONS)[number])}
-                >
-                  {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
+                <div className="mt-2">
+                  <SearchableSelect
+                    options={recurrencePatternOptions}
+                    value={formData.recurrencePatternLabel}
+                    onChange={(val) => handleRecurrencePatternChange(val as (typeof RECURRENCE_PATTERN_OPTIONS)[number])}
+                    placeholder="Select pattern..."
+                  />
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
                   This work order will repeat <strong>{formData.recurrencePatternLabel}</strong>
-                  {formData.recurrenceType === 'weekly' && ` (every ${formData.recurrenceInterval} week(s))`}
-                  {formData.recurrenceType === 'monthly' && ` (every ${formData.recurrenceInterval} month(s))`}.
+                  {formData.recurrencePatternLabel !== 'DAILY' && formData.recurrenceType === 'weekly' && ` (every ${formData.recurrenceInterval} week(s))`}
+                  {formData.recurrencePatternLabel !== 'DAILY' && formData.recurrenceType === 'monthly' && ` (every ${formData.recurrenceInterval} month(s))`}.
                 </p>
               </div>
+
+              {/* Daily: day-of-week checkboxes */}
+              {formData.recurrencePatternLabel === 'DAILY' && (
+                <div>
+                  <Label>Select Days *</Label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {daysOfWeek.map((day, index) => (
+                      <label
+                        key={day}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
+                          formData.recurrenceDaysOfWeek.includes(index)
+                            ? 'bg-blue-50 border-blue-400 text-blue-700'
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.recurrenceDaysOfWeek.includes(index)}
+                          onChange={() => toggleDayOfWeek(index)}
+                          className="accent-blue-600"
+                        />
+                        <span className="text-sm font-medium">{day}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {formData.recurrenceDaysOfWeek.length === 0 && (
+                    <p className="text-xs text-yellow-600 mt-1">Select at least one day.</p>
+                  )}
+                </div>
+              )}
 
               {formData.recurrenceType === 'monthly' && (
                 <div>
@@ -651,17 +786,14 @@ const handleLocationSelect = (locationId: string) => {
                 </div>
                 <div>
                   <Label>Timezone</Label>
-                  <select
-                    value={formData.timezone}
-                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  >
-                    <option value="America/New_York">Eastern Time</option>
-                    <option value="America/Chicago">Central Time</option>
-                    <option value="America/Denver">Mountain Time</option>
-                    <option value="America/Los_Angeles">Pacific Time</option>
-                    <option value="UTC">UTC</option>
-                  </select>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      options={timezoneOptions}
+                      value={formData.timezone}
+                      onChange={(val) => setFormData({ ...formData, timezone: val })}
+                      placeholder="Select timezone..."
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -680,7 +812,10 @@ const handleLocationSelect = (locationId: string) => {
                 <span className="font-semibold">Client:</span> {clients.find(c => c.id === formData.clientId)?.fullName || 'Not selected'}
               </div>
               <div className="text-sm">
-                <span className="font-semibold">Recurrence:</span> Every {formData.recurrenceInterval} {formData.recurrenceType}
+                <span className="font-semibold">Recurrence:</span>{' '}
+                {formData.recurrencePatternLabel === 'DAILY'
+                  ? `Daily — ${formData.recurrenceDaysOfWeek.length > 0 ? formData.recurrenceDaysOfWeek.map(d => daysOfWeek[d]).join(', ') : 'No days selected'}`
+                  : `Every ${formData.recurrenceInterval} ${formData.recurrenceType}`}
               </div>
               <div className="text-sm">
                 <span className="font-semibold">Invoice Schedule:</span> Every {formData.invoiceScheduleInterval} {formData.invoiceScheduleType}
