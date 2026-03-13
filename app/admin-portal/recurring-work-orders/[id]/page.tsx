@@ -409,16 +409,6 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             </div>
           </div>
           <div className="flex gap-2">
-            {recurringWorkOrder.status === 'active' && (
-              <Button
-                onClick={handleExecuteNow}
-                loading={submitting} disabled={submitting}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Execute Next Iteration Now
-              </Button>
-            )}
             <Button
               variant="outline"
               onClick={() => router.push(`/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`)}
