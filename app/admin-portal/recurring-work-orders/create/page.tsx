@@ -264,8 +264,8 @@ export default function CreateRecurringWorkOrder() {
       return;
     }
 
-    if (formData.recurrencePatternLabel === 'DAILY' && !formData.recurrenceStartDate) {
-      toast.error('Please select a starting date for the daily recurrence');
+    if (!formData.recurrenceStartDate) {
+      toast.error('Please select a starting date for the recurrence');
       return;
     }
 
@@ -294,7 +294,7 @@ export default function CreateRecurringWorkOrder() {
 
       const now = new Date();
 
-      // For DAILY: compute nextExecution as the first matching day on/after startDate
+      // Compute nextExecution based on startDate and pattern
       let nextExecution: Date;
       if (formData.recurrencePatternLabel === 'DAILY' && formData.recurrenceStartDate && formData.recurrenceDaysOfWeek.length > 0) {
         const startDate = new Date(formData.recurrenceStartDate);
@@ -309,6 +309,17 @@ export default function CreateRecurringWorkOrder() {
           candidate.setDate(candidate.getDate() + 1);
         }
         nextExecution = nextExecution! || startDate;
+      } else if (formData.recurrenceStartDate) {
+        const startDate = new Date(formData.recurrenceStartDate);
+        startDate.setHours(9, 0, 0, 0);
+        if (formData.recurrenceType === 'monthly') {
+          nextExecution = new Date(startDate.getFullYear(), startDate.getMonth(), formData.recurrenceDayOfMonth, 9, 0, 0);
+          if (nextExecution < startDate) {
+            nextExecution.setMonth(nextExecution.getMonth() + formData.recurrenceInterval);
+          }
+        } else {
+          nextExecution = new Date(startDate);
+        }
       } else {
         nextExecution = new Date(now);
         if (formData.recurrenceType === 'weekly') {
@@ -323,6 +334,8 @@ export default function CreateRecurringWorkOrder() {
         interval: formData.recurrenceInterval,
         ...(formData.recurrencePatternLabel === 'DAILY' && {
           daysOfWeek: formData.recurrenceDaysOfWeek,
+        }),
+        ...(formData.recurrenceStartDate && {
           startDate: new Date(formData.recurrenceStartDate),
         }),
         ...(formData.recurrenceType === 'monthly' && { dayOfMonth: formData.recurrenceDayOfMonth }),
@@ -694,71 +707,84 @@ export default function CreateRecurringWorkOrder() {
                 </p>
               </div>
 
-              {/* Daily: day-of-week checkboxes + starting date */}
+              {/* DAILY only: day-of-week checkboxes */}
               {formData.recurrencePatternLabel === 'DAILY' && (
-                <>
-                  <div>
-                    <Label>Select Days *</Label>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      {daysOfWeek.map((day, index) => (
-                        <label
-                          key={day}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
-                            formData.recurrenceDaysOfWeek.includes(index)
-                              ? 'bg-blue-50 border-blue-400 text-blue-700'
-                              : 'border-gray-200 hover:bg-gray-50 text-gray-700'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formData.recurrenceDaysOfWeek.includes(index)}
-                            onChange={() => toggleDayOfWeek(index)}
-                            className="accent-blue-600"
-                          />
-                          <span className="text-sm font-medium">{day}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formData.recurrenceDaysOfWeek.length === 0 && (
-                      <p className="text-xs text-yellow-600 mt-1">Select at least one day.</p>
-                    )}
+                <div>
+                  <Label>Select Days *</Label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {daysOfWeek.map((day, index) => (
+                      <label
+                        key={day}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
+                          formData.recurrenceDaysOfWeek.includes(index)
+                            ? 'bg-blue-50 border-blue-400 text-blue-700'
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.recurrenceDaysOfWeek.includes(index)}
+                          onChange={() => toggleDayOfWeek(index)}
+                          className="accent-blue-600"
+                        />
+                        <span className="text-sm font-medium">{day}</span>
+                      </label>
+                    ))}
                   </div>
-
-                  <div>
-                    <Label>Starting Date *</Label>
-                    <Input
-                      type="date"
-                      className="mt-1"
-                      value={formData.recurrenceStartDate}
-                      onChange={(e) => setFormData({ ...formData, recurrenceStartDate: e.target.value })}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      The first day occurrences will begin. Events will appear on the calendar for each selected day from this date onward.
-                    </p>
-                    {formData.recurrenceDaysOfWeek.length > 0 && formData.recurrenceStartDate && (() => {
-                      const start = new Date(formData.recurrenceStartDate);
-                      const upcoming: string[] = [];
-                      let d = new Date(start);
-                      let count = 0;
-                      while (upcoming.length < 5 && count < 14) {
-                        if (formData.recurrenceDaysOfWeek.includes(d.getDay())) {
-                          upcoming.push(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
-                        }
-                        d.setDate(d.getDate() + 1);
-                        count++;
-                      }
-                      return upcoming.length > 0 ? (
-                        <div className="mt-2 p-2 bg-blue-50 rounded-md">
-                          <p className="text-xs font-semibold text-blue-700 mb-1">First 5 upcoming occurrences:</p>
-                          <ul className="text-xs text-blue-600 space-y-0.5">
-                            {upcoming.map((d, i) => <li key={i}>• {d}</li>)}
-                          </ul>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                </>
+                  {formData.recurrenceDaysOfWeek.length === 0 && (
+                    <p className="text-xs text-yellow-600 mt-1">Select at least one day.</p>
+                  )}
+                </div>
               )}
+
+              {/* Starting Date — all patterns */}
+              <div>
+                <Label>Starting Date *</Label>
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={formData.recurrenceStartDate}
+                  onChange={(e) => setFormData({ ...formData, recurrenceStartDate: e.target.value })}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  The first date occurrences will begin. Events will appear on the calendar from this date onward.
+                </p>
+                {formData.recurrencePatternLabel === 'DAILY' && formData.recurrenceDaysOfWeek.length > 0 && formData.recurrenceStartDate && (() => {
+                  const start = new Date(formData.recurrenceStartDate);
+                  const upcoming: string[] = [];
+                  let d = new Date(start);
+                  let count = 0;
+                  while (upcoming.length < 5 && count < 14) {
+                    if (formData.recurrenceDaysOfWeek.includes(d.getDay())) {
+                      upcoming.push(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+                    }
+                    d.setDate(d.getDate() + 1);
+                    count++;
+                  }
+                  return upcoming.length > 0 ? (
+                    <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                      <p className="text-xs font-semibold text-blue-700 mb-1">First 5 upcoming occurrences:</p>
+                      <ul className="text-xs text-blue-600 space-y-0.5">
+                        {upcoming.map((d, i) => <li key={i}>• {d}</li>)}
+                      </ul>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+
+              {/* Ending Date — all patterns */}
+              <div>
+                <Label>Ending Date</Label>
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={formData.recurrenceEndDate}
+                  onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  The last date occurrences will run. Calendar events will be generated up to this date.
+                </p>
+              </div>
 
               {formData.recurrenceType === 'monthly' && (
                 <div>
@@ -788,14 +814,6 @@ export default function CreateRecurringWorkOrder() {
 
               {showAdvancedRecurrence && (
                 <div className="space-y-4 pt-4 border-t">
-                  <div>
-                    <Label>End Date (Optional)</Label>
-                    <Input
-                      type="date"
-                      value={formData.recurrenceEndDate}
-                      onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
-                    />
-                  </div>
                   <div>
                     <Label>Maximum Occurrences (Optional)</Label>
                     <Input

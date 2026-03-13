@@ -84,6 +84,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     recurrenceDayOfMonth: 1,
     recurrenceMonthOfYear: 1,
     recurrenceCustomPattern: '',
+    recurrenceStartDate: '',
     recurrenceEndDate: '',
     recurrenceMaxOccurrences: '',
     invoiceScheduleType: 'monthly' as 'monthly',
@@ -148,6 +149,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           recurrenceDayOfMonth: pattern?.dayOfMonth || 1,
           recurrenceMonthOfYear: 1,
           recurrenceCustomPattern: '',
+          recurrenceStartDate: pattern?.startDate ? new Date(pattern.startDate).toISOString().split('T')[0] : '',
           recurrenceEndDate: pattern?.endDate ? new Date(pattern.endDate).toISOString().split('T')[0] : '',
           recurrenceMaxOccurrences: pattern?.maxOccurrences?.toString() || '',
           invoiceScheduleType: invoice?.type || 'monthly',
@@ -309,6 +311,9 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
       const recurrencePattern: RecurrencePattern = {
         type: formData.recurrenceType,
         interval: formData.recurrenceInterval,
+        ...(formData.recurrenceStartDate && {
+          startDate: new Date(formData.recurrenceStartDate),
+        }),
         ...(formData.recurrenceType === 'monthly' && { dayOfMonth: formData.recurrenceDayOfMonth }),
         ...(formData.recurrenceEndDate && {
           endDate: new Date(formData.recurrenceEndDate),
@@ -674,6 +679,26 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
               )}
 
               <div>
+                <Label>Starting Date</Label>
+                <Input
+                  type="date"
+                  value={formData.recurrenceStartDate}
+                  onChange={(e) => setFormData({ ...formData, recurrenceStartDate: e.target.value })}
+                />
+                <p className="text-xs text-gray-500 mt-1">The first date occurrences will begin. Events will appear on the calendar from this date onward.</p>
+              </div>
+
+              <div>
+                <Label>Ending Date</Label>
+                <Input
+                  type="date"
+                  value={formData.recurrenceEndDate}
+                  onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
+                />
+                <p className="text-xs text-gray-500 mt-1">The last date occurrences will run. Calendar events will be generated up to this date.</p>
+              </div>
+
+              <div>
                 <Label>Next Execution Date</Label>
                 <Input
                   type="date"
@@ -697,14 +722,6 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
 
               {showAdvancedRecurrence && (
                 <div className="space-y-4 pt-4 border-t">
-                  <div>
-                    <Label>End Date (Optional)</Label>
-                    <Input
-                      type="date"
-                      value={formData.recurrenceEndDate}
-                      onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
-                    />
-                  </div>
                   <div>
                     <Label>Maximum Occurrences (Optional)</Label>
                     <Input

@@ -255,33 +255,95 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
           }
           cursor.setDate(cursor.getDate() + 1);
         }
-      } else if (rwo.nextExecution) {
-        // Non-daily: show single nextExecution event
-        const nextExec = rwo.nextExecution instanceof Date ? rwo.nextExecution : new Date(rwo.nextExecution);
-        const startDateTime = new Date(nextExec);
-        startDateTime.setHours(9, 0, 0, 0);
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(11, 0, 0, 0);
+      } else {
+        // Non-daily: generate events between startDate and endDate if available
+        const patternStart: any = (rwo.recurrencePattern as any)?.startDate;
+        const patternEnd: any = (rwo.recurrencePattern as any)?.endDate;
+        const interval: number = (rwo.recurrencePattern as any)?.interval || 1;
+        const type: string = (rwo.recurrencePattern as any)?.type || 'monthly';
+        const dayOfMonth: number = (rwo.recurrencePattern as any)?.dayOfMonth || 1;
 
-        recurringEvents.push({
-          id: `recurring-${rwo.id}`,
-          title: `🔄 ${rwo.title} - ${rwo.clientName} (Recurring)`,
-          start: startDateTime,
-          end: endDateTime,
-          backgroundColor: '#fbbf24',
-          borderColor: '#f59e0b',
-          textColor: '#ffffff',
-          extendedProps: {
-            workOrderId: rwo.id,
-            workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
-            locationName: rwo.locationName || 'Unknown Location',
-            locationAddress: formatAddress(rwo.locationAddress),
-            clientName: rwo.clientName,
-            status: 'recurring',
-            category: rwo.category,
-            isRecurring: true,
-          },
-        });
+        const toDate = (val: any): Date => {
+          if (val instanceof Date) return val;
+          if (typeof val?.toDate === 'function') return val.toDate();
+          return new Date(val);
+        };
+
+        const makeEvent = (idx: number, eventStart: Date): CalendarEvent => {
+          const eventEnd = new Date(eventStart);
+          eventEnd.setHours(11, 0, 0, 0);
+          return {
+            id: `recurring-${rwo.id}-${idx}`,
+            title: `🔄 ${rwo.title} - ${rwo.clientName}`,
+            start: new Date(eventStart),
+            end: eventEnd,
+            backgroundColor: '#fbbf24',
+            borderColor: '#f59e0b',
+            textColor: '#ffffff',
+            extendedProps: {
+              workOrderId: rwo.id,
+              workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
+              locationName: rwo.locationName || 'Unknown Location',
+              locationAddress: formatAddress(rwo.locationAddress),
+              clientName: rwo.clientName,
+              status: 'recurring',
+              category: rwo.category,
+              isRecurring: true,
+            },
+          };
+        };
+
+        if (patternStart && patternEnd) {
+          const startDate = toDate(patternStart);
+          const endDate = toDate(patternEnd);
+          let occurrenceIdx = 0;
+
+          if (type === 'monthly') {
+            // First occurrence at dayOfMonth on/after startDate
+            let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), dayOfMonth, 9, 0, 0);
+            if (cursor < startDate) {
+              cursor = new Date(cursor.getFullYear(), cursor.getMonth() + interval, dayOfMonth, 9, 0, 0);
+            }
+            while (cursor <= endDate) {
+              recurringEvents.push(makeEvent(occurrenceIdx, cursor));
+              cursor = new Date(cursor.getFullYear(), cursor.getMonth() + interval, dayOfMonth, 9, 0, 0);
+              occurrenceIdx++;
+            }
+          } else if (type === 'weekly') {
+            let cursor = new Date(startDate);
+            cursor.setHours(9, 0, 0, 0);
+            while (cursor <= endDate) {
+              recurringEvents.push(makeEvent(occurrenceIdx, cursor));
+              cursor = new Date(cursor);
+              cursor.setDate(cursor.getDate() + interval * 7);
+              occurrenceIdx++;
+            }
+          }
+        } else if (rwo.nextExecution) {
+          // Fallback: single nextExecution event
+          const nextExec = rwo.nextExecution instanceof Date ? rwo.nextExecution : new Date(rwo.nextExecution);
+          const startDateTime = new Date(nextExec);
+          startDateTime.setHours(9, 0, 0, 0);
+          recurringEvents.push({
+            id: `recurring-${rwo.id}`,
+            title: `🔄 ${rwo.title} - ${rwo.clientName} (Recurring)`,
+            start: startDateTime,
+            end: (() => { const e = new Date(startDateTime); e.setHours(11, 0, 0, 0); return e; })(),
+            backgroundColor: '#fbbf24',
+            borderColor: '#f59e0b',
+            textColor: '#ffffff',
+            extendedProps: {
+              workOrderId: rwo.id,
+              workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
+              locationName: rwo.locationName || 'Unknown Location',
+              locationAddress: formatAddress(rwo.locationAddress),
+              clientName: rwo.clientName,
+              status: 'recurring',
+              category: rwo.category,
+              isRecurring: true,
+            },
+          });
+        }
       }
     }
 
