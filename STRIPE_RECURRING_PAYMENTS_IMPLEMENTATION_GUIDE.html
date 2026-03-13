@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stripe Recurring & Auto-Debit Implementation Guide — GroundOps</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            border: 'hsl(214.3 31.8% 91.4%)',
+            muted: { DEFAULT: 'hsl(210 40% 96.1%)', foreground: 'hsl(215.4 16.3% 46.9%)' },
+            card: { DEFAULT: 'hsl(0 0% 100%)', foreground: 'hsl(222.2 84% 4.9%)' },
+            primary: { DEFAULT: 'hsl(221.2 83.2% 53.3%)', foreground: 'hsl(210 40% 98%)' },
+            destructive: { DEFAULT: 'hsl(0 84.2% 60.2%)', foreground: 'hsl(210 40% 98%)' },
+            ring: 'hsl(221.2 83.2% 53.3%)',
+          },
+          borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    :root { --radius: 0.5rem; }
+  </style>
+</head>
+<body class="bg-muted min-h-screen font-sans text-zinc-900 antialiased">
+  <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+
+    <!-- Header -->
+    <header class="mb-12">
+      <div class="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary mb-4">
+        Implementation Guide
+      </div>
+      <h1 class="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+        Stripe Recurring & Auto-Debit
+      </h1>
+      <p class="mt-2 text-base text-muted-foreground">
+        GroundOps (Hey Spruce) — Planning document for automatic payment deduction
+      </p>
+      <div class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+        <span><strong class="text-zinc-700">Version:</strong> 1.0</span>
+        <span><strong class="text-zinc-700">Date:</strong> March 2, 2025</span>
+      </div>
+    </header>
+
+    <!-- Intro -->
+    <div class="mb-10">
+      <p class="text-zinc-700 mb-4">
+        This document explains how to implement two billing scenarios using Stripe in the GroundOps application:
+      </p>
+      <ul class="space-y-2 text-zinc-700">
+        <li class="flex items-start gap-2">
+          <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"></span>
+          <span><strong>Fixed recurring:</strong> Automatic deduction of a fixed amount (e.g., $300) on a specific day each month (e.g., 2nd of every month).</span>
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary"></span>
+          <span><strong>Variable recurring:</strong> First-time charge when the customer provides card details; subsequent months auto-charge the invoice amount using the stored card.</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Table of Contents -->
+    <nav class="mb-12 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Contents</h2>
+      <ul class="space-y-2">
+        <li><a href="#current-state" class="text-primary hover:underline">1. Current Application State</a></li>
+        <li><a href="#scenario-1" class="text-primary hover:underline">2. Scenario 1: Fixed Amount on Fixed Date</a></li>
+        <li><a href="#scenario-2" class="text-primary hover:underline">3. Scenario 2: Variable Amount Each Month</a></li>
+        <li><a href="#stripe-support" class="text-primary hover:underline">4. Does Stripe Support This?</a></li>
+        <li><a href="#implementation" class="text-primary hover:underline">5. Implementation Overview</a></li>
+        <li><a href="#challenges" class="text-primary hover:underline">6. Challenges & Considerations</a></li>
+        <li><a href="#phased" class="text-primary hover:underline">7. Recommended Phased Approach</a></li>
+      </ul>
+    </nav>
+
+    <!-- Section 1: Current State -->
+    <section id="current-state" class="mb-12">
+      <h1 class="border-b-2 border-primary pb-2 text-2xl font-bold text-zinc-900">
+        1. Current Application State
+      </h1>
+      <div class="mt-6 space-y-4 text-zinc-700">
+        <p>GroundOps is a facility maintenance and work order platform built with:</p>
+        <ul class="list-disc space-y-1 pl-5">
+          <li><strong>Stack:</strong> Next.js 14, TypeScript, Firebase (Firestore, Auth, Storage), Stripe, Mailgun</li>
+          <li><strong>Collections:</strong> <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">clients</code>, <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">invoices</code>, <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">scheduled_invoices</code>, <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">recurringWorkOrders</code>, <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">recurringWorkOrderExecutions</code></li>
+          <li><strong>Current Stripe flow:</strong> One-time Stripe Checkout sessions for invoices. Each invoice generates a payment link; customer pays manually; webhook marks invoice as paid. <strong>No saved cards or recurring logic.</strong></li>
+        </ul>
+        <p class="font-medium">Existing Stripe API routes:</p>
+        <ul class="list-disc space-y-1 pl-5">
+          <li><code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">/api/stripe/create-payment-link</code> — Creates Checkout session for an invoice (one-time payment).</li>
+          <li><code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">/api/stripe/webhook</code> — Handles <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">checkout.session.completed</code>, <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">checkout.session.expired</code>, <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">payment_intent.payment_failed</code>.</li>
+        </ul>
+        <p>Neither the <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">Client</code> nor <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">Invoice</code> types store Stripe customer IDs or payment methods. Cards are <strong>not</strong> saved today.</p>
+      </div>
+    </section>
+
+    <!-- Section 2: Scenario 1 -->
+    <section id="scenario-1" class="mb-12">
+      <h1 class="border-b-2 border-primary pb-2 text-2xl font-bold text-zinc-900">
+        2. Scenario 1: Fixed Amount on Fixed Date
+      </h1>
+      <div class="mt-6 space-y-6">
+        <div>
+          <h2 class="text-lg font-semibold text-zinc-900">Example</h2>
+          <p class="text-zinc-700"><strong>Customer A</strong> pays <strong>$300</strong> on the <strong>2nd of every month</strong> automatically from their card/account.</p>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-zinc-900">Concept</h2>
+          <p class="text-zinc-700">Stripe supports this via <strong>Subscriptions</strong> with a <strong>billing cycle anchor</strong>. You create a monthly subscription with:</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-zinc-700">
+            <li>Fixed price: $300/month</li>
+            <li>Billing anchor: day of month = 2 (so billing happens on the 2nd)</li>
+          </ul>
+          <p class="mt-2 text-zinc-700">Stripe will automatically charge the customer on the 2nd of each month without any manual action.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Scenario 2 -->
+    <section id="scenario-2" class="mb-12">
+      <h1 class="border-b-2 border-primary pb-2 text-2xl font-bold text-zinc-900">
+        3. Scenario 2: Variable Amount Each Month
+      </h1>
+      <div class="mt-6 space-y-6">
+        <div>
+          <h2 class="text-lg font-semibold text-zinc-900">Example</h2>
+          <p class="text-zinc-700"><strong>Customer B</strong>:</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-zinc-700">
+            <li><strong>Month 1:</strong> Invoice is $400 → Customer enters card once → $400 is charged immediately.</li>
+            <li><strong>Month 2:</strong> Invoice is $500 → System uses stored card → $500 is charged automatically (no customer action).</li>
+            <li><strong>Month 3+:</strong> Same pattern: invoice amount varies; charge uses saved card.</li>
+          </ul>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-zinc-900">Concept</h2>
+          <p class="text-zinc-700">This is <strong>not</strong> a subscription (amounts change). It requires:</p>
+          <ol class="mt-2 list-decimal space-y-1 pl-5 text-zinc-700">
+            <li><strong>Setup phase:</strong> Use Stripe <strong>Setup Intents</strong> to collect and save the card (no initial charge).</li>
+            <li><strong>Storage:</strong> Attach the payment method to a Stripe Customer; store <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">stripeCustomerId</code> and (optionally) default <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">paymentMethodId</code> on your Client record.</li>
+            <li><strong>Charging phase:</strong> When an invoice is due, create a <strong>Payment Intent</strong> with the invoice amount and charge the saved PaymentMethod. This is an “off-session” charge.</li>
+          </ol>
+          <p class="mt-2 text-zinc-700">Stripe supports this workflow; it is commonly used by utility companies and similar businesses that charge variable amounts each cycle.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Stripe Support -->
+    <section id="stripe-support" class="mb-12">
+      <h1 class="border-b-2 border-primary pb-2 text-2xl font-bold text-zinc-900">
+        4. Does Stripe Support This?
+      </h1>
+      <div class="mt-6 space-y-4">
+        <p class="flex items-center gap-2 text-zinc-700">
+          <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">Yes</span>
+          Stripe supports both scenarios.
+        </p>
+        <div class="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+          <table class="min-w-full divide-y divide-zinc-200">
+            <thead class="bg-zinc-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-zinc-900">Scenario</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-zinc-900">Stripe Product</th>
+                <th class="px-4 py-3 text-left text-sm font-semibold text-zinc-900">Key APIs / Features</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-200 bg-white">
+              <tr>
+                <td class="px-4 py-3 text-sm text-zinc-700">Fixed amount on fixed date</td>
+                <td class="px-4 py-3 text-sm text-zinc-700">Subscriptions</td>
+                <td class="px-4 py-3 text-sm text-zinc-700">Subscriptions API, <code class="rounded bg-muted px-1 py-0.5 font-mono text-xs">billing_cycle_anchor</code>, Products & Prices</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 text-sm text-zinc-700">Variable amount each month</td>
+                <td class="px-4 py-3 text-sm text-zinc-700">Setup Intents + Payment Intents</td>
+                <td class="px-4 py-3 text-sm text-zinc-700">Setup Intents (save card), Payment Intents (charge saved card off-session)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-sm text-zinc-600"><strong>Important:</strong> For off-session charging (Case 2), you must obtain explicit customer consent and comply with Strong Customer Authentication (SCA). Stripe’s Setup Intents handle SCA when collecting the card.</p>
+      </div>
+    </section>
+
+    <!-- Section 5: Implementation -->
+    <section id="implementation" class="mb-12">
+      <h1 class="border-b-2 border-primary pb-2 text-2xl font-bold text-zinc-900">
+        5. Implementation Overview
+      </h1>
+
+      <div class="mt-6 space-y-10">
+        <!-- 5.1 Fixed Recurring -->
+        <div class="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 class="text-lg font-semibold text-zinc-900">5.1 Scenario 1: Fixed Recurring</h2>
+          <h3 class="mt-4 text-base font-medium text-zinc-800">Database</h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-700">
+            <li>Store <code class="rounded bg-muted px-1 py-0.5 font-mono">stripeCustomerId</code> on the Client document (or a separate billing subcollection).</li>
+            <li>Store <code class="rounded bg-muted px-1 py-0.5 font-mono">stripeSubscriptionId</code> and link it to the scheduled/fixed plan.</li>
+          </ul>
+          <h3 class="mt-4 text-base font-medium text-zinc-800">New / Updated API Routes</h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-700">
+            <li><strong>Create Stripe Customer:</strong> On client onboarding or when enabling auto-pay, create a Stripe Customer and save the ID.</li>
+            <li><strong>Create Subscription:</strong> Create a Product (e.g., “Monthly Facility Maintenance”) with a Price of $300/month. Create a Subscription with <code class="rounded bg-muted px-1 py-0.5 font-mono">billing_cycle_anchor</code> set to day 2.</li>
+            <li><strong>Checkout for Subscription:</strong> Use Stripe Checkout in <code class="rounded bg-muted px-1 py-0.5 font-mono">subscription</code> mode, or use Elements + Subscription API.</li>
+          </ul>
+          <h3 class="mt-4 text-base font-medium text-zinc-800">Flow (high level)</h3>
+          <div class="mt-2 space-y-2">
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">1. Admin or client opts in to “Auto-pay $300 on 2nd of month”</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">2. App creates or fetches Stripe Customer, creates Product/Price for $300/month</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">3. Customer completes Stripe Checkout (subscription mode)</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">4. Stripe starts subscription with billing anchor on day 2</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">5. Stripe auto-charges on the 2nd each month</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">6. Webhooks (<code class="rounded bg-muted px-1 py-0.5 font-mono">invoice.paid</code>, <code class="rounded bg-muted px-1 py-0.5 font-mono">invoice.payment_failed</code>) update your app</div>
+          </div>
+          <h3 class="mt-4 text-base font-medium text-zinc-800">Integration Points</h3>
+          <p class="mt-2 text-sm text-zinc-700">Align with <code class="rounded bg-muted px-1 py-0.5 font-mono">scheduled_invoices</code> or <code class="rounded bg-muted px-1 py-0.5 font-mono">recurringWorkOrders</code>: when a client has a fixed monthly amount and day, create a Stripe Subscription instead of (or in addition to) sending a payment link.</p>
+        </div>
+
+        <!-- 5.2 Variable Recurring -->
+        <div class="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 class="text-lg font-semibold text-zinc-900">5.2 Scenario 2: Variable Recurring</h2>
+          <h3 class="mt-4 text-base font-medium text-zinc-800">Database</h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-700">
+            <li>Store <code class="rounded bg-muted px-1 py-0.5 font-mono">stripeCustomerId</code> on Client.</li>
+            <li>Store <code class="rounded bg-muted px-1 py-0.5 font-mono">defaultPaymentMethodId</code> for the saved card.</li>
+            <li>Invoices: add fields like <code class="rounded bg-muted px-1 py-0.5 font-mono">autoChargeAttempted</code>, <code class="rounded bg-muted px-1 py-0.5 font-mono">autoChargeStatus</code>.</li>
+          </ul>
+          <h3 class="mt-4 text-base font-medium text-zinc-800">New / Updated API Routes</h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-700">
+            <li><strong>Create Stripe Customer:</strong> When client opts into auto-pay.</li>
+            <li><strong>Setup Intent:</strong> Endpoint that creates a SetupIntent; frontend uses Elements or Checkout (setup mode) to collect the card.</li>
+            <li><strong>Charge Saved Card:</strong> Backend endpoint (or cron) that creates a PaymentIntent with <code class="rounded bg-muted px-1 py-0.5 font-mono">off_session: true</code>.</li>
+            <li><strong>Webhooks:</strong> Handle <code class="rounded bg-muted px-1 py-0.5 font-mono">payment_intent.succeeded</code>, <code class="rounded bg-muted px-1 py-0.5 font-mono">payment_intent.payment_failed</code>.</li>
+          </ul>
+          <h3 class="mt-4 text-base font-medium text-zinc-800">Flow (high level)</h3>
+          <div class="mt-2 space-y-2">
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">1. Client receives first invoice ($400) and clicks “Pay” or “Save card for auto-pay”</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">2. App creates SetupIntent; client enters card</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">3. PaymentMethod attached to Customer; stored in DB</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">4. First invoice: charge immediately via PaymentIntent</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">5. Future invoices: cron finds due invoices for clients with saved cards</div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">6. Create PaymentIntent with amount = invoice total, <code class="rounded bg-muted px-1 py-0.5 font-mono">off_session: true</code></div>
+            <div class="rounded-md border-l-4 border-primary bg-muted/50 py-2 pl-4 text-sm text-zinc-700">7. Webhook updates invoice status; send receipt email</div>
+          </div>
+          <h3 class="mt-4 text-base font-medium text-zinc-800">Integration Points</h3>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-700">
+            <li><strong>Invoice creation:</strong> When invoice is created for a client with saved card, charge immediately or queue for due-date charge.</li>
+            <li><strong>Recurring work order execution:</strong> Use charge-saved-card flow instead of one-time payment link.</li>
+            <li><strong>Scheduled invoices:</strong> Same charge logic for variable amounts.</li>
+          </ul>
+        </div>
+
+        <!-- 5.3 Firestore -->
+        <div class="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 class="text-lg font-semibold text-zinc-900">5.3 Firestore Security Rules</h2>
+          <p class="mt-2 text-sm text-zinc-700">Ensure only admins (or authenticated backend) can write <code class="rounded bg-muted px-1 py-0.5 font-mono">stripeCustomerId</code> and <code class="rounded bg-muted px-1 py-0.5 font-mono">defaultPaymentMethodId</code>. Consider a <code class="rounded bg-muted px-1 py-0.5 font-mono">clientPaymentMethods</code> subcollection for multiple cards per client.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Challenges -->
+    <section id="challenges" class="mb-12">
+      <h1 class="border-b-2 border-primary pb-2 text-2xl font-bold text-zinc-900">
+        6. Challenges & Considerations
+      </h1>
+      <div class="mt-6 space-y-6">
+        <div>
+          <h2 class="text-lg font-semibold text-zinc-900">6.1 Technical Challenges</h2>
+          <div class="mt-4 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
+            <table class="min-w-full divide-y divide-zinc-200">
+              <thead class="bg-zinc-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-zinc-900">Challenge</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-zinc-900">Mitigation</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-zinc-200 bg-white text-sm">
+                <tr>
+                  <td class="px-4 py-3 text-zinc-700">Off-session charges can fail</td>
+                  <td class="px-4 py-3 text-zinc-700">Retry logic; notify client; fall back to manual payment link</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 text-zinc-700">Card updates or re-auth</td>
+                  <td class="px-4 py-3 text-zinc-700">Setup Intent for card updates; handle <code class="rounded bg-muted px-1 py-0.5 font-mono">payment_intent.requires_action</code></td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 text-zinc-700">Time zones and charge timing</td>
+                  <td class="px-4 py-3 text-zinc-700">Store client timezone; schedule cron appropriately</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 text-zinc-700">Idempotency</td>
+                  <td class="px-4 py-3 text-zinc-700">Use idempotency keys when creating PaymentIntents</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-zinc-900">6.2 Compliance & Legal</h2>
+          <div class="mt-4 space-y-4">
+            <div class="rounded-lg border-l-4 border-amber-500 bg-amber-50 p-4">
+              <p class="text-sm font-medium text-amber-900">Mandatory consent for off-session charging</p>
+              <p class="mt-1 text-sm text-amber-800">You must clearly obtain consent: (1) how the amount is determined, (2) payment frequency, (3) authorization to charge the saved card. Use a checkbox and terms during the save-card flow.</p>
+            </div>
+            <div class="rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4">
+              <p class="text-sm font-medium text-blue-900">PCI compliance</p>
+              <p class="mt-1 text-sm text-blue-800">Never store raw card numbers. Stripe handles card data; you store only Stripe Customer and PaymentMethod IDs.</p>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-zinc-900">6.3 User Experience</h2>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-zinc-700">
+            <li>“Manage payment method” or “Update card” flow in the client portal</li>
+            <li>Advance notice before auto-charging (e.g., email 3–5 days before)</li>
+            <li>Receipts immediately after successful charge</li>
+            <li>Clear instructions when charges fail</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 7: Phased Approach -->
+    <section id="phased" class="mb-12">
+      <h1 class="border-b-2 border-primary pb-2 text-2xl font-bold text-zinc-900">
+        7. Recommended Phased Approach
+      </h1>
+      <div class="mt-6 space-y-3">
+        <div class="flex gap-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">1</span>
+          <div>
+            <p class="font-medium text-zinc-900">Phase 1 — Save card (no auto-charge)</p>
+            <p class="text-sm text-zinc-600">Add Setup Intent flow; save Stripe Customer + PaymentMethod for clients. Extend Client schema. No automatic charging yet.</p>
+          </div>
+        </div>
+        <div class="flex gap-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">2</span>
+          <div>
+            <p class="font-medium text-zinc-900">Phase 2 — Variable auto-charge</p>
+            <p class="text-sm text-zinc-600">Implement charge-saved-card endpoint; add cron; integrate with invoice due dates. Handle webhooks and retries.</p>
+          </div>
+        </div>
+        <div class="flex gap-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">3</span>
+          <div>
+            <p class="font-medium text-zinc-900">Phase 3 — Fixed recurring</p>
+            <p class="text-sm text-zinc-600">Implement Stripe Subscriptions for clients with fixed monthly amounts; integrate with <code class="rounded bg-muted px-1 py-0.5 font-mono">scheduled_invoices</code>.</p>
+          </div>
+        </div>
+        <div class="flex gap-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">4</span>
+          <div>
+            <p class="font-medium text-zinc-900">Phase 4 — Polish</p>
+            <p class="text-sm text-zinc-600">Client portal UI for managing cards, email notifications, retry logic, reporting.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- References -->
+    <section class="mb-12">
+      <h1 class="border-b-2 border-primary pb-2 text-2xl font-bold text-zinc-900">
+        References
+      </h1>
+      <ul class="mt-6 space-y-2 text-zinc-700">
+        <li><a href="https://stripe.com/docs/billing/subscriptions/billing-cycle" target="_blank" class="text-primary hover:underline">Stripe: Billing cycle anchor</a></li>
+        <li><a href="https://stripe.com/docs/payments/setup-intents" target="_blank" class="text-primary hover:underline">Stripe: Setup Intents</a></li>
+        <li><a href="https://stripe.com/docs/payments/save-and-reuse" target="_blank" class="text-primary hover:underline">Stripe: Save and reuse payment methods</a></li>
+        <li><a href="https://stripe.com/docs/payments/payment-intents" target="_blank" class="text-primary hover:underline">Stripe: Payment Intents</a></li>
+        <li><a href="https://stripe.com/docs/billing/subscriptions/subscription-schedules" target="_blank" class="text-primary hover:underline">Stripe: Subscription Schedules</a></li>
+      </ul>
+    </section>
+
+    <!-- Footer -->
+    <footer class="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-center text-sm text-muted-foreground">
+      <em>This is an implementation guide only. No code has been written. Share with your team for planning and approval before development.</em>
+    </footer>
+
+  </div>
+</body>
+</html>

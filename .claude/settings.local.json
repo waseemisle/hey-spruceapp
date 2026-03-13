@@ -80,7 +80,12 @@
       "WebFetch(domain:servicechannel.com)",
       "Bash(wc:*)",
       "Bash(git diff app/admin-portal/clients/[id]/page.tsx components/admin-layout.tsx)",
-      "WebFetch(domain:groundopscos.vercel.app)"
+      "WebFetch(domain:groundopscos.vercel.app)",
+      "Bash(apt list:*)",
+      "Bash(snap list:*)",
+      "Bash(chmod +x /tmp/stripe && /tmp/stripe version)",
+      "Bash(find /home/waseem/Desktop/hey-spruceapp -name \".env*\" -not -path \"*/node_modules/*\" -exec ls -la {} \\\\; 2>/dev/null\nfind /home/waseem -name \".env*\" -not -path \"*/node_modules/*\" 2>/dev/null | head -10)",
+      "Bash(printenv | grep -i firebase | sed 's/=.*/=<REDACTED>/')"
     ],
     "deny": [],
     "ask": []

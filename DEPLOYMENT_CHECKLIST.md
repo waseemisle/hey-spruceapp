@@ -6,7 +6,7 @@
 - [x] All email flows tested (11/11 passing)
 - [x] Mailgun API key obtained
 - [x] Mailgun domain verified (heyspruce.com)
-- [x] From email verified (matthew@heyspruce.com)
+- [x] From email verified (info@groundops.co)
 - [x] Test emails sent successfully
 
 ### Code
@@ -25,7 +25,7 @@ Add these in **Vercel Dashboard → Settings → Environment Variables**:
 ```env
 MAILGUN_API_KEY=your_mailgun_api_key_here
 MAILGUN_DOMAIN=heyspruce.com
-MAILGUN_FROM_EMAIL=matthew@heyspruce.com
+MAILGUN_FROM_EMAIL=info@groundops.co
 MAILGUN_API_URL=https://api.mailgun.net
 ```
 

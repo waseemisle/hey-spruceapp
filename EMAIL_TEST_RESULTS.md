@@ -2,7 +2,7 @@
 
 **Date:** February 6, 2026  
 **Test Recipient:** waseemisle@gmail.com  
-**From Email:** matthew@heyspruce.com
+**From Email:** info@groundops.co
 
 ---
 
@@ -34,7 +34,7 @@ All **11 email flows** have been tested and are working correctly!
 - Professional HTML templates
 - Proper branding and styling
 - Working portal links
-- Correct sender information (matthew@heyspruce.com)
+- Correct sender information (info@groundops.co)
 
 ✅ **Invoice email includes:**
 - PDF attachment (Invoice PDF)
@@ -60,14 +60,14 @@ All **11 email flows** have been tested and are working correctly!
 ```env
 MAILGUN_API_KEY=your_mailgun_api_key_here
 MAILGUN_DOMAIN=heyspruce.com
-MAILGUN_FROM_EMAIL=matthew@heyspruce.com
+MAILGUN_FROM_EMAIL=info@groundops.co
 MAILGUN_API_URL=https://api.mailgun.net
 ```
 
 ### Mailgun Status:
 - ✅ API Key: Valid
 - ✅ Domain: Verified (heyspruce.com)
-- ✅ From Email: Verified (matthew@heyspruce.com)
+- ✅ From Email: Verified (info@groundops.co)
 - ✅ Integration: Working
 
 ---
