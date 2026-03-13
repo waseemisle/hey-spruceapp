@@ -28,6 +28,7 @@ type NavItem = {
   children?: NavChild[];
 };
 
+// Grouped into segments so all fit in one row without scrolling
 const NAV_ITEMS: NavItem[] = [
   { name: 'Dashboard', href: '/admin-portal', icon: Home },
   {
@@ -66,18 +67,43 @@ const NAV_ITEMS: NavItem[] = [
       { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar },
     ],
   },
-  { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
-  { name: 'Maint. Requests', href: '/admin-portal/maint-requests', icon: Wrench },
-  { name: 'Categories', href: '/admin-portal/categories', icon: Tag },
-  { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText },
-  { name: 'RFPs', href: '/admin-portal/rfps', icon: FileText },
-  { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
-  { name: 'Provider Search', href: '/admin-portal/provider-search', icon: Search },
-  { name: 'Contractor Scorecard', href: '/admin-portal/contractor-scorecard', icon: Award },
-  { name: 'Reports', href: '/admin-portal/reports', icon: BarChart2 },
-  { name: 'Analytics', href: '/admin-portal/analytics', icon: BarChart2 },
-  { name: 'Assets', href: '/admin-portal/assets', icon: Package },
-  { name: 'Email Logs', href: '/admin-portal/email-logs', icon: Mail },
+  {
+    name: 'Field Ops',
+    icon: Wrench,
+    children: [
+      { name: 'Locations', href: '/admin-portal/locations', icon: Building2 },
+      { name: 'Maintenance Requests', href: '/admin-portal/maint-requests', icon: Wrench },
+      { name: 'Categories', href: '/admin-portal/categories', icon: Tag },
+      { name: 'Assets', href: '/admin-portal/assets', icon: Package },
+    ],
+  },
+  {
+    name: 'Procurement',
+    icon: FileText,
+    children: [
+      { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText },
+      { name: 'RFPs', href: '/admin-portal/rfps', icon: FileText },
+    ],
+  },
+  {
+    name: 'Messaging',
+    icon: MessageSquare,
+    badgeKey: 'messages',
+    children: [
+      { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare },
+      { name: 'Email Logs', href: '/admin-portal/email-logs', icon: Mail },
+    ],
+  },
+  {
+    name: 'Analytics',
+    icon: BarChart2,
+    children: [
+      { name: 'Reports', href: '/admin-portal/reports', icon: BarChart2 },
+      { name: 'Analytics', href: '/admin-portal/analytics', icon: BarChart2 },
+      { name: 'Contractor Scorecard', href: '/admin-portal/contractor-scorecard', icon: Award },
+      { name: 'Provider Search', href: '/admin-portal/provider-search', icon: Search },
+    ],
+  },
 ];
 
 export default function AdminLayout({ children, headerExtra }: { children: React.ReactNode; headerExtra?: React.ReactNode }) {
@@ -104,14 +130,14 @@ export default function AdminLayout({ children, headerExtra }: { children: React
           setLoading(false);
 
           const locationsQuery = query(collection(db, 'locations'), where('status', '==', 'pending'));
-          const unsubscribeLocations = onSnapshot(locationsQuery, (snapshot) => {
-            setBadgeCounts(prev => ({ ...prev, locations: snapshot.size }));
-          });
+          const unsubscribeLocations = onSnapshot(locationsQuery, (s) =>
+            setBadgeCounts(prev => ({ ...prev, locations: s.size }))
+          );
 
           const workOrdersQuery = query(collection(db, 'workOrders'), where('status', '==', 'pending'));
-          const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
-            setBadgeCounts(prev => ({ ...prev, workOrders: snapshot.size }));
-          });
+          const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (s) =>
+            setBadgeCounts(prev => ({ ...prev, workOrders: s.size }))
+          );
 
           return () => { unsubscribeLocations(); unsubscribeWorkOrders(); };
         } else {
@@ -142,13 +168,17 @@ export default function AdminLayout({ children, headerExtra }: { children: React
   const getBadge = (key?: string) =>
     key ? badgeCounts[key as keyof typeof badgeCounts] ?? 0 : 0;
 
-  const handleMouseEnter = (name: string) => {
+  const openMenu = (name: string) => {
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
     setOpenDropdown(name);
   };
 
-  const handleMouseLeave = () => {
+  const scheduleClose = () => {
     closeTimeoutRef.current = setTimeout(() => setOpenDropdown(null), 150);
+  };
+
+  const toggleDropdown = (name: string) => {
+    setOpenDropdown(prev => (prev === name ? null : name));
   };
 
   const toggleMobileItem = (name: string) => {
@@ -179,12 +209,6 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             Set your Firebase environment variables so the app can connect. For local development, add them to{' '}
             <code className="bg-muted px-1 rounded text-sm">.env.local</code>. For production (e.g. Vercel), add them in your project&apos;s Environment Variables.
           </p>
-          <p className="text-sm text-muted-foreground">
-            Required: <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_API_KEY</code>,{' '}
-            <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN</code>,{' '}
-            <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_PROJECT_ID</code>, and the other{' '}
-            <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_*</code> variables.
-          </p>
         </div>
       </div>
     );
@@ -192,11 +216,13 @@ export default function AdminLayout({ children, headerExtra }: { children: React
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Fixed header: top bar + subnav */}
+      {/* ── Fixed two-row header ── */}
       <header className="bg-card border-b fixed w-full top-0 z-50 shadow-sm">
-        {/* Row 1: Logo / Search / User controls */}
+
+        {/* Row 1 — logo / search / user controls (h-14 = 56px) */}
         <div className="flex items-center justify-between px-4 h-14 border-b">
           <div className="flex items-center gap-3">
+            {/* Hamburger — mobile only */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden text-muted-foreground hover:text-foreground"
@@ -229,42 +255,46 @@ export default function AdminLayout({ children, headerExtra }: { children: React
           </div>
         </div>
 
-        {/* Row 2: Subnav — desktop only */}
-        <nav className="hidden md:flex items-stretch h-10 overflow-x-auto scrollbar-hide">
+        {/* Row 2 — subnav segments (h-10 = 40px) — desktop only */}
+        {/* NOTE: no overflow-x-auto here — that would clip dropdowns. Items are grouped so they fit. */}
+        <nav className="hidden md:flex items-stretch h-10">
           {NAV_ITEMS.map((item) => {
             const active = isItemActive(item);
             const badge = getBadge(item.badgeKey);
+            const isOpen = openDropdown === item.name;
 
             if (item.children) {
               return (
                 <div
                   key={item.name}
-                  className="relative flex-shrink-0 flex items-stretch"
-                  onMouseEnter={() => handleMouseEnter(item.name)}
-                  onMouseLeave={handleMouseLeave}
+                  className="relative flex items-stretch"
+                  onMouseEnter={() => openMenu(item.name)}
+                  onMouseLeave={scheduleClose}
                 >
                   <button
-                    className={`flex items-center gap-1.5 px-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
-                      active
-                        ? 'text-foreground border-primary'
-                        : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-accent'
+                    onClick={() => toggleDropdown(item.name)}
+                    className={`flex items-center gap-1.5 px-4 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
+                      active || isOpen
+                        ? 'text-foreground border-primary bg-accent/40'
+                        : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-accent/50'
                     }`}
                   >
                     <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
                     {item.name}
                     {badge > 0 && (
-                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-[16px] px-0.5 flex items-center justify-center">
                         {badge > 99 ? '99+' : badge}
                       </span>
                     )}
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                   </button>
 
-                  {openDropdown === item.name && (
+                  {/* Dropdown — rendered in normal flow, not clipped */}
+                  {isOpen && (
                     <div
-                      className="absolute top-full left-0 bg-card border border-border rounded-b-lg shadow-lg min-w-[210px] z-50 py-1"
-                      onMouseEnter={() => handleMouseEnter(item.name)}
-                      onMouseLeave={handleMouseLeave}
+                      className="absolute top-full left-0 bg-card border border-border rounded-b-lg shadow-xl min-w-[220px] z-[100] py-1"
+                      onMouseEnter={() => openMenu(item.name)}
+                      onMouseLeave={scheduleClose}
                     >
                       {item.children.map((child) => {
                         const childActive = pathname.startsWith(child.href);
@@ -272,7 +302,8 @@ export default function AdminLayout({ children, headerExtra }: { children: React
                           <Link
                             key={child.name}
                             href={child.href}
-                            className={`flex items-center gap-2 px-4 py-2 text-sm transition-colors ${
+                            onClick={() => setOpenDropdown(null)}
+                            className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
                               childActive
                                 ? 'bg-accent text-accent-foreground font-medium'
                                 : 'text-foreground hover:bg-accent hover:text-accent-foreground'
@@ -293,16 +324,16 @@ export default function AdminLayout({ children, headerExtra }: { children: React
               <Link
                 key={item.name}
                 href={item.href!}
-                className={`flex items-center gap-1.5 px-3 text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors border-b-2 ${
+                className={`flex items-center gap-1.5 px-4 text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors border-b-2 ${
                   active
-                    ? 'text-foreground border-primary'
-                    : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-accent'
+                    ? 'text-foreground border-primary bg-accent/40'
+                    : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-accent/50'
                 }`}
               >
                 <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
                 {item.name}
                 {badge > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                  <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-[16px] px-0.5 flex items-center justify-center">
                     {badge > 99 ? '99+' : badge}
                   </span>
                 )}
@@ -312,7 +343,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
         </nav>
       </header>
 
-      {/* Mobile menu — slides down below header row 1 */}
+      {/* ── Mobile menu ── */}
       {mobileMenuOpen && (
         <>
           <div
@@ -398,7 +429,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
         </>
       )}
 
-      {/* Main content — offset for header (56px) + subnav (40px) = 96px */}
+      {/* ── Main content — offset for 56px header + 40px subnav ── */}
       <main className="pt-24">
         <div className="p-4 md:p-6 space-y-4">
           <div className="flex items-center gap-4">

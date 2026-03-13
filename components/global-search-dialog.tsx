@@ -317,7 +317,7 @@ export default function GlobalSearchDialog() {
       />
 
       {/* Dialog */}
-      <div className="fixed inset-x-0 top-16 z-[70] mx-auto max-w-2xl px-4">
+      <div className="fixed inset-x-0 top-24 z-[70] mx-auto max-w-2xl px-4">
         <div className="bg-card rounded-xl shadow-2xl border border-border overflow-hidden">
           {/* Search Input */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
