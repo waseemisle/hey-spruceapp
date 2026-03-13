@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -13,72 +13,108 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import AccountSettingsDialog from './account-settings-dialog';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
-  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw, Wrench, Tag, XCircle, ChevronDown, ChevronRight, BarChart2, Search, Package, Award, Mail
+  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw,
+  Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
 
+type NavChild = { name: string; href: string; icon: React.ElementType };
+type NavItem = {
+  name: string;
+  href?: string;
+  icon: React.ElementType;
+  badgeKey?: 'locations' | 'workOrders' | 'messages';
+  children?: NavChild[];
+};
+
+const NAV_ITEMS: NavItem[] = [
+  { name: 'Dashboard', href: '/admin-portal', icon: Home },
+  {
+    name: 'Users',
+    icon: Users,
+    children: [
+      { name: 'Clients', href: '/admin-portal/clients', icon: Users },
+      { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users },
+      { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck },
+    ],
+  },
+  {
+    name: 'Companies',
+    icon: Building2,
+    children: [
+      { name: 'List of Companies', href: '/admin-portal/subsidiaries', icon: Building2 },
+      { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck },
+    ],
+  },
+  {
+    name: 'Work Orders',
+    icon: ClipboardList,
+    badgeKey: 'workOrders',
+    children: [
+      { name: 'Standard Work Orders', href: '/admin-portal/work-orders/standard', icon: ClipboardList },
+      { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw },
+      { name: 'Maint. Req. Work Orders', href: '/admin-portal/work-orders/maintenance-requests', icon: Wrench },
+      { name: 'Rejected Work Orders', href: '/admin-portal/rejected-work-orders', icon: XCircle },
+    ],
+  },
+  {
+    name: 'Invoices',
+    icon: Receipt,
+    children: [
+      { name: 'Standard Invoices', href: '/admin-portal/invoices/standard', icon: Receipt },
+      { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar },
+    ],
+  },
+  { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
+  { name: 'Maint. Requests', href: '/admin-portal/maint-requests', icon: Wrench },
+  { name: 'Categories', href: '/admin-portal/categories', icon: Tag },
+  { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText },
+  { name: 'RFPs', href: '/admin-portal/rfps', icon: FileText },
+  { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
+  { name: 'Provider Search', href: '/admin-portal/provider-search', icon: Search },
+  { name: 'Contractor Scorecard', href: '/admin-portal/contractor-scorecard', icon: Award },
+  { name: 'Reports', href: '/admin-portal/reports', icon: BarChart2 },
+  { name: 'Analytics', href: '/admin-portal/analytics', icon: BarChart2 },
+  { name: 'Assets', href: '/admin-portal/assets', icon: Package },
+  { name: 'Email Logs', href: '/admin-portal/email-logs', icon: Mail },
+];
+
 export default function AdminLayout({ children, headerExtra }: { children: React.ReactNode; headerExtra?: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [usersExpanded, setUsersExpanded] = useState(true);
-  const [companiesExpanded, setCompaniesExpanded] = useState(true);
-  const [workOrdersExpanded, setWorkOrdersExpanded] = useState(true);
-  const [invoicesExpanded, setInvoicesExpanded] = useState(true);
-  const [badgeCounts, setBadgeCounts] = useState({
-    locations: 0,
-    workOrders: 0,
-    messages: 0,
-  });
-  const firebaseInstances = {
-    authInstance: auth,
-    dbInstance: db,
-    storageInstance: storage,
-  };
+  const [mobileExpandedItems, setMobileExpandedItems] = useState<Set<string>>(new Set());
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [badgeCounts, setBadgeCounts] = useState({ locations: 0, workOrders: 0, messages: 0 });
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
+
+  const firebaseInstances = { authInstance: auth, dbInstance: db, storageInstance: storage };
 
   useEffect(() => {
-    // Check if Firebase is initialized
-    if (!auth) {
-      console.error('Firebase auth is not initialized. Please check your .env.local file.');
-      setLoading(false);
-      return;
-    }
+    if (!auth) { setLoading(false); return; }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Check if user is admin
         const adminDoc = await getDoc(doc(db, 'adminUsers', firebaseUser.uid));
         if (adminDoc.exists()) {
           setUser({ ...firebaseUser, ...adminDoc.data() });
           setLoading(false);
 
-          // Listen to pending locations count
-          const locationsQuery = query(
-            collection(db, 'locations'),
-            where('status', '==', 'pending')
-          );
+          const locationsQuery = query(collection(db, 'locations'), where('status', '==', 'pending'));
           const unsubscribeLocations = onSnapshot(locationsQuery, (snapshot) => {
             setBadgeCounts(prev => ({ ...prev, locations: snapshot.size }));
           });
 
-          // Listen to pending work orders count
-          const workOrdersQuery = query(
-            collection(db, 'workOrders'),
-            where('status', '==', 'pending')
-          );
+          const workOrdersQuery = query(collection(db, 'workOrders'), where('status', '==', 'pending'));
           const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
             setBadgeCounts(prev => ({ ...prev, workOrders: snapshot.size }));
           });
 
-          return () => {
-            unsubscribeLocations();
-            unsubscribeWorkOrders();
-          };
+          return () => { unsubscribeLocations(); unsubscribeWorkOrders(); };
         } else {
-          // Not an admin, redirect
           router.push('/portal-login');
         }
       } else {
@@ -94,6 +130,35 @@ export default function AdminLayout({ children, headerExtra }: { children: React
     router.push('/');
   };
 
+  const isItemActive = (item: NavItem): boolean => {
+    if (item.href) {
+      return item.href === '/admin-portal'
+        ? pathname === '/admin-portal'
+        : pathname.startsWith(item.href);
+    }
+    return item.children?.some(child => pathname.startsWith(child.href)) ?? false;
+  };
+
+  const getBadge = (key?: string) =>
+    key ? badgeCounts[key as keyof typeof badgeCounts] ?? 0 : 0;
+
+  const handleMouseEnter = (name: string) => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    setOpenDropdown(name);
+  };
+
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => setOpenDropdown(null), 150);
+  };
+
+  const toggleMobileItem = (name: string) => {
+    setMobileExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -105,82 +170,49 @@ export default function AdminLayout({ children, headerExtra }: { children: React
     );
   }
 
-  const firebaseReady = !!auth;
-  // Firebase not configured (e.g. missing env vars on Vercel) — show clear error and do not render app
-  if (!firebaseReady) {
+  if (!auth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="max-w-md text-center space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Firebase not configured</h1>
           <p className="text-muted-foreground">
-            Set your Firebase environment variables so the app can connect. For local development, add them to <code className="bg-muted px-1 rounded text-sm">.env.local</code>. For production (e.g. Vercel), add them in your project&apos;s Environment Variables.
+            Set your Firebase environment variables so the app can connect. For local development, add them to{' '}
+            <code className="bg-muted px-1 rounded text-sm">.env.local</code>. For production (e.g. Vercel), add them in your project&apos;s Environment Variables.
           </p>
           <p className="text-sm text-muted-foreground">
-            Required: <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_API_KEY</code>, <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN</code>, <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_PROJECT_ID</code>, and the other <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_*</code> variables.
+            Required: <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_API_KEY</code>,{' '}
+            <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN</code>,{' '}
+            <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_PROJECT_ID</code>, and the other{' '}
+            <code className="bg-muted px-1 rounded">NEXT_PUBLIC_FIREBASE_*</code> variables.
           </p>
         </div>
       </div>
     );
   }
 
-  const menuItems = [
-    { name: 'Dashboard', href: '/admin-portal', icon: Home, badgeKey: null },
-    { name: 'Locations', href: '/admin-portal/locations', icon: Building2, badgeKey: 'locations' },
-    { name: 'Maintenance Requests', href: '/admin-portal/maint-requests', icon: Wrench, badgeKey: null },
-    { name: 'Categories', href: '/admin-portal/categories', icon: Tag, badgeKey: null },
-    { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText, badgeKey: null },
-    { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
-  ];
-
-  const usersSubMenu = [
-    { name: 'Clients', href: '/admin-portal/clients', icon: Users },
-    { name: 'Subcontractors', href: '/admin-portal/subcontractors', icon: Users },
-    { name: 'Admin Users', href: '/admin-portal/admin-users', icon: ShieldCheck },
-  ];
-
-  const companiesSubMenu = [
-    { name: 'List of Companies', href: '/admin-portal/subsidiaries', icon: Building2 },
-    { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck },
-  ];
-
-  const workOrdersSubMenu = [
-    { name: 'Standard Work Orders', href: '/admin-portal/work-orders/standard', icon: ClipboardList },
-    { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw },
-    { name: 'Maintenance Requests Work Orders', href: '/admin-portal/work-orders/maintenance-requests', icon: Wrench },
-    { name: 'Rejected Work Orders', href: '/admin-portal/rejected-work-orders', icon: XCircle },
-  ];
-
-  const invoicesSubMenu = [
-    { name: 'Standard Invoices', href: '/admin-portal/invoices/standard', icon: Receipt },
-    { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar },
-  ];
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Navigation */}
-      <header className="bg-card shadow-sm border-b fixed w-full top-0 z-50">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center">
+      {/* Fixed header: top bar + subnav */}
+      <header className="bg-card border-b fixed w-full top-0 z-50 shadow-sm">
+        {/* Row 1: Logo / Search / User controls */}
+        <div className="flex items-center justify-between px-4 h-14 border-b">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                if (window.innerWidth < 768) {
-                  setMobileMenuOpen(!mobileMenuOpen);
-                } else {
-                  setSidebarOpen(!sidebarOpen);
-                }
-              }}
-              className="mr-4 text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden text-muted-foreground hover:text-foreground"
               aria-label="Toggle menu"
             >
-              {(sidebarOpen || mobileMenuOpen) ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <Logo href="/admin-portal" size="sm" />
-            <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Admin Portal</span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">Admin Portal</span>
           </div>
+
           <div className="flex-1 flex justify-center px-4">
             <GlobalSearchDialog />
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
+
+          <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
@@ -190,557 +222,192 @@ export default function AdminLayout({ children, headerExtra }: { children: React
               instances={firebaseInstances}
               onProfileUpdated={(updated) => setUser((prev: any) => ({ ...prev, ...updated }))}
             />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-            >
+            <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>
             </Button>
           </div>
         </div>
+
+        {/* Row 2: Subnav — desktop only */}
+        <nav className="hidden md:flex items-stretch h-10 overflow-x-auto scrollbar-hide">
+          {NAV_ITEMS.map((item) => {
+            const active = isItemActive(item);
+            const badge = getBadge(item.badgeKey);
+
+            if (item.children) {
+              return (
+                <div
+                  key={item.name}
+                  className="relative flex-shrink-0 flex items-stretch"
+                  onMouseEnter={() => handleMouseEnter(item.name)}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <button
+                    className={`flex items-center gap-1.5 px-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
+                      active
+                        ? 'text-foreground border-primary'
+                        : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                    {item.name}
+                    {badge > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+
+                  {openDropdown === item.name && (
+                    <div
+                      className="absolute top-full left-0 bg-card border border-border rounded-b-lg shadow-lg min-w-[210px] z-50 py-1"
+                      onMouseEnter={() => handleMouseEnter(item.name)}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      {item.children.map((child) => {
+                        const childActive = pathname.startsWith(child.href);
+                        return (
+                          <Link
+                            key={child.name}
+                            href={child.href}
+                            className={`flex items-center gap-2 px-4 py-2 text-sm transition-colors ${
+                              childActive
+                                ? 'bg-accent text-accent-foreground font-medium'
+                                : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                            }`}
+                          >
+                            <child.icon className="h-4 w-4 flex-shrink-0" />
+                            {child.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={item.name}
+                href={item.href!}
+                className={`flex items-center gap-1.5 px-3 text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors border-b-2 ${
+                  active
+                    ? 'text-foreground border-primary'
+                    : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-accent'
+                }`}
+              >
+                <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                {item.name}
+                {badge > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                    {badge > 99 ? '99+' : badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
       </header>
 
-      {/* Mobile Overlay */}
+      {/* Mobile menu — slides down below header row 1 */}
       {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="fixed top-14 left-0 right-0 bg-card border-b z-50 md:hidden overflow-y-auto max-h-[calc(100vh-3.5rem)]">
+            <nav className="p-2 space-y-0.5">
+              {NAV_ITEMS.map((item) => {
+                const active = isItemActive(item);
+                const badge = getBadge(item.badgeKey);
+                const expanded = mobileExpandedItems.has(item.name);
+
+                if (item.children) {
+                  return (
+                    <div key={item.name}>
+                      <button
+                        onClick={() => toggleMobileItem(item.name)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-lg transition-colors ${
+                          active
+                            ? 'bg-accent text-accent-foreground font-medium'
+                            : 'text-foreground hover:bg-accent'
+                        }`}
+                      >
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        <span className="flex-1 text-left">{item.name}</span>
+                        {badge > 0 && (
+                          <span className="bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                            {badge > 99 ? '99+' : badge}
+                          </span>
+                        )}
+                        <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                      </button>
+                      {expanded && (
+                        <div className="ml-4 mt-0.5 space-y-0.5">
+                          {item.children.map((child) => {
+                            const childActive = pathname.startsWith(child.href);
+                            return (
+                              <Link
+                                key={child.name}
+                                href={child.href}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className={`flex items-center gap-3 px-4 py-2 text-sm rounded-lg transition-colors ${
+                                  childActive
+                                    ? 'bg-accent text-accent-foreground font-medium'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                                }`}
+                              >
+                                <child.icon className="h-4 w-4 flex-shrink-0" />
+                                {child.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href!}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm rounded-lg transition-colors ${
+                      active
+                        ? 'bg-accent text-accent-foreground font-medium'
+                        : 'text-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="flex-1">{item.name}</span>
+                    {badge > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </>
       )}
 
-      <div className="flex pt-16">
-        {/* Sidebar - Desktop */}
-        <aside
-          className={`hidden md:block fixed left-0 h-[calc(100vh-4rem)] bg-card border-r transition-all duration-300 ${
-            sidebarOpen ? 'w-64' : 'w-0 -ml-64'
-          }`}
-        >
-          <nav className="p-4 space-y-1 overflow-y-auto h-full">
-            {/* Dashboard */}
-            <Link
-              href="/admin-portal"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Home className="h-5 w-5 flex-shrink-0" />
-              <span>Dashboard</span>
-            </Link>
-
-            {/* Users Collapsible Section */}
-            <div>
-              <button
-                onClick={() => setUsersExpanded(!usersExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <Users className="h-5 w-5 flex-shrink-0" />
-                <span className="flex-1 text-left">Users</span>
-                {usersExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-
-              {usersExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {usersSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Companies Collapsible Section */}
-            <div>
-              <button
-                onClick={() => setCompaniesExpanded(!companiesExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <Building2 className="h-5 w-5 flex-shrink-0" />
-                <span className="flex-1 text-left">Companies</span>
-                {companiesExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-
-              {companiesExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {companiesSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Work Orders Collapsible Section */}
-            <div>
-              <button
-                onClick={() => setWorkOrdersExpanded(!workOrdersExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <ClipboardList className="h-5 w-5 flex-shrink-0" />
-                <span className="flex-1 text-left">Work Orders</span>
-                {badgeCounts.workOrders > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                    {badgeCounts.workOrders > 99 ? '99+' : badgeCounts.workOrders}
-                  </span>
-                )}
-                {workOrdersExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-
-              {workOrdersExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {workOrdersSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Invoices Collapsible Section */}
-            <div>
-              <button
-                onClick={() => setInvoicesExpanded(!invoicesExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <Receipt className="h-5 w-5 flex-shrink-0" />
-                <span className="flex-1 text-left">Invoices</span>
-                {invoicesExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-
-              {invoicesExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {invoicesSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Remaining Menu Items */}
-            <Link
-              href="/admin-portal/locations"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Building2 className="h-5 w-5 flex-shrink-0" />
-              <span>Locations</span>
-              {badgeCounts.locations > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                  {badgeCounts.locations > 99 ? '99+' : badgeCounts.locations}
-                </span>
-              )}
-            </Link>
-
-            <Link
-              href="/admin-portal/maint-requests"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Wrench className="h-5 w-5 flex-shrink-0" />
-              <span>Maintenance Requests</span>
-            </Link>
-
-            <Link
-              href="/admin-portal/categories"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Tag className="h-5 w-5 flex-shrink-0" />
-              <span>Categories</span>
-            </Link>
-
-            <Link
-              href="/admin-portal/quotes"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <FileText className="h-5 w-5 flex-shrink-0" />
-              <span>Quotes</span>
-            </Link>
-            <Link
-              href="/admin-portal/rfps"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <FileText className="h-5 w-5 flex-shrink-0" />
-              <span>RFPs</span>
-            </Link>
-
-            <Link
-              href="/admin-portal/messages"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <MessageSquare className="h-5 w-5 flex-shrink-0" />
-              <span>Messages</span>
-              {badgeCounts.messages > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                  {badgeCounts.messages > 99 ? '99+' : badgeCounts.messages}
-                </span>
-              )}
-            </Link>
-
-            <Link
-              href="/admin-portal/provider-search"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Search className="h-5 w-5 flex-shrink-0" />
-              <span>Provider Search</span>
-            </Link>
-            <Link
-              href="/admin-portal/contractor-scorecard"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Award className="h-5 w-5 flex-shrink-0" />
-              <span>Contractor Scorecard</span>
-            </Link>
-
-            <Link
-              href="/admin-portal/reports"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <BarChart2 className="h-5 w-5 flex-shrink-0" />
-              <span>Reports</span>
-            </Link>
-            <Link
-              href="/admin-portal/analytics"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <BarChart2 className="h-5 w-5 flex-shrink-0" />
-              <span>Analytics</span>
-            </Link>
-            <Link
-              href="/admin-portal/assets"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Package className="h-5 w-5 flex-shrink-0" />
-              <span>Assets</span>
-            </Link>
-            <Link
-              href="/admin-portal/email-logs"
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Mail className="h-5 w-5 flex-shrink-0" />
-              <span>Email Logs</span>
-            </Link>
-          </nav>
-        </aside>
-
-        {/* Sidebar - Mobile */}
-        <aside
-          className={`md:hidden fixed left-0 h-[calc(100vh-4rem)] bg-card border-r transition-all duration-300 z-50 ${
-            mobileMenuOpen ? 'w-64' : 'w-0 -ml-64'
-          }`}
-        >
-          <nav className="p-4 space-y-1 overflow-y-auto h-full">
-            {/* Dashboard */}
-            <Link
-              href="/admin-portal"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Home className="h-5 w-5 flex-shrink-0" />
-              <span>Dashboard</span>
-            </Link>
-
-            {/* Users Collapsible Section */}
-            <div>
-              <button
-                onClick={() => setUsersExpanded(!usersExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <Users className="h-5 w-5 flex-shrink-0" />
-                <span className="flex-1 text-left">Users</span>
-                {usersExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-
-              {usersExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {usersSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Companies Collapsible Section */}
-            <div>
-              <button
-                onClick={() => setCompaniesExpanded(!companiesExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <Building2 className="h-5 w-5 flex-shrink-0" />
-                <span className="flex-1 text-left">Companies</span>
-                {companiesExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-
-              {companiesExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {companiesSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Work Orders Collapsible Section */}
-            <div>
-              <button
-                onClick={() => setWorkOrdersExpanded(!workOrdersExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <ClipboardList className="h-5 w-5 flex-shrink-0" />
-                <span className="flex-1 text-left">Work Orders</span>
-                {badgeCounts.workOrders > 0 && (
-                  <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                    {badgeCounts.workOrders > 99 ? '99+' : badgeCounts.workOrders}
-                  </span>
-                )}
-                {workOrdersExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-
-              {workOrdersExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {workOrdersSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Invoices Collapsible Section */}
-            <div>
-              <button
-                onClick={() => setInvoicesExpanded(!invoicesExpanded)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
-                <Receipt className="h-5 w-5 flex-shrink-0" />
-                <span className="flex-1 text-left">Invoices</span>
-                {invoicesExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </button>
-
-              {invoicesExpanded && (
-                <div className="ml-4 mt-1 space-y-1">
-                  {invoicesSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-                    >
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span>{subItem.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Remaining Menu Items */}
-            <Link
-              href="/admin-portal/locations"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Building2 className="h-5 w-5 flex-shrink-0" />
-              <span>Locations</span>
-              {badgeCounts.locations > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                  {badgeCounts.locations > 99 ? '99+' : badgeCounts.locations}
-                </span>
-              )}
-            </Link>
-
-            <Link
-              href="/admin-portal/maint-requests"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Wrench className="h-5 w-5 flex-shrink-0" />
-              <span>Maintenance Requests</span>
-            </Link>
-
-            <Link
-              href="/admin-portal/categories"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Tag className="h-5 w-5 flex-shrink-0" />
-              <span>Categories</span>
-            </Link>
-
-            <Link
-              href="/admin-portal/quotes"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <FileText className="h-5 w-5 flex-shrink-0" />
-              <span>Quotes</span>
-            </Link>
-            <Link
-              href="/admin-portal/rfps"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <FileText className="h-5 w-5 flex-shrink-0" />
-              <span>RFPs</span>
-            </Link>
-
-            <Link
-              href="/admin-portal/messages"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <MessageSquare className="h-5 w-5 flex-shrink-0" />
-              <span>Messages</span>
-              {badgeCounts.messages > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                  {badgeCounts.messages > 99 ? '99+' : badgeCounts.messages}
-                </span>
-              )}
-            </Link>
-
-            <Link
-              href="/admin-portal/provider-search"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Search className="h-5 w-5 flex-shrink-0" />
-              <span>Provider Search</span>
-            </Link>
-            <Link
-              href="/admin-portal/contractor-scorecard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Award className="h-5 w-5 flex-shrink-0" />
-              <span>Contractor Scorecard</span>
-            </Link>
-
-            <Link
-              href="/admin-portal/reports"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <BarChart2 className="h-5 w-5 flex-shrink-0" />
-              <span>Reports</span>
-            </Link>
-            <Link
-              href="/admin-portal/analytics"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <BarChart2 className="h-5 w-5 flex-shrink-0" />
-              <span>Analytics</span>
-            </Link>
-            <Link
-              href="/admin-portal/assets"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Package className="h-5 w-5 flex-shrink-0" />
-              <span>Assets</span>
-            </Link>
-            <Link
-              href="/admin-portal/email-logs"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-            >
-              <Mail className="h-5 w-5 flex-shrink-0" />
-              <span>Email Logs</span>
-            </Link>
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main
-          className={`flex-1 transition-all duration-300 ${
-            sidebarOpen ? 'md:ml-64' : 'md:ml-0'
-          }`}
-        >
-          <div className="p-4 md:p-6 space-y-4">
-            <div className="flex items-center gap-4">
-              {headerExtra}
-              <ViewControls className="flex-1" />
-            </div>
-            {children}
+      {/* Main content — offset for header (56px) + subnav (40px) = 96px */}
+      <main className="pt-24">
+        <div className="p-4 md:p-6 space-y-4">
+          <div className="flex items-center gap-4">
+            {headerExtra}
+            <ViewControls className="flex-1" />
           </div>
-        </main>
-      </div>
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
