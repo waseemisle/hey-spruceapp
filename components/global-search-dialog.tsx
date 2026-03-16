@@ -7,6 +7,110 @@ import {
   FileText, Tag, Wrench, RotateCcw, Package,
   MapPin, Award,
 } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
+
+const SEARCH_COLLECTIONS = [
+  {
+    name: 'workOrders',
+    category: 'Work Orders',
+    titleField: 'workOrderNumber',
+    titleFallbacks: ['title'],
+    subtitleFields: ['status', 'category', 'clientName'],
+    searchFields: ['workOrderNumber', 'title', 'description', 'status', 'category', 'clientName', 'locationName', 'assignedToName'],
+    hrefFn: (id: string) => `/admin-portal/work-orders/${id}`,
+  },
+  {
+    name: 'clients',
+    category: 'Clients',
+    titleField: 'fullName',
+    titleFallbacks: ['email'],
+    subtitleFields: ['email', 'phone', 'companyName'],
+    searchFields: ['fullName', 'email', 'phone', 'companyName'],
+    hrefFn: (id: string) => `/admin-portal/clients/${id}`,
+  },
+  {
+    name: 'subcontractors',
+    category: 'Subcontractors',
+    titleField: 'fullName',
+    titleFallbacks: ['email'],
+    subtitleFields: ['businessName', 'email', 'phone'],
+    searchFields: ['fullName', 'businessName', 'email', 'phone', 'trade', 'specialty'],
+    hrefFn: (id: string) => `/admin-portal/subcontractors/${id}`,
+  },
+  {
+    name: 'invoices',
+    category: 'Invoices',
+    titleField: 'invoiceNumber',
+    titleFallbacks: ['title'],
+    subtitleFields: ['clientName', 'status'],
+    searchFields: ['invoiceNumber', 'title', 'clientName', 'status'],
+    hrefFn: (id: string) => `/admin-portal/invoices/${id}`,
+  },
+  {
+    name: 'quotes',
+    category: 'Quotes',
+    titleField: 'quoteNumber',
+    titleFallbacks: ['workOrderTitle'],
+    subtitleFields: ['clientName', 'subcontractorName', 'status'],
+    searchFields: ['quoteNumber', 'workOrderTitle', 'clientName', 'subcontractorName', 'workOrderNumber'],
+    hrefFn: () => `/admin-portal/quotes`,
+  },
+  {
+    name: 'locations',
+    category: 'Locations',
+    titleField: 'locationName',
+    titleFallbacks: ['name', 'address'],
+    subtitleFields: ['address', 'city', 'state'],
+    searchFields: ['locationName', 'name', 'address', 'city', 'state', 'zip', 'clientName'],
+    hrefFn: (id: string) => `/admin-portal/locations/${id}`,
+  },
+  {
+    name: 'companies',
+    category: 'Companies',
+    titleField: 'name',
+    titleFallbacks: [],
+    subtitleFields: ['industry', 'city', 'state'],
+    searchFields: ['name', 'industry', 'city', 'state', 'email', 'phone'],
+    hrefFn: (id: string) => `/admin-portal/subsidiaries/${id}`,
+  },
+  {
+    name: 'recurringWorkOrders',
+    category: 'Recurring Work Orders',
+    titleField: 'workOrderNumber',
+    titleFallbacks: ['title'],
+    subtitleFields: ['status', 'clientName'],
+    searchFields: ['workOrderNumber', 'title', 'status', 'clientName', 'category'],
+    hrefFn: (id: string) => `/admin-portal/recurring-work-orders/${id}`,
+  },
+  {
+    name: 'maint_requests',
+    category: 'Maintenance Requests',
+    titleField: 'title',
+    titleFallbacks: [],
+    subtitleFields: ['venue', 'requestor', 'status'],
+    searchFields: ['title', 'description', 'venue', 'requestor', 'status', 'priority'],
+    hrefFn: () => `/admin-portal/maint-requests`,
+  },
+  {
+    name: 'assets',
+    category: 'Assets',
+    titleField: 'name',
+    titleFallbacks: ['serialNumber'],
+    subtitleFields: ['type', 'status', 'location'],
+    searchFields: ['name', 'serialNumber', 'type', 'status', 'location', 'description'],
+    hrefFn: () => `/admin-portal/assets`,
+  },
+  {
+    name: 'rfps',
+    category: 'RFPs',
+    titleField: 'title',
+    titleFallbacks: ['rfpNumber'],
+    subtitleFields: ['status', 'clientName'],
+    searchFields: ['title', 'rfpNumber', 'status', 'clientName', 'description', 'category'],
+    hrefFn: () => `/admin-portal/rfps`,
+  },
+];
 
 interface SearchResultItem {
   id: string;
@@ -38,7 +142,6 @@ export default function GlobalSearchDialog() {
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
   // Keyboard shortcut Cmd+K / Ctrl+K
@@ -66,26 +169,63 @@ export default function GlobalSearchDialog() {
   }, [open]);
 
   const runSearch = useCallback(async (q: string) => {
-    if (abortRef.current) abortRef.current.abort();
-    abortRef.current = new AbortController();
-
+    if (!db) {
+      console.warn('[GlobalSearch] Firestore db is not initialized');
+      return;
+    }
+    console.log(`[GlobalSearch] Searching for: "${q}"`);
     setLoading(true);
+    const startTime = performance.now();
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-        signal: abortRef.current.signal,
-      });
-      const data = await res.json();
-      const items: SearchResultItem[] = data.results || [];
+      const results: SearchResultItem[] = [];
+
+      await Promise.allSettled(
+        SEARCH_COLLECTIONS.map(async (cfg) => {
+          try {
+            const snap = await getDocs(collection(db, cfg.name));
+            const matched: SearchResultItem[] = [];
+            snap.forEach((doc) => {
+              const data = { id: doc.id, ...doc.data() } as any;
+              const searchText = [doc.id, ...cfg.searchFields.map((f) => data[f])]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+              if (!searchText.includes(q)) return;
+
+              const title =
+                data[cfg.titleField] ||
+                cfg.titleFallbacks.map((f) => data[f]).find(Boolean) ||
+                doc.id;
+              const subtitle = cfg.subtitleFields.map((f) => data[f]).filter(Boolean).join(' · ');
+
+              matched.push({
+                id: doc.id,
+                title,
+                subtitle: subtitle || undefined,
+                category: cfg.category,
+                href: cfg.hrefFn(doc.id),
+              });
+            });
+            console.log(`[GlobalSearch] ${cfg.name}: ${snap.size} docs scanned, ${matched.length} matched`);
+            results.push(...matched);
+          } catch (err: any) {
+            console.error(`[GlobalSearch] Failed to search collection "${cfg.name}":`, err?.message || err);
+          }
+        })
+      );
+
+      const elapsed = (performance.now() - startTime).toFixed(0);
+      console.log(`[GlobalSearch] Done in ${elapsed}ms — ${results.length} total results`);
 
       const g: Record<string, SearchResultItem[]> = {};
-      for (const item of items) {
+      for (const item of results) {
         if (!g[item.category]) g[item.category] = [];
         if (g[item.category].length < 20) g[item.category].push(item);
       }
       setGrouped(g);
       setSelectedIndex(0);
     } catch (err: any) {
-      if (err.name !== 'AbortError') console.error('[GlobalSearch]', err);
+      console.error('[GlobalSearch] Fatal error:', err);
     } finally {
       setLoading(false);
     }

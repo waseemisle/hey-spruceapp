@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminApp } from '@/lib/firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, collection, getDocs } from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+function getDb() {
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  return getFirestore(app);
+}
 
 const COLLECTIONS = [
   {
@@ -120,13 +134,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = getFirestore(getAdminApp());
+    const db = getDb();
     const results: any[] = [];
+    const errors: string[] = [];
 
     await Promise.allSettled(
       COLLECTIONS.map(async (cfg) => {
         try {
-          const snap = await db.collection(cfg.name).get();
+          const snap = await getDocs(collection(db, cfg.name));
           snap.forEach((doc) => {
             const data = { id: doc.id, ...doc.data() };
             const searchText = [
@@ -157,14 +172,17 @@ export async function GET(request: NextRequest) {
               href: cfg.hrefFn(doc.id),
             });
           });
-        } catch {
-          // silently skip collections that fail
+        } catch (err: any) {
+          const msg = `[${cfg.name}] ${err?.message || err}`;
+          console.error('[Search] Collection error:', msg);
+          errors.push(msg);
         }
       })
     );
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, errors: errors.length > 0 ? errors : undefined });
   } catch (error: any) {
+    console.error('[Search] Fatal error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
