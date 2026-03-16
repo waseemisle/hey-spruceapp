@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ExternalLink, CreditCard, Zap, CheckCircle, AlertCircle, Plus, XCircle } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, CreditCard, Zap, CheckCircle, AlertCircle, Plus, XCircle, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -62,6 +62,15 @@ interface Invoice {
   autoChargeStatus?: string;
   autoChargeError?: string;
   stripePaymentLink?: string;
+}
+
+interface Location {
+  id: string;
+  locationName: string;
+  companyName?: string;
+  clientId?: string;
+  companyId?: string;
+  address?: { street?: string; city?: string; state?: string; zip?: string };
 }
 
 type TabKey = 'all' | 'not-invoiced' | 'invoiced' | 'paid' | 'overdue';
@@ -121,6 +130,7 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<Client | null>(null);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
 
@@ -143,6 +153,18 @@ export default function ClientDetailPage() {
     });
     return () => unsub();
   }, [id]);
+
+  // Fetch locations for this client (by clientId or companyId)
+  useEffect(() => {
+    if (!id) return;
+    const fetchLocations = async () => {
+      const snap = await getDocs(collection(db, 'locations'));
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Location));
+      // Include locations linked by clientId or by the client's companyId
+      setLocations(all.filter((l) => l.clientId === id || (client?.companyId && l.companyId === client.companyId)));
+    };
+    fetchLocations();
+  }, [id, client?.companyId]);
 
   // Real-time work orders for this client — fetch all, filter client-side
   useEffect(() => {
@@ -647,6 +669,52 @@ export default function ClientDetailPage() {
             </div>
           </div>
         )}
+
+        {/* Assigned Locations */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-blue-600" />
+              Assigned Locations
+              <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold px-1.5">
+                {locations.length}
+              </span>
+            </h3>
+          </div>
+          <div className="p-5">
+            {locations.length === 0 ? (
+              <div className="flex items-center gap-2 text-gray-500 text-sm py-1">
+                <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                <span>No locations assigned to this client.</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {locations.map((loc) => {
+                  const addr = loc.address;
+                  const addrStr = addr
+                    ? [addr.street, addr.city, addr.state, addr.zip].filter(Boolean).join(', ')
+                    : null;
+                  return (
+                    <div key={loc.id} className="rounded-lg border border-gray-200 p-4 flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                        <MapPin className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm truncate">{loc.locationName}</p>
+                        {loc.companyName && (
+                          <p className="text-xs text-gray-500 truncate">{loc.companyName}</p>
+                        )}
+                        {addrStr && (
+                          <p className="text-xs text-gray-400 mt-0.5 truncate">{addrStr}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Work Orders Card */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
