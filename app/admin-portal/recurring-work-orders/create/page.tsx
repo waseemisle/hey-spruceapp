@@ -435,11 +435,31 @@ export default function CreateRecurringWorkOrder() {
     }
   };
 
+  const handleClientSelect = (clientId: string) => {
+    const clientCompanies = companies.filter(c => c.clientId === clientId);
+    const autoCompanyId = clientCompanies.length === 1 ? clientCompanies[0].id : '';
+
+    const clientLocations = autoCompanyId
+      ? locations.filter(l => l.companyId === autoCompanyId)
+      : locations.filter(l => l.clientId === clientId);
+    const autoLocationId = clientLocations.length === 1 ? clientLocations[0].id : '';
+
+    setFormData((prev) => ({
+      ...prev,
+      clientId,
+      companyId: autoCompanyId,
+      locationId: autoLocationId,
+    }));
+  };
+
   const handleCompanySelect = (companyId: string) => {
+    const companyLocations = locations.filter(l => l.companyId === companyId);
+    const autoLocationId = companyLocations.length === 1 ? companyLocations[0].id : '';
+
     setFormData((prev) => ({
       ...prev,
       companyId,
-      locationId: '',
+      locationId: autoLocationId,
     }));
   };
 
@@ -495,7 +515,11 @@ export default function CreateRecurringWorkOrder() {
     label: `${c.fullName} (${c.email})`,
   }));
 
-  const companyOptions: SearchableSelectOption[] = companies.map(c => ({
+  const filteredCompanies = formData.clientId
+    ? companies.filter(c => c.clientId === formData.clientId)
+    : companies;
+
+  const companyOptions: SearchableSelectOption[] = filteredCompanies.map(c => ({
     value: c.id,
     label: c.name,
   }));
@@ -583,7 +607,7 @@ export default function CreateRecurringWorkOrder() {
                   <SearchableSelect
                     options={clientOptions}
                     value={formData.clientId}
-                    onChange={(val) => setFormData({ ...formData, clientId: val })}
+                    onChange={handleClientSelect}
                     placeholder="Choose a client..."
                   />
                 </div>
