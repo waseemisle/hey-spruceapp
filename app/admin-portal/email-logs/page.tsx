@@ -8,6 +8,9 @@ import {
   orderBy,
   limit,
   getDocs,
+  deleteDoc,
+  doc,
+  writeBatch,
   Timestamp,
 } from 'firebase/firestore';
 import AdminLayout from '@/components/admin-layout';
@@ -19,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
+import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmailType } from '@/lib/email-logger';
 
@@ -293,6 +296,8 @@ export default function EmailLogsPage() {
   const [allLogs, setAllLogs] = useState<EmailLog[]>([]);
   const [allLoaded, setAllLoaded] = useState(false);
   const [page, setPage] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   async function loadAll() {
     setLoading(true);
@@ -323,7 +328,46 @@ export default function EmailLogsPage() {
     }
   }
 
-  useEffect(() => { setPage(0); }, [searchQuery, typeFilter, statusFilter]);
+  useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [searchQuery, typeFilter, statusFilter]);
+
+  async function handleDelete(ids: string[]) {
+    if (!ids.length) return;
+    setDeleting(true);
+    try {
+      // Firestore batch allows up to 500 ops per batch
+      const chunks: string[][] = [];
+      for (let i = 0; i < ids.length; i += 500) chunks.push(ids.slice(i, i + 500));
+      for (const chunk of chunks) {
+        const batch = writeBatch(db);
+        chunk.forEach((id) => batch.delete(doc(db, 'emailLogs', id)));
+        await batch.commit();
+      }
+      setAllLogs((prev) => prev.filter((l) => !ids.includes(l.id)));
+      setSelectedIds(new Set());
+      setSelected(null);
+      toast.success(`Deleted ${ids.length} log${ids.length > 1 ? 's' : ''}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete logs');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function toggleRow(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function togglePageAll(pageItems: EmailLog[]) {
+    if (pageItems.every((l) => selectedIds.has(l.id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pageItems.map((l) => l.id)));
+    }
+  }
 
   const filtered = allLogs.filter((log) => {
     const recipients = toArray(log.to).join(', ').toLowerCase();
@@ -357,6 +401,17 @@ export default function EmailLogsPage() {
             <span className="bg-muted px-3 py-1 rounded-full text-sm font-medium">
               {allLoaded ? `${filtered.length} of ${allLogs.length} emails` : 'Loading...'}
             </span>
+            {selectedIds.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleDelete([...selectedIds])}
+                disabled={deleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : `Delete ${selectedIds.size} selected`}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Refreshing...' : 'Refresh'}
@@ -412,24 +467,33 @@ export default function EmailLogsPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={paginated.length > 0 && paginated.every((l) => selectedIds.has(l.id))}
+                      onChange={() => togglePageAll(paginated)}
+                      className="rounded border-gray-300 cursor-pointer"
+                    />
+                  </th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Date</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Type</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Details</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Recipient</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Subject</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Status</th>
+                  <th className="px-4 py-3 w-10"></th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-16 text-muted-foreground">
+                    <td colSpan={8} className="text-center py-16 text-muted-foreground">
                       Loading email logs...
                     </td>
                   </tr>
                 ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-16 text-muted-foreground">
+                    <td colSpan={8} className="text-center py-16 text-muted-foreground">
                       {allLogs.length === 0
                         ? 'No emails have been sent yet.'
                         : 'No emails match your filters.'}
@@ -442,23 +506,32 @@ export default function EmailLogsPage() {
                     return (
                       <tr
                         key={log.id}
-                        onClick={() => setSelected(log)}
-                        className="border-t border-border hover:bg-muted/30 cursor-pointer transition-colors"
+                        className={`border-t border-border hover:bg-muted/30 transition-colors ${selectedIds.has(log.id) ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}
                       >
+                        {/* Checkbox */}
+                        <td className="px-4 py-3 w-10" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(log.id)}
+                            onChange={() => toggleRow(log.id)}
+                            className="rounded border-gray-300 cursor-pointer"
+                          />
+                        </td>
+
                         {/* Date */}
-                        <td className="px-4 py-3 whitespace-nowrap text-muted-foreground text-xs">
+                        <td className="px-4 py-3 whitespace-nowrap text-muted-foreground text-xs cursor-pointer" onClick={() => setSelected(log)}>
                           {formatDate(log.sentAt)}
                         </td>
 
                         {/* Type badge */}
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap cursor-pointer" onClick={() => setSelected(log)}>
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${EMAIL_TYPE_COLORS[log.type] || 'bg-gray-100 text-gray-800'}`}>
                             {EMAIL_TYPE_LABELS[log.type] || log.type}
                           </span>
                         </td>
 
                         {/* Details summary */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(log)}>
                           <div className="flex flex-col gap-0.5">
                             <span className="font-semibold text-xs">{summary.primary}</span>
                             {summary.secondary && (
@@ -470,7 +543,7 @@ export default function EmailLogsPage() {
                         </td>
 
                         {/* Recipient */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(log)}>
                           <div className="flex flex-col gap-0.5">
                             {recipients.slice(0, 2).map((r, i) => (
                               <span key={i} className="text-xs font-mono">{r}</span>
@@ -482,12 +555,12 @@ export default function EmailLogsPage() {
                         </td>
 
                         {/* Subject */}
-                        <td className="px-4 py-3 max-w-xs">
+                        <td className="px-4 py-3 max-w-xs cursor-pointer" onClick={() => setSelected(log)}>
                           <span className="truncate block text-xs">{log.subject}</span>
                         </td>
 
                         {/* Status */}
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap cursor-pointer" onClick={() => setSelected(log)}>
                           {log.status === 'sent' ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
                               <CheckCircle2 className="h-3 w-3" /> Sent
@@ -497,6 +570,18 @@ export default function EmailLogsPage() {
                               <XCircle className="h-3 w-3" /> Failed
                             </span>
                           )}
+                        </td>
+
+                        {/* Delete */}
+                        <td className="px-4 py-3 w-10" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleDelete([log.id])}
+                            disabled={deleting}
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                            title="Delete log"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -531,10 +616,22 @@ export default function EmailLogsPage() {
           {selected && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base">
-                  <Mail className="h-5 w-5 text-muted-foreground" />
-                  Email Record
-                </DialogTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <DialogTitle className="flex items-center gap-2 text-base">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
+                    Email Record
+                  </DialogTitle>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete([selected.id])}
+                    disabled={deleting}
+                    className="gap-1.5 shrink-0"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {deleting ? 'Deleting...' : 'Delete'}
+                  </Button>
+                </div>
               </DialogHeader>
 
               <div className="space-y-5 mt-1">
