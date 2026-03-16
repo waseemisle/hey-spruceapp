@@ -140,5 +140,13 @@ service cloud.firestore {
     match /emailLogs/{logId} {
       allow read, write: if isSignedIn() && isAdmin();
     }
+
+    // Notifications - any signed-in user can create; users can read/update their own
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && isAdmin();
+    }
   }
 }
