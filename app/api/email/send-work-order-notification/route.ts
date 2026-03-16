@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, sendEmailsSequentially } from '@/lib/email';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import { logEmail } from '@/lib/email-logger';
@@ -58,12 +58,12 @@ export async function POST(request: NextRequest) {
 
     const portalLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/admin-portal/work-orders${workOrderId ? `/${workOrderId}` : ''}`;
 
-    const errors: string[] = [];
+    let sentCount = 0;
+    let failedCount = 0;
 
-    await Promise.all(
-      eligibleAdmins.map(async (admin) => {
+    await sendEmailsSequentially(
+      eligibleAdmins.map((admin) => async () => {
         const adminName = admin.fullName || 'Admin';
-
         const emailHtml = emailLayout({
           title: 'New Work Order Created',
           preheader: `${workOrderNumber} — ${title}`,
@@ -86,28 +86,22 @@ export async function POST(request: NextRequest) {
             <p style="margin:24px 0 0 0;font-size:12px;color:#8A9CAB;">You are receiving this because work order notifications are enabled for your account.</p>
           `,
         });
-
         const subject = `${priority === 'high' || priority === 'urgent' ? '🚨 ' : ''}New Work Order: ${workOrderNumber} — ${title}`;
         try {
-          await sendEmail({
-            to: admin.email,
-            subject,
-            html: emailHtml,
-          });
+          await sendEmail({ to: admin.email, subject, html: emailHtml });
           await logEmail({ type: 'work-order-notification', to: admin.email, subject, status: 'sent', context: { workOrderId, workOrderNumber, title, clientName, locationName, priority, workOrderType } });
+          sentCount++;
+          return { success: true };
         } catch (err: any) {
           console.error(`Failed to send email to ${admin.email}:`, err.message);
-          errors.push(admin.email);
           await logEmail({ type: 'work-order-notification', to: admin.email, subject, status: 'failed', context: { workOrderId, workOrderNumber, title, clientName, locationName, priority, workOrderType }, error: err.message });
+          failedCount++;
+          return { success: false };
         }
       })
     );
 
-    return NextResponse.json({
-      success: true,
-      sent: eligibleAdmins.length - errors.length,
-      failed: errors.length,
-    });
+    return NextResponse.json({ success: true, sent: sentCount, failed: failedCount });
   } catch (error: any) {
     console.error('Error sending work order notification emails:', error);
     return NextResponse.json(
