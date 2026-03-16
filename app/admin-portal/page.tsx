@@ -57,8 +57,6 @@ export default function AdminDashboard() {
     rejected: { count: 0, amount: '0.00' },
   });
 
-  const [loading, setLoading] = useState(true);
-
   // Company selector state
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
@@ -149,10 +147,7 @@ export default function AdminDashboard() {
 
   // Initial fetch + real-time listeners (skip when Firebase not initialized)
   useEffect(() => {
-    if (!db) {
-      setLoading(false);
-      return;
-    }
+    if (!db) return;
     const fetchDashboardData = async () => {
       try {
         const companyId = selectedCompanyIdRef.current || undefined;
@@ -166,8 +161,6 @@ export default function AdminDashboard() {
         setInvoicesData(invoices);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -316,31 +309,20 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Loading dashboard...</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Calendar Section */}
-              <AdminCalendar
-                companyId={selectedCompanyId || undefined}
-                companyClientIds={companyClientIds.length > 0 ? companyClientIds : undefined}
-              />
+          {/* Calendar Section */}
+          <AdminCalendar
+            companyId={selectedCompanyId || undefined}
+            companyClientIds={companyClientIds.length > 0 ? companyClientIds : undefined}
+          />
 
-              {/* Work Orders Section */}
-              <WorkOrdersSection data={workOrdersData} portalType="admin" />
+          {/* Work Orders Section */}
+          <WorkOrdersSection data={workOrdersData} portalType="admin" />
 
-              {/* Proposals Section */}
-              <ProposalsSection data={proposalsData} portalType="admin" />
+          {/* Proposals Section */}
+          <ProposalsSection data={proposalsData} portalType="admin" />
 
-              {/* Invoices Section */}
-              <InvoicesSection data={invoicesData} portalType="admin" />
-            </>
-          )}
+          {/* Invoices Section */}
+          <InvoicesSection data={invoicesData} portalType="admin" />
         </div>
       </div>
     </AdminLayout>

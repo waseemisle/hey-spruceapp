@@ -421,16 +421,6 @@ export default function LocationsManagement() {
     rejected: locations.filter(l => l.status === 'rejected').length,
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
       <PageContainer>
@@ -481,7 +471,19 @@ export default function LocationsManagement() {
           </div>
         </div>
 
-        {sortedLocations.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-3 border-b border-gray-100 animate-pulse">
+                <div className="h-4 w-36 rounded bg-gray-200" />
+                <div className="h-4 w-28 rounded bg-gray-200" />
+                <div className="h-4 flex-1 rounded bg-gray-200" />
+                <div className="h-4 w-20 rounded bg-gray-200" />
+                <div className="h-6 w-16 rounded-full bg-gray-200" />
+              </div>
+            ))}
+          </div>
+        ) : sortedLocations.length === 0 ? (
           <EmptyState icon={MapPin} title="No locations found" subtitle="Try adjusting your search or filters" />
         ) : viewMode === 'list' ? (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

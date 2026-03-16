@@ -305,16 +305,6 @@ export default function ClientsManagement() {
     rejected: clients.filter(c => c.status === 'rejected').length,
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -382,8 +372,24 @@ export default function ClientsManagement() {
 
         </div>
 
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 animate-pulse">
+                <div className="h-10 w-10 rounded-full bg-gray-200 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-32 rounded bg-gray-200" />
+                  <div className="h-3 w-48 rounded bg-gray-200" />
+                </div>
+                <div className="h-6 w-20 rounded-full bg-gray-200" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Empty state */}
-        {filteredClients.length === 0 && (
+        {!loading && filteredClients.length === 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
             <div className="h-14 w-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <User className="h-7 w-7 text-gray-400" />
@@ -394,7 +400,7 @@ export default function ClientsManagement() {
         )}
 
         {/* Grid View */}
-        {viewMode === 'grid' && filteredClients.length > 0 && (
+        {!loading && viewMode === 'grid' && filteredClients.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredClients.map((client) => {
               const status = STATUS_CONFIG[client.status] || STATUS_CONFIG.pending;
@@ -511,7 +517,7 @@ export default function ClientsManagement() {
         )}
 
         {/* List View */}
-        {viewMode === 'list' && filteredClients.length > 0 && (
+        {!loading && viewMode === 'list' && filteredClients.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>

@@ -64,16 +64,6 @@ export default function AssetManagementPage() {
   const totalSpend = useMemo(() => invoices.reduce((s, i) => s + (Number(i.totalAmount) || 0), 0), [invoices]);
   const underWarranty = 0; // placeholder
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-      </AdminLayout>
-    );
-  }
-
   const tabs: { id: AssetTab; label: string; icon: React.ElementType }[] = [
     { id: 'overview', label: 'Portfolio Overview', icon: Package },
     { id: 'spend', label: 'Spend Analysis', icon: TrendingUp },

@@ -174,16 +174,6 @@ export default function AdminCompanies() {
   const totalClients = Object.values(clientCounts).reduce((a, b) => a + b, 0);
   const totalLocations = Object.values(locationCounts).reduce((a, b) => a + b, 0);
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
       <PageContainer>

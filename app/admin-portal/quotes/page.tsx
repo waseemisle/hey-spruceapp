@@ -432,16 +432,6 @@ function QuotesContent() {
     }
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -492,7 +482,19 @@ function QuotesContent() {
         </div>
 
         {/* Quotes Grid/List */}
-        {sortedQuotes.length === 0 ? (
+        {loading ? (
+          <div className="border rounded-lg overflow-hidden">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-gray-100 animate-pulse">
+                <div className="h-4 flex-1 rounded bg-gray-200" />
+                <div className="h-4 w-28 rounded bg-gray-200" />
+                <div className="h-4 w-24 rounded bg-gray-200" />
+                <div className="h-4 w-20 rounded bg-gray-200" />
+                <div className="h-6 w-16 rounded-full bg-gray-200" />
+              </div>
+            ))}
+          </div>
+        ) : sortedQuotes.length === 0 ? (
           <Card className="col-span-full">
             <CardContent className="p-12 text-center">
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -888,13 +890,7 @@ function QuotesContent() {
 
 export default function QuotesManagement() {
   return (
-    <Suspense fallback={
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-        </div>
-      </AdminLayout>
-    }>
+    <Suspense fallback={<AdminLayout><div /></AdminLayout>}>
       <QuotesContent />
     </Suspense>
   );

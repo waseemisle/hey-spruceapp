@@ -85,16 +85,6 @@ export default function ContractorScorecardPage() {
     return subcontractors;
   }, [subcontractors, tab]);
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
       <div className="space-y-6 max-w-4xl mx-auto">

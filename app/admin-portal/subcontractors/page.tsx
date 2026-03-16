@@ -305,16 +305,6 @@ export default function SubcontractorsManagement() {
     rejected: subcontractors.filter(s => s.status === 'rejected').length,
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -380,8 +370,24 @@ export default function SubcontractorsManagement() {
 
         </div>
 
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 animate-pulse">
+                <div className="h-10 w-10 rounded-full bg-gray-200 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-36 rounded bg-gray-200" />
+                  <div className="h-3 w-52 rounded bg-gray-200" />
+                </div>
+                <div className="h-6 w-20 rounded-full bg-gray-200" />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Empty state */}
-        {filteredSubs.length === 0 && (
+        {!loading && filteredSubs.length === 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
             <div className="h-14 w-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <User className="h-7 w-7 text-gray-400" />
@@ -392,7 +398,7 @@ export default function SubcontractorsManagement() {
         )}
 
         {/* Grid View */}
-        {viewMode === 'grid' && filteredSubs.length > 0 && (
+        {!loading && viewMode === 'grid' && filteredSubs.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredSubs.map((sub) => {
               const status = STATUS_CONFIG[sub.status] || STATUS_CONFIG.pending;
@@ -506,7 +512,7 @@ export default function SubcontractorsManagement() {
         )}
 
         {/* List View */}
-        {viewMode === 'list' && filteredSubs.length > 0 && (
+        {!loading && viewMode === 'list' && filteredSubs.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
