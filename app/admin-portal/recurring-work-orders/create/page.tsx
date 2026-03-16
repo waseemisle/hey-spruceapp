@@ -20,6 +20,7 @@ interface Client {
   id: string;
   fullName: string;
   email: string;
+  companyId?: string;
 }
 
 interface Location {
@@ -192,6 +193,7 @@ export default function CreateRecurringWorkOrder() {
         id: doc.id,
         fullName: doc.data().fullName,
         email: doc.data().email,
+        companyId: doc.data().companyId,
       })) as Client[];
       setClients(clientsData);
     } catch (error) {
@@ -246,11 +248,8 @@ export default function CreateRecurringWorkOrder() {
   };
 
   useEffect(() => {
-    fetchClients();
-    fetchLocations();
-    fetchCompanies();
-    fetchCategories();
-    setLoading(false);
+    Promise.all([fetchClients(), fetchLocations(), fetchCompanies(), fetchCategories()])
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = async () => {
@@ -436,22 +435,9 @@ export default function CreateRecurringWorkOrder() {
   };
 
   const handleClientSelect = (clientId: string) => {
-    // Try direct clientId match on companies first
-    let clientCompanies = companies.filter(c => c.clientId === clientId);
-
-    // Fallback: find companies via locations that have this clientId
-    if (clientCompanies.length === 0) {
-      const companyIdsViaLocations = [
-        ...new Set(
-          locations
-            .filter(l => l.clientId === clientId && l.companyId)
-            .map(l => l.companyId!)
-        ),
-      ];
-      clientCompanies = companies.filter(c => companyIdsViaLocations.includes(c.id));
-    }
-
-    const autoCompanyId = clientCompanies.length === 1 ? clientCompanies[0].id : '';
+    // Clients store companyId directly — use that as the primary link
+    const client = clients.find(c => c.id === clientId);
+    const autoCompanyId = client?.companyId || '';
 
     const clientLocations = autoCompanyId
       ? locations.filter(l => l.companyId === autoCompanyId)
@@ -521,19 +507,12 @@ export default function CreateRecurringWorkOrder() {
 
   const filteredCompanies = (() => {
     if (!formData.clientId) return companies;
-    // Direct match
-    const direct = companies.filter(c => c.clientId === formData.clientId);
-    if (direct.length > 0) return direct;
-    // Indirect match via locations
-    const companyIdsViaLocations = [
-      ...new Set(
-        locations
-          .filter(l => l.clientId === formData.clientId && l.companyId)
-          .map(l => l.companyId!)
-      ),
-    ];
-    const indirect = companies.filter(c => companyIdsViaLocations.includes(c.id));
-    return indirect.length > 0 ? indirect : companies;
+    const client = clients.find(c => c.id === formData.clientId);
+    if (client?.companyId) {
+      const matched = companies.filter(c => c.id === client.companyId);
+      return matched.length > 0 ? matched : companies;
+    }
+    return companies;
   })();
 
   const filteredLocations = (() => {
