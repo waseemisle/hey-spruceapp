@@ -4,27 +4,69 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() { return request.auth != null }
     function isAdmin() {
-      return exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
+      return isSignedIn() && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
     }
-    function isDocOwner(doc) { return isSignedIn() && doc.data.clientId == request.auth.uid }
 
-    // Default: deny by default
+    // Default: deny everything
     match /{document=**} { allow read, write: if false }
 
-    // Clients collection - admins can read/write; users can read their own doc
+    // Admin users - admins can read/write; users can read their own doc
+    match /adminUsers/{userId} {
+      allow read: if isSignedIn() && (isAdmin() || userId == request.auth.uid);
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Clients - admins full access; clients read/write own doc
     match /clients/{clientId} {
       allow read: if isSignedIn() && (isAdmin() || clientId == request.auth.uid);
       allow write: if isSignedIn() && (isAdmin() || clientId == request.auth.uid);
     }
 
-    // Subsidiaries - owner client and admins can manage
+    // Subcontractors - admins full access; subcontractors read/write own doc
+    match /subcontractors/{subcontractorId} {
+      allow read: if isSignedIn() && (isAdmin() || subcontractorId == request.auth.uid);
+      allow write: if isSignedIn() && (isAdmin() || subcontractorId == request.auth.uid);
+    }
+
+    // Work Orders - admins full access; clients/subcontractors read their own
+    match /workOrders/{workOrderId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.clientId == request.auth.uid ||
+        resource.data.assignedSubcontractor == request.auth.uid
+      );
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Invoices - admins full access; clients read their own
+    match /invoices/{invoiceId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Quotes - admins full access; subcontractors read/write their own
+    match /quotes/{quoteId} {
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.subcontractorId == request.auth.uid ||
+        resource.data.clientId == request.auth.uid
+      );
+      allow write: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
+    }
+
+    // Companies / Subsidiaries - admins full; clients read their own
+    match /companies/{companyId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
+      allow write: if isSignedIn() && isAdmin();
+    }
+
     match /subsidiaries/{subsidiaryId} {
       allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
       allow create: if isSignedIn() && (isAdmin() || request.resource.data.clientId == request.auth.uid);
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
     }
 
-    // Locations - require subsidiaryId and enforce ownership
+    // Locations - admins full; clients read their own
     match /locations/{locationId} {
       allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
       allow create: if isSignedIn() && (
@@ -39,9 +81,51 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
     }
 
-    // Categories - admins can manage, all authenticated users can read
+    // Categories - admins write; all signed-in users read
     match /categories/{categoryId} {
       allow read: if isSignedIn();
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Recurring Work Orders - admins full; clients read their own
+    match /recurringWorkOrders/{workOrderId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Recurring Work Order Executions - admins full; clients read their own
+    match /recurringWorkOrderExecutions/{executionId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.recurringWorkOrderId != null);
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Maintenance Requests - admins full; clients read their own
+    match /maint_requests/{requestId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Assets - admins full; all signed-in users read
+    match /assets/{assetId} {
+      allow read: if isSignedIn() && isAdmin();
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // RFPs - admins full access
+    match /rfps/{rfpId} {
+      allow read: if isSignedIn() && isAdmin();
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Assigned Jobs - admins full; subcontractors read their own
+    match /assignedJobs/{jobId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
+      allow write: if isSignedIn() && isAdmin();
+    }
+
+    // Bidding Work Orders - admins full; subcontractors read
+    match /biddingWorkOrders/{biddingId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
       allow write: if isSignedIn() && isAdmin();
     }
 
@@ -50,16 +134,9 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isAdmin();
     }
 
-    // Recurring Work Orders - admins can manage, clients can read their own
-    match /recurringWorkOrders/{workOrderId} {
-      allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
-      allow write: if isSignedIn() && isAdmin();
-    }
-
-    // Recurring Work Order Executions - admins can manage, clients can read their own
-    match /recurringWorkOrderExecutions/{executionId} {
-      allow read: if isSignedIn() && (isAdmin() || resource.data.recurringWorkOrderId != null);
-      allow write: if isSignedIn() && isAdmin();
+    // Email logs - admin only
+    match /emailLogs/{logId} {
+      allow read, write: if isSignedIn() && isAdmin();
     }
   }
 }

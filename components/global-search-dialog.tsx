@@ -187,9 +187,10 @@ export default function GlobalSearchDialog() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Focus input when opened
+  // Focus input when opened; bust cache so newly created records always appear
   useEffect(() => {
     if (open) {
+      cacheRef.current = null;
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
       setSearchQuery('');
@@ -258,7 +259,7 @@ export default function GlobalSearchDialog() {
       const g: Record<string, SearchResultItem[]> = {};
       for (const item of matched) {
         if (!g[item.category]) g[item.category] = [];
-        if (g[item.category].length < 6) g[item.category].push(item);
+        if (g[item.category].length < 20) g[item.category].push(item);
       }
       setGrouped(g);
       setSelectedIndex(0);
