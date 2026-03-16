@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { User, Mail, Phone, Briefcase, IdCard, Lock, Camera, Save, ArrowLeft } from 'lucide-react';
+import { User, Mail, Phone, Briefcase, CreditCard, Lock, Camera, Save, ArrowLeft } from 'lucide-react';
 
 export default function SubcontractorAccountSettings() {
   const router = useRouter();
@@ -194,7 +194,7 @@ export default function SubcontractorAccountSettings() {
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="licenseNumber">License Number</Label>
                   <div className="relative">
-                    <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input id="licenseNumber" value={licenseNumber} onChange={e => setLicenseNumber(e.target.value)} placeholder="Contractor license number" className="pl-9" />
                   </div>
                 </div>
