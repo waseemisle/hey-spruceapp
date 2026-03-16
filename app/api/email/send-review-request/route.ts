@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/mailgun';
+import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
+import { emailLayout, ctaButton } from '@/lib/email-template';
 
 export async function POST(request: Request) {
   try {
@@ -11,95 +12,25 @@ export async function POST(request: Request) {
       workOrderNumber,
     } = body;
 
-    // Logo URL from GroundOps
-    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
-    
     // Google Maps Review Link
     const googleReviewLink = 'https://www.google.com/maps/place/Spruce+Cleaning+%26+Maintenance/@34.0204789,-118.4117326,10z/data=!3m1!4b1!4m6!3m5!1s0x20a5e683df0722d:0x409439675ca2c8b!8m2!3d34.020479!4d-118.4117326!16s%2Fg%2F11xw24xtqb?entry=ttu&g_ep=EgoyMDI1MTExNy4wIKXMDSoASAFQAw%3D%3D';
 
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Rate Your Service - GroundOps</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #ffffff;">
-        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff;">
-          <!-- Logo Section -->
-          <div style="text-align: center; margin-bottom: 40px;">
-            <img src="${LOGO_URL}" alt="GroundOps Logo" style="max-width: 200px; height: auto; margin: 0 auto; display: block;" />
-          </div>
-
-          <!-- Main Heading -->
-          <div style="text-align: center; margin-bottom: 40px;">
-            <h1 style="font-size: 28px; font-weight: bold; color: #000000; margin: 0 0 10px 0; line-height: 1.3;">
-              Please rate your service with<br>GroundOps
-            </h1>
-          </div>
-
-          <!-- Star Rating Section -->
-          <div style="text-align: center; margin-bottom: 50px;">
-            <div style="margin-bottom: 20px;">
-              <a href="${googleReviewLink}" style="text-decoration: none; display: inline-block;">
-                <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 15px;">
-                  <span style="font-size: 36px; color: #d3d3d3; cursor: pointer; transition: color 0.2s;">★</span>
-                  <span style="font-size: 36px; color: #d3d3d3; cursor: pointer; transition: color 0.2s;">★</span>
-                  <span style="font-size: 36px; color: #d3d3d3; cursor: pointer; transition: color 0.2s;">★</span>
-                  <span style="font-size: 36px; color: #d3d3d3; cursor: pointer; transition: color 0.2s;">★</span>
-                  <span style="font-size: 36px; color: #d3d3d3; cursor: pointer; transition: color 0.2s;">★</span>
-                </div>
-              </a>
-              <div style="display: flex; justify-content: space-between; max-width: 400px; margin: 0 auto; padding: 0 20px;">
-                <span style="font-size: 14px; color: #000000;">Poor</span>
-                <span style="font-size: 14px; color: #000000;">Excellent</span>
-              </div>
-            </div>
-            
-            <!-- Call to Action Button -->
-            <div style="margin-top: 30px;">
-              <a href="${googleReviewLink}" 
-                 style="background-color: #4285f4; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 16px;">
-                Leave a Review on Google
-              </a>
-            </div>
-          </div>
-
-          <!-- Company Information Section -->
-          <div style="margin-top: 50px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
-            <div style="text-align: center; color: #000000; font-size: 14px; line-height: 2;">
-              <p style="margin: 5px 0;">
-                <strong>Phone:</strong> 
-                <a href="tel:3235551234" style="color: #4285f4; text-decoration: none;">(323) 555-1234</a>
-              </p>
-              <p style="margin: 5px 0;">
-                <strong>Email:</strong> 
-                <a href="mailto:info@groundops.com" style="color: #4285f4; text-decoration: none;">info@groundops.com</a>
-              </p>
-              <p style="margin: 5px 0;">
-                <strong>Website:</strong> 
-                <a href="https://www.groundops.co/" style="color: #4285f4; text-decoration: none; word-break: break-all;">https://www.groundops.co/</a>
-              </p>
-              <p style="margin: 5px 0;">
-                <strong>Address:</strong><br>
-                Los Angeles, CA
-              </p>
-            </div>
-          </div>
-
-          <!-- Footer Links -->
-          <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid #e5e7eb; text-align: center;">
-            <div style="font-size: 12px; color: #4285f4;">
-              <a href="#" style="color: #4285f4; text-decoration: none; margin: 0 10px;">GroundOps Terms & Conditions</a> |
-              <a href="#" style="color: #4285f4; text-decoration: none; margin: 0 10px;">Privacy Policy</a> |
-              <a href="#" style="color: #4285f4; text-decoration: none; margin: 0 10px;">CA Privacy Notice</a>
-            </div>
-          </div>
+    const emailHtml = emailLayout({
+      title: 'How Was Your Service?',
+      preheader: 'Please rate your recent service with GroundOps',
+      body: `
+        <p style="margin:0 0 20px 0;">Hi ${toName || 'there'},</p>
+        <p style="margin:0 0 20px 0;color:#5A6C7A;">We hope your recent service (Work Order <strong>${workOrderNumber}</strong>) went smoothly. Your feedback helps us improve!</p>
+        <div style="text-align:center;margin:32px 0;">
+          <a href="${googleReviewLink}" style="text-decoration:none;">
+            <div style="font-size:40px;letter-spacing:4px;margin-bottom:12px;">★★★★★</div>
+            <p style="margin:0;color:#5A6C7A;font-size:14px;">Tap the stars to leave a review</p>
+          </a>
         </div>
-      </body>
-      </html>
-    `;
+        ${ctaButton('Leave a Review on Google', googleReviewLink)}
+        <p style="margin:24px 0 0 0;font-size:13px;color:#8A9CAB;text-align:center;">Thank you for choosing GroundOps for your facility maintenance needs.</p>
+      `,
+    });
 
     await sendEmail({
       to: toEmail,
@@ -114,21 +45,18 @@ export async function POST(request: Request) {
     console.error('❌ Error details:', error.message || error);
 
     const errorMessage = error.message || String(error);
-    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
-    
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('RESEND');
+
     return NextResponse.json(
       {
         error: 'Failed to send review request email',
         details: errorMessage,
         configError: isConfigError,
         suggestion: isConfigError
-          ? 'Please configure MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM_EMAIL environment variables.'
+          ? 'Please configure RESEND_API_KEY and FROM_EMAIL environment variables.'
           : undefined
       },
       { status: 500 }
     );
   }
 }
-
-
-

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/mailgun';
+import { sendEmail } from '@/lib/email';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import { logEmail } from '@/lib/email-logger';
+import { emailLayout, infoCard, infoRow, ctaButton, alertBox, priorityBadge } from '@/lib/email-template';
 
 const getFirebaseApp = () => {
   if (getApps().length === 0) {
@@ -48,20 +49,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'No admins with email notifications enabled' });
     }
 
-    const priorityColor =
-      priority === 'high' || priority === 'urgent'
-        ? '#ef4444'
-        : priority === 'medium'
-        ? '#f59e0b'
-        : '#10b981';
-
-    const priorityLabel = priority
-      ? priority.charAt(0).toUpperCase() + priority.slice(1)
-      : 'Medium';
-
     const portalLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/admin-portal/work-orders${workOrderId ? `/${workOrderId}` : ''}`;
-
-    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
 
     const errors: string[] = [];
 
@@ -69,95 +57,29 @@ export async function POST(request: NextRequest) {
       eligibleAdmins.map(async (admin) => {
         const adminName = admin.fullName || 'Admin';
 
-        const emailHtml = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Work Order Completed</title>
-            </head>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background-color: #162040; padding: 16px 20px; text-align: center; border-radius: 10px 10px 0 0;">
-                <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 60px; width: auto;" />
+        const emailHtml = emailLayout({
+          title: 'Work Order Completed',
+          preheader: `${workOrderNumber} — ${title} has been completed`,
+          body: `
+            <p style="margin:0 0 20px 0;">Hello <strong>${adminName}</strong>,</p>
+            <p style="margin:0 0 20px 0;color:#5A6C7A;">A work order has been marked as <strong>completed</strong> by the assigned subcontractor.</p>
+            ${infoCard(`
+              <div style="margin-bottom:12px;">
+                <span style="display:inline-block;background:#15803D;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px;margin-right:6px;">Completed</span>
+                ${priorityBadge(priority || 'medium')}
               </div>
-              <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px; text-align: center;">
-                <div style="font-size: 40px; margin-bottom: 8px;">✅</div>
-                <h1 style="color: white; margin: 0; font-size: 26px;">Work Order Completed</h1>
-                <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0 0; font-size: 15px;">${workOrderNumber}</p>
-              </div>
-
-              <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb; border-top: none;">
-                <p style="font-size: 16px; margin: 0 0 20px 0;">Hello ${adminName},</p>
-
-                <p style="font-size: 15px; margin: 0 0 20px 0;">
-                  A work order has been marked as <strong style="color: #059669;">completed</strong> by the assigned subcontractor.
-                </p>
-
-                <div style="background: white; padding: 20px; border-radius: 8px; margin: 0 0 20px 0; border-left: 4px solid #10b981;">
-                  <div style="margin-bottom: 12px;">
-                    <span style="background: #d1fae5; color: #065f46; font-size: 11px; font-weight: bold; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">Completed</span>
-                    <span style="background: ${priorityColor}22; color: ${priorityColor}; font-size: 11px; font-weight: bold; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 6px;">${priorityLabel} Priority</span>
-                  </div>
-
-                  <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #111827;">${title}</h2>
-
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                      <td style="padding: 6px 0; color: #6b7280; font-size: 14px; width: 130px;">Work Order #</td>
-                      <td style="padding: 6px 0; font-size: 14px; font-weight: 600;">${workOrderNumber}</td>
-                    </tr>
-                    ${clientName ? `<tr>
-                      <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Client</td>
-                      <td style="padding: 6px 0; font-size: 14px;">${clientName}</td>
-                    </tr>` : ''}
-                    ${locationName ? `<tr>
-                      <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Location</td>
-                      <td style="padding: 6px 0; font-size: 14px;">${locationName}</td>
-                    </tr>` : ''}
-                    ${completedBy ? `<tr>
-                      <td style="padding: 6px 0; color: #6b7280; font-size: 14px;">Completed By</td>
-                      <td style="padding: 6px 0; font-size: 14px;">${completedBy}</td>
-                    </tr>` : ''}
-                  </table>
-
-                  ${completionDetails ? `
-                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
-                      <p style="margin: 0 0 5px 0; color: #6b7280; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Completion Notes</p>
-                      <p style="margin: 0; font-size: 14px; color: #374151;">${completionDetails}</p>
-                    </div>
-                  ` : ''}
-                </div>
-
-                <p style="font-size: 15px; margin: 0 0 20px 0;">
-                  You can now review the work order and generate an invoice if required.
-                </p>
-
-                <div style="text-align: center; margin: 24px 0;">
-                  <a href="${portalLink}"
-                     style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%);
-                            color: white;
-                            padding: 14px 36px;
-                            text-decoration: none;
-                            border-radius: 8px;
-                            font-size: 15px;
-                            font-weight: bold;
-                            display: inline-block;">
-                    View Work Order
-                  </a>
-                </div>
-
-                <p style="font-size: 13px; color: #9ca3af; margin: 24px 0 0 0; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-                  You are receiving this email because you have work order notifications enabled. You can manage this in the Admin Users settings.
-                </p>
-              </div>
-
-              <div style="text-align: center; margin-top: 16px; color: #9ca3af; font-size: 12px;">
-                <p>© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.</p>
-              </div>
-            </body>
-          </html>
-        `;
+              <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#1A2635;">${title}</p>
+              ${infoRow('Work Order #', workOrderNumber)}
+              ${clientName ? infoRow('Client', clientName) : ''}
+              ${locationName ? infoRow('Location', locationName) : ''}
+              ${completedBy ? infoRow('Completed by', completedBy) : ''}
+              ${completionDetails ? '<p style="margin:12px 0 0 0;padding-top:12px;border-top:1px solid #E2E8F0;font-size:14px;color:#5A6C7A;">' + completionDetails + '</p>' : ''}
+            `)}
+            ${alertBox('You can now review the work order and generate an invoice if required.', 'info')}
+            ${ctaButton('View Work Order', portalLink)}
+            <p style="margin:24px 0 0 0;font-size:12px;color:#8A9CAB;">You are receiving this because work order notifications are enabled for your account.</p>
+          `,
+        });
 
         const subject = `✅ Work Order Completed: ${workOrderNumber} — ${title}`;
         try {

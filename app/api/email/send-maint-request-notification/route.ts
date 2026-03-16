@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/mailgun';
+import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
+import { emailLayout, infoCard, infoRow, ctaButton, priorityBadge } from '@/lib/email-template';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +19,7 @@ export async function POST(request: NextRequest) {
       date,
       portalLink
     } = await request.json();
-    
+
 
     // Validate required fields
     if (!toEmail || !venue || !title) {
@@ -25,16 +28,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const priorityColor = priority === 'high' || priority === 'urgent'
-      ? '#ef4444'
-      : priority === 'medium' || priority === 'normal'
-      ? '#f59e0b'
-      : '#10b981';
-
-    const priorityLabel = priority
-      ? priority.charAt(0).toUpperCase() + priority.slice(1)
-      : 'Normal';
 
     // Format date if provided
     let formattedDate = 'Not specified';
@@ -55,7 +48,7 @@ export async function POST(request: NextRequest) {
         } else {
           dateObj = new Date(date);
         }
-        
+
         // Check if date is valid
         if (!isNaN(dateObj.getTime())) {
           formattedDate = dateObj.toLocaleString('en-US', {
@@ -75,88 +68,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
-
     // Create email HTML
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>New Maintenance Request</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background-color: #162040; padding: 16px 20px; text-align: center; border-radius: 10px 10px 0 0;">
-            <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 60px; width: auto;" />
-          </div>
-          <div style="background: linear-gradient(135deg, ${priorityColor} 0%, ${priorityColor}dd 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">New Maintenance Request</h1>
-            <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Priority: ${priorityLabel}</p>
-          </div>
-
-          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
-            <p style="font-size: 16px; margin-bottom: 20px;">Hello ${toName || 'Admin'},</p>
-
-            <p style="font-size: 16px; margin-bottom: 20px;">
-              A new maintenance request has been received via the API and requires your attention.
-            </p>
-
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${priorityColor};">
-              <h2 style="margin: 0 0 15px 0; font-size: 20px; color: ${priorityColor};">${title}</h2>
-
-              <div style="margin: 15px 0;">
-                <p style="margin: 0 0 10px 0;"><strong>Venue:</strong> ${venue}</p>
-                ${requestor ? `<p style="margin: 0 0 10px 0;"><strong>Requestor:</strong> ${requestor}</p>` : ''}
-                <p style="margin: 0 0 10px 0;"><strong>Priority:</strong> <span style="color: ${priorityColor}; font-weight: bold;">${priorityLabel}</span></p>
-                <p style="margin: 0 0 10px 0;"><strong>Date/Time:</strong> ${formattedDate}</p>
-              </div>
-
-              ${description ? `
-                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
-                  <p style="margin: 0 0 5px 0;"><strong>Description:</strong></p>
-                  <p style="margin: 0; color: #4b5563;">${description}</p>
-                </div>
-              ` : ''}
-            </div>
-
-            ${priority === 'high' || priority === 'urgent' ? `
-              <div style="background: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444;">
-                <p style="margin: 0; font-size: 14px; color: #991b1b;">
-                  <strong>⚠️ URGENT:</strong> This request requires immediate attention!
-                </p>
-              </div>
-            ` : ''}
-
-            <p style="font-size: 16px; margin: 20px 0;">
-              A work order has been automatically created for this maintenance request. Please review and approve it in the Admin Portal:
-            </p>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${portalLink || `${process.env.NEXT_PUBLIC_APP_URL}/admin-portal/work-orders`}"
-                 style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                        color: white;
-                        padding: 15px 40px;
-                        text-decoration: none;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        font-weight: bold;
-                        display: inline-block;">
-                Review Work Order
-              </a>
-            </div>
-
-            <p style="font-size: 14px; color: #6b7280; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-              <strong>Note:</strong> This request was automatically received via the maintenance request API.
-            </p>
-          </div>
-
-          <div style="text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px;">
-            <p>© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.</p>
-          </div>
-        </body>
-      </html>
-    `;
+    const emailHtml = emailLayout({
+      title: 'New Maintenance Request',
+      preheader: `New maintenance request: ${title}`,
+      body: `
+        <p style="margin:0 0 20px 0;">Hello${toName ? ' <strong>' + toName + '</strong>' : ''},</p>
+        <p style="margin:0 0 20px 0;color:#5A6C7A;">A new maintenance request has been submitted and requires your attention.</p>
+        ${infoCard(`
+          <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#1A2635;">${title}</p>
+          ${infoRow('Venue', venue)}
+          ${requestor ? infoRow('Requested by', requestor) : ''}
+          ${formattedDate !== 'Not specified' ? infoRow('Date', formattedDate) : ''}
+          ${priority ? '<p style="margin:6px 0;font-size:14px;color:#1A2635;"><span style="color:#5A6C7A;font-weight:500;min-width:140px;display:inline-block;">Priority</span> ' + priorityBadge(priority) + '</p>' : ''}
+          ${description ? '<p style="margin:12px 0 0 0;padding-top:12px;border-top:1px solid #E2E8F0;font-size:14px;color:#5A6C7A;">' + description + '</p>' : ''}
+        `)}
+        ${ctaButton('View Request', portalLink || APP_URL + '/admin-portal/work-orders')}
+      `,
+    });
 
     // Send email via Mailgun
     const subject = `${priority === 'high' || priority === 'urgent' ? '🚨 URGENT: ' : ''}New Maintenance Request: ${title}`;
@@ -175,15 +104,15 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error details:', error.message || error);
 
     const errorMessage = error.message || String(error);
-    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
-    
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('RESEND');
+
     return NextResponse.json(
       {
         error: 'Failed to send maintenance request notification email',
         details: errorMessage,
         configError: isConfigError,
         suggestion: isConfigError
-          ? 'Please configure MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM_EMAIL environment variables.'
+          ? 'Please configure RESEND_API_KEY and FROM_EMAIL environment variables.'
           : undefined
       },
       { status: 500 }

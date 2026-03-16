@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/mailgun';
+import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
+import { emailLayout, infoCard, infoRow, ctaButton, alertBox } from '@/lib/email-template';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,69 +36,24 @@ export async function POST(request: NextRequest) {
         })
       : null;
 
-    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
-
     // Create email HTML
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>New Quote Received</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background-color: #162040; padding: 16px 20px; text-align: center; border-radius: 10px 10px 0 0;">
-            <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 60px; width: auto;" />
-          </div>
-          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">New Quote Received</h1>
-          </div>
-
-          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
-            <p style="font-size: 16px; margin-bottom: 20px;">Hello ${toName || 'there'},</p>
-
-            <p style="font-size: 16px; margin-bottom: 20px;">
-              A new quote has been submitted for <strong>Work Order ${workOrderNumber}</strong>.
-            </p>
-
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
-              ${workOrderTitle ? `<p style="margin: 0 0 10px 0;"><strong>Work Order:</strong> ${workOrderTitle}</p>` : ''}
-              <p style="margin: 0 0 10px 0;"><strong>Submitted by:</strong> ${subcontractorName}</p>
-              <p style="margin: 0 0 10px 0;"><strong>Quote Amount:</strong> $${parseFloat(quoteAmount).toLocaleString()}</p>
-              ${formattedDate ? `<p style="margin: 0 0 10px 0;"><strong>Proposed Service Date:</strong> ${formattedDate}</p>` : ''}
-              ${proposedServiceTime ? `<p style="margin: 0;"><strong>Proposed Service Time:</strong> ${proposedServiceTime}</p>` : ''}
-            </div>
-
-            <p style="font-size: 16px; margin-bottom: 30px;">
-              View the full quote details in your portal:
-            </p>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${portalLink || process.env.NEXT_PUBLIC_APP_URL}"
-                 style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                        color: white;
-                        padding: 15px 40px;
-                        text-decoration: none;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        font-weight: bold;
-                        display: inline-block;">
-                View Quote
-              </a>
-            </div>
-
-            <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
-              If you have any questions, please contact our support team.
-            </p>
-          </div>
-
-          <div style="text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px;">
-            <p>© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.</p>
-          </div>
-        </body>
-      </html>
-    `;
+    const emailHtml = emailLayout({
+      title: 'New Quote Received',
+      preheader: `${subcontractorName} submitted a quote of $${quoteAmount} for ${workOrderTitle}`,
+      body: `
+        <p style="margin:0 0 20px 0;">Hello ${toName || 'there'},</p>
+        <p style="margin:0 0 20px 0;color:#5A6C7A;">A new quote has been submitted for <strong>Work Order ${workOrderNumber}</strong>.</p>
+        ${infoCard(`
+          <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#1A2635;">${workOrderTitle}</p>
+          ${infoRow('Work Order #', workOrderNumber)}
+          ${infoRow('Submitted by', subcontractorName)}
+          ${infoRow('Quote Amount', '$' + quoteAmount)}
+          ${formattedDate ? infoRow('Proposed Date', formattedDate + (proposedServiceTime ? ' at ' + proposedServiceTime : '')) : ''}
+        `)}
+        ${alertBox('Log in to the admin portal to review and approve or reject this quote.', 'info')}
+        ${ctaButton('Review Quote', portalLink || APP_URL + '/admin-portal/work-orders')}
+      `,
+    });
 
     // Send email via Mailgun
     await sendEmail({
@@ -113,15 +71,15 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error details:', error.message || error);
 
     const errorMessage = error.message || String(error);
-    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
-    
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('RESEND');
+
     return NextResponse.json(
       {
         error: 'Failed to send quote notification email',
         details: errorMessage,
         configError: isConfigError,
         suggestion: isConfigError
-          ? 'Please configure MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM_EMAIL environment variables.'
+          ? 'Please configure RESEND_API_KEY and FROM_EMAIL environment variables.'
           : undefined
       },
       { status: 500 }

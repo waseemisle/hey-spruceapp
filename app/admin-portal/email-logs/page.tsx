@@ -103,7 +103,7 @@ function ContextRow({ label, value }: { label: string; value: any }) {
 
 export default function EmailLogsPage() {
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+  const [syncing, setSyncing] = useState(false); // kept for refresh button
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -139,13 +139,10 @@ export default function EmailLogsPage() {
   async function syncMailgunLogs() {
     setSyncing(true);
     try {
-      const res = await fetch('/api/email/sync-mailgun-logs', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Sync failed');
-      toast.success(`Synced ${data.imported} emails from Mailgun`);
       await loadAll();
+      toast.success('Email logs refreshed');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to sync Mailgun logs');
+      toast.error('Failed to refresh email logs');
     } finally {
       setSyncing(false);
     }
@@ -196,7 +193,7 @@ export default function EmailLogsPage() {
               disabled={syncing}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync from Mailgun'}
+              {syncing ? 'Refreshing...' : 'Refresh'}
             </Button>
           </div>
         </div>

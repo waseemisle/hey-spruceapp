@@ -1,33 +1,34 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/mailgun';
+import { sendEmail } from '@/lib/email';
 import { formatAddress } from '@/lib/utils';
 import { logEmail } from '@/lib/email-logger';
+import { emailLayout, infoCard, infoRow, ctaButton, alertBox } from '@/lib/email-template';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { 
-      toEmail, 
-      toName, 
-      workOrderNumber, 
-      workOrderTitle, 
-      scheduledDate, 
-      scheduledTimeStart, 
+    const {
+      toEmail,
+      toName,
+      workOrderNumber,
+      workOrderTitle,
+      scheduledDate,
+      scheduledTimeStart,
       scheduledTimeEnd,
       locationName,
-      locationAddress 
+      locationAddress
     } = body;
 
     // Format the address string
     const formattedAddress = formatAddress(locationAddress);
-    
+
     // Format the date in a readable format (e.g., "Sunday November 16, 2025")
     const dateObj = new Date(scheduledDate);
-    const formattedDate = dateObj.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const formattedDate = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
 
     // Format time range (e.g., "11:00am - 1:00pm")
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       return `${displayHour}:${minutes || '00'}${ampm}`;
     };
 
-    const timeRange = scheduledTimeEnd 
+    const timeRange = scheduledTimeEnd
       ? `${formatTime(scheduledTimeStart)} - ${formatTime(scheduledTimeEnd)}`
       : formatTime(scheduledTimeStart);
 
@@ -49,106 +50,39 @@ export async function POST(request: Request) {
     // Encode the address for Google Maps
     const encodedAddress = encodeURIComponent(formattedAddress);
     const googleMapsLinkUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
-    
+
     // Create Google Maps embed iframe URL
     // Using the static Google Maps embed (works without API key)
     const mapEmbedUrl = `https://www.google.com/maps?q=${encodedAddress}&output=embed`;
 
-    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
-
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Your job with GroundOps has been scheduled</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-        <div style="background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <!-- Header with Logo -->
-          <div style="text-align: center; padding: 30px 20px 20px 20px; background-color: white;">
-            <div style="margin-bottom: 20px;">
-              <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 70px; width: auto; display: block; margin: 0 auto 15px auto;" />
-            </div>
-            <h1 style="color: #1a1a1a; margin: 0; font-size: 26px; font-weight: bold; line-height: 1.3;">Your job with GroundOps has been scheduled</h1>
-          </div>
-
-          <!-- Content -->
-          <div style="padding: 30px; background-color: white;">
-            <!-- When Section -->
-            <div style="margin-bottom: 30px;">
-              <h2 style="color: #1a1a1a; margin: 0 0 10px 0; font-size: 18px; font-weight: bold;">When:</h2>
-              <p style="color: #333; margin: 0; font-size: 16px; line-height: 1.5;">${formattedDate} arriving between ${timeRange}</p>
-            </div>
-
-            <!-- Address Section -->
-            <div style="margin-bottom: 30px;">
-              <h2 style="color: #1a1a1a; margin: 0 0 10px 0; font-size: 18px; font-weight: bold;">Address:</h2>
-              <p style="color: #333; margin: 0 0 15px 0; font-size: 16px; line-height: 1.5;">${locationName ? `${locationName}<br>` : ''}${formattedAddress}</p>
-              
-              <!-- Google Maps Link/Image -->
-              <div style="margin-top: 15px;">
-                <a href="${googleMapsLinkUrl}" target="_blank" style="display: block; text-decoration: none; border-radius: 8px; overflow: hidden; border: 1px solid #d1d5db;">
-                  ${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY 
-                    ? `<img 
-                        src="https://maps.googleapis.com/maps/api/staticmap?center=${encodedAddress}&zoom=15&size=600x300&maptype=roadmap&markers=color:red%7C${encodedAddress}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}" 
-                        alt="Location Map" 
-                        style="width: 100%; height: 300px; object-fit: cover; display: block;"
-                      />`
-                    : `<div style="width: 100%; height: 300px; background-color: #e5e7eb; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #4b5563;">
-                         <div style="font-size: 48px; margin-bottom: 10px;">📍</div>
-                         <p style="margin: 0; font-size: 14px; font-weight: 500; color: #10b981;">Click to view on Google Maps</p>
-                       </div>`
-                  }
-                </a>
+    const emailHtml = emailLayout({
+      title: 'Your Service Has Been Scheduled',
+      preheader: `Your GroundOps job is confirmed for ${formattedDate}`,
+      body: `
+        <p style="margin:0 0 20px 0;">Hi <strong>${toName}</strong>,</p>
+        <p style="margin:0 0 20px 0;color:#5A6C7A;">Your service has been scheduled. Here are the details:</p>
+        ${infoCard(`
+          <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#1A2635;">${workOrderTitle}</p>
+          ${infoRow('Work Order #', workOrderNumber)}
+          ${infoRow('Date', formattedDate)}
+          ${timeRange ? infoRow('Time', timeRange) : ''}
+          ${locationName ? infoRow('Location', locationName) : ''}
+          ${formattedAddress ? infoRow('Address', formattedAddress) : ''}
+        `)}
+        ${formattedAddress ? `
+          <div style="margin:20px 0;">
+            <a href="${googleMapsLinkUrl}" target="_blank" style="display:block;text-decoration:none;border-radius:6px;overflow:hidden;border:1px solid #E2E8F0;">
+              <div style="width:100%;height:180px;background:#EFF6FF;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+                <div style="font-size:36px;margin-bottom:8px;">📍</div>
+                <p style="margin:0;font-size:14px;font-weight:600;color:#2563EB;">View on Google Maps</p>
+                <p style="margin:4px 0 0 0;font-size:12px;color:#5A6C7A;">${formattedAddress}</p>
               </div>
-              <p style="font-size: 11px; color: #6b7280; margin: 10px 0 0 0; text-align: right;">
-                Map data ©${new Date().getFullYear()} Google
-              </p>
-            </div>
-
-            <!-- Services Section -->
-            <div style="margin-bottom: 30px;">
-              <h2 style="color: #1a1a1a; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">Services:</h2>
-              <p style="color: #333; margin: 0 0 15px 0; font-size: 16px; line-height: 1.5;"><strong>${workOrderNumber}</strong> ${workOrderTitle}</p>
-              
-              <p style="margin: 0 0 15px 0; font-size: 14px; color: #333;">
-                <strong>3.9% card payment fee</strong>
-              </p>
-              
-              <p style="margin: 0 0 15px 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
-                If you pay by credit or debit card, a 3.9% processing fee will be added to the total amount. To avoid this fee, you can choose to pay with cash, Zelle, check, or ACH transfer.
-              </p>
-              
-              <p style="margin: 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
-                We offer financing through our partner company, Wisetack. You can learn more <a href="https://www.wisetack.com" target="_blank" style="color: #10b981; text-decoration: underline;">here</a>.
-              </p>
-            </div>
+            </a>
           </div>
-
-          <!-- Footer -->
-          <div style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-            <div style="margin-bottom: 20px;">
-              <p style="margin: 0 0 10px 0; font-size: 14px; color: #4b5563;">
-                <a href="tel:3235551234" style="color: #10b981; text-decoration: none; margin-right: 10px;">(323) 555-1234</a> | 
-                <a href="mailto:info@groundops.com" style="color: #10b981; text-decoration: none; margin: 0 10px;">info@groundops.com</a>
-              </p>
-              <p style="margin: 10px 0; font-size: 14px; color: #4b5563;">
-                <a href="https://www.groundops.co/" target="_blank" style="color: #10b981; text-decoration: none;">https://www.groundops.co/</a>
-              </p>
-              <p style="margin: 10px 0 0 0; font-size: 14px; color: #4b5563;">
-                Los Angeles, CA
-              </p>
-            </div>
-            <p style="margin: 20px 0 0 0; font-size: 12px; color: #6b7280;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://www.groundops.co'}/terms" target="_blank" style="color: #6b7280; text-decoration: underline;">Terms & Conditions</a>
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
+        ` : ''}
+        ${alertBox('A 3.9% processing fee applies for card payments. Avoid the fee by paying with cash, Zelle, check, or ACH transfer.', 'info')}
+      `,
+    });
 
     await sendEmail({
       to: toEmail,
@@ -163,19 +97,18 @@ export async function POST(request: Request) {
     console.error('❌ Error details:', error.message || error);
 
     const errorMessage = error.message || String(error);
-    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
-    
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('RESEND');
+
     return NextResponse.json(
       {
         error: 'Failed to send scheduled service email',
         details: errorMessage,
         configError: isConfigError,
         suggestion: isConfigError
-          ? 'Please configure MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM_EMAIL environment variables.'
+          ? 'Please configure RESEND_API_KEY and FROM_EMAIL environment variables.'
           : undefined
       },
       { status: 500 }
     );
   }
 }
-

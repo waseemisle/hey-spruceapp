@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/mailgun';
+import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
+import { emailLayout, infoCard, infoRow, ctaButton, alertBox } from '@/lib/email-template';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app';
 
 export async function POST(request: Request) {
   try {
@@ -20,88 +23,42 @@ export async function POST(request: Request) {
       `).join('');
     }
 
-    const LOGO_URL = `${process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app'}/logo.png`;
-
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Quote #${quoteNumber}</title>
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #162040; padding: 16px 20px; text-align: center; border-radius: 10px 10px 0 0;">
-          <img src="${LOGO_URL}" alt="GroundOps" style="max-height: 60px; width: auto;" />
-        </div>
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">GroundOps — Facility Maintenance Infrastructure</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Facility Maintenance Infrastructure</p>
-        </div>
-
-        <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
-          <h2 style="color: #667eea; margin-top: 0;">New Quote Available</h2>
-
-          <p>Hi ${toName},</p>
-
-          <p>We have prepared a quote for your service request: <strong>${workOrderTitle}</strong></p>
-
-          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <h3 style="margin-top: 0; color: #667eea;">Quote Details</h3>
-            <p><strong>Quote Number:</strong> ${quoteNumber}</p>
-            <p><strong>Work Order:</strong> ${workOrderTitle}</p>
-
-            ${lineItems && lineItems.length > 0 ? `
-              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                <thead>
-                  <tr style="background: #667eea; color: white;">
-                    <th style="padding: 10px; text-align: left;">Description</th>
-                    <th style="padding: 10px; text-align: center;">Qty</th>
-                    <th style="padding: 10px; text-align: right;">Unit Price</th>
-                    <th style="padding: 10px; text-align: right;">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${lineItemsHtml}
-                </tbody>
-              </table>
-            ` : ''}
-
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #667eea;">
-              <p style="font-size: 24px; font-weight: bold; color: #667eea; margin: 0;">
-                Total: $${(clientAmount || totalAmount).toLocaleString()}
-              </p>
-            </div>
-
-            ${notes ? `
-              <div style="margin-top: 20px; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
-                <p style="margin: 0; font-size: 14px;"><strong>Note:</strong> ${notes}</p>
-              </div>
-            ` : ''}
-          </div>
-
-          <p>Please review the quote and let us know if you have any questions or would like to proceed.</p>
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/client-portal/quotes"
-               style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-              View Quote in Portal
-            </a>
-          </div>
-
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-          <p style="font-size: 12px; color: #6b7280; text-align: center;">
-            GroundOps — Facility Maintenance<br>
-            Los Angeles, CA<br>
-            Phone: <a href="tel:3235551234" style="color: #667eea; text-decoration: none;">(323) 555-1234</a> | 
-            Email: <a href="mailto:info@groundops.com" style="color: #667eea; text-decoration: none;">info@groundops.com</a> | 
-            Website: <a href="https://www.groundops.co/" style="color: #667eea; text-decoration: none;">groundops.co</a>
-          </p>
-        </div>
-      </body>
-      </html>
-    `;
+    const emailHtml = emailLayout({
+      title: 'New Quote Available for Review',
+      preheader: `Quote #${quoteNumber} for ${workOrderTitle} — $${clientAmount ? clientAmount.toFixed(2) : totalAmount.toFixed(2)}`,
+      body: `
+        <p style="margin:0 0 20px 0;">Hi,</p>
+        <p style="margin:0 0 20px 0;color:#5A6C7A;">A quote has been prepared for your service request: <strong>${workOrderTitle}</strong></p>
+        ${infoCard(`
+          <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;color:#1A2635;">${workOrderTitle}</p>
+          ${infoRow('Quote #', quoteNumber)}
+          ${clientAmount ? infoRow('Total', '$' + clientAmount.toFixed(2)) : infoRow('Total', '$' + totalAmount.toFixed(2))}
+        `)}
+        ${lineItems && lineItems.length > 0 ? `
+          <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+            <thead>
+              <tr style="background:#0D1520;color:#ffffff;">
+                <th style="padding:10px 12px;text-align:left;border-radius:4px 0 0 0;">Description</th>
+                <th style="padding:10px 12px;text-align:center;">Qty</th>
+                <th style="padding:10px 12px;text-align:right;">Unit Price</th>
+                <th style="padding:10px 12px;text-align:right;border-radius:0 4px 0 0;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lineItemsHtml}
+            </tbody>
+            <tfoot>
+              <tr style="background:#F8FAFC;">
+                <td colspan="3" style="padding:10px 12px;font-weight:700;color:#1A2635;">Total</td>
+                <td style="padding:10px 12px;text-align:right;font-weight:700;color:#2563EB;font-size:16px;">$${(clientAmount || totalAmount).toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        ` : ''}
+        ${notes ? alertBox(notes, 'info') : ''}
+        ${ctaButton('Review & Approve Quote', APP_URL + '/client-portal')}
+      `,
+    });
 
     await sendEmail({
       to: toEmail,
@@ -116,15 +73,15 @@ export async function POST(request: Request) {
     console.error('❌ Error details:', error.message || error);
 
     const errorMessage = error.message || String(error);
-    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('MAILGUN');
-    
+    const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('RESEND');
+
     return NextResponse.json(
       {
         error: 'Failed to send quote email',
         details: errorMessage,
         configError: isConfigError,
         suggestion: isConfigError
-          ? 'Please configure MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM_EMAIL environment variables.'
+          ? 'Please configure RESEND_API_KEY and FROM_EMAIL environment variables.'
           : undefined
       },
       { status: 500 }
