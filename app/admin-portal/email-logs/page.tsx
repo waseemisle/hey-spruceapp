@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw } from 'lucide-react';
+import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmailType } from '@/lib/email-logger';
 
@@ -38,7 +38,7 @@ const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
   invoice: 'Invoice',
   quote: 'Quote',
   invitation: 'Invitation',
-  assignment: 'Work Order Assignment',
+  assignment: 'WO Assignment',
   'bidding-opportunity': 'Bidding Opportunity',
   'client-approval': 'Client Approval',
   'subcontractor-approval': 'Subcontractor Approval',
@@ -46,7 +46,7 @@ const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
   'scheduled-service': 'Scheduled Service',
   'quote-notification': 'Quote Notification',
   'review-request': 'Review Request',
-  'work-order-notification': 'Work Order Notification',
+  'work-order-notification': 'Work Order Created',
   'work-order-completed-notification': 'Work Order Completed',
   test: 'Test Email',
 };
@@ -74,36 +74,210 @@ function formatDate(ts: Timestamp | null): string {
   if (!ts) return '—';
   try {
     return ts.toDate().toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     });
-  } catch {
-    return '—';
-  }
+  } catch { return '—'; }
 }
 
 function toArray(val: string | string[]): string[] {
   return Array.isArray(val) ? val : [val];
 }
 
-function ContextRow({ label, value }: { label: string; value: any }) {
-  if (value === undefined || value === null || value === '') return null;
-  return (
-    <div className="flex gap-2 py-1.5 border-b border-border last:border-0">
-      <span className="text-muted-foreground text-sm w-44 flex-shrink-0 font-medium capitalize">
-        {label.replace(/([A-Z])/g, ' $1').trim()}
-      </span>
-      <span className="text-sm break-all">{String(value)}</span>
-    </div>
-  );
+/** Returns the most useful 1-2 line summary for the table row */
+function getQuickSummary(type: EmailType, ctx: Record<string, any>): { primary: string; secondary?: string } {
+  const c = ctx || {};
+  switch (type) {
+    case 'invoice':
+      return {
+        primary: c.invoiceNumber ? `Invoice #${c.invoiceNumber}` : '—',
+        secondary: c.workOrderTitle || c.toName,
+      };
+    case 'quote':
+      return {
+        primary: c.quoteNumber ? `Quote #${c.quoteNumber}` : '—',
+        secondary: c.workOrderTitle,
+      };
+    case 'quote-notification':
+      return {
+        primary: c.workOrderNumber ? `WO #${c.workOrderNumber}` : '—',
+        secondary: c.subcontractorName ? `From: ${c.subcontractorName}` : c.workOrderTitle,
+      };
+    case 'assignment':
+      return {
+        primary: c.workOrderNumber ? `WO #${c.workOrderNumber}` : '—',
+        secondary: c.workOrderTitle || c.clientName,
+      };
+    case 'bidding-opportunity':
+      return {
+        primary: c.workOrderNumber ? `WO #${c.workOrderNumber}` : '—',
+        secondary: c.workOrderTitle || c.category,
+      };
+    case 'work-order-notification':
+    case 'work-order-completed-notification':
+      return {
+        primary: c.workOrderNumber ? `WO #${c.workOrderNumber}` : '—',
+        secondary: c.title || c.clientName,
+      };
+    case 'scheduled-service':
+      return {
+        primary: c.workOrderNumber ? `WO #${c.workOrderNumber}` : '—',
+        secondary: c.workOrderTitle || (c.scheduledDate ? `Date: ${c.scheduledDate}` : undefined),
+      };
+    case 'review-request':
+      return {
+        primary: c.workOrderNumber ? `WO #${c.workOrderNumber}` : '—',
+        secondary: c.toName,
+      };
+    case 'maint-request-notification':
+      return {
+        primary: c.title || c.venue || '—',
+        secondary: c.requestor ? `By: ${c.requestor}` : c.venue,
+      };
+    case 'client-approval':
+      return {
+        primary: c.toName || '—',
+        secondary: c.approvedBy ? `Approved by: ${c.approvedBy}` : undefined,
+      };
+    case 'subcontractor-approval':
+      return {
+        primary: c.toName || '—',
+        secondary: c.businessName || (c.approvedBy ? `Approved by: ${c.approvedBy}` : undefined),
+      };
+    case 'invitation':
+      return {
+        primary: c.fullName || '—',
+        secondary: c.role ? `Role: ${c.role}` : undefined,
+      };
+    default:
+      return { primary: '—' };
+  }
+}
+
+/** Structured detail rows for the dialog, per email type */
+function getDetailFields(type: EmailType, ctx: Record<string, any>): { label: string; value: any }[] {
+  const c = ctx || {};
+  const fmt = (v: any) => (v === undefined || v === null || v === '' ? null : v);
+
+  switch (type) {
+    case 'invoice':
+      return [
+        { label: 'Invoice #', value: fmt(c.invoiceNumber) },
+        { label: 'Work Order', value: fmt(c.workOrderTitle) },
+        { label: 'Customer', value: fmt(c.toName) },
+        { label: 'Total Amount', value: c.totalAmount != null ? `$${Number(c.totalAmount).toFixed(2)}` : null },
+        { label: 'Due Date', value: fmt(c.dueDate) },
+        { label: 'Notes', value: fmt(c.notes) },
+        { label: 'PDF Attached', value: c.hasAttachment ? 'Yes' : null },
+        { label: 'Work Order PDF', value: c.hasWorkOrderAttachment ? 'Yes' : null },
+      ];
+    case 'quote':
+      return [
+        { label: 'Quote #', value: fmt(c.quoteNumber) },
+        { label: 'Work Order', value: fmt(c.workOrderTitle) },
+        { label: 'Recipient', value: fmt(c.toName) },
+        { label: 'Quote Amount', value: c.totalAmount != null ? `$${Number(c.totalAmount).toFixed(2)}` : null },
+        { label: 'Client Amount', value: c.clientAmount != null ? `$${Number(c.clientAmount).toFixed(2)}` : null },
+        { label: 'Markup', value: c.markupPercentage != null ? `${c.markupPercentage}%` : null },
+        { label: 'Notes', value: fmt(c.notes) },
+      ];
+    case 'quote-notification':
+      return [
+        { label: 'Work Order #', value: fmt(c.workOrderNumber) },
+        { label: 'Work Order Title', value: fmt(c.workOrderTitle) },
+        { label: 'Subcontractor', value: fmt(c.subcontractorName) },
+        { label: 'Quote Amount', value: c.quoteAmount != null ? `$${Number(c.quoteAmount).toFixed(2)}` : null },
+        { label: 'Proposed Date', value: fmt(c.proposedServiceDate) },
+        { label: 'Proposed Time', value: fmt(c.proposedServiceTime) },
+        { label: 'Sent To', value: fmt(c.toName) },
+      ];
+    case 'assignment':
+      return [
+        { label: 'Work Order #', value: fmt(c.workOrderNumber) },
+        { label: 'Work Order Title', value: fmt(c.workOrderTitle) },
+        { label: 'Assigned To', value: fmt(c.toName) },
+        { label: 'Client', value: fmt(c.clientName) },
+        { label: 'Location', value: fmt(c.locationName) },
+        { label: 'Address', value: fmt(c.locationAddress) },
+      ];
+    case 'bidding-opportunity':
+      return [
+        { label: 'Work Order #', value: fmt(c.workOrderNumber) },
+        { label: 'Work Order Title', value: fmt(c.workOrderTitle) },
+        { label: 'Sent To', value: fmt(c.toName) },
+        { label: 'Category', value: fmt(c.category) },
+        { label: 'Location', value: fmt(c.locationName) },
+        { label: 'Priority', value: fmt(c.priority) },
+        { label: 'Description', value: fmt(c.workOrderDescription) },
+      ];
+    case 'work-order-notification':
+      return [
+        { label: 'Work Order #', value: fmt(c.workOrderNumber) },
+        { label: 'Title', value: fmt(c.title) },
+        { label: 'Client', value: fmt(c.clientName) },
+        { label: 'Location', value: fmt(c.locationName) },
+        { label: 'Priority', value: fmt(c.priority) },
+        { label: 'Type', value: fmt(c.workOrderType) },
+        { label: 'Description', value: fmt(c.description) },
+      ];
+    case 'work-order-completed-notification':
+      return [
+        { label: 'Work Order #', value: fmt(c.workOrderNumber) },
+        { label: 'Title', value: fmt(c.title) },
+        { label: 'Client', value: fmt(c.clientName) },
+        { label: 'Location', value: fmt(c.locationName) },
+        { label: 'Priority', value: fmt(c.priority) },
+        { label: 'Completed By', value: fmt(c.completedBy) },
+        { label: 'Completion Notes', value: fmt(c.completionDetails) },
+      ];
+    case 'scheduled-service':
+      return [
+        { label: 'Work Order #', value: fmt(c.workOrderNumber) },
+        { label: 'Work Order Title', value: fmt(c.workOrderTitle) },
+        { label: 'Sent To', value: fmt(c.toName) },
+        { label: 'Scheduled Date', value: fmt(c.scheduledDate) },
+        { label: 'Time', value: c.scheduledTimeStart ? `${c.scheduledTimeStart}${c.scheduledTimeEnd ? ` – ${c.scheduledTimeEnd}` : ''}` : null },
+        { label: 'Location', value: fmt(c.locationName) },
+      ];
+    case 'review-request':
+      return [
+        { label: 'Work Order #', value: fmt(c.workOrderNumber) },
+        { label: 'Sent To', value: fmt(c.toName) },
+      ];
+    case 'maint-request-notification':
+      return [
+        { label: 'Request Title', value: fmt(c.title) },
+        { label: 'Venue', value: fmt(c.venue) },
+        { label: 'Requested By', value: fmt(c.requestor) },
+        { label: 'Priority', value: fmt(c.priority) },
+        { label: 'Date', value: fmt(c.date) },
+        { label: 'Description', value: fmt(c.description) },
+        { label: 'Sent To', value: fmt(c.toName) },
+      ];
+    case 'client-approval':
+      return [
+        { label: 'Client Name', value: fmt(c.toName) },
+        { label: 'Approved By', value: fmt(c.approvedBy) },
+      ];
+    case 'subcontractor-approval':
+      return [
+        { label: 'Subcontractor', value: fmt(c.toName) },
+        { label: 'Business Name', value: fmt(c.businessName) },
+        { label: 'Approved By', value: fmt(c.approvedBy) },
+      ];
+    case 'invitation':
+      return [
+        { label: 'Full Name', value: fmt(c.fullName) },
+        { label: 'Role', value: fmt(c.role) },
+      ];
+    default:
+      return Object.entries(c).map(([k, v]) => ({ label: k, value: fmt(v) }));
+  }
 }
 
 export default function EmailLogsPage() {
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false); // kept for refresh button
+  const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -118,12 +292,7 @@ export default function EmailLogsPage() {
       const snap = await getDocs(
         query(collection(db, 'emailLogs'), orderBy('sentAt', 'desc'), limit(500)),
       );
-      setAllLogs(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<EmailLog, 'id'>),
-        })),
-      );
+      setAllLogs(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<EmailLog, 'id'>) })));
       setAllLoaded(true);
     } catch (err) {
       console.error('Failed to load email logs:', err);
@@ -132,34 +301,30 @@ export default function EmailLogsPage() {
     }
   }
 
-  useEffect(() => {
-    loadAll();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
-  async function syncMailgunLogs() {
+  async function handleRefresh() {
     setSyncing(true);
     try {
       await loadAll();
       toast.success('Email logs refreshed');
-    } catch (err: any) {
+    } catch {
       toast.error('Failed to refresh email logs');
     } finally {
       setSyncing(false);
     }
   }
 
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(0);
-  }, [searchQuery, typeFilter, statusFilter]);
+  useEffect(() => { setPage(0); }, [searchQuery, typeFilter, statusFilter]);
 
   const filtered = allLogs.filter((log) => {
     const recipients = toArray(log.to).join(', ').toLowerCase();
+    const ctx = JSON.stringify(log.context || {}).toLowerCase();
     const matchesSearch =
       !searchQuery ||
       recipients.includes(searchQuery.toLowerCase()) ||
       (log.subject || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      JSON.stringify(log.context || {}).toLowerCase().includes(searchQuery.toLowerCase());
+      ctx.includes(searchQuery.toLowerCase());
     const matchesType = typeFilter === 'all' || log.type === typeFilter;
     const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
@@ -177,21 +342,14 @@ export default function EmailLogsPage() {
             <Mail className="h-6 w-6 text-muted-foreground" />
             <div>
               <h1 className="text-2xl font-bold">Email Logs</h1>
-              <p className="text-sm text-muted-foreground">
-                All emails sent from the system
-              </p>
+              <p className="text-sm text-muted-foreground">All emails sent from the system</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="bg-muted px-3 py-1 rounded-full text-sm font-medium">
               {allLoaded ? `${filtered.length} of ${allLogs.length} emails` : 'Loading...'}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={syncMailgunLogs}
-              disabled={syncing}
-            >
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Refreshing...' : 'Refresh'}
             </Button>
@@ -203,7 +361,7 @@ export default function EmailLogsPage() {
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by recipient, subject..."
+              placeholder="Search by recipient, subject, WO#..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -225,9 +383,7 @@ export default function EmailLogsPage() {
           >
             <option value="all">All Types</option>
             {(Object.keys(EMAIL_TYPE_LABELS) as EmailType[]).map((t) => (
-              <option key={t} value={t}>
-                {EMAIL_TYPE_LABELS[t]}
-              </option>
+              <option key={t} value={t}>{EMAIL_TYPE_LABELS[t]}</option>
             ))}
           </select>
 
@@ -248,76 +404,91 @@ export default function EmailLogsPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Date</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Type</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground">To</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Subject</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Status</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Date</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Type</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Details</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Recipient</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Subject</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-16 text-muted-foreground">
+                    <td colSpan={6} className="text-center py-16 text-muted-foreground">
                       Loading email logs...
                     </td>
                   </tr>
                 ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-16 text-muted-foreground">
+                    <td colSpan={6} className="text-center py-16 text-muted-foreground">
                       {allLogs.length === 0
-                        ? 'No emails have been sent yet. Logs will appear here once emails are sent.'
+                        ? 'No emails have been sent yet.'
                         : 'No emails match your filters.'}
                     </td>
                   </tr>
                 ) : (
                   paginated.map((log) => {
                     const recipients = toArray(log.to);
+                    const summary = getQuickSummary(log.type, log.context);
                     return (
                       <tr
                         key={log.id}
                         onClick={() => setSelected(log)}
                         className="border-t border-border hover:bg-muted/30 cursor-pointer transition-colors"
                       >
+                        {/* Date */}
                         <td className="px-4 py-3 whitespace-nowrap text-muted-foreground text-xs">
                           {formatDate(log.sentAt)}
                         </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              EMAIL_TYPE_COLORS[log.type] || 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
+
+                        {/* Type badge */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${EMAIL_TYPE_COLORS[log.type] || 'bg-gray-100 text-gray-800'}`}>
                             {EMAIL_TYPE_LABELS[log.type] || log.type}
                           </span>
                         </td>
+
+                        {/* Details summary */}
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-0.5">
-                            {recipients.slice(0, 2).map((r, i) => (
-                              <span key={i} className="text-xs font-mono">
-                                {r}
-                              </span>
-                            ))}
-                            {recipients.length > 2 && (
-                              <span className="text-xs text-muted-foreground">
-                                +{recipients.length - 2} more
+                            <span className="font-semibold text-xs">{summary.primary}</span>
+                            {summary.secondary && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[160px]">
+                                {summary.secondary}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 max-w-xs">
-                          <span className="truncate block">{log.subject}</span>
-                        </td>
+
+                        {/* Recipient */}
                         <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              log.status === 'sent'
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                            }`}
-                          >
-                            {log.status === 'sent' ? 'Sent' : 'Failed'}
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            {recipients.slice(0, 2).map((r, i) => (
+                              <span key={i} className="text-xs font-mono">{r}</span>
+                            ))}
+                            {recipients.length > 2 && (
+                              <span className="text-xs text-muted-foreground">+{recipients.length - 2} more</span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Subject */}
+                        <td className="px-4 py-3 max-w-xs">
+                          <span className="truncate block text-xs">{log.subject}</span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {log.status === 'sent' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                              <CheckCircle2 className="h-3 w-3" /> Sent
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+                              <XCircle className="h-3 w-3" /> Failed
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -335,23 +506,11 @@ export default function EmailLogsPage() {
               Page {page + 1} of {totalPages} ({filtered.length} results)
             </p>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
+                <ChevronLeft className="h-4 w-4" /> Previous
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
+                Next <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -360,70 +519,81 @@ export default function EmailLogsPage() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selected} onOpenChange={(open: boolean) => !open && setSelected(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
           {selected && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Email Detail
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  Email Record
                 </DialogTitle>
               </DialogHeader>
 
-              <div className="space-y-6 mt-2">
-                {/* Status & Type */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                      selected.status === 'sent'
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                    }`}
-                  >
-                    {selected.status === 'sent' ? 'Sent' : 'Failed'}
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                      EMAIL_TYPE_COLORS[selected.type] || 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
+              <div className="space-y-5 mt-1">
+
+                {/* Status + Type */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selected.status === 'sent' ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Sent Successfully
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+                      <XCircle className="h-3.5 w-3.5" /> Failed
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${EMAIL_TYPE_COLORS[selected.type] || 'bg-gray-100 text-gray-800'}`}>
                     {EMAIL_TYPE_LABELS[selected.type] || selected.type}
                   </span>
                 </div>
 
-                {/* Core info */}
+                {/* Core delivery info */}
                 <div className="rounded-lg border border-border overflow-hidden">
-                  <div className="bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Message Info
+                  <div className="bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Delivery Info
                   </div>
-                  <div className="p-4 space-y-1">
-                    <ContextRow label="Date Sent" value={formatDate(selected.sentAt)} />
-                    <ContextRow label="To" value={toArray(selected.to).join(', ')} />
-                    <ContextRow label="Subject" value={selected.subject} />
-                    {selected.error && (
-                      <ContextRow label="Error" value={selected.error} />
-                    )}
+                  <div className="divide-y divide-border">
+                    <DetailRow label="Date Sent" value={formatDate(selected.sentAt)} />
+                    <DetailRow label="To" value={toArray(selected.to).join(', ')} mono />
+                    <DetailRow label="Subject" value={selected.subject} />
+                    {selected.error && <DetailRow label="Error" value={selected.error} error />}
                   </div>
                 </div>
 
-                {/* Context */}
-                {selected.context && Object.keys(selected.context).length > 0 && (
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <div className="bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Email Context
+                {/* Type-specific details */}
+                {(() => {
+                  const fields = getDetailFields(selected.type, selected.context).filter(f => f.value !== null && f.value !== undefined && f.value !== '');
+                  if (fields.length === 0) return null;
+                  return (
+                    <div className="rounded-lg border border-border overflow-hidden">
+                      <div className="bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {EMAIL_TYPE_LABELS[selected.type]} Details
+                      </div>
+                      <div className="divide-y divide-border">
+                        {fields.map((f, i) => (
+                          <DetailRow key={i} label={f.label} value={String(f.value)} />
+                        ))}
+                      </div>
                     </div>
-                    <div className="p-4 space-y-1">
-                      {Object.entries(selected.context).map(([key, val]) => (
-                        <ContextRow key={key} label={key} value={val} />
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
+
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
     </AdminLayout>
+  );
+}
+
+function DetailRow({ label, value, mono, error }: { label: string; value: string; mono?: boolean; error?: boolean }) {
+  return (
+    <div className="flex gap-3 px-4 py-2.5">
+      <span className="text-muted-foreground text-sm w-36 flex-shrink-0 font-medium">{label}</span>
+      <span className={`text-sm break-all ${mono ? 'font-mono' : ''} ${error ? 'text-red-600 dark:text-red-400' : ''}`}>
+        {value}
+      </span>
+    </div>
   );
 }
