@@ -174,7 +174,7 @@ export default function CreateRecurringWorkOrder() {
     recurrenceStartDate: '',
     recurrenceEndDate: '',
     recurrenceMaxOccurrences: '',
-    invoiceScheduleType: 'monthly' as 'monthly' | 'bi-monthly',
+    invoiceScheduleType: 'monthly' as 'monthly' | 'bi-monthly' | 'quarterly' | 'semiannually',
     invoiceScheduleInterval: 1,
     invoiceScheduleDaysOfWeek: [] as number[],
     invoiceScheduleDayOfMonth: 1,
@@ -348,7 +348,7 @@ export default function CreateRecurringWorkOrder() {
 
       const invoiceSchedule: InvoiceSchedule = {
         type: formData.invoiceScheduleType,
-        interval: formData.invoiceScheduleType === 'bi-monthly' ? 1 : formData.invoiceScheduleInterval,
+        interval: formData.invoiceScheduleType === 'bi-monthly' ? 1 : formData.invoiceScheduleType === 'quarterly' ? 3 : formData.invoiceScheduleType === 'semiannually' ? 6 : formData.invoiceScheduleInterval,
         dayOfMonth: formData.invoiceScheduleDayOfMonth,
         ...(formData.invoiceScheduleType === 'bi-monthly' && {
           secondDayOfMonth: formData.invoiceScheduleSecondDayOfMonth,
@@ -473,10 +473,11 @@ export default function CreateRecurringWorkOrder() {
   const handleRecurrencePatternChange = (label: (typeof RECURRENCE_PATTERN_OPTIONS)[number]) => {
     let type: 'monthly' | 'weekly' = 'monthly';
     let interval = 1;
+    let invoiceScheduleType = formData.invoiceScheduleType;
     if (label === 'DAILY') { type = 'weekly'; interval = 1; }
-    else if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; }
-    else if (label === 'QUARTERLY') { type = 'monthly'; interval = 3; }
-    else if (label === 'MONTHLY') { type = 'monthly'; interval = 1; }
+    else if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; invoiceScheduleType = 'semiannually'; }
+    else if (label === 'QUARTERLY') { type = 'monthly'; interval = 3; invoiceScheduleType = 'quarterly'; }
+    else if (label === 'MONTHLY') { type = 'monthly'; interval = 1; invoiceScheduleType = 'monthly'; }
     else if (label === 'BI-MONTHLY') { type = 'monthly'; interval = 2; }
     else if (label === 'BI-WEEKLY') { type = 'weekly'; interval = 2; }
     setFormData({
@@ -485,6 +486,7 @@ export default function CreateRecurringWorkOrder() {
       recurrenceType: type,
       recurrenceInterval: interval,
       recurrenceDaysOfWeek: label === 'DAILY' ? formData.recurrenceDaysOfWeek : [],
+      invoiceScheduleType,
     });
   };
 
@@ -564,6 +566,8 @@ export default function CreateRecurringWorkOrder() {
   const invoiceScheduleTypeOptions: SearchableSelectOption[] = [
     { value: 'monthly', label: 'Monthly' },
     { value: 'bi-monthly', label: 'Bi-Monthly (twice per month)' },
+    { value: 'quarterly', label: 'Quarterly (every 3 months)' },
+    { value: 'semiannually', label: 'Semi-Annually (every 6 months)' },
   ];
 
   const getOrdinalSuffix = (n: number) => {
@@ -857,7 +861,7 @@ export default function CreateRecurringWorkOrder() {
                   <SearchableSelect
                     options={invoiceScheduleTypeOptions}
                     value={formData.invoiceScheduleType}
-                    onChange={(val) => setFormData({ ...formData, invoiceScheduleType: val as 'monthly' | 'bi-monthly' })}
+                    onChange={(val) => setFormData({ ...formData, invoiceScheduleType: val as 'monthly' | 'bi-monthly' | 'quarterly' | 'semiannually' })}
                     placeholder="Select schedule..."
                   />
                 </div>
@@ -961,6 +965,10 @@ export default function CreateRecurringWorkOrder() {
                 <span className="font-semibold">Invoice Schedule:</span>{' '}
                 {formData.invoiceScheduleType === 'bi-monthly'
                   ? `Bi-Monthly — ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)} & ${formData.invoiceScheduleSecondDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleSecondDayOfMonth)} of each month`
+                  : formData.invoiceScheduleType === 'quarterly'
+                  ? `Quarterly (every 3 months) on the ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}`
+                  : formData.invoiceScheduleType === 'semiannually'
+                  ? `Semi-Annually (every 6 months) on the ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}`
                   : `Every ${formData.invoiceScheduleInterval} month(s) on the ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}`}
               </div>
               <div className="text-sm">

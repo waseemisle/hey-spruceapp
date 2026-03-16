@@ -484,7 +484,7 @@ export interface RecurrencePattern {
 }
 
 export interface InvoiceSchedule {
-  type: 'monthly';
+  type: 'monthly' | 'bi-monthly' | 'quarterly' | 'semiannually';
   interval: number;
   dayOfMonth?: number;
   time: string; // Time of day to send invoice

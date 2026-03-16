@@ -87,7 +87,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     recurrenceStartDate: '',
     recurrenceEndDate: '',
     recurrenceMaxOccurrences: '',
-    invoiceScheduleType: 'monthly' as 'monthly',
+    invoiceScheduleType: 'monthly' as 'monthly' | 'bi-monthly' | 'quarterly' | 'semiannually',
     invoiceScheduleInterval: 1,
     invoiceScheduleDaysOfWeek: [] as number[],
     invoiceScheduleDayOfMonth: 1,
