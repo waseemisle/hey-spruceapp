@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -544,6 +544,12 @@ export default function ViewWorkOrder() {
           status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
         });
       }));
+
+      // Allow subcontractors to read the workOrder via Firestore rules
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        biddingSubcontractors: arrayUnion(...selectedSubcontractors),
+        updatedAt: serverTimestamp(),
+      });
 
       await notifyBiddingOpportunity(selectedSubcontractors, workOrder.id, workOrderNumber, workOrder.title);
 
