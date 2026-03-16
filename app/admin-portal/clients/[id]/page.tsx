@@ -16,6 +16,7 @@ interface Client {
   email: string;
   fullName: string;
   companyName?: string;
+  companyId?: string;
   phone: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
