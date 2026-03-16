@@ -728,7 +728,7 @@ export default function ViewWorkOrder() {
               </div>
             )}
             <p className="text-muted-foreground text-sm mt-0.5">
-              WO #{workOrder.workOrderNumber} &nbsp;·&nbsp;
+              #{workOrder.workOrderNumber} &nbsp;·&nbsp;
               <span className="flex-inline items-center gap-1">
                 <MapPin className="h-3 w-3 inline" /> {workOrder.locationName}
               </span>
