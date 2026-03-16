@@ -452,91 +452,144 @@ export default function ClientDetailPage() {
 
         {/* Billing Card */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-gray-200">
             <h3 className="font-semibold text-gray-900 text-base flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-blue-600" />
-              Billing & Auto-Pay
+              Billing & Payment Info
             </h3>
           </div>
-          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Saved Card */}
-            <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Saved Payment Method</p>
-              {client.defaultPaymentMethodId && client.savedCardLast4 ? (
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-14 bg-gradient-to-br from-blue-600 to-blue-800 rounded flex items-center justify-center flex-shrink-0">
-                    <CreditCard className="h-4 w-4 text-white" />
+
+          <div className="p-5 space-y-4">
+
+            {/* ── Saved Payment Method ── */}
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Saved Payment Method</p>
+              </div>
+              <div className="p-4">
+                {client.defaultPaymentMethodId && client.savedCardLast4 ? (
+                  <div className="space-y-3">
+                    {/* Card visual */}
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-md flex items-center justify-center flex-shrink-0 shadow">
+                        <CreditCard className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {client.savedCardBrand
+                            ? client.savedCardBrand.charAt(0).toUpperCase() + client.savedCardBrand.slice(1)
+                            : 'Card'}{' '}
+                          •••• {client.savedCardLast4}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Expires {String(client.savedCardExpMonth).padStart(2, '0')} / {client.savedCardExpYear}
+                        </p>
+                      </div>
+                      <span className={`ml-auto inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${
+                        client.autoPayEnabled
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-gray-50 text-gray-500 border-gray-200'
+                      }`}>
+                        {client.autoPayEnabled
+                          ? <><CheckCircle className="h-3 w-3" /> Auto-Pay On</>
+                          : <><AlertCircle className="h-3 w-3" /> Auto-Pay Off</>
+                        }
+                      </span>
+                    </div>
+
+                    {/* Card detail rows */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 pt-2 border-t border-gray-100">
+                      <BillingRow label="Card Brand" value={client.savedCardBrand ? client.savedCardBrand.charAt(0).toUpperCase() + client.savedCardBrand.slice(1) : '—'} />
+                      <BillingRow label="Last 4 Digits" value={client.savedCardLast4 ? `•••• ${client.savedCardLast4}` : '—'} />
+                      <BillingRow label="Expiry Month" value={client.savedCardExpMonth ? String(client.savedCardExpMonth).padStart(2, '0') : '—'} />
+                      <BillingRow label="Expiry Year" value={client.savedCardExpYear ? String(client.savedCardExpYear) : '—'} />
+                      <BillingRow label="Auto-Pay" value={client.autoPayEnabled ? 'Enabled' : 'Disabled'} highlight={client.autoPayEnabled ? 'green' : undefined} />
+                      <BillingRow label="Payment Method ID" value={client.defaultPaymentMethodId || '—'} mono truncate />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900 text-sm">
-                      {client.savedCardBrand ? client.savedCardBrand.charAt(0).toUpperCase() + client.savedCardBrand.slice(1) : 'Card'} •••• {client.savedCardLast4}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Exp {String(client.savedCardExpMonth).padStart(2,'0')}/{client.savedCardExpYear}
-                    </p>
+                ) : (
+                  <div className="flex items-center gap-2 text-gray-500 text-sm py-1">
+                    <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span>No card saved. Client must add one via their portal.</span>
                   </div>
-                  <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <CheckCircle className="h-3 w-3" />
-                    Auto-Pay On
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-gray-500 text-sm">
-                  <AlertCircle className="h-4 w-4 text-gray-400" />
-                  <span>No card saved. Client must add one via their portal.</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Fixed Subscription */}
-            <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fixed Recurring Plan</p>
-              {client.stripeSubscriptionId && client.subscriptionStatus === 'active' ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-amber-500" />
-                    <span className="font-semibold text-gray-900">
-                      {fmtMoney(client.subscriptionAmount || 0)}/month
-                    </span>
-                    <span className="text-xs text-gray-500">on the {client.subscriptionBillingDay}{
-                      [,'st','nd','rd'][((client.subscriptionBillingDay||1)%100-20)%10] ||
-                      [,'st','nd','rd'][(client.subscriptionBillingDay||1)%100] || 'th'
-                    } of each month</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCancelSubscription}
-                    disabled={cancelingSub}
-                    className="gap-1.5 text-red-600 border-red-200 hover:border-red-300 text-xs"
-                  >
-                    <XCircle className="h-3.5 w-3.5" />
-                    {cancelingSub ? 'Cancelling…' : 'Cancel Subscription'}
-                  </Button>
+            {/* ── Stripe Account ── */}
+            {client.stripeCustomerId && (
+              <div className="rounded-lg border border-gray-200 overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Stripe Account</p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-500 text-sm">
-                    <AlertCircle className="h-4 w-4 text-gray-400" />
-                    <span>No fixed recurring plan active.</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowSubModal(true)}
-                    disabled={!client.defaultPaymentMethodId}
-                    className="gap-1.5 text-xs"
-                    title={!client.defaultPaymentMethodId ? 'Client must save a card first' : ''}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Create Fixed Plan
-                  </Button>
-                  {!client.defaultPaymentMethodId && (
-                    <p className="text-xs text-amber-600">Client must save a card first</p>
-                  )}
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                  <BillingRow label="Stripe Customer ID" value={client.stripeCustomerId} mono truncate />
+                  <BillingRow label="Account Status" value="Active" highlight="green" />
                 </div>
-              )}
+              </div>
+            )}
+
+            {/* ── Fixed Recurring Plan ── */}
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fixed Recurring Plan</p>
+              </div>
+              <div className="p-4">
+                {client.stripeSubscriptionId && client.subscriptionStatus === 'active' ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                      <BillingRow label="Monthly Amount" value={fmtMoney(client.subscriptionAmount || 0)} highlight="blue" />
+                      <BillingRow label="Billing Day" value={`${client.subscriptionBillingDay}${
+                        [,'st','nd','rd'][((client.subscriptionBillingDay||1)%100-20)%10] ||
+                        [,'st','nd','rd'][(client.subscriptionBillingDay||1)%100] || 'th'
+                      } of each month`} />
+                      <BillingRow label="Status" value="Active" highlight="green" />
+                      <BillingRow label="Subscription ID" value={client.stripeSubscriptionId} mono truncate />
+                    </div>
+                    <div className="pt-2 border-t border-gray-100">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelSubscription}
+                        disabled={cancelingSub}
+                        className="gap-1.5 text-red-600 border-red-200 hover:border-red-300 text-xs"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                        {cancelingSub ? 'Cancelling…' : 'Cancel Subscription'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {client.stripeSubscriptionId && client.subscriptionStatus !== 'active' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mb-2">
+                        <BillingRow label="Status" value={client.subscriptionStatus ? client.subscriptionStatus.charAt(0).toUpperCase() + client.subscriptionStatus.slice(1) : 'Inactive'} />
+                        <BillingRow label="Subscription ID" value={client.stripeSubscriptionId} mono truncate />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                      <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <span>No active fixed recurring plan.</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowSubModal(true)}
+                      disabled={!client.defaultPaymentMethodId}
+                      className="gap-1.5 text-xs"
+                      title={!client.defaultPaymentMethodId ? 'Client must save a card first' : ''}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Create Fixed Plan
+                    </Button>
+                    {!client.defaultPaymentMethodId && (
+                      <p className="text-xs text-amber-600">Client must save a card first</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
           </div>
         </div>
 
@@ -727,5 +780,36 @@ export default function ClientDetailPage() {
         </div>
       </div>
     </AdminLayout>
+  );
+}
+
+function BillingRow({
+  label,
+  value,
+  mono,
+  truncate,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  truncate?: boolean;
+  highlight?: 'green' | 'blue' | 'red';
+}) {
+  const valueClass = highlight === 'green'
+    ? 'text-emerald-700 font-semibold'
+    : highlight === 'blue'
+    ? 'text-blue-700 font-semibold'
+    : highlight === 'red'
+    ? 'text-red-600 font-semibold'
+    : 'text-gray-900';
+
+  return (
+    <div className="flex items-baseline gap-2 py-1">
+      <span className="text-xs text-gray-500 w-36 flex-shrink-0">{label}</span>
+      <span className={`text-sm ${valueClass} ${mono ? 'font-mono text-xs' : ''} ${truncate ? 'truncate max-w-[160px]' : ''}`}>
+        {value}
+      </span>
+    </div>
   );
 }
