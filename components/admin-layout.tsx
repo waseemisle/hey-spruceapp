@@ -230,8 +230,10 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <Logo href="/admin-portal" size="sm" />
-            <span className="text-sm text-muted-foreground hidden sm:inline">Admin Portal</span>
+            <a href="/admin-portal" className="flex items-center gap-2 no-underline">
+              <Logo href="/admin-portal" size="sm" />
+              <span className="text-sm text-muted-foreground hidden sm:inline hover:text-foreground transition-colors">Admin Portal</span>
+            </a>
           </div>
 
           <div className="flex-1 flex justify-center px-4">
