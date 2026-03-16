@@ -499,25 +499,29 @@ export default function CreateRecurringWorkOrder() {
 
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  const filteredLocations = locations.filter((location) => {
-    if (formData.companyId) {
-      return location.companyId === formData.companyId;
-    }
-    if (formData.clientId) {
-      return location.clientId === formData.clientId;
-    }
-    return true;
-  });
-
   // SearchableSelect option arrays
   const clientOptions: SearchableSelectOption[] = clients.map(c => ({
     value: c.id,
     label: `${c.fullName} (${c.email})`,
   }));
 
-  const filteredCompanies = formData.clientId
-    ? companies.filter(c => c.clientId === formData.clientId)
-    : companies;
+  const filteredCompanies = (() => {
+    if (!formData.clientId) return companies;
+    const matched = companies.filter(c => c.clientId === formData.clientId);
+    return matched.length > 0 ? matched : companies;
+  })();
+
+  const filteredLocations = (() => {
+    if (formData.companyId) {
+      const matched = locations.filter(l => l.companyId === formData.companyId);
+      return matched.length > 0 ? matched : locations;
+    }
+    if (formData.clientId) {
+      const matched = locations.filter(l => l.clientId === formData.clientId);
+      return matched.length > 0 ? matched : locations;
+    }
+    return locations;
+  })();
 
   const companyOptions: SearchableSelectOption[] = filteredCompanies.map(c => ({
     value: c.id,
@@ -633,14 +637,8 @@ export default function CreateRecurringWorkOrder() {
                     value={formData.locationId}
                     onChange={handleLocationSelect}
                     placeholder="Choose a location..."
-                    disabled={!formData.companyId}
                   />
                 </div>
-                {formData.companyId && filteredLocations.length === 0 && (
-                  <p className="text-xs text-yellow-600 mt-1">
-                    No locations found for the selected company.
-                  </p>
-                )}
               </div>
 
               <div>
@@ -810,19 +808,6 @@ export default function CreateRecurringWorkOrder() {
                 </p>
               </div>
 
-              {formData.recurrenceType === 'monthly' && (
-                <div>
-                  <Label>Day of Month</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={formData.recurrenceDayOfMonth}
-                    onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Day of the month when work order should be created (1-31)</p>
-                </div>
-              )}
 
               <div className="pt-4 border-t">
                 <Button
@@ -890,17 +875,6 @@ export default function CreateRecurringWorkOrder() {
                     </div>
                   </div>
 
-                  <div>
-                    <Label>Day of Month</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={formData.invoiceScheduleDayOfMonth}
-                      onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Day of the month when invoice should be sent (1-31)</p>
-                  </div>
                 </>
               )}
 
