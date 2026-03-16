@@ -22,23 +22,18 @@ import { StatCards } from '@/components/ui/stat-cards';
 interface BiddingWorkOrder {
   id: string;
   workOrderId: string;
-  status: string;
-  sharedAt: any;
-}
-
-interface WorkOrder {
-  id: string;
   workOrderNumber?: string;
-  title: string;
-  description: string;
-  category: string;
+  workOrderTitle: string;
+  workOrderDescription: string;
+  clientId: string;
+  clientName: string;
   priority: string;
+  category: string;
   locationName: string;
   locationAddress: string;
-  clientName: string;
-  clientId: string;
   images?: string[];
-  createdAt: any;
+  status: string;
+  sharedAt: any;
 }
 
 interface LineItem {
@@ -51,10 +46,9 @@ interface LineItem {
 export default function SubcontractorBidding() {
   const { auth, db } = useFirebaseInstance();
   const [biddingWorkOrders, setBiddingWorkOrders] = useState<BiddingWorkOrder[]>([]);
-  const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
+  const [selectedBidding, setSelectedBidding] = useState<BiddingWorkOrder | null>(null);
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -71,8 +65,6 @@ export default function SubcontractorBidding() {
   ]);
 
   useEffect(() => {
-    let unsubscribeWorkOrders: (() => void) | null = null;
-
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         const biddingQuery = query(
@@ -82,53 +74,29 @@ export default function SubcontractorBidding() {
           orderBy('sharedAt', 'desc')
         );
 
-        const unsubscribeSnapshot = onSnapshot(biddingQuery, (snapshot) => {
-          const biddingData = snapshot.docs.map(d => ({
-            id: d.id,
-            ...d.data(),
-          })) as BiddingWorkOrder[];
-
-          setBiddingWorkOrders(biddingData);
-
-          if (unsubscribeWorkOrders) {
-            unsubscribeWorkOrders();
-            unsubscribeWorkOrders = null;
-          }
-
-          const workOrderIds = [...new Set(biddingData.map(b => b.workOrderId))];
-
-          if (workOrderIds.length > 0) {
-            const workOrdersQuery = query(
-              collection(db, 'workOrders'),
-              where('__name__', 'in', workOrderIds)
-            );
-            unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (woSnapshot) => {
-              const workOrdersMap = new Map<string, WorkOrder>();
-              woSnapshot.docs.forEach(woDoc => {
-                workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
-              });
-              setWorkOrders(workOrdersMap);
-              setLoading(false);
-            });
-          } else {
-            setWorkOrders(new Map());
+        const unsubscribeSnapshot = onSnapshot(
+          biddingQuery,
+          (snapshot) => {
+            const biddingData = snapshot.docs.map(d => ({
+              id: d.id,
+              ...d.data(),
+            })) as BiddingWorkOrder[];
+            setBiddingWorkOrders(biddingData);
+            setLoading(false);
+          },
+          (error) => {
+            console.error('Bidding query error:', error);
             setLoading(false);
           }
-        });
+        );
 
-        return () => {
-          unsubscribeSnapshot();
-          if (unsubscribeWorkOrders) unsubscribeWorkOrders();
-        };
+        return () => unsubscribeSnapshot();
       } else {
         setLoading(false);
       }
     });
 
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeWorkOrders) unsubscribeWorkOrders();
-    };
+    return () => unsubscribeAuth();
   }, [auth, db]);
 
   const handleQuoteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -161,14 +129,13 @@ export default function SubcontractorBidding() {
   };
 
   const handleSubmitQuote = async () => {
-    if (!selectedWorkOrder) return;
+    if (!selectedBidding) return;
 
     if (!quoteForm.estimatedDuration || !quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
       toast.error('Please fill in all required fields (including service date and time)');
       return;
     }
 
-    // Validate line items - at least one must have description and amount > 0
     const validLineItems = lineItems.filter(item => item.description && item.amount > 0);
     if (validLineItems.length === 0) {
       toast.error('Please add at least one line item with a description and amount');
@@ -195,7 +162,7 @@ export default function SubcontractorBidding() {
         .reduce((sum, item) => sum + item.amount, 0);
 
       // Fetch client email
-      const clientDoc = await getDoc(doc(db, 'clients', selectedWorkOrder.clientId));
+      const clientDoc = await getDoc(doc(db, 'clients', selectedBidding.clientId));
       const clientEmail = clientDoc.exists() ? clientDoc.data().email : '';
 
       const createdByName = subData.fullName || subData.businessName || 'Subcontractor';
@@ -205,17 +172,17 @@ export default function SubcontractorBidding() {
         userName: createdByName,
         userRole: 'subcontractor',
         details: 'Quote submitted via bidding portal',
-        metadata: { source: 'subcontractor_bidding', workOrderNumber: selectedWorkOrder.workOrderNumber },
+        metadata: { source: 'subcontractor_bidding', workOrderNumber: selectedBidding.workOrderNumber },
       });
       const quoteRef = await addDoc(collection(db, 'quotes'), {
-        workOrderId: selectedWorkOrder.id,
-        workOrderNumber: selectedWorkOrder.workOrderNumber,
-        workOrderTitle: selectedWorkOrder.title,
+        workOrderId: selectedBidding.workOrderId,
+        workOrderNumber: selectedBidding.workOrderNumber,
+        workOrderTitle: selectedBidding.workOrderTitle,
         subcontractorId: currentUser.uid,
         subcontractorName: subData.fullName || subData.businessName,
         subcontractorEmail: subData.email,
-        clientId: selectedWorkOrder.clientId,
-        clientName: selectedWorkOrder.clientName,
+        clientId: selectedBidding.clientId,
+        clientName: selectedBidding.clientName,
         clientEmail: clientEmail,
         laborCost: labor,
         materialCost: material,
@@ -244,27 +211,24 @@ export default function SubcontractorBidding() {
         updatedAt: serverTimestamp(),
       });
 
-      // Notify client and admin about quote submission
       await notifyQuoteSubmission(
-        selectedWorkOrder.clientId,
-        selectedWorkOrder.id,
-        selectedWorkOrder.workOrderNumber || selectedWorkOrder.id,
+        selectedBidding.clientId,
+        selectedBidding.workOrderId,
+        selectedBidding.workOrderNumber || selectedBidding.workOrderId,
         subData.fullName || subData.businessName,
         total
       );
 
-      // Send email notifications to client and admins
       try {
-        // Send to client
         if (clientEmail) {
           await fetch('/api/email/send-quote-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               toEmail: clientEmail,
-              toName: selectedWorkOrder.clientName,
-              workOrderNumber: selectedWorkOrder.workOrderNumber || selectedWorkOrder.id,
-              workOrderTitle: selectedWorkOrder.title,
+              toName: selectedBidding.clientName,
+              workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+              workOrderTitle: selectedBidding.workOrderTitle,
               subcontractorName: subData.fullName || subData.businessName,
               quoteAmount: total,
               proposedServiceDate: quoteForm.proposedServiceDate,
@@ -274,9 +238,7 @@ export default function SubcontractorBidding() {
           });
         }
 
-        // Send to all admins
-        const adminsQuery = query(collection(db, 'adminUsers'));
-        const adminsSnapshot = await getDocs(adminsQuery);
+        const adminsSnapshot = await getDocs(query(collection(db, 'adminUsers')));
         for (const adminDoc of adminsSnapshot.docs) {
           const adminData = adminDoc.data();
           if (adminData.email) {
@@ -286,8 +248,8 @@ export default function SubcontractorBidding() {
               body: JSON.stringify({
                 toEmail: adminData.email,
                 toName: adminData.fullName || 'Admin',
-                workOrderNumber: selectedWorkOrder.workOrderNumber || selectedWorkOrder.id,
-                workOrderTitle: selectedWorkOrder.title,
+                workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+                workOrderTitle: selectedBidding.workOrderTitle,
                 subcontractorName: subData.fullName || subData.businessName,
                 quoteAmount: total,
                 proposedServiceDate: quoteForm.proposedServiceDate,
@@ -299,11 +261,10 @@ export default function SubcontractorBidding() {
         }
       } catch (emailError) {
         console.error('Failed to send quote notification emails:', emailError);
-        // Don't fail the whole operation if emails fail
       }
 
-      // Update parent work order status once a quote is received
-      const workOrderRef = doc(db, 'workOrders', selectedWorkOrder.id);
+      // Update parent work order status
+      const workOrderRef = doc(db, 'workOrders', selectedBidding.workOrderId);
       const workOrderSnapshot = await getDoc(workOrderRef);
       if (workOrderSnapshot.exists()) {
         const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
@@ -312,8 +273,7 @@ export default function SubcontractorBidding() {
         const existingTimeline = workOrderData?.timeline || [];
         const existingSysInfo = workOrderData?.systemInformation || {};
 
-        // Create timeline event for quote submission
-        const timelineEvent = {
+        const woTimelineEvent = {
           id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           timestamp: Timestamp.now(),
           type: 'quote_received',
@@ -329,7 +289,6 @@ export default function SubcontractorBidding() {
           }
         };
 
-        // Update system information
         const existingQuotes = existingSysInfo.quotesReceived || [];
         const updatedSysInfo = {
           ...existingSysInfo,
@@ -345,7 +304,7 @@ export default function SubcontractorBidding() {
         if (currentStatus === 'quotes_received') {
           await updateDoc(workOrderRef, {
             updatedAt: serverTimestamp(),
-            timeline: [...existingTimeline, timelineEvent],
+            timeline: [...existingTimeline, woTimelineEvent],
             systemInformation: updatedSysInfo,
           });
         } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
@@ -353,32 +312,22 @@ export default function SubcontractorBidding() {
             status: 'quotes_received',
             quoteReceivedAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
-            timeline: [...existingTimeline, timelineEvent],
+            timeline: [...existingTimeline, woTimelineEvent],
             systemInformation: updatedSysInfo,
           });
         }
       }
 
-      // Update biddingWorkOrder status to 'quoted' so it disappears from bidding list
-      const biddingQuery = query(
-        collection(db, 'biddingWorkOrders'),
-        where('workOrderId', '==', selectedWorkOrder.id),
-        where('subcontractorId', '==', currentUser.uid)
-      );
-      const biddingSnapshot = await getDocs(biddingQuery);
-
-      if (!biddingSnapshot.empty) {
-        const biddingDoc = biddingSnapshot.docs[0];
-        await updateDoc(doc(db, 'biddingWorkOrders', biddingDoc.id), {
-          status: 'quoted',
-          quotedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
+      // Mark biddingWorkOrder as quoted
+      await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
+        status: 'quoted',
+        quotedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
       toast.success('Quote submitted successfully!');
       setShowQuoteForm(false);
-      setSelectedWorkOrder(null);
+      setSelectedBidding(null);
       setQuoteForm({
         estimatedDuration: '',
         proposedServiceDate: '',
@@ -398,19 +347,14 @@ export default function SubcontractorBidding() {
   };
 
   const filteredBiddingWorkOrders = biddingWorkOrders.filter(bidding => {
-    const workOrder = workOrders.get(bidding.workOrderId);
-    if (!workOrder) return false;
-
     const searchLower = searchQuery.toLowerCase();
-    const searchMatch = !searchQuery ||
-      workOrder.title.toLowerCase().includes(searchLower) ||
-      workOrder.description.toLowerCase().includes(searchLower) ||
-      workOrder.clientName.toLowerCase().includes(searchLower) ||
-      workOrder.category.toLowerCase().includes(searchLower) ||
-      workOrder.locationName.toLowerCase().includes(searchLower) ||
-      formatAddress(workOrder.locationAddress).toLowerCase().includes(searchLower);
-
-    return searchMatch;
+    return !searchQuery ||
+      bidding.workOrderTitle.toLowerCase().includes(searchLower) ||
+      bidding.workOrderDescription.toLowerCase().includes(searchLower) ||
+      bidding.clientName.toLowerCase().includes(searchLower) ||
+      bidding.category.toLowerCase().includes(searchLower) ||
+      bidding.locationName.toLowerCase().includes(searchLower) ||
+      formatAddress(bidding.locationAddress).toLowerCase().includes(searchLower);
   });
 
   const getPriorityBadge = (priority: string) => {
@@ -432,19 +376,19 @@ export default function SubcontractorBidding() {
     );
   }
 
-  if (showQuoteForm && selectedWorkOrder) {
+  if (showQuoteForm && selectedBidding) {
     return (
       <SubcontractorLayout>
         <PageContainer>
           <PageHeader
             title="Submit Quote"
-            subtitle={selectedWorkOrder.workOrderNumber ? `Work Order: ${selectedWorkOrder.workOrderNumber}` : selectedWorkOrder.title}
+            subtitle={selectedBidding.workOrderNumber ? `Work Order: ${selectedBidding.workOrderNumber}` : selectedBidding.workOrderTitle}
             icon={DollarSign}
             iconClassName="text-blue-600"
             action={
               <Button variant="outline" onClick={() => {
                 setShowQuoteForm(false);
-                setSelectedWorkOrder(null);
+                setSelectedBidding(null);
               }}>
                 Cancel
               </Button>
@@ -610,7 +554,7 @@ export default function SubcontractorBidding() {
                     variant="outline"
                     onClick={() => {
                       setShowQuoteForm(false);
-                      setSelectedWorkOrder(null);
+                      setSelectedBidding(null);
                     }}
                   >
                     Cancel
@@ -666,81 +610,84 @@ export default function SubcontractorBidding() {
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {filteredBiddingWorkOrders.map((bidding) => {
-              const workOrder = workOrders.get(bidding.workOrderId);
-              if (!workOrder) return null;
-
-              return (
-                <div
-                  key={bidding.id}
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
-                  <div className="p-5 space-y-3">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-base mb-1">{workOrder.title}</h3>
-                      {workOrder.workOrderNumber && (
-                        <p className="text-xs text-gray-500 mb-2">WO: {workOrder.workOrderNumber}</p>
+            {filteredBiddingWorkOrders.map((bidding) => (
+              <div
+                key={bidding.id}
+                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+              >
+                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
+                <div className="p-5 space-y-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 text-base mb-1">{bidding.workOrderTitle}</h3>
+                    {bidding.workOrderNumber && (
+                      <p className="text-xs text-gray-500 mb-2">WO: {bidding.workOrderNumber}</p>
+                    )}
+                    <div className="flex gap-1.5 flex-wrap">
+                      {bidding.priority && (
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${getPriorityBadge(bidding.priority)}`}>
+                          {bidding.priority} priority
+                        </span>
                       )}
-                      <div className="flex gap-1.5 flex-wrap">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${getPriorityBadge(workOrder.priority)}`}>
-                          {workOrder.priority} priority
-                        </span>
+                      {bidding.category && (
                         <span className="inline-flex text-xs font-medium px-2 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-100">
-                          {workOrder.category}
+                          {bidding.category}
                         </span>
-                      </div>
+                      )}
                     </div>
+                  </div>
 
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-0.5">Client</p>
-                      <p className="text-sm text-gray-600">{workOrder.clientName}</p>
-                    </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-0.5">Client</p>
+                    <p className="text-sm text-gray-600">{bidding.clientName}</p>
+                  </div>
 
+                  {bidding.locationName && (
                     <div className="flex items-start gap-2 text-sm text-gray-600">
                       <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
                       <div>
-                        <div>{workOrder.locationName}</div>
-                        <div className="text-xs text-gray-500">{formatAddress(workOrder.locationAddress)}</div>
+                        <div>{bidding.locationName}</div>
+                        {bidding.locationAddress && (
+                          <div className="text-xs text-gray-500">{formatAddress(bidding.locationAddress)}</div>
+                        )}
                       </div>
                     </div>
+                  )}
 
-                    <p className="text-sm text-gray-600 line-clamp-3">{workOrder.description}</p>
+                  <p className="text-sm text-gray-600 line-clamp-3">{bidding.workOrderDescription}</p>
 
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Calendar className="h-3.5 w-3.5" />
-                      <span>Shared {bidding.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>Shared {bidding.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
+                  </div>
+
+                  {bidding.images && bidding.images.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto">
+                      {bidding.images.map((image, idx) => (
+                        <img
+                          key={idx}
+                          src={image}
+                          alt={`Work order ${idx + 1}`}
+                          className="h-16 w-16 object-cover rounded-lg flex-shrink-0"
+                        />
+                      ))}
                     </div>
+                  )}
 
-                    {workOrder.images && workOrder.images.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto">
-                        {workOrder.images.map((image, idx) => (
-                          <img
-                            key={idx}
-                            src={image}
-                            alt={`Work order ${idx + 1}`}
-                            className="h-16 w-16 object-cover rounded-lg flex-shrink-0"
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="pt-3 border-t border-gray-100">
-                      <Button
-                        onClick={() => {
-                          setSelectedWorkOrder(workOrder);
-                          setShowQuoteForm(true);
-                        }}
-                        className="w-full gap-2"
-                      >
-                        <DollarSign className="h-3.5 w-3.5" />
-                        Submit Quote
-                      </Button>
-                    </div>
+                  <div className="pt-3 border-t border-gray-100">
+                    <Button
+                      onClick={() => {
+                        setSelectedBidding(bidding);
+                        setShowQuoteForm(true);
+                      }}
+                      className="w-full gap-2"
+                    >
+                      <DollarSign className="h-3.5 w-3.5" />
+                      Submit Quote
+                    </Button>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </PageContainer>

@@ -541,6 +541,11 @@ export default function ViewWorkOrder() {
           subcontractorId: subId, subcontractorName: sub.fullName, subcontractorEmail: sub.email,
           workOrderTitle: workOrder.title, workOrderDescription: workOrder.description,
           clientId: workOrder.clientId, clientName: workOrder.clientName,
+          priority: workOrder.priority || '',
+          category: workOrder.category || '',
+          locationName: workOrder.locationName || '',
+          locationAddress: workOrder.locationAddress || '',
+          images: workOrder.images || [],
           status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
         });
       }));
