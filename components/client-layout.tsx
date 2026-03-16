@@ -15,7 +15,6 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
-import AccountSettingsDialog from './account-settings-dialog';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -247,12 +246,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 </span>
               )}
             </div>
-            <AccountSettingsDialog
-              user={user}
-              role="client"
-              instances={firebaseInstances}
-              onProfileUpdated={(updated) => setUser((prev: any) => ({ ...prev, ...updated }))}
-            />
+            <Link href="/client-portal/account-settings">
+              <Button variant="outline" size="sm">Account Settings</Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>

@@ -1,0 +1,236 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  updateProfile,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  updatePassword,
+  onAuthStateChanged,
+} from 'firebase/auth';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { db, auth, storage } from '@/lib/firebase';
+import ClientLayout from '@/components/client-layout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { toast } from 'sonner';
+import { User, Mail, Phone, Building2, Lock, Camera, Save, ArrowLeft } from 'lucide-react';
+
+export default function ClientAccountSettings() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  const [uid, setUid] = useState('');
+  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  useEffect(() => {
+    if (!auth || !db) return;
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) { router.push('/client-login'); return; }
+      setUid(firebaseUser.uid);
+      setEmail(firebaseUser.email || '');
+      try {
+        const snap = await getDoc(doc(db, 'clients', firebaseUser.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          setFullName(data.fullName || firebaseUser.displayName || '');
+          setPhone(data.phone || '');
+          setCompanyName(data.companyName || '');
+          setPhotoPreview(data.profileImageUrl || firebaseUser.photoURL || null);
+        } else {
+          setFullName(firebaseUser.displayName || '');
+          setPhotoPreview(firebaseUser.photoURL || null);
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    });
+    return () => unsub();
+  }, [router]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Please upload an image file'); return; }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveProfile = async () => {
+    if (!db || !auth || !uid) return;
+    setSavingProfile(true);
+    try {
+      let uploadedUrl = photoPreview;
+      if (photoFile && storage) {
+        const storageRef = ref(storage, `profile-images/${uid}-${Date.now()}`);
+        await uploadBytes(storageRef, photoFile);
+        uploadedUrl = await getDownloadURL(storageRef);
+      }
+      await updateDoc(doc(db, 'clients', uid), {
+        fullName, phone, profileImageUrl: uploadedUrl || null, updatedAt: serverTimestamp(),
+      });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: fullName || undefined, photoURL: uploadedUrl || undefined });
+      }
+      setPhotoFile(null);
+      toast.success('Profile saved successfully');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!auth?.currentUser) { toast.error('Please re-login and try again'); return; }
+    if (!currentPassword || !newPassword || !confirmPassword) { toast.error('Please fill out all password fields'); return; }
+    if (newPassword.length < 6) { toast.error('New password must be at least 6 characters'); return; }
+    if (newPassword !== confirmPassword) { toast.error('Passwords do not match'); return; }
+    setSavingPassword(true);
+    try {
+      const credential = EmailAuthProvider.credential(email, currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, newPassword);
+      toast.success('Password updated successfully');
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not update password. Check your current password.');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const initials = (fullName || email || 'C').slice(0, 2).toUpperCase();
+
+  return (
+    <ClientLayout>
+      <div className="max-w-3xl mx-auto space-y-8 pb-16 p-6">
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Manage your profile and security settings</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="space-y-6">
+            {[1, 2].map(i => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4 animate-pulse">
+                <div className="h-5 w-40 rounded bg-gray-200" /><div className="h-10 w-full rounded bg-gray-200" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {/* Profile Photo */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-6"><Camera className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-gray-900">Profile Photo</h2></div>
+              <div className="flex items-center gap-6">
+                <Avatar className="h-24 w-24 ring-4 ring-gray-100">
+                  {photoPreview ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} /> : <AvatarFallback className="text-xl font-bold bg-blue-100 text-blue-700">{initials}</AvatarFallback>}
+                </Avatar>
+                <div className="space-y-2">
+                  <Label htmlFor="profilePhoto" className="text-sm font-medium">Upload new photo</Label>
+                  <Input id="profilePhoto" type="file" accept="image/*" onChange={handleFileChange} className="max-w-xs" />
+                  <p className="text-xs text-gray-400">JPG, PNG or WebP. Max 5MB.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Personal Information */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-6"><User className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-gray-900">Personal Information</h2></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Your full name" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input id="email" value={email} disabled className="pl-9 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <p className="text-xs text-gray-400">Email cannot be changed</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input id="phone" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" className="pl-9" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="companyName">Company Name</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input id="companyName" value={companyName} disabled className="pl-9 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <p className="text-xs text-gray-400">Managed by your administrator</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={handleSaveProfile} disabled={savingProfile} className="gap-2 px-6">
+                <Save className="h-4 w-4" />
+                {savingProfile ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Change Password */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <Lock className="h-5 w-5 text-blue-600" />
+                <div><h2 className="text-base font-semibold text-gray-900">Change Password</h2><p className="text-sm text-gray-500 mt-0.5">Re-enter your current password to set a new one</p></div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label htmlFor="currentPassword">Current Password</Label>
+                  <Input id="currentPassword" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="Enter current password" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <Input id="newPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min. 6 characters" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input id="confirmPassword" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat new password" />
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button variant="secondary" onClick={handleUpdatePassword} disabled={savingPassword} className="gap-2">
+                  <Lock className="h-4 w-4" />
+                  {savingPassword ? 'Updating...' : 'Update Password'}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </ClientLayout>
+  );
+}

@@ -15,7 +15,6 @@ import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu
 import { ThemeToggle } from '@/components/theme-toggle';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
-import AccountSettingsDialog from './account-settings-dialog';
 
 export default function SubcontractorLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -191,12 +190,9 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
-            <AccountSettingsDialog
-              user={user}
-              role="subcontractor"
-              instances={firebaseInstances}
-              onProfileUpdated={(updated) => setUser((prev: any) => ({ ...prev, ...updated }))}
-            />
+            <Link href="/subcontractor-portal/account-settings">
+              <Button variant="outline" size="sm">Account Settings</Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>

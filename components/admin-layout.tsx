@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
 import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -10,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
-import AccountSettingsDialog from './account-settings-dialog';
+import Link from 'next/link';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw,
@@ -244,12 +243,9 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
-            <AccountSettingsDialog
-              user={user}
-              role="admin"
-              instances={firebaseInstances}
-              onProfileUpdated={(updated) => setUser((prev: any) => ({ ...prev, ...updated }))}
-            />
+            <Link href="/admin-portal/account-settings">
+              <Button variant="outline" size="sm">Account Settings</Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>
