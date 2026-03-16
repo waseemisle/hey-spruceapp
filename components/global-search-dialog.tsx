@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
 import {
   Search, X, ClipboardList, Users, Building2, Receipt,
   FileText, Tag, Wrench, RotateCcw, Package,
@@ -16,153 +14,22 @@ interface SearchResultItem {
   subtitle?: string;
   category: string;
   href: string;
-  Icon: React.ElementType;
-  iconColor: string;
-  searchText: string;
 }
 
-interface CachedData {
-  items: SearchResultItem[];
-  fetchedAt: number;
-}
-
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-const COLLECTION_CONFIGS = [
-  {
-    name: 'workOrders',
-    category: 'Work Orders',
-    Icon: ClipboardList,
-    iconColor: 'text-blue-500',
-    hrefFn: (id: string) => `/admin-portal/work-orders/${id}`,
-    titleFn: (d: any) => d.workOrderNumber || d.title || d.id,
-    subtitleFn: (d: any) => [d.status, d.category, d.clientName].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.title, d.workOrderNumber, d.orderNumber, d.description, d.status, d.category, d.clientName, d.clientId, d.assignedTo, d.assignedToName, d.subcontractorName].filter(Boolean).join(' '),
-  },
-  {
-    name: 'clients',
-    category: 'Clients',
-    Icon: Users,
-    iconColor: 'text-green-500',
-    hrefFn: (id: string) => `/admin-portal/clients/${id}`,
-    titleFn: (d: any) => d.fullName || d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || d.id,
-    subtitleFn: (d: any) => [d.email, d.phone, d.companyName || d.company].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.fullName, d.name, d.firstName, d.lastName, d.email, d.phone, d.company, d.companyName, d.displayName].filter(Boolean).join(' '),
-  },
-  {
-    name: 'subcontractors',
-    category: 'Subcontractors',
-    Icon: Award,
-    iconColor: 'text-orange-500',
-    hrefFn: (id: string) => `/admin-portal/subcontractors/${id}`,
-    titleFn: (d: any) => d.fullName || d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email || d.id,
-    subtitleFn: (d: any) => [d.businessName, d.email, d.phone].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.fullName, d.name, d.businessName, d.firstName, d.lastName, d.email, d.phone, d.trade, d.specialty, d.company, d.displayName].filter(Boolean).join(' '),
-  },
-  {
-    name: 'invoices',
-    category: 'Invoices',
-    Icon: Receipt,
-    iconColor: 'text-purple-500',
-    hrefFn: (id: string) => `/admin-portal/invoices/${id}`,
-    titleFn: (d: any) => d.invoiceNumber || d.title || d.id,
-    subtitleFn: (d: any) =>
-      [d.clientName, d.status, d.totalAmount != null ? `$${d.totalAmount}` : null].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.invoiceNumber, d.title, d.clientName, d.status, d.subcontractorName, d.assignedToName].filter(Boolean).join(' '),
-  },
-  {
-    name: 'quotes',
-    category: 'Quotes',
-    Icon: FileText,
-    iconColor: 'text-yellow-500',
-    hrefFn: (_id: string) => `/admin-portal/quotes`,
-    titleFn: (d: any) => d.quoteNumber || d.workOrderTitle || d.id,
-    subtitleFn: (d: any) =>
-      [d.clientName, d.subcontractorName, d.status].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.workOrderTitle, d.quoteNumber, d.clientName, d.subcontractorName, d.status, d.workOrderNumber].filter(Boolean).join(' '),
-  },
-  {
-    name: 'locations',
-    category: 'Locations',
-    Icon: MapPin,
-    iconColor: 'text-red-500',
-    hrefFn: (id: string) => `/admin-portal/locations/${id}`,
-    titleFn: (d: any) => d.name || d.address || d.id,
-    subtitleFn: (d: any) => [d.address, d.city, d.state].filter(Boolean).join(', '),
-    searchFn: (d: any) =>
-      [d.id, d.name, d.address, d.city, d.state, d.zip, d.clientName, d.locationName].filter(Boolean).join(' '),
-  },
-  {
-    name: 'companies',
-    category: 'Companies',
-    Icon: Building2,
-    iconColor: 'text-teal-500',
-    hrefFn: (id: string) => `/admin-portal/subsidiaries/${id}`,
-    titleFn: (d: any) => d.name || d.id,
-    subtitleFn: (d: any) => [d.industry, d.city, d.state].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.name, d.industry, d.city, d.state, d.email, d.phone].filter(Boolean).join(' '),
-  },
-  {
-    name: 'maint_requests',
-    category: 'Maintenance Requests',
-    Icon: Wrench,
-    iconColor: 'text-amber-600',
-    hrefFn: (_id: string) => `/admin-portal/maint-requests`,
-    titleFn: (d: any) => d.title || d.id,
-    subtitleFn: (d: any) => [d.venue, d.requestor, d.status, d.priority].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.title, d.description, d.venue, d.requestor, d.status, d.priority].filter(Boolean).join(' '),
-  },
-  {
-    name: 'recurringWorkOrders',
-    category: 'Recurring Work Orders',
-    Icon: RotateCcw,
-    iconColor: 'text-cyan-500',
-    hrefFn: (id: string) => `/admin-portal/recurring-work-orders/${id}`,
-    titleFn: (d: any) => d.workOrderNumber || d.title || d.id,
-    subtitleFn: (d: any) => [d.status, d.frequency, d.clientName].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.title, d.workOrderNumber, d.status, d.frequency, d.clientName, d.category].filter(Boolean).join(' '),
-  },
-  {
-    name: 'categories',
-    category: 'Categories',
-    Icon: Tag,
-    iconColor: 'text-pink-500',
-    hrefFn: (_id: string) => `/admin-portal/categories`,
-    titleFn: (d: any) => d.name || d.id,
-    subtitleFn: (d: any) => d.description || '',
-    searchFn: (d: any) => [d.id, d.name, d.description].filter(Boolean).join(' '),
-  },
-  {
-    name: 'assets',
-    category: 'Assets',
-    Icon: Package,
-    iconColor: 'text-indigo-500',
-    hrefFn: (_id: string) => `/admin-portal/assets`,
-    titleFn: (d: any) => d.name || d.serialNumber || d.id,
-    subtitleFn: (d: any) => [d.type, d.status, d.location].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.name, d.serialNumber, d.type, d.status, d.location, d.description].filter(Boolean).join(' '),
-  },
-  {
-    name: 'rfps',
-    category: 'RFPs',
-    Icon: FileText,
-    iconColor: 'text-violet-500',
-    hrefFn: (_id: string) => `/admin-portal/rfps`,
-    titleFn: (d: any) => d.title || d.rfpNumber || d.id,
-    subtitleFn: (d: any) => [d.status, d.clientName, d.category].filter(Boolean).join(' · '),
-    searchFn: (d: any) =>
-      [d.id, d.title, d.rfpNumber, d.status, d.clientName, d.description, d.category].filter(Boolean).join(' '),
-  },
-];
+const CATEGORY_ICONS: Record<string, { Icon: React.ElementType; color: string }> = {
+  'Work Orders':           { Icon: ClipboardList, color: 'text-blue-500' },
+  'Clients':               { Icon: Users,         color: 'text-green-500' },
+  'Subcontractors':        { Icon: Award,         color: 'text-orange-500' },
+  'Invoices':              { Icon: Receipt,       color: 'text-purple-500' },
+  'Quotes':                { Icon: FileText,      color: 'text-yellow-500' },
+  'Locations':             { Icon: MapPin,        color: 'text-red-500' },
+  'Companies':             { Icon: Building2,     color: 'text-teal-500' },
+  'Recurring Work Orders': { Icon: RotateCcw,     color: 'text-cyan-500' },
+  'Maintenance Requests':  { Icon: Wrench,        color: 'text-amber-600' },
+  'Categories':            { Icon: Tag,           color: 'text-pink-500' },
+  'Assets':                { Icon: Package,       color: 'text-indigo-500' },
+  'RFPs':                  { Icon: FileText,      color: 'text-violet-500' },
+};
 
 export default function GlobalSearchDialog() {
   const [open, setOpen] = useState(false);
@@ -170,8 +37,8 @@ export default function GlobalSearchDialog() {
   const [grouped, setGrouped] = useState<Record<string, SearchResultItem[]>>({});
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const cacheRef = useRef<CachedData | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const router = useRouter();
 
   // Keyboard shortcut Cmd+K / Ctrl+K
@@ -187,57 +54,41 @@ export default function GlobalSearchDialog() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Focus input when opened; bust cache so newly created records always appear
+  // Focus input when opened
   useEffect(() => {
     if (open) {
-      cacheRef.current = null;
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
       setSearchQuery('');
       setGrouped({});
+      setLoading(false);
     }
   }, [open]);
 
-  const loadData = useCallback(async (): Promise<SearchResultItem[]> => {
-    if (cacheRef.current && Date.now() - cacheRef.current.fetchedAt < CACHE_TTL) {
-      return cacheRef.current.items;
-    }
+  const runSearch = useCallback(async (q: string) => {
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+
     setLoading(true);
-    const allItems: SearchResultItem[] = [];
-    await Promise.allSettled(
-      COLLECTION_CONFIGS.map(async (cfg) => {
-        try {
-          const snap = await getDocs(collection(db, cfg.name));
-          snap.forEach((d) => {
-            try {
-              const data = { id: d.id, ...d.data() };
-              const searchText = (cfg.searchFn(data) + ' ' + d.id).toLowerCase();
-              allItems.push({
-                id: d.id,
-                title: cfg.titleFn(data) || d.id,
-                subtitle: cfg.subtitleFn(data) || undefined,
-                category: cfg.category,
-                href: cfg.hrefFn(d.id),
-                Icon: cfg.Icon,
-                iconColor: cfg.iconColor,
-                searchText,
-              });
-            } catch (docErr) {
-              console.error(`[GlobalSearch] Error processing doc ${d.id} in "${cfg.name}":`, docErr);
-            }
-          });
-          console.log(`[GlobalSearch] Loaded ${snap.size} docs from "${cfg.name}"`);
-        } catch (err) {
-          console.error(`[GlobalSearch] Failed to fetch collection "${cfg.name}":`, err);
-        }
-      })
-    );
-    console.log(`[GlobalSearch] Total items loaded: ${allItems.length}`);
-    if (allItems.length > 0) {
-      cacheRef.current = { items: allItems, fetchedAt: Date.now() };
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+        signal: abortRef.current.signal,
+      });
+      const data = await res.json();
+      const items: SearchResultItem[] = data.results || [];
+
+      const g: Record<string, SearchResultItem[]> = {};
+      for (const item of items) {
+        if (!g[item.category]) g[item.category] = [];
+        if (g[item.category].length < 20) g[item.category].push(item);
+      }
+      setGrouped(g);
+      setSelectedIndex(0);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') console.error('[GlobalSearch]', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    return allItems;
   }, []);
 
   // Search effect
@@ -247,35 +98,21 @@ export default function GlobalSearchDialog() {
       setGrouped({});
       return;
     }
-    const timer = setTimeout(async () => {
-      const items = await loadData();
-      const q = searchQuery.trim().toLowerCase();
-      const matched = items.filter(
-        (item) =>
-          item.searchText.includes(q) ||
-          item.title.toLowerCase().includes(q) ||
-          (item.subtitle && item.subtitle.toLowerCase().includes(q))
-      );
-      const g: Record<string, SearchResultItem[]> = {};
-      for (const item of matched) {
-        if (!g[item.category]) g[item.category] = [];
-        if (g[item.category].length < 20) g[item.category].push(item);
-      }
-      setGrouped(g);
-      setSelectedIndex(0);
-    }, 200);
+    const timer = setTimeout(() => runSearch(searchQuery.trim()), 200);
     return () => clearTimeout(timer);
-  }, [searchQuery, open, loadData]);
+  }, [searchQuery, open, runSearch]);
 
   // Flat list for keyboard nav
   const flatResults = Object.values(grouped).flat();
+  const totalResults = flatResults.length;
+  const hasResults = totalResults > 0;
+  const showEmpty = searchQuery.trim().length >= 2 && !loading && !hasResults;
 
   const navigate = (href: string) => {
     router.push(href);
     setOpen(false);
   };
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -288,10 +125,6 @@ export default function GlobalSearchDialog() {
       if (flatResults[selectedIndex]) navigate(flatResults[selectedIndex].href);
     }
   };
-
-  const totalResults = flatResults.length;
-  const hasResults = totalResults > 0;
-  const showEmpty = searchQuery.trim().length >= 2 && !loading && !hasResults;
 
   if (!open) {
     return (
@@ -336,17 +169,11 @@ export default function GlobalSearchDialog() {
               <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
             )}
             {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-muted-foreground hover:text-foreground"
-              >
+              <button onClick={() => setSearchQuery('')} className="text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
               </button>
             )}
-            <button
-              onClick={() => setOpen(false)}
-              className="text-muted-foreground hover:text-foreground ml-1"
-            >
+            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground ml-1">
               <kbd className="text-xs border border-border rounded px-1.5 py-0.5 font-mono">Esc</kbd>
             </button>
           </div>
@@ -368,9 +195,8 @@ export default function GlobalSearchDialog() {
             {hasResults && (
               <div className="py-2">
                 {Object.entries(grouped).map(([category, items]) => {
-                  const catStartIndex = flatResults.findIndex(
-                    (r) => r.category === category
-                  );
+                  const catStartIndex = flatResults.findIndex((r) => r.category === category);
+                  const { Icon, color } = CATEGORY_ICONS[category] || { Icon: Search, color: 'text-gray-500' };
                   return (
                     <div key={category}>
                       <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -388,15 +214,11 @@ export default function GlobalSearchDialog() {
                               isSelected ? 'bg-accent' : 'hover:bg-accent/50'
                             }`}
                           >
-                            <item.Icon className={`h-4 w-4 flex-shrink-0 ${item.iconColor}`} />
+                            <Icon className={`h-4 w-4 flex-shrink-0 ${color}`} />
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-foreground truncate">
-                                {item.title}
-                              </div>
+                              <div className="text-sm font-medium text-foreground truncate">{item.title}</div>
                               {item.subtitle && (
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {item.subtitle}
-                                </div>
+                                <div className="text-xs text-muted-foreground truncate">{item.subtitle}</div>
                               )}
                             </div>
                           </button>
