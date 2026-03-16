@@ -436,7 +436,21 @@ export default function CreateRecurringWorkOrder() {
   };
 
   const handleClientSelect = (clientId: string) => {
-    const clientCompanies = companies.filter(c => c.clientId === clientId);
+    // Try direct clientId match on companies first
+    let clientCompanies = companies.filter(c => c.clientId === clientId);
+
+    // Fallback: find companies via locations that have this clientId
+    if (clientCompanies.length === 0) {
+      const companyIdsViaLocations = [
+        ...new Set(
+          locations
+            .filter(l => l.clientId === clientId && l.companyId)
+            .map(l => l.companyId!)
+        ),
+      ];
+      clientCompanies = companies.filter(c => companyIdsViaLocations.includes(c.id));
+    }
+
     const autoCompanyId = clientCompanies.length === 1 ? clientCompanies[0].id : '';
 
     const clientLocations = autoCompanyId
@@ -507,8 +521,19 @@ export default function CreateRecurringWorkOrder() {
 
   const filteredCompanies = (() => {
     if (!formData.clientId) return companies;
-    const matched = companies.filter(c => c.clientId === formData.clientId);
-    return matched.length > 0 ? matched : companies;
+    // Direct match
+    const direct = companies.filter(c => c.clientId === formData.clientId);
+    if (direct.length > 0) return direct;
+    // Indirect match via locations
+    const companyIdsViaLocations = [
+      ...new Set(
+        locations
+          .filter(l => l.clientId === formData.clientId && l.companyId)
+          .map(l => l.companyId!)
+      ),
+    ];
+    const indirect = companies.filter(c => companyIdsViaLocations.includes(c.id));
+    return indirect.length > 0 ? indirect : companies;
   })();
 
   const filteredLocations = (() => {
