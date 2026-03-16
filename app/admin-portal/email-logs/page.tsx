@@ -157,7 +157,15 @@ function getQuickSummary(type: EmailType, ctx: Record<string, any>): { primary: 
 /** Structured detail rows for the dialog, per email type */
 function getDetailFields(type: EmailType, ctx: Record<string, any>): { label: string; value: any }[] {
   const c = ctx || {};
-  const fmt = (v: any) => (v === undefined || v === null || v === '' ? null : v);
+  const fmt = (v: any) => {
+    if (v === undefined || v === null || v === '') return null;
+    if (typeof v === 'object' && !Array.isArray(v)) {
+      // Format address objects like {street, city, state, zip}
+      const parts = [v.street, v.city, v.state, v.zip].filter(Boolean);
+      return parts.length > 0 ? parts.join(', ') : JSON.stringify(v);
+    }
+    return v;
+  };
 
   switch (type) {
     case 'invoice':
@@ -587,12 +595,19 @@ export default function EmailLogsPage() {
   );
 }
 
-function DetailRow({ label, value, mono, error }: { label: string; value: string; mono?: boolean; error?: boolean }) {
+function DetailRow({ label, value, mono, error }: { label: string; value: any; mono?: boolean; error?: boolean }) {
+  const display = typeof value === 'object' && value !== null
+    ? (Array.isArray(value) ? value.join(', ') : (() => {
+        const parts = [value.street, value.city, value.state, value.zip].filter(Boolean);
+        return parts.length > 0 ? parts.join(', ') : JSON.stringify(value);
+      })())
+    : String(value ?? '');
+
   return (
     <div className="flex gap-3 px-4 py-2.5">
       <span className="text-muted-foreground text-sm w-36 flex-shrink-0 font-medium">{label}</span>
       <span className={`text-sm break-all ${mono ? 'font-mono' : ''} ${error ? 'text-red-600 dark:text-red-400' : ''}`}>
-        {value}
+        {display}
       </span>
     </div>
   );
