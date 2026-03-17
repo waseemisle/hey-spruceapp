@@ -330,7 +330,11 @@ export default function CreateRecurringWorkOrder() {
         ...(formData.recurrenceStartDate && {
           startDate: new Date(formData.recurrenceStartDate),
         }),
-        ...(formData.recurrenceType === 'monthly' && { dayOfMonth: formData.recurrenceDayOfMonth }),
+        ...(formData.recurrenceType === 'monthly' && {
+          dayOfMonth: formData.recurrenceStartDate
+            ? new Date(formData.recurrenceStartDate).getDate()
+            : formData.recurrenceDayOfMonth,
+        }),
         ...(formData.recurrenceEndDate && {
           endDate: new Date(formData.recurrenceEndDate),
         }),

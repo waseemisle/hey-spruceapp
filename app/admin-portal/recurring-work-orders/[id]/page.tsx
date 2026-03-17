@@ -413,11 +413,9 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       const interval: number = pattern.interval || 1;
       const anchor = startDate ? new Date(startDate) : new Date(today);
       anchor.setHours(9, 0, 0, 0);
-      const dayOfMonth: number = pattern.dayOfMonth || anchor.getDate();
-      // Build first candidate at the correct day-of-month on or after anchor
-      const cursor = new Date(anchor.getFullYear(), anchor.getMonth(), dayOfMonth, 9, 0, 0);
-      if (cursor < anchor) cursor.setMonth(cursor.getMonth() + interval);
-      // Advance until >= today
+      // Start from the anchor (which preserves the correct day-of-month from the start date)
+      // and advance by interval until we reach today or the future
+      const cursor = new Date(anchor);
       while (cursor < today) cursor.setMonth(cursor.getMonth() + interval);
       let iters = 0;
       while (results.length < count && iters < 100) {
