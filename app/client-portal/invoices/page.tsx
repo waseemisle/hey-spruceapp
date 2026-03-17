@@ -81,6 +81,9 @@ export default function ClientInvoices() {
           })) as Invoice[];
           setInvoices(invoicesData);
           setLoading(false);
+        }, (error) => {
+          console.error('Invoices listener error:', error);
+          setLoading(false);
         });
 
         return () => unsubscribeSnapshot();

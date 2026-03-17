@@ -62,22 +62,50 @@ export default function ClientDashboard() {
       return;
     }
 
-    const fetchDashboardData = async () => {
+    let unsubscribeWorkOrders: (() => void) | undefined;
+    let unsubscribeQuotes: (() => void) | undefined;
+    let unsubscribeInvoices: (() => void) | undefined;
+
+    const setupDashboard = async () => {
       try {
-        // Fetch client's assigned locations
+        // Fetch client's assigned locations first
         const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
         const clientData = clientDoc.data();
         const locations = clientData?.assignedLocations || [];
         setAssignedLocations(locations);
 
-        // Fetch all dashboard data
-        const workOrders = await calculateWorkOrdersData('client', currentUser.uid, locations, db);
-        const proposals = await calculateProposalsData('client', currentUser.uid, db);
-        const invoices = await calculateInvoicesData('client', currentUser.uid, db);
-
+        // Fetch initial dashboard data using the freshly loaded locations
+        const [workOrders, proposals, invoices] = await Promise.all([
+          calculateWorkOrdersData('client', currentUser.uid, locations, db),
+          calculateProposalsData('client', currentUser.uid, db),
+          calculateInvoicesData('client', currentUser.uid, db),
+        ]);
         setWorkOrdersData(workOrders);
         setProposalsData(proposals);
         setInvoicesData(invoices);
+
+        // Set up real-time listeners — capture `locations` from this closure,
+        // not from state, to avoid the stale-closure problem on first render
+        unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
+          const updated = await calculateWorkOrdersData('client', currentUser.uid, locations, db);
+          setWorkOrdersData(updated);
+        }, (error) => {
+          console.error('Work orders listener error:', error);
+        });
+
+        unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
+          const updated = await calculateProposalsData('client', currentUser.uid, db);
+          setProposalsData(updated);
+        }, (error) => {
+          console.error('Quotes listener error:', error);
+        });
+
+        unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
+          const updated = await calculateInvoicesData('client', currentUser.uid, db);
+          setInvoicesData(updated);
+        }, (error) => {
+          console.error('Invoices listener error:', error);
+        });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -85,30 +113,14 @@ export default function ClientDashboard() {
       }
     };
 
-    fetchDashboardData();
-
-    // Set up real-time listeners
-    const unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
-      const workOrders = await calculateWorkOrdersData('client', currentUser.uid, assignedLocations, db);
-      setWorkOrdersData(workOrders);
-    });
-
-    const unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
-      const proposals = await calculateProposalsData('client', currentUser.uid, db);
-      setProposalsData(proposals);
-    });
-
-    const unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
-      const invoices = await calculateInvoicesData('client', currentUser.uid, db);
-      setInvoicesData(invoices);
-    });
+    setupDashboard();
 
     return () => {
-      unsubscribeWorkOrders();
-      unsubscribeQuotes();
-      unsubscribeInvoices();
+      unsubscribeWorkOrders?.();
+      unsubscribeQuotes?.();
+      unsubscribeInvoices?.();
     };
-  }, [assignedLocations, auth, db]);
+  }, [auth, db]);
 
   const handleSearch = (searchType: string, searchValue: string) => {
     // Implement search functionality

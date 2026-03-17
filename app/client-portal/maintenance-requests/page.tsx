@@ -60,6 +60,9 @@ export default function ClientMaintenanceRequests() {
                 })) as MaintRequest[];
                 setRequests(requestsData);
                 setLoading(false);
+              }, (error) => {
+                console.error('Maintenance requests listener error:', error);
+                setLoading(false);
               });
 
               return () => unsubscribe();

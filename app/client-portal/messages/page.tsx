@@ -57,6 +57,9 @@ export default function ClientMessages() {
       })) as Chat[];
       setChats(chatsData);
       setLoading(false);
+    }, (error) => {
+      console.error('Chats listener error:', error);
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -77,6 +80,8 @@ export default function ClientMessages() {
         ...doc.data(),
       })) as Message[];
       setMessages(messagesData);
+    }, (error) => {
+      console.error('Messages listener error:', error);
     });
 
     return () => unsubscribe();

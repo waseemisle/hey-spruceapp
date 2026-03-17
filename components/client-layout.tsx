@@ -94,76 +94,81 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (!auth) {
       console.error('Firebase auth is not initialized. Please check your .env.local file.');
       setLoading(false);
+      router.push('/portal-login');
       return;
     }
 
+    let unsubscribeQuotes: (() => void) | null = null;
+    let unsubscribeInvoices: (() => void) | null = null;
+
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
       onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
+        // Clean up previous badge listeners on every auth state change
+        unsubscribeQuotes?.();
+        unsubscribeQuotes = null;
+        unsubscribeInvoices?.();
+        unsubscribeInvoices = null;
+
         if (firebaseUser) {
-          const clientDoc = await getDoc(doc(instances.dbInstance, 'clients', firebaseUser.uid));
-        if (clientDoc.exists() && clientDoc.data().status === 'approved') {
-          const clientData = clientDoc.data();
-            setUser({ ...firebaseUser, ...clientData });
-          // Check maintenance requests permission
-          const permissions = clientData.permissions || {};
-          setHasMaintenancePermission(permissions.viewMaintenanceRequests || false);
-          setHasMaintenanceRequestsWorkOrdersPermission(permissions.viewMaintenanceRequestsWorkOrders || false);
-          setHasViewSubcontractorsPermission(permissions.viewSubcontractors || false);
-          setHasRecurringWorkOrdersPermission(permissions.viewRecurringWorkOrders || false);
-          setLoading(false);
+          try {
+            const clientDoc = await getDoc(doc(instances.dbInstance, 'clients', firebaseUser.uid));
+            if (clientDoc.exists() && clientDoc.data().status === 'approved') {
+              const clientData = clientDoc.data();
+              setUser({ ...firebaseUser, ...clientData });
+              // Check maintenance requests permission
+              const permissions = clientData.permissions || {};
+              setHasMaintenancePermission(permissions.viewMaintenanceRequests || false);
+              setHasMaintenanceRequestsWorkOrdersPermission(permissions.viewMaintenanceRequestsWorkOrders || false);
+              setHasViewSubcontractorsPermission(permissions.viewSubcontractors || false);
+              setHasRecurringWorkOrdersPermission(permissions.viewRecurringWorkOrders || false);
+              setLoading(false);
 
-          // Listen to quotes count (pending/sent_to_client)
-          const quotesQuery = query(
-              collection(instances.dbInstance, 'quotes'),
-            where('clientId', '==', firebaseUser.uid),
-            where('status', 'in', ['pending', 'sent_to_client'])
-          );
-          const unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
-            setBadgeCounts(prev => ({ ...prev, quotes: snapshot.size }));
-          });
+              // Listen to quotes count (pending/sent_to_client)
+              const quotesQuery = query(
+                collection(instances.dbInstance, 'quotes'),
+                where('clientId', '==', firebaseUser.uid),
+                where('status', 'in', ['pending', 'sent_to_client'])
+              );
+              unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
+                setBadgeCounts(prev => ({ ...prev, quotes: snapshot.size }));
+              }, (error) => {
+                console.error('Quotes badge listener error:', error);
+              });
 
-          // Listen to unpaid invoices count
-          const invoicesQuery = query(
-              collection(instances.dbInstance, 'invoices'),
-            where('clientId', '==', firebaseUser.uid),
-            where('status', 'in', ['sent', 'draft'])
-          );
-          const unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
-            setBadgeCounts(prev => ({ ...prev, invoices: snapshot.size }));
-          });
-
-          // Listen to unread messages count (if messages collection exists)
-          // Note: This will be implemented when messaging system is added
-          // const messagesQuery = query(
-          //   collection(dbInstance, 'messages'),
-          //   where('recipientId', '==', firebaseUser.uid),
-          //   where('read', '==', false)
-          // );
-          // const unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
-          //   setBadgeCounts(prev => ({ ...prev, messages: snapshot.size }));
-          // });
-
-          return () => {
-            unsubscribeQuotes();
-            unsubscribeInvoices();
-            // unsubscribeMessages();
-          };
+              // Listen to unpaid invoices count
+              const invoicesQuery = query(
+                collection(instances.dbInstance, 'invoices'),
+                where('clientId', '==', firebaseUser.uid),
+                where('status', 'in', ['sent', 'draft'])
+              );
+              unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
+                setBadgeCounts(prev => ({ ...prev, invoices: snapshot.size }));
+              }, (error) => {
+                console.error('Invoices badge listener error:', error);
+              });
+            } else {
+              setLoading(false);
+              // Only redirect if not impersonating
+              const stored = localStorage.getItem('impersonationState');
+              const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
+              if (!isCurrentlyImpersonating) {
+                router.push('/portal-login');
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching client profile:', error);
+            setLoading(false);
+            router.push('/portal-login');
+          }
         } else {
-          // Only redirect if not impersonating (to avoid redirect loop during impersonation login)
+          setLoading(false);
+          // Only redirect if not impersonating
           const stored = localStorage.getItem('impersonationState');
           const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
           if (!isCurrentlyImpersonating) {
             router.push('/portal-login');
           }
         }
-      } else {
-        // Only redirect if not impersonating (to avoid redirect loop during impersonation login)
-        const stored = localStorage.getItem('impersonationState');
-        const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
-        if (!isCurrentlyImpersonating) {
-          router.push('/portal-login');
-        }
-      }
       });
 
     let instances = getAuthInstance();
@@ -184,6 +189,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     return () => {
       unsubscribe();
+      unsubscribeQuotes?.();
+      unsubscribeQuotes = null;
+      unsubscribeInvoices?.();
+      unsubscribeInvoices = null;
       clearInterval(interval);
     };
   }, [router]);
