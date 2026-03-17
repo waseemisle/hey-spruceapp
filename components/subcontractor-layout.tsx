@@ -85,28 +85,47 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
       };
     };
 
+    let unsubscribeBidding: (() => void) | null = null;
+
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
       onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
+        // Clean up previous bidding listener when auth state changes
+        unsubscribeBidding?.();
+        unsubscribeBidding = null;
+
         if (firebaseUser) {
-          const subDoc = await getDoc(doc(instances.dbInstance, 'subcontractors', firebaseUser.uid));
-        if (subDoc.exists() && subDoc.data().status === 'approved') {
-            setUser({ ...firebaseUser, ...subDoc.data() });
-          setLoading(false);
+          try {
+            const subDoc = await getDoc(doc(instances.dbInstance, 'subcontractors', firebaseUser.uid));
+            if (subDoc.exists() && subDoc.data().status === 'approved') {
+              setUser({ ...firebaseUser, ...subDoc.data() });
+              setLoading(false);
 
-          // Listen to pending bidding work orders count
-          const biddingQuery = query(
-              collection(instances.dbInstance, 'biddingWorkOrders'),
-            where('subcontractorId', '==', firebaseUser.uid),
-            where('status', '==', 'pending')
-          );
-          const unsubscribeBidding = onSnapshot(biddingQuery, (snapshot) => {
-            setBadgeCounts(prev => ({ ...prev, bidding: snapshot.size }));
-          });
-
-          return () => {
-            unsubscribeBidding();
-          };
+              // Listen to pending bidding work orders count
+              const biddingQuery = query(
+                collection(instances.dbInstance, 'biddingWorkOrders'),
+                where('subcontractorId', '==', firebaseUser.uid),
+                where('status', '==', 'pending')
+              );
+              unsubscribeBidding = onSnapshot(biddingQuery, (snapshot) => {
+                setBadgeCounts(prev => ({ ...prev, bidding: snapshot.size }));
+              }, (error) => {
+                console.error('Bidding badge listener error:', error);
+              });
+            } else {
+              setLoading(false);
+              const stored = localStorage.getItem('impersonationState');
+              const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
+              if (!isCurrentlyImpersonating) {
+                router.push('/portal-login');
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching subcontractor profile:', error);
+            setLoading(false);
+            router.push('/portal-login');
+          }
         } else {
+          setLoading(false);
           // Only redirect if not impersonating (to avoid redirect loop during impersonation login)
           const stored = localStorage.getItem('impersonationState');
           const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
@@ -114,14 +133,6 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
             router.push('/portal-login');
           }
         }
-      } else {
-        // Only redirect if not impersonating (to avoid redirect loop during impersonation login)
-        const stored = localStorage.getItem('impersonationState');
-        const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
-        if (!isCurrentlyImpersonating) {
-          router.push('/portal-login');
-        }
-      }
       });
 
     let instances = getAuthInstance();
@@ -142,6 +153,8 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
 
     return () => {
       unsubscribe();
+      unsubscribeBidding?.();
+      unsubscribeBidding = null;
       clearInterval(interval);
     };
   }, [router]);

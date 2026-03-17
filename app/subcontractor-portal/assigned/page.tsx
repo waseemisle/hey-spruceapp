@@ -86,6 +86,8 @@ export default function SubcontractorAssignedJobs() {
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
   useEffect(() => {
+    let unsubscribeWorkOrders: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         const assignedQuery = query(
@@ -102,7 +104,10 @@ export default function SubcontractorAssignedJobs() {
 
           setAssignedJobs(assignedData);
 
-          // Listen to work orders
+          // Cancel previous work orders listener before creating a new one
+          unsubscribeWorkOrders?.();
+          unsubscribeWorkOrders = null;
+
           const workOrderIds = [...new Set(assignedData.map(job => job.workOrderId))];
 
           if (workOrderIds.length > 0) {
@@ -111,26 +116,40 @@ export default function SubcontractorAssignedJobs() {
               where('__name__', 'in', workOrderIds)
             );
 
-            onSnapshot(workOrdersQuery, (woSnapshot) => {
+            unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (woSnapshot) => {
               const workOrdersMap = new Map<string, WorkOrder>();
               woSnapshot.docs.forEach(woDoc => {
                 workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
               });
               setWorkOrders(workOrdersMap);
               setLoading(false);
+            }, (error) => {
+              console.error('Work orders listener error:', error);
+              setLoading(false);
             });
           } else {
             setLoading(false);
           }
+        }, (error) => {
+          console.error('Assigned jobs listener error:', error);
+          setLoading(false);
         });
 
-        return () => unsubscribeSnapshot();
+        return () => {
+          unsubscribeSnapshot();
+          unsubscribeWorkOrders?.();
+          unsubscribeWorkOrders = null;
+        };
       } else {
         setLoading(false);
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeWorkOrders?.();
+      unsubscribeWorkOrders = null;
+    };
   }, [auth, db]);
 
   const handleAcceptAssignment = (assignedJobId: string, workOrderId: string) => {

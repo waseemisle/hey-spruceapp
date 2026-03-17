@@ -60,6 +60,9 @@ export default function SubcontractorQuotes() {
           })) as Quote[];
           setQuotes(quotesData);
           setLoading(false);
+        }, (error) => {
+          console.error('Quotes listener error:', error);
+          setLoading(false);
         });
 
         return () => unsubscribeSnapshot();

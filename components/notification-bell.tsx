@@ -34,11 +34,11 @@ export default function NotificationBell() {
   const pathname = usePathname();
   
   // Determine messages page based on current path
-  const getMessagesPath = () => {
+  const getMessagesPath = (): string | null => {
     if (pathname?.startsWith('/admin-portal')) return '/admin-portal/messages';
     if (pathname?.startsWith('/client-portal')) return '/client-portal/messages';
     if (pathname?.startsWith('/subcontractor-portal')) return '/subcontractor-portal/messages';
-    return '/messages'; // fallback
+    return null;
   };
 
   useEffect(() => {
@@ -191,10 +191,10 @@ export default function NotificationBell() {
             </div>
           )}
         </div>
-        {notifications.length > 0 && (
+        {notifications.length > 0 && getMessagesPath() && (
           <div className="px-4 py-2 border-t bg-gray-50">
             <button
-              onClick={() => router.push(getMessagesPath())}
+              onClick={() => router.push(getMessagesPath()!)}
               className="text-xs text-blue-600 hover:text-blue-800 font-medium w-full text-center"
             >
               View All Notifications

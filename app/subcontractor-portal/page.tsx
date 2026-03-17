@@ -79,22 +79,30 @@ export default function SubcontractorDashboard() {
       unsubscribeBidding = onSnapshot(collection(db, 'biddingWorkOrders'), async () => {
         const biddingWorkOrders = await calculateBiddingWorkOrdersData(user.uid, db);
         setBiddingWorkOrdersData(biddingWorkOrders);
+      }, (error) => {
+        console.error('Bidding work orders listener error:', error);
       });
 
       unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
         const myQuotes = await calculateMyQuotesData(user.uid, db);
         setMyQuotesData(myQuotes);
+      }, (error) => {
+        console.error('Quotes listener error:', error);
       });
 
       unsubscribeAssigned = onSnapshot(collection(db, 'assignedJobs'), async () => {
         const assignedJobs = await calculateAssignedJobsData(user.uid, db);
         setAssignedJobsData(assignedJobs);
+      }, (error) => {
+        console.error('Assigned jobs listener error:', error);
       });
 
       // Also listen to workOrders since assigned jobs depend on work order status
       unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
         const assignedJobs = await calculateAssignedJobsData(user.uid, db);
         setAssignedJobsData(assignedJobs);
+      }, (error) => {
+        console.error('Work orders listener error:', error);
       });
     });
 
