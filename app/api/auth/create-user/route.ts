@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
-import { getAdminFirestore } from '@/lib/firebase-admin';
 
 export async function POST(request: Request) {
   try {
+    // The calling admin's idToken is passed in Authorization header so we can
+    // write to Firestore on their behalf (they have write permission to adminUsers/clients/etc.)
+    const authHeader = request.headers.get('Authorization');
+    const callerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
     const { email, password, role, userData, sendInvitation = false } = await request.json();
 
     // If sendInvitation is true, we don't need a password (will send reset link)
@@ -69,6 +73,8 @@ export async function POST(request: Request) {
         uid,
         tempPassword,
         role,
+        fullName: userData.fullName || '',
+        phone: userData.phone || '',
         timestamp: Date.now(),
         type: 'password_setup'
       })).toString('base64');
@@ -207,36 +213,61 @@ export async function POST(request: Request) {
       idToken = authData.idToken;
     }
 
-    // Create user document in Firestore using Admin SDK (bypasses security rules)
+    // Create user document in Firestore using the calling admin's token
+    // (the logged-in admin has write permission to these collections)
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    if (!projectId) {
+      return NextResponse.json({ error: 'Firebase project ID not configured' }, { status: 500 });
+    }
+
     const collectionName =
       role === 'client' ? 'clients' :
       role === 'subcontractor' ? 'subcontractors' :
       'adminUsers';
 
-    const userDocData: any = {
-      email,
-      role,
-      fullName: userData.fullName || '',
-      phone: userData.phone || '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const userDoc: any = {
+      fields: {
+        email: { stringValue: email },
+        role: { stringValue: role },
+        fullName: { stringValue: userData.fullName || '' },
+        phone: { stringValue: userData.phone || '' },
+        createdAt: { timestampValue: new Date().toISOString() },
+        updatedAt: { timestampValue: new Date().toISOString() },
+      }
     };
 
-    // Add additional fields based on role
     if (role === 'subcontractor') {
-      if (userData.businessName) userDocData.businessName = userData.businessName;
-      if (userData.licenseNumber) userDocData.licenseNumber = userData.licenseNumber;
-      if (userData.skills && Array.isArray(userData.skills)) userDocData.skills = userData.skills;
-      userDocData.status = userData.status || 'approved';
+      if (userData.businessName) userDoc.fields.businessName = { stringValue: userData.businessName };
+      if (userData.licenseNumber) userDoc.fields.licenseNumber = { stringValue: userData.licenseNumber };
+      if (userData.skills && Array.isArray(userData.skills)) {
+        userDoc.fields.skills = { arrayValue: { values: userData.skills.map((s: string) => ({ stringValue: s })) } };
+      }
+      userDoc.fields.status = { stringValue: userData.status || 'approved' };
     }
 
     if (role === 'client') {
-      if (userData.companyName) userDocData.companyName = userData.companyName;
-      userDocData.status = userData.status || 'approved';
+      if (userData.companyName) userDoc.fields.companyName = { stringValue: userData.companyName };
+      userDoc.fields.status = { stringValue: userData.status || 'approved' };
     }
 
-    const adminDb = getAdminFirestore();
-    await adminDb.collection(collectionName).doc(uid!).set(userDocData);
+    // Use the caller's admin token if available, otherwise fall back to new user's token
+    const firestoreToken = callerToken || idToken;
+    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${uid}`;
+
+    const firestoreResponse = await fetch(firestoreUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${firestoreToken}`,
+      },
+      body: JSON.stringify(userDoc),
+    });
+
+    if (!firestoreResponse.ok) {
+      const errorData = await firestoreResponse.json();
+      console.error('Firestore error:', errorData);
+      throw new Error('Failed to create user document in Firestore');
+    }
 
     return NextResponse.json({
       success: true,

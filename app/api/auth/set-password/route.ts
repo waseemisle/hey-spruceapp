@@ -125,19 +125,56 @@ export async function POST(request: NextRequest) {
       throw new Error(errorData.error?.message || 'Failed to update password');
     }
 
-    // Optionally update Firestore passwordSetAt (non-blocking)
+    // Upsert Firestore document using the user's own idToken.
+    // This creates the document if it was never written (e.g. invite creation failed),
+    // or patches it if it already exists.
     const role = decoded.role;
     const collectionName = role === 'admin' ? 'adminUsers' : role === 'client' ? 'clients' : 'subcontractors';
-    try {
-      const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
-      const { getAdminApp } = await import('@/lib/firebase-admin');
-      const adminDb = getFirestore(getAdminApp());
-      await adminDb.collection(collectionName).doc(uid).update({
-        passwordSetAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-    } catch (firestoreErr) {
-      console.warn('Firestore passwordSetAt update skipped (non-critical):', firestoreErr);
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    if (projectId) {
+      try {
+        // First check if the document already exists
+        const getUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${uid}`;
+        const getResp = await fetch(getUrl, {
+          headers: { 'Authorization': `Bearer ${idToken}` },
+        });
+
+        if (getResp.status === 404) {
+          // Document doesn't exist — create it with all available data from the token
+          const createUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${uid}`;
+          await fetch(createUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({
+              fields: {
+                email: { stringValue: email },
+                role: { stringValue: role === 'admin' ? 'admin' : role },
+                fullName: { stringValue: (decoded as any).fullName || '' },
+                phone: { stringValue: (decoded as any).phone || '' },
+                createdAt: { timestampValue: new Date().toISOString() },
+                updatedAt: { timestampValue: new Date().toISOString() },
+                passwordSetAt: { timestampValue: new Date().toISOString() },
+              }
+            }),
+          });
+          console.log('✅ Created missing Firestore document for', email);
+        } else if (getResp.ok) {
+          // Document exists — patch the passwordSetAt field
+          const patchUrl = `${getUrl}?updateMask.fieldPaths=passwordSetAt&updateMask.fieldPaths=updatedAt`;
+          await fetch(patchUrl, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({
+              fields: {
+                passwordSetAt: { timestampValue: new Date().toISOString() },
+                updatedAt: { timestampValue: new Date().toISOString() },
+              }
+            }),
+          });
+        }
+      } catch (firestoreErr) {
+        console.warn('Firestore upsert skipped (non-critical):', firestoreErr);
+      }
     }
 
     return NextResponse.json({

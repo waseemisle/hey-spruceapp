@@ -106,9 +106,16 @@ export default function AdminUsersManagement() {
         toast.success('Admin user updated successfully');
       } else {
         // Create new admin user via API route with invitation email
+        // Pass the current admin's token so the server can write to Firestore on their behalf
+        const currentUser = auth.currentUser;
+        const adminToken = currentUser ? await currentUser.getIdToken() : null;
+
         const response = await fetch('/api/auth/create-user', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {}),
+          },
           body: JSON.stringify({
             email: formData.email,
             role: 'admin',
