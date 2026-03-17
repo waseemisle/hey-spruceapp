@@ -311,14 +311,7 @@ export default function CreateRecurringWorkOrder() {
       } else if (formData.recurrenceStartDate) {
         const startDate = new Date(formData.recurrenceStartDate);
         startDate.setHours(9, 0, 0, 0);
-        if (formData.recurrenceType === 'monthly') {
-          nextExecution = new Date(startDate.getFullYear(), startDate.getMonth(), formData.recurrenceDayOfMonth, 9, 0, 0);
-          if (nextExecution < startDate) {
-            nextExecution.setMonth(nextExecution.getMonth() + formData.recurrenceInterval);
-          }
-        } else {
-          nextExecution = new Date(startDate);
-        }
+        nextExecution = new Date(startDate);
       } else {
         nextExecution = new Date(now);
         if (formData.recurrenceType === 'weekly') {
