@@ -377,7 +377,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
 
     const results: Date[] = [];
 
-    if (label === 'DAILY' && Array.isArray(pattern.daysOfWeek) && pattern.daysOfWeek.length > 0) {
+    if (label === 'DAILY') {
+      const hasDaysOfWeek = Array.isArray(pattern.daysOfWeek) && pattern.daysOfWeek.length > 0;
       // Walk day-by-day from today (or startDate if in future)
       const anchor = startDate && startDate > today ? new Date(startDate) : new Date(today);
       anchor.setHours(9, 0, 0, 0);
@@ -385,7 +386,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       let iters = 0;
       while (results.length < count && iters < 365) {
         if (endDate && cursor > endDate) break;
-        if (pattern.daysOfWeek.includes(cursor.getDay())) {
+        // If specific days are configured, filter by them; otherwise every day qualifies
+        if (!hasDaysOfWeek || pattern.daysOfWeek.includes(cursor.getDay())) {
           results.push(new Date(cursor));
         }
         cursor.setDate(cursor.getDate() + 1);
@@ -432,7 +434,10 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
   const formatRecurrencePattern = (rwo: RecurringWorkOrder | null) => {
     if (!rwo) return 'Unknown pattern';
     const label = (rwo as any).recurrencePatternLabel;
-    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'].includes(label)) return label;
+    // If any known label is stored (including DAILY), display it directly
+    if (label && ['DAILY', 'SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'].includes(label)) return label;
+    // If an unknown label string exists, still display it
+    if (label && typeof label === 'string') return label;
     const pattern = rwo.recurrencePattern as { type: string; interval: number; customPattern?: string } | undefined;
     if (!pattern) return 'Unknown pattern';
     if (pattern.type === 'daily') return `Every ${pattern.interval} day(s)`;
@@ -598,6 +603,35 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <span className="font-semibold">Pattern:</span>
                   <span className="ml-2">{formatRecurrencePattern(recurringWorkOrder)}</span>
                 </div>
+
+                {(() => {
+                  const p = recurringWorkOrder.recurrencePattern as any;
+                  const toDate = (v: any): Date | null => {
+                    if (!v) return null;
+                    if (v instanceof Date) return v;
+                    if (typeof v.toDate === 'function') return v.toDate();
+                    const d = new Date(v);
+                    return isNaN(d.getTime()) ? null : d;
+                  };
+                  const startDate = toDate(p?.startDate);
+                  const endDate = toDate(p?.endDate);
+                  return (
+                    <>
+                      {startDate && (
+                        <div>
+                          <span className="font-semibold">Starting Date:</span>
+                          <span className="ml-2">{startDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                        </div>
+                      )}
+                      {endDate && (
+                        <div>
+                          <span className="font-semibold">Ending Date:</span>
+                          <span className="ml-2">{endDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 <div>
                   <span className="font-semibold">Next Execution:</span>
