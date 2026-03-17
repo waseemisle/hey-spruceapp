@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 let adminApp: App | null = null;
 
@@ -84,5 +85,10 @@ export function getAdminApp(): App {
 export function getAdminAuth() {
   const app = getAdminApp();
   return getAuth(app);
+}
+
+export function getAdminFirestore() {
+  const app = getAdminApp();
+  return getFirestore(app);
 }
 

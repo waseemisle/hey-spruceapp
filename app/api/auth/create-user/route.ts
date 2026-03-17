@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
+import { getAdminFirestore } from '@/lib/firebase-admin';
 
 export async function POST(request: Request) {
   try {
@@ -206,75 +207,36 @@ export async function POST(request: Request) {
       idToken = authData.idToken;
     }
 
-    // Create user document in Firestore using REST API
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-
-    if (!projectId) {
-      return NextResponse.json(
-        { error: 'Firebase project ID not configured' },
-        { status: 500 }
-      );
-    }
-
+    // Create user document in Firestore using Admin SDK (bypasses security rules)
     const collectionName =
       role === 'client' ? 'clients' :
       role === 'subcontractor' ? 'subcontractors' :
       'adminUsers';
 
-    const userDoc: any = {
-      fields: {
-        email: { stringValue: email },
-        role: { stringValue: role },
-        fullName: { stringValue: userData.fullName || '' },
-        phone: { stringValue: userData.phone || '' },
-        createdAt: { timestampValue: new Date().toISOString() },
-        updatedAt: { timestampValue: new Date().toISOString() },
-      }
+    const userDocData: any = {
+      email,
+      role,
+      fullName: userData.fullName || '',
+      phone: userData.phone || '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     // Add additional fields based on role
     if (role === 'subcontractor') {
-      if (userData.businessName) {
-        userDoc.fields.businessName = { stringValue: userData.businessName };
-      }
-      if (userData.licenseNumber) {
-        userDoc.fields.licenseNumber = { stringValue: userData.licenseNumber };
-      }
-      if (userData.skills && Array.isArray(userData.skills)) {
-        userDoc.fields.skills = {
-          arrayValue: {
-            values: userData.skills.map((skill: string) => ({ stringValue: skill }))
-          }
-        };
-      }
-      // For admin-created users, default to approved status
-      userDoc.fields.status = { stringValue: userData.status || 'approved' };
+      if (userData.businessName) userDocData.businessName = userData.businessName;
+      if (userData.licenseNumber) userDocData.licenseNumber = userData.licenseNumber;
+      if (userData.skills && Array.isArray(userData.skills)) userDocData.skills = userData.skills;
+      userDocData.status = userData.status || 'approved';
     }
 
     if (role === 'client') {
-      if (userData.companyName) {
-        userDoc.fields.companyName = { stringValue: userData.companyName };
-      }
-      // For admin-created users, default to approved status
-      userDoc.fields.status = { stringValue: userData.status || 'approved' };
+      if (userData.companyName) userDocData.companyName = userData.companyName;
+      userDocData.status = userData.status || 'approved';
     }
 
-    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${uid}`;
-
-    const firestoreResponse = await fetch(firestoreUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${idToken}`,
-      },
-      body: JSON.stringify(userDoc),
-    });
-
-    if (!firestoreResponse.ok) {
-      const errorData = await firestoreResponse.json();
-      console.error('Firestore error:', errorData);
-      throw new Error('Failed to create user document in Firestore');
-    }
+    const adminDb = getAdminFirestore();
+    await adminDb.collection(collectionName).doc(uid!).set(userDocData);
 
     return NextResponse.json({
       success: true,
