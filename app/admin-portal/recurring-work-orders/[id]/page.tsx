@@ -356,6 +356,79 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
   };
 
+  const computeNextExecutions = (rwo: RecurringWorkOrder, count: number = 5): Date[] => {
+    const pattern = rwo.recurrencePattern as any;
+    const label = (rwo as any).recurrencePatternLabel as string | undefined;
+    if (!pattern) return [];
+
+    const toDate = (v: any): Date | null => {
+      if (!v) return null;
+      if (v instanceof Date) return v;
+      if (typeof v.toDate === 'function') return v.toDate();
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = toDate(pattern.startDate);
+    const endDate = toDate(pattern.endDate);
+
+    const results: Date[] = [];
+
+    if (label === 'DAILY' && Array.isArray(pattern.daysOfWeek) && pattern.daysOfWeek.length > 0) {
+      // Walk day-by-day from today (or startDate if in future)
+      const anchor = startDate && startDate > today ? new Date(startDate) : new Date(today);
+      anchor.setHours(9, 0, 0, 0);
+      const cursor = new Date(anchor);
+      let iters = 0;
+      while (results.length < count && iters < 365) {
+        if (endDate && cursor > endDate) break;
+        if (pattern.daysOfWeek.includes(cursor.getDay())) {
+          results.push(new Date(cursor));
+        }
+        cursor.setDate(cursor.getDate() + 1);
+        iters++;
+      }
+    } else if (pattern.type === 'weekly') {
+      const interval: number = pattern.interval || 2;
+      const anchor = startDate ? new Date(startDate) : new Date(today);
+      anchor.setHours(9, 0, 0, 0);
+      // Advance anchor forward in N-week steps until >= today
+      const cursor = new Date(anchor);
+      while (cursor < today) {
+        cursor.setDate(cursor.getDate() + interval * 7);
+      }
+      let iters = 0;
+      while (results.length < count && iters < 100) {
+        if (endDate && cursor > endDate) break;
+        results.push(new Date(cursor));
+        cursor.setDate(cursor.getDate() + interval * 7);
+        iters++;
+      }
+    } else if (pattern.type === 'monthly') {
+      const interval: number = pattern.interval || 1;
+      const anchor = startDate ? new Date(startDate) : new Date(today);
+      anchor.setHours(9, 0, 0, 0);
+      const dayOfMonth: number = pattern.dayOfMonth || anchor.getDate();
+      // Build first candidate at the correct day-of-month on or after anchor
+      const cursor = new Date(anchor.getFullYear(), anchor.getMonth(), dayOfMonth, 9, 0, 0);
+      if (cursor < anchor) cursor.setMonth(cursor.getMonth() + interval);
+      // Advance until >= today
+      while (cursor < today) cursor.setMonth(cursor.getMonth() + interval);
+      let iters = 0;
+      while (results.length < count && iters < 100) {
+        if (endDate && cursor > endDate) break;
+        results.push(new Date(cursor));
+        cursor.setMonth(cursor.getMonth() + interval);
+        iters++;
+      }
+    }
+
+    return results;
+  };
+
   const formatRecurrencePattern = (rwo: RecurringWorkOrder | null) => {
     if (!rwo) return 'Unknown pattern';
     const label = (rwo as any).recurrencePatternLabel;
@@ -556,6 +629,79 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                 </div>
               </CardContent>
             </Card>
+
+            {/* Next Executions (Next 5) */}
+            {(() => {
+              const nextDates = computeNextExecutions(recurringWorkOrder, 5);
+              const pattern = recurringWorkOrder.recurrencePattern as any;
+              const endDate = pattern?.endDate
+                ? (() => {
+                    const v = pattern.endDate;
+                    if (v instanceof Date) return v;
+                    if (typeof v?.toDate === 'function') return v.toDate();
+                    const d = new Date(v);
+                    return isNaN(d.getTime()) ? null : d;
+                  })()
+                : null;
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Next Executions (Next 5)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {nextDates.length === 0 ? (
+                      <div className="text-center py-6">
+                        <AlertCircle className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-600 text-sm">
+                          {endDate && endDate < new Date()
+                            ? 'This recurring work order has passed its end date.'
+                            : 'No upcoming executions could be calculated. Check the recurrence pattern and start date.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {nextDates.map((date, index) => {
+                          const isToday = date.toDateString() === new Date().toDateString();
+                          return (
+                            <div
+                              key={index}
+                              className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                isToday
+                                  ? 'bg-blue-50 border-blue-300'
+                                  : 'bg-green-50 border-green-200'
+                              }`}
+                            >
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isToday ? 'bg-blue-500' : 'bg-green-500'}`} />
+                              <div className="flex-1">
+                                <div className="font-semibold text-sm">
+                                  Execution #{index + 1}{isToday && <span className="ml-2 text-blue-600 text-xs font-normal">(Today)</span>}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {date.toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {endDate && (
+                          <p className="text-xs text-gray-500 pt-1">
+                            Recurrence ends on {endDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Work Order History Section */}
             {(() => {
