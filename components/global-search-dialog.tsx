@@ -190,7 +190,7 @@ export default function GlobalSearchDialog() {
                 .filter(Boolean)
                 .join(' ')
                 .toLowerCase();
-              if (!searchText.includes(q)) return;
+              if (!searchText.includes(q.toLowerCase())) return;
 
               const title =
                 data[cfg.titleField] ||
