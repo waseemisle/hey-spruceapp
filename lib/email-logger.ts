@@ -29,6 +29,7 @@ export type EmailType =
   | 'review-request'
   | 'work-order-notification'
   | 'work-order-completed-notification'
+  | 'auto-charge-receipt'
   | 'test';
 
 export interface EmailLogEntry {

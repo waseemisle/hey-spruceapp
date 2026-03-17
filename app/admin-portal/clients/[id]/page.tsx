@@ -1,15 +1,28 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ExternalLink, CreditCard, Zap, CheckCircle, AlertCircle, Plus, XCircle, MapPin } from 'lucide-react';
+import {
+  ArrowLeft, Download, ExternalLink, CreditCard, CheckCircle, AlertCircle,
+  Plus, XCircle, MapPin, Star, Trash2, Edit2, Loader2, Mail,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PaymentMethod {
+  id: string;
+  last4: string;
+  brand: string;
+  expMonth: number;
+  expYear: number;
+  isDefault: boolean;
+  createdAt?: any;
+}
 
 interface Client {
   uid: string;
@@ -28,10 +41,12 @@ interface Client {
   savedCardExpMonth?: number;
   savedCardExpYear?: number;
   autoPayEnabled?: boolean;
+  paymentMethods?: PaymentMethod[];
   stripeSubscriptionId?: string;
   subscriptionAmount?: number;
   subscriptionBillingDay?: number;
   subscriptionStatus?: string;
+  subscriptionPaymentMethodId?: string;
 }
 
 interface WorkOrder {
@@ -54,14 +69,13 @@ interface Invoice {
   workOrderId?: string;
   clientId?: string;
   invoiceNumber?: string;
-  status: string;   // draft | sent | paid | overdue
+  status: string;
   totalAmount: number;
   dueDate?: any;
   createdAt: any;
   paidAt?: any;
   autoChargeAttempted?: boolean;
   autoChargeStatus?: string;
-  autoChargeError?: string;
   stripePaymentLink?: string;
 }
 
@@ -97,21 +111,23 @@ function fmtMoney(n: number): string {
 }
 
 function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 }
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 
 function InvoiceStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    draft:    { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
-    sent:     { label: 'Invoiced',     cls: 'bg-blue-100 text-blue-700' },
-    paid:     { label: 'Paid',         cls: 'bg-green-100 text-green-700' },
-    overdue:  { label: 'Overdue',      cls: 'bg-red-100 text-red-700' },
-    none:     { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
+    draft:   { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
+    sent:    { label: 'Invoiced',     cls: 'bg-blue-100 text-blue-700' },
+    paid:    { label: 'Paid',         cls: 'bg-green-100 text-green-700' },
+    overdue: { label: 'Overdue',      cls: 'bg-red-100 text-red-700' },
+    none:    { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
   };
   const { label, cls } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
   return (
@@ -126,6 +142,7 @@ function InvoiceStatusBadge({ status }: { status: string }) {
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = params?.id as string;
 
   const [client, setClient] = useState<Client | null>(null);
@@ -136,12 +153,31 @@ export default function ClientDetailPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('all');
 
   // Billing state
-  const [chargingInvoice, setChargingInvoice] = useState<string | null>(null);
+  const [addingCard, setAddingCard] = useState(false);
+  const [removingCard, setRemovingCard] = useState<string | null>(null);
+  const [settingDefault, setSettingDefault] = useState<string | null>(null);
+  const [testingEmail, setTestingEmail] = useState(false);
+
+  // Subscription modal state
   const [showSubModal, setShowSubModal] = useState(false);
   const [subAmount, setSubAmount] = useState('');
   const [subBillingDay, setSubBillingDay] = useState('');
+  const [subCardId, setSubCardId] = useState('');
   const [creatingSub, setCreatingSub] = useState(false);
   const [cancelingSub, setCancelingSub] = useState(false);
+
+  // Show success toast if returning from Stripe card setup
+  useEffect(() => {
+    const cardAdded = searchParams?.get('card_added');
+    if (cardAdded === 'success') {
+      toast.success('Card added successfully!');
+      // Clean up URL
+      router.replace(`/admin-portal/clients/${id}`);
+    } else if (cardAdded === 'cancelled') {
+      toast.info('Card setup cancelled.');
+      router.replace(`/admin-portal/clients/${id}`);
+    }
+  }, [searchParams, id, router]);
 
   // Real-time client doc
   useEffect(() => {
@@ -155,19 +191,18 @@ export default function ClientDetailPage() {
     return () => unsub();
   }, [id]);
 
-  // Fetch locations for this client (by clientId or companyId)
+  // Fetch locations
   useEffect(() => {
     if (!id) return;
     const fetchLocations = async () => {
       const snap = await getDocs(collection(db, 'locations'));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Location));
-      // Include locations linked by clientId or by the client's companyId
       setLocations(all.filter((l) => l.clientId === id || (client?.companyId && l.companyId === client.companyId)));
     };
     fetchLocations();
   }, [id, client?.companyId]);
 
-  // Real-time work orders for this client — fetch all, filter client-side
+  // Real-time work orders
   useEffect(() => {
     if (!id) return;
     const unsub = onSnapshot(collection(db, 'workOrders'), (snap) => {
@@ -177,7 +212,7 @@ export default function ClientDetailPage() {
     return () => unsub();
   }, [id]);
 
-  // Real-time invoices for this client
+  // Real-time invoices
   useEffect(() => {
     if (!id) return;
     const q = query(collection(db, 'invoices'), where('clientId', '==', id));
@@ -264,31 +299,62 @@ export default function ClientDetailPage() {
 
   // ─── Billing Actions ───────────────────────────────────────────────────────
 
-  const handleChargeInvoice = async (invoice: Invoice) => {
+  /** Admin-initiated: open Stripe Checkout setup in same tab */
+  const handleAddCard = async () => {
     if (!client) return;
-    if (!client.defaultPaymentMethodId) {
-      toast.error('Client has no saved payment method. Ask client to save a card first.');
-      return;
-    }
-    if (!confirm(`Charge ${fmtMoney(invoice.totalAmount)} from ${client.fullName}'s saved card?`)) return;
-    setChargingInvoice(invoice.id);
+    setAddingCard(true);
     try {
-      const res = await fetch('/api/stripe/charge-saved-card', {
+      const res = await fetch('/api/stripe/create-setup-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: invoice.id, clientId: client.uid }),
+        body: JSON.stringify({ clientId: client.uid, adminInitiated: true }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Charge failed');
-      if (data.status === 'succeeded') {
-        toast.success(`Invoice charged successfully! ${fmtMoney(invoice.totalAmount)} collected.`);
-      } else {
-        toast.warning(`Charge requires additional authentication from the client (status: ${data.status}).`);
-      }
+      if (!res.ok) throw new Error(data.error || 'Failed to create setup session');
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
     } catch (error: any) {
-      toast.error(error.message || 'Failed to charge invoice');
+      toast.error(error.message || 'Failed to initiate card setup');
+      setAddingCard(false);
+    }
+  };
+
+  const handleSetDefault = async (pmId: string) => {
+    if (!client) return;
+    setSettingDefault(pmId);
+    try {
+      const res = await fetch('/api/stripe/set-default-payment-method', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: client.uid, paymentMethodId: pmId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to set default');
+      toast.success('Default card updated.');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to set default card');
     } finally {
-      setChargingInvoice(null);
+      setSettingDefault(null);
+    }
+  };
+
+  const handleRemoveCard = async (pmId: string, last4: string) => {
+    if (!client) return;
+    if (!confirm(`Remove card ending in ${last4}? This cannot be undone.`)) return;
+    setRemovingCard(pmId);
+    try {
+      const res = await fetch('/api/stripe/remove-payment-method', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: client.uid, paymentMethodId: pmId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to remove card');
+      toast.success(`Card ending in ${last4} removed.`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove card');
+    } finally {
+      setRemovingCard(null);
     }
   };
 
@@ -299,22 +365,25 @@ export default function ClientDetailPage() {
     if (isNaN(amt) || amt <= 0) { toast.error('Enter a valid amount'); return; }
     if (isNaN(day) || day < 1 || day > 28) { toast.error('Billing day must be 1–28'); return; }
     if (!client.defaultPaymentMethodId) {
-      toast.error('Client must save a card before creating a subscription.');
+      toast.error('Client must have a saved card before creating a subscription.');
       return;
     }
     setCreatingSub(true);
     try {
+      const body: any = { clientId: client.uid, amount: amt, billingDay: day };
+      if (subCardId) body.paymentMethodId = subCardId;
       const res = await fetch('/api/stripe/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: client.uid, amount: amt, billingDay: day }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create subscription');
-      toast.success(`Subscription created! First charge on ${new Date(data.nextBillingDate).toLocaleDateString()}.`);
+      toast.success(`Fixed plan created! First charge on ${new Date(data.nextBillingDate).toLocaleDateString()}.`);
       setShowSubModal(false);
       setSubAmount('');
       setSubBillingDay('');
+      setSubCardId('');
     } catch (error: any) {
       toast.error(error.message || 'Failed to create subscription');
     } finally {
@@ -322,9 +391,29 @@ export default function ClientDetailPage() {
     }
   };
 
+  const handleTestReceiptEmail = async () => {
+    if (!client) return;
+    if (!client.email) { toast.error('Client has no email address'); return; }
+    setTestingEmail(true);
+    try {
+      const res = await fetch('/api/stripe/test-receipt-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: client.uid }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send test email');
+      toast.success(`Test receipt sent to ${data.sentTo} — ${data.amount ? '$' + data.amount.toFixed(2) : ''} · ${data.cardUsed}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send test email');
+    } finally {
+      setTestingEmail(false);
+    }
+  };
+
   const handleCancelSubscription = async () => {
     if (!client) return;
-    if (!confirm('Cancel this recurring subscription? The client will no longer be auto-charged.')) return;
+    if (!confirm('Cancel this fixed recurring plan? The client will no longer be auto-charged.')) return;
     setCancelingSub(true);
     try {
       const res = await fetch('/api/stripe/cancel-subscription', {
@@ -334,9 +423,9 @@ export default function ClientDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to cancel subscription');
-      toast.success('Subscription cancelled.');
+      toast.success('Fixed recurring plan cancelled.');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to cancel subscription');
+      toast.error(error.message || 'Failed to cancel plan');
     } finally {
       setCancelingSub(false);
     }
@@ -366,30 +455,44 @@ export default function ClientDetailPage() {
   }
 
   const initials = getInitials(client.companyName || client.fullName);
+  const paymentMethods = client.paymentMethods || [];
+  // Backwards compat: if paymentMethods array is empty but defaultPaymentMethodId exists, synthesize one
+  const displayMethods: PaymentMethod[] = paymentMethods.length > 0
+    ? paymentMethods
+    : client.defaultPaymentMethodId && client.savedCardLast4
+    ? [{
+        id: client.defaultPaymentMethodId,
+        last4: client.savedCardLast4,
+        brand: client.savedCardBrand || 'card',
+        expMonth: client.savedCardExpMonth || 0,
+        expYear: client.savedCardExpYear || 0,
+        isDefault: true,
+      }]
+    : [];
 
   const tabs: { key: TabKey; label: string; count: number; danger?: boolean }[] = [
-    { key: 'all',          label: 'All',          count: enriched.length },
-    { key: 'not-invoiced', label: 'Not Invoiced',  count: enriched.filter((w) => w.tabCategory === 'not-invoiced').length },
-    { key: 'invoiced',     label: 'Invoiced',      count: enriched.filter((w) => w.tabCategory === 'invoiced').length },
-    { key: 'paid',         label: 'Paid',          count: enriched.filter((w) => w.tabCategory === 'paid').length },
-    { key: 'overdue',      label: 'Overdue',       count: stats.overdueCount, danger: true },
+    { key: 'all',          label: 'All',         count: enriched.length },
+    { key: 'not-invoiced', label: 'Not Invoiced', count: enriched.filter((w) => w.tabCategory === 'not-invoiced').length },
+    { key: 'invoiced',     label: 'Invoiced',     count: enriched.filter((w) => w.tabCategory === 'invoiced').length },
+    { key: 'paid',         label: 'Paid',         count: enriched.filter((w) => w.tabCategory === 'paid').length },
+    { key: 'overdue',      label: 'Overdue',      count: stats.overdueCount, danger: true },
   ];
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
-  const backButton = (
-    <Button
-      variant="ghost"
-      className="gap-2 text-gray-600 hover:text-gray-900 shrink-0"
-      onClick={() => router.push('/admin-portal/clients')}
-    >
-      <ArrowLeft className="h-4 w-4" />
-      Back to Clients
-    </Button>
-  );
-
   return (
-    <AdminLayout headerExtra={backButton}>
+    <AdminLayout
+      headerExtra={
+        <Button
+          variant="ghost"
+          className="gap-2 text-gray-600 hover:text-gray-900 shrink-0"
+          onClick={() => router.push('/admin-portal/clients')}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Clients
+        </Button>
+      }
+    >
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
 
         {/* Entity Header */}
@@ -428,115 +531,160 @@ export default function ClientDetailPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
-            {
-              label: 'Total Jobs',
-              value: stats.totalJobs,
-              sub: 'All time',
-              top: 'bg-blue-500',
-            },
-            {
-              label: 'Outstanding',
-              value: fmtMoney(stats.outstandingAmount),
-              sub: 'Invoiced + Overdue',
-              top: 'bg-yellow-500',
-            },
-            {
-              label: 'Total Collected',
-              value: fmtMoney(stats.collectedAmount),
-              sub: 'All time',
-              top: 'bg-green-500',
-            },
-            {
-              label: 'Overdue',
-              value: fmtMoney(stats.overdueAmount),
-              sub: `${stats.overdueCount} invoice${stats.overdueCount !== 1 ? 's' : ''} past due`,
-              top: 'bg-red-500',
-            },
-            {
-              label: 'Not Invoiced',
-              value: stats.notInvoicedCount + ' jobs',
-              sub: 'No invoice sent',
-              top: 'bg-purple-500',
-            },
+            { label: 'Total Jobs',      value: stats.totalJobs,                  sub: 'All time',                  top: 'bg-blue-500' },
+            { label: 'Outstanding',     value: fmtMoney(stats.outstandingAmount), sub: 'Invoiced + Overdue',        top: 'bg-yellow-500' },
+            { label: 'Total Collected', value: fmtMoney(stats.collectedAmount),   sub: 'All time',                  top: 'bg-green-500' },
+            { label: 'Overdue',         value: fmtMoney(stats.overdueAmount),     sub: `${stats.overdueCount} invoice${stats.overdueCount !== 1 ? 's' : ''} past due`, top: 'bg-red-500' },
+            { label: 'Not Invoiced',    value: stats.notInvoicedCount + ' jobs',  sub: 'No invoice sent',           top: 'bg-purple-500' },
           ].map((s) => (
-            <div
-              key={s.label}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative overflow-hidden"
-            >
+            <div key={s.label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative overflow-hidden">
               <div className={`absolute top-0 left-0 right-0 h-1 ${s.top}`} />
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                {s.label}
-              </p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{s.label}</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{s.value}</p>
               <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
             </div>
           ))}
         </div>
 
-        {/* Billing Card */}
+        {/* ══════════════════════════════════════════════════════════════════════
+            BILLING & PAYMENT INFO CARD
+        ══════════════════════════════════════════════════════════════════════ */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200">
+          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between gap-2 flex-wrap">
             <h3 className="font-semibold text-gray-900 text-base flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-blue-600" />
-              Billing & Payment Info
+              Billing &amp; Payment Info
             </h3>
+            <div className="flex items-center gap-2">
+              {/* Send Test Receipt — visible when subscription is active or card saved */}
+              {(client.stripeSubscriptionId || displayMethods.length > 0) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleTestReceiptEmail}
+                  disabled={testingEmail}
+                  className="gap-1.5 text-xs h-8 text-emerald-700 border-emerald-200 hover:border-emerald-400"
+                  title="Send a test auto-charge receipt email with PDF to this client"
+                >
+                  {testingEmail ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                  {testingEmail ? 'Sending…' : 'Send Test Receipt'}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={handleAddCard}
+                disabled={addingCard}
+                className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-xs h-8"
+              >
+                {addingCard ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                {addingCard ? 'Redirecting…' : 'Add Card'}
+              </Button>
+            </div>
           </div>
 
-          <div className="p-5 space-y-4">
+          <div className="p-5 space-y-5">
 
-            {/* ── Saved Payment Method ── */}
-            <div className="rounded-lg border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Saved Payment Method</p>
+            {/* ── Saved Cards ─────────────────────────────────────────────── */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Saved Cards
+                  {displayMethods.length > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                      {displayMethods.length}
+                    </span>
+                  )}
+                </p>
               </div>
-              <div className="p-4">
-                {client.defaultPaymentMethodId && client.savedCardLast4 ? (
-                  <div className="space-y-3">
-                    {/* Card visual */}
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-md flex items-center justify-center flex-shrink-0 shadow">
+
+              {displayMethods.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 p-6 flex flex-col items-center gap-2 text-center">
+                  <CreditCard className="h-8 w-8 text-gray-300" />
+                  <p className="text-sm text-gray-500">No cards saved for this client.</p>
+                  <p className="text-xs text-gray-400">Click "Add Card" to save a card for auto-charging.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {displayMethods.map((pm) => (
+                    <div
+                      key={pm.id}
+                      className={`rounded-lg border p-4 flex items-center gap-4 ${
+                        pm.isDefault
+                          ? 'border-blue-200 bg-blue-50/40'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      {/* Card graphic */}
+                      <div className="h-10 w-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-md flex items-center justify-center flex-shrink-0 shadow-sm">
                         <CreditCard className="h-5 w-5 text-white" />
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm">
-                          {client.savedCardBrand
-                            ? client.savedCardBrand.charAt(0).toUpperCase() + client.savedCardBrand.slice(1)
-                            : 'Card'}{' '}
-                          •••• {client.savedCardLast4}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Expires {String(client.savedCardExpMonth).padStart(2, '0')} / {client.savedCardExpYear}
+
+                      {/* Card info */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-gray-900 text-sm">
+                            {pm.brand
+                              ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)
+                              : 'Card'}{' '}
+                            •••• {pm.last4}
+                          </p>
+                          {pm.isDefault && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                              <Star className="h-3 w-3 fill-blue-600 text-blue-600" />
+                              Default
+                            </span>
+                          )}
+                          {client.stripeSubscriptionId &&
+                            client.subscriptionStatus === 'active' &&
+                            client.subscriptionPaymentMethodId === pm.id && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                              <CheckCircle className="h-3 w-3" />
+                              Subscription Card
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Expires {String(pm.expMonth).padStart(2, '0')} / {pm.expYear}
+                          <span className="mx-2 text-gray-300">|</span>
+                          <span className="font-mono text-gray-400 text-[11px]">{pm.id}</span>
                         </p>
                       </div>
-                      <span className={`ml-auto inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border ${
-                        client.autoPayEnabled
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-gray-50 text-gray-500 border-gray-200'
-                      }`}>
-                        {client.autoPayEnabled
-                          ? <><CheckCircle className="h-3 w-3" /> Auto-Pay On</>
-                          : <><AlertCircle className="h-3 w-3" /> Auto-Pay Off</>
-                        }
-                      </span>
-                    </div>
 
-                    {/* Card detail rows */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 pt-2 border-t border-gray-100">
-                      <BillingRow label="Card Brand" value={client.savedCardBrand ? client.savedCardBrand.charAt(0).toUpperCase() + client.savedCardBrand.slice(1) : '—'} />
-                      <BillingRow label="Last 4 Digits" value={client.savedCardLast4 ? `•••• ${client.savedCardLast4}` : '—'} />
-                      <BillingRow label="Expiry Month" value={client.savedCardExpMonth ? String(client.savedCardExpMonth).padStart(2, '0') : '—'} />
-                      <BillingRow label="Expiry Year" value={client.savedCardExpYear ? String(client.savedCardExpYear) : '—'} />
-                      <BillingRow label="Auto-Pay" value={client.autoPayEnabled ? 'Enabled' : 'Disabled'} highlight={client.autoPayEnabled ? 'green' : undefined} />
-                      <BillingRow label="Payment Method ID" value={client.defaultPaymentMethodId || '—'} mono truncate />
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!pm.isDefault && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSetDefault(pm.id)}
+                            disabled={settingDefault === pm.id}
+                            className="h-7 text-xs gap-1 text-blue-700 border-blue-200 hover:border-blue-400"
+                            title="Set as default card"
+                          >
+                            {settingDefault === pm.id
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <Star className="h-3 w-3" />}
+                            Set Default
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleRemoveCard(pm.id, pm.last4)}
+                          disabled={removingCard === pm.id}
+                          className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:border-red-300 hover:bg-red-50"
+                          title="Remove this card"
+                        >
+                          {removingCard === pm.id
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Trash2 className="h-3 w-3" />}
+                          Remove
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-gray-500 text-sm py-1">
-                    <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span>No card saved. Client must add one via their portal.</span>
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* ── Stripe Account ── */}
@@ -548,28 +696,57 @@ export default function ClientDetailPage() {
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                   <BillingRow label="Stripe Customer ID" value={client.stripeCustomerId} mono truncate />
                   <BillingRow label="Account Status" value="Active" highlight="green" />
+                  <BillingRow
+                    label="Auto-Pay"
+                    value={client.autoPayEnabled ? 'Enabled' : 'Disabled'}
+                    highlight={client.autoPayEnabled ? 'green' : undefined}
+                  />
+                  <BillingRow label="Saved Cards" value={String(displayMethods.length)} />
                 </div>
               </div>
             )}
 
-            {/* ── Fixed Recurring Plan ── */}
+            {/* ── Fixed Recurring Plan (Scenario 1) ── */}
             <div className="rounded-lg border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fixed Recurring Plan</p>
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Fixed Auto-Charge Plan
+                </p>
+                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Scenario 1</span>
               </div>
               <div className="p-4">
                 {client.stripeSubscriptionId && client.subscriptionStatus === 'active' ? (
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                       <BillingRow label="Monthly Amount" value={fmtMoney(client.subscriptionAmount || 0)} highlight="blue" />
-                      <BillingRow label="Billing Day" value={`${client.subscriptionBillingDay}${
-                        [,'st','nd','rd'][((client.subscriptionBillingDay||1)%100-20)%10] ||
-                        [,'st','nd','rd'][(client.subscriptionBillingDay||1)%100] || 'th'
-                      } of each month`} />
+                      <BillingRow label="Billing Day" value={`${ordinal(client.subscriptionBillingDay || 1)} of each month`} />
                       <BillingRow label="Status" value="Active" highlight="green" />
                       <BillingRow label="Subscription ID" value={client.stripeSubscriptionId} mono truncate />
+                      {client.subscriptionPaymentMethodId && (() => {
+                        const subCard = displayMethods.find((m) => m.id === client.subscriptionPaymentMethodId);
+                        return subCard ? (
+                          <BillingRow
+                            label="Charged Card"
+                            value={`${subCard.brand.charAt(0).toUpperCase() + subCard.brand.slice(1)} •••• ${subCard.last4}`}
+                          />
+                        ) : null;
+                      })()}
                     </div>
-                    <div className="pt-2 border-t border-gray-100">
+                    <div className="pt-2 border-t border-gray-100 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSubAmount(String(client.subscriptionAmount || ''));
+                          setSubBillingDay(String(client.subscriptionBillingDay || ''));
+                          setSubCardId(client.subscriptionPaymentMethodId || '');
+                          setShowSubModal(true);
+                        }}
+                        className="gap-1.5 text-blue-600 border-blue-200 hover:border-blue-300 text-xs"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                        Edit Plan
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -577,8 +754,8 @@ export default function ClientDetailPage() {
                         disabled={cancelingSub}
                         className="gap-1.5 text-red-600 border-red-200 hover:border-red-300 text-xs"
                       >
-                        <XCircle className="h-3.5 w-3.5" />
-                        {cancelingSub ? 'Cancelling…' : 'Cancel Subscription'}
+                        {cancelingSub ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                        {cancelingSub ? 'Cancelling…' : 'Cancel Plan'}
                       </Button>
                     </div>
                   </div>
@@ -586,27 +763,36 @@ export default function ClientDetailPage() {
                   <div className="space-y-3">
                     {client.stripeSubscriptionId && client.subscriptionStatus !== 'active' && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 mb-2">
-                        <BillingRow label="Status" value={client.subscriptionStatus ? client.subscriptionStatus.charAt(0).toUpperCase() + client.subscriptionStatus.slice(1) : 'Inactive'} />
+                        <BillingRow
+                          label="Status"
+                          value={client.subscriptionStatus
+                            ? client.subscriptionStatus.charAt(0).toUpperCase() + client.subscriptionStatus.slice(1)
+                            : 'Inactive'}
+                        />
                         <BillingRow label="Subscription ID" value={client.stripeSubscriptionId} mono truncate />
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-gray-500 text-sm">
                       <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                      <span>No active fixed recurring plan.</span>
+                      <span>No active fixed auto-charge plan.</span>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowSubModal(true)}
-                      disabled={!client.defaultPaymentMethodId}
-                      className="gap-1.5 text-xs"
-                      title={!client.defaultPaymentMethodId ? 'Client must save a card first' : ''}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Create Fixed Plan
-                    </Button>
-                    {!client.defaultPaymentMethodId && (
-                      <p className="text-xs text-amber-600">Client must save a card first</p>
+                    {displayMethods.length > 0 ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSubAmount('');
+                          setSubBillingDay('');
+                          setSubCardId(client.defaultPaymentMethodId || '');
+                          setShowSubModal(true);
+                        }}
+                        className="gap-1.5 text-xs"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Create Fixed Plan
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-amber-600">Add a card first to create a fixed plan.</p>
                     )}
                   </div>
                 )}
@@ -616,15 +802,43 @@ export default function ClientDetailPage() {
           </div>
         </div>
 
-        {/* Create Subscription Modal */}
+        {/* ══════════════════════════════════════════════════════════════════════
+            SUBSCRIPTION MODAL
+        ══════════════════════════════════════════════════════════════════════ */}
         {showSubModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">Create Fixed Recurring Plan</h2>
-              <p className="text-sm text-gray-500">
-                This will create a Stripe Subscription that auto-charges the client on the specified day each month.
-              </p>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {client.stripeSubscriptionId && client.subscriptionStatus === 'active'
+                    ? 'Edit Fixed Auto-Charge Plan'
+                    : 'Create Fixed Auto-Charge Plan'}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Charges a fixed amount on the same day every month via Stripe Subscription (Scenario 1).
+                </p>
+              </div>
+
               <div className="space-y-3">
+                {/* Card selector */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Charge Card</label>
+                  <select
+                    value={subCardId}
+                    onChange={(e) => setSubCardId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    {displayMethods.map((pm) => (
+                      <option key={pm.id} value={pm.id}>
+                        {pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• {pm.last4}
+                        {pm.isDefault ? ' (Default)' : ''}
+                        {' — Exp '}{String(pm.expMonth).padStart(2, '0')}/{pm.expYear}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Amount */}
                 <div>
                   <label className="text-xs font-semibold text-gray-600 block mb-1">Monthly Amount (USD)</label>
                   <input
@@ -637,8 +851,12 @@ export default function ClientDetailPage() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+
+                {/* Billing day */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 block mb-1">Billing Day of Month (1–28)</label>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">
+                    Billing Day of Month (1–28)
+                  </label>
                   <input
                     type="number"
                     min="1"
@@ -649,11 +867,29 @@ export default function ClientDetailPage() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+
+                {/* Summary */}
+                {subAmount && subBillingDay && subCardId && (
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+                    <strong>${parseFloat(subAmount || '0').toFixed(2)}</strong> charged on the{' '}
+                    <strong>{ordinal(parseInt(subBillingDay || '1', 10))}</strong> of every month to{' '}
+                    <strong>
+                      {(() => {
+                        const card = displayMethods.find((m) => m.id === subCardId);
+                        return card
+                          ? `${card.brand.charAt(0).toUpperCase() + card.brand.slice(1)} •••• ${card.last4}`
+                          : 'selected card';
+                      })()}
+                    </strong>
+                    .
+                  </div>
+                )}
               </div>
+
               <div className="flex gap-2 pt-2">
                 <Button
                   variant="outline"
-                  onClick={() => setShowSubModal(false)}
+                  onClick={() => { setShowSubModal(false); setSubAmount(''); setSubBillingDay(''); setSubCardId(''); }}
                   className="flex-1"
                   disabled={creatingSub}
                 >
@@ -664,7 +900,13 @@ export default function ClientDetailPage() {
                   disabled={creatingSub}
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
-                  {creatingSub ? 'Creating…' : 'Create Subscription'}
+                  {creatingSub ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-1" />Creating…</>
+                  ) : (
+                    client.stripeSubscriptionId && client.subscriptionStatus === 'active'
+                      ? 'Update Plan'
+                      : 'Create Plan'
+                  )}
                 </Button>
               </div>
             </div>
@@ -719,7 +961,6 @@ export default function ClientDetailPage() {
 
         {/* Work Orders Card */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          {/* Card Header */}
           <div className="px-5 pt-4 pb-0 border-b border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-900 text-base">Work Orders</h3>
@@ -729,7 +970,6 @@ export default function ClientDetailPage() {
               </Button>
             </div>
 
-            {/* Filter Tabs */}
             <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-[-1px]">
               {tabs.map((tab) => (
                 <button
@@ -745,12 +985,8 @@ export default function ClientDetailPage() {
                   <span
                     className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-xs font-bold px-1 ${
                       activeTab === tab.key
-                        ? tab.danger
-                          ? 'bg-red-100 text-red-600'
-                          : 'bg-blue-100 text-blue-600'
-                        : tab.danger
-                        ? 'bg-red-50 text-red-500'
-                        : 'bg-gray-200 text-gray-600'
+                        ? tab.danger ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                        : tab.danger ? 'bg-red-50 text-red-500' : 'bg-gray-200 text-gray-600'
                     }`}
                   >
                     {tab.count}
@@ -760,7 +996,6 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
@@ -813,32 +1048,15 @@ export default function ClientDetailPage() {
                         {fmtDate(wo.dueDate)}
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs gap-1"
-                            onClick={() =>
-                              router.push(`/admin-portal/work-orders/${wo.id}`)
-                            }
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            View
-                          </Button>
-                          {/* Auto-charge button: only for sent/overdue invoices with a saved card */}
-                          {wo.invoice && (wo.invStatus === 'sent' || wo.invStatus === 'overdue') && client.defaultPaymentMethodId && (
-                            <Button
-                              size="sm"
-                              className="h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
-                              onClick={() => handleChargeInvoice(wo.invoice!)}
-                              disabled={chargingInvoice === wo.invoice.id || wo.invoice.autoChargeStatus === 'succeeded'}
-                              title={wo.invoice.autoChargeAttempted ? `Last charge: ${wo.invoice.autoChargeStatus}` : 'Charge saved card now'}
-                            >
-                              <Zap className="h-3 w-3" />
-                              {chargingInvoice === wo.invoice.id ? 'Charging…' : 'Auto-Charge'}
-                            </Button>
-                          )}
-                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => router.push(`/admin-portal/work-orders/${wo.id}`)}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View
+                        </Button>
                       </td>
                     </tr>
                   ))
@@ -847,6 +1065,7 @@ export default function ClientDetailPage() {
             </table>
           </div>
         </div>
+
       </div>
     </AdminLayout>
   );

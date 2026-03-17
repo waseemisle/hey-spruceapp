@@ -9,11 +9,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 /**
  * Creates a Stripe Checkout session in "setup" mode.
- * The client completes card entry; the webhook saves the payment method.
+ * Supports both client-portal flow and admin-initiated flow.
+ *
+ * Body: { clientId, adminInitiated?: boolean }
  */
 export async function POST(request: NextRequest) {
   try {
-    const { clientId } = await request.json();
+    const { clientId, adminInitiated } = await request.json();
 
     if (!clientId) {
       return NextResponse.json({ error: 'Missing clientId' }, { status: 400 });
@@ -42,13 +44,21 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
 
+    // Determine redirect URLs based on who initiated
+    const successUrl = adminInitiated
+      ? `${baseUrl}/admin-portal/clients/${clientId}?card_added=success`
+      : `${baseUrl}/client-portal/payment-methods?setup=success&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = adminInitiated
+      ? `${baseUrl}/admin-portal/clients/${clientId}?card_added=cancelled`
+      : `${baseUrl}/client-portal/payment-methods?setup=cancelled`;
+
     // Create Checkout session in setup mode
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'setup',
       customer: stripeCustomerId,
-      success_url: `${baseUrl}/client-portal/payment-methods?setup=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/client-portal/payment-methods?setup=cancelled`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: {
         clientId,
         type: 'save_card',

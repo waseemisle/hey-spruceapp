@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { collection, doc, addDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
+import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -176,7 +177,7 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
   }
 }
 
-/** Setup mode checkout completed — save the payment method to the client */
+/** Setup mode checkout completed — add the payment method to the client's card list */
 async function handleSetupCompleted(session: Stripe.Checkout.Session) {
   try {
     const clientId = session.metadata?.clientId;
@@ -201,9 +202,38 @@ async function handleSetupCompleted(session: Stripe.Checkout.Session) {
 
     // Retrieve the payment method to get card details
     const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
-
     const card = pm.card;
+
+    // Load existing paymentMethods array
+    const clientDoc = await getDoc(doc(db, 'clients', clientId));
+    const clientData = clientDoc.data();
+    const existingMethods: any[] = clientData?.paymentMethods || [];
+
+    // Check if this payment method already exists (idempotency)
+    const alreadyExists = existingMethods.some((m: any) => m.id === paymentMethodId);
+    if (alreadyExists) {
+      console.log(`Payment method ${paymentMethodId} already saved for client ${clientId}`);
+      return;
+    }
+
+    const newCard = {
+      id: paymentMethodId,
+      last4: card?.last4 || '',
+      brand: card?.brand || '',
+      expMonth: card?.exp_month || null,
+      expYear: card?.exp_year || null,
+      isDefault: true,
+      createdAt: Timestamp.now(),
+    };
+
+    // Mark all existing cards as non-default, new card becomes default
+    const updatedMethods = [
+      ...existingMethods.map((m: any) => ({ ...m, isDefault: false })),
+      newCard,
+    ];
+
     await updateDoc(doc(db, 'clients', clientId), {
+      paymentMethods: updatedMethods,
       defaultPaymentMethodId: paymentMethodId,
       savedCardLast4: card?.last4 || '',
       savedCardBrand: card?.brand || '',
@@ -214,15 +244,14 @@ async function handleSetupCompleted(session: Stripe.Checkout.Session) {
     });
 
     // Set as default on the Stripe customer too
-    const clientDoc = await getDoc(doc(db, 'clients', clientId));
-    const stripeCustomerId = clientDoc.data()?.stripeCustomerId;
+    const stripeCustomerId = clientData?.stripeCustomerId;
     if (stripeCustomerId) {
       await stripe.customers.update(stripeCustomerId, {
         invoice_settings: { default_payment_method: paymentMethodId },
       });
     }
 
-    console.log(`Saved payment method for client ${clientId}: ${paymentMethodId}`);
+    console.log(`Saved payment method for client ${clientId}: ${paymentMethodId} (total: ${updatedMethods.length} cards)`);
   } catch (error) {
     console.error('Error saving payment method from setup:', error);
   }
@@ -295,7 +324,7 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
   }
 }
 
-/** Subscription (fixed recurring) invoice paid — create invoice record in Firestore */
+/** Subscription (fixed recurring) invoice paid — create invoice record + send receipt email */
 async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
   try {
     // Skip $0 invoices (e.g. trial or setup invoice)
@@ -325,6 +354,10 @@ async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
     const amount = stripeInvoice.amount_paid / 100; // Stripe amounts are in cents
     const invoiceNumber = `SPRUCE-SUB-${Date.now().toString().slice(-8).toUpperCase()}`;
 
+    const stripePaymentIntentId = typeof stripeInvoice.payment_intent === 'string'
+      ? stripeInvoice.payment_intent
+      : stripeInvoice.payment_intent?.id || '';
+
     const paidEvent = createInvoiceTimelineEvent({
       type: 'paid',
       userId: 'system',
@@ -341,9 +374,7 @@ async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
       clientEmail: clientData.email || '',
       status: 'paid',
       totalAmount: amount,
-      stripePaymentIntentId: typeof stripeInvoice.payment_intent === 'string'
-        ? stripeInvoice.payment_intent
-        : stripeInvoice.payment_intent?.id || '',
+      stripePaymentIntentId,
       autoChargeAttempted: true,
       autoChargeStatus: 'succeeded',
       workOrderTitle: `Monthly Subscription — ${clientData.subscriptionAmount ? `$${clientData.subscriptionAmount}/month` : ''}`,
@@ -362,6 +393,34 @@ async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
     });
 
     console.log(`Subscription invoice paid for client ${clientId}: ${stripeInvoice.id} — $${amount}`);
+
+    // ── Send receipt email with PDF attachment ────────────────────────────────
+    if (clientData.email) {
+      // Find the card used for this subscription (prefer subscriptionPaymentMethodId)
+      const subCardId = clientData.subscriptionPaymentMethodId || clientData.defaultPaymentMethodId;
+      const paymentMethods: any[] = clientData.paymentMethods || [];
+      const usedCard = paymentMethods.find((m: any) => m.id === subCardId)
+        || (clientData.savedCardLast4 ? {
+            brand: clientData.savedCardBrand || 'card',
+            last4: clientData.savedCardLast4,
+          } : null);
+
+      await sendAutoChargeReceiptEmail({
+        clientEmail: clientData.email,
+        clientName: clientData.fullName || clientData.companyName || 'Valued Client',
+        amount,
+        invoiceNumber,
+        chargedAt: new Date(),
+        cardBrand: usedCard?.brand || 'card',
+        cardLast4: usedCard?.last4 || '****',
+        subscriptionAmount: clientData.subscriptionAmount || amount,
+        subscriptionBillingDay: clientData.subscriptionBillingDay || 1,
+        stripePaymentIntentId,
+        stripeInvoiceId: stripeInvoice.id,
+      });
+    } else {
+      console.warn(`[Webhook] No email on client ${clientId} — skipping receipt email`);
+    }
   } catch (error) {
     console.error('Error handling invoice.paid (subscription):', error);
   }

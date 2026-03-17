@@ -15,7 +15,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { clientId, amount, billingDay, description } = await request.json();
+    const { clientId, amount, billingDay, description, paymentMethodId: specificCardId } = await request.json();
 
     if (!clientId || !amount || !billingDay) {
       return NextResponse.json(
@@ -44,9 +44,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use the specified card or fall back to the default
+    const cardToUse = specificCardId || clientData.defaultPaymentMethodId;
+
+    // Verify the card belongs to this client
+    const paymentMethods: any[] = clientData.paymentMethods || [];
+    if (specificCardId && !paymentMethods.some((m: any) => m.id === specificCardId)) {
+      return NextResponse.json({ error: 'Specified card not found on this client' }, { status: 400 });
+    }
+
     // Set default payment method on the Stripe customer
     await stripe.customers.update(clientData.stripeCustomerId, {
-      invoice_settings: { default_payment_method: clientData.defaultPaymentMethodId },
+      invoice_settings: { default_payment_method: cardToUse },
     });
 
     // Create a Price (inline product)
@@ -74,7 +83,7 @@ export async function POST(request: NextRequest) {
       items: [{ price: price.id }],
       billing_cycle_anchor: anchorTimestamp,
       proration_behavior: 'none',
-      default_payment_method: clientData.defaultPaymentMethodId,
+      default_payment_method: cardToUse,
       metadata: {
         clientId,
         type: 'fixed_recurring',
@@ -87,6 +96,7 @@ export async function POST(request: NextRequest) {
       subscriptionAmount: amount,
       subscriptionBillingDay: billingDay,
       subscriptionStatus: 'active',
+      subscriptionPaymentMethodId: cardToUse,
       updatedAt: serverTimestamp(),
     });
 
