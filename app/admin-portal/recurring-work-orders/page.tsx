@@ -453,10 +453,10 @@ export default function RecurringWorkOrdersManagement() {
                   </Button>
                 )}
                 <Button
-                  variant="destructive"
+                  variant="outline"
                   onClick={handleBulkDelete}
                   loading={submitting} disabled={submitting}
-                  className="flex-1 sm:flex-none"
+                  className="flex-1 sm:flex-none border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete {selectedIds.length}
@@ -608,8 +608,9 @@ export default function RecurringWorkOrdersManagement() {
                         )}
                         <Button
                           size="sm"
-                          variant="destructive"
+                          variant="ghost"
                           onClick={() => handleDelete(recurringWorkOrder)}
+                          className="text-red-400 hover:text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -704,8 +705,8 @@ export default function RecurringWorkOrdersManagement() {
                       </Button>
                       <Button
                         size="sm"
-                        variant="destructive"
-                        className="px-2 sm:px-3"
+                        variant="ghost"
+                        className="px-2 sm:px-3 text-red-400 hover:text-red-600 hover:bg-red-50"
                         onClick={() => handleDelete(recurringWorkOrder)}
                       >
                         <Trash2 className="h-4 w-4" />
