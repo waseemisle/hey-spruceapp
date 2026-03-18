@@ -1,3 +1,4 @@
+import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
@@ -11,6 +12,14 @@ import PortalLogin from '@/app/portal-login/page'
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }))
+
+jest.mock('next/link', () => {
+  const Link = ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  );
+  Link.displayName = 'Link';
+  return Link;
+})
 
 jest.mock('firebase/auth', () => ({
   createUserWithEmailAndPassword: jest.fn(),
@@ -36,6 +45,12 @@ jest.mock('@/components/ui/use-toast', () => ({
     toast: jest.fn(),
   }),
 }))
+
+jest.mock('@/components/ui/logo', () => {
+  const Logo = ({ href }: { href?: string }) => <a href={href || '/'}>Logo</a>;
+  Logo.displayName = 'Logo';
+  return Logo;
+})
 
 describe('Complete Client Registration and Login Flow', () => {
   const mockPush = jest.fn()

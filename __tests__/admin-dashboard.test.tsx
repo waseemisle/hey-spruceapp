@@ -1,5 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import React from 'react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { collection, query, getDocs, onSnapshot } from 'firebase/firestore'
 import AdminDashboard from '@/app/admin-portal/page'
 
@@ -10,6 +10,9 @@ jest.mock('firebase/firestore', () => ({
   getDocs: jest.fn(),
   onSnapshot: jest.fn(),
   where: jest.fn(),
+  doc: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
 }))
 
 jest.mock('@/lib/firebase', () => ({
@@ -17,171 +20,129 @@ jest.mock('@/lib/firebase', () => ({
 }))
 
 jest.mock('@/components/admin-layout', () => {
-  return function MockAdminLayout({ children }: { children: React.ReactNode }) {
-    return <div data-testid="admin-layout">{children}</div>
-  }
+  const MockAdminLayout = ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="admin-layout">{children}</div>
+  )
+  MockAdminLayout.displayName = 'MockAdminLayout'
+  return MockAdminLayout
 })
+
+jest.mock('@/components/dashboard/dashboard-search-bar', () => {
+  const MockDashboardSearchBar = () => <div data-testid="dashboard-search-bar" />
+  MockDashboardSearchBar.displayName = 'MockDashboardSearchBar'
+  return MockDashboardSearchBar
+})
+
+jest.mock('@/components/dashboard/work-orders-section', () => {
+  const MockWorkOrdersSection = () => <div data-testid="work-orders-section" />
+  MockWorkOrdersSection.displayName = 'MockWorkOrdersSection'
+  return MockWorkOrdersSection
+})
+
+jest.mock('@/components/dashboard/proposals-section', () => {
+  const MockProposalsSection = () => <div data-testid="proposals-section" />
+  MockProposalsSection.displayName = 'MockProposalsSection'
+  return MockProposalsSection
+})
+
+jest.mock('@/components/dashboard/invoices-section', () => {
+  const MockInvoicesSection = () => <div data-testid="invoices-section" />
+  MockInvoicesSection.displayName = 'MockInvoicesSection'
+  return MockInvoicesSection
+})
+
+jest.mock('@/components/calendar/admin-calendar', () => {
+  const MockAdminCalendar = () => <div data-testid="admin-calendar" />
+  MockAdminCalendar.displayName = 'MockAdminCalendar'
+  return MockAdminCalendar
+})
+
+jest.mock('@/lib/dashboard-utils', () => ({
+  calculateWorkOrdersData: jest.fn().mockResolvedValue({
+    workRequired: { total: 0, dispatchNotConfirmed: { urgent: 0, total: 0 }, declinedByProvider: { urgent: 0, total: 0 }, lateToArrive: { urgent: 0, total: 0 } },
+    inProgress: { total: 0, partsOnOrder: { urgent: 0, total: 0 }, waitingForQuote: { urgent: 0, total: 0 }, unsatisfactory: 0 },
+    awaitingAction: { total: 0, pendingConfirmation: 0, actionRequired: 0, myActionRequired: 0 },
+  }),
+  calculateProposalsData: jest.fn().mockResolvedValue({
+    pendingApproval: { urgent: 0, total: 0 },
+    onHold: 0,
+    rejected: 0,
+    approved: 0,
+  }),
+  calculateInvoicesData: jest.fn().mockResolvedValue({
+    completedNotInvoiced: 0,
+    openReviewed: { count: 0, amount: '0.00', mixedCurrency: false },
+    onHold: { count: 0, amount: '0.00' },
+    rejected: { count: 0, amount: '0.00' },
+  }),
+}))
 
 describe('AdminDashboard', () => {
   const mockGetDocs = getDocs as jest.MockedFunction<typeof getDocs>
   const mockOnSnapshot = onSnapshot as jest.MockedFunction<typeof onSnapshot>
-  const mockCollection = collection as jest.MockedFunction<typeof collection>
-  const mockQuery = query as jest.MockedFunction<typeof query>
-  const mockWhere = query as jest.MockedFunction<typeof query>
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockGetDocs.mockResolvedValue({ docs: [], size: 0, forEach: jest.fn() } as any)
+    mockOnSnapshot.mockReturnValue(jest.fn() as any)
   })
 
-  it('renders dashboard with title and description', () => {
-    mockGetDocs.mockResolvedValueOnce({ size: 0 } as any)
-    mockOnSnapshot.mockReturnValue(jest.fn())
-
+  it('renders dashboard title and description', async () => {
     render(<AdminDashboard />)
-    
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Welcome to your GroundOps admin portal')).toBeInTheDocument()
-  })
 
-  it('renders all stat cards', async () => {
-    mockGetDocs.mockResolvedValue({ size: 0 } as any)
-    mockOnSnapshot.mockReturnValue(jest.fn())
-
-    render(<AdminDashboard />)
-    
     await waitFor(() => {
-      expect(screen.getByText('Pending Client Approvals')).toBeInTheDocument()
-      expect(screen.getByText('Pending Subcontractor Approvals')).toBeInTheDocument()
-      expect(screen.getByText('Pending Location Approvals')).toBeInTheDocument()
-      expect(screen.getByText('Pending Work Orders')).toBeInTheDocument()
-      expect(screen.getByText('Total Invoices')).toBeInTheDocument()
-      expect(screen.getByText('Total Revenue')).toBeInTheDocument()
+      expect(screen.getByText('Dashboard')).toBeInTheDocument()
+      expect(screen.getByText('Welcome to your GroundOps admin portal')).toBeInTheDocument()
     })
   })
 
-  it('displays correct initial stats', async () => {
-    mockGetDocs.mockResolvedValue({ size: 0 } as any)
-    mockOnSnapshot.mockReturnValue(jest.fn())
-
+  it('renders all main dashboard sections', async () => {
     render(<AdminDashboard />)
-    
+
     await waitFor(() => {
-      expect(screen.getByText('0')).toBeInTheDocument() // All stats should be 0 initially
-      expect(screen.getByText('$0')).toBeInTheDocument() // Revenue should be $0
+      expect(screen.getByTestId('work-orders-section')).toBeInTheDocument()
+      expect(screen.getByTestId('proposals-section')).toBeInTheDocument()
+      expect(screen.getByTestId('invoices-section')).toBeInTheDocument()
+      expect(screen.getByTestId('admin-calendar')).toBeInTheDocument()
     })
   })
 
-  it('fetches stats from correct collections', async () => {
-    mockGetDocs.mockResolvedValue({ size: 0 } as any)
-    mockOnSnapshot.mockReturnValue(jest.fn())
-
+  it('renders admin layout wrapper', async () => {
     render(<AdminDashboard />)
-    
+
     await waitFor(() => {
-      expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'clients')
-      expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'subcontractors')
-      expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'locations')
-      expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'workOrders')
-      expect(mockCollection).toHaveBeenCalledWith(expect.anything(), 'invoices')
+      expect(screen.getByTestId('admin-layout')).toBeInTheDocument()
     })
   })
 
-  it('sets up real-time listeners for pending counts', async () => {
-    mockGetDocs.mockResolvedValue({ size: 0 } as any)
-    mockOnSnapshot.mockReturnValue(jest.fn())
-
+  it('renders company selector with All Companies default', async () => {
     render(<AdminDashboard />)
-    
+
     await waitFor(() => {
-      expect(mockOnSnapshot).toHaveBeenCalledTimes(2) // Clients and subcontractors listeners
+      expect(screen.getByText('All Companies')).toBeInTheDocument()
     })
   })
 
-  it('calculates total revenue from paid invoices', async () => {
-    const mockInvoicesSnapshot = {
-      size: 2,
-      forEach: (callback: (doc: any) => void) => {
-        callback({
-          data: () => ({
-            status: 'paid',
-            totalAmount: 1000,
-          }),
-        })
-        callback({
-          data: () => ({
-            status: 'paid',
-            totalAmount: 500,
-          }),
-        })
-      },
-    }
-
-    mockGetDocs
-      .mockResolvedValueOnce({ size: 0 } as any) // clients
-      .mockResolvedValueOnce({ size: 0 } as any) // subcontractors
-      .mockResolvedValueOnce({ size: 0 } as any) // locations
-      .mockResolvedValueOnce({ size: 0 } as any) // workOrders
-      .mockResolvedValueOnce(mockInvoicesSnapshot as any) // invoices
-
-    mockOnSnapshot.mockReturnValue(jest.fn())
-
+  it('sets up real-time listeners on mount', async () => {
     render(<AdminDashboard />)
-    
+
     await waitFor(() => {
-      expect(screen.getByText('$1,500')).toBeInTheDocument() // Total revenue
+      // onSnapshot is called for workOrders, quotes, and invoices collections
+      expect(mockOnSnapshot).toHaveBeenCalledTimes(3)
     })
   })
 
-  it('renders quick actions section', async () => {
-    mockGetDocs.mockResolvedValue({ size: 0 } as any)
-    mockOnSnapshot.mockReturnValue(jest.fn())
-
-    render(<AdminDashboard />)
-    
-    await waitFor(() => {
-      expect(screen.getByText('Quick Actions')).toBeInTheDocument()
-      expect(screen.getByText('• Review pending client and subcontractor registrations')).toBeInTheDocument()
-      expect(screen.getByText('• Approve location requests from clients')).toBeInTheDocument()
-      expect(screen.getByText('• Manage work orders and assign to subcontractors')).toBeInTheDocument()
-      expect(screen.getByText('• Generate and send invoices with Stripe payment links')).toBeInTheDocument()
-    })
-  })
-
-  it('handles errors gracefully', async () => {
+  it('handles Firestore errors gracefully without crashing', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    
     mockGetDocs.mockRejectedValueOnce(new Error('Firebase error'))
-    mockOnSnapshot.mockReturnValue(jest.fn())
 
     render(<AdminDashboard />)
-    
+
+    // Component should still render without throwing
     await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith('Error fetching stats:', expect.any(Error))
+      expect(screen.getByText('Dashboard')).toBeInTheDocument()
     })
 
     consoleSpy.mockRestore()
-  })
-
-  it('updates stats in real-time', async () => {
-    let snapshotCallback: (snapshot: any) => void
-    
-    mockGetDocs.mockResolvedValue({ size: 0 } as any)
-    mockOnSnapshot.mockImplementation((query, callback) => {
-      snapshotCallback = callback
-      return jest.fn()
-    })
-
-    render(<AdminDashboard />)
-    
-    await waitFor(() => {
-      expect(screen.getByText('0')).toBeInTheDocument()
-    })
-
-    // Simulate real-time update
-    snapshotCallback({ size: 3 })
-    
-    await waitFor(() => {
-      expect(screen.getByText('3')).toBeInTheDocument()
-    })
   })
 })

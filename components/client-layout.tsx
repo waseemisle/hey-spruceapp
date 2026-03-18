@@ -219,7 +219,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: null },
     ...(hasMaintenancePermission ? [{ name: 'Maintenance Requests', href: '/client-portal/maintenance-requests', icon: Wrench, badgeKey: null }] : []),
     ...(hasMaintenanceRequestsWorkOrdersPermission ? [{ name: 'Maintenance Requests Work Orders', href: '/client-portal/work-orders/maintenance-requests', icon: Wrench, badgeKey: null }] : []),
-    ...(hasRecurringWorkOrdersPermission ? [{ name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null }] : []),
+    { name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
     ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
     { name: 'Invoices', href: '/client-portal/invoices', icon: Receipt, badgeKey: 'invoices' },

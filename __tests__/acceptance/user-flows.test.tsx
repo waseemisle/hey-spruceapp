@@ -81,30 +81,30 @@ describe('Acceptance Tests - Complete User Flows', () => {
       // Fill registration form - handle multiple matches
       const fullNameInputs = screen.getAllByLabelText(/full name/i);
       await user.type(fullNameInputs[0], 'John Doe');
-      
-      const emailInputs = screen.getAllByLabelText(/email/i);
-      await user.type(emailInputs[0], 'john@test.com');
-      
+
+      const regEmailInputs = screen.getAllByLabelText(/email/i);
+      await user.type(regEmailInputs[0], 'john@test.com');
+
       const phoneInputs = screen.getAllByLabelText(/phone/i);
       await user.type(phoneInputs[0], '555-1234');
-      
-      const passwordInputs = screen.getAllByLabelText(/^password/i);
-      await user.type(passwordInputs[0], 'password123');
-      
+
+      const regPasswordInputs = screen.getAllByLabelText(/^password/i);
+      await user.type(regPasswordInputs[0], 'password123');
+
       const confirmPasswordInputs = screen.getAllByLabelText(/confirm password/i);
       await user.type(confirmPasswordInputs[0], 'password123');
-      
+
       const mockUser = { uid: 'client-uid', email: 'john@test.com' };
       mockCreateUser.mockResolvedValueOnce({ user: mockUser } as any);
       mockSetDoc.mockResolvedValue(undefined);
-      
+
       await user.click(screen.getByRole('button', { name: /register/i }));
-      
+
       await waitFor(() => {
         expect(mockCreateUser).toHaveBeenCalled();
         expect(mockSetDoc).toHaveBeenCalled();
       });
-      
+
       // Step 2: Admin Approval (simulated)
       mockGetDoc
         .mockResolvedValueOnce({ exists: () => false } as any) // admin check
@@ -112,16 +112,16 @@ describe('Acceptance Tests - Complete User Flows', () => {
           exists: () => true,
           data: () => ({ status: 'approved' }),
         } as any); // client check
-      
+
       // Step 3: Client Login
       const PortalLogin = (await import('@/app/portal-login/page')).default;
       render(<PortalLogin />);
-      
-      const emailInputs = screen.getAllByLabelText(/email/i);
-      await user.type(emailInputs[0], 'john@test.com');
-      
-      const passwordInputs = screen.getAllByLabelText(/password/i);
-      await user.type(passwordInputs[0], 'password123');
+
+      const loginEmailInputs = screen.getAllByLabelText(/email/i);
+      await user.type(loginEmailInputs[0], 'john@test.com');
+
+      const loginPasswordInputs = screen.getAllByLabelText(/password/i);
+      await user.type(loginPasswordInputs[0], 'password123');
       
       mockSignIn.mockResolvedValueOnce({ user: mockUser } as any);
       
@@ -247,31 +247,31 @@ describe('Acceptance Tests - Complete User Flows', () => {
       expect(screen.getByText(/subcontractor registration/i)).toBeInTheDocument();
       
       // Fill registration - use getAllByLabelText for multiple matches
-      const fullNameInputs = screen.getAllByLabelText(/full name/i);
-      await user.type(fullNameInputs[0], 'Jane Contractor');
-      
-      const emailInputs = screen.getAllByLabelText(/email/i);
-      await user.type(emailInputs[0], 'jane@contractor.com');
-      
-      const phoneInputs = screen.getAllByLabelText(/phone/i);
-      await user.type(phoneInputs[0], '555-5678');
-      
-      const passwordInputs = screen.getAllByLabelText(/^password/i);
-      await user.type(passwordInputs[0], 'password123');
-      
-      const confirmPasswordInputs = screen.getAllByLabelText(/confirm password/i);
-      await user.type(confirmPasswordInputs[0], 'password123');
-      
+      const subFullNameInputs = screen.getAllByLabelText(/full name/i);
+      await user.type(subFullNameInputs[0], 'Jane Contractor');
+
+      const subRegEmailInputs = screen.getAllByLabelText(/email/i);
+      await user.type(subRegEmailInputs[0], 'jane@contractor.com');
+
+      const subPhoneInputs = screen.getAllByLabelText(/phone/i);
+      await user.type(subPhoneInputs[0], '555-5678');
+
+      const subRegPasswordInputs = screen.getAllByLabelText(/^password/i);
+      await user.type(subRegPasswordInputs[0], 'password123');
+
+      const subConfirmPasswordInputs = screen.getAllByLabelText(/confirm password/i);
+      await user.type(subConfirmPasswordInputs[0], 'password123');
+
       const mockUser = { uid: 'sub-uid', email: 'jane@contractor.com' };
       mockCreateUser.mockResolvedValueOnce({ user: mockUser } as any);
       mockSetDoc.mockResolvedValue(undefined);
-      
+
       await user.click(screen.getByRole('button', { name: /register/i }));
-      
+
       await waitFor(() => {
         expect(mockCreateUser).toHaveBeenCalled();
       });
-      
+
       // Step 2: Admin Approval
       mockGetDoc
         .mockResolvedValueOnce({ exists: () => false } as any)
@@ -279,18 +279,18 @@ describe('Acceptance Tests - Complete User Flows', () => {
           exists: () => true,
           data: () => ({ status: 'approved' }),
         } as any);
-      
+
       // Step 3: Login and view bidding opportunities
       mockSignIn.mockResolvedValueOnce({ user: mockUser } as any);
-      
+
       const PortalLogin = (await import('@/app/portal-login/page')).default;
       render(<PortalLogin />);
-      
-      const emailInputs = screen.getAllByLabelText(/email/i);
-      await user.type(emailInputs[0], 'jane@contractor.com');
-      
-      const passwordInputs = screen.getAllByLabelText(/password/i);
-      await user.type(passwordInputs[0], 'password123');
+
+      const subLoginEmailInputs = screen.getAllByLabelText(/email/i);
+      await user.type(subLoginEmailInputs[0], 'jane@contractor.com');
+
+      const subLoginPasswordInputs = screen.getAllByLabelText(/password/i);
+      await user.type(subLoginPasswordInputs[0], 'password123');
       await user.click(screen.getByRole('button', { name: /login/i }));
       
       await waitFor(() => {

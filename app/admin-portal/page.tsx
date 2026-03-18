@@ -167,23 +167,35 @@ export default function AdminDashboard() {
     fetchDashboardData();
 
     // Set up real-time listeners
-    const unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
-      const companyId = selectedCompanyIdRef.current || undefined;
-      const workOrders = await calculateWorkOrdersData('admin', undefined, undefined, undefined, companyId);
-      setWorkOrdersData(workOrders);
-    });
+    const unsubscribeWorkOrders = onSnapshot(
+      collection(db, 'workOrders'),
+      async () => {
+        const companyId = selectedCompanyIdRef.current || undefined;
+        const workOrders = await calculateWorkOrdersData('admin', undefined, undefined, undefined, companyId);
+        setWorkOrdersData(workOrders);
+      },
+      (err) => console.error('Dashboard work orders listener error:', err),
+    );
 
-    const unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
-      const companyId = selectedCompanyIdRef.current || undefined;
-      const proposals = await calculateProposalsData('admin', undefined, undefined, companyId);
-      setProposalsData(proposals);
-    });
+    const unsubscribeQuotes = onSnapshot(
+      collection(db, 'quotes'),
+      async () => {
+        const companyId = selectedCompanyIdRef.current || undefined;
+        const proposals = await calculateProposalsData('admin', undefined, undefined, companyId);
+        setProposalsData(proposals);
+      },
+      (err) => console.error('Dashboard quotes listener error:', err),
+    );
 
-    const unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
-      const companyId = selectedCompanyIdRef.current || undefined;
-      const invoices = await calculateInvoicesData('admin', undefined, undefined, companyId);
-      setInvoicesData(invoices);
-    });
+    const unsubscribeInvoices = onSnapshot(
+      collection(db, 'invoices'),
+      async () => {
+        const companyId = selectedCompanyIdRef.current || undefined;
+        const invoices = await calculateInvoicesData('admin', undefined, undefined, companyId);
+        setInvoicesData(invoices);
+      },
+      (err) => console.error('Dashboard invoices listener error:', err),
+    );
 
     return () => {
       unsubscribeWorkOrders();

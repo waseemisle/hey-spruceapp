@@ -121,33 +121,54 @@ export default function AdminLayout({ children, headerExtra }: { children: React
   useEffect(() => {
     if (!auth) { setLoading(false); return; }
 
+    let unsubscribeLocations: (() => void) | undefined;
+    let unsubscribeWorkOrders: (() => void) | undefined;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Clean up previous badge listeners on every auth state change
+      unsubscribeLocations?.();
+      unsubscribeWorkOrders?.();
+
       if (firebaseUser) {
-        const adminDoc = await getDoc(doc(db, 'adminUsers', firebaseUser.uid));
-        if (adminDoc.exists()) {
-          setUser({ ...firebaseUser, ...adminDoc.data() });
+        try {
+          const adminDoc = await getDoc(doc(db, 'adminUsers', firebaseUser.uid));
+          if (adminDoc.exists()) {
+            setUser({ ...firebaseUser, ...adminDoc.data() });
+            setLoading(false);
+
+            const locationsQuery = query(collection(db, 'locations'), where('status', '==', 'pending'));
+            unsubscribeLocations = onSnapshot(
+              locationsQuery,
+              (s) => setBadgeCounts(prev => ({ ...prev, locations: s.size })),
+              (err) => console.error('Locations badge listener error:', err),
+            );
+
+            const workOrdersQuery = query(collection(db, 'workOrders'), where('status', '==', 'pending'));
+            unsubscribeWorkOrders = onSnapshot(
+              workOrdersQuery,
+              (s) => setBadgeCounts(prev => ({ ...prev, workOrders: s.size })),
+              (err) => console.error('Work orders badge listener error:', err),
+            );
+          } else {
+            setLoading(false);
+            router.push('/portal-login');
+          }
+        } catch (error) {
+          console.error('Error verifying admin user:', error);
           setLoading(false);
-
-          const locationsQuery = query(collection(db, 'locations'), where('status', '==', 'pending'));
-          const unsubscribeLocations = onSnapshot(locationsQuery, (s) =>
-            setBadgeCounts(prev => ({ ...prev, locations: s.size }))
-          );
-
-          const workOrdersQuery = query(collection(db, 'workOrders'), where('status', '==', 'pending'));
-          const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (s) =>
-            setBadgeCounts(prev => ({ ...prev, workOrders: s.size }))
-          );
-
-          return () => { unsubscribeLocations(); unsubscribeWorkOrders(); };
-        } else {
           router.push('/portal-login');
         }
       } else {
+        setLoading(false);
         router.push('/portal-login');
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeLocations?.();
+      unsubscribeWorkOrders?.();
+    };
   }, [router]);
 
   const handleLogout = async () => {

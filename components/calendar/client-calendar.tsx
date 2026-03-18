@@ -7,6 +7,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import { collection, query, where, onSnapshot, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { RecurringWorkOrder } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,14 +60,11 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
   const calendarRef = useRef<FullCalendar>(null);
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
     let unsubscribeWorkOrders: (() => void) | null = null;
     let unsubscribeRecurring: (() => void) | null = null;
 
     // Fetch client's assigned locations first
-    const setupListeners = async () => {
+    const setupListeners = async (currentUser: { uid: string }) => {
       try {
         const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
         const clientData = clientDoc.data();
@@ -172,9 +170,14 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
       }
     };
 
-    setupListeners();
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setupListeners(firebaseUser);
+      }
+    });
 
     return () => {
+      unsubscribeAuth();
       unsubscribeWorkOrders?.();
       unsubscribeRecurring?.();
     };

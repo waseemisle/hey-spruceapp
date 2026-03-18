@@ -70,27 +70,34 @@ export default function MaintRequestsPage() {
       orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(maintRequestsQuery, (snapshot) => {
-      const requestsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        // Serialize Firestore timestamps to readable strings for raw JSON display
-        const serializedData: Record<string, any> = { id: doc.id };
-        Object.entries(data).forEach(([key, value]) => {
-          if (value && typeof value === 'object' && typeof value.toDate === 'function') {
-            serializedData[key] = value.toDate().toISOString();
-          } else {
-            serializedData[key] = value;
-          }
-        });
-        return {
-          id: doc.id,
-          ...data,
-          rawData: serializedData,
-        };
-      }) as MaintRequest[];
-      setRequests(requestsData);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      maintRequestsQuery,
+      (snapshot) => {
+        const requestsData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          // Serialize Firestore timestamps to readable strings for raw JSON display
+          const serializedData: Record<string, any> = { id: doc.id };
+          Object.entries(data).forEach(([key, value]) => {
+            if (value && typeof value === 'object' && typeof value.toDate === 'function') {
+              serializedData[key] = value.toDate().toISOString();
+            } else {
+              serializedData[key] = value;
+            }
+          });
+          return {
+            id: doc.id,
+            ...data,
+            rawData: serializedData,
+          };
+        }) as MaintRequest[];
+        setRequests(requestsData);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Maint requests listener error:', err);
+        setLoading(false);
+      },
+    );
 
     return () => unsubscribe();
   }, []);

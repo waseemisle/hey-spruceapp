@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, updateDoc, doc, orderBy, limit } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,11 +28,12 @@ interface Notification {
 }
 
 export default function NotificationBell() {
+  const { auth, db } = useFirebaseInstance();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
   const pathname = usePathname();
-  
+
   // Determine messages page based on current path
   const getMessagesPath = (): string | null => {
     if (pathname?.startsWith('/admin-portal')) return '/admin-portal/messages';
@@ -63,7 +64,7 @@ export default function NotificationBell() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth, db]);
 
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read

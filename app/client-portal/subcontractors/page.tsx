@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, where } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { collection, query, getDocs, where, doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Input } from '@/components/ui/input';
 import { User, Mail, Phone, Building, Award, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -48,6 +47,7 @@ function avatarColor(id: string): string {
 }
 
 export default function ClientSubcontractorsView() {
+  const { auth, db } = useFirebaseInstance();
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,7 +82,7 @@ export default function ClientSubcontractorsView() {
     };
 
     checkPermissionAndFetchData();
-  }, [router]);
+  }, [auth, db, router]);
 
   const fetchSubcontractors = async () => {
     try {

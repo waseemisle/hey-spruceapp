@@ -58,7 +58,10 @@ export default function MessagesManagement() {
 
   useEffect(() => {
     const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
 
     // Listen to chats where admin is a participant
     const chatsQuery = query(
@@ -66,14 +69,21 @@ export default function MessagesManagement() {
       where('participants', 'array-contains', currentUser.uid)
     );
 
-    const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
-      const chatsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Chat[];
-      setChats(chatsData);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      chatsQuery,
+      (snapshot) => {
+        const chatsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Chat[];
+        setChats(chatsData);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Chats listener error:', err);
+        setLoading(false);
+      },
+    );
 
     return () => unsubscribe();
   }, []);
@@ -87,13 +97,17 @@ export default function MessagesManagement() {
       orderBy('createdAt', 'asc')
     );
 
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const messagesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Message[];
-      setMessages(messagesData);
-    });
+    const unsubscribe = onSnapshot(
+      messagesQuery,
+      (snapshot) => {
+        const messagesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Message[];
+        setMessages(messagesData);
+      },
+      (err) => console.error('Messages listener error:', err),
+    );
 
     return () => unsubscribe();
   }, [selectedChat]);
