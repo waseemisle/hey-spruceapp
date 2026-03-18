@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -8,7 +8,7 @@ import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeft, Download, ExternalLink, CreditCard, CheckCircle, AlertCircle,
-  Plus, XCircle, MapPin, Star, Trash2, Edit2, Loader2, Mail,
+  Plus, XCircle, MapPin, Star, Trash2, Edit2, Loader2, Mail, X, ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -158,6 +158,14 @@ export default function ClientDetailPage() {
   const [settingDefault, setSettingDefault] = useState<string | null>(null);
   const [testingEmail, setTestingEmail] = useState(false);
 
+  // Inline card form
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [submittingCard, setSubmittingCard] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+  const cardMountRef = useRef<HTMLDivElement>(null);
+  const stripeRef = useRef<any>(null);
+  const cardElementRef = useRef<any>(null);
+
   // Subscription modal state
   const [showSubModal, setShowSubModal] = useState(false);
   const [subAmount, setSubAmount] = useState('');
@@ -166,12 +174,11 @@ export default function ClientDetailPage() {
   const [creatingSub, setCreatingSub] = useState(false);
   const [cancelingSub, setCancelingSub] = useState(false);
 
-  // Show success toast if returning from Stripe card setup
+  // Legacy: handle redirect from Stripe Checkout (no longer used but kept for backward compat)
   useEffect(() => {
     const cardAdded = searchParams?.get('card_added');
     if (cardAdded === 'success') {
       toast.success('Card added successfully!');
-      // Clean up URL
       router.replace(`/admin-portal/clients/${id}`);
     } else if (cardAdded === 'cancelled') {
       toast.info('Card setup cancelled.');
@@ -299,24 +306,98 @@ export default function ClientDetailPage() {
 
   // ─── Billing Actions ───────────────────────────────────────────────────────
 
-  /** Admin-initiated: open Stripe Checkout setup in same tab */
-  const handleAddCard = async () => {
-    if (!client) return;
-    setAddingCard(true);
+  // Mount / unmount Stripe Card Element when admin card modal opens/closes
+  useEffect(() => {
+    if (!showCardModal) {
+      if (cardElementRef.current) {
+        cardElementRef.current.destroy();
+        cardElementRef.current = null;
+      }
+      setCardError(null);
+      return;
+    }
+
+    const initStripe = async () => {
+      try {
+        if (!stripeRef.current) {
+          const { loadStripe } = await import('@stripe/stripe-js');
+          stripeRef.current = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+        }
+        if (stripeRef.current && cardMountRef.current && !cardElementRef.current) {
+          const elements = stripeRef.current.elements();
+          const cardEl = elements.create('card', {
+            style: {
+              base: {
+                fontSize: '15px',
+                fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+                color: '#111827',
+                '::placeholder': { color: '#9ca3af' },
+                iconColor: '#6b7280',
+              },
+              invalid: { color: '#dc2626', iconColor: '#dc2626' },
+            },
+            hidePostalCode: false,
+          });
+          cardEl.mount(cardMountRef.current);
+          cardEl.on('change', (event: any) => {
+            setCardError(event.error ? event.error.message : null);
+          });
+          cardElementRef.current = cardEl;
+        }
+      } catch (err: any) {
+        toast.error('Failed to load card form. Please refresh and try again.');
+      }
+    };
+
+    const timer = setTimeout(initStripe, 80);
+    return () => clearTimeout(timer);
+  }, [showCardModal]);
+
+  const handleAdminCardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !stripeRef.current || !cardElementRef.current) return;
+
+    setSubmittingCard(true);
+    setCardError(null);
     try {
-      const res = await fetch('/api/stripe/create-setup-session', {
+      const intentRes = await fetch('/api/stripe/create-setup-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: client.uid, adminInitiated: true }),
+        body: JSON.stringify({ clientId: client.uid }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create setup session');
-      // Redirect to Stripe Checkout
-      window.location.href = data.url;
+      const { clientSecret, error: intentError } = await intentRes.json();
+      if (!intentRes.ok) throw new Error(intentError || 'Failed to initialize card setup');
+
+      const { setupIntent, error: stripeError } = await stripeRef.current.confirmCardSetup(
+        clientSecret,
+        { payment_method: { card: cardElementRef.current } }
+      );
+      if (stripeError) throw new Error(stripeError.message);
+
+      const saveRes = await fetch('/api/stripe/save-payment-method', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: client.uid,
+          paymentMethodId: setupIntent.payment_method,
+        }),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) throw new Error(saveData.error || 'Failed to save card');
+
+      toast.success('Card added successfully!');
+      setShowCardModal(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to initiate card setup');
-      setAddingCard(false);
+      setCardError(error.message || 'Failed to add card. Please try again.');
+    } finally {
+      setSubmittingCard(false);
     }
+  };
+
+  /** Admin-initiated: open inline card form */
+  const handleAddCard = () => {
+    setShowCardModal(true);
+    setAddingCard(false);
   };
 
   const handleSetDefault = async (pmId: string) => {
@@ -1067,6 +1148,80 @@ export default function ClientDetailPage() {
         </div>
 
       </div>
+
+      {/* ── Add Card Modal ────────────────────────────────────────────────── */}
+      {showCardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !submittingCard && setShowCardModal(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">Add Card for {client?.fullName}</h3>
+                  <p className="text-xs text-gray-400">Secured by Stripe</p>
+                </div>
+              </div>
+              <button
+                onClick={() => !submittingCard && setShowCardModal(false)}
+                className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAdminCardSubmit} className="p-6 space-y-5">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">Card details</label>
+                <div
+                  ref={cardMountRef}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
+                />
+                {cardError && (
+                  <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {cardError}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-3 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowCardModal(false)}
+                  disabled={submittingCard}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
+                  disabled={submittingCard || !!cardError}
+                >
+                  {submittingCard ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
+                  ) : (
+                    <><CheckCircle className="h-4 w-4" />Save Card</>
+                  )}
+                </Button>
+              </div>
+            </form>
+            <div className="px-6 pb-5">
+              <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                <p className="text-[11px] text-gray-500">
+                  Card number is encrypted by Stripe and never touches our servers.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

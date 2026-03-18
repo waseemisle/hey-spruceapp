@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageContainer } from '@/components/ui/page-container';
 import {
-  CreditCard, ShieldCheck, Plus, Trash2, Zap, RefreshCw, CheckCircle, AlertCircle, Clock
+  CreditCard, ShieldCheck, Plus, Trash2, Zap, RefreshCw,
+  CheckCircle, AlertCircle, Clock, X, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
@@ -57,10 +58,17 @@ function PaymentMethodsContent() {
   const searchParams = useSearchParams();
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [savingCard, setSavingCard] = useState(false);
   const [removingCard, setRemovingCard] = useState(false);
 
-  // Show toast based on redirect from Stripe setup
+  // Inline card form state
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [submittingCard, setSubmittingCard] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+  const cardMountRef = useRef<HTMLDivElement>(null);
+  const stripeRef = useRef<any>(null);
+  const cardElementRef = useRef<any>(null);
+
+  // Show toast based on redirect from Stripe setup (legacy flow)
   useEffect(() => {
     const setup = searchParams.get('setup');
     if (setup === 'success') {
@@ -87,22 +95,97 @@ function PaymentMethodsContent() {
     return () => unsubAuth();
   }, [auth, db]);
 
-  const handleSaveCard = async () => {
-    if (!clientData) return;
-    setSavingCard(true);
+  // Mount / unmount Stripe Card Element when modal opens/closes
+  useEffect(() => {
+    if (!showCardModal) {
+      if (cardElementRef.current) {
+        cardElementRef.current.destroy();
+        cardElementRef.current = null;
+      }
+      setCardError(null);
+      return;
+    }
+
+    const initStripe = async () => {
+      try {
+        if (!stripeRef.current) {
+          const { loadStripe } = await import('@stripe/stripe-js');
+          stripeRef.current = await loadStripe(
+            process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+          );
+        }
+
+        if (stripeRef.current && cardMountRef.current && !cardElementRef.current) {
+          const elements = stripeRef.current.elements();
+          const cardEl = elements.create('card', {
+            style: {
+              base: {
+                fontSize: '15px',
+                fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+                color: '#111827',
+                '::placeholder': { color: '#9ca3af' },
+                iconColor: '#6b7280',
+              },
+              invalid: { color: '#dc2626', iconColor: '#dc2626' },
+            },
+            hidePostalCode: false,
+          });
+          cardEl.mount(cardMountRef.current);
+          cardEl.on('change', (event: any) => {
+            setCardError(event.error ? event.error.message : null);
+          });
+          cardElementRef.current = cardEl;
+        }
+      } catch (err: any) {
+        toast.error('Failed to load card form. Please refresh and try again.');
+      }
+    };
+
+    const timer = setTimeout(initStripe, 80);
+    return () => clearTimeout(timer);
+  }, [showCardModal]);
+
+  const handleCardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientData || !stripeRef.current || !cardElementRef.current) return;
+
+    setSubmittingCard(true);
+    setCardError(null);
     try {
-      const res = await fetch('/api/stripe/create-setup-session', {
+      // 1. Create a SetupIntent on the server
+      const intentRes = await fetch('/api/stripe/create-setup-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId: clientData.uid }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to start card setup');
-      // Redirect to Stripe hosted setup page
-      window.location.href = data.url;
+      const { clientSecret, error: intentError } = await intentRes.json();
+      if (!intentRes.ok) throw new Error(intentError || 'Failed to initialize card setup');
+
+      // 2. Confirm the card setup using Stripe Elements
+      const { setupIntent, error: stripeError } = await stripeRef.current.confirmCardSetup(
+        clientSecret,
+        { payment_method: { card: cardElementRef.current } }
+      );
+      if (stripeError) throw new Error(stripeError.message);
+
+      // 3. Save the confirmed payment method to Firestore
+      const saveRes = await fetch('/api/stripe/save-payment-method', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: clientData.uid,
+          paymentMethodId: setupIntent.payment_method,
+        }),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) throw new Error(saveData.error || 'Failed to save card');
+
+      toast.success('Card saved! Auto-pay is now enabled.');
+      setShowCardModal(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to start card setup');
-      setSavingCard(false);
+      setCardError(error.message || 'Failed to save card. Please try again.');
+    } finally {
+      setSubmittingCard(false);
     }
   };
 
@@ -114,7 +197,7 @@ function PaymentMethodsContent() {
       const res = await fetch('/api/stripe/remove-payment-method', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: clientData.uid }),
+        body: JSON.stringify({ clientId: clientData.uid, paymentMethodId: clientData.defaultPaymentMethodId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to remove card');
@@ -205,12 +288,11 @@ function PaymentMethodsContent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleSaveCard}
-                    disabled={savingCard}
+                    onClick={() => setShowCardModal(true)}
                     className="gap-2"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
-                    {savingCard ? 'Redirecting…' : 'Update Card'}
+                    Update Card
                   </Button>
                   <Button
                     variant="outline"
@@ -236,12 +318,11 @@ function PaymentMethodsContent() {
                   </p>
                 </div>
                 <Button
-                  onClick={handleSaveCard}
-                  disabled={savingCard}
+                  onClick={() => setShowCardModal(true)}
                   className="gap-2"
                 >
                   <Plus className="h-4 w-4" />
-                  {savingCard ? 'Redirecting to secure page…' : 'Save a Card'}
+                  Save a Card
                 </Button>
               </div>
             )}
@@ -282,7 +363,7 @@ function PaymentMethodsContent() {
         <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 flex items-start gap-3">
           <ShieldCheck className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-blue-900">Secure & PCI Compliant</p>
+            <p className="text-sm font-medium text-blue-900">Secure &amp; PCI Compliant</p>
             <p className="text-xs text-blue-700 mt-1">
               Your card details are securely handled by Stripe and never stored on GroundOps servers.
               By saving a card, you authorize GroundOps to charge your card for invoices when they become due.
@@ -290,6 +371,107 @@ function PaymentMethodsContent() {
           </div>
         </div>
       </PageContainer>
+
+      {/* ── Add Card Modal ──────────────────────────────────────────────────── */}
+      {showCardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !submittingCard && setShowCardModal(false)}
+          />
+
+          {/* Dialog */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">
+                    {hasCard ? 'Update Card' : 'Add Card'}
+                  </h3>
+                  <p className="text-xs text-gray-400">Secured by Stripe</p>
+                </div>
+              </div>
+              <button
+                onClick={() => !submittingCard && setShowCardModal(false)}
+                className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleCardSubmit} className="p-6 space-y-5">
+              {/* Stripe Card Element mount point */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">
+                  Card details
+                </label>
+                <div
+                  ref={cardMountRef}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
+                />
+                {cardError && (
+                  <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {cardError}
+                  </p>
+                )}
+              </div>
+
+              {/* Mobile hint */}
+              <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                On mobile, tap the card number field to scan your physical card
+              </p>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowCardModal(false)}
+                  disabled={submittingCard}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
+                  disabled={submittingCard || !!cardError}
+                >
+                  {submittingCard ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      Save Card
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+
+            {/* Footer security note */}
+            <div className="px-6 pb-5">
+              <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                <p className="text-[11px] text-gray-500">
+                  Your card number is encrypted by Stripe and never touches our servers.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </ClientLayout>
   );
 }
