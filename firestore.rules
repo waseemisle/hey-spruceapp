@@ -28,16 +28,25 @@ service cloud.firestore {
       allow write: if isSignedIn() && (isAdmin() || subcontractorId == request.auth.uid);
     }
 
-    // Work Orders - admins full access; clients/subcontractors read their own; clients can update their own (approve/reject)
+    // Work Orders - admins full access; clients/subcontractors read their own or company's; clients update their company's
     match /workOrders/{workOrderId} {
       allow read: if isSignedIn() && (
         isAdmin() ||
         resource.data.clientId == request.auth.uid ||
         resource.data.assignedSubcontractor == request.auth.uid ||
-        (resource.data.biddingSubcontractors != null && request.auth.uid in resource.data.biddingSubcontractors)
+        (resource.data.biddingSubcontractors != null && request.auth.uid in resource.data.biddingSubcontractors) ||
+        (resource.data.companyId != null &&
+         exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == resource.data.companyId)
       );
       allow create, delete: if isSignedIn() && isAdmin();
-      allow update: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.clientId == request.auth.uid ||
+        (resource.data.companyId != null &&
+         exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == resource.data.companyId)
+      );
     }
 
     // Invoices - admins full access; clients read their own

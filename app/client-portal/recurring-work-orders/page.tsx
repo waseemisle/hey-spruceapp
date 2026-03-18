@@ -38,15 +38,7 @@ export default function ClientRecurringWorkOrders() {
             const assignedLocationsList = clientData?.assignedLocations || [];
             setAssignedLocations(assignedLocationsList);
 
-            // Check for Recurring Work Orders permission
-            const hasRecurringPermission = clientData?.permissions?.viewRecurringWorkOrders === true;
-            setHasPermission(hasRecurringPermission);
-
-            if (!hasRecurringPermission) {
-              toast.error('You do not have permission to view recurring work orders');
-              router.push('/client-portal');
-              return;
-            }
+            setHasPermission(true);
 
             // Fetch recurring work orders for assigned locations
             if (assignedLocationsList.length > 0) {
