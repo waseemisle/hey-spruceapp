@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot, where, updateDoc, doc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,28 +42,39 @@ export default function SubcontractorMessages() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    let unsubscribeChats: (() => void) | null = null;
 
-    // Listen to chats where subcontractor is a participant
-    const chatsQuery = query(
-      collection(db, 'chats'),
-      where('participants', 'array-contains', currentUser.uid)
-    );
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      unsubscribeChats?.();
+      unsubscribeChats = null;
 
-    const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
-      const chatsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Chat[];
-      setChats(chatsData);
-      setLoading(false);
-    }, (error) => {
-      console.error('Chats listener error:', error);
-      setLoading(false);
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      const chatsQuery = query(
+        collection(db, 'chats'),
+        where('participants', 'array-contains', currentUser.uid)
+      );
+
+      unsubscribeChats = onSnapshot(chatsQuery, (snapshot) => {
+        const chatsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Chat[];
+        setChats(chatsData);
+        setLoading(false);
+      }, (error) => {
+        console.error('Chats listener error:', error);
+        setLoading(false);
+      });
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeChats?.();
+    };
   }, [auth, db]);
 
   useEffect(() => {

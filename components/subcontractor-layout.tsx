@@ -85,6 +85,14 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
       };
     };
 
+    // Check if Firebase is initialized
+    if (!auth) {
+      console.error('Firebase auth is not initialized. Please check your .env.local file.');
+      setLoading(false);
+      router.push('/portal-login');
+      return;
+    }
+
     let unsubscribeBidding: (() => void) | null = null;
 
     const subscribeToAuth = (instances: typeof firebaseInstances) =>

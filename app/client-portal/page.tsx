@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { onSnapshot, collection, doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
@@ -56,66 +57,72 @@ export default function ClientDashboard() {
   const [assignedLocations, setAssignedLocations] = useState<string[]>([]);
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      setLoading(false);
-      return;
-    }
-
     let unsubscribeWorkOrders: (() => void) | undefined;
     let unsubscribeQuotes: (() => void) | undefined;
     let unsubscribeInvoices: (() => void) | undefined;
 
-    const setupDashboard = async () => {
-      try {
-        // Fetch client's assigned locations first
-        const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
-        const clientData = clientDoc.data();
-        const locations = clientData?.assignedLocations || [];
-        setAssignedLocations(locations);
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      unsubscribeWorkOrders?.();
+      unsubscribeQuotes?.();
+      unsubscribeInvoices?.();
 
-        // Fetch initial dashboard data using the freshly loaded locations
-        const [workOrders, proposals, invoices] = await Promise.all([
-          calculateWorkOrdersData('client', currentUser.uid, locations, db),
-          calculateProposalsData('client', currentUser.uid, db),
-          calculateInvoicesData('client', currentUser.uid, db),
-        ]);
-        setWorkOrdersData(workOrders);
-        setProposalsData(proposals);
-        setInvoicesData(invoices);
-
-        // Set up real-time listeners — capture `locations` from this closure,
-        // not from state, to avoid the stale-closure problem on first render
-        unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
-          const updated = await calculateWorkOrdersData('client', currentUser.uid, locations, db);
-          setWorkOrdersData(updated);
-        }, (error) => {
-          console.error('Work orders listener error:', error);
-        });
-
-        unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
-          const updated = await calculateProposalsData('client', currentUser.uid, db);
-          setProposalsData(updated);
-        }, (error) => {
-          console.error('Quotes listener error:', error);
-        });
-
-        unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
-          const updated = await calculateInvoicesData('client', currentUser.uid, db);
-          setInvoicesData(updated);
-        }, (error) => {
-          console.error('Invoices listener error:', error);
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
+      if (!currentUser) {
         setLoading(false);
+        return;
       }
-    };
 
-    setupDashboard();
+      const setupDashboard = async () => {
+        try {
+          // Fetch client's assigned locations first
+          const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+          const clientData = clientDoc.data();
+          const locations = clientData?.assignedLocations || [];
+          setAssignedLocations(locations);
+
+          // Fetch initial dashboard data using the freshly loaded locations
+          const [workOrders, proposals, invoices] = await Promise.all([
+            calculateWorkOrdersData('client', currentUser.uid, locations, db),
+            calculateProposalsData('client', currentUser.uid, db),
+            calculateInvoicesData('client', currentUser.uid, db),
+          ]);
+          setWorkOrdersData(workOrders);
+          setProposalsData(proposals);
+          setInvoicesData(invoices);
+
+          // Set up real-time listeners — capture `locations` from this closure,
+          // not from state, to avoid the stale-closure problem on first render
+          unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
+            const updated = await calculateWorkOrdersData('client', currentUser.uid, locations, db);
+            setWorkOrdersData(updated);
+          }, (error) => {
+            console.error('Work orders listener error:', error);
+          });
+
+          unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
+            const updated = await calculateProposalsData('client', currentUser.uid, db);
+            setProposalsData(updated);
+          }, (error) => {
+            console.error('Quotes listener error:', error);
+          });
+
+          unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
+            const updated = await calculateInvoicesData('client', currentUser.uid, db);
+            setInvoicesData(updated);
+          }, (error) => {
+            console.error('Invoices listener error:', error);
+          });
+        } catch (error) {
+          console.error('Error fetching dashboard data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      setupDashboard();
+    });
 
     return () => {
+      unsubscribeAuth();
       unsubscribeWorkOrders?.();
       unsubscribeQuotes?.();
       unsubscribeInvoices?.();
