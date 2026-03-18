@@ -843,20 +843,7 @@ export default function InvoicesManagement() {
                       </>
                     )}
 
-                    {/* Auto-Charge: visible for sent/overdue when client has saved card */}
-                    {(invoice.status === 'sent' || invoice.status === 'overdue') &&
-                      clientBillingMap[invoice.clientId]?.defaultPaymentMethodId &&
-                      invoice.autoChargeStatus !== 'succeeded' && (
-                      <Button
-                        size="sm"
-                        className="w-full bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => handleAutoCharge(invoice)}
-                        disabled={chargingInvoice === invoice.id}
-                      >
-                        <Zap className="h-4 w-4 mr-2" />
-                        {chargingInvoice === invoice.id ? 'Charging…' : 'Auto-Charge Saved Card'}
-                      </Button>
-                    )}
+                    {/* Scenario 2 (variable auto-charge) removed — use client profile Charge button */}
 
                     <Button
                       size="sm"

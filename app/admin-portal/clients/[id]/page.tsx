@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import {
   ArrowLeft, Download, ExternalLink, CreditCard, CheckCircle, AlertCircle,
   Plus, XCircle, MapPin, Star, Trash2, Edit2, Loader2, Mail, X, ShieldCheck,
+  Zap, DollarSign, History, Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -86,6 +87,22 @@ interface Location {
   clientId?: string;
   companyId?: string;
   address?: { street?: string; city?: string; state?: string; zip?: string };
+}
+
+interface ClientCharge {
+  id: string;
+  clientId: string;
+  clientName: string;
+  paymentMethodId: string;
+  cardLast4: string;
+  cardBrand: string;
+  amount: number;
+  status: 'succeeded' | 'failed' | 'requires_action';
+  stripePaymentIntentId: string;
+  description?: string;
+  chargedAt: any;
+  error?: string;
+  source: 'manual_admin' | 'subscription';
 }
 
 type TabKey = 'all' | 'not-invoiced' | 'invoiced' | 'paid' | 'overdue';
@@ -166,6 +183,17 @@ export default function ClientDetailPage() {
   const stripeRef = useRef<any>(null);
   const cardElementRef = useRef<any>(null);
 
+  // Transaction history
+  const [charges, setCharges] = useState<ClientCharge[]>([]);
+
+  // Charge Now modal
+  const [showChargeModal, setShowChargeModal] = useState(false);
+  const [chargeCardId, setChargeCardId] = useState('');
+  const [chargeAmount, setChargeAmount] = useState('');
+  const [chargeDesc, setChargeDesc] = useState('');
+  const [chargingNow, setChargingNow] = useState(false);
+  const [chargeResult, setChargeResult] = useState<{ success: boolean; message: string } | null>(null);
+
   // Subscription modal state
   const [showSubModal, setShowSubModal] = useState(false);
   const [subAmount, setSubAmount] = useState('');
@@ -225,6 +253,23 @@ export default function ClientDetailPage() {
     const q = query(collection(db, 'invoices'), where('clientId', '==', id));
     const unsub = onSnapshot(q, (snap) => {
       setInvoices(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Invoice)));
+    });
+    return () => unsub();
+  }, [id]);
+
+  // Real-time transaction history
+  useEffect(() => {
+    if (!id) return;
+    const q = query(collection(db, 'clientCharges'), where('clientId', '==', id));
+    const unsub = onSnapshot(q, (snap) => {
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ClientCharge));
+      all.sort((a, b) => {
+        const da = toDate(a.chargedAt);
+        const db_ = toDate(b.chargedAt);
+        if (!da || !db_) return 0;
+        return db_.getTime() - da.getTime();
+      });
+      setCharges(all);
     });
     return () => unsub();
   }, [id]);
@@ -451,24 +496,64 @@ export default function ClientDetailPage() {
     }
     setCreatingSub(true);
     try {
+      // Use update-subscription when editing an existing active plan; create-subscription for new plans
+      const isEditing = !!(client.stripeSubscriptionId && client.subscriptionStatus === 'active');
+      const endpoint = isEditing ? '/api/stripe/update-subscription' : '/api/stripe/create-subscription';
       const body: any = { clientId: client.uid, amount: amt, billingDay: day };
       if (subCardId) body.paymentMethodId = subCardId;
-      const res = await fetch('/api/stripe/create-subscription', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create subscription');
-      toast.success(`Fixed plan created! First charge on ${new Date(data.nextBillingDate).toLocaleDateString()}.`);
+      if (!res.ok) throw new Error(data.error || 'Failed to save subscription');
+      const action = isEditing ? 'updated' : 'created';
+      toast.success(`Fixed plan ${action}! Next charge on ${new Date(data.nextBillingDate).toLocaleDateString()}.`);
       setShowSubModal(false);
       setSubAmount('');
       setSubBillingDay('');
       setSubCardId('');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create subscription');
+      toast.error(error.message || 'Failed to save subscription');
     } finally {
       setCreatingSub(false);
+    }
+  };
+
+  const handleChargeNow = async () => {
+    if (!client || !chargeCardId || !chargeAmount) return;
+    const amt = parseFloat(chargeAmount);
+    if (isNaN(amt) || amt <= 0) { toast.error('Enter a valid amount'); return; }
+    setChargingNow(true);
+    try {
+      const res = await fetch('/api/stripe/charge-client-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: client.uid,
+          paymentMethodId: chargeCardId,
+          amount: amt,
+          description: chargeDesc.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setChargeResult({ success: false, message: data.error || 'Charge failed' });
+        return;
+      }
+      if (data.success) {
+        setChargeResult({
+          success: true,
+          message: `${fmtMoney(amt)} charged successfully. ID: ${data.paymentIntentId}`,
+        });
+      } else {
+        setChargeResult({ success: false, message: data.message || 'Charge requires additional authentication' });
+      }
+    } catch (error: any) {
+      setChargeResult({ success: false, message: error.message || 'Charge failed' });
+    } finally {
+      setChargingNow(false);
     }
   };
 
@@ -732,7 +817,23 @@ export default function ClientDetailPage() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setChargeCardId(pm.id);
+                            setChargeAmount(String(client.subscriptionAmount || ''));
+                            setChargeDesc('');
+                            setChargeResult(null);
+                            setShowChargeModal(true);
+                          }}
+                          className="h-7 text-xs gap-1 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50"
+                          title="Charge this card now"
+                        >
+                          <Zap className="h-3 w-3" />
+                          Charge
+                        </Button>
                         {!pm.isDefault && (
                           <Button
                             size="sm"
@@ -745,7 +846,7 @@ export default function ClientDetailPage() {
                             {settingDefault === pm.id
                               ? <Loader2 className="h-3 w-3 animate-spin" />
                               : <Star className="h-3 w-3" />}
-                            Set Default
+                            Default
                           </Button>
                         )}
                         <Button
@@ -994,6 +1095,87 @@ export default function ClientDetailPage() {
           </div>
         )}
 
+        {/* ══════════════════════════════════════════════════════════════════════
+            TRANSACTION HISTORY
+        ══════════════════════════════════════════════════════════════════════ */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+              <History className="h-4 w-4 text-blue-600" />
+              Transaction History
+              {charges.length > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold px-1.5">
+                  {charges.length}
+                </span>
+              )}
+            </h3>
+            {charges.length > 0 && (
+              <span className="text-xs text-gray-400">
+                Total charged: {fmtMoney(charges.filter(c => c.status === 'succeeded').reduce((s, c) => s + c.amount, 0))}
+              </span>
+            )}
+          </div>
+          <div className="p-5">
+            {charges.length === 0 ? (
+              <div className="flex items-center gap-2 text-gray-500 text-sm py-2">
+                <Receipt className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                <span>No charges yet for this client.</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      {['Date & Time', 'Amount', 'Card', 'Description', 'Status', 'Stripe ID'].map((h) => (
+                        <th key={h} className="pb-2 pr-4 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {charges.map((charge) => (
+                      <tr key={charge.id} className="hover:bg-gray-50/50">
+                        <td className="py-3 pr-4 text-gray-600 text-xs whitespace-nowrap">
+                          {fmtDate(charge.chargedAt)}
+                        </td>
+                        <td className="py-3 pr-4 font-semibold text-gray-900 whitespace-nowrap">
+                          {fmtMoney(charge.amount)}
+                        </td>
+                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap text-xs">
+                          {charge.cardBrand
+                            ? charge.cardBrand.charAt(0).toUpperCase() + charge.cardBrand.slice(1)
+                            : 'Card'}{' '}
+                          •••• {charge.cardLast4}
+                        </td>
+                        <td className="py-3 pr-4 text-gray-500 text-xs max-w-[180px] truncate">
+                          {charge.description || '—'}
+                        </td>
+                        <td className="py-3 pr-4 whitespace-nowrap">
+                          {charge.status === 'succeeded' ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                              <CheckCircle className="h-3 w-3" />Paid
+                            </span>
+                          ) : charge.status === 'failed' ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700" title={charge.error}>
+                              <AlertCircle className="h-3 w-3" />Failed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                              <Loader2 className="h-3 w-3 animate-spin" />Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 text-[10px] font-mono text-gray-400 truncate max-w-[120px]">
+                          {charge.stripePaymentIntentId || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Assigned Locations */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-200">
@@ -1148,6 +1330,148 @@ export default function ClientDetailPage() {
         </div>
 
       </div>
+
+      {/* ── Charge Now Modal ─────────────────────────────────────────────── */}
+      {showChargeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !chargingNow && !chargeResult && setShowChargeModal(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">Charge Card</h3>
+                  <p className="text-xs text-gray-400">
+                    {client?.companyName || client?.fullName} — Scenario 1
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { if (!chargingNow) { setShowChargeModal(false); setChargeResult(null); } }}
+                className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {chargeResult ? (
+              /* Result screen */
+              <div className="p-8 text-center space-y-4">
+                <div className={`mx-auto h-14 w-14 rounded-full flex items-center justify-center ${chargeResult.success ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                  {chargeResult.success
+                    ? <CheckCircle className="h-7 w-7 text-emerald-500" />
+                    : <AlertCircle className="h-7 w-7 text-red-500" />}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 text-base">
+                    {chargeResult.success ? 'Charge Successful!' : 'Charge Failed'}
+                  </p>
+                  <p className={`text-sm mt-1.5 ${chargeResult.success ? 'text-gray-500' : 'text-red-600'}`}>
+                    {chargeResult.message}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => { setShowChargeModal(false); setChargeResult(null); }}
+                  className={`w-full ${chargeResult.success ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+                >
+                  Close
+                </Button>
+              </div>
+            ) : (
+              /* Charge form */
+              <div className="p-6 space-y-4">
+                {/* Card selector */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Select Card</label>
+                  <select
+                    value={chargeCardId}
+                    onChange={(e) => setChargeCardId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  >
+                    {displayMethods.map((pm) => (
+                      <option key={pm.id} value={pm.id}>
+                        {pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• {pm.last4}
+                        {pm.isDefault ? ' (Default)' : ''}
+                        {' — Exp '}{String(pm.expMonth).padStart(2, '0')}/{pm.expYear}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Amount (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">$</span>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={chargeAmount}
+                      onChange={(e) => setChargeAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Description (optional)</label>
+                  <input
+                    type="text"
+                    value={chargeDesc}
+                    onChange={(e) => setChargeDesc(e.target.value)}
+                    placeholder="e.g. March 2026 service charge"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                {/* Summary */}
+                {chargeAmount && parseFloat(chargeAmount) > 0 && chargeCardId && (() => {
+                  const card = displayMethods.find((m) => m.id === chargeCardId);
+                  return card ? (
+                    <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
+                      Charge{' '}
+                      <strong>{fmtMoney(parseFloat(chargeAmount))}</strong> to{' '}
+                      <strong>{card.brand.charAt(0).toUpperCase() + card.brand.slice(1)} •••• {card.last4}</strong>
+                    </div>
+                  ) : null;
+                })()}
+
+                <div className="flex gap-3 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowChargeModal(false)}
+                    disabled={chargingNow}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleChargeNow}
+                    disabled={chargingNow || !chargeAmount || parseFloat(chargeAmount) <= 0 || !chargeCardId}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-2"
+                  >
+                    {chargingNow ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />Charging…</>
+                    ) : (
+                      <><Zap className="h-4 w-4" />Confirm Charge</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Add Card Modal ────────────────────────────────────────────────── */}
       {showCardModal && (
