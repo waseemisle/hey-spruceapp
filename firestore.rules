@@ -172,6 +172,14 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isAdmin();
     }
 
+    // Client Charges (transaction history for manual/subscription charges)
+    // Admins can read/write; clients can read their own charges
+    match /clientCharges/{chargeId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
+      allow create: if true; // Allow server-side writes via API routes
+      allow update, delete: if isSignedIn() && isAdmin();
+    }
+
     // Notifications - any signed-in user can create; users can read/update their own
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;

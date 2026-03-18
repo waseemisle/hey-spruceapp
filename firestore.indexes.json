@@ -206,6 +206,14 @@
         { "fieldPath": "clientId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "clientCharges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "chargedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

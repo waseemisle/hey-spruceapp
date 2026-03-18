@@ -123,6 +123,13 @@ function fmtDate(val: any): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function fmtDateTime(val: any): string {
+  const d = toDate(val);
+  if (!d) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 function fmtMoney(n: number): string {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -1083,7 +1090,7 @@ export default function ClientDetailPage() {
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
                   {creatingSub ? (
-                    <><Loader2 className="h-4 w-4 animate-spin mr-1" />Creating…</>
+                    <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</>
                   ) : (
                     client.stripeSubscriptionId && client.subscriptionStatus === 'active'
                       ? 'Update Plan'
@@ -1135,7 +1142,7 @@ export default function ClientDetailPage() {
                     {charges.map((charge) => (
                       <tr key={charge.id} className="hover:bg-gray-50/50">
                         <td className="py-3 pr-4 text-gray-600 text-xs whitespace-nowrap">
-                          {fmtDate(charge.chargedAt)}
+                          {fmtDateTime(charge.chargedAt)}
                         </td>
                         <td className="py-3 pr-4 font-semibold text-gray-900 whitespace-nowrap">
                           {fmtMoney(charge.amount)}
