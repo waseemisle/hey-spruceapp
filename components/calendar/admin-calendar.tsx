@@ -133,24 +133,30 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
         return wo.scheduledServiceDate || wo.status === 'scheduled' || wo.status === 'accepted_by_subcontractor' || wo.status === 'assigned';
       })
       .map(wo => {
-        const scheduledDate = wo.scheduledServiceDate instanceof Timestamp 
+        const isRecurringExecution = !!(wo as any).isMaintenanceRequestOrder || !!(wo as any).recurringWorkOrderId;
+        const scheduledDate = wo.scheduledServiceDate instanceof Timestamp
           ? wo.scheduledServiceDate.toDate()
           : wo.scheduledServiceDate instanceof Date
           ? wo.scheduledServiceDate
           : null;
 
+        const colors = isRecurringExecution
+          ? { bg: '#f97316', border: '#ea580c', text: '#ffffff' } // Orange for recurring executions
+          : getStatusColor(wo.status);
+
+        const titlePrefix = isRecurringExecution ? '⚡ ' : '';
+
         if (!scheduledDate) {
-          // If no scheduled date, use created date as fallback
           const createdDate = (wo as any).createdAt instanceof Timestamp
             ? (wo as any).createdAt.toDate()
             : new Date();
           return {
             id: wo.id,
-            title: `${wo.title} - ${wo.clientName}`,
+            title: `${titlePrefix}${wo.title} - ${wo.clientName}`,
             start: createdDate,
-            backgroundColor: getStatusColor(wo.status).bg,
-            borderColor: getStatusColor(wo.status).border,
-            textColor: getStatusColor(wo.status).text,
+            backgroundColor: colors.bg,
+            borderColor: colors.border,
+            textColor: colors.text,
             extendedProps: {
               workOrderId: wo.id,
               workOrderNumber: wo.workOrderNumber || wo.id.slice(-8).toUpperCase(),
@@ -159,6 +165,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
               clientName: wo.clientName,
               status: wo.status,
               category: wo.category,
+              isRecurring: isRecurringExecution,
             },
           };
         }
@@ -176,12 +183,12 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
 
         return {
           id: wo.id,
-          title: `${wo.title} - ${wo.clientName}`,
+          title: `${titlePrefix}${wo.title} - ${wo.clientName}`,
           start: startDateTime,
           end: endDateTime,
-          backgroundColor: getStatusColor(wo.status).bg,
-          borderColor: getStatusColor(wo.status).border,
-          textColor: getStatusColor(wo.status).text,
+          backgroundColor: colors.bg,
+          borderColor: colors.border,
+          textColor: colors.text,
           extendedProps: {
             workOrderId: wo.id,
             workOrderNumber: wo.workOrderNumber || wo.id.slice(-8).toUpperCase(),
@@ -190,6 +197,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             clientName: wo.clientName,
             status: wo.status,
             category: wo.category,
+            isRecurring: isRecurringExecution,
           },
         };
       });
@@ -237,8 +245,8 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
               title: `🔄 ${rwo.title} - ${rwo.clientName}`,
               start: eventStart,
               end: eventEnd,
-              backgroundColor: '#fbbf24',
-              borderColor: '#f59e0b',
+              backgroundColor: '#7c3aed',
+              borderColor: '#6d28d9',
               textColor: '#ffffff',
               extendedProps: {
                 workOrderId: rwo.id,
@@ -277,8 +285,8 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             title: `🔄 ${rwo.title} - ${rwo.clientName}`,
             start: new Date(eventStart),
             end: eventEnd,
-            backgroundColor: '#fbbf24',
-            borderColor: '#f59e0b',
+            backgroundColor: '#7c3aed',
+            borderColor: '#6d28d9',
             textColor: '#ffffff',
             extendedProps: {
               workOrderId: rwo.id,
@@ -329,8 +337,8 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             title: `🔄 ${rwo.title} - ${rwo.clientName} (Recurring)`,
             start: startDateTime,
             end: (() => { const e = new Date(startDateTime); e.setHours(11, 0, 0, 0); return e; })(),
-            backgroundColor: '#fbbf24',
-            borderColor: '#f59e0b',
+            backgroundColor: '#7c3aed',
+            borderColor: '#6d28d9',
             textColor: '#ffffff',
             extendedProps: {
               workOrderId: rwo.id,
@@ -455,6 +463,41 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             meridiem: 'short',
           }}
         />
+        {/* Legend */}
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-gray-600">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#7c3aed' }} />
+            <span>🔄 Recurring WO Template</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#f97316' }} />
+            <span>⚡ Recurring WO Execution</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#3b82f6' }} />
+            <span>Scheduled / Accepted</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#06b6d4' }} />
+            <span>Assigned</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#10b981' }} />
+            <span>Completed</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#fbbf24' }} />
+            <span>Pending / Approved</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#8b5cf6' }} />
+            <span>Bidding</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
+            <span>Rejected / Overdue</span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
