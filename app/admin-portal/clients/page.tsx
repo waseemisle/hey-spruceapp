@@ -37,6 +37,7 @@ interface Company {
 interface Location {
   id: string;
   locationName: string;
+  clientId?: string;
   companyId?: string;
   companyName?: string;
   address?: any;
@@ -405,6 +406,7 @@ export default function ClientsManagement() {
             {filteredClients.map((client) => {
               const status = STATUS_CONFIG[client.status] || STATUS_CONFIG.pending;
               const color = avatarColor(client.uid);
+              const clientLocations = locations.filter(l => l.clientId === client.uid || (client.companyId && l.companyId === client.companyId));
               return (
                 <div key={client.uid} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                   {/* Color bar */}
@@ -452,23 +454,20 @@ export default function ClientsManagement() {
                     </div>
 
                     {/* Locations */}
-                    {client.assignedLocations && client.assignedLocations.length > 0 ? (
+                    {clientLocations.length > 0 ? (
                       <div className="mt-3 pt-3 border-t border-gray-100">
                         <p className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1.5">
                           <MapPin className="h-3 w-3" />
-                          {client.assignedLocations.length} location{client.assignedLocations.length !== 1 ? 's' : ''}
+                          {clientLocations.length} location{clientLocations.length !== 1 ? 's' : ''}
                         </p>
                         <div className="flex flex-wrap gap-1">
-                          {client.assignedLocations.slice(0, 2).map((locId) => {
-                            const location = locations.find(l => l.id === locId);
-                            return location ? (
-                              <span key={locId} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
-                                {location.locationName}
-                              </span>
-                            ) : null;
-                          })}
-                          {client.assignedLocations.length > 2 && (
-                            <span className="text-xs text-gray-400">+{client.assignedLocations.length - 2}</span>
+                          {clientLocations.slice(0, 2).map((location) => (
+                            <span key={location.id} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
+                              {location.locationName}
+                            </span>
+                          ))}
+                          {clientLocations.length > 2 && (
+                            <span className="text-xs text-gray-400">+{clientLocations.length - 2}</span>
                           )}
                         </div>
                       </div>
@@ -533,6 +532,7 @@ export default function ClientsManagement() {
                 {filteredClients.map((client) => {
                   const status = STATUS_CONFIG[client.status] || STATUS_CONFIG.pending;
                   const color = avatarColor(client.uid);
+                  const clientLocations = locations.filter(l => l.clientId === client.uid || (client.companyId && l.companyId === client.companyId));
                   return (
                     <tr key={client.uid} className="hover:bg-gray-50 transition-colors">
                       <td className="px-5 py-3.5">
@@ -551,9 +551,9 @@ export default function ClientsManagement() {
                         <p className="text-xs text-gray-500">{client.phone}</p>
                       </td>
                       <td className="px-4 py-3.5 hidden md:table-cell">
-                        {client.assignedLocations && client.assignedLocations.length > 0 ? (
+                        {clientLocations.length > 0 ? (
                           <span className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
-                            {client.assignedLocations.length} location{client.assignedLocations.length !== 1 ? 's' : ''}
+                            {clientLocations.length} location{clientLocations.length !== 1 ? 's' : ''}
                           </span>
                         ) : (
                           <span className="text-xs text-amber-600">No locations</span>
