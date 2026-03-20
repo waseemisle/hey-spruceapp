@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard } from 'lucide-react';
+import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 
@@ -25,6 +25,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     quotes: 0,
     invoices: 0,
     messages: 0,
+    supportTickets: 0,
   });
   const [hasMaintenancePermission, setHasMaintenancePermission] = useState(false);
   const [hasMaintenanceRequestsWorkOrdersPermission, setHasMaintenanceRequestsWorkOrdersPermission] = useState(false);
@@ -100,6 +101,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     let unsubscribeQuotes: (() => void) | null = null;
     let unsubscribeInvoices: (() => void) | null = null;
+    let unsubscribeSupportTickets: (() => void) | null = null;
 
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
       onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
@@ -108,6 +110,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         unsubscribeQuotes = null;
         unsubscribeInvoices?.();
         unsubscribeInvoices = null;
+        unsubscribeSupportTickets?.();
+        unsubscribeSupportTickets = null;
 
         if (firebaseUser) {
           try {
@@ -146,6 +150,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               }, (error) => {
                 console.error('Invoices badge listener error:', error);
               });
+
+              const openSt = ['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin'];
+              unsubscribeSupportTickets = onSnapshot(
+                collection(instances.dbInstance, 'supportTickets'),
+                (snapshot) => {
+                  const n = snapshot.docs.filter((d) => {
+                    const x = d.data();
+                    return (
+                      (x.submittedBy === firebaseUser.uid || x.clientId === firebaseUser.uid) &&
+                      openSt.includes(x.status as string)
+                    );
+                  }).length;
+                  setBadgeCounts((prev) => ({ ...prev, supportTickets: n }));
+                },
+                (error) => console.error('Support tickets badge listener error:', error),
+              );
             } else {
               setLoading(false);
               // Only redirect if not impersonating
@@ -193,6 +213,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       unsubscribeQuotes = null;
       unsubscribeInvoices?.();
       unsubscribeInvoices = null;
+      unsubscribeSupportTickets?.();
+      unsubscribeSupportTickets = null;
       clearInterval(interval);
     };
   }, [router]);
@@ -225,6 +247,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Invoices', href: '/client-portal/invoices', icon: Receipt, badgeKey: 'invoices' },
     { name: 'Payment Methods', href: '/client-portal/payment-methods', icon: CreditCard, badgeKey: null },
     { name: 'Messages', href: '/client-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
+    { name: 'Support Tickets', href: '/client-portal/support-tickets', icon: Headphones, badgeKey: 'supportTickets' },
   ];
 
   return (

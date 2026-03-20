@@ -61,6 +61,8 @@ export interface AdminUser {
   fullName: string;
   role: 'admin';
   createdAt: Date;
+  workOrderEmailNotifications?: boolean;
+  supportTicketEmailNotifications?: boolean;
 }
 
 // Address Type
@@ -509,17 +511,139 @@ export interface RecurringWorkOrderExecution {
   updatedAt: Date;
 }
 
+// Support Tickets
+export type SupportTicketCategory =
+  | 'billing'
+  | 'technical'
+  | 'work-order'
+  | 'account'
+  | 'general'
+  | 'bug-report'
+  | 'feature-request';
+
+export type SupportTicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export type SupportTicketStatus =
+  | 'open'
+  | 'in-progress'
+  | 'waiting-on-client'
+  | 'waiting-on-admin'
+  | 'resolved'
+  | 'closed';
+
+export type SupportTicketType = 'question' | 'problem' | 'task' | 'incident';
+
+export interface SupportTicketTimelineEvent {
+  id: string;
+  timestamp: Date | any;
+  type:
+    | 'created'
+    | 'status-changed'
+    | 'priority-changed'
+    | 'assigned'
+    | 'comment-added'
+    | 'attachment-added'
+    | 'resolved'
+    | 'closed'
+    | 'reopened';
+  userId: string;
+  userName: string;
+  userRole: 'admin' | 'client' | 'subcontractor';
+  details: string;
+  metadata?: Record<string, any>;
+}
+
+export interface SupportTicketAttachment {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  fileSize: number;
+  uploadedBy: string;
+  uploadedAt: Date | any;
+}
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  title: string;
+  description: string;
+  category: SupportTicketCategory;
+  priority: SupportTicketPriority;
+  status: SupportTicketStatus;
+  type: SupportTicketType;
+  submittedBy: string;
+  submittedByName: string;
+  submittedByEmail: string;
+  submittedByRole: 'admin' | 'client' | 'subcontractor';
+  clientId?: string;
+  clientName?: string;
+  subcontractorId?: string;
+  subcontractorName?: string;
+  relatedWorkOrderId?: string;
+  relatedWorkOrderNumber?: string;
+  relatedInvoiceId?: string;
+  relatedInvoiceNumber?: string;
+  relatedQuoteId?: string;
+  assignedTo?: string;
+  assignedToName?: string;
+  assignedAt?: Date | any;
+  dueDate?: Date | any;
+  resolvedAt?: Date | any;
+  closedAt?: Date | any;
+  firstResponseAt?: Date | any;
+  attachments: SupportTicketAttachment[];
+  tags: string[];
+  commentCount: number;
+  lastActivityAt: Date | any;
+  internalNotes?: string;
+  timeline: SupportTicketTimelineEvent[];
+  createdAt: Date | any;
+  updatedAt: Date | any;
+}
+
+export interface TicketCommentAttachment {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  fileSize: number;
+}
+
+export interface TicketComment {
+  id: string;
+  ticketId: string;
+  body: string;
+  isInternal: boolean;
+  authorId: string;
+  authorName: string;
+  authorEmail: string;
+  authorRole: 'admin' | 'client' | 'subcontractor';
+  authorAvatarInitials: string;
+  attachments: TicketCommentAttachment[];
+  editedAt?: Date | any;
+  createdAt: Date | any;
+}
+
 // Notification Types
 export interface Notification {
   id: string;
   userId: string;
   userRole: 'admin' | 'client' | 'subcontractor';
-  type: 'work_order' | 'quote' | 'invoice' | 'assignment' | 'completion' | 'schedule' | 'general';
+  type:
+    | 'work_order'
+    | 'quote'
+    | 'invoice'
+    | 'assignment'
+    | 'completion'
+    | 'schedule'
+    | 'general'
+    | 'support_ticket';
   title: string;
   message: string;
   link?: string;
   read: boolean;
   referenceId?: string;
-  referenceType?: 'workOrder' | 'quote' | 'invoice' | 'location';
+  referenceType?: 'workOrder' | 'quote' | 'invoice' | 'location' | 'supportTicket';
   createdAt: Date;
 }

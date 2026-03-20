@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
+    const db = await getServerDb();
+
     // This endpoint should be called by a cron job (e.g., Vercel Cron, GitHub Actions, etc.)
     // to check for recurring work orders that need to be executed
-    
+
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);

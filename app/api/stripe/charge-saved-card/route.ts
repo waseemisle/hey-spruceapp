@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getServerDb } from '@/lib/firebase-server';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -13,6 +13,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
  * Used for variable recurring: invoice amounts differ each cycle.
  */
 export async function POST(request: NextRequest) {
+  const db = await getServerDb();
   let invoiceId: string | undefined;
   let clientId: string | undefined;
   try {

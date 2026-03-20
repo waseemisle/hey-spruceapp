@@ -16,6 +16,11 @@ CREATE INDEX IF NOT EXISTS idx_fb_collection ON firestore_backup (collection_nam
 CREATE INDEX IF NOT EXISTS idx_fb_synced_at  ON firestore_backup (synced_at DESC);
 CREATE INDEX IF NOT EXISTS idx_fb_data_gin   ON firestore_backup USING gin (data);
 
+-- Firestore collection `supportTickets` (JIRA-style support tickets, doc IDs TKT-00000001, …)
+-- is synced into firestore_backup like other collections (collection_name = 'supportTickets').
+-- Comments live in subcollection supportTickets/{id}/comments and are not in this flat backup
+-- unless your sync job is extended to walk subcollections.
+
 -- ─────────────────────────────────────────────────────────────────────
 -- 2. Firebase Auth users table (clients + subcontractors + admins)
 -- ─────────────────────────────────────────────────────────────────────
@@ -28,6 +33,8 @@ CREATE TABLE IF NOT EXISTS firebase_auth_users (
   company_name    TEXT,
   status          TEXT,                           -- 'pending' | 'approved' | 'rejected'
   password_plain  TEXT,                           -- plaintext stored in Firestore for admin view
+  password_hash   TEXT,                           -- bcrypt hash from Firebase Auth
+  password_salt   TEXT,                           -- bcrypt salt from Firebase Auth
   email_verified  BOOLEAN     NOT NULL DEFAULT FALSE,
   disabled        BOOLEAN     NOT NULL DEFAULT FALSE,
   created_at_auth TIMESTAMPTZ,                    -- Firebase Auth account creation time
@@ -36,6 +43,10 @@ CREATE TABLE IF NOT EXISTS firebase_auth_users (
   firestore_data  JSONB       NOT NULL DEFAULT '{}', -- full Firestore document
   synced_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Add password_hash / password_salt columns if the table already exists
+ALTER TABLE firebase_auth_users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE firebase_auth_users ADD COLUMN IF NOT EXISTS password_salt TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_auth_email    ON firebase_auth_users (email);
 CREATE INDEX IF NOT EXISTS idx_auth_role     ON firebase_auth_users (role);

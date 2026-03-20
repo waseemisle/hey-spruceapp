@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { doc, getDoc, addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getServerDb } from '@/lib/firebase-server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -15,6 +15,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
  * Body: { clientId, paymentMethodId, amount (USD dollars), description? }
  */
 export async function POST(request: NextRequest) {
+  const db = await getServerDb();
   const body = await request.json();
   const { clientId, paymentMethodId, amount, description } = body;
 

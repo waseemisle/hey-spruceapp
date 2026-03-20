@@ -51,6 +51,10 @@ const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
   'review-request': 'Review Request',
   'work-order-notification': 'Work Order Created',
   'work-order-completed-notification': 'Work Order Completed',
+  'support-ticket-notification': 'Support Ticket (new)',
+  'support-ticket-comment': 'Support Ticket (reply)',
+  'support-ticket-status-change': 'Support Ticket (status)',
+  'support-ticket-assigned': 'Support Ticket (assigned)',
   'auto-charge-receipt': 'Auto-Charge Receipt',
   test: 'Test Email',
 };
@@ -69,6 +73,10 @@ const EMAIL_TYPE_COLORS: Record<EmailType, string> = {
   'review-request': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
   'work-order-notification': 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-300',
   'work-order-completed-notification': 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-300',
+  'support-ticket-notification': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+  'support-ticket-comment': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+  'support-ticket-status-change': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
+  'support-ticket-assigned': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
   'auto-charge-receipt': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
   test: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
 };

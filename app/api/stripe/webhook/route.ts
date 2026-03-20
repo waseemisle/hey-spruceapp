@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { collection, doc, addDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getServerDb } from '@/lib/firebase-server';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
 
@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
 /** One-time payment checkout completed */
 async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
   try {
+    const db = await getServerDb();
     const invoiceId = session.metadata?.invoiceId;
     if (!invoiceId) {
       console.error('No invoice ID found in session metadata');
@@ -180,6 +181,7 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
 /** Setup mode checkout completed — add the payment method to the client's card list */
 async function handleSetupCompleted(session: Stripe.Checkout.Session) {
   try {
+    const db = await getServerDb();
     const clientId = session.metadata?.clientId;
     if (!clientId) {
       console.error('No clientId in setup session metadata');
@@ -260,6 +262,7 @@ async function handleSetupCompleted(session: Stripe.Checkout.Session) {
 /** Off-session PaymentIntent succeeded (variable auto-charge) */
 async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
   try {
+    const db = await getServerDb();
     const invoiceId = pi.metadata?.invoiceId;
     if (!invoiceId) return; // Not related to an invoice
 
@@ -305,6 +308,7 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
 /** Off-session PaymentIntent failed */
 async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
   try {
+    const db = await getServerDb();
     const invoiceId = pi.metadata?.invoiceId;
     if (!invoiceId) {
       console.log(`Payment failed for intent: ${pi.id} (no invoiceId in metadata)`);
@@ -327,6 +331,7 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
 /** Subscription (fixed recurring) invoice paid — create invoice record + send receipt email */
 async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
   try {
+    const db = await getServerDb();
     // Skip $0 invoices (e.g. trial or setup invoice)
     if (!stripeInvoice.amount_paid || stripeInvoice.amount_paid === 0) return;
 
@@ -441,6 +446,7 @@ async function handleSubscriptionInvoiceFailed(stripeInvoice: Stripe.Invoice) {
 /** Subscription deleted/cancelled */
 async function handleSubscriptionDeleted(sub: Stripe.Subscription) {
   try {
+    const db = await getServerDb();
     const clientId = sub.metadata?.clientId;
     if (!clientId) return;
 
@@ -459,6 +465,7 @@ async function handleSubscriptionDeleted(sub: Stripe.Subscription) {
 /** Checkout session expired */
 async function handleExpiredPayment(session: Stripe.Checkout.Session) {
   try {
+    const db = await getServerDb();
     const invoiceId = session.metadata?.invoiceId;
     if (!invoiceId) return;
 

@@ -13,7 +13,7 @@ import Link from 'next/link';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw,
-  Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail,
+  Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail, Headphones,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -23,7 +23,7 @@ type NavItem = {
   name: string;
   href?: string;
   icon: React.ElementType;
-  badgeKey?: 'locations' | 'workOrders' | 'messages';
+  badgeKey?: 'locations' | 'workOrders' | 'messages' | 'supportTickets';
   children?: NavChild[];
 };
 
@@ -94,6 +94,12 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
+    name: 'Support',
+    href: '/admin-portal/support-tickets',
+    icon: Headphones,
+    badgeKey: 'supportTickets',
+  },
+  {
     name: 'Analytics',
     icon: BarChart2,
     children: [
@@ -111,7 +117,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileExpandedItems, setMobileExpandedItems] = useState<Set<string>>(new Set());
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [badgeCounts, setBadgeCounts] = useState({ locations: 0, workOrders: 0, messages: 0 });
+  const [badgeCounts, setBadgeCounts] = useState({ locations: 0, workOrders: 0, messages: 0, supportTickets: 0 });
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -123,11 +129,13 @@ export default function AdminLayout({ children, headerExtra }: { children: React
 
     let unsubscribeLocations: (() => void) | undefined;
     let unsubscribeWorkOrders: (() => void) | undefined;
+    let unsubscribeSupportTickets: (() => void) | undefined;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       // Clean up previous badge listeners on every auth state change
       unsubscribeLocations?.();
       unsubscribeWorkOrders?.();
+      unsubscribeSupportTickets?.();
 
       if (firebaseUser) {
         try {
@@ -149,6 +157,20 @@ export default function AdminLayout({ children, headerExtra }: { children: React
               (s) => setBadgeCounts(prev => ({ ...prev, workOrders: s.size })),
               (err) => console.error('Work orders badge listener error:', err),
             );
+
+            const openSupportStatuses = ['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin'];
+            unsubscribeSupportTickets = onSnapshot(
+              collection(db, 'supportTickets'),
+              (s) => {
+                const n = s.docs.filter((d) => {
+                  const st = d.data().status as string;
+                  const unassigned = !d.data().assignedTo;
+                  return openSupportStatuses.includes(st) && unassigned;
+                }).length;
+                setBadgeCounts((prev) => ({ ...prev, supportTickets: n }));
+              },
+              (err) => console.error('Support tickets badge listener error:', err),
+            );
           } else {
             setLoading(false);
             router.push('/portal-login');
@@ -168,6 +190,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
       unsubscribe();
       unsubscribeLocations?.();
       unsubscribeWorkOrders?.();
+      unsubscribeSupportTickets?.();
     };
   }, [router]);
 

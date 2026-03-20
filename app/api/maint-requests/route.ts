@@ -1,28 +1,13 @@
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, where, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, where, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import sharp from 'sharp';
 import { APPY_CLIENT_ID, APPY_CLIENT_DISPLAY_NAME, APPY_CLIENT_EMAIL } from '@/lib/appy-client';
+import { getServerDb } from '@/lib/firebase-server';
 
 // Route segment config - Next.js 14 format
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Maximum duration for serverless function (seconds)
-
-// Initialize Firebase client SDK for server-side use
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
 
 // Compress base64 image to reduce size
 async function compressBase64Image(base64Image: string, maxSizeMB: number = 3.5): Promise<string> {
@@ -155,8 +140,7 @@ async function verifyBearerToken(request: Request): Promise<{ valid: boolean; to
   const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
   try {
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     // Query for the token in the api_tokens collection
     const tokensQuery = query(
@@ -196,9 +180,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Initialize Firebase
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     // Get all maintenance requests, ordered by creation date (newest first)
     const maintRequestsQuery = query(
@@ -386,9 +368,7 @@ export async function POST(request: Request) {
       console.log('Image is already a URL, using directly:', imageUrl);
     }
 
-    // Initialize Firebase
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     // Generate maintenance request number
     // Get count of existing maint requests to generate next number

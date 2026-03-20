@@ -24,14 +24,20 @@ export async function calculateWorkOrdersData(
         const batchSize = 10;
         const byId = new Map<string, DocumentData>();
 
-        for (let i = 0; i < assignedLocations.length; i += batchSize) {
-          const batch = assignedLocations.slice(i, i + batchSize);
-          workOrdersQuery = query(
-            collection(dbInstance, 'workOrders'),
-            where('locationId', 'in', batch)
-          );
-          const snapshot = await getDocs(workOrdersQuery);
-          snapshot.docs.forEach(d => byId.set(d.id, { id: d.id, ...d.data() }));
+        // Location-based queries may fail if Firestore rules can't verify all results
+        // are accessible to the client — skip silently and rely on clientId query below
+        try {
+          for (let i = 0; i < assignedLocations.length; i += batchSize) {
+            const batch = assignedLocations.slice(i, i + batchSize);
+            workOrdersQuery = query(
+              collection(dbInstance, 'workOrders'),
+              where('locationId', 'in', batch)
+            );
+            const snapshot = await getDocs(workOrdersQuery);
+            snapshot.docs.forEach(d => byId.set(d.id, { id: d.id, ...d.data() }));
+          }
+        } catch {
+          // Permission denied for location-based query; clientId query below covers own work orders
         }
 
         // Also fetch by clientId so work orders linked to client but not in assignedLocations are included

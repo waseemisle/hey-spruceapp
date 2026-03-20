@@ -19,8 +19,11 @@ export async function POST(request: NextRequest) {
   uploadData.append('file', file);
   uploadData.append('upload_preset', uploadPreset);
 
+  const isImage = file.type.startsWith('image/');
+  const resourceEndpoint = isImage ? 'image' : 'raw';
+
   const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+    `https://api.cloudinary.com/v1_1/${cloudName}/${resourceEndpoint}/upload`,
     { method: 'POST', body: uploadData }
   );
 

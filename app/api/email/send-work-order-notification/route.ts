@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail, sendEmailsSequentially } from '@/lib/email';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { getAuth, signInWithEmailAndPassword, inMemoryPersistence, setPersistence } from 'firebase/auth';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, infoCard, infoRow, ctaButton, alertBox, priorityBadge } from '@/lib/email-template';
 
@@ -36,8 +37,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Fetch admin users from Firestore and filter by workOrderEmailNotifications toggle
+    // Fetch admin users from Firestore — must sign in first since rules require auth
     const app = getFirebaseApp();
+    const auth = getAuth(app);
+    if (!auth.currentUser && process.env.FIREBASE_SYNC_EMAIL && process.env.FIREBASE_SYNC_PASSWORD) {
+      await setPersistence(auth, inMemoryPersistence);
+      await signInWithEmailAndPassword(auth, process.env.FIREBASE_SYNC_EMAIL, process.env.FIREBASE_SYNC_PASSWORD);
+    }
     const db = getFirestore(app);
     const adminsSnapshot = await getDocs(collection(db, 'adminUsers'));
 

@@ -11,7 +11,7 @@ import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
-import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu, X } from 'lucide-react';
+import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu, X, Headphones } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
@@ -24,6 +24,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
   const [badgeCounts, setBadgeCounts] = useState({
     bidding: 0,
     messages: 0,
+    supportTickets: 0,
   });
   const [firebaseInstances, setFirebaseInstances] = useState({
     authInstance: auth,
@@ -94,12 +95,15 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
     }
 
     let unsubscribeBidding: (() => void) | null = null;
+    let unsubscribeSupportTickets: (() => void) | null = null;
 
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
       onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
         // Clean up previous bidding listener when auth state changes
         unsubscribeBidding?.();
         unsubscribeBidding = null;
+        unsubscribeSupportTickets?.();
+        unsubscribeSupportTickets = null;
 
         if (firebaseUser) {
           try {
@@ -119,6 +123,22 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
               }, (error) => {
                 console.error('Bidding badge listener error:', error);
               });
+
+              const openSt = ['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin'];
+              unsubscribeSupportTickets = onSnapshot(
+                collection(instances.dbInstance, 'supportTickets'),
+                (snapshot) => {
+                  const n = snapshot.docs.filter((d) => {
+                    const x = d.data();
+                    return (
+                      (x.submittedBy === firebaseUser.uid || x.subcontractorId === firebaseUser.uid) &&
+                      openSt.includes(x.status as string)
+                    );
+                  }).length;
+                  setBadgeCounts((prev) => ({ ...prev, supportTickets: n }));
+                },
+                (error) => console.error('Support tickets badge listener error:', error),
+              );
             } else {
               setLoading(false);
               const stored = localStorage.getItem('impersonationState');
@@ -163,6 +183,8 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
       unsubscribe();
       unsubscribeBidding?.();
       unsubscribeBidding = null;
+      unsubscribeSupportTickets?.();
+      unsubscribeSupportTickets = null;
       clearInterval(interval);
     };
   }, [router]);
@@ -189,6 +211,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
     { name: 'My Quotes', href: '/subcontractor-portal/quotes', icon: FileText, badgeKey: null },
     { name: 'Assigned Jobs', href: '/subcontractor-portal/assigned', icon: CheckSquare, badgeKey: null },
     { name: 'Messages', href: '/subcontractor-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
+    { name: 'Support Tickets', href: '/subcontractor-portal/support-tickets', icon: Headphones, badgeKey: 'supportTickets' },
   ];
 
   return (

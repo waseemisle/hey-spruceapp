@@ -27,6 +27,7 @@ const COLLECTIONS = [
   'recurringWorkOrders',
   'scheduled_invoices',
   'subcontractors',
+  'supportTickets',
   'users',
   'workOrderNotes',
   'workOrders',
@@ -129,8 +130,9 @@ async function fetchCollection(
   return docs;
 }
 
-// Look up Firebase Auth user records in batches of 100 using the Identity Toolkit API
-// Works with the admin's ID token for users in their own project
+// Fetch ALL Firebase Auth users via Identity Toolkit (batched by UID)
+// Note: passwordHash is only available via Admin SDK / service account.
+// password_plain is captured from Firestore documents below.
 async function fetchAuthUsers(
   uids: string[],
   idToken: string,
@@ -167,7 +169,6 @@ async function fetchAuthUsers(
         last_sign_in: u.lastLoginAt ? new Date(Number(u.lastLoginAt)).toISOString() : null,
         last_refresh: u.lastRefreshAt || null,
         provider_data: u.providerUserInfo || [],
-        // password_hash is not returned by this endpoint — it is server-side only
       });
     }
   }
@@ -236,82 +237,82 @@ export async function GET(request: Request) {
     }
 
     // ── 2. Sync Firebase Auth users ────────────────────────────────────────
-    // Collect all UIDs from Firestore (clients + subcontractors + adminUsers)
+    // Collect UIDs from all user-facing collections
     try {
       console.log('[sync] Syncing Firebase Auth users...');
 
-      const clientDocs   = await fetchCollection('clients', idToken);
-      const subDocs      = await fetchCollection('subcontractors', idToken);
-      const adminDocs    = await fetchCollection('adminUsers', idToken);
+      const clientDocs = await fetchCollection('clients', idToken);
+      const subDocs    = await fetchCollection('subcontractors', idToken);
+      const adminDocs  = await fetchCollection('adminUsers', idToken);
 
-      // Build a map of uid → role + Firestore data (email, password, etc.)
+      // Build uid → role + Firestore profile data map
       const userMap: Record<string, any> = {};
 
       for (const d of clientDocs) {
         userMap[d.id] = {
-          uid: d.id,
-          role: 'client',
-          email: d.data.email || null,
-          full_name: d.data.fullName || null,
-          phone: d.data.phone || null,
-          company_name: d.data.companyName || null,
-          status: d.data.status || null,
-          password_plain: d.data.password || null, // plaintext stored for admin view
+          uid:           d.id,
+          role:          'client',
+          email:         d.data.email         ?? null,
+          full_name:     d.data.fullName       ?? null,
+          phone:         d.data.phone          ?? null,
+          company_name:  d.data.companyName    ?? null,
+          status:        d.data.status         ?? null,
+          password_plain: d.data.password      ?? null,
           firestore_data: d.data,
         };
       }
       for (const d of subDocs) {
         userMap[d.id] = {
-          uid: d.id,
-          role: 'subcontractor',
-          email: d.data.email || null,
-          full_name: d.data.fullName || null,
-          phone: d.data.phone || null,
-          company_name: d.data.businessName || null,
-          status: d.data.status || null,
-          password_plain: d.data.password || null,
+          uid:           d.id,
+          role:          'subcontractor',
+          email:         d.data.email          ?? null,
+          full_name:     d.data.fullName        ?? null,
+          phone:         d.data.phone           ?? null,
+          company_name:  d.data.businessName    ?? null,
+          status:        d.data.status          ?? null,
+          password_plain: d.data.password       ?? null,
           firestore_data: d.data,
         };
       }
       for (const d of adminDocs) {
         userMap[d.id] = {
-          uid: d.id,
-          role: 'admin',
-          email: d.data.email || null,
-          full_name: d.data.fullName || null,
-          phone: d.data.phone || null,
-          company_name: null,
-          status: 'approved',
-          password_plain: d.data.password || null,
+          uid:           d.id,
+          role:          'admin',
+          email:         d.data.email           ?? null,
+          full_name:     d.data.fullName         ?? null,
+          phone:         d.data.phone            ?? null,
+          company_name:  null,
+          status:        'approved',
+          password_plain: d.data.password        ?? null,
           firestore_data: d.data,
         };
       }
 
       const allUids = Object.keys(userMap);
-      console.log(`[sync] Total UIDs to look up in Auth: ${allUids.length}`);
+      console.log(`[sync] Total UIDs: ${allUids.length}`);
 
-      // Augment with Firebase Auth metadata (emailVerified, lastSignInAt, etc.)
+      // Augment with Firebase Auth metadata
       const authUsers = await fetchAuthUsers(allUids, idToken, apiKey);
       const authByUid: Record<string, any> = {};
       for (const u of authUsers) authByUid[u.uid] = u;
 
-      // Merge and upsert into firebase_auth_users table
       const rows = allUids.map(uid => ({
         uid,
-        role: userMap[uid].role,
-        email: userMap[uid].email,
-        full_name: userMap[uid].full_name,
-        phone: userMap[uid].phone,
-        company_name: userMap[uid].company_name,
-        status: userMap[uid].status,
-        password_plain: userMap[uid].password_plain,
-        email_verified: authByUid[uid]?.email_verified ?? false,
-        disabled: authByUid[uid]?.disabled ?? false,
-        created_at_auth: authByUid[uid]?.created_at ?? null,
-        last_sign_in: authByUid[uid]?.last_sign_in ?? null,
-        provider_data: authByUid[uid]?.provider_data ?? [],
-        firestore_data: userMap[uid].firestore_data,
-        synced_at: syncedAt,
+        role:            userMap[uid].role,
+        email:           userMap[uid].email,
+        full_name:       userMap[uid].full_name,
+        phone:           userMap[uid].phone,
+        company_name:    userMap[uid].company_name,
+        status:          userMap[uid].status,
+        // Plaintext password stored in Firestore by the app
+        password_plain:  userMap[uid].password_plain,
+        email_verified:  authByUid[uid]?.email_verified  ?? false,
+        disabled:        authByUid[uid]?.disabled         ?? false,
+        created_at_auth: authByUid[uid]?.created_at       ?? null,
+        last_sign_in:    authByUid[uid]?.last_sign_in     ?? null,
+        provider_data:   authByUid[uid]?.provider_data    ?? [],
+        firestore_data:  userMap[uid].firestore_data,
+        synced_at:       syncedAt,
       }));
 
       for (let i = 0; i < rows.length; i += 100) {
@@ -323,7 +324,7 @@ export async function GET(request: Request) {
 
       results['firebase_auth_users'] = { synced: rows.length };
       totalSynced += rows.length;
-      console.log(`[sync] firebase_auth_users: ${rows.length} users synced`);
+      console.log(`[sync] firebase_auth_users: ${rows.length} synced`);
     } catch (err: any) {
       console.error('[sync] Error syncing auth users:', err.message);
       results['firebase_auth_users'] = { synced: 0, error: err.message };
@@ -332,7 +333,7 @@ export async function GET(request: Request) {
 
     // ── 3. Log this sync run ───────────────────────────────────────────────
     await supabase.from('sync_log').insert({
-      synced_at: syncedAt,
+      synced_at:    syncedAt,
       total_synced: totalSynced,
       total_errors: totalErrors,
       results,
@@ -340,13 +341,7 @@ export async function GET(request: Request) {
       if (error) console.error('[sync] sync_log insert error:', error.message);
     });
 
-    return NextResponse.json({
-      success: true,
-      totalSynced,
-      totalErrors,
-      syncedAt,
-      results,
-    });
+    return NextResponse.json({ success: true, totalSynced, totalErrors, syncedAt, results });
   } catch (err: any) {
     console.error('[sync] Fatal error:', err.message);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

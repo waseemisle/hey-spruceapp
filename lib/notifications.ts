@@ -5,12 +5,21 @@ export interface CreateNotificationParams {
   userId?: string; // Optional for single user notification
   recipientIds?: string[]; // For multiple users
   userRole?: 'admin' | 'client' | 'subcontractor';
-  type: 'work_order' | 'quote' | 'invoice' | 'assignment' | 'completion' | 'schedule' | 'general' | 'location';
+  type:
+    | 'work_order'
+    | 'quote'
+    | 'invoice'
+    | 'assignment'
+    | 'completion'
+    | 'schedule'
+    | 'general'
+    | 'location'
+    | 'support_ticket';
   title: string;
   message: string;
   link?: string;
   referenceId?: string;
-  referenceType?: 'workOrder' | 'quote' | 'invoice' | 'location';
+  referenceType?: 'workOrder' | 'quote' | 'invoice' | 'location' | 'supportTicket';
 }
 
 /**

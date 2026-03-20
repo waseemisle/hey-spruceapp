@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Firestore Permissions Audit — GroundOps</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; line-height: 1.6; }
+
+  header { background: linear-gradient(135deg, #1e3a5f 0%, #1a2635 100%); border-bottom: 1px solid #2d3f55; padding: 32px 40px; }
+  header h1 { font-size: 24px; font-weight: 700; color: #fff; }
+  header p { color: #94a3b8; margin-top: 6px; font-size: 14px; }
+  .header-meta { display: flex; gap: 24px; margin-top: 16px; }
+  .header-meta span { font-size: 12px; color: #64748b; }
+  .header-meta strong { color: #94a3b8; }
+
+  .main { padding: 32px 40px; max-width: 1400px; margin: 0 auto; }
+
+  /* Summary cards */
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 36px; }
+  .card { background: #1a2635; border: 1px solid #2d3f55; border-radius: 10px; padding: 20px; }
+  .card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 8px; }
+  .card-value { font-size: 32px; font-weight: 700; }
+  .card.fail  { border-color: #ef4444; } .card.fail  .card-label { color: #ef4444; } .card.fail  .card-value { color: #ef4444; }
+  .card.warn  { border-color: #f59e0b; } .card.warn  .card-label { color: #f59e0b; } .card.warn  .card-value { color: #f59e0b; }
+  .card.ok    { border-color: #22c55e; } .card.ok    .card-label { color: #22c55e; } .card.ok    .card-value { color: #22c55e; }
+  .card.total { border-color: #3b82f6; } .card.total .card-label { color: #3b82f6; } .card.total .card-value { color: #3b82f6; }
+
+  /* Section titles */
+  .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #2d3f55; }
+
+  /* Filter bar */
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 20px; }
+  .filter-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid #2d3f55; background: #1a2635; color: #94a3b8; font-size: 12px; cursor: pointer; transition: all 0.15s; font-weight: 600; }
+  .filter-btn:hover { border-color: #3b82f6; color: #3b82f6; }
+  .filter-btn.active { background: #1e3a5f; border-color: #3b82f6; color: #60a5fa; }
+
+  /* Route table */
+  .route-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px; }
+  .route-item { background: #1a2635; border: 1px solid #2d3f55; border-radius: 10px; overflow: hidden; transition: border-color 0.15s; }
+  .route-item.fail { border-left: 4px solid #ef4444; }
+  .route-item.warn { border-left: 4px solid #f59e0b; }
+  .route-item.ok   { border-left: 4px solid #22c55e; }
+  .route-header { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; user-select: none; }
+  .route-header:hover { background: #1e2d3d; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .fail .status-dot { background: #ef4444; box-shadow: 0 0 6px #ef444488; }
+  .warn .status-dot { background: #f59e0b; box-shadow: 0 0 6px #f59e0b88; }
+  .ok   .status-dot { background: #22c55e; box-shadow: 0 0 6px #22c55e88; }
+  .route-path { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; color: #e2e8f0; flex: 1; }
+  .route-method { font-size: 11px; font-weight: 700; background: #0f172a; padding: 3px 8px; border-radius: 4px; color: #60a5fa; flex-shrink: 0; }
+  .status-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+  .fail .status-badge { background: #7f1d1d33; color: #f87171; border: 1px solid #ef444444; }
+  .warn .status-badge { background: #78350f33; color: #fbbf24; border: 1px solid #f59e0b44; }
+  .ok   .status-badge { background: #14532d33; color: #4ade80; border: 1px solid #22c55e44; }
+  .chevron { color: #475569; font-size: 12px; transition: transform 0.2s; flex-shrink: 0; }
+  .route-item.open .chevron { transform: rotate(90deg); }
+
+  .route-body { display: none; border-top: 1px solid #2d3f55; padding: 18px 22px; }
+  .route-item.open .route-body { display: block; }
+
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .detail-section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; font-weight: 600; margin-bottom: 8px; }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: 11px; font-family: monospace; background: #0f172a; border: 1px solid #334155; padding: 3px 8px; border-radius: 4px; color: #94a3b8; }
+  .tag.read  { border-color: #1d4ed844; color: #60a5fa; background: #1e3a5f33; }
+  .tag.write { border-color: #15803d44; color: #4ade80; background: #14532d33; }
+  .tag.delete { border-color: #7f1d1d44; color: #f87171; background: #7f1d1d22; }
+
+  .issue-box { margin-top: 14px; border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.6; }
+  .issue-box.error   { background: #7f1d1d22; border: 1px solid #ef444433; color: #fca5a5; }
+  .issue-box.warning { background: #78350f22; border: 1px solid #f59e0b33; color: #fcd34d; }
+  .issue-box.success { background: #14532d22; border: 1px solid #22c55e33; color: #86efac; }
+  .issue-box .icon { font-size: 16px; margin-right: 8px; }
+  .issue-box strong { color: inherit; }
+
+  .fix-box { margin-top: 10px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px 14px; }
+  .fix-box h5 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #3b82f6; margin-bottom: 8px; font-weight: 700; }
+  .fix-box p { font-size: 12px; color: #94a3b8; line-height: 1.6; }
+  code { font-family: monospace; background: #1e293b; padding: 1px 5px; border-radius: 3px; font-size: 12px; color: #93c5fd; }
+
+  /* Rules reference */
+  .rules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 40px; }
+  .rule-card { background: #1a2635; border: 1px solid #2d3f55; border-radius: 8px; padding: 14px; }
+  .rule-card h4 { font-size: 12px; font-family: monospace; color: #60a5fa; margin-bottom: 8px; font-weight: 700; }
+  .rule-line { font-size: 11px; color: #94a3b8; display: flex; gap: 6px; align-items: flex-start; margin-bottom: 4px; }
+  .rule-op { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+  .rule-op.read  { background: #1e3a5f; color: #60a5fa; }
+  .rule-op.write { background: #14532d; color: #4ade80; }
+  .rule-op.any   { background: #312e81; color: #a5b4fc; }
+  .rule-cond { color: #94a3b8; }
+  .rule-card .no-rule { font-size: 11px; color: #ef4444; font-style: italic; }
+
+  /* SDK note */
+  .sdk-note { background: #1a2635; border: 1px solid #2d3f55; border-radius: 10px; padding: 20px 24px; margin-bottom: 32px; font-size: 13px; color: #94a3b8; line-height: 1.8; }
+  .sdk-note h3 { color: #e2e8f0; font-size: 15px; margin-bottom: 10px; }
+  .sdk-note .highlight { color: #fbbf24; font-weight: 600; }
+
+  /* Footer */
+  footer { text-align: center; padding: 24px; color: #334155; font-size: 12px; border-top: 1px solid #1e293b; margin-top: 40px; }
+
+  @media (max-width: 900px) {
+    .main { padding: 20px; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .rules-grid { grid-template-columns: 1fr 1fr; }
+    .detail-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔐 Firestore Permissions Audit</h1>
+  <p>Full trace of "Missing or insufficient permissions" errors across all API routes and server-side libs</p>
+  <div class="header-meta">
+    <span><strong>Project:</strong> groundopscos / groundopss Firebase</span>
+    <span><strong>Generated:</strong> 2026-03-21</span>
+    <span><strong>Routes scanned:</strong> 19 API routes + 2 server libs</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Summary -->
+  <div class="summary">
+    <div class="card fail">
+      <div class="card-label">Will Fail</div>
+      <div class="card-value">13</div>
+    </div>
+    <div class="card warn">
+      <div class="card-label">Conditional / Partial</div>
+      <div class="card-value">3</div>
+    </div>
+    <div class="card ok">
+      <div class="card-label">Working Fine</div>
+      <div class="card-value">4</div>
+    </div>
+    <div class="card total">
+      <div class="card-label">Total Routes</div>
+      <div class="card-value">20</div>
+    </div>
+  </div>
+
+  <!-- Root cause explanation -->
+  <div class="sdk-note">
+    <h3>Root Cause — Why You're Getting This Error</h3>
+    <p>
+      All API routes in Next.js run <span class="highlight">server-side on Vercel</span>. Most routes initialize Firebase using the <span class="highlight">client SDK</span> (<code>firebase/firestore</code>, <code>firebase/app</code>) — the same SDK used in the browser.
+      <br/><br/>
+      The problem: on the server, no user is logged in. The Firebase client SDK sends requests to Firestore with <span class="highlight">no auth token</span>. Your Firestore rules require <code>isSignedIn()</code> — meaning <code>request.auth != null</code> — for every single collection. Without auth, <span class="highlight">every Firestore call fails</span> with <em>"Missing or insufficient permissions."</em>
+      <br/><br/>
+      In the browser, users are logged in so this works fine. The bug only shows up in server-side API routes that initialize their own Firebase instance without signing in first.
+    </p>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="section-title">API Routes &amp; Server-side Libs</div>
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterRoutes('all', this)">All (20)</button>
+    <button class="filter-btn" onclick="filterRoutes('fail', this)">Failing (13)</button>
+    <button class="filter-btn" onclick="filterRoutes('warn', this)">Conditional (3)</button>
+    <button class="filter-btn" onclick="filterRoutes('ok', this)">Working (4)</button>
+  </div>
+
+  <div class="route-list" id="routeList">
+
+    <!-- ── FAILING ROUTES ─────────────────────────────────────── -->
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/maint-requests/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">api_tokens (read)</span>
+              <span class="tag write">maint_requests (create/read)</span>
+              <span class="tag read">locations (read/create)</span>
+              <span class="tag write">workOrders (create)</span>
+              <span class="tag read">adminUsers (read)</span>
+              <span class="tag write">notifications (create)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (firebase/firestore)</span>
+              <span class="tag">Custom bearer token (api_tokens)</span>
+              <span class="tag">No Firebase signIn</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> This is the APPY maintenance request intake route. It verifies a custom API bearer token against the <code>api_tokens</code> collection — but that first read already fails because the client SDK has no auth. Even if it passed, all subsequent writes to <code>maint_requests</code>, <code>workOrders</code>, and <code>adminUsers</code> would also fail.
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>Add <code>signInWithEmailAndPassword(auth, FIREBASE_SYNC_EMAIL, FIREBASE_SYNC_PASSWORD)</code> at the start of the handler, before any Firestore call. Or migrate to Firebase Admin SDK.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/search/route.ts</span>
+        <span class="route-method">GET</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">workOrders</span>
+              <span class="tag read">clients</span>
+              <span class="tag read">subcontractors</span>
+              <span class="tag read">invoices</span>
+              <span class="tag read">quotes</span>
+              <span class="tag read">locations</span>
+              <span class="tag read">companies</span>
+              <span class="tag read">recurringWorkOrders</span>
+              <span class="tag read">maint_requests</span>
+              <span class="tag read">categories</span>
+              <span class="tag read">assets</span>
+              <span class="tag read">rfps</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (firebase/firestore)</span>
+              <span class="tag">No auth whatsoever</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> The global search route reads from 12 collections simultaneously. No authentication is performed at all — zero. Every single <code>getDocs</code> call will throw "Missing or insufficient permissions."
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>Sign in with admin credentials at the top of the handler, or use the Admin SDK. Note: the Admin SDK bypasses Firestore rules entirely — ideal for trusted server-side routes.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/api-tokens/route.ts</span>
+        <span class="route-method">GET / POST / DELETE</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">api_tokens (read)</span>
+              <span class="tag write">api_tokens (create)</span>
+              <span class="tag delete">api_tokens (delete)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (firebase/firestore)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> The <code>api_tokens</code> collection has no rules defined in <code>firestore.rules</code>, so it falls through to the default <code>allow read, write: if false</code> catch-all — everything is denied.
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>Add a Firestore rule for <code>api_tokens</code> (e.g. <code>allow read, write: if isAdmin()</code>) AND sign in with admin credentials before accessing.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/invoices/upload-pdf/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">clients (read)</span>
+              <span class="tag read">companies (read)</span>
+              <span class="tag write">invoices (create/update)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No auth (imports auth but never signs in)</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> Invoice PDF generation needs to read client and company data, then create/update the invoice doc. None of these collections allow unauthenticated access.
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>Sign in with admin sync credentials before querying. Invoices require <code>isAdmin()</code> to write — the sync account qualifies.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/recurring-work-orders/cron/route.ts</span>
+        <span class="route-method">GET / POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">recurringWorkOrders (read)</span>
+              <span class="tag write">recurringWorkOrders (update)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> This cron job fires on a schedule to process recurring work orders. It queries Firestore without signing in — fails immediately. Recurring work orders never get processed.
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>Add admin sign-in before Firestore calls. This route is a cron target so it can safely use the sync credentials.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/recurring-work-orders/execute/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">recurringWorkOrders (read/update)</span>
+              <span class="tag write">recurringWorkOrderExecutions (create/update)</span>
+              <span class="tag write">workOrders (create)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> Executing a recurring work order requires creating actual work order documents. All three collections require admin auth. None is provided.
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>Add admin sign-in. This is part of the same recurring WO pipeline — fix all four routes together.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/recurring-work-orders/create-executions/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">recurringWorkOrders (read/update)</span>
+              <span class="tag write">recurringWorkOrderExecutions (create)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> Part of the recurring work order execution pipeline. No auth = permission denied.
+        </div>
+        <div class="fix-box"><h5>Fix</h5><p>Admin sign-in before Firestore calls.</p></div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/recurring-work-orders/initialize-execution/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">recurringWorkOrders (read/update)</span>
+              <span class="tag write">recurringWorkOrderExecutions (create/update)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> Part of the recurring work order execution pipeline. No auth = permission denied.
+        </div>
+        <div class="fix-box"><h5>Fix</h5><p>Admin sign-in before Firestore calls.</p></div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/recurring-work-orders/create-execution-work-orders/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">recurringWorkOrders (read)</span>
+              <span class="tag read">recurringWorkOrderExecutions (read/update)</span>
+              <span class="tag write">workOrders (create/update)</span>
+              <span class="tag write">notifications (create)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> This is the final step that actually creates the work order documents. Fails — recurring WOs never become actual work orders.
+        </div>
+        <div class="fix-box"><h5>Fix</h5><p>Admin sign-in before Firestore calls.</p></div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/recurring-work-orders/generate-execution-work-order/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">recurringWorkOrderExecutions (read/update)</span>
+              <span class="tag write">workOrders (create/update)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> No auth = permission denied on all operations.
+        </div>
+        <div class="fix-box"><h5>Fix</h5><p>Admin sign-in before Firestore calls.</p></div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/recurring-work-orders/import/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">recurringWorkOrders (read/create/update/delete)</span>
+              <span class="tag read">recurringWorkOrderExecutions (read)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No effective auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> Import/export of recurring work orders. All operations require admin auth which is not set up.
+        </div>
+        <div class="fix-box"><h5>Fix</h5><p>Admin sign-in before Firestore calls.</p></div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/stripe/webhook/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">invoices (read/update)</span>
+              <span class="tag read">clients (read/update)</span>
+              <span class="tag read">recurringWorkOrderExecutions (read)</span>
+              <span class="tag read">recurringWorkOrders (read)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">Stripe signature only (not Firebase auth)</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box error">
+          <span class="icon">❌</span>
+          <strong>Why it fails:</strong> Stripe webhooks arrive server-side. The route verifies the Stripe signature correctly — but then uses the client SDK without Firebase auth. When a payment succeeds, the invoice and client docs cannot be updated. <strong>Payment status is silently not being recorded in Firestore.</strong>
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>This is high priority. Add admin sign-in before Firestore calls. A failed Stripe webhook means paid invoices stay marked as "unpaid" in the system.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item fail" data-status="fail">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">lib/email-logger.ts (server-side lib)</span>
+        <span class="route-method">USED BY ALL EMAIL ROUTES</span>
+        <span class="status-badge">❌ Will Fail</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag write">emailLogs (create)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (firebase/firestore)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box warning">
+          <span class="icon">⚠️</span>
+          <strong>Silent failure:</strong> The logger is wrapped in a try-catch, so failures are swallowed. Emails still send — but <strong>zero email logs are being saved to Firestore</strong>. Your <code>emailLogs</code> collection is empty or missing entries.
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>The logger needs to either (a) share an already-authenticated Firestore instance passed in as a parameter, or (b) sign in itself. Option (a) is cleaner.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CONDITIONAL / PARTIAL ────────────────────────────── -->
+
+    <div class="route-item warn" data-status="warn">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/email/send-work-order-notification/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">⚠️ Conditional</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">adminUsers (read)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (firebase/firestore, firebase/auth)</span>
+              <span class="tag">✅ Fixed — signInWithEmailAndPassword added</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box warning">
+          <span class="icon">⚠️</span>
+          <strong>Status:</strong> This was the original error that triggered this audit. A fix was applied locally — it now signs in with <code>FIREBASE_SYNC_EMAIL</code> / <code>FIREBASE_SYNC_PASSWORD</code> before querying. Confirmed working (6 emails sent). <strong>Needs to be deployed to Vercel to fix production.</strong>
+        </div>
+        <div class="fix-box">
+          <h5>Action Required</h5>
+          <p>Deploy the current local fix to Vercel. The fix is in <code>app/api/email/send-work-order-notification/route.ts</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item warn" data-status="warn">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">lib/notifications.ts (server-side lib)</span>
+        <span class="route-method">USED BY MULTIPLE ROUTES</span>
+        <span class="status-badge">⚠️ Partial</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag write">notifications (create) ✅</span>
+              <span class="tag read">adminUsers (read) ❌</span>
+              <span class="tag read">users (read) ❌</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (lib/firebase)</span>
+              <span class="tag">No auth</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box warning">
+          <span class="icon">⚠️</span>
+          <strong>Partially works:</strong> The <code>notifications</code> collection rule is <code>allow create: if isSignedIn()</code> — but since there's no auth, even create should fail. However if it somehow creates, reading <code>adminUsers</code> to find who to notify will always fail. In-app notifications to admins are likely not being delivered.
+        </div>
+        <div class="fix-box"><h5>Fix</h5><p>Pass an authenticated Firestore instance, or sign in before use.</p></div>
+      </div>
+    </div>
+
+    <div class="route-item warn" data-status="warn">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/auth/impersonate-login/route.ts &amp; view-as/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">⚠️ Conditional</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="detail-grid">
+          <div class="detail-section">
+            <h4>Collections Accessed</h4>
+            <div class="tag-list">
+              <span class="tag read">adminUsers (read)</span>
+              <span class="tag read">clients (read)</span>
+              <span class="tag read">subcontractors (read)</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <h4>SDK &amp; Auth</h4>
+            <div class="tag-list">
+              <span class="tag">Client SDK (firebase/firestore)</span>
+              <span class="tag">JWT decoded locally, not sent to Firestore</span>
+            </div>
+          </div>
+        </div>
+        <div class="issue-box warning">
+          <span class="icon">⚠️</span>
+          <strong>Why it fails:</strong> The JWT bearer token is decoded locally to extract the user ID, but it's never forwarded to Firestore as an auth credential. The Firestore SDK starts fresh without any auth context, so all reads fail.
+        </div>
+        <div class="fix-box">
+          <h5>Fix</h5>
+          <p>Use Firebase Admin SDK (<code>firebase-admin/firestore</code>) which bypasses rules, or sign in with the caller's credentials. The impersonate route already partially uses Admin SDK — extend it.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── WORKING ROUTES ─────────────────────────────────────── -->
+
+    <div class="route-item ok" data-status="ok">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/auth/impersonate/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">✅ Working</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="issue-box success">
+          <span class="icon">✅</span>
+          <strong>Uses Firebase Admin SDK</strong> — calls <code>adminAuth.verifyIdToken()</code> and uses Admin Firestore which bypasses security rules entirely. No permission issues.
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item ok" data-status="ok">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/auth/create-user/route.ts &amp; set-password/route.ts</span>
+        <span class="route-method">POST</span>
+        <span class="status-badge">✅ Working</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="issue-box success">
+          <span class="icon">✅</span>
+          <strong>Uses Firestore REST API with Bearer token</strong> — signs in the user (or admin) via Firebase Auth REST API, then passes the returned <code>idToken</code> as <code>Authorization: Bearer</code> to Firestore REST API. Rules see a valid <code>request.auth</code>.
+        </div>
+      </div>
+    </div>
+
+    <div class="route-item ok" data-status="ok">
+      <div class="route-header" onclick="toggle(this)">
+        <span class="status-dot"></span>
+        <span class="route-path">app/api/sync/firebase-to-supabase/route.ts</span>
+        <span class="route-method">GET</span>
+        <span class="status-badge">✅ Working</span>
+        <span class="chevron">▶</span>
+      </div>
+      <div class="route-body">
+        <div class="issue-box success">
+          <span class="icon">✅</span>
+          <strong>Uses Firestore REST API + admin signin</strong> — calls <code>signInAdmin()</code> which uses Firebase Auth REST API with <code>FIREBASE_SYNC_EMAIL</code> / <code>FIREBASE_SYNC_PASSWORD</code>, then uses the returned <code>idToken</code> as a Bearer token for all Firestore REST API calls. This is the correct pattern.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Firestore Rules Reference -->
+  <div class="section-title" style="margin-top:8px;">Firestore Rules Reference</div>
+  <div class="rules-grid">
+    <div class="rule-card">
+      <h4>adminUsers</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR userId == uid)</span></div>
+      <div class="rule-line"><span class="rule-op write">write</span><span class="rule-cond">isSignedIn() AND isAdmin()</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>clients</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId == uid)</span></div>
+      <div class="rule-line"><span class="rule-op write">write</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId == uid)</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>workOrders</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId == uid OR ...)</span></div>
+      <div class="rule-line"><span class="rule-op write">create/delete</span><span class="rule-cond">isSignedIn() AND isAdmin()</span></div>
+      <div class="rule-line"><span class="rule-op write">update</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId == uid)</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>invoices</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId == uid)</span></div>
+      <div class="rule-line"><span class="rule-op write">write</span><span class="rule-cond">isSignedIn() AND isAdmin()</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>notifications</h4>
+      <div class="rule-line"><span class="rule-op any">create</span><span class="rule-cond">isSignedIn()</span></div>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND userId == uid</span></div>
+      <div class="rule-line"><span class="rule-op write">update</span><span class="rule-cond">isSignedIn() AND userId == uid</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>recurringWorkOrders</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId == uid)</span></div>
+      <div class="rule-line"><span class="rule-op write">write</span><span class="rule-cond">isSignedIn() AND isAdmin()</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>maint_requests</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId==uid OR isClient)</span></div>
+      <div class="rule-line"><span class="rule-op write">write</span><span class="rule-cond">isSignedIn() AND isAdmin()</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>emailLogs</h4>
+      <div class="rule-line"><span class="rule-op any">read/write</span><span class="rule-cond">isSignedIn() AND isAdmin()</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>api_tokens</h4>
+      <div class="rule-line no-rule">⚠️ No rule defined — falls through to default deny (allow read, write: if false)</div>
+    </div>
+    <div class="rule-card">
+      <h4>quotes</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR subcontractorId==uid OR clientId==uid)</span></div>
+      <div class="rule-line"><span class="rule-op write">write</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR subcontractorId==uid)</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>subcontractors</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR docId==uid OR status=='approved')</span></div>
+      <div class="rule-line"><span class="rule-op write">write</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR docId==uid)</span></div>
+    </div>
+    <div class="rule-card">
+      <h4>locations</h4>
+      <div class="rule-line"><span class="rule-op read">read</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId==uid OR companyMatch)</span></div>
+      <div class="rule-line"><span class="rule-op write">create/update/delete</span><span class="rule-cond">isSignedIn() AND (isAdmin() OR clientId==uid)</span></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  GroundOps — Firestore Permissions Audit — 2026-03-21
+</footer>
+
+<script>
+  function toggle(header) {
+    header.parentElement.classList.toggle('open');
+  }
+
+  function filterRoutes(status, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.route-item').forEach(item => {
+      if (status === 'all' || item.dataset.status === status) {
+        item.style.display = '';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
+</script>
+</body>
+</html>

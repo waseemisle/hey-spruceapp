@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    const db = await getServerDb();
     const { recurringWorkOrderId } = await request.json();
 
     if (!recurringWorkOrderId) {

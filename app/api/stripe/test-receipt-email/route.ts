@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getServerDb } from '@/lib/firebase-server';
 import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
 
 /**
@@ -10,6 +10,7 @@ import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
  * POST body: { clientId }
  */
 export async function POST(request: NextRequest) {
+  const db = await getServerDb();
   try {
     const { clientId } = await request.json();
 

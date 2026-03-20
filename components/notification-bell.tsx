@@ -17,12 +17,20 @@ interface Notification {
   id: string;
   userId: string;
   userRole: 'admin' | 'client' | 'subcontractor';
-  type: 'work_order' | 'quote' | 'invoice' | 'assignment' | 'completion' | 'schedule' | 'general';
+  type:
+    | 'work_order'
+    | 'quote'
+    | 'invoice'
+    | 'assignment'
+    | 'completion'
+    | 'schedule'
+    | 'general'
+    | 'support_ticket';
   title: string;
   message: string;
   link?: string;
   referenceId?: string;
-  referenceType?: 'workOrder' | 'quote' | 'invoice' | 'location';
+  referenceType?: 'workOrder' | 'quote' | 'invoice' | 'location' | 'supportTicket';
   read: boolean;
   createdAt: any;
 }

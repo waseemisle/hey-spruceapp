@@ -1,23 +1,8 @@
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 
 export const runtime = 'nodejs';
-
-// Initialize Firebase client SDK
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
 
 // Helper function to verify admin token using client-side token decoding
 async function verifyAdminToken(idToken: string): Promise<string | null> {
@@ -61,8 +46,7 @@ export async function POST(request: Request) {
     }
 
     const idToken = authHeader.substring(7);
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     // Verify the requesting user is an admin
     const adminUid = await verifyAdminToken(idToken);

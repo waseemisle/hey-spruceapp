@@ -1,24 +1,9 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase-admin/auth';
-import { initializeApp as initializeAdminApp, getApps as getAdminApps, cert } from 'firebase-admin/app';
-
-// Initialize Firebase client SDK
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
+import { getApps as getAdminApps } from 'firebase-admin/app';
+import { getServerDb } from '@/lib/firebase-server';
 
 // POST - Start viewing as user
 export async function POST(request: Request) {
@@ -49,10 +34,9 @@ export async function POST(request: Request) {
     }
 
     const idToken = authHeader.substring(7);
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
-    // Verify admin status (we'll use client SDK for this)
+    // Verify admin status
     // In production, you might want additional verification
     const adminUid = await verifyAdminToken(idToken);
     if (!adminUid) {

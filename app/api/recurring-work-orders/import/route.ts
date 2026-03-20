@@ -1,27 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc as deleteDocument, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, deleteDoc as deleteDocument, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { createTimelineEvent } from '@/lib/timeline';
 import { getAuth } from 'firebase-admin/auth';
 import { getApps as getAdminApps } from 'firebase-admin/app';
+import { getServerDb } from '@/lib/firebase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Initialize Firebase client SDK
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
 
 // Helper function to verify admin token (same as view-as route)
 async function verifyAdminToken(idToken: string): Promise<string | null> {
@@ -581,8 +566,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid authentication token' }, { status: 401 });
     }
 
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     const adminUid = await verifyAdminToken(idToken);
     if (!adminUid) {
@@ -710,8 +694,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize Firebase client SDK
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     // Verify the requesting user is an admin
     const adminUid = await verifyAdminToken(idToken);

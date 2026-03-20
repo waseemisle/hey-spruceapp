@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 import { createTimelineEvent } from '@/lib/timeline';
 import Stripe from 'stripe';
 import { generateInvoicePDF, getInvoicePDFBase64, getWorkOrderPDFBase64 } from '@/lib/pdf-generator';
@@ -10,6 +10,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    const db = await getServerDb();
     const { recurringWorkOrderId, executionId } = await request.json();
 
     if (!recurringWorkOrderId) {

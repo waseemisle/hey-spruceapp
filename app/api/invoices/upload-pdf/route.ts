@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,6 +44,8 @@ export async function POST(request: NextRequest) {
     // Create due date (30 days from now)
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 30);
+
+    const db = await getServerDb();
 
     // Try to find the client in the database
     let clientId = '';

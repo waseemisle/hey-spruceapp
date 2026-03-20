@@ -1,25 +1,10 @@
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { randomBytes } from 'crypto';
+import { getServerDb } from '@/lib/firebase-server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-// Initialize Firebase client SDK for server-side use
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
 
 // Generate a secure random token
 const generateToken = () => {
@@ -29,8 +14,7 @@ const generateToken = () => {
 // GET - Retrieve all API tokens
 export async function GET(request: Request) {
   try {
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     const tokensQuery = query(
       collection(db, 'api_tokens'),
@@ -74,8 +58,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     const token = generateToken();
 
@@ -116,8 +99,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const app = getFirebaseApp();
-    const db = getFirestore(app);
+    const db = await getServerDb();
 
     await deleteDoc(doc(db, 'api_tokens', tokenId));
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { onSnapshot, collection, doc, getDoc } from 'firebase/firestore';
+import { onSnapshot, collection, doc, getDoc, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
@@ -89,28 +89,36 @@ export default function ClientDashboard() {
           setProposalsData(proposals);
           setInvoicesData(invoices);
 
-          // Set up real-time listeners — capture `locations` from this closure,
-          // not from state, to avoid the stale-closure problem on first render
-          unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
-            const updated = await calculateWorkOrdersData('client', currentUser.uid, locations, db);
-            setWorkOrdersData(updated);
-          }, (error) => {
-            console.error('Work orders listener error:', error);
-          });
+          // Set up real-time listeners — constrained to client's own data to satisfy Firestore rules
+          unsubscribeWorkOrders = onSnapshot(
+            query(collection(db, 'workOrders'), where('clientId', '==', currentUser.uid)),
+            async () => {
+              const updated = await calculateWorkOrdersData('client', currentUser.uid, locations, db);
+              setWorkOrdersData(updated);
+            }, (error) => {
+              console.error('Work orders listener error:', error);
+            }
+          );
 
-          unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
-            const updated = await calculateProposalsData('client', currentUser.uid, db);
-            setProposalsData(updated);
-          }, (error) => {
-            console.error('Quotes listener error:', error);
-          });
+          unsubscribeQuotes = onSnapshot(
+            query(collection(db, 'quotes'), where('clientId', '==', currentUser.uid)),
+            async () => {
+              const updated = await calculateProposalsData('client', currentUser.uid, db);
+              setProposalsData(updated);
+            }, (error) => {
+              console.error('Quotes listener error:', error);
+            }
+          );
 
-          unsubscribeInvoices = onSnapshot(collection(db, 'invoices'), async () => {
-            const updated = await calculateInvoicesData('client', currentUser.uid, db);
-            setInvoicesData(updated);
-          }, (error) => {
-            console.error('Invoices listener error:', error);
-          });
+          unsubscribeInvoices = onSnapshot(
+            query(collection(db, 'invoices'), where('clientId', '==', currentUser.uid)),
+            async () => {
+              const updated = await calculateInvoicesData('client', currentUser.uid, db);
+              setInvoicesData(updated);
+            }, (error) => {
+              console.error('Invoices listener error:', error);
+            }
+          );
         } catch (error) {
           console.error('Error fetching dashboard data:', error);
         } finally {
