@@ -299,11 +299,11 @@ export default function RecurringWorkOrdersManagement() {
     // Filter by search query
     const searchLower = searchQuery.toLowerCase();
     const searchMatch = !searchQuery ||
-      rwo.title.toLowerCase().includes(searchLower) ||
-      rwo.description.toLowerCase().includes(searchLower) ||
-      rwo.clientName.toLowerCase().includes(searchLower) ||
-      rwo.workOrderNumber.toLowerCase().includes(searchLower) ||
-      rwo.category.toLowerCase().includes(searchLower);
+      (rwo.title || '').toLowerCase().includes(searchLower) ||
+      (rwo.description || '').toLowerCase().includes(searchLower) ||
+      (rwo.clientName || '').toLowerCase().includes(searchLower) ||
+      (rwo.workOrderNumber || '').toLowerCase().includes(searchLower) ||
+      (rwo.category || '').toLowerCase().includes(searchLower);
 
     return statusMatch && locationMatch && searchMatch;
   });
@@ -555,13 +555,13 @@ export default function RecurringWorkOrdersManagement() {
                     <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.locationName || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.category}</td>
                     <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority)}`}>
-                        {recurringWorkOrder.priority.toUpperCase()}
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority || '')}`}>
+                        {(recurringWorkOrder.priority || 'N/A').toUpperCase()}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status)}`}>
-                        {recurringWorkOrder.status.toUpperCase()}
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status || '')}`}>
+                        {(recurringWorkOrder.status || 'N/A').toUpperCase()}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
@@ -637,13 +637,13 @@ export default function RecurringWorkOrdersManagement() {
                         />
                         <CardTitle className="text-lg truncate">{recurringWorkOrder.title}</CardTitle>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status)}`}>
-                        {recurringWorkOrder.status.toUpperCase()}
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status || '')}`}>
+                        {(recurringWorkOrder.status || 'N/A').toUpperCase()}
                       </span>
                     </div>
                     <div className="flex gap-2">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority)}`}>
-                        {recurringWorkOrder.priority.toUpperCase()}
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority || '')}`}>
+                        {(recurringWorkOrder.priority || 'N/A').toUpperCase()}
                       </span>
                       <span className="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold">
                         {recurringWorkOrder.workOrderNumber}
