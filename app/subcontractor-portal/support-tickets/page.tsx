@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
+import { subscribeSubcontractorSupportTickets } from '@/lib/support-ticket-snapshots';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
@@ -62,7 +64,8 @@ function priorityClass(p: string) {
 }
 
 export default function SubcontractorSupportTicketsPage() {
-  const uid = auth.currentUser?.uid;
+  const [uid, setUid] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [workOrders, setWorkOrders] = useState<{ id: string; label: string }[]>([]);
   const [quotes, setQuotes] = useState<{ id: string; label: string }[]>([]);
@@ -90,42 +93,40 @@ export default function SubcontractorSupportTicketsPage() {
   const [files, setFiles] = useState<File[]>([]);
 
   useEffect(() => {
-    if (!uid) return;
-    const unsub = onSnapshot(
-      collection(db, 'supportTickets'),
-      (snap) => {
-        const mine = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as SupportTicket))
-          .filter((t) => t.submittedBy === uid || t.subcontractorId === uid);
-        mine.sort((a, b) => {
-          const ta = a.lastActivityAt && typeof (a.lastActivityAt as { toMillis?: () => number }).toMillis === 'function'
-            ? (a.lastActivityAt as { toMillis: () => number }).toMillis()
-            : 0;
-          const tb = b.lastActivityAt && typeof (b.lastActivityAt as { toMillis?: () => number }).toMillis === 'function'
-            ? (b.lastActivityAt as { toMillis: () => number }).toMillis()
-            : 0;
-          return tb - ta;
-        });
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+      setAuthChecked(true);
+      if (!user) setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked || !uid) return;
+    const unsub = subscribeSubcontractorSupportTickets(
+      db,
+      uid,
+      (mine) => {
         setTickets(mine);
         setLoading(false);
       },
       () => setLoading(false),
     );
     return () => unsub();
-  }, [uid]);
+  }, [authChecked, uid]);
 
   useEffect(() => {
     if (!uid) return;
     (async () => {
       try {
         const [jobsSnap, qSnap] = await Promise.all([
-          getDocs(collection(db, 'assignedJobs')),
-          getDocs(collection(db, 'quotes')),
+          getDocs(query(collection(db, 'assignedJobs'), where('subcontractorId', '==', uid))),
+          getDocs(query(collection(db, 'quotes'), where('subcontractorId', '==', uid))),
         ]);
         const woIds = new Set<string>();
         jobsSnap.docs.forEach((d) => {
           const data = d.data();
-          if (data.subcontractorId === uid) woIds.add(data.workOrderId as string);
+          woIds.add(data.workOrderId as string);
         });
         const woOptions: { id: string; label: string }[] = [];
         for (const wid of woIds) {
@@ -140,12 +141,10 @@ export default function SubcontractorSupportTicketsPage() {
         }
         setWorkOrders(woOptions);
         setQuotes(
-          qSnap.docs
-            .filter((d) => (d.data().subcontractorId as string) === uid)
-            .map((d) => ({
-              id: d.id,
-              label: `${d.data().workOrderNumber || ''} — quote`,
-            })),
+          qSnap.docs.map((d) => ({
+            id: d.id,
+            label: `${d.data().workOrderNumber || ''} — quote`,
+          })),
         );
       } catch (e) {
         console.error(e);

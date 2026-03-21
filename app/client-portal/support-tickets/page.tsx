@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { collection, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
+import { subscribeClientSupportTickets } from '@/lib/support-ticket-snapshots';
 import ClientLayout from '@/components/client-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
@@ -63,7 +65,8 @@ function priorityClass(p: string) {
 }
 
 export default function ClientSupportTicketsPage() {
-  const uid = auth.currentUser?.uid;
+  const [uid, setUid] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [workOrders, setWorkOrders] = useState<{ id: string; label: string }[]>([]);
   const [invoices, setInvoices] = useState<{ id: string; label: string }[]>([]);
@@ -93,62 +96,54 @@ export default function ClientSupportTicketsPage() {
   const [files, setFiles] = useState<File[]>([]);
 
   useEffect(() => {
-    if (!uid) return;
-    const unsub = onSnapshot(
-      collection(db, 'supportTickets'),
-      (snap) => {
-        const mine = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as SupportTicket))
-          .filter((t) => t.submittedBy === uid || t.clientId === uid);
-        mine.sort((a, b) => {
-          const ta = a.lastActivityAt && typeof (a.lastActivityAt as { toMillis?: () => number }).toMillis === 'function'
-            ? (a.lastActivityAt as { toMillis: () => number }).toMillis()
-            : 0;
-          const tb = b.lastActivityAt && typeof (b.lastActivityAt as { toMillis?: () => number }).toMillis === 'function'
-            ? (b.lastActivityAt as { toMillis: () => number }).toMillis()
-            : 0;
-          return tb - ta;
-        });
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+      setAuthChecked(true);
+      if (!user) setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked || !uid) return;
+    const unsub = subscribeClientSupportTickets(
+      db,
+      uid,
+      (mine) => {
         setTickets(mine);
         setLoading(false);
       },
       () => setLoading(false),
     );
     return () => unsub();
-  }, [uid]);
+  }, [authChecked, uid]);
 
   useEffect(() => {
     if (!uid) return;
     (async () => {
       try {
         const [woSnap, invSnap, qSnap] = await Promise.all([
-          getDocs(collection(db, 'workOrders')),
-          getDocs(collection(db, 'invoices')),
-          getDocs(collection(db, 'quotes')),
+          getDocs(query(collection(db, 'workOrders'), where('clientId', '==', uid))),
+          getDocs(query(collection(db, 'invoices'), where('clientId', '==', uid))),
+          getDocs(query(collection(db, 'quotes'), where('clientId', '==', uid))),
         ]);
         setWorkOrders(
-          woSnap.docs
-            .filter((d) => (d.data().clientId as string) === uid)
-            .map((d) => ({
-              id: d.id,
-              label: `${d.data().workOrderNumber || d.id} — ${d.data().title || ''}`,
-            })),
+          woSnap.docs.map((d) => ({
+            id: d.id,
+            label: `${d.data().workOrderNumber || d.id} — ${d.data().title || ''}`,
+          })),
         );
         setInvoices(
-          invSnap.docs
-            .filter((d) => (d.data().clientId as string) === uid)
-            .map((d) => ({
-              id: d.id,
-              label: `${d.data().invoiceNumber || d.id}`,
-            })),
+          invSnap.docs.map((d) => ({
+            id: d.id,
+            label: `${d.data().invoiceNumber || d.id}`,
+          })),
         );
         setQuotes(
-          qSnap.docs
-            .filter((d) => (d.data().clientId as string) === uid)
-            .map((d) => ({
-              id: d.id,
-              label: `${d.data().workOrderNumber || ''} quote`,
-            })),
+          qSnap.docs.map((d) => ({
+            id: d.id,
+            label: `${d.data().workOrderNumber || ''} quote`,
+          })),
         );
       } catch (e) {
         console.error(e);

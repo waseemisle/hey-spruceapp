@@ -17,6 +17,7 @@
     "test:acceptance": "jest __tests__/acceptance",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "seed:support-tickets": "node scripts/e2e-support-tickets.mjs",
     "test:all": "npm run test:unit && npm run test:smoke && npm run test:acceptance"
   },
   "dependencies": {

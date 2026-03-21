@@ -215,7 +215,11 @@ export default function CreateWorkOrder() {
           imageUrls = await uploadMultipleToCloudinary(selectedFiles);
         } catch (error) {
           console.error('Error uploading images:', error);
-          toast.error('Failed to upload images. Please try again.');
+          const msg =
+            error instanceof Error && error.message
+              ? error.message
+              : 'Failed to upload images. Please try again.';
+          toast.error(msg);
           setUploadingImages(false);
           setLoading(false);
           return;

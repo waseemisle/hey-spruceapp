@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
+import { subscribeSubcontractorOpenSupportTicketCount } from '@/lib/support-ticket-snapshots';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
@@ -124,19 +125,10 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
                 console.error('Bidding badge listener error:', error);
               });
 
-              const openSt = ['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin'];
-              unsubscribeSupportTickets = onSnapshot(
-                collection(instances.dbInstance, 'supportTickets'),
-                (snapshot) => {
-                  const n = snapshot.docs.filter((d) => {
-                    const x = d.data();
-                    return (
-                      (x.submittedBy === firebaseUser.uid || x.subcontractorId === firebaseUser.uid) &&
-                      openSt.includes(x.status as string)
-                    );
-                  }).length;
-                  setBadgeCounts((prev) => ({ ...prev, supportTickets: n }));
-                },
+              unsubscribeSupportTickets = subscribeSubcontractorOpenSupportTicketCount(
+                instances.dbInstance,
+                firebaseUser.uid,
+                (n) => setBadgeCounts((prev) => ({ ...prev, supportTickets: n })),
                 (error) => console.error('Support tickets badge listener error:', error),
               );
             } else {
