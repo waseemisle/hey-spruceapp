@@ -144,8 +144,8 @@ export async function POST(request: Request) {
         submittedByRole: submitter.role,
         ...(clientId ? { clientId, clientName } : {}),
         ...(subcontractorId ? { subcontractorId, subcontractorName } : {}),
-        ...(relatedWorkOrderId ? { relatedWorkOrderId, relatedWorkOrderNumber } : {}),
-        ...(relatedInvoiceId ? { relatedInvoiceId, relatedInvoiceNumber } : {}),
+        ...(relatedWorkOrderId ? { relatedWorkOrderId, relatedWorkOrderNumber: relatedWorkOrderNumber || relatedWorkOrderId } : {}),
+        ...(relatedInvoiceId ? { relatedInvoiceId, relatedInvoiceNumber: relatedInvoiceNumber || relatedInvoiceId } : {}),
         ...(relatedQuoteId ? { relatedQuoteId } : {}),
         attachments,
         tags: Array.isArray(tags) ? tags.filter((t: unknown) => typeof t === 'string').slice(0, 20) : [],
@@ -162,7 +162,7 @@ export async function POST(request: Request) {
             details: onBehalfOfUid
               ? `Ticket created by ${actor.fullName || actor.email} on behalf of ${submitter.fullName || submitter.email}`
               : 'Ticket created',
-            metadata: onBehalfOfUid ? { onBehalfOfUid: submitter.uid } : undefined,
+            ...(onBehalfOfUid ? { metadata: { onBehalfOfUid: submitter.uid } } : {}),
           },
         ],
         createdAt: serverTimestamp(),
