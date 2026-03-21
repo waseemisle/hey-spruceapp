@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { doc, onSnapshot, collection, updateDoc, arrayUnion, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { PageContainer } from '@/components/ui/page-container';
@@ -48,8 +49,9 @@ function timelineIcon(type: string) {
 export default function SubcontractorSupportTicketDetailPage() {
   const params = useParams();
   const id = params?.id as string;
-  const uid = auth.currentUser?.uid;
 
+  const [uid, setUid] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [comments, setComments] = useState<TicketComment[]>([]);
   const [tab, setTab] = useState<'comments' | 'activity' | 'attachments'>('comments');
@@ -59,7 +61,16 @@ export default function SubcontractorSupportTicketDetailPage() {
   const [posting, setPosting] = useState(false);
 
   useEffect(() => {
-    if (!id || !uid) return;
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+      setAuthChecked(true);
+      if (!user) setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked || !uid || !id) return;
     const unsub = onSnapshot(doc(db, 'supportTickets', id), (snap) => {
       if (!snap.exists()) {
         setTicket(null);
@@ -75,12 +86,12 @@ export default function SubcontractorSupportTicketDetailPage() {
       }
       setTicket(t);
       setLoading(false);
-    });
+    }, () => setLoading(false));
     return () => unsub();
-  }, [id, uid]);
+  }, [authChecked, uid, id]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!authChecked || !uid || !id) return;
     const unsub = onSnapshot(collection(db, 'supportTickets', id, 'comments'), (snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketComment)).filter((c) => !c.isInternal);
       list.sort((a, b) => {
@@ -95,7 +106,7 @@ export default function SubcontractorSupportTicketDetailPage() {
       setComments(list);
     });
     return () => unsub();
-  }, [id]);
+  }, [authChecked, uid, id]);
 
   const sortedTimeline = useMemo(() => {
     if (!ticket?.timeline) return [];
