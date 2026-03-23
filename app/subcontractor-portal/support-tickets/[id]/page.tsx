@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { doc, onSnapshot, collection, updateDoc, arrayUnion, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, updateDoc, arrayUnion, serverTimestamp, Timestamp, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import SubcontractorLayout from '@/components/subcontractor-layout';
@@ -92,8 +92,12 @@ export default function SubcontractorSupportTicketDetailPage() {
 
   useEffect(() => {
     if (!authChecked || !uid || !id) return;
-    const unsub = onSnapshot(collection(db, 'supportTickets', id, 'comments'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketComment)).filter((c) => !c.isInternal);
+    const commentsQuery = query(
+      collection(db, 'supportTickets', id, 'comments'),
+      where('isInternal', '==', false),
+    );
+    const unsub = onSnapshot(commentsQuery, (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TicketComment));
       list.sort((a, b) => {
         const ta = a.createdAt && typeof (a.createdAt as { toMillis?: () => number }).toMillis === 'function'
           ? (a.createdAt as { toMillis: () => number }).toMillis()
@@ -104,7 +108,7 @@ export default function SubcontractorSupportTicketDetailPage() {
         return ta - tb;
       });
       setComments(list);
-    });
+    }, () => {});
     return () => unsub();
   }, [authChecked, uid, id]);
 
