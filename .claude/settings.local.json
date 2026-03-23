@@ -107,7 +107,8 @@
       "Bash(do)",
       "Bash(do if:*)",
       "Bash(then echo:*)",
-      "Bash(npx firebase:*)"
+      "Bash(npx firebase:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []

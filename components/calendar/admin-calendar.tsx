@@ -382,11 +382,12 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
   };
 
   const handleEventClick = (clickInfo: any) => {
-    const { workOrderId, isRecurring } = clickInfo.event.extendedProps;
+    const { workOrderId } = clickInfo.event.extendedProps;
+    const isRecurringTemplateEvent = String(clickInfo.event.id || '').startsWith('recurring-');
     if (onEventClick) {
       onEventClick(workOrderId);
     } else {
-      if (isRecurring) {
+      if (isRecurringTemplateEvent) {
         window.location.href = `/admin-portal/recurring-work-orders/${workOrderId}`;
       } else {
         window.location.href = `/admin-portal/work-orders/${workOrderId}`;
