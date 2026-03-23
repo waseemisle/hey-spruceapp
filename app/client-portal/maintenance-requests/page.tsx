@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, getDocs, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
@@ -23,6 +23,9 @@ interface MaintRequest {
   priority: string;
   status: string;
   createdAt: any;
+  clientId?: string;
+  locationId?: string;
+  companyId?: string;
 }
 
 export default function ClientMaintenanceRequests() {
@@ -33,6 +36,8 @@ export default function ClientMaintenanceRequests() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<MaintRequest | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [clientLocationIds, setClientLocationIds] = useState<Set<string>>(new Set());
+  const [clientCompanyId, setClientCompanyId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -46,7 +51,17 @@ export default function ClientMaintenanceRequests() {
             const permissions = clientData.permissions || {};
             if (permissions.viewMaintenanceRequests) {
               setHasPermission(true);
-              
+
+              // Fetch client's companyId and location IDs for scoping
+              const companyId = clientData.companyId || null;
+              setClientCompanyId(companyId);
+
+              const locationsSnap = await getDocs(
+                query(collection(db, 'locations'), where('clientId', '==', user.uid))
+              );
+              const locationIds = new Set(locationsSnap.docs.map(d => d.id));
+              setClientLocationIds(locationIds);
+
               // Fetch maintenance requests
               const maintRequestsQuery = query(
                 collection(db, 'maint_requests'),
@@ -118,6 +133,15 @@ export default function ClientMaintenanceRequests() {
   };
 
   const filtered = requests.filter((req) => {
+    // Scope: only show requests that belong to this client's locations or company.
+    // Legacy records without any scope fields are shown to all permitted clients.
+    const hasScopeFields = req.clientId || req.locationId || req.companyId;
+    if (hasScopeFields) {
+      const matchesLocation = req.locationId ? clientLocationIds.has(req.locationId) : false;
+      const matchesCompany = req.companyId && clientCompanyId ? req.companyId === clientCompanyId : false;
+      if (!matchesLocation && !matchesCompany) return false;
+    }
+
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (

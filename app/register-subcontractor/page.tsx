@@ -78,7 +78,6 @@ export default function RegisterSubcontractor() {
         phone: formData.phone,
         skills: skillsArray,
         licenseNumber: formData.licenseNumber,
-        password: formData.password, // Store password for admin view
         status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

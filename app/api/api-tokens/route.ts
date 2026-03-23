@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { randomBytes } from 'crypto';
 import { getServerDb } from '@/lib/firebase-server';
+import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -11,8 +12,27 @@ const generateToken = () => {
   return randomBytes(32).toString('hex');
 };
 
+async function verifyAdmin(request: Request): Promise<boolean> {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) return false;
+  const idToken = authHeader.substring(7);
+  try {
+    const adminAuth = getAdminAuth();
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    const adminDb = getAdminFirestore();
+    const adminDoc = await adminDb.collection('adminUsers').doc(decodedToken.uid).get();
+    return adminDoc.exists;
+  } catch {
+    return false;
+  }
+}
+
 // GET - Retrieve all API tokens
 export async function GET(request: Request) {
+  if (!(await verifyAdmin(request))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const db = await getServerDb();
 
@@ -47,6 +67,10 @@ export async function GET(request: Request) {
 
 // POST - Generate a new API token
 export async function POST(request: Request) {
+  if (!(await verifyAdmin(request))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const data = await request.json();
     const { name } = data;
@@ -88,6 +112,10 @@ export async function POST(request: Request) {
 
 // DELETE - Delete an API token
 export async function DELETE(request: Request) {
+  if (!(await verifyAdmin(request))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const tokenId = searchParams.get('id');

@@ -27,7 +27,7 @@ function PaymentCancelledContent() {
   };
 
   const handleBackToPortal = () => {
-    router.push('/');
+    router.push('/client-portal/invoices');
   };
 
   if (loading) {

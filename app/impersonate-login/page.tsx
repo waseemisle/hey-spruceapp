@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { signInWithEmailAndPassword, signInWithCustomToken, getAuth } from 'firebase/auth';
+import { signInWithCustomToken, getAuth } from 'firebase/auth';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { useRouter } from 'next/navigation';
@@ -42,7 +42,13 @@ function ImpersonateLoginContent() {
           return;
         }
 
-        const { customToken, email, password, role, userId, adminUid } = tokenData;
+        const { customToken, role, userId, adminUid } = tokenData;
+
+        if (!customToken) {
+          setStatus('error');
+          setErrorMessage('Invalid impersonation token: missing custom token');
+          return;
+        }
 
         // Create a separate Firebase app instance for impersonation
         // This prevents auth state from interfering with admin's session
@@ -50,12 +56,12 @@ function ImpersonateLoginContent() {
         let impersonationApp;
         let impersonationAuth;
         let impersonationDb;
-        
+
         try {
           // Create a separate Firebase app instance for impersonation
           const existingApps = getApps();
           const existingImpersonationApp = existingApps.find(app => app.name && app.name.startsWith('impersonation-'));
-          
+
           if (existingImpersonationApp) {
             impersonationApp = existingImpersonationApp;
           } else {
@@ -68,7 +74,7 @@ function ImpersonateLoginContent() {
               appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
             }, impersonationAppName);
           }
-          
+
           impersonationAuth = getAuth(impersonationApp);
           impersonationDb = getFirestore(impersonationApp);
         } catch (error) {
@@ -91,22 +97,9 @@ function ImpersonateLoginContent() {
         };
         localStorage.setItem('impersonationState', JSON.stringify(impersonationState));
 
-        // Sign in with email/password using separate app instance
-        // This creates a separate auth session that won't interfere with admin's session
-        let user;
-        if (customToken) {
-          // Use custom token with separate app instance (legacy support)
-          const userCredential = await signInWithCustomToken(impersonationAuth, customToken);
-          user = userCredential.user;
-        } else if (email && password) {
-          // Use email/password with separate app instance - this preserves admin's session
-          const userCredential = await signInWithEmailAndPassword(impersonationAuth, email, password);
-          user = userCredential.user;
-        } else {
-          setStatus('error');
-          setErrorMessage('Invalid impersonation token: missing authentication method');
-          return;
-        }
+        // Sign in with Firebase custom token
+        const userCredential = await signInWithCustomToken(impersonationAuth, customToken);
+        const user = userCredential.user;
 
         // Verify the user role matches and update impersonation state with user name
         if (role === 'client') {

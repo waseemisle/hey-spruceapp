@@ -1,24 +1,9 @@
 import { NextResponse } from 'next/server';
-import { doc, getDoc } from 'firebase/firestore';
-import { getServerDb } from '@/lib/firebase-server';
+import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
 
-// Helper function to verify admin token using client-side token decoding
-async function verifyAdminToken(idToken: string): Promise<string | null> {
-  try {
-    // Decode token without Firebase Admin SDK verification
-    const parts = idToken.split('.');
-    if (parts.length !== 3) return null;
-
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-    return payload.user_id || payload.sub || null;
-  } catch {
-    return null;
-  }
-}
-
-// POST - Generate impersonation login token using email/password
+// POST - Generate impersonation login token using Firebase Admin custom tokens
 export async function POST(request: Request) {
   try {
     const { userId, role } = await request.json();
@@ -46,30 +31,34 @@ export async function POST(request: Request) {
     }
 
     const idToken = authHeader.substring(7);
-    const db = await getServerDb();
+    const adminAuth = getAdminAuth();
+    const db = getAdminFirestore();
 
-    // Verify the requesting user is an admin
-    const adminUid = await verifyAdminToken(idToken);
-    if (!adminUid) {
+    // Verify the requesting user is an admin using Firebase Admin SDK
+    let adminUid: string;
+    try {
+      const decodedToken = await adminAuth.verifyIdToken(idToken);
+      adminUid = decodedToken.uid;
+    } catch {
       return NextResponse.json(
         { error: 'Invalid authentication token' },
         { status: 401 }
       );
     }
 
-    const adminDoc = await getDoc(doc(db, 'adminUsers', adminUid));
-    if (!adminDoc.exists()) {
+    const adminDoc = await db.collection('adminUsers').doc(adminUid).get();
+    if (!adminDoc.exists) {
       return NextResponse.json(
         { error: 'Only admins can impersonate users' },
         { status: 403 }
       );
     }
 
-    // Verify the target user exists and get their email/password
+    // Verify the target user exists
     const collectionName = role === 'client' ? 'clients' : 'subcontractors';
-    const userDoc = await getDoc(doc(db, collectionName, userId));
+    const userDoc = await db.collection(collectionName).doc(userId).get();
 
-    if (!userDoc.exists()) {
+    if (!userDoc.exists) {
       return NextResponse.json(
         { error: `${role} not found` },
         { status: 404 }
@@ -85,18 +74,15 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!userData?.password) {
-      return NextResponse.json(
-        { error: 'User password not set. Cannot login without password.' },
-        { status: 400 }
-      );
-    }
+    // Generate a custom token using Firebase Admin SDK (no plaintext passwords)
+    const customToken = await adminAuth.createCustomToken(userId, {
+      impersonating: true,
+      originalAdmin: adminUid,
+      role,
+    });
 
-    // Use email/password authentication method
-    // This will open in a new tab and won't log out the admin
     const tokenData = {
-      email: userData.email,
-      password: userData.password,
+      customToken,
       userId,
       role,
       adminUid,
@@ -116,7 +102,7 @@ export async function POST(request: Request) {
       success: true,
       impersonationToken,
       impersonationUrl: `${baseUrl}/impersonate-login?token=${impersonationToken}`,
-      useCustomToken: false,
+      useCustomToken: true,
       user: {
         id: userId,
         name: userData?.fullName || userData?.businessName || 'Unknown',
@@ -133,4 +119,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
