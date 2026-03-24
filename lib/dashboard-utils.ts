@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, DocumentData, Firestore } from 'firebase/firestore';
+import { collection, query, where, getDocs, DocumentData, Firestore, documentId } from 'firebase/firestore';
 import { db as defaultDb } from './firebase';
 
 // Work Orders Data Calculation
@@ -76,7 +76,7 @@ export async function calculateWorkOrdersData(
           const batch = workOrderIds.slice(i, i + batchSize);
           workOrdersQuery = query(
             collection(dbInstance, 'workOrders'),
-            where('__name__', 'in', batch)
+            where(documentId(), 'in', batch)
           );
           const snapshot = await getDocs(workOrdersQuery);
           allWorkOrders = [...allWorkOrders, ...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))];
@@ -389,7 +389,7 @@ export async function calculateInvoicesData(
           const batch = workOrderIds.slice(i, i + batchSize);
           const woQuery = query(
             collection(dbInstance, 'workOrders'),
-            where('__name__', 'in', batch),
+            where(documentId(), 'in', batch),
             where('status', '==', 'completed')
           );
           const snapshot = await getDocs(woQuery);
@@ -503,7 +503,7 @@ function processBiddingWorkOrdersData(biddingWorkOrders: DocumentData[]) {
     data.total++;
     if (bidding.status === 'pending') {
       data.pending++;
-    } else if (bidding.status === 'quote_submitted') {
+    } else if (bidding.status === 'quoted' || bidding.status === 'quote_submitted') {
       data.quoteSubmitted++;
     }
   });
@@ -551,15 +551,15 @@ function processMyQuotesData(quotes: DocumentData[]) {
   quotes.forEach((quote) => {
     data.total++;
     const status = quote.status;
-    
-    if (status === 'pending' && !quote.forwardedToClient) {
-      data.pending++;
-    } else if (quote.forwardedToClient && status !== 'accepted' && status !== 'rejected') {
-      data.underReview++;
-    } else if (status === 'accepted') {
+
+    if (status === 'accepted') {
       data.accepted++;
     } else if (status === 'rejected') {
       data.rejected++;
+    } else if (status === 'sent_to_client' || quote.forwardedToClient) {
+      data.underReview++;
+    } else if (status === 'pending') {
+      data.pending++;
     }
   });
 
@@ -591,7 +591,7 @@ export async function calculateAssignedJobsData(userId: string, db?: Firestore) 
         const batch = workOrderIds.slice(i, i + batchSize);
         const woQuery = query(
           collection(dbInstance, 'workOrders'),
-          where('__name__', 'in', batch)
+          where(documentId(), 'in', batch)
         );
         const snapshot = await getDocs(woQuery);
         workOrders = [...workOrders, ...snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))];
@@ -631,7 +631,7 @@ function processAssignedJobsData(assignedJobs: DocumentData[], workOrders: Docum
     if (jobStatus === 'pending_acceptance') {
       data.pendingAcceptance++;
     } else if (jobStatus === 'accepted') {
-      if (woStatus === 'completed') {
+      if (woStatus === 'completed' || woStatus === 'pending_invoice') {
         data.completed++;
       } else if (woStatus === 'in-progress') {
         data.inProgress++;

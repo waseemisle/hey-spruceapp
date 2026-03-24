@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   collection, query, getDocs, addDoc, doc, getDoc, updateDoc,
   serverTimestamp, orderBy,
@@ -135,8 +135,10 @@ function SearchableSelect({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function CreateInvoicePage() {
+function CreateInvoiceContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedWorkOrderId = searchParams.get('workOrderId') || '';
 
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -174,13 +176,33 @@ export default function CreateInvoicePage() {
           getDocs(query(collection(db, 'clients'))),
           getDocs(query(collection(db, 'categories'), orderBy('name', 'asc'))),
         ]);
-        setWorkOrders(woSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder)));
+        const loadedWorkOrders = woSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder));
+        setWorkOrders(loadedWorkOrders);
         setClients(clientSnap.docs.map(d => ({
           id: d.id,
           fullName: d.data().fullName,
           email: d.data().email,
         })));
         setCategories(catSnap.docs.map(d => ({ id: d.id, name: d.data().name })));
+
+        // Auto-select work order from URL param
+        if (preselectedWorkOrderId) {
+          const wo = loadedWorkOrders.find(w => w.id === preselectedWorkOrderId);
+          if (wo) {
+            setSelectedWorkOrderId(wo.id);
+            setFormData(prev => ({
+              ...prev,
+              clientId: wo.clientId || '',
+              clientName: wo.clientName || '',
+              clientEmail: wo.clientEmail || '',
+              workOrderId: wo.id,
+              workOrderTitle: wo.title || '',
+              workOrderDescription: wo.description || '',
+              category: wo.category || prev.category,
+              priority: wo.priority || prev.priority,
+            }));
+          }
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -188,7 +210,7 @@ export default function CreateInvoicePage() {
       }
     };
     load();
-  }, []);
+  }, [preselectedWorkOrderId]);
 
   // ── Auto-fill from work order ────────────────────────────────────────────────
   const handleWorkOrderSelect = (workOrderId: string) => {
@@ -311,8 +333,42 @@ export default function CreateInvoicePage() {
         updatedAt: serverTimestamp(),
       });
 
-      // Generate Stripe payment link if there's a total amount
-      if (totalAmount > 0) {
+      // Check if client has Fixed Auto-Charge Plan and invoice amount matches → auto-charge
+      let autoCharged = false;
+      if (totalAmount > 0 && formData.clientId) {
+        try {
+          const clientDoc = await getDoc(doc(db, 'clients', formData.clientId));
+          if (clientDoc.exists()) {
+            const clientData = clientDoc.data();
+            const hasFixedPlan = clientData.stripeSubscriptionId && clientData.subscriptionStatus === 'active';
+            const planAmount = clientData.subscriptionAmount || 0;
+            const amountsMatch = planAmount > 0 && Math.abs(totalAmount - planAmount) < 0.01;
+            const hasCard = clientData.defaultPaymentMethodId;
+
+            if (hasFixedPlan && amountsMatch && hasCard) {
+              // Auto-charge the client's saved card
+              const chargeRes = await fetch('/api/stripe/charge-saved-card', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceId: invoiceRef.id, clientId: formData.clientId }),
+              });
+              const chargeData = await chargeRes.json();
+              if (chargeRes.ok && chargeData.status === 'succeeded') {
+                autoCharged = true;
+                toast.success(`Invoice auto-charged $${totalAmount.toLocaleString()} via Fixed Auto-Charge Plan!`);
+              } else {
+                console.error('Auto-charge failed:', chargeData.error || chargeData.message);
+              }
+            }
+          }
+        } catch (autoChargeErr) {
+          console.error('Auto-charge check error:', autoChargeErr);
+          // Non-fatal: continue without auto-charge
+        }
+      }
+
+      // Generate Stripe payment link if not auto-charged and there's a total amount
+      if (!autoCharged && totalAmount > 0) {
         try {
           const res = await fetch('/api/stripe/create-payment-link', {
             method: 'POST',
@@ -339,7 +395,7 @@ export default function CreateInvoicePage() {
         }
       }
 
-      toast.success('Invoice created successfully');
+      if (!autoCharged) toast.success('Invoice created successfully');
       router.push('/admin-portal/invoices');
     } catch (err: any) {
       console.error(err);
@@ -645,5 +701,13 @@ export default function CreateInvoicePage() {
         </div>
       </div>
     </AdminLayout>
+  );
+}
+
+export default function CreateInvoicePage() {
+  return (
+    <Suspense fallback={null}>
+      <CreateInvoiceContent />
+    </Suspense>
   );
 }

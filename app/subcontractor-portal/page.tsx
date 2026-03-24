@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { onSnapshot, collection } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
@@ -46,22 +46,42 @@ export default function SubcontractorDashboard() {
     let unsubscribeBidding: (() => void) | null = null;
     let unsubscribeQuotes: (() => void) | null = null;
     let unsubscribeAssigned: (() => void) | null = null;
-    let unsubscribeWorkOrders: (() => void) | null = null;
+    let unsubscribeWorkOrderDocs: Array<() => void> = [];
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      // Clean up previous listeners
       unsubscribeBidding?.();
       unsubscribeQuotes?.();
       unsubscribeAssigned?.();
-      unsubscribeWorkOrders?.();
+      unsubscribeWorkOrderDocs.forEach((u) => u());
+      unsubscribeWorkOrderDocs = [];
 
       if (!user) {
         setLoading(false);
         return;
       }
 
+      const refreshAssigned = async () => {
+        const assignedJobs = await calculateAssignedJobsData(user.uid, db);
+        setAssignedJobsData(assignedJobs);
+      };
+
+      const attachWorkOrderDocListeners = (workOrderIds: string[]) => {
+        unsubscribeWorkOrderDocs.forEach((u) => u());
+        unsubscribeWorkOrderDocs = [];
+        const unique = [...new Set(workOrderIds)].filter(Boolean).slice(0, 30);
+        unique.forEach((woId) => {
+          const unsub = onSnapshot(
+            doc(db, 'workOrders', woId),
+            () => {
+              void refreshAssigned();
+            },
+            () => {}
+          );
+          unsubscribeWorkOrderDocs.push(unsub);
+        });
+      };
+
       try {
-        // Fetch all dashboard data
         const biddingWorkOrders = await calculateBiddingWorkOrdersData(user.uid, db);
         const myQuotes = await calculateMyQuotesData(user.uid, db);
         const assignedJobs = await calculateAssignedJobsData(user.uid, db);
@@ -75,35 +95,39 @@ export default function SubcontractorDashboard() {
         setLoading(false);
       }
 
-      // Set up real-time listeners
-      unsubscribeBidding = onSnapshot(collection(db, 'biddingWorkOrders'), async () => {
-        const biddingWorkOrders = await calculateBiddingWorkOrdersData(user.uid, db);
-        setBiddingWorkOrdersData(biddingWorkOrders);
-      }, (error) => {
-        console.error('Bidding work orders listener error:', error);
-      });
+      unsubscribeBidding = onSnapshot(
+        query(collection(db, 'biddingWorkOrders'), where('subcontractorId', '==', user.uid)),
+        async () => {
+          const biddingWorkOrders = await calculateBiddingWorkOrdersData(user.uid, db);
+          setBiddingWorkOrdersData(biddingWorkOrders);
+        },
+        (error) => {
+          console.error('Bidding work orders listener error:', error);
+        }
+      );
 
-      unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), async () => {
-        const myQuotes = await calculateMyQuotesData(user.uid, db);
-        setMyQuotesData(myQuotes);
-      }, (error) => {
-        console.error('Quotes listener error:', error);
-      });
+      unsubscribeQuotes = onSnapshot(
+        query(collection(db, 'quotes'), where('subcontractorId', '==', user.uid)),
+        async () => {
+          const myQuotes = await calculateMyQuotesData(user.uid, db);
+          setMyQuotesData(myQuotes);
+        },
+        (error) => {
+          console.error('Quotes listener error:', error);
+        }
+      );
 
-      unsubscribeAssigned = onSnapshot(collection(db, 'assignedJobs'), async () => {
-        const assignedJobs = await calculateAssignedJobsData(user.uid, db);
-        setAssignedJobsData(assignedJobs);
-      }, (error) => {
-        console.error('Assigned jobs listener error:', error);
-      });
-
-      // Also listen to workOrders since assigned jobs depend on work order status
-      unsubscribeWorkOrders = onSnapshot(collection(db, 'workOrders'), async () => {
-        const assignedJobs = await calculateAssignedJobsData(user.uid, db);
-        setAssignedJobsData(assignedJobs);
-      }, (error) => {
-        console.error('Work orders listener error:', error);
-      });
+      unsubscribeAssigned = onSnapshot(
+        query(collection(db, 'assignedJobs'), where('subcontractorId', '==', user.uid)),
+        (snap) => {
+          const ids = snap.docs.map((d) => d.data().workOrderId).filter(Boolean) as string[];
+          attachWorkOrderDocListeners(ids);
+          void refreshAssigned();
+        },
+        (error) => {
+          console.error('Assigned jobs listener error:', error);
+        }
+      );
     });
 
     return () => {
@@ -111,15 +135,11 @@ export default function SubcontractorDashboard() {
       unsubscribeBidding?.();
       unsubscribeQuotes?.();
       unsubscribeAssigned?.();
-      unsubscribeWorkOrders?.();
+      unsubscribeWorkOrderDocs.forEach((u) => u());
     };
   }, [auth, db]);
 
-  const handleSearch = (searchType: string, searchValue: string) => {
-    // Implement search functionality
-    console.log('Search:', searchType, searchValue);
-    // TODO: Navigate to appropriate page with search filters
-  };
+  const handleSearch = (_searchType: string, _searchValue: string) => {};
 
   if (loading) {
     return (

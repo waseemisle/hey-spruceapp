@@ -110,6 +110,18 @@ export async function POST(request: NextRequest) {
         updatedAt: serverTimestamp(),
       });
 
+      // Mark linked work order as completed
+      if (invoiceData.workOrderId) {
+        try {
+          await updateDoc(doc(db, 'workOrders', invoiceData.workOrderId), {
+            status: 'completed',
+            updatedAt: serverTimestamp(),
+          });
+        } catch (woErr) {
+          console.warn('Failed to update work order status after auto-charge:', woErr);
+        }
+      }
+
       return NextResponse.json({ success: true, status: 'succeeded', paymentIntentId: paymentIntent.id });
     } else {
       // Requires action (3D Secure, etc.)

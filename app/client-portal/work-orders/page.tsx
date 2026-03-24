@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, updateDoc, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, updateDoc, serverTimestamp, addDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyBiddingOpportunity } from '@/lib/notifications';
@@ -14,6 +14,7 @@ import Link from 'next/link';
 import ViewControls from '@/components/view-controls';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
+import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 
 interface WorkOrder {
   id: string;
@@ -98,6 +99,7 @@ function ClientWorkOrdersContent() {
       bidding: 'Bidding',
       assigned: 'Assigned',
       accepted_by_subcontractor: 'Scheduled',
+      pending_invoice: 'Pending Invoice',
       completed: 'Completed',
       rejected: 'Rejected',
     };
@@ -262,6 +264,7 @@ function ClientWorkOrdersContent() {
       bidding: 'bg-blue-100 text-blue-800',
       assigned: 'bg-green-100 text-green-800',
       accepted_by_subcontractor: 'bg-green-100 text-green-800',
+      pending_invoice: 'bg-orange-100 text-orange-800',
       completed: 'bg-gray-100 text-gray-800',
       rejected: 'bg-red-100 text-red-800',
     };
@@ -418,14 +421,20 @@ function ClientWorkOrdersContent() {
       const workOrderNumber = workOrderToShare.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
 
       // Create bidding work order for each selected subcontractor
+      const subAuthIds = selectedSubcontractors.map((subId) => {
+        const sub = subcontractors.find((s) => s.id === subId);
+        return sub ? subcontractorAuthId(sub) : subId;
+      });
+
       const promises = selectedSubcontractors.map(async (subId) => {
         const sub = subcontractors.find(s => s.id === subId);
         if (!sub) return;
+        const authId = subcontractorAuthId(sub);
 
         await addDoc(collection(db, 'biddingWorkOrders'), {
           workOrderId: workOrderToShare.id,
           workOrderNumber: workOrderNumber,
-          subcontractorId: subId,
+          subcontractorId: authId,
           subcontractorName: sub.fullName,
           subcontractorEmail: sub.email,
           workOrderTitle: workOrderToShare.title,
@@ -442,7 +451,7 @@ function ClientWorkOrdersContent() {
 
       // Notify all selected subcontractors about bidding opportunity
       await notifyBiddingOpportunity(
-        selectedSubcontractors,
+        subAuthIds,
         workOrderToShare.id,
         workOrderNumber,
         workOrderToShare.title
@@ -521,11 +530,12 @@ function ClientWorkOrdersContent() {
         }
       };
 
-      // Update work order status and ensure workOrderNumber exists
+      // Update work order status and ensure workOrderNumber exists; biddingSubcontractors must be auth uids (Firestore rules)
       await updateDoc(doc(db, 'workOrders', workOrderToShare.id), {
         status: 'bidding',
         workOrderNumber: workOrderNumber,
         sharedForBiddingAt: serverTimestamp(),
+        biddingSubcontractors: arrayUnion(...subAuthIds),
         updatedAt: serverTimestamp(),
         timeline: [...existingTimeline, timelineEvent],
         systemInformation: updatedSysInfo,
@@ -593,7 +603,7 @@ function ClientWorkOrdersContent() {
 
   const stats = {
     total: workOrdersToShow.length,
-    open: workOrdersToShow.filter(wo => ['pending', 'approved', 'bidding', 'assigned', 'accepted_by_subcontractor'].includes(normalizeStatus(wo.status))).length,
+    open: workOrdersToShow.filter(wo => ['pending', 'approved', 'bidding', 'assigned', 'accepted_by_subcontractor', 'pending_invoice'].includes(normalizeStatus(wo.status))).length,
     completed: getStatusCount('completed'),
     pending: getStatusCount('pending'),
   };

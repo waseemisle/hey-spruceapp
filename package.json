@@ -18,6 +18,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "seed:support-tickets": "node scripts/e2e-support-tickets.mjs",
+    "e2e:work-order-lifecycle": "node scripts/e2e-work-order-lifecycle.mjs",
+    "e2e:work-order-matrix": "node scripts/e2e-work-order-full-matrix.mjs",
     "test:all": "npm run test:unit && npm run test:smoke && npm run test:acceptance"
   },
   "dependencies": {

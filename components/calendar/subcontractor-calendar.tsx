@@ -6,7 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, documentId } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,7 +85,7 @@ export default function SubcontractorCalendar() {
         if (workOrderIds.length > 0) {
           const workOrdersQuery = query(
             collection(db, 'workOrders'),
-            where('__name__', 'in', workOrderIds.slice(0, 10)) // Firestore limit
+            where(documentId(), 'in', workOrderIds.slice(0, 10)) // Firestore limit
           );
 
           onSnapshot(workOrdersQuery, (woSnapshot) => {

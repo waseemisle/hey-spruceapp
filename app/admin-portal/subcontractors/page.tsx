@@ -25,6 +25,7 @@ interface Subcontractor {
   skills: string[];
   licenseNumber?: string;
   password?: string;
+  passwordSetAt?: any;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
 }
@@ -75,6 +76,7 @@ export default function SubcontractorsManagement() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [subToDelete, setSubToDelete] = useState<Subcontractor | null>(null);
   const [resendingEmail, setResendingEmail] = useState<string | null>(null);
+  const [resendingInvitation, setResendingInvitation] = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [skillsSearchQuery, setSkillsSearchQuery] = useState('');
   const [skillsDropdownOpen, setSkillsDropdownOpen] = useState(false);
@@ -196,6 +198,31 @@ export default function SubcontractorsManagement() {
     }
   };
 
+  const handleResendInvitation = async (sub: Subcontractor) => {
+    try {
+      setResendingInvitation(sub.uid);
+      const response = await fetch('/api/auth/resend-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: sub.email,
+          fullName: sub.fullName,
+          role: 'subcontractor',
+          uid: sub.uid,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to resend invitation');
+      }
+      toast.success('Invitation email resent successfully! The subcontractor can now set up their password.');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to resend invitation');
+    } finally {
+      setResendingInvitation(null);
+    }
+  };
+
   const resetForm = () => {
     setFormData({ email: '', fullName: '', businessName: '', phone: '', licenseNumber: '', password: '', status: 'approved' });
     setSelectedSkills([]);
@@ -244,8 +271,13 @@ export default function SubcontractorsManagement() {
             },
           }),
         });
-        if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to create subcontractor'); }
-        toast.success('Subcontractor created! An invitation email has been sent.');
+        const result = await response.json();
+        if (!response.ok) { throw new Error(result.error || 'Failed to create subcontractor'); }
+        if (result.emailError) {
+          toast.success('Subcontractor created! However, the invitation email failed to send. Use the "Resend Setup Link" button to send it manually.');
+        } else {
+          toast.success('Subcontractor created! An invitation email has been sent.');
+        }
       }
       resetForm();
       fetchSubcontractors();
@@ -466,12 +498,37 @@ export default function SubcontractorsManagement() {
                       </div>
                     )}
 
+                    {/* Account activation indicator */}
+                    {sub.passwordSetAt ? (
+                      <div className="mt-3 flex items-center gap-1.5 text-xs text-emerald-600">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        <span>Account activated</span>
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>Awaiting password setup</span>
+                      </div>
+                    )}
+
                     {/* Actions */}
                     <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
                       <Button size="sm" variant="secondary" className="w-full gap-2" onClick={() => router.push(`/admin-portal/subcontractors/${sub.uid}`)}>
                         <Eye className="h-3.5 w-3.5" />
                         View Details
                       </Button>
+                      {!sub.passwordSetAt && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full gap-2 text-emerald-600 border-emerald-200 hover:border-emerald-300"
+                          onClick={() => handleResendInvitation(sub)}
+                          disabled={resendingInvitation === sub.uid}
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                          {resendingInvitation === sub.uid ? 'Sending...' : 'Resend Setup Link'}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
@@ -556,10 +613,23 @@ export default function SubcontractorsManagement() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${status.className}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-                          {status.label}
-                        </span>
+                        <div className="space-y-1">
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${status.className}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                            {status.label}
+                          </span>
+                          {sub.passwordSetAt ? (
+                            <div className="flex items-center gap-1 text-xs text-emerald-600">
+                              <CheckCircle className="h-3 w-3" />
+                              <span>Activated</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-xs text-amber-600">
+                              <Clock className="h-3 w-3" />
+                              <span>Not activated</span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-2">
@@ -569,6 +639,15 @@ export default function SubcontractorsManagement() {
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleOpenEdit(sub)}>
                             <Edit2 className="h-4 w-4" />
                           </Button>
+                          {!sub.passwordSetAt && (
+                            <Button
+                              size="sm" variant="ghost" className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                              onClick={() => handleResendInvitation(sub)} disabled={resendingInvitation === sub.uid}
+                              title="Resend setup link"
+                            >
+                              <Lock className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
                             onClick={() => handleResendApprovalEmail(sub.uid)} disabled={resendingEmail === sub.uid}

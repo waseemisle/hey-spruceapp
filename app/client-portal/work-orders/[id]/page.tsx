@@ -186,6 +186,8 @@ export default function ViewClientWorkOrder() {
       case 'bidding': return 'text-blue-600 bg-blue-50';
       case 'quotes_received': return 'text-blue-600 bg-blue-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
+      case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
+      case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
       default: return 'text-gray-600 bg-gray-50';
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs, Timestamp, documentId } from 'firebase/firestore';
 import type { QuoteTimelineEvent } from '@/types';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -108,7 +108,7 @@ export default function ClientQuotes() {
                   const batch = workOrderIds.slice(i, i + batchSize);
                   const workOrdersQuery = query(
                     collection(db, 'workOrders'),
-                    where('__name__', 'in', batch)
+                    where(documentId(), 'in', batch)
                   );
                   const workOrdersSnapshot = await getDocs(workOrdersQuery);
                   workOrdersSnapshot.docs.forEach(doc => {

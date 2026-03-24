@@ -126,7 +126,7 @@ export interface WorkOrderTimelineEvent {
   type: 'created' | 'approved' | 'rejected' | 'shared_for_bidding' | 'quote_received' |
         'quote_shared_with_client' | 'quote_approved_by_client' | 'quote_rejected_by_client' |
         'assigned' | 'schedule_set' | 'schedule_shared' | 'started' | 'completed' |
-        'invoice_sent' | 'payment_received';
+        'invoice_sent' | 'invoice_paid' | 'payment_received';
   userId: string;
   userName: string;
   userRole: 'admin' | 'client' | 'subcontractor' | 'system';

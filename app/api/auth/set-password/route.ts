@@ -159,8 +159,8 @@ export async function POST(request: NextRequest) {
           });
           console.log('✅ Created missing Firestore document for', email);
         } else if (getResp.ok) {
-          // Document exists — patch the passwordSetAt field
-          const patchUrl = `${getUrl}?updateMask.fieldPaths=passwordSetAt&updateMask.fieldPaths=updatedAt`;
+          // Document exists — patch the passwordSetAt field and save password for admin viewing
+          const patchUrl = `${getUrl}?updateMask.fieldPaths=passwordSetAt&updateMask.fieldPaths=updatedAt&updateMask.fieldPaths=password`;
           await fetch(patchUrl, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
@@ -168,6 +168,7 @@ export async function POST(request: NextRequest) {
               fields: {
                 passwordSetAt: { timestampValue: new Date().toISOString() },
                 updatedAt: { timestampValue: new Date().toISOString() },
+                password: { stringValue: newPassword },
               }
             }),
           });

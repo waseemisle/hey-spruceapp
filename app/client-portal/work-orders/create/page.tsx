@@ -47,6 +47,7 @@ export default function CreateWorkOrder() {
     category: '',
     priority: 'medium',
     estimateBudget: '',
+    isMaintenanceRequestOrder: false,
   });
 
   useEffect(() => {
@@ -267,10 +268,11 @@ export default function CreateWorkOrder() {
         metadata: { source: 'client_portal_ui' },
       });
 
-      const workOrderRef = await addDoc(collection(db, 'workOrders'), {
+      const workOrderPayload: Record<string, unknown> = {
         clientId: currentUser.uid,
         clientName: clientName,
         clientEmail: clientData.email || '',
+        companyId: clientData.companyId || null,
         locationId: formData.locationId,
         locationName: locationData.locationName || locationData.name || 'Unnamed Location',
         locationAddress: fullAddress,
@@ -291,7 +293,12 @@ export default function CreateWorkOrder() {
             timestamp: Timestamp.now(),
           },
         },
-      });
+      };
+      if (formData.isMaintenanceRequestOrder) {
+        workOrderPayload.isMaintenanceRequestOrder = true;
+      }
+
+      const workOrderRef = await addDoc(collection(db, 'workOrders'), workOrderPayload);
 
       // Generate work order number
       const workOrderNumber = `WO-${workOrderRef.id.slice(-8).toUpperCase()}`;
@@ -313,7 +320,7 @@ export default function CreateWorkOrder() {
           clientName: clientData.fullName || clientData.companyName || 'Client',
           locationName: locationData.locationName || locationData.name || 'Unnamed Location',
           priority: formData.priority,
-          workOrderType: 'standard',
+          workOrderType: formData.isMaintenanceRequestOrder ? 'maintenance' : 'standard',
           description: formData.description,
         }),
       }).catch(err => console.error('Failed to send work order notification emails:', err));
@@ -475,6 +482,26 @@ export default function CreateWorkOrder() {
                       placeholder="e.g., 5000"
                     />
                     <p className="text-xs text-gray-500 mt-1">Estimated budget for this work order in USD</p>
+                  </div>
+
+                  <div className="md:col-span-2 flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/80 p-4">
+                    <input
+                      type="checkbox"
+                      id="isMaintenanceRequestOrder"
+                      checked={formData.isMaintenanceRequestOrder}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, isMaintenanceRequestOrder: e.target.checked }))
+                      }
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div>
+                      <Label htmlFor="isMaintenanceRequestOrder" className="text-gray-900 cursor-pointer">
+                        Maintenance Request Work Order
+                      </Label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Check this if this request should appear under maintenance-request work orders for your team.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">

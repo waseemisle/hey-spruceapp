@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, getDoc, Timestamp, documentId } from 'firebase/firestore';
 import { createTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -113,7 +113,7 @@ export default function SubcontractorAssignedJobs() {
           if (workOrderIds.length > 0) {
             const workOrdersQuery = query(
               collection(db, 'workOrders'),
-              where('__name__', 'in', workOrderIds)
+              where(documentId(), 'in', workOrderIds)
             );
 
             unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (woSnapshot) => {
@@ -444,7 +444,7 @@ export default function SubcontractorAssignedJobs() {
       });
 
       await updateDoc(doc(db, 'workOrders', completingWorkOrderId), {
-        status: 'completed',
+        status: 'pending_invoice',
         completedAt: serverTimestamp(),
         completionDetails: completionDetails,
         completionNotes: completionNotes,
@@ -470,27 +470,20 @@ export default function SubcontractorAssignedJobs() {
         );
       }
 
-      // Send review request email to client
+      // Send work order completion notification email to client
       if (workOrderData?.clientEmail && workOrderData?.clientName) {
-        try {
-          const emailResponse = await fetch('/api/email/send-review-request', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              toEmail: workOrderData.clientEmail,
-              toName: workOrderData.clientName,
-              workOrderNumber: workOrderData.workOrderNumber || completingWorkOrderId,
-            }),
-          });
-
-          if (!emailResponse.ok) {
-            console.error('Failed to send review request email');
-            // Don't show error to user - email is not critical
-          }
-        } catch (emailError) {
-          console.error('Error sending review request email:', emailError);
-          // Don't show error to user - email is not critical
-        }
+        fetch('/api/email/send-work-order-completion-client', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: workOrderData.clientEmail,
+            toName: workOrderData.clientName,
+            workOrderNumber: workOrderData.workOrderNumber || completingWorkOrderId,
+            workOrderTitle: workOrderData.title || 'Work Order',
+            completedBy: subName,
+            locationName: workOrderData.locationName || '',
+          }),
+        }).catch(err => console.error('Failed to send client completion email:', err));
       }
 
       // Send completion email notification to admins
@@ -509,7 +502,7 @@ export default function SubcontractorAssignedJobs() {
         }),
       }).catch(err => console.error('Failed to send completion notification emails:', err));
 
-      toast.success('Job marked as complete with details!');
+      toast.success('Job marked as complete! The admin will review and process the invoice.');
       setShowCompletionModal(false);
       setCompletingWorkOrderId(null);
       setCompletionDetails('');
@@ -530,7 +523,7 @@ export default function SubcontractorAssignedJobs() {
     let statusMatch = true;
     if (filter === 'pending') statusMatch = job.status === 'pending_acceptance';
     else if (filter === 'in-progress') statusMatch = job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor');
-    else if (filter === 'completed') statusMatch = workOrder.status === 'completed';
+    else if (filter === 'completed') statusMatch = workOrder.status === 'completed' || workOrder.status === 'pending_invoice';
 
     // Filter by search query
     const searchLower = searchQuery.toLowerCase();
@@ -560,7 +553,10 @@ export default function SubcontractorAssignedJobs() {
     {
       value: 'completed',
       label: 'Completed',
-      count: assignedJobs.filter(job => workOrders.get(job.workOrderId)?.status === 'completed').length
+      count: assignedJobs.filter(job => {
+        const s = workOrders.get(job.workOrderId)?.status;
+        return s === 'completed' || s === 'pending_invoice';
+      }).length
     },
   ];
 
@@ -655,7 +651,7 @@ export default function SubcontractorAssignedJobs() {
               const workOrder = workOrders.get(job.workOrderId);
               if (!workOrder) return null;
 
-              const effectiveStatus = workOrder.status === 'completed' ? 'completed' : job.status;
+              const effectiveStatus = (workOrder.status === 'completed' || workOrder.status === 'pending_invoice') ? 'completed' : job.status;
               const accentGradient = CARD_ACCENTS[effectiveStatus] || 'from-gray-400 to-gray-600';
               const jobStatusCfg = JOB_STATUS_CONFIG[effectiveStatus] || JOB_STATUS_CONFIG['pending_acceptance'];
               const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || { className: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-400' };
@@ -775,7 +771,7 @@ export default function SubcontractorAssignedJobs() {
                         </Button>
                       )}
 
-                      {workOrder.status === 'completed' && (
+                      {(workOrder.status === 'completed' || workOrder.status === 'pending_invoice') && (
                         <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                           <div className="flex items-center gap-2">
                             <CheckCircle className="h-4 w-4 text-emerald-600 flex-shrink-0" />

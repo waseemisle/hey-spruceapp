@@ -685,6 +685,14 @@ export default function ClientDetailPage() {
               {client.phone && <span>📞 {client.phone}</span>}
               <span>✉️ {client.email}</span>
             </div>
+            {client.stripeSubscriptionId && client.subscriptionStatus === 'active' && client.subscriptionAmount && (
+              <div className="mt-2 inline-flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                <DollarSign className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                <span className="text-xs font-semibold text-blue-800">
+                  Fixed Auto-Charge Plan Amount: <span className="text-blue-700">{fmtMoney(client.subscriptionAmount)}</span>/mo
+                </span>
+              </div>
+            )}
           </div>
           <div className="ml-auto flex-shrink-0">
             <span
@@ -907,7 +915,7 @@ export default function ClientDetailPage() {
                 {client.stripeSubscriptionId && client.subscriptionStatus === 'active' ? (
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                      <BillingRow label="Monthly Amount" value={fmtMoney(client.subscriptionAmount || 0)} highlight="blue" />
+                      <BillingRow label="Fixed Auto-Charge Plan Amount" value={fmtMoney(client.subscriptionAmount || 0)} highlight="blue" />
                       <BillingRow label="Billing Day" value={`${ordinal(client.subscriptionBillingDay || 1)} of each month`} />
                       <BillingRow label="Status" value="Active" highlight="green" />
                       <BillingRow label="Subscription ID" value={client.stripeSubscriptionId} mono truncate />
@@ -1029,7 +1037,7 @@ export default function ClientDetailPage() {
 
                 {/* Amount */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 block mb-1">Monthly Amount (USD)</label>
+                  <label className="text-xs font-semibold text-gray-600 block mb-1">Fixed Auto-Charge Plan Amount (USD)</label>
                   <input
                     type="number"
                     min="1"

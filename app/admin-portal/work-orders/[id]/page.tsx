@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -18,6 +18,8 @@ import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
 import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 import { notifyBiddingOpportunity } from '@/lib/notifications';
+import { createTimelineEvent } from '@/lib/timeline';
+import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { toast } from 'sonner';
 
 interface WorkOrder {
@@ -131,6 +133,13 @@ export default function ViewWorkOrder() {
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
   const [biddingSubmitting, setBiddingSubmitting] = useState(false);
 
+  // Manual assign modal
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignSubcontractors, setAssignSubcontractors] = useState<Subcontractor[]>([]);
+  const [selectedAssignSubId, setSelectedAssignSubId] = useState('');
+  const [assignSubmitting, setAssignSubmitting] = useState(false);
+  const [assignFromQuote, setAssignFromQuote] = useState<Quote | null>(null);
+
   // Inline edit mode
   const [editMode, setEditMode] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -186,6 +195,8 @@ export default function ViewWorkOrder() {
       case 'bidding': return 'text-blue-600 bg-blue-50';
       case 'quotes_received': return 'text-blue-600 bg-blue-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
+      case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
+      case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
       default: return 'text-gray-600 bg-gray-50';
     }
@@ -533,12 +544,18 @@ export default function ViewWorkOrder() {
     try {
       const workOrderNumber = workOrder.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
 
+      const subAuthIds = selectedSubcontractors.map((subId) => {
+        const sub = subcontractors.find((s) => s.id === subId);
+        return sub ? subcontractorAuthId(sub) : subId;
+      });
+
       await Promise.all(selectedSubcontractors.map(async subId => {
         const sub = subcontractors.find(s => s.id === subId);
         if (!sub) return;
+        const authId = subcontractorAuthId(sub);
         await addDoc(collection(db, 'biddingWorkOrders'), {
           workOrderId: workOrder.id, workOrderNumber,
-          subcontractorId: subId, subcontractorName: sub.fullName, subcontractorEmail: sub.email,
+          subcontractorId: authId, subcontractorName: sub.fullName, subcontractorEmail: sub.email,
           workOrderTitle: workOrder.title, workOrderDescription: workOrder.description,
           clientId: workOrder.clientId, clientName: workOrder.clientName,
           priority: workOrder.priority || '',
@@ -552,11 +569,11 @@ export default function ViewWorkOrder() {
 
       // Allow subcontractors to read the workOrder via Firestore rules
       await updateDoc(doc(db, 'workOrders', workOrder.id), {
-        biddingSubcontractors: arrayUnion(...selectedSubcontractors),
+        biddingSubcontractors: arrayUnion(...subAuthIds),
         updatedAt: serverTimestamp(),
       });
 
-      await notifyBiddingOpportunity(selectedSubcontractors, workOrder.id, workOrderNumber, workOrder.title);
+      await notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title);
 
       await Promise.all(selectedSubcontractors.map(async (subId) => {
         const sub = subcontractors.find(s => s.id === subId);
@@ -615,6 +632,97 @@ export default function ViewWorkOrder() {
     }
   };
 
+  const openAssignModal = async (quote?: Quote) => {
+    try {
+      const subsSnap = await getDocs(query(collection(db, 'subcontractors'), where('status', '==', 'approved')));
+      const subs = subsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Subcontractor));
+      setAssignSubcontractors(subs);
+      setAssignFromQuote(quote || null);
+      if (quote) {
+        const match = subs.find(
+          (s) => subcontractorAuthId(s) === quote.subcontractorId || s.id === quote.subcontractorId
+        );
+        setSelectedAssignSubId(match?.id || '');
+      } else {
+        setSelectedAssignSubId('');
+      }
+      setShowAssignModal(true);
+    } catch (err) {
+      toast.error('Failed to load subcontractors');
+    }
+  };
+
+  const handleSubmitManualAssign = async () => {
+    if (!workOrder || !selectedAssignSubId) {
+      toast.error('Please select a subcontractor');
+      return;
+    }
+    setAssignSubmitting(true);
+    try {
+      const sub = assignSubcontractors.find(s => s.id === selectedAssignSubId);
+      if (!sub) { toast.error('Subcontractor not found'); return; }
+
+      const currentUser = auth.currentUser;
+      const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;
+      const adminName = adminDoc?.exists() ? adminDoc.data().fullName : 'Admin';
+
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const woData = woDoc.data();
+
+      const updatePayload: Record<string, any> = {
+        status: 'assigned',
+        assignedSubcontractor: sub.uid || sub.id,
+        assignedSubcontractorName: sub.fullName,
+        assignedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        timeline: [...(woData?.timeline || []), createTimelineEvent({
+          type: 'assigned',
+          userId: currentUser?.uid || 'unknown',
+          userName: adminName,
+          userRole: 'admin',
+          details: `Manually assigned to ${sub.fullName} by ${adminName}`,
+          metadata: { subcontractorId: sub.uid || sub.id, subcontractorName: sub.fullName, source: 'admin_manual_assign' },
+        })],
+        systemInformation: {
+          ...(woData?.systemInformation || {}),
+          assignment: {
+            subcontractorId: sub.uid || sub.id,
+            subcontractorName: sub.fullName,
+            assignedBy: { id: currentUser?.uid || 'unknown', name: adminName },
+            timestamp: Timestamp.now(),
+          },
+        },
+      };
+
+      if (assignFromQuote) {
+        updatePayload.approvedQuoteId = assignFromQuote.id;
+        updatePayload.approvedQuoteAmount = assignFromQuote.clientAmount || assignFromQuote.totalAmount;
+        updatePayload.approvedQuoteLaborCost = assignFromQuote.laborCost;
+        updatePayload.approvedQuoteMaterialCost = assignFromQuote.materialCost;
+        updatePayload.approvedQuoteLineItems = assignFromQuote.lineItems || [];
+      }
+
+      await updateDoc(doc(db, 'workOrders', workOrder.id), updatePayload);
+
+      await addDoc(collection(db, 'assignedJobs'), {
+        workOrderId: workOrder.id,
+        subcontractorId: sub.uid || sub.id,
+        assignedAt: serverTimestamp(),
+        status: 'pending_acceptance',
+      });
+
+      setWorkOrder(prev => prev ? { ...prev, ...updatePayload, status: 'assigned', assignedSubcontractorName: sub.fullName } : prev);
+      setShowAssignModal(false);
+      setAssignFromQuote(null);
+      toast.success(`Work order assigned to ${sub.fullName}`);
+    } catch (err) {
+      console.error('Error assigning work order:', err);
+      toast.error('Failed to assign work order');
+    } finally {
+      setAssignSubmitting(false);
+    }
+  };
+
   const handleWorkOrderRating = async (completeToSpecs: boolean) => {
     if (!workOrder) return;
     setRatingSubmitting(true);
@@ -642,6 +750,7 @@ export default function ViewWorkOrder() {
     { key: 'quotes_received', label: 'Quotes Received' },
     { key: 'assigned', label: 'Assigned' },
     { key: 'accepted_by_subcontractor', label: 'In Progress' },
+    { key: 'pending_invoice', label: 'Pending Invoice' },
     { key: 'completed', label: 'Completed' },
   ];
   const currentStepIdx = workOrder
@@ -715,6 +824,7 @@ export default function ViewWorkOrder() {
                   <option value="quotes_received">Quotes Received</option>
                   <option value="assigned">Assigned</option>
                   <option value="accepted_by_subcontractor">Accepted by Sub</option>
+                  <option value="pending_invoice">Pending Invoice</option>
                   <option value="completed">Completed</option>
                 </select>
                 <select
@@ -755,7 +865,7 @@ export default function ViewWorkOrder() {
                 Share for Bidding
               </Button>
             )}
-            {(workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && workOrder.assignedSubcontractor && (
+            {(workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (workOrder.assignedSubcontractor || workOrder.assignedTo) && (
               <Link href={`/admin-portal/messages?workOrderId=${workOrder.id}`}>
                 <Button size="sm" variant="outline">
                   <MessageSquare className="h-4 w-4 mr-2" />
@@ -777,6 +887,20 @@ export default function ViewWorkOrder() {
                   Cancel
                 </Button>
               </>
+            )}
+            {(['approved', 'bidding', 'quotes_received'].includes(workOrder.status)) && (
+              <Button size="sm" variant="outline" onClick={() => openAssignModal()}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Assign to Subcontractor
+              </Button>
+            )}
+            {workOrder.status === 'pending_invoice' && (
+              <Link href={`/admin-portal/invoices/new?workOrderId=${workOrder.id}`}>
+                <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Create Invoice
+                </Button>
+              </Link>
             )}
             {workOrder.status === 'completed' && workOrder.ratingCompleteToSpecs === undefined && (
               <Button size="sm" onClick={() => setShowRatingDialog(true)}>
@@ -1057,11 +1181,11 @@ export default function ViewWorkOrder() {
                   </CardContent>
                 </Card>
 
-                {workOrder.assignedToName && (
+                {(workOrder.assignedToName || workOrder.assignedSubcontractorName) && (
                   <Card>
                     <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Assigned To</CardTitle></CardHeader>
                     <CardContent className="text-sm">
-                      <p className="font-semibold">{workOrder.assignedToName}</p>
+                      <p className="font-semibold">{workOrder.assignedToName || workOrder.assignedSubcontractorName}</p>
                       {workOrder.assignedAt && <p className="text-muted-foreground text-xs mt-1">Assigned {workOrder.assignedAt?.toDate?.().toLocaleDateString()}</p>}
                     </CardContent>
                   </Card>
@@ -1218,6 +1342,14 @@ export default function ViewWorkOrder() {
                               </div>
                             </div>
                           </div>
+                          {workOrder.status !== 'assigned' && workOrder.status !== 'accepted_by_subcontractor' && workOrder.status !== 'pending_invoice' && workOrder.status !== 'completed' && (
+                            <div className="mt-3 pt-3 border-t">
+                              <Button size="sm" className="w-full" onClick={() => openAssignModal(quote)}>
+                                <UserPlus className="h-3.5 w-3.5 mr-2" />
+                                Assign This Subcontractor
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ))}
                       {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
@@ -1369,6 +1501,52 @@ export default function ViewWorkOrder() {
         isOpen={showCompareDialog}
         onClose={() => setShowCompareDialog(false)}
       />
+
+      {/* Manual Assign Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg shadow-lg max-w-md w-full">
+            <div className="p-6 border-b flex justify-between items-center">
+              <h2 className="text-lg font-semibold">
+                {assignFromQuote ? `Assign Quote: ${assignFromQuote.subcontractorName}` : 'Assign to Subcontractor'}
+              </h2>
+              <Button variant="outline" size="sm" onClick={() => setShowAssignModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-4">
+              {assignFromQuote && (
+                <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                  Assigning quote from <strong>{assignFromQuote.subcontractorName}</strong> — ${(assignFromQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Select Subcontractor</label>
+                <select
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  value={selectedAssignSubId}
+                  onChange={e => setSelectedAssignSubId(e.target.value)}
+                >
+                  <option value="">-- Select subcontractor --</option>
+                  {assignSubcontractors.map(sub => (
+                    <option key={sub.id} value={sub.id}>{sub.fullName}{sub.businessName ? ` (${sub.businessName})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>Cancel</Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleSubmitManualAssign}
+                  disabled={!selectedAssignSubId || assignSubmitting}
+                >
+                  {assignSubmitting ? 'Assigning...' : 'Assign'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

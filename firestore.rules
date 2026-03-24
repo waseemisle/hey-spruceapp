@@ -34,6 +34,7 @@ service cloud.firestore {
         isAdmin() ||
         resource.data.clientId == request.auth.uid ||
         resource.data.assignedSubcontractor == request.auth.uid ||
+        resource.data.assignedTo == request.auth.uid ||
         (resource.data.biddingSubcontractors != null && request.auth.uid in resource.data.biddingSubcontractors) ||
         (resource.data.companyId != null &&
          exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
@@ -54,6 +55,31 @@ service cloud.firestore {
             'status', 'quoteReceivedAt', 'updatedAt', 'timeline', 'systemInformation'
           ]) &&
           request.resource.data.status == 'quotes_received'
+        ) ||
+        (
+          (
+            resource.data.assignedSubcontractor == request.auth.uid ||
+            resource.data.assignedTo == request.auth.uid
+          ) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'status',
+            'scheduledServiceDate',
+            'scheduledServiceTime',
+            'scheduledServiceTimeEnd',
+            'completedAt',
+            'completionDetails',
+            'completionNotes',
+            'completionImages',
+            'updatedAt',
+            'timeline',
+            'systemInformation'
+          ]) &&
+          request.resource.data.status in [
+            'accepted_by_subcontractor',
+            'rejected_by_subcontractor',
+            'pending_invoice',
+            'completed'
+          ]
         )
       );
     }
@@ -182,7 +208,25 @@ service cloud.firestore {
     // Assigned Jobs - admins full; subcontractors read their own
     match /assignedJobs/{jobId} {
       allow read: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
-      allow write: if isSignedIn() && isAdmin();
+      allow create, delete: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          resource.data.subcontractorId == request.auth.uid &&
+          request.resource.data.subcontractorId == resource.data.subcontractorId &&
+          request.resource.data.workOrderId == resource.data.workOrderId &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'status',
+            'acceptedAt',
+            'rejectedAt',
+            'rejectionReason',
+            'scheduledServiceDate',
+            'scheduledServiceTime',
+            'scheduledServiceTimeEnd'
+          ]) &&
+          request.resource.data.status in ['accepted', 'rejected']
+        )
+      );
     }
 
     // Bidding Work Orders - admins full; subcontractors read

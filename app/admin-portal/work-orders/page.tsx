@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { createTimelineEvent, createInvoiceTimelineEvent } from '@/lib/timeline';
 import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
+import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 
 interface WorkOrder {
   id: string;
@@ -34,7 +35,7 @@ interface WorkOrder {
   category: string;
   priority: 'low' | 'medium' | 'high';
   estimateBudget?: number;
-  status: 'pending' | 'approved' | 'rejected' | 'bidding' | 'quotes_received' | 'to_be_started' | 'assigned' | 'completed' | 'accepted_by_subcontractor' | 'rejected_by_subcontractor';
+  status: 'pending' | 'approved' | 'rejected' | 'bidding' | 'quotes_received' | 'to_be_started' | 'assigned' | 'pending_invoice' | 'completed' | 'accepted_by_subcontractor' | 'rejected_by_subcontractor';
   images: string[];
   assignedTo?: string;
   assignedToName?: string;
@@ -468,6 +469,14 @@ const fetchCategories = async () => {
 
   const handleCreateNormalWorkOrder = () => {
     resetForm();
+    setFormData(prev => ({ ...prev, isMaintenanceRequestOrder: false }));
+    setShowWorkOrderTypeModal(false);
+    setShowModal(true);
+  };
+
+  const handleCreateMaintenanceWorkOrder = () => {
+    resetForm();
+    setFormData(prev => ({ ...prev, isMaintenanceRequestOrder: true }));
     setShowWorkOrderTypeModal(false);
     setShowModal(true);
   };
@@ -499,7 +508,7 @@ const handleLocationSelect = (locationId: string) => {
 
   const handleSendInvoice = async (workOrder: WorkOrder) => {
     // Check if work order is completed
-    if (workOrder.status !== 'completed') {
+    if (workOrder.status !== 'completed' && workOrder.status !== 'pending_invoice') {
       toast.error('Invoice can only be generated after work order is completed');
       return;
     }
@@ -625,6 +634,54 @@ const handleLocationSelect = (locationId: string) => {
       // Create invoice in Firestore
       const invoiceRef = await addDoc(collection(db, 'invoices'), invoiceData);
 
+      // ── Auto-charge check ────────────────────────────────────────────────
+      // If the client has an active Fixed Auto-Charge Plan and the invoice
+      // amount matches the plan amount, auto-charge and mark WO as completed.
+      const clientDoc = await getDoc(doc(db, 'clients', workOrder.clientId));
+      const clientData = clientDoc.exists() ? clientDoc.data() : null;
+      const planAmount = clientData?.subscriptionAmount;
+      const planActive =
+        clientData?.stripeSubscriptionId &&
+        clientData?.subscriptionStatus === 'active' &&
+        clientData?.defaultPaymentMethodId;
+
+      if (planActive && planAmount && Math.abs(planAmount - invoiceAmount) < 0.01) {
+        // Amounts match — attempt auto-charge
+        const autoChargeResp = await fetch('/api/stripe/charge-saved-card', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: invoiceRef.id, clientId: workOrder.clientId }),
+        });
+        const autoChargeData = await autoChargeResp.json();
+
+        if (autoChargeResp.ok && autoChargeData.status === 'succeeded') {
+          // Mark work order as completed
+          const woDocSnap = await getDoc(doc(db, 'workOrders', workOrder.id));
+          const woData = woDocSnap.data();
+          await updateDoc(doc(db, 'workOrders', workOrder.id), {
+            status: 'completed',
+            hasInvoice: true,
+            updatedAt: serverTimestamp(),
+            timeline: [...(woData?.timeline || []), createTimelineEvent({
+              type: 'invoice_paid',
+              userId: currentUser?.uid || 'system',
+              userName: adminName,
+              userRole: 'admin',
+              details: `Invoice ${invoiceNumber} auto-charged (Fixed Auto-Charge Plan — $${invoiceAmount.toFixed(2)})`,
+              metadata: { invoiceId: invoiceRef.id, invoiceNumber, amount: invoiceAmount },
+            })],
+          });
+          toast.success(`Invoice auto-charged ($${invoiceAmount.toFixed(2)}) using Fixed Auto-Charge Plan. Work order marked as completed.`);
+          fetchWorkOrders();
+          return;
+        } else {
+          // Auto-charge failed — fall through to manual payment flow
+          console.warn('Auto-charge failed:', autoChargeData);
+          toast.warning('Auto-charge failed. Sending invoice to client for manual payment.');
+        }
+      }
+      // ── End auto-charge check ────────────────────────────────────────────
+
       // Generate PDF
       const { generateInvoicePDF } = await import('@/lib/pdf-generator');
       const pdf = generateInvoicePDF({
@@ -741,6 +798,7 @@ const handleLocationSelect = (locationId: string) => {
         const existingSysInfo = woData?.systemInformation || {};
 
         await updateDoc(doc(db, 'workOrders', workOrder.id), {
+          hasInvoice: true,
           timeline: [...existingTimeline, createTimelineEvent({
             type: 'invoice_sent',
             userId: currentUser.uid,
@@ -850,7 +908,6 @@ const handleLocationSelect = (locationId: string) => {
       // Map subcontractors data
       const subsData = subsSnapshot.docs.map(doc => {
         const data = doc.data();
-        console.log('Subcontractor data:', { id: doc.id, data });
         return {
           id: doc.id,
           uid: data.uid || doc.id, // Use uid if exists, otherwise use doc.id
@@ -860,8 +917,6 @@ const handleLocationSelect = (locationId: string) => {
           status: data.status,
         };
       }) as Subcontractor[];
-
-      console.log('Mapped subcontractors:', subsData);
 
       setSubcontractors(subsData);
       setWorkOrderToAssign(workOrder);
@@ -1311,11 +1366,7 @@ const handleLocationSelect = (locationId: string) => {
     setSubmitting(true);
 
     try {
-      console.log('Selected subcontractor UID:', selectedSubcontractorForAssign);
-      console.log('Available subcontractors:', subcontractors.map(s => ({ id: s.id, uid: s.uid, fullName: s.fullName })));
-      
       const subcontractor = subcontractors.find(s => s.id === selectedSubcontractorForAssign);
-      console.log('Found subcontractor:', subcontractor);
       
       if (!subcontractor) {
         toast.error('Invalid subcontractor selected');
@@ -1448,8 +1499,7 @@ const handleLocationSelect = (locationId: string) => {
         updatedAt: serverTimestamp(),
       };
 
-      // Preserve isMaintenanceRequestOrder if editing and it was already true
-      if (editingId && formData.isMaintenanceRequestOrder) {
+      if (formData.isMaintenanceRequestOrder) {
         workOrderData.isMaintenanceRequestOrder = true;
       }
 
@@ -1601,20 +1651,31 @@ const handleLocationSelect = (locationId: string) => {
       const workOrderNumber = workOrderToShare.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
 
       // Create bidding work order for each selected subcontractor
+      const subAuthIds = selectedSubcontractors.map((subId) => {
+        const sub = subcontractors.find((s) => s.id === subId);
+        return sub ? subcontractorAuthId(sub) : subId;
+      });
+
       const promises = selectedSubcontractors.map(async (subId) => {
         const sub = subcontractors.find(s => s.id === subId);
         if (!sub) return;
+        const authId = subcontractorAuthId(sub);
 
         await addDoc(collection(db, 'biddingWorkOrders'), {
           workOrderId: workOrderToShare.id,
           workOrderNumber: workOrderNumber,
-          subcontractorId: subId,
+          subcontractorId: authId,
           subcontractorName: sub.fullName,
           subcontractorEmail: sub.email,
           workOrderTitle: workOrderToShare.title,
           workOrderDescription: workOrderToShare.description,
           clientId: workOrderToShare.clientId,
           clientName: workOrderToShare.clientName,
+          priority: workOrderToShare.priority || '',
+          category: workOrderToShare.category || '',
+          locationName: workOrderToShare.locationName || '',
+          locationAddress: workOrderToShare.locationAddress || '',
+          images: workOrderToShare.images || [],
           status: 'pending',
           sharedAt: serverTimestamp(),
           createdAt: serverTimestamp(),
@@ -1627,7 +1688,7 @@ const handleLocationSelect = (locationId: string) => {
 
       // Notify all selected subcontractors about bidding opportunity
       await notifyBiddingOpportunity(
-        selectedSubcontractors,
+        subAuthIds,
         workOrderToShare.id,
         workOrderNumber,
         workOrderToShare.title
@@ -1707,10 +1768,12 @@ const handleLocationSelect = (locationId: string) => {
       };
 
       // Update work order status and ensure workOrderNumber exists
+      // Also add biddingSubcontractors array so subcontractors can update status via Firestore rules
       await updateDoc(doc(db, 'workOrders', workOrderToShare.id), {
         status: 'bidding',
         workOrderNumber: workOrderNumber,
         sharedForBiddingAt: serverTimestamp(),
+        biddingSubcontractors: subAuthIds,
         updatedAt: serverTimestamp(),
         timeline: [...existingTimeline, timelineEvent],
         systemInformation: updatedSysInfo,
@@ -1967,8 +2030,9 @@ const handleLocationSelect = (locationId: string) => {
       case 'quotes_received': return 'text-blue-600 bg-blue-50';
       case 'to_be_started': return 'text-orange-600 bg-orange-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
+      case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
-      case 'accepted_by_subcontractor': return 'text-green-600 bg-green-50';
+      case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'rejected_by_subcontractor': return 'text-red-600 bg-red-50';
       default: return 'text-gray-600 bg-gray-50';
     }
@@ -1983,6 +2047,7 @@ const handleLocationSelect = (locationId: string) => {
       quotes_received: 'Quote Received',
       to_be_started: 'To Be Started',
       assigned: 'Assigned',
+      pending_invoice: 'Pending Invoice',
       completed: 'Completed',
       accepted_by_subcontractor: 'Accepted by Subcontractor',
       rejected_by_subcontractor: 'Rejected by Subcontractor',
@@ -2077,8 +2142,9 @@ const filteredLocationsForForm = locations.filter((location) => {
             <option value="quotes_received">Quotes Received ({workOrders.filter(w => w.status === 'quotes_received').length})</option>
             <option value="to_be_started">To Be Started ({workOrders.filter(w => w.status === 'to_be_started').length})</option>
             <option value="assigned">Assigned ({workOrders.filter(w => w.status === 'assigned').length})</option>
-            <option value="completed">Completed ({workOrders.filter(w => w.status === 'completed').length})</option>
             <option value="accepted_by_subcontractor">Accepted by Sub ({workOrders.filter(w => w.status === 'accepted_by_subcontractor').length})</option>
+            <option value="pending_invoice">Pending Invoice ({workOrders.filter(w => w.status === 'pending_invoice').length})</option>
+            <option value="completed">Completed ({workOrders.filter(w => w.status === 'completed').length})</option>
             <option value="rejected_by_subcontractor">Rejected by Sub ({workOrders.filter(w => w.status === 'rejected_by_subcontractor').length})</option>
           </select>
         </div>
@@ -2435,7 +2501,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                         </Button>
                       )}
 
-                      {workOrder.status === 'completed' && !workOrder.hasInvoice && (
+                      {(workOrder.status === 'pending_invoice' || workOrder.status === 'completed') && !workOrder.hasInvoice && (
                         <Button
                           size="sm"
                           className="w-full"
@@ -2447,14 +2513,14 @@ const filteredLocationsForForm = locations.filter((location) => {
                         </Button>
                       )}
 
-                      {workOrder.status === 'completed' && workOrder.hasInvoice && (
+                      {(workOrder.status === 'pending_invoice' || workOrder.status === 'completed') && workOrder.hasInvoice && (
                         <div className="w-full text-center text-sm text-green-600 bg-green-50 py-2 px-3 rounded-md flex items-center justify-center gap-2">
                           <CheckCircle className="h-4 w-4" />
                           <span>Invoice Sent</span>
                         </div>
                       )}
 
-                      {!['pending', 'approved', 'quotes_received', 'to_be_started', 'rejected_by_subcontractor', 'completed', 'accepted_by_subcontractor'].includes(workOrder.status) && (
+                      {!['pending', 'approved', 'bidding', 'quotes_received', 'to_be_started', 'rejected_by_subcontractor', 'pending_invoice', 'completed', 'accepted_by_subcontractor'].includes(workOrder.status) && (
                         <div className="w-full h-[36px]"></div>
                       )}
                     </div>
@@ -2881,9 +2947,19 @@ const filteredLocationsForForm = locations.filter((location) => {
                     className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateNormalWorkOrder}
                   >
-                    <div className="font-semibold text-lg text-gray-900">Normal Work Order</div>
+                    <div className="font-semibold text-lg text-gray-900">Standard Work Order</div>
                     <div className="text-sm text-gray-600 mt-1">
                       Create a one-time work order for immediate or scheduled work
+                    </div>
+                  </button>
+
+                  <button
+                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 cursor-pointer"
+                    onClick={handleCreateMaintenanceWorkOrder}
+                  >
+                    <div className="font-semibold text-lg text-gray-900">Maintenance Request Work Order</div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      Create a maintenance request work order for facility upkeep and repairs
                     </div>
                   </button>
 
