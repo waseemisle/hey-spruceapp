@@ -1,0 +1,155 @@
+{
+  "startedAt": "2026-03-24T13:37:50.110Z",
+  "baseUrl": "https://groundopscos.vercel.app",
+  "cycles": [
+    {
+      "cycle": 1,
+      "card": "Cycle 1 Visa",
+      "cardSetup": "attempted",
+      "workOrderId": "fg9DTFmgeaWcEUrQ9f5S",
+      "workOrderUrl": "https://groundopscos.vercel.app/admin-portal/work-orders/fg9DTFmgeaWcEUrQ9f5S",
+      "statusFlow": [
+        {
+          "step": "Pending",
+          "key": "pending",
+          "applied": false
+        },
+        {
+          "step": "Approved",
+          "key": "approved",
+          "applied": false
+        },
+        {
+          "step": "Bidding",
+          "key": "bidding",
+          "applied": false
+        },
+        {
+          "step": "Quotes Received",
+          "key": "quotes_received",
+          "applied": false
+        },
+        {
+          "step": "Assigned",
+          "key": "assigned",
+          "applied": true
+        },
+        {
+          "step": "In Progress",
+          "key": "to_be_started",
+          "applied": false
+        },
+        {
+          "step": "Completed",
+          "key": "completed",
+          "applied": false
+        }
+      ],
+      "assignment": "attempted to admin@heyspruce.com",
+      "completion": "attempted via explicit status flow",
+      "invoiceId": "INV-24658593DRAFTHVACC",
+      "paymentStatus": "succeeded",
+      "evidence": "Admin PortalSearch everything...Ctrl K8waseem@thebinyangroup.comAccount SettingsLogoutDashboardUsersCompaniesWork Orders99+InvoicesField OpsProcurementMessagingSupportAnalyticsGridListSort byCreated AtLast ModifiedInvoicesGenerate and manage invoices with Stripe payment linksCreate InvoiceUpload InvoiceGenerate Invoices from Accepted QuotesIce MachineJessica - $412Generate InvoiceGrease TrapJessica Cabrera-Olimon - $249.787Generate Invoiceall (19)draft (2)sent (2)paid (15)overdue (0)E2E-AUTOCHARGE-visa-5556PAIDClient: WasimEmail: wasimisle@gmail.comTotal Amount$75Auto-charge: succeededView (Ti"
+    },
+    {
+      "cycle": 2,
+      "card": "Cycle 2 Mastercard",
+      "cardSetup": "attempted",
+      "workOrderId": "eCUeys4JP8qsvom0TJt0",
+      "workOrderUrl": "https://groundopscos.vercel.app/admin-portal/work-orders/eCUeys4JP8qsvom0TJt0",
+      "statusFlow": [
+        {
+          "step": "Pending",
+          "key": "pending",
+          "applied": false
+        },
+        {
+          "step": "Approved",
+          "key": "approved",
+          "applied": false
+        },
+        {
+          "step": "Bidding",
+          "key": "bidding",
+          "applied": false
+        },
+        {
+          "step": "Quotes Received",
+          "key": "quotes_received",
+          "applied": false
+        },
+        {
+          "step": "Assigned",
+          "key": "assigned",
+          "applied": true
+        },
+        {
+          "step": "In Progress",
+          "key": "to_be_started",
+          "applied": false
+        },
+        {
+          "step": "Completed",
+          "key": "completed",
+          "applied": false
+        }
+      ],
+      "assignment": "attempted to admin@heyspruce.com",
+      "completion": "attempted via explicit status flow",
+      "invoiceId": "INV-24658593DRAFTHVACC",
+      "paymentStatus": "succeeded",
+      "evidence": "Admin PortalSearch everything...Ctrl K8waseem@thebinyangroup.comAccount SettingsLogoutDashboardUsersCompaniesWork Orders99+InvoicesField OpsProcurementMessagingSupportAnalyticsGridListSort byCreated AtLast ModifiedInvoicesGenerate and manage invoices with Stripe payment linksCreate InvoiceUpload InvoiceGenerate Invoices from Accepted QuotesIce MachineJessica - $412Generate InvoiceGrease TrapJessica Cabrera-Olimon - $249.787Generate Invoiceall (19)draft (2)sent (2)paid (15)overdue (0)E2E-AUTOCHARGE-visa-5556PAIDClient: WasimEmail: wasimisle@gmail.comTotal Amount$75Auto-charge: succeededView (Ti"
+    },
+    {
+      "cycle": 3,
+      "card": "Cycle 3 Visa Debit",
+      "cardSetup": "attempted",
+      "workOrderId": "eJ4wJZueVYccK3BXBEuE",
+      "workOrderUrl": "https://groundopscos.vercel.app/admin-portal/work-orders/eJ4wJZueVYccK3BXBEuE",
+      "statusFlow": [
+        {
+          "step": "Pending",
+          "key": "pending",
+          "applied": false
+        },
+        {
+          "step": "Approved",
+          "key": "approved",
+          "applied": false
+        },
+        {
+          "step": "Bidding",
+          "key": "bidding",
+          "applied": false
+        },
+        {
+          "step": "Quotes Received",
+          "key": "quotes_received",
+          "applied": false
+        },
+        {
+          "step": "Assigned",
+          "key": "assigned",
+          "applied": true
+        },
+        {
+          "step": "In Progress",
+          "key": "to_be_started",
+          "applied": false
+        },
+        {
+          "step": "Completed",
+          "key": "completed",
+          "applied": false
+        }
+      ],
+      "assignment": "attempted to admin@heyspruce.com",
+      "completion": "attempted via explicit status flow",
+      "invoiceId": "INV-24658593DRAFTHVACC",
+      "paymentStatus": "succeeded",
+      "evidence": "Admin PortalSearch everything...Ctrl K8waseem@thebinyangroup.comAccount SettingsLogoutDashboardUsersCompaniesWork Orders99+InvoicesField OpsProcurementMessagingSupportAnalyticsGridListSort byCreated AtLast ModifiedInvoicesGenerate and manage invoices with Stripe payment linksCreate InvoiceUpload InvoiceGenerate Invoices from Accepted QuotesIce MachineJessica - $412Generate InvoiceGrease TrapJessica Cabrera-Olimon - $249.787Generate Invoiceall (19)draft (2)sent (2)paid (15)overdue (0)E2E-AUTOCHARGE-visa-5556PAIDClient: WasimEmail: wasimisle@gmail.comTotal Amount$75Auto-charge: succeededView (Ti"
+    }
+  ],
+  "blocker": null,
+  "finishedAt": "2026-03-24T13:41:51.849Z"
+}

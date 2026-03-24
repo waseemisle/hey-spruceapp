@@ -1262,10 +1262,15 @@ export default function ViewWorkOrder() {
                               </span>
                             </div>
                           </div>
+                          <div className="mt-3">
+                            <Link href={`/admin-portal/invoices/${inv.id}`}>
+                              <Button variant="outline" size="sm">Open Full Invoice</Button>
+                            </Link>
+                          </div>
                         </div>
                       ))}
                       <Link href={`/admin-portal/invoices?workOrderId=${workOrder.id}`}>
-                        <Button variant="outline" className="w-full mt-2">View in Invoices</Button>
+                        <Button variant="outline" className="w-full mt-2">View All Related Invoices</Button>
                       </Link>
                     </div>
                   )}
