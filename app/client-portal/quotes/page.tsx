@@ -203,14 +203,6 @@ export default function ClientQuotes() {
               updatedAt: serverTimestamp(),
             });
 
-            // AUTO-ASSIGN: Create assigned job record
-            await addDoc(collection(db, 'assignedJobs'), {
-              workOrderId: quote.workOrderId,
-              subcontractorId: quote.subcontractorId,
-              assignedAt: serverTimestamp(),
-              status: 'pending_acceptance',
-            });
-
             const existingTimeline = workOrderData?.timeline || [];
             const existingSysInfo = workOrderData?.systemInformation || {};
 
@@ -244,12 +236,28 @@ export default function ClientQuotes() {
               },
             });
 
-            // Notify subcontractor of assignment (in-app notification)
-            await notifySubcontractorAssignment(
-              quote.subcontractorId,
-              quote.workOrderId,
-              workOrderData.workOrderNumber || quote.workOrderId
-            );
+            // Best effort: create assigned job record (rules may restrict client writes here)
+            try {
+              await addDoc(collection(db, 'assignedJobs'), {
+                workOrderId: quote.workOrderId,
+                subcontractorId: quote.subcontractorId,
+                assignedAt: serverTimestamp(),
+                status: 'pending_acceptance',
+              });
+            } catch (assignedJobError) {
+              console.error('Work order assigned, but assignedJobs record creation failed:', assignedJobError);
+            }
+
+            // Notify subcontractor of assignment (best effort)
+            try {
+              await notifySubcontractorAssignment(
+                quote.subcontractorId,
+                quote.workOrderId,
+                workOrderData.workOrderNumber || quote.workOrderId
+              );
+            } catch (notifyError) {
+              console.error('Failed to create assignment notification:', notifyError);
+            }
 
             // Send email notification to subcontractor
             try {

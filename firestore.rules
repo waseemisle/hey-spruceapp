@@ -72,7 +72,27 @@ service cloud.firestore {
         resource.data.clientId == request.auth.uid
       );
       allow create: if isSignedIn() && (isAdmin() || request.resource.data.subcontractorId == request.auth.uid);
-      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.subcontractorId == request.auth.uid ||
+        (
+          // Client may only accept/reject their own quote with audit fields.
+          resource.data.clientId == request.auth.uid &&
+          request.resource.data.clientId == resource.data.clientId &&
+          request.resource.data.subcontractorId == resource.data.subcontractorId &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'status',
+            'acceptedAt',
+            'rejectedAt',
+            'rejectionReason',
+            'timeline',
+            'systemInformation',
+            'updatedAt'
+          ]) &&
+          request.resource.data.status in ['sent_to_client', 'accepted', 'rejected']
+        )
+      );
+      allow delete: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
     }
 
     // Companies / Subsidiaries - admins full; clients read their associated company

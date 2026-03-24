@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileText, DollarSign, Send, Plus, Trash2, Search } from 'lucide-react';
+import { FileText, DollarSign, Send, Plus, Trash2, Search, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
 import { notifyQuoteSubmission } from '@/lib/notifications';
@@ -367,6 +367,82 @@ function QuotesContent() {
     });
   };
 
+  const handleAssignWorkOrderFromQuote = async (quote: Quote) => {
+    if (!quote.workOrderId) {
+      toast.error('Quote has no associated work order');
+      return;
+    }
+
+    try {
+      const workOrderRef = doc(db, 'workOrders', quote.workOrderId);
+      const woSnap = await getDoc(workOrderRef);
+      if (!woSnap.exists()) {
+        toast.error('Work order not found');
+        return;
+      }
+
+      const wo = woSnap.data();
+      const timeline = wo.timeline || [];
+      const systemInformation = wo.systemInformation || {};
+      const currentUser = auth.currentUser;
+      const adminName = currentUser ? ((await getDoc(doc(db, 'adminUsers', currentUser.uid))).data()?.fullName || 'Admin') : 'Admin';
+
+      await updateDoc(workOrderRef, {
+        status: 'assigned',
+        assignedSubcontractor: quote.subcontractorId,
+        assignedSubcontractorName: quote.subcontractorName,
+        assignedAt: serverTimestamp(),
+        approvedQuoteId: quote.id,
+        approvedQuoteAmount: quote.clientAmount || quote.totalAmount,
+        approvedQuoteLaborCost: quote.laborCost,
+        approvedQuoteMaterialCost: quote.materialCost,
+        approvedQuoteLineItems: quote.lineItems || [],
+        timeline: [
+          ...timeline,
+          createTimelineEvent({
+            type: 'quote_approved_by_client',
+            userId: currentUser?.uid || 'unknown',
+            userName: adminName,
+            userRole: 'admin',
+            details: `Work order assigned to ${quote.subcontractorName} from accepted quote.`,
+            metadata: {
+              quoteId: quote.id,
+              subcontractorName: quote.subcontractorName,
+              amount: quote.clientAmount || quote.totalAmount,
+              source: 'admin_quotes_manual_assign',
+            },
+          }),
+        ],
+        systemInformation: {
+          ...systemInformation,
+          quoteApprovalByClient: {
+            quoteId: quote.id,
+            approvedBy: { id: currentUser?.uid || 'unknown', name: adminName },
+            timestamp: Timestamp.now(),
+          },
+        },
+        updatedAt: serverTimestamp(),
+      });
+
+      // Best effort for subcontractor assigned-queue
+      try {
+        await addDoc(collection(db, 'assignedJobs'), {
+          workOrderId: quote.workOrderId,
+          subcontractorId: quote.subcontractorId,
+          assignedAt: serverTimestamp(),
+          status: 'pending_acceptance',
+        });
+      } catch (e) {
+        console.error('Assigned work order, but failed to create assignedJobs record:', e);
+      }
+
+      toast.success('Work order assigned to subcontractor from accepted quote');
+    } catch (error) {
+      console.error('Error assigning work order from quote:', error);
+      toast.error('Failed to assign work order');
+    }
+  };
+
   const performDeleteQuote = async (quote: Quote) => {
     try {
       await deleteDoc(doc(db, 'quotes', quote.id));
@@ -547,6 +623,16 @@ function QuotesContent() {
                             <Send className="h-4 w-4" />
                           </Button>
                         )}
+                        {quote.status === 'accepted' && quote.workOrderId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAssignWorkOrderFromQuote(quote)}
+                            title="Assign this work order to the quote's subcontractor"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="destructive"
@@ -705,7 +791,18 @@ function QuotesContent() {
                   )}
 
                   {/* Delete Button */}
-                  <div className="pt-4 border-t">
+                  <div className="pt-4 border-t space-y-2">
+                    {quote.status === 'accepted' && quote.workOrderId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => handleAssignWorkOrderFromQuote(quote)}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Assign Work Order to Subcontractor
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="destructive"
