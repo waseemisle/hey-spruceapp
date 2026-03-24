@@ -8,7 +8,9 @@ export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElemen
 }
 
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, checked, onCheckedChange, id, ...props }, ref) => {
+  ({ className, checked, onCheckedChange, id: idProp, ...props }, ref) => {
+    const generatedId = React.useId();
+    const id = idProp ?? generatedId;
     return (
       <div className="relative inline-flex items-center">
         <input
