@@ -46,7 +46,15 @@ service cloud.firestore {
         resource.data.clientId == request.auth.uid ||
         (resource.data.companyId != null &&
          exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == resource.data.companyId)
+         get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == resource.data.companyId) ||
+        (
+          resource.data.biddingSubcontractors != null &&
+          request.auth.uid in resource.data.biddingSubcontractors &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'status', 'quoteReceivedAt', 'updatedAt', 'timeline', 'systemInformation'
+          ]) &&
+          request.resource.data.status == 'quotes_received'
+        )
       );
     }
 
@@ -160,7 +168,20 @@ service cloud.firestore {
     // Bidding Work Orders - admins full; subcontractors read
     match /biddingWorkOrders/{biddingId} {
       allow read: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
-      allow write: if isSignedIn() && isAdmin();
+      allow create, delete: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          resource.data.subcontractorId == request.auth.uid &&
+          request.resource.data.subcontractorId == resource.data.subcontractorId &&
+          request.resource.data.workOrderId == resource.data.workOrderId &&
+          request.resource.data.clientId == resource.data.clientId &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'status', 'quotedAt', 'updatedAt'
+          ]) &&
+          request.resource.data.status in ['pending', 'quoted', 'declined']
+        )
+      );
     }
 
     // Location Mappings - admin only

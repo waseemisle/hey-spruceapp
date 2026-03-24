@@ -161,9 +161,9 @@ export default function SubcontractorBidding() {
         .filter(item => item.description.toLowerCase().includes('material'))
         .reduce((sum, item) => sum + item.amount, 0);
 
-      // Fetch client email
-      const clientDoc = await getDoc(doc(db, 'clients', selectedBidding.clientId));
-      const clientEmail = clientDoc.exists() ? clientDoc.data().email : '';
+      // Do not read client profile from subcontractor context (rules may block this).
+      // Prefer any email already embedded on the bidding doc; otherwise skip client email notification.
+      const clientEmail = (selectedBidding as any).clientEmail || '';
 
       const createdByName = subData.fullName || subData.businessName || 'Subcontractor';
       const timelineEvent = createQuoteTimelineEvent({
@@ -263,67 +263,76 @@ export default function SubcontractorBidding() {
         console.error('Failed to send quote notification emails:', emailError);
       }
 
-      // Update parent work order status
-      const workOrderRef = doc(db, 'workOrders', selectedBidding.workOrderId);
-      const workOrderSnapshot = await getDoc(workOrderRef);
-      if (workOrderSnapshot.exists()) {
-        const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
-        const statusesEligibleForQuote = ['pending', 'approved', 'bidding'];
-        const workOrderData = workOrderSnapshot.data();
-        const existingTimeline = workOrderData?.timeline || [];
-        const existingSysInfo = workOrderData?.systemInformation || {};
+      // Best-effort downstream updates; quote creation above is the critical path.
+      try {
+        // Update parent work order status
+        const workOrderRef = doc(db, 'workOrders', selectedBidding.workOrderId);
+        const workOrderSnapshot = await getDoc(workOrderRef);
+        if (workOrderSnapshot.exists()) {
+          const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
+          const statusesEligibleForQuote = ['pending', 'approved', 'bidding'];
+          const workOrderData = workOrderSnapshot.data();
+          const existingTimeline = workOrderData?.timeline || [];
+          const existingSysInfo = workOrderData?.systemInformation || {};
 
-        const woTimelineEvent = {
-          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          timestamp: Timestamp.now(),
-          type: 'quote_received',
-          userId: currentUser.uid,
-          userName: subData.fullName || subData.businessName,
-          userRole: 'subcontractor',
-          details: `Quote received from ${subData.fullName || subData.businessName} - $${total.toLocaleString()}`,
-          metadata: {
-            quoteId: quoteRef.id,
-            amount: total,
-            proposedServiceDate: quoteForm.proposedServiceDate,
-            proposedServiceTime: quoteForm.proposedServiceTime,
-          }
-        };
-
-        const existingQuotes = existingSysInfo.quotesReceived || [];
-        const updatedSysInfo = {
-          ...existingSysInfo,
-          quotesReceived: [...existingQuotes, {
-            quoteId: quoteRef.id,
-            subcontractorId: currentUser.uid,
-            subcontractorName: subData.fullName || subData.businessName,
-            amount: total,
+          const woTimelineEvent = {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             timestamp: Timestamp.now(),
-          }]
-        };
+            type: 'quote_received',
+            userId: currentUser.uid,
+            userName: subData.fullName || subData.businessName,
+            userRole: 'subcontractor',
+            details: `Quote received from ${subData.fullName || subData.businessName} - $${total.toLocaleString()}`,
+            metadata: {
+              quoteId: quoteRef.id,
+              amount: total,
+              proposedServiceDate: quoteForm.proposedServiceDate,
+              proposedServiceTime: quoteForm.proposedServiceTime,
+            }
+          };
 
-        if (currentStatus === 'quotes_received') {
-          await updateDoc(workOrderRef, {
-            updatedAt: serverTimestamp(),
-            timeline: [...existingTimeline, woTimelineEvent],
-            systemInformation: updatedSysInfo,
-          });
-        } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
-          await updateDoc(workOrderRef, {
-            status: 'quotes_received',
-            quoteReceivedAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            timeline: [...existingTimeline, woTimelineEvent],
-            systemInformation: updatedSysInfo,
-          });
+          const existingQuotes = existingSysInfo.quotesReceived || [];
+          const updatedSysInfo = {
+            ...existingSysInfo,
+            quotesReceived: [...existingQuotes, {
+              quoteId: quoteRef.id,
+              subcontractorId: currentUser.uid,
+              subcontractorName: subData.fullName || subData.businessName,
+              amount: total,
+              timestamp: Timestamp.now(),
+            }]
+          };
+
+          if (currentStatus === 'quotes_received') {
+            await updateDoc(workOrderRef, {
+              updatedAt: serverTimestamp(),
+              timeline: [...existingTimeline, woTimelineEvent],
+              systemInformation: updatedSysInfo,
+            });
+          } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
+            await updateDoc(workOrderRef, {
+              status: 'quotes_received',
+              quoteReceivedAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              timeline: [...existingTimeline, woTimelineEvent],
+              systemInformation: updatedSysInfo,
+            });
+          }
         }
+      } catch (workOrderUpdateError) {
+        console.error('Quote submitted, but failed to update work order:', workOrderUpdateError);
       }
 
-      // Mark biddingWorkOrder as quoted
-      await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
-        status: 'quoted',
-        quotedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      try {
+        // Mark biddingWorkOrder as quoted
+        await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
+          status: 'quoted',
+          quotedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (biddingUpdateError) {
+        console.error('Quote submitted, but failed to update biddingWorkOrder:', biddingUpdateError);
+      }
 
       toast.success('Quote submitted successfully!');
       setShowQuoteForm(false);

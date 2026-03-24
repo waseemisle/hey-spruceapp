@@ -196,9 +196,12 @@ async function readLatestInvoiceStatus(page) {
 
 async function main() {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  page.setDefaultTimeout(15000);
+  const adminContext = await browser.newContext();
+  const clientContext = await browser.newContext();
+  const adminPage = await adminContext.newPage();
+  const clientPage = await clientContext.newPage();
+  adminPage.setDefaultTimeout(15000);
+  clientPage.setDefaultTimeout(15000);
 
   try {
     for (let i = 0; i < CARD_MATRIX.length; i += 1) {
@@ -206,10 +209,10 @@ async function main() {
       const cycle = { cycle: i + 1, card: card.label };
 
       try {
-        await setupClientCard(page, card);
+        await setupClientCard(clientPage, card);
         cycle.cardSetup = 'attempted';
 
-        const wo = await createWorkOrder(page, i);
+        const wo = await createWorkOrder(adminPage, i);
         cycle.workOrderId = wo.workOrderId;
         cycle.workOrderUrl = wo.url;
         cycle.statusFlow = [];
@@ -219,14 +222,14 @@ async function main() {
           for (const step of STATUS_FLOW) {
             // Assignment action should occur around the assigned phase.
             if (step.key === 'assigned') {
-              await setWorkOrderStatus(page, wo.workOrderId, 'assigned').catch(() => ({ applied: false, reason: 'exception' }));
-              await assignAndComplete(page, wo.workOrderId);
+              await setWorkOrderStatus(adminPage, wo.workOrderId, 'assigned').catch(() => ({ applied: false, reason: 'exception' }));
+              await assignAndComplete(adminPage, wo.workOrderId);
               cycle.assignment = `attempted to ${SUBCONTRACTOR_EMAIL}`;
               cycle.statusFlow.push({ step: step.label, key: step.key, applied: true });
               continue;
             }
 
-            const res = await setWorkOrderStatus(page, wo.workOrderId, step.key).catch(() => ({ applied: false, reason: 'exception' }));
+            const res = await setWorkOrderStatus(adminPage, wo.workOrderId, step.key).catch(() => ({ applied: false, reason: 'exception' }));
             cycle.statusFlow.push({ step: step.label, key: step.key, applied: res.applied, reason: res.reason });
           }
 
@@ -236,8 +239,8 @@ async function main() {
           cycle.completion = 'skipped - no workOrderId';
         }
 
-        await createInvoice(page);
-        const inv = await readLatestInvoiceStatus(page);
+        await createInvoice(adminPage);
+        const inv = await readLatestInvoiceStatus(adminPage);
         cycle.invoiceId = inv.invoiceId;
         cycle.paymentStatus = inv.status;
         cycle.evidence = inv.raw;
@@ -254,7 +257,9 @@ async function main() {
     out.finishedAt = new Date().toISOString();
     await fs.mkdir('artifacts', { recursive: true });
     await fs.writeFile('artifacts/full-payment-cycles-report.json', JSON.stringify(out, null, 2));
-    await page.screenshot({ path: 'artifacts/final-state.png', fullPage: true }).catch(() => {});
+    await adminPage.screenshot({ path: 'artifacts/final-state.png', fullPage: true }).catch(() => {});
+    await adminContext.close().catch(() => {});
+    await clientContext.close().catch(() => {});
     await browser.close();
   }
 }
