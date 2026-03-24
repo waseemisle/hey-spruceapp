@@ -53,7 +53,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const amountCents = Math.round(invoiceData.totalAmount * 100);
+    const totalNum = Number(invoiceData.totalAmount);
+    if (!Number.isFinite(totalNum) || totalNum <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid invoice total amount' },
+        { status: 400 }
+      );
+    }
+    const amountCents = Math.round(totalNum * 100);
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
 

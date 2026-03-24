@@ -341,8 +341,9 @@ function CreateInvoiceContent() {
           if (clientDoc.exists()) {
             const clientData = clientDoc.data();
             const hasFixedPlan = clientData.stripeSubscriptionId && clientData.subscriptionStatus === 'active';
-            const planAmount = clientData.subscriptionAmount || 0;
-            const amountsMatch = planAmount > 0 && Math.abs(totalAmount - planAmount) < 0.01;
+            const planAmount = Number(clientData.subscriptionAmount);
+            const amountsMatch =
+              Number.isFinite(planAmount) && planAmount > 0 && Math.abs(totalAmount - planAmount) < 0.01;
             const hasCard = clientData.defaultPaymentMethodId;
 
             if (hasFixedPlan && amountsMatch && hasCard) {

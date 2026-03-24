@@ -41,3 +41,5 @@ artifacts/work-order-full-matrix-report.json
 artifacts/e2e-1x1.png
 firebase-debug.log
 scripts/e2e-full-payment-cycles.mjs
+scripts/e2e-secrets.env
+artifacts/.e2e-secrets.env

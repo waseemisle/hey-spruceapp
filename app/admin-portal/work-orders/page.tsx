@@ -39,6 +39,9 @@ interface WorkOrder {
   images: string[];
   assignedTo?: string;
   assignedToName?: string;
+  /** Set when assigned via quote approval or admin assign-from-quote (auth uid or subcontractor doc id per quote flow). */
+  assignedSubcontractor?: string;
+  assignedSubcontractorName?: string;
   scheduledServiceDate?: any;
   scheduledServiceTime?: string;
   scheduleSharedWithClient?: boolean;
@@ -542,10 +545,10 @@ const handleLocationSelect = (locationId: string) => {
       if (!quotesSnapshot.empty) {
         // Use accepted quote amount
         const acceptedQuote = quotesSnapshot.docs[0].data();
-        const quoteAmount = acceptedQuote.clientAmount || acceptedQuote.totalAmount || 0;
+        const quoteAmount = Number(acceptedQuote.clientAmount ?? acceptedQuote.totalAmount ?? 0);
         
         // Only use quote amount if it's valid (> 0)
-        if (quoteAmount > 0) {
+        if (Number.isFinite(quoteAmount) && quoteAmount > 0) {
           invoiceAmount = quoteAmount;
           lineItems = acceptedQuote.lineItems || [{
             description: workOrder.title,
@@ -558,7 +561,7 @@ const handleLocationSelect = (locationId: string) => {
       
       // If no valid quote amount, fall back to estimated budget
       if (!invoiceAmount || invoiceAmount <= 0) {
-        invoiceAmount = workOrder.estimateBudget || 0;
+        invoiceAmount = Number(workOrder.estimateBudget ?? 0);
         lineItems = [{
           description: workOrder.title,
           quantity: 1,
@@ -613,12 +616,14 @@ const handleLocationSelect = (locationId: string) => {
         updatedAt: serverTimestamp(),
       };
 
-      // Only add subcontractor fields if they exist
-      if (workOrder.assignedTo) {
-        invoiceData.subcontractorId = workOrder.assignedTo;
+      // Subcontractor on WO may be stored as assignedTo* (legacy/manual) or assignedSubcontractor* (quote path).
+      const subId = workOrder.assignedSubcontractor || workOrder.assignedTo;
+      const subName = workOrder.assignedSubcontractorName || workOrder.assignedToName;
+      if (subId) {
+        invoiceData.subcontractorId = subId;
       }
-      if (workOrder.assignedToName) {
-        invoiceData.subcontractorName = workOrder.assignedToName;
+      if (subName) {
+        invoiceData.subcontractorName = subName;
       }
 
       // Add quote reference if we used a quote
@@ -639,13 +644,18 @@ const handleLocationSelect = (locationId: string) => {
       // amount matches the plan amount, auto-charge and mark WO as completed.
       const clientDoc = await getDoc(doc(db, 'clients', workOrder.clientId));
       const clientData = clientDoc.exists() ? clientDoc.data() : null;
-      const planAmount = clientData?.subscriptionAmount;
+      const planAmount = Number(clientData?.subscriptionAmount);
       const planActive =
         clientData?.stripeSubscriptionId &&
         clientData?.subscriptionStatus === 'active' &&
         clientData?.defaultPaymentMethodId;
 
-      if (planActive && planAmount && Math.abs(planAmount - invoiceAmount) < 0.01) {
+      if (
+        planActive &&
+        Number.isFinite(planAmount) &&
+        planAmount > 0 &&
+        Math.abs(planAmount - invoiceAmount) < 0.01
+      ) {
         // Amounts match — attempt auto-charge
         const autoChargeResp = await fetch('/api/stripe/charge-saved-card', {
           method: 'POST',
@@ -689,7 +699,7 @@ const handleLocationSelect = (locationId: string) => {
         clientName: invoiceData.clientName,
         clientEmail: invoiceData.clientEmail,
         workOrderName: workOrder.title,
-        vendorName: workOrder.assignedToName || undefined,
+        vendorName: workOrder.assignedSubcontractorName || workOrder.assignedToName || undefined,
         serviceDescription: workOrder.description,
         lineItems: invoiceData.lineItems,
         subtotal: invoiceData.totalAmount,
@@ -2343,9 +2353,12 @@ const filteredLocationsForForm = locations.filter((location) => {
                       )}
                     </div>
                     <div className="text-sm min-h-[1.25rem]">
-                      {workOrder.assignedToName ? (
+                      {workOrder.assignedToName || workOrder.assignedSubcontractorName ? (
                         <>
-                          <span className="font-semibold">Assigned to:</span> <span className="text-gray-700">{workOrder.assignedToName}</span>
+                          <span className="font-semibold">Assigned to:</span>{' '}
+                          <span className="text-gray-700">
+                            {workOrder.assignedSubcontractorName || workOrder.assignedToName}
+                          </span>
                         </>
                       ) : (
                         <span className="text-gray-400">Not assigned</span>
