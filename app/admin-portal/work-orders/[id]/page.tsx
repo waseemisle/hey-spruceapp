@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus } from 'lucide-react';
@@ -17,10 +18,22 @@ import { formatAddress } from '@/lib/utils';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
 import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
-import { notifyBiddingOpportunity } from '@/lib/notifications';
-import { createTimelineEvent } from '@/lib/timeline';
+import { notifyBiddingOpportunity, notifyQuoteSubmission } from '@/lib/notifications';
+import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { toast } from 'sonner';
+
+const WORK_ORDER_EDIT_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'bidding', label: 'Bidding' },
+  { value: 'quotes_received', label: 'Quotes Received' },
+  { value: 'assigned', label: 'Assigned' },
+  { value: 'accepted_by_subcontractor', label: 'Accepted by Sub' },
+  { value: 'pending_invoice', label: 'Pending Invoice' },
+  { value: 'completed', label: 'Completed' },
+];
 
 interface WorkOrder {
   id: string;
@@ -139,6 +152,12 @@ export default function ViewWorkOrder() {
   const [selectedAssignSubId, setSelectedAssignSubId] = useState('');
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [assignFromQuote, setAssignFromQuote] = useState<Quote | null>(null);
+
+  // Share quote with client modal
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareQuote, setShareQuote] = useState<Quote | null>(null);
+  const [shareMarkup, setShareMarkup] = useState('20');
+  const [shareSubmitting, setShareSubmitting] = useState(false);
 
   // Inline edit mode
   const [editMode, setEditMode] = useState(false);
@@ -632,6 +651,84 @@ export default function ViewWorkOrder() {
     }
   };
 
+  const handleShareWithClient = async () => {
+    if (!shareQuote || !workOrder) return;
+    const markup = parseFloat(shareMarkup) || 0;
+    setShareSubmitting(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
+      const clientAmount = shareQuote.totalAmount * (1 + markup / 100);
+      const isResend = shareQuote.status === 'sent_to_client';
+      const existingQuoteTimeline = (shareQuote as any).timeline || [];
+      const sentEvent = createQuoteTimelineEvent({
+        type: 'sent_to_client',
+        userId: currentUser.uid,
+        userName: adminName,
+        userRole: 'admin',
+        details: isResend
+          ? `Quote resent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`
+          : `Quote sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
+        metadata: { quoteId: shareQuote.id, workOrderNumber: shareQuote.workOrderNumber },
+      });
+      const existingSysInfo = (shareQuote as any).systemInformation || {};
+      await updateDoc(doc(db, 'quotes', shareQuote.id), {
+        markupPercentage: markup,
+        clientAmount,
+        originalAmount: shareQuote.totalAmount,
+        status: 'sent_to_client',
+        sentToClientAt: serverTimestamp(),
+        sentBy: currentUser.uid,
+        timeline: [...existingQuoteTimeline, sentEvent],
+        systemInformation: {
+          ...existingSysInfo,
+          sentToClientBy: { id: currentUser.uid, name: adminName, timestamp: Timestamp.now() },
+        },
+        updatedAt: serverTimestamp(),
+      });
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const woData = woDoc.data();
+      const existingTimeline = woData?.timeline || [];
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        timeline: [...existingTimeline, createTimelineEvent({
+          type: 'quote_shared_with_client',
+          userId: currentUser.uid,
+          userName: adminName,
+          userRole: 'admin',
+          details: isResend
+            ? `Quote from ${shareQuote.subcontractorName} resent to client with ${markup}% markup`
+            : `Quote from ${shareQuote.subcontractorName} sent to client with ${markup}% markup`,
+          metadata: { quoteId: shareQuote.id, subcontractorName: shareQuote.subcontractorName, clientAmount, markup },
+        })],
+        updatedAt: serverTimestamp(),
+      });
+      if (shareQuote.workOrderId && shareQuote.workOrderNumber) {
+        try {
+          await notifyQuoteSubmission(
+            (workOrder as any).clientId,
+            shareQuote.workOrderId,
+            shareQuote.workOrderNumber,
+            shareQuote.subcontractorName,
+            clientAmount
+          );
+        } catch { /* best effort */ }
+      }
+      toast.success(isResend ? 'Quote resent to client' : 'Quote shared with client');
+      setShowShareModal(false);
+      setShareQuote(null);
+      // Refresh quotes list
+      const quotesSnap = await getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', workOrder.id)));
+      setQuotes(quotesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Quote)));
+    } catch (err) {
+      console.error('Error sharing quote:', err);
+      toast.error('Failed to share quote with client');
+    } finally {
+      setShareSubmitting(false);
+    }
+  };
+
   const openAssignModal = async (quote?: Quote) => {
     try {
       const subsSnap = await getDocs(query(collection(db, 'subcontractors'), where('status', '==', 'approved')));
@@ -812,30 +909,26 @@ export default function ViewWorkOrder() {
                   className="text-xl font-bold h-10 max-w-sm"
                   placeholder="Work Order Title"
                 />
-                <select
+                <SearchableSelect
+                  className="w-full min-w-[160px] sm:w-52"
                   value={editForm.status}
-                  onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
-                  className="border rounded-md px-3 py-1.5 text-sm font-medium"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="bidding">Bidding</option>
-                  <option value="quotes_received">Quotes Received</option>
-                  <option value="assigned">Assigned</option>
-                  <option value="accepted_by_subcontractor">Accepted by Sub</option>
-                  <option value="pending_invoice">Pending Invoice</option>
-                  <option value="completed">Completed</option>
-                </select>
-                <select
+                  onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}
+                  options={WORK_ORDER_EDIT_STATUS_OPTIONS}
+                  placeholder="Status"
+                  aria-label="Work order status"
+                />
+                <SearchableSelect
+                  className="w-full min-w-[100px] sm:w-32"
                   value={editForm.priority}
-                  onChange={e => setEditForm(f => ({ ...f, priority: e.target.value }))}
-                  className="border rounded-md px-3 py-1.5 text-sm font-medium"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
+                  onValueChange={(v) => setEditForm((f) => ({ ...f, priority: v }))}
+                  options={[
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' },
+                  ]}
+                  placeholder="Priority"
+                  aria-label="Priority"
+                />
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2">
@@ -1017,14 +1110,17 @@ export default function ViewWorkOrder() {
                       <div>
                         <h3 className="font-semibold text-muted-foreground text-sm mb-1">Category</h3>
                         {editMode ? (
-                          <select
+                          <SearchableSelect
+                            className="mt-1 w-full"
                             value={editForm.category}
-                            onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
-                            className="w-full border rounded-md p-2 text-sm"
-                          >
-                            <option value="">Select category...</option>
-                            {editCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                          </select>
+                            onValueChange={(v) => setEditForm((f) => ({ ...f, category: v }))}
+                            options={[
+                              { value: '', label: 'Select category...' },
+                              ...editCategories.map((c) => ({ value: c.name, label: c.name })),
+                            ]}
+                            placeholder="Select category..."
+                            aria-label="Category"
+                          />
                         ) : (
                           <p className="text-foreground">{workOrder.category}</p>
                         )}
@@ -1138,14 +1234,20 @@ export default function ViewWorkOrder() {
                     {editMode ? (
                       <div>
                         <Label className="text-muted-foreground">Client</Label>
-                        <select
+                        <SearchableSelect
+                          className="mt-1 w-full"
                           value={editForm.clientId}
-                          onChange={e => setEditForm(f => ({ ...f, clientId: e.target.value }))}
-                          className="w-full border rounded-md p-2 text-sm mt-1"
-                        >
-                          <option value="">Choose a client...</option>
-                          {editClients.map(c => <option key={c.id} value={c.id}>{c.fullName} ({c.email})</option>)}
-                        </select>
+                          onValueChange={(v) => setEditForm((f) => ({ ...f, clientId: v }))}
+                          options={[
+                            { value: '', label: 'Choose a client...' },
+                            ...editClients.map((c) => ({
+                              value: c.id,
+                              label: `${c.fullName} (${c.email})`,
+                            })),
+                          ]}
+                          placeholder="Choose a client..."
+                          aria-label="Client"
+                        />
                       </div>
                     ) : (
                       <>
@@ -1163,14 +1265,17 @@ export default function ViewWorkOrder() {
                     {editMode ? (
                       <div>
                         <Label className="text-muted-foreground">Location</Label>
-                        <select
+                        <SearchableSelect
+                          className="mt-1 w-full"
                           value={editForm.locationId}
-                          onChange={e => setEditForm(f => ({ ...f, locationId: e.target.value }))}
-                          className="w-full border rounded-md p-2 text-sm mt-1"
-                        >
-                          <option value="">Choose a location...</option>
-                          {editLocations.map(l => <option key={l.id} value={l.id}>{l.locationName}</option>)}
-                        </select>
+                          onValueChange={(v) => setEditForm((f) => ({ ...f, locationId: v }))}
+                          options={[
+                            { value: '', label: 'Choose a location...' },
+                            ...editLocations.map((l) => ({ value: l.id, label: l.locationName })),
+                          ]}
+                          placeholder="Choose a location..."
+                          aria-label="Location"
+                        />
                       </div>
                     ) : (
                       <>
@@ -1343,8 +1448,14 @@ export default function ViewWorkOrder() {
                             </div>
                           </div>
                           {workOrder.status !== 'assigned' && workOrder.status !== 'accepted_by_subcontractor' && workOrder.status !== 'pending_invoice' && workOrder.status !== 'completed' && (
-                            <div className="mt-3 pt-3 border-t">
-                              <Button size="sm" className="w-full" onClick={() => openAssignModal(quote)}>
+                            <div className="mt-3 pt-3 border-t flex flex-col gap-2">
+                              {workOrder.status === 'quotes_received' && (
+                                <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { setShareQuote(quote); setShareMarkup(String(quote.markupPercentage || 20)); setShowShareModal(true); }}>
+                                  <Share2 className="h-3.5 w-3.5 mr-2" />
+                                  {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Share Quote with Client'}
+                                </Button>
+                              )}
+                              <Button size="sm" variant={workOrder.status === 'quotes_received' ? 'outline' : 'default'} className="w-full" onClick={() => openAssignModal(quote)}>
                                 <UserPlus className="h-3.5 w-3.5 mr-2" />
                                 Assign This Subcontractor
                               </Button>
@@ -1522,16 +1633,20 @@ export default function ViewWorkOrder() {
               )}
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-1">Select Subcontractor</label>
-                <select
-                  className="w-full border rounded-md px-3 py-2 text-sm"
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={selectedAssignSubId}
-                  onChange={e => setSelectedAssignSubId(e.target.value)}
-                >
-                  <option value="">-- Select subcontractor --</option>
-                  {assignSubcontractors.map(sub => (
-                    <option key={sub.id} value={sub.id}>{sub.fullName}{sub.businessName ? ` (${sub.businessName})` : ''}</option>
-                  ))}
-                </select>
+                  onValueChange={setSelectedAssignSubId}
+                  options={[
+                    { value: '', label: '-- Select subcontractor --' },
+                    ...assignSubcontractors.map((sub) => ({
+                      value: sub.id,
+                      label: `${sub.fullName}${sub.businessName ? ` (${sub.businessName})` : ''}`,
+                    })),
+                  ]}
+                  placeholder="Select subcontractor"
+                  aria-label="Subcontractor to assign"
+                />
               </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>Cancel</Button>
@@ -1541,6 +1656,49 @@ export default function ViewWorkOrder() {
                   disabled={!selectedAssignSubId || assignSubmitting}
                 >
                   {assignSubmitting ? 'Assigning...' : 'Assign'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showShareModal && shareQuote && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg shadow-lg max-w-sm w-full">
+            <div className="p-6 border-b flex justify-between items-center">
+              <h2 className="text-lg font-semibold">Share Quote with Client</h2>
+              <Button variant="outline" size="sm" onClick={() => setShowShareModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                Sharing quote from <strong>{shareQuote.subcontractorName}</strong> — ${(shareQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Markup %</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={shareMarkup}
+                  onChange={e => setShareMarkup(e.target.value)}
+                  placeholder="e.g. 20"
+                />
+                {shareMarkup && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Client will see: ${(shareQuote.totalAmount * (1 + (parseFloat(shareMarkup) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowShareModal(false)}>Cancel</Button>
+                <Button
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  onClick={handleShareWithClient}
+                  disabled={shareSubmitting}
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  {shareSubmitting ? 'Sharing...' : shareQuote.status === 'sent_to_client' ? 'Resend to Client' : 'Share with Client'}
                 </Button>
               </div>
             </div>

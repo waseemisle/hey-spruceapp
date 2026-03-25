@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs, Timestamp, documentId } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, updateDoc, doc, serverTimestamp, addDoc, getDoc, getDocs, Timestamp, documentId } from 'firebase/firestore';
 import type { QuoteTimelineEvent } from '@/types';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -84,12 +84,11 @@ export default function ClientQuotes() {
         const clientAssignedLocations = clientData?.assignedLocations || [];
         setAssignedLocations(clientAssignedLocations);
 
-        // Avoid compound where+orderBy that requires a composite index and may
-        // trigger Firestore permission errors; filter status client-side instead.
+        // Avoid compound where+orderBy that requires a composite index.
+        // Sort client-side instead.
         const quotesQuery = query(
           collection(db, 'quotes'),
-          where('clientId', '==', user.uid),
-          orderBy('createdAt', 'desc')
+          where('clientId', '==', user.uid)
         );
 
         unsubscribeQuotes = onSnapshot(
@@ -100,10 +99,14 @@ export default function ClientQuotes() {
                 id: doc.id,
                 ...doc.data(),
               })) as Quote[];
-              // Filter status client-side (removed from query to avoid compound index requirement)
-              const quotesData = allQuotes.filter(q =>
-                ['sent_to_client', 'accepted', 'rejected'].includes(q.status)
-              );
+              // Filter and sort client-side to avoid composite index requirement
+              const quotesData = allQuotes
+                .filter(q => ['sent_to_client', 'accepted', 'rejected'].includes(q.status))
+                .sort((a, b) => {
+                  const aTime = a.createdAt?.toMillis?.() ?? 0;
+                  const bTime = b.createdAt?.toMillis?.() ?? 0;
+                  return bTime - aTime;
+                });
 
               if (clientAssignedLocations.length > 0) {
                 const workOrderIds = quotesData.map(q => q.workOrderId).filter(Boolean) as string[];
