@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc, getDoc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -8,9 +8,10 @@ import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect, SearchableMultiSelect } from '@/components/ui/searchable-select';
 import {
   CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X,
-  Search, Trash2, Lock, Send, ChevronDown, Eye,
+  Search, Trash2, Lock, Send, Eye,
   Users, Clock, BadgeCheck, Wrench,
 } from 'lucide-react';
 import { useViewControls } from '@/contexts/view-controls-context';
@@ -47,14 +48,22 @@ const AVATAR_COLORS = [
 ];
 
 function getInitials(name: string): string {
+  if (!name) return '??';
   return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
 function avatarColor(id: string): string {
+  if (!id) return AVATAR_COLORS[0];
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
+
+const SUBCONTRACTOR_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+] as const;
 
 const STATUS_CONFIG = {
   approved: { label: 'Approved', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
@@ -78,10 +87,6 @@ export default function SubcontractorsManagement() {
   const [resendingEmail, setResendingEmail] = useState<string | null>(null);
   const [resendingInvitation, setResendingInvitation] = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  const [skillsSearchQuery, setSkillsSearchQuery] = useState('');
-  const [skillsDropdownOpen, setSkillsDropdownOpen] = useState(false);
-  const skillsDropdownRef = useRef<HTMLDivElement>(null);
-  const skillsInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -117,16 +122,6 @@ export default function SubcontractorsManagement() {
     fetchSubcontractors();
     fetchCategories();
   }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (skillsDropdownRef.current && !skillsDropdownRef.current.contains(event.target as Node)) {
-        setSkillsDropdownOpen(false);
-      }
-    };
-    if (skillsDropdownOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [skillsDropdownOpen]);
 
   const handleApprove = async (subId: string) => {
     try {
@@ -226,8 +221,6 @@ export default function SubcontractorsManagement() {
   const resetForm = () => {
     setFormData({ email: '', fullName: '', businessName: '', phone: '', licenseNumber: '', password: '', status: 'approved' });
     setSelectedSkills([]);
-    setSkillsSearchQuery('');
-    setSkillsDropdownOpen(false);
     setEditingId(null);
     setShowModal(false);
   };
@@ -240,8 +233,6 @@ export default function SubcontractorsManagement() {
       phone: sub.phone, licenseNumber: sub.licenseNumber || '', password: sub.password || '', status: sub.status,
     });
     setSelectedSkills(sub.skills || []);
-    setSkillsSearchQuery('');
-    setSkillsDropdownOpen(false);
     setEditingId(sub.uid);
     setShowModal(true);
   };
@@ -288,16 +279,6 @@ export default function SubcontractorsManagement() {
     }
   };
 
-  const toggleSkill = (skillName: string) => {
-    setSelectedSkills(prev => prev.includes(skillName) ? prev.filter(s => s !== skillName) : [...prev, skillName]);
-  };
-
-  const removeSkill = (skillName: string) => setSelectedSkills(prev => prev.filter(s => s !== skillName));
-
-  const filteredCategories = categories.filter(c =>
-    c.name.toLowerCase().includes(skillsSearchQuery.toLowerCase()) && !selectedSkills.includes(c.name)
-  );
-
   const handleDeleteSubcontractor = (sub: Subcontractor) => { setSubToDelete(sub); setShowDeleteModal(true); };
 
   const confirmDeleteSubcontractor = async () => {
@@ -321,10 +302,10 @@ export default function SubcontractorsManagement() {
     const statusMatch = filter === 'all' || sub.status === filter;
     const searchLower = searchQuery.toLowerCase();
     const searchMatch = !searchQuery ||
-      sub.fullName.toLowerCase().includes(searchLower) ||
-      sub.businessName.toLowerCase().includes(searchLower) ||
-      sub.email.toLowerCase().includes(searchLower) ||
-      sub.phone.toLowerCase().includes(searchLower) ||
+      (sub.fullName ?? '').toLowerCase().includes(searchLower) ||
+      (sub.businessName ?? '').toLowerCase().includes(searchLower) ||
+      (sub.email ?? '').toLowerCase().includes(searchLower) ||
+      (sub.phone ?? '').toLowerCase().includes(searchLower) ||
       (sub.licenseNumber && sub.licenseNumber.toLowerCase().includes(searchLower)) ||
       (sub.skills && sub.skills.some(s => s.toLowerCase().includes(searchLower)));
     return statusMatch && searchMatch;
@@ -722,15 +703,13 @@ export default function SubcontractorsManagement() {
 
                   <div>
                     <Label className="text-sm font-medium text-gray-700">Status *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1"
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, status: v as Subcontractor['status'] })}
+                      options={[...SUBCONTRACTOR_STATUS_OPTIONS]}
+                      placeholder="Select status..."
+                    />
                   </div>
 
                   {editingId && (
@@ -746,66 +725,16 @@ export default function SubcontractorsManagement() {
 
                   <div className="md:col-span-2">
                     <Label className="text-sm font-medium text-gray-700">Skills *</Label>
-                    <div className="relative mt-1" ref={skillsDropdownRef}>
-                      <div
-                        className="min-h-[42px] border border-gray-200 rounded-lg px-3 py-2 flex flex-wrap gap-2 items-center bg-white cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
-                        onClick={() => { setSkillsDropdownOpen(true); skillsInputRef.current?.focus(); }}
-                      >
-                        {selectedSkills.map((skill) => (
-                          <span key={skill} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-xs">
-                            {skill}
-                            <button type="button" onClick={(e) => { e.stopPropagation(); removeSkill(skill); }} className="hover:text-blue-900">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        ))}
-                        <input
-                          ref={skillsInputRef}
-                          type="text"
-                          placeholder={selectedSkills.length === 0 ? 'Type to search skills...' : 'Add more...'}
-                          value={skillsSearchQuery}
-                          onChange={(e) => { setSkillsSearchQuery(e.target.value); setSkillsDropdownOpen(true); }}
-                          onFocus={() => setSkillsDropdownOpen(true)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Escape') { setSkillsDropdownOpen(false); skillsInputRef.current?.blur(); }
-                            else if (e.key === 'Enter' && filteredCategories.length > 0) {
-                              e.preventDefault();
-                              toggleSkill(filteredCategories[0].name);
-                              setSkillsSearchQuery('');
-                            }
-                          }}
-                          className="flex-1 min-w-[150px] outline-none text-sm bg-transparent"
-                          autoComplete="off"
-                        />
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setSkillsDropdownOpen(!skillsDropdownOpen); }} className="text-gray-400 hover:text-gray-600">
-                          <ChevronDown className={`h-4 w-4 transition-transform ${skillsDropdownOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                      </div>
-
-                      {skillsDropdownOpen && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-auto">
-                          <div className="p-1">
-                            {filteredCategories.length === 0 ? (
-                              <div className="px-3 py-3 text-sm text-gray-400 text-center">
-                                {skillsSearchQuery ? 'No categories found' : 'No more categories available'}
-                              </div>
-                            ) : (
-                              filteredCategories.map((category) => (
-                                <button
-                                  key={category.id}
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); toggleSkill(category.name); setSkillsSearchQuery(''); }}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded-lg flex items-center justify-between transition-colors"
-                                >
-                                  {category.name}
-                                  {selectedSkills.includes(category.name) && <span className="text-blue-600 text-xs">✓</span>}
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <SearchableMultiSelect
+                      className="mt-1"
+                      values={selectedSkills}
+                      onValuesChange={setSelectedSkills}
+                      options={categories.map((c) => ({ value: c.name, label: c.name }))}
+                      placeholder="Type to search skills..."
+                      addMorePlaceholder="Add more..."
+                      emptyMessage="No categories found"
+                      noMoreMessage="No more categories available"
+                    />
                   </div>
                 </div>
 
