@@ -434,32 +434,26 @@ export default function SubcontractorAssignedJobs() {
         if (subDoc.exists()) subName = subDoc.data().fullName || subName;
       }
 
-      const timelineEvent = createTimelineEvent({
-        type: 'completed',
-        userId: currentUser?.uid || 'unknown',
-        userName: subName,
-        userRole: 'subcontractor',
-        details: `Work order completed by ${subName}`,
-        metadata: { completionDetails: completionDetails.substring(0, 100) },
-      });
-
-      await updateDoc(doc(db, 'workOrders', completingWorkOrderId), {
-        status: 'pending_invoice',
-        completedAt: serverTimestamp(),
-        completionDetails: completionDetails,
-        completionNotes: completionNotes,
-        completionImages: completionImageUrls,
-        updatedAt: serverTimestamp(),
-        timeline: [...existingTimeline, timelineEvent],
-        systemInformation: {
-          ...existingSysInfo,
-          completion: {
-            completedBy: { id: currentUser?.uid || 'unknown', name: subName },
-            timestamp: Timestamp.now(),
-            notes: completionDetails,
-          },
+      // Update work order via API route (server-side) to bypass Firestore client rules
+      const idToken = await currentUser?.getIdToken();
+      const completeRes = await fetch('/api/work-orders/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
         },
+        body: JSON.stringify({
+          workOrderId: completingWorkOrderId,
+          completionDetails,
+          completionNotes,
+          completionImageUrls,
+          subName,
+        }),
       });
+      if (!completeRes.ok) {
+        const err = await completeRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to mark work order complete');
+      }
 
       // Notify client and admin of completion
       if (workOrderData?.clientId) {
