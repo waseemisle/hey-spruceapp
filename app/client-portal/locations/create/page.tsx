@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -273,22 +274,23 @@ export default function CreateLocation() {
 
                 <div>
                   <Label htmlFor="propertyType">Property Type *</Label>
-                  <select
+                  <SearchableSelect
                     id="propertyType"
-                    name="propertyType"
+                    className="mt-1 w-full"
                     value={formData.propertyType}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="Commercial">Commercial</option>
-                    <option value="Residential">Residential</option>
-                    <option value="Industrial">Industrial</option>
-                    <option value="Retail">Retail</option>
-                    <option value="Office">Office</option>
-                    <option value="Warehouse">Warehouse</option>
-                    <option value="Other">Other</option>
-                  </select>
+                    onValueChange={(v) => setFormData((prev) => ({ ...prev, propertyType: v }))}
+                    options={[
+                      { value: 'Commercial', label: 'Commercial' },
+                      { value: 'Residential', label: 'Residential' },
+                      { value: 'Industrial', label: 'Industrial' },
+                      { value: 'Retail', label: 'Retail' },
+                      { value: 'Office', label: 'Office' },
+                      { value: 'Warehouse', label: 'Warehouse' },
+                      { value: 'Other', label: 'Other' },
+                    ]}
+                    placeholder="Property type"
+                    aria-label="Property type"
+                  />
                 </div>
 
                 <div className="md:col-span-2">

@@ -6,6 +6,7 @@ import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/fir
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   ArrowLeft, Download, ExternalLink, CreditCard, CheckCircle, AlertCircle,
   Plus, XCircle, MapPin, Star, Trash2, Edit2, Loader2, Mail, X, ShieldCheck,
@@ -1020,19 +1021,17 @@ export default function ClientDetailPage() {
                 {/* Card selector */}
                 <div>
                   <label className="text-xs font-semibold text-gray-600 block mb-1">Charge Card</label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={subCardId}
-                    onChange={(e) => setSubCardId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    {displayMethods.map((pm) => (
-                      <option key={pm.id} value={pm.id}>
-                        {pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• {pm.last4}
-                        {pm.isDefault ? ' (Default)' : ''}
-                        {' — Exp '}{String(pm.expMonth).padStart(2, '0')}/{pm.expYear}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={setSubCardId}
+                    options={displayMethods.map((pm) => ({
+                      value: pm.id,
+                      label: `${pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• ${pm.last4}${pm.isDefault ? ' (Default)' : ''} — Exp ${String(pm.expMonth).padStart(2, '0')}/${pm.expYear}`,
+                    }))}
+                    placeholder="Select card"
+                    aria-label="Charge card"
+                  />
                 </div>
 
                 {/* Amount */}
@@ -1404,19 +1403,17 @@ export default function ClientDetailPage() {
                 {/* Card selector */}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1.5">Select Card</label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={chargeCardId}
-                    onChange={(e) => setChargeCardId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                  >
-                    {displayMethods.map((pm) => (
-                      <option key={pm.id} value={pm.id}>
-                        {pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• {pm.last4}
-                        {pm.isDefault ? ' (Default)' : ''}
-                        {' — Exp '}{String(pm.expMonth).padStart(2, '0')}/{pm.expYear}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={setChargeCardId}
+                    options={displayMethods.map((pm) => ({
+                      value: pm.id,
+                      label: `${pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• ${pm.last4}${pm.isDefault ? ' (Default)' : ''} — Exp ${String(pm.expMonth).padStart(2, '0')}/${pm.expYear}`,
+                    }))}
+                    placeholder="Select card"
+                    aria-label="Card for charge"
+                  />
                 </div>
 
                 {/* Amount */}

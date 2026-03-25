@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { FileText, DollarSign, Check, X, Calendar, User } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -177,15 +178,18 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
       {/* Sort Controls */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Compare {quotes.length} Quotes</h3>
-        <select
+        <SearchableSelect
+          className="min-w-[200px]"
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as 'price' | 'date' | 'subcontractor')}
-          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-        >
-          <option value="price">Sort by Price</option>
-          <option value="date">Sort by Date</option>
-          <option value="subcontractor">Sort by Subcontractor</option>
-        </select>
+          onValueChange={(v) => setSortBy(v as 'price' | 'date' | 'subcontractor')}
+          options={[
+            { value: 'price', label: 'Sort by Price' },
+            { value: 'date', label: 'Sort by Date' },
+            { value: 'subcontractor', label: 'Sort by Subcontractor' },
+          ]}
+          placeholder="Sort quotes..."
+          aria-label="Sort quotes"
+        />
       </div>
 
       {/* Side-by-Side Comparison */}

@@ -5,6 +5,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Download, Printer, ChevronDown, TrendingUp, TrendingDown,
   DollarSign, ArrowUpRight, BarChart2, Clock, PieChart,
@@ -523,35 +524,39 @@ export default function ReportsPage() {
             {/* Customer filter */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-gray-600">Customer:</span>
-              <select
+              <SearchableSelect
+                className="w-full min-w-[180px] sm:w-56"
                 value={filterClientId}
-                onChange={(e) => setFilterClientId(e.target.value)}
-                className="border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 bg-white pr-7"
-              >
-                <option value="">All Customers</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.companyName || c.fullName}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setFilterClientId}
+                options={[
+                  { value: '', label: 'All Customers' },
+                  ...clients.map((c) => ({
+                    value: c.id,
+                    label: c.companyName || c.fullName,
+                  })),
+                ]}
+                placeholder="All Customers"
+                aria-label="Filter by customer"
+              />
             </div>
 
             {/* Vendor filter */}
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-gray-600">Vendor:</span>
-              <select
+              <SearchableSelect
+                className="w-full min-w-[180px] sm:w-56"
                 value={filterSubId}
-                onChange={(e) => setFilterSubId(e.target.value)}
-                className="border border-gray-300 rounded-md px-2.5 py-1.5 text-sm text-gray-700 bg-white pr-7"
-              >
-                <option value="">All Vendors</option>
-                {subs.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.businessName || s.fullName}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setFilterSubId}
+                options={[
+                  { value: '', label: 'All Vendors' },
+                  ...subs.map((s) => ({
+                    value: s.id,
+                    label: s.businessName || s.fullName,
+                  })),
+                ]}
+                placeholder="All Vendors"
+                aria-label="Filter by vendor"
+              />
             </div>
 
             {(filterClientId || filterSubId || period !== 'all') && (

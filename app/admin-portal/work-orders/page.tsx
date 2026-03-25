@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
@@ -2002,6 +2003,36 @@ const handleLocationSelect = (locationId: string) => {
     return typeMatch && statusMatch && searchMatch;
   });
 
+  const listStatusFilterOptions = [
+    { value: 'all', label: `All Statuses (${filteredWorkOrders.length})` },
+    { value: 'pending', label: `Pending (${workOrders.filter((w) => w.status === 'pending').length})` },
+    { value: 'approved', label: `Approved (${workOrders.filter((w) => w.status === 'approved').length})` },
+    { value: 'bidding', label: `Bidding (${workOrders.filter((w) => w.status === 'bidding').length})` },
+    { value: 'quotes_received', label: `Quotes Received (${workOrders.filter((w) => w.status === 'quotes_received').length})` },
+    { value: 'to_be_started', label: `To Be Started (${workOrders.filter((w) => w.status === 'to_be_started').length})` },
+    { value: 'assigned', label: `Assigned (${workOrders.filter((w) => w.status === 'assigned').length})` },
+    { value: 'accepted_by_subcontractor', label: `Accepted by Sub (${workOrders.filter((w) => w.status === 'accepted_by_subcontractor').length})` },
+    { value: 'pending_invoice', label: `Pending Invoice (${workOrders.filter((w) => w.status === 'pending_invoice').length})` },
+    { value: 'completed', label: `Completed (${workOrders.filter((w) => w.status === 'completed').length})` },
+    { value: 'rejected_by_subcontractor', label: `Rejected by Sub (${workOrders.filter((w) => w.status === 'rejected_by_subcontractor').length})` },
+  ];
+
+  const workOrderFormPriorityOptions = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+  ];
+
+  const workOrderFormStatusOptions = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'bidding', label: 'Bidding' },
+    { value: 'quotes_received', label: 'Quotes Received' },
+    { value: 'assigned', label: 'Assigned' },
+    { value: 'completed', label: 'Completed' },
+  ];
+
   // Reset to page 1 whenever filters or search change
   useEffect(() => {
     setCurrentPage(1);
@@ -2140,23 +2171,14 @@ const filteredLocationsForForm = locations.filter((location) => {
               className="pl-10 h-10"
             />
           </div>
-          <select
+          <SearchableSelect
+            className="sm:w-56 shrink-0"
             value={filter}
-            onChange={(e) => setFilter(e.target.value as typeof filter)}
-            className="h-10 border border-gray-300 rounded-md px-3 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:w-56"
-          >
-            <option value="all">All Statuses ({filteredWorkOrders.length})</option>
-            <option value="pending">Pending ({workOrders.filter(w => w.status === 'pending').length})</option>
-            <option value="approved">Approved ({workOrders.filter(w => w.status === 'approved').length})</option>
-            <option value="bidding">Bidding ({workOrders.filter(w => w.status === 'bidding').length})</option>
-            <option value="quotes_received">Quotes Received ({workOrders.filter(w => w.status === 'quotes_received').length})</option>
-            <option value="to_be_started">To Be Started ({workOrders.filter(w => w.status === 'to_be_started').length})</option>
-            <option value="assigned">Assigned ({workOrders.filter(w => w.status === 'assigned').length})</option>
-            <option value="accepted_by_subcontractor">Accepted by Sub ({workOrders.filter(w => w.status === 'accepted_by_subcontractor').length})</option>
-            <option value="pending_invoice">Pending Invoice ({workOrders.filter(w => w.status === 'pending_invoice').length})</option>
-            <option value="completed">Completed ({workOrders.filter(w => w.status === 'completed').length})</option>
-            <option value="rejected_by_subcontractor">Rejected by Sub ({workOrders.filter(w => w.status === 'rejected_by_subcontractor').length})</option>
-          </select>
+            onValueChange={(v) => setFilter(v as typeof filter)}
+            options={listStatusFilterOptions}
+            placeholder="Filter by status..."
+            aria-label="Filter work orders by status"
+          />
         </div>
 
         {/* Selection Controls */}
@@ -2549,15 +2571,18 @@ const filteredLocationsForForm = locations.filter((location) => {
           <div className="border-t bg-gray-50 rounded-b-lg px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm text-gray-700">
               <span>Rows per page:</span>
-              <select
-                value={rowsPerPage}
-                onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
+              <SearchableSelect
+                className="w-24"
+                value={String(rowsPerPage)}
+                onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}
+                options={[
+                  { value: '25', label: '25' },
+                  { value: '50', label: '50' },
+                  { value: '100', label: '100' },
+                ]}
+                placeholder="Rows"
+                aria-label="Rows per page"
+              />
               <span className="text-gray-500">
                 {((currentPage - 1) * rowsPerPage) + 1}–{Math.min(currentPage * rowsPerPage, sortedWorkOrders.length)} of {sortedWorkOrders.length}
               </span>
@@ -2601,20 +2626,21 @@ const filteredLocationsForForm = locations.filter((location) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Select Client *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1"
                       value={formData.clientId}
-                      onChange={(e) => {
-                        setFormData({ ...formData, clientId: e.target.value, companyId: '', locationId: '' });
+                      onValueChange={(v) => {
+                        setFormData({ ...formData, clientId: v, companyId: '', locationId: '' });
                       }}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      <option value="">Choose a client...</option>
-                      {clients.map(client => (
-                        <option key={client.id} value={client.id}>
-                          {client.fullName} ({client.email})
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: 'Choose a client...' },
+                        ...clients.map((client) => ({
+                          value: client.id,
+                          label: `${client.fullName} (${client.email})`,
+                        })),
+                      ]}
+                      placeholder="Choose a client..."
+                    />
                   </div>
 
                   {editingId && workOrders.find(wo => wo.id === editingId)?.appyRequestor && (
@@ -2635,20 +2661,18 @@ const filteredLocationsForForm = locations.filter((location) => {
 
                   <div>
                     <Label>Company *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1"
                       value={formData.companyId}
-                      onChange={(e) => {
-                        handleCompanySelect(e.target.value);
+                      onValueChange={(v) => {
+                        handleCompanySelect(v);
                       }}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      <option value="">Choose a company...</option>
-                      {companies.map(company => (
-                        <option key={company.id} value={company.id}>
-                          {company.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: 'Choose a company...' },
+                        ...companies.map((company) => ({ value: company.id, label: company.name })),
+                      ]}
+                      placeholder="Choose a company..."
+                    />
                     {!formData.companyId && companies.length === 0 && (
                       <p className="text-xs text-yellow-600 mt-1">
                         No companies found. Please add companies first.
@@ -2658,19 +2682,20 @@ const filteredLocationsForForm = locations.filter((location) => {
 
                   <div>
                     <Label>Select Location *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1"
                       value={formData.locationId}
-                      onChange={(e) => handleLocationSelect(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md p-2"
+                      onValueChange={(v) => handleLocationSelect(v)}
                       disabled={!formData.companyId}
-                    >
-                      <option value="">Choose a location...</option>
-                      {filteredLocationsForForm.map(location => (
-                        <option key={location.id} value={location.id}>
-                          {location.locationName}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: 'Choose a location...' },
+                        ...filteredLocationsForForm.map((location) => ({
+                          value: location.id,
+                          label: location.locationName,
+                        })),
+                      ]}
+                      placeholder="Choose a location..."
+                    />
                     {formData.companyId && filteredLocationsForForm.length === 0 && (
                       <p className="text-xs text-yellow-600 mt-1">
                         No locations found for the selected company.
@@ -2714,48 +2739,38 @@ const filteredLocationsForForm = locations.filter((location) => {
 
                   <div>
                     <Label>Category *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1"
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      <option value="">Select category...</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.name}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, category: v })}
+                      options={[
+                        { value: '', label: 'Select category...' },
+                        ...categories.map((category) => ({ value: category.name, label: category.name })),
+                      ]}
+                      placeholder="Select category..."
+                    />
                   </div>
 
                   <div>
                     <Label>Priority *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1"
                       value={formData.priority}
-                      onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, priority: v as WorkOrder['priority'] })}
+                      options={workOrderFormPriorityOptions}
+                      placeholder="Select priority..."
+                    />
                   </div>
 
                   <div>
                     <Label>Status *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1"
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                      <option value="bidding">Bidding</option>
-                      <option value="quotes_received">Quotes Received</option>
-                      <option value="assigned">Assigned</option>
-                      <option value="completed">Completed</option>
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, status: v as WorkOrder['status'] })}
+                      options={workOrderFormStatusOptions}
+                      placeholder="Select status..."
+                    />
                   </div>
 
                   <div className="sm:col-span-2">
@@ -3101,20 +3116,21 @@ const filteredLocationsForForm = locations.filter((location) => {
 
                 <div>
                   <Label>Select Subcontractor *</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1"
                     value={selectedSubcontractorForAssign}
-                    onChange={(e) => setSelectedSubcontractorForAssign(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  >
-                    <option value="">Choose a subcontractor...</option>
-                    {subcontractors
-                      .filter(sub => sub.status === 'approved')
-                      .map(subcontractor => (
-                        <option key={subcontractor.id} value={subcontractor.id}>
-                          {subcontractor.fullName} ({subcontractor.email})
-                        </option>
-                      ))}
-                  </select>
+                    onValueChange={setSelectedSubcontractorForAssign}
+                    options={[
+                      { value: '', label: 'Choose a subcontractor...' },
+                      ...subcontractors
+                        .filter((sub) => sub.status === 'approved')
+                        .map((subcontractor) => ({
+                          value: subcontractor.id,
+                          label: `${subcontractor.fullName} (${subcontractor.email})`,
+                        })),
+                    ]}
+                    placeholder="Choose a subcontractor..."
+                  />
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">

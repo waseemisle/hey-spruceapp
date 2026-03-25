@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ArrowLeft, Upload, X } from 'lucide-react';
 import { createTimelineEvent } from '@/lib/timeline';
 import Link from 'next/link';
@@ -388,57 +389,52 @@ export default function CreateWorkOrder() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <Label htmlFor="locationId">Location *</Label>
-                    <select
+                    <SearchableSelect
                       id="locationId"
-                      name="locationId"
+                      className="mt-1 w-full"
                       value={formData.locationId}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onValueChange={(v) => setFormData((prev) => ({ ...prev, locationId: v }))}
+                      options={[
+                        { value: '', label: 'Select a location' },
+                        ...locations.map((location) => ({ value: location.id, label: location.name })),
+                      ]}
+                      placeholder="Select a location"
+                      aria-label="Location"
                       disabled={checkingCompany}
-                      required
-                    >
-                      <option value="">Select a location</option>
-                      {locations.map(location => (
-                        <option key={location.id} value={location.id}>
-                          {location.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   <div>
                     <Label htmlFor="category">Category *</Label>
-                    <select
+                    <SearchableSelect
                       id="category"
-                      name="category"
+                      className="mt-1 w-full"
                       value={formData.category}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">Select category...</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.name}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => setFormData((prev) => ({ ...prev, category: v }))}
+                      options={[
+                        { value: '', label: 'Select category...' },
+                        ...categories.map((category) => ({ value: category.name, label: category.name })),
+                      ]}
+                      placeholder="Select category..."
+                      aria-label="Category"
+                    />
                   </div>
 
                   <div>
                     <Label htmlFor="priority">Priority *</Label>
-                    <select
+                    <SearchableSelect
                       id="priority"
-                      name="priority"
+                      className="mt-1 w-full"
                       value={formData.priority}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="low">Low - Can wait</option>
-                      <option value="medium">Medium - Normal timeline</option>
-                      <option value="high">High - Urgent attention needed</option>
-                    </select>
+                      onValueChange={(v) => setFormData((prev) => ({ ...prev, priority: v }))}
+                      options={[
+                        { value: 'low', label: 'Low - Can wait' },
+                        { value: 'medium', label: 'Medium - Normal timeline' },
+                        { value: 'high', label: 'High - Urgent attention needed' },
+                      ]}
+                      placeholder="Select priority"
+                      aria-label="Priority"
+                    />
                   </div>
 
                   <div className="md:col-span-2">

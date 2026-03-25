@@ -8,6 +8,7 @@ import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   CheckCircle, XCircle, User, Mail, Phone, Building, Plus, Edit2, Save, X,
   Search, Trash2, Lock, Eye, MapPin, Users, Clock, BadgeCheck,
@@ -625,16 +626,17 @@ export default function ClientsManagement() {
 
                   <div>
                     <Label className="text-sm font-medium text-gray-700">Company</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1 w-full"
                       value={formData.companyId}
-                      onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select a company (optional)</option>
-                      {companies.map((company) => (
-                        <option key={company.id} value={company.id}>{company.name}</option>
-                      ))}
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, companyId: v })}
+                      options={[
+                        { value: '', label: 'Select a company (optional)' },
+                        ...companies.map((company) => ({ value: company.id, label: company.name })),
+                      ]}
+                      placeholder="Select a company (optional)"
+                      aria-label="Company"
+                    />
                   </div>
 
                   <div className="md:col-span-2">
@@ -712,15 +714,18 @@ export default function ClientsManagement() {
 
                   <div>
                     <Label className="text-sm font-medium text-gray-700">Status *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1 w-full"
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, status: v as Client['status'] })}
+                      options={[
+                        { value: 'pending', label: 'Pending' },
+                        { value: 'approved', label: 'Approved' },
+                        { value: 'rejected', label: 'Rejected' },
+                      ]}
+                      placeholder="Status"
+                      aria-label="Client status"
+                    />
                   </div>
                 </div>
 

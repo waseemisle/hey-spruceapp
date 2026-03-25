@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { X, User, Calendar, FileText, DollarSign, CheckCircle, TrendingUp } from 'lucide-react';
 
 interface LineItem {
@@ -74,15 +75,18 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
             <p className="text-gray-600 mt-1">Comparing {quotes.length} quotes for work order</p>
           </div>
           <div className="flex items-center gap-4">
-            <select
+            <SearchableSelect
+              className="min-w-[200px]"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'price' | 'date' | 'subcontractor')}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
-            >
-              <option value="price">Sort by Price</option>
-              <option value="date">Sort by Date</option>
-              <option value="subcontractor">Sort by Subcontractor</option>
-            </select>
+              onValueChange={(v) => setSortBy(v as 'price' | 'date' | 'subcontractor')}
+              options={[
+                { value: 'price', label: 'Sort by Price' },
+                { value: 'date', label: 'Sort by Date' },
+                { value: 'subcontractor', label: 'Sort by Subcontractor' },
+              ]}
+              placeholder="Sort quotes..."
+              aria-label="Sort quotes"
+            />
             <Button variant="outline" onClick={onClose} size="sm">
               <X className="h-4 w-4 mr-2" />
               Close

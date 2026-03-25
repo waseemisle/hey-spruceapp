@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Receipt, Download, ArrowLeft, History, Paperclip, MapPin, FileText, CreditCard, GitBranch, Edit2, Zap, X, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
@@ -698,15 +699,17 @@ export default function AdminInvoiceDetail() {
               {/* Status */}
               <div>
                 <Label>Status</Label>
-                <select
-                  className="mt-1 w-full border border-gray-300 rounded-md p-2 text-sm"
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={editForm.status}
-                  onChange={e => setEditForm(prev => ({ ...prev, status: e.target.value }))}
-                >
-                  {['draft', 'sent', 'paid', 'overdue'].map(s => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setEditForm((prev) => ({ ...prev, status: v }))}
+                  options={['draft', 'sent', 'paid', 'overdue'].map((s) => ({
+                    value: s,
+                    label: s.charAt(0).toUpperCase() + s.slice(1),
+                  }))}
+                  placeholder="Status"
+                  aria-label="Invoice status"
+                />
               </div>
 
               {/* Line Items */}

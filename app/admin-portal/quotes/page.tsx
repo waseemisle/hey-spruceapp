@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { FileText, DollarSign, Send, Plus, Trash2, Search, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
@@ -844,35 +845,39 @@ function QuotesContent() {
                 {/* Client Selection */}
                 <div>
                   <Label>Select Client *</Label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md p-2"
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={formData.clientId}
-                    onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                  >
-                    <option value="">Choose a client...</option>
-                    {clients.map(client => (
-                      <option key={client.id} value={client.id}>
-                        {client.fullName} ({client.email})
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, clientId: v })}
+                    options={[
+                      { value: '', label: 'Choose a client...' },
+                      ...clients.map((client) => ({
+                        value: client.id,
+                        label: `${client.fullName} (${client.email})`,
+                      })),
+                    ]}
+                    placeholder="Choose a client..."
+                    aria-label="Client"
+                  />
                 </div>
 
                 {/* Subcontractor Selection */}
                 <div>
                   <Label>Select Subcontractor *</Label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md p-2"
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={formData.subcontractorId}
-                    onChange={(e) => setFormData({ ...formData, subcontractorId: e.target.value })}
-                  >
-                    <option value="">Choose a subcontractor...</option>
-                    {subcontractors.map(sub => (
-                      <option key={sub.id} value={sub.id}>
-                        {sub.fullName} ({sub.email})
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, subcontractorId: v })}
+                    options={[
+                      { value: '', label: 'Choose a subcontractor...' },
+                      ...subcontractors.map((sub) => ({
+                        value: sub.id,
+                        label: `${sub.fullName} (${sub.email})`,
+                      })),
+                    ]}
+                    placeholder="Choose a subcontractor..."
+                    aria-label="Subcontractor"
+                  />
                 </div>
 
                 {/* Line Items */}

@@ -7,6 +7,7 @@ import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import Link from 'next/link';
 import { CheckCircle, XCircle, MapPin, Building, Building2, User, Phone, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -647,19 +648,21 @@ export default function LocationsManagement() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Select Client (Optional)</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1 w-full"
                       value={formData.clientId}
-                      onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                      className="w-full border border-input bg-background rounded-md p-2 text-foreground"
+                      onValueChange={(v) => setFormData({ ...formData, clientId: v })}
+                      options={[
+                        { value: '', label: 'Choose a client...' },
+                        ...clients.map((client) => ({
+                          value: client.id,
+                          label: `${client.fullName} (${client.email})`,
+                        })),
+                      ]}
+                      placeholder="Choose a client..."
+                      aria-label="Client"
                       disabled={!!editingId}
-                    >
-                      <option value="">Choose a client...</option>
-                      {clients.map(client => (
-                        <option key={client.id} value={client.id}>
-                          {client.fullName} ({client.email})
-                        </option>
-                      ))}
-                    </select>
+                    />
                     {editingId && (
                       <p className="text-xs text-muted-foreground mt-1">Client cannot be changed</p>
                     )}
@@ -745,20 +748,23 @@ export default function LocationsManagement() {
 
                   <div>
                     <Label>Property Type</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1 w-full"
                       value={formData.propertyType}
-                      onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })}
-                      className="w-full border border-input bg-background rounded-md p-2 text-foreground"
-                    >
-                      <option value="">Select type...</option>
-                      <option value="Restaurant">Restaurant</option>
-                      <option value="Bar">Bar</option>
-                      <option value="Hotel">Hotel</option>
-                      <option value="Office">Office</option>
-                      <option value="Retail">Retail</option>
-                      <option value="Warehouse">Warehouse</option>
-                      <option value="Other">Other</option>
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, propertyType: v })}
+                      options={[
+                        { value: '', label: 'Select type...' },
+                        { value: 'Restaurant', label: 'Restaurant' },
+                        { value: 'Bar', label: 'Bar' },
+                        { value: 'Hotel', label: 'Hotel' },
+                        { value: 'Office', label: 'Office' },
+                        { value: 'Retail', label: 'Retail' },
+                        { value: 'Warehouse', label: 'Warehouse' },
+                        { value: 'Other', label: 'Other' },
+                      ]}
+                      placeholder="Select type..."
+                      aria-label="Property type"
+                    />
                   </div>
 
                   <div>
@@ -782,15 +788,18 @@ export default function LocationsManagement() {
 
                   <div>
                     <Label>Status *</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1 w-full"
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, status: v as typeof formData.status })}
+                      options={[
+                        { value: 'pending', label: 'Pending' },
+                        { value: 'approved', label: 'Approved' },
+                        { value: 'rejected', label: 'Rejected' },
+                      ]}
+                      placeholder="Status"
+                      aria-label="Location status"
+                    />
                   </div>
                 </div>
 

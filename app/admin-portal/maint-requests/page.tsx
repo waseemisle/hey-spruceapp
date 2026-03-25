@@ -11,6 +11,13 @@ import { Label } from '@/components/ui/label';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { Wrench, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, Plus, ChevronDown, ChevronUp, Code } from 'lucide-react';
 import { toast } from 'sonner';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+
+const MAINT_REQUEST_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'in-progress', label: 'In Progress' },
+  { value: 'completed', label: 'Completed' },
+];
 
 interface MaintRequest {
   id: string;
@@ -327,15 +334,14 @@ export default function MaintRequestsPage() {
             <Eye className="h-4 w-4 mr-2" />
             View
           </Button>
-          <select
+          <SearchableSelect
+            className="w-full min-w-[140px]"
             value={request.status}
-            onChange={(e) => handleStatusChange(request.id, e.target.value)}
-            className="text-sm border border-gray-300 rounded-md px-2 py-1"
-          >
-            <option value="pending">Pending</option>
-            <option value="in-progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </select>
+            onValueChange={(v) => handleStatusChange(request.id, v)}
+            options={MAINT_REQUEST_STATUS_OPTIONS}
+            placeholder="Status"
+            aria-label="Maintenance request status"
+          />
           <Button
             size="sm"
             variant="destructive"
@@ -469,15 +475,14 @@ export default function MaintRequestsPage() {
                           >
                             <Code className="h-4 w-4 text-gray-600" />
                           </button>
-                          <select
+                          <SearchableSelect
+                            className="w-full min-w-[120px]"
                             value={request.status}
-                            onChange={(e) => handleStatusChange(request.id, e.target.value)}
-                            className="text-xs border border-gray-300 rounded-md px-2 py-1"
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="in-progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                          </select>
+                            onValueChange={(v) => handleStatusChange(request.id, v)}
+                            options={MAINT_REQUEST_STATUS_OPTIONS}
+                            placeholder="Status"
+                            aria-label="Maintenance request status"
+                          />
                           <Button
                             size="sm"
                             variant="destructive"
@@ -573,15 +578,14 @@ export default function MaintRequestsPage() {
                 <div className="flex gap-3 pt-4 border-t">
                   <div className="flex-1">
                     <Label className="text-gray-600 mb-2 block">Update Status</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1 w-full"
                       value={selectedRequest.status}
-                      onChange={(e) => handleStatusChange(selectedRequest.id, e.target.value)}
-                      className="w-full border border-gray-300 rounded-md p-2"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="in-progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                    </select>
+                      onValueChange={(v) => handleStatusChange(selectedRequest.id, v)}
+                      options={MAINT_REQUEST_STATUS_OPTIONS}
+                      placeholder="Status"
+                      aria-label="Update maintenance request status"
+                    />
                   </div>
                 </div>
 

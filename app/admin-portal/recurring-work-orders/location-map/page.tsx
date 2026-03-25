@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Plus, Edit2, Save, X, Search, Trash2, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -396,19 +397,21 @@ export default function LocationMapPage() {
                 </div>
                 <div>
                   <Label htmlFor="systemLocationId">System Location *</Label>
-                  <select
+                  <SearchableSelect
                     id="systemLocationId"
+                    className="mt-1 w-full"
                     value={formData.systemLocationId}
-                    onChange={(e) => setFormData({ ...formData, systemLocationId: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select a location</option>
-                    {locations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {location.locationName}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, systemLocationId: v })}
+                    options={[
+                      { value: '', label: 'Select a location' },
+                      ...locations.map((location) => ({
+                        value: location.id,
+                        label: location.locationName,
+                      })),
+                    ]}
+                    placeholder="Select a location"
+                    aria-label="System location"
+                  />
                 </div>
                 <div className="flex gap-2 pt-4">
                   <Button

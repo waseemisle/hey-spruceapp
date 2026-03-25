@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Search, Plus } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useRouter } from 'next/navigation';
 
 interface DashboardSearchBarProps {
@@ -64,18 +65,14 @@ export default function DashboardSearchBar({ portalType, onSearch }: DashboardSe
     <div className="bg-white border-b border-gray-200 py-4 px-6">
       <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
         {/* Search Type Dropdown */}
-        <div className="flex-shrink-0">
-          <select
+        <div className="flex-shrink-0 w-full md:w-auto md:min-w-[220px]">
+          <SearchableSelect
             value={searchType}
-            onChange={(e) => setSearchType(e.target.value)}
-            className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-          >
-            {searchOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onValueChange={setSearchType}
+            options={searchOptions.map((o) => ({ value: o.value, label: o.label }))}
+            placeholder="Search by..."
+            aria-label="Search type"
+          />
         </div>
 
         {/* Search Input */}

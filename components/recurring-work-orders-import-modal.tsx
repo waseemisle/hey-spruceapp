@@ -12,6 +12,14 @@ import * as XLSX from 'xlsx';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, getDocs, where } from 'firebase/firestore';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+
+const IMPORT_ROWS_PER_PAGE_OPTIONS = [
+  { value: '10', label: '10' },
+  { value: '25', label: '25' },
+  { value: '50', label: '50' },
+  { value: '100', label: '100' },
+];
 
 interface ParsedRow {
   restaurant: string;
@@ -1279,29 +1287,30 @@ export default function RecurringWorkOrdersImportModal({
                                 </button>
                               </div>
                             ) : (
-                              <select
+                              <SearchableSelect
+                                className="w-full"
                                 value={locationMap[restaurant] || ''}
-                                onChange={(e) => {
+                                onValueChange={(v) => {
                                   const newMap = { ...locationMap };
-                                  if (e.target.value) {
-                                    newMap[restaurant] = e.target.value;
-                                    setUnmappedRestaurants(prev => prev.filter(r => r !== restaurant));
+                                  if (v) {
+                                    newMap[restaurant] = v;
+                                    setUnmappedRestaurants((prev) => prev.filter((r) => r !== restaurant));
                                   } else {
                                     delete newMap[restaurant];
                                     if (!unmappedRestaurants.includes(restaurant)) {
-                                      setUnmappedRestaurants(prev => [...prev, restaurant]);
+                                      setUnmappedRestaurants((prev) => [...prev, restaurant]);
                                     }
                                   }
                                   setLocationMap(newMap);
                                 }}
-                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                options={[
+                                  { value: '', label: 'Select a location...' },
+                                  ...locations.map((loc) => ({ value: loc.id, label: loc.locationName })),
+                                ]}
+                                placeholder="Select a location..."
+                                aria-label={`Map location for ${restaurant}`}
                                 disabled={isImporting}
-                              >
-                                <option value="">Select a location...</option>
-                                {locations.map(loc => (
-                                  <option key={loc.id} value={loc.id}>{loc.locationName}</option>
-                                ))}
-                              </select>
+                              />
                             )}
                           </td>
                           <td className="p-2 border-b text-center">
@@ -1363,20 +1372,22 @@ export default function RecurringWorkOrdersImportModal({
                 <Label htmlFor="global-client-select" className="text-sm font-medium text-gray-700 mb-2 block">
                   Apply Client to All Orders
                 </Label>
-                <select
+                <SearchableSelect
                   id="global-client-select"
+                  className="mt-1 w-full"
                   value={globalClientId}
-                  onChange={(e) => handleGlobalClientChange(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white text-sm"
+                  onValueChange={handleGlobalClientChange}
+                  options={[
+                    { value: '', label: 'Select a client to apply to all orders...' },
+                    ...clients.map((client) => ({
+                      value: client.id,
+                      label: `${client.fullName} (${client.email})`,
+                    })),
+                  ]}
+                  placeholder="Select a client to apply to all orders..."
+                  aria-label="Apply client to all orders"
                   disabled={isImporting}
-                >
-                  <option value="">Select a client to apply to all orders...</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.fullName} ({client.email})
-                    </option>
-                  ))}
-                </select>
+                />
                 <p className="text-xs text-gray-500 mt-1">
                   This will apply the selected client to all orders. You can still override individual orders below.
                 </p>
@@ -1463,30 +1474,32 @@ export default function RecurringWorkOrdersImportModal({
                                       );
                                     })}
                                     <td className="p-2 border-b">
-                                      <select
+                                      <SearchableSelect
+                                        className="w-full"
                                         value={row.clientId || ''}
-                                        onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
-                                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                        onValueChange={(v) => handleClientChange(row.rowNumber, v)}
+                                        options={[
+                                          { value: '', label: 'Select client...' },
+                                          ...clients.map((client) => ({ value: client.id, label: client.fullName })),
+                                        ]}
+                                        placeholder="Select client..."
+                                        aria-label="Client for row"
                                         disabled={isImporting}
-                                      >
-                                        <option value="">Select client...</option>
-                                        {clients.map(client => (
-                                          <option key={client.id} value={client.id}>{client.fullName}</option>
-                                        ))}
-                                      </select>
+                                      />
                                     </td>
                                     <td className="p-2 border-b">
-                                      <select
+                                      <SearchableSelect
+                                        className="w-full"
                                         value={row.subcontractorId || ''}
-                                        onChange={(e) => handleSubcontractorChange(row.rowNumber, e.target.value)}
-                                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                        onValueChange={(v) => handleSubcontractorChange(row.rowNumber, v)}
+                                        options={[
+                                          { value: '', label: 'Select subcontractor...' },
+                                          ...subcontractors.map((sub) => ({ value: sub.id, label: sub.fullName })),
+                                        ]}
+                                        placeholder="Select subcontractor..."
+                                        aria-label="Subcontractor for row"
                                         disabled={isImporting}
-                                      >
-                                        <option value="">Select subcontractor...</option>
-                                        {subcontractors.map(sub => (
-                                          <option key={sub.id} value={sub.id}>{sub.fullName}</option>
-                                        ))}
-                                      </select>
+                                      />
                                     </td>
                                   </tr>
                                 );
@@ -1541,16 +1554,15 @@ export default function RecurringWorkOrdersImportModal({
                                 <td className="p-2 border-b">{row.serviceType || '-'}</td>
                                 <td className="p-2 border-b">
                                   {row.errors.length === 0 ? (
-                                    <select
+                                    <SearchableSelect
+                                      className="w-full"
                                       value={row.frequencyLabel || 'QUARTERLY'}
-                                      onChange={(e) => handleRecurrencePatternChange(row.rowNumber, e.target.value)}
-                                      className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                      onValueChange={(v) => handleRecurrencePatternChange(row.rowNumber, v)}
+                                      options={RECURRENCE_PATTERN_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                                      placeholder="Recurrence"
+                                      aria-label="Recurrence pattern"
                                       disabled={isImporting}
-                                    >
-                                      {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                      ))}
-                                    </select>
+                                    />
                                   ) : (
                                     <span className="text-gray-400 text-xs">-</span>
                                   )}
@@ -1560,34 +1572,36 @@ export default function RecurringWorkOrdersImportModal({
                                 </td>
                                 <td className="p-2 border-b">
                                   {row.errors.length === 0 ? (
-                                    <select
+                                    <SearchableSelect
+                                      className="w-full"
                                       value={row.clientId || ''}
-                                      onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
-                                      className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                      onValueChange={(v) => handleClientChange(row.rowNumber, v)}
+                                      options={[
+                                        { value: '', label: 'Select client...' },
+                                        ...clients.map((client) => ({ value: client.id, label: client.fullName })),
+                                      ]}
+                                      placeholder="Select client..."
+                                      aria-label="Client for row"
                                       disabled={isImporting}
-                                    >
-                                      <option value="">Select client...</option>
-                                      {clients.map(client => (
-                                        <option key={client.id} value={client.id}>{client.fullName}</option>
-                                      ))}
-                                    </select>
+                                    />
                                   ) : (
                                     <span className="text-gray-400 text-xs">Fix errors first</span>
                                   )}
                                 </td>
                                 <td className="p-2 border-b">
                                   {row.errors.length === 0 ? (
-                                    <select
+                                    <SearchableSelect
+                                      className="w-full"
                                       value={row.subcontractorId || ''}
-                                      onChange={(e) => handleSubcontractorChange(row.rowNumber, e.target.value)}
-                                      className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                      onValueChange={(v) => handleSubcontractorChange(row.rowNumber, v)}
+                                      options={[
+                                        { value: '', label: 'Select subcontractor...' },
+                                        ...subcontractors.map((sub) => ({ value: sub.id, label: sub.fullName })),
+                                      ]}
+                                      placeholder="Select subcontractor..."
+                                      aria-label="Subcontractor for row"
                                       disabled={isImporting}
-                                    >
-                                      <option value="">Select subcontractor...</option>
-                                      {subcontractors.map(sub => (
-                                        <option key={sub.id} value={sub.id}>{sub.fullName}</option>
-                                      ))}
-                                    </select>
+                                    />
                                   ) : (
                                     <span className="text-gray-400 text-xs">Fix errors first</span>
                                   )}
@@ -1615,17 +1629,18 @@ export default function RecurringWorkOrdersImportModal({
                           <div className="border-t bg-gray-50 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
                             <div className="flex items-center gap-2 text-sm text-gray-700">
                               <span>Rows per page:</span>
-                              <select
-                                value={rowsPerPage}
-                                onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                              <SearchableSelect
+                                className="w-20 min-w-[4.5rem]"
+                                value={String(rowsPerPage)}
+                                onValueChange={(v) => {
+                                  setRowsPerPage(Number(v));
+                                  setCurrentPage(1);
+                                }}
+                                options={IMPORT_ROWS_PER_PAGE_OPTIONS}
+                                placeholder="Rows"
+                                aria-label="Rows per page"
                                 disabled={isImporting}
-                              >
-                                <option value={10}>10</option>
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                              </select>
+                              />
                               <span className="text-gray-600">
                                 Showing {startIndexCreating + 1} to {Math.min(endIndexCreating, creatingRows.length)} of {creatingRows.length} rows
                               </span>
@@ -1682,16 +1697,15 @@ export default function RecurringWorkOrdersImportModal({
                           <td className="p-2 border-b">{row.serviceType || '-'}</td>
                           <td className="p-2 border-b">
                             {row.errors.length === 0 ? (
-                              <select
+                              <SearchableSelect
+                                className="w-full"
                                 value={row.frequencyLabel || 'QUARTERLY'}
-                                onChange={(e) => handleRecurrencePatternChange(row.rowNumber, e.target.value)}
-                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                onValueChange={(v) => handleRecurrencePatternChange(row.rowNumber, v)}
+                                options={RECURRENCE_PATTERN_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                                placeholder="Recurrence"
+                                aria-label="Recurrence pattern"
                                 disabled={isImporting}
-                              >
-                                {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
+                              />
                             ) : (
                               <span className="text-gray-400 text-xs">-</span>
                             )}
@@ -1701,34 +1715,36 @@ export default function RecurringWorkOrdersImportModal({
                           </td>
                           <td className="p-2 border-b">
                             {row.errors.length === 0 ? (
-                              <select
+                              <SearchableSelect
+                                className="w-full"
                                 value={row.clientId || ''}
-                                onChange={(e) => handleClientChange(row.rowNumber, e.target.value)}
-                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                onValueChange={(v) => handleClientChange(row.rowNumber, v)}
+                                options={[
+                                  { value: '', label: 'Select client...' },
+                                  ...clients.map((client) => ({ value: client.id, label: client.fullName })),
+                                ]}
+                                placeholder="Select client..."
+                                aria-label="Client for row"
                                 disabled={isImporting}
-                              >
-                                <option value="">Select client...</option>
-                                {clients.map(client => (
-                                  <option key={client.id} value={client.id}>{client.fullName}</option>
-                                ))}
-                              </select>
+                              />
                             ) : (
                               <span className="text-gray-400 text-xs">Fix errors first</span>
                             )}
                           </td>
                           <td className="p-2 border-b">
                             {row.errors.length === 0 ? (
-                              <select
+                              <SearchableSelect
+                                className="w-full"
                                 value={row.subcontractorId || ''}
-                                onChange={(e) => handleSubcontractorChange(row.rowNumber, e.target.value)}
-                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white"
+                                onValueChange={(v) => handleSubcontractorChange(row.rowNumber, v)}
+                                options={[
+                                  { value: '', label: 'Select subcontractor...' },
+                                  ...subcontractors.map((sub) => ({ value: sub.id, label: sub.fullName })),
+                                ]}
+                                placeholder="Select subcontractor..."
+                                aria-label="Subcontractor for row"
                                 disabled={isImporting}
-                              >
-                                <option value="">Select subcontractor...</option>
-                                {subcontractors.map(sub => (
-                                  <option key={sub.id} value={sub.id}>{sub.fullName}</option>
-                                ))}
-                              </select>
+                              />
                             ) : (
                               <span className="text-gray-400 text-xs">Fix errors first</span>
                             )}
@@ -1756,20 +1772,18 @@ export default function RecurringWorkOrdersImportModal({
                     <div className="border-t bg-gray-50 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="flex items-center gap-2 text-sm text-gray-700">
                         <span>Rows per page:</span>
-                        <select
-                          value={rowsPerPage}
-                          onChange={(e) => {
-                            setRowsPerPage(Number(e.target.value));
+                        <SearchableSelect
+                          className="w-20 min-w-[4.5rem]"
+                          value={String(rowsPerPage)}
+                          onValueChange={(v) => {
+                            setRowsPerPage(Number(v));
                             setCurrentPage(1);
                           }}
-                          className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                          options={IMPORT_ROWS_PER_PAGE_OPTIONS}
+                          placeholder="Rows"
+                          aria-label="Rows per page"
                           disabled={isImporting}
-                        >
-                          <option value={10}>10</option>
-                          <option value={25}>25</option>
-                          <option value={50}>50</option>
-                          <option value={100}>100</option>
-                        </select>
+                        />
                         <span className="text-gray-600">
                           Showing {startIndex + 1} to {Math.min(endIndex, parsedData.length)} of {parsedData.length} rows
                         </span>

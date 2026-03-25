@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
@@ -974,16 +975,19 @@ export default function InvoicesManagement() {
                 {/* Status */}
                 <div>
                   <Label>Status</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="sent">Sent</option>
-                    <option value="paid">Paid</option>
-                    <option value="overdue">Overdue</option>
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, status: v as Invoice['status'] })}
+                    options={[
+                      { value: 'draft', label: 'Draft' },
+                      { value: 'sent', label: 'Sent' },
+                      { value: 'paid', label: 'Paid' },
+                      { value: 'overdue', label: 'Overdue' },
+                    ]}
+                    placeholder="Status"
+                    aria-label="Invoice status"
+                  />
                 </div>
 
                 {/* Action Buttons */}

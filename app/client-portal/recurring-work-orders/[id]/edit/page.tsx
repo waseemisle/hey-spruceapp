@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { 
   ArrowLeft, Save, RotateCcw, AlertCircle
 } from 'lucide-react';
@@ -240,31 +241,33 @@ export default function ClientEditRecurringWorkOrder() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Category *</Label>
-                <select
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                >
-                  <option value="">Select category...</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.name}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setFormData({ ...formData, category: v })}
+                  options={[
+                    { value: '', label: 'Select category...' },
+                    ...categories.map((category) => ({ value: category.name, label: category.name })),
+                  ]}
+                  placeholder="Select category..."
+                  aria-label="Category"
+                />
               </div>
 
               <div>
                 <Label>Priority *</Label>
-                <select
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
+                  onValueChange={(v) => setFormData({ ...formData, priority: v as typeof formData.priority })}
+                  options={[
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' },
+                  ]}
+                  placeholder="Priority"
+                  aria-label="Priority"
+                />
               </div>
             </div>
 

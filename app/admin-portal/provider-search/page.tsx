@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import {
   Search, MapPin, Star, Zap, DollarSign, ThumbsUp, Award,
@@ -488,17 +489,20 @@ export default function ProviderSearchPage() {
             {/* Sort */}
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <span>Sort:</span>
-              <select
+              <SearchableSelect
+                className="w-full min-w-[140px] sm:w-44"
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as typeof sortBy)}
-                className="border-0 bg-transparent text-sm font-medium text-foreground cursor-pointer focus:outline-none"
-              >
-                <option value="relevance">Relevance</option>
-                <option value="quality">Quality</option>
-                <option value="speed">Speed</option>
-                <option value="price">Price</option>
-                <option value="engagement">Engagement</option>
-              </select>
+                onValueChange={(v) => setSortBy(v as typeof sortBy)}
+                options={[
+                  { value: 'relevance', label: 'Relevance' },
+                  { value: 'quality', label: 'Quality' },
+                  { value: 'speed', label: 'Speed' },
+                  { value: 'price', label: 'Price' },
+                  { value: 'engagement', label: 'Engagement' },
+                ]}
+                placeholder="Sort by"
+                aria-label="Sort providers"
+              />
             </div>
           </div>
         </div>

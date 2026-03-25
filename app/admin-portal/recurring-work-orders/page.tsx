@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { 
   RotateCcw, Plus, Edit2, Save, X, Search, Trash2, Eye, 
   Play, Pause, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Upload, MapPin
@@ -469,35 +470,37 @@ export default function RecurringWorkOrdersManagement() {
             <label htmlFor="location-filter" className="text-sm font-medium text-gray-700">
               Location:
             </label>
-            <select
+            <SearchableSelect
               id="location-filter"
+              className="w-full max-w-[220px]"
               value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[220px] truncate"
-            >
-              <option value="all">All Locations ({recurringWorkOrders.length})</option>
-              {uniqueLocations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc} ({recurringWorkOrders.filter(rwo => rwo.locationName === loc).length})
-                </option>
-              ))}
-            </select>
+              onValueChange={setLocationFilter}
+              options={[
+                { value: 'all', label: `All Locations (${recurringWorkOrders.length})` },
+                ...uniqueLocations.map((loc) => ({
+                  value: loc,
+                  label: `${loc} (${recurringWorkOrders.filter((rwo) => rwo.locationName === loc).length})`,
+                })),
+              ]}
+              placeholder="All locations"
+              aria-label="Filter by location"
+            />
 
             <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
               Status:
             </label>
-            <select
+            <SearchableSelect
               id="status-filter"
+              className="w-full max-w-[220px]"
               value={filter}
-              onChange={(e) => setFilter(e.target.value as typeof filter)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 capitalize"
-            >
-              {['all', 'active', 'paused', 'cancelled'].map((filterOption) => (
-                <option key={filterOption} value={filterOption} className="capitalize">
-                  {filterOption} ({recurringWorkOrders.filter(rwo => filterOption === 'all' || rwo.status === filterOption).length})
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setFilter(v as typeof filter)}
+              options={['all', 'active', 'paused', 'cancelled'].map((filterOption) => ({
+                value: filterOption,
+                label: `${filterOption} (${recurringWorkOrders.filter((rwo) => filterOption === 'all' || rwo.status === filterOption).length})`,
+              }))}
+              placeholder="Status"
+              aria-label="Filter by status"
+            />
           </div>
         </div>
 

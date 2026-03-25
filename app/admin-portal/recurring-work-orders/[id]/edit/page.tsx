@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { 
   ArrowLeft, Save, X, Calendar, Clock, RotateCcw, 
   ChevronDown, ChevronUp, Settings, AlertCircle
@@ -501,51 +502,54 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
             <CardContent className="space-y-4">
               <div>
                 <Label>Select Client *</Label>
-                <select
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={formData.clientId}
-                  onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                >
-                  <option value="">Choose a client...</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.fullName} ({client.email})
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setFormData({ ...formData, clientId: v })}
+                  options={[
+                    { value: '', label: 'Choose a client...' },
+                    ...clients.map((client) => ({
+                      value: client.id,
+                      label: `${client.fullName} (${client.email})`,
+                    })),
+                  ]}
+                  placeholder="Choose a client..."
+                  aria-label="Client"
+                />
               </div>
 
               <div>
                 <Label>Company *</Label>
-                <select
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={formData.companyId}
-                  onChange={(e) => handleCompanySelect(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                >
-                  <option value="">Choose a company...</option>
-                  {filteredCompanies.map(company => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={handleCompanySelect}
+                  options={[
+                    { value: '', label: 'Choose a company...' },
+                    ...filteredCompanies.map((company) => ({ value: company.id, label: company.name })),
+                  ]}
+                  placeholder="Choose a company..."
+                  aria-label="Company"
+                />
               </div>
 
               <div>
                 <Label>Select Location *</Label>
-                <select
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={formData.locationId}
-                  onChange={(e) => handleLocationSelect(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  onValueChange={handleLocationSelect}
+                  options={[
+                    { value: '', label: 'Choose a location...' },
+                    ...filteredLocations.map((location) => ({
+                      value: location.id,
+                      label: location.locationName,
+                    })),
+                  ]}
+                  placeholder="Choose a location..."
+                  aria-label="Location"
                   disabled={!formData.companyId}
-                >
-                  <option value="">Choose a location...</option>
-                  {filteredLocations.map(location => (
-                    <option key={location.id} value={location.id}>
-                      {location.locationName}
-                    </option>
-                  ))}
-                </select>
+                />
                 {formData.companyId && filteredLocations.length === 0 && (
                   <p className="text-xs text-yellow-600 mt-1">
                     No locations found for the selected company.
@@ -575,31 +579,33 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Category *</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  >
-                    <option value="">Select category...</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.name}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, category: v })}
+                    options={[
+                      { value: '', label: 'Select category...' },
+                      ...categories.map((category) => ({ value: category.name, label: category.name })),
+                    ]}
+                    placeholder="Select category..."
+                    aria-label="Category"
+                  />
                 </div>
 
                 <div>
                   <Label>Priority *</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, priority: v as typeof formData.priority })}
+                    options={[
+                      { value: 'low', label: 'Low' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'high', label: 'High' },
+                    ]}
+                    placeholder="Priority"
+                    aria-label="Priority"
+                  />
                 </div>
               </div>
 
@@ -620,18 +626,20 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
 
               <div>
                 <Label>Assigned Subcontractor</Label>
-                <select
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={formData.subcontractorId}
-                  onChange={(e) => setFormData({ ...formData, subcontractorId: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2"
-                >
-                  <option value="">Select subcontractor...</option>
-                  {subcontractors.map(sub => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.fullName} ({sub.email})
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setFormData({ ...formData, subcontractorId: v })}
+                  options={[
+                    { value: '', label: 'Select subcontractor...' },
+                    ...subcontractors.map((sub) => ({
+                      value: sub.id,
+                      label: `${sub.fullName} (${sub.email})`,
+                    })),
+                  ]}
+                  placeholder="Select subcontractor..."
+                  aria-label="Assigned subcontractor"
+                />
                 <p className="text-xs text-gray-500 mt-1">Pre-select a subcontractor for this recurring work order</p>
               </div>
             </CardContent>
@@ -648,15 +656,16 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
             <CardContent className="space-y-4">
               <div>
                 <Label>Recurrence Pattern</Label>
-                <select
-                  className="w-full mt-2 p-2 border rounded-md bg-white"
+                <SearchableSelect
+                  className="mt-2 w-full"
                   value={formData.recurrencePatternLabel}
-                  onChange={(e) => handleRecurrencePatternChange(e.target.value as (typeof RECURRENCE_PATTERN_OPTIONS)[number])}
-                >
-                  {RECURRENCE_PATTERN_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
+                  onValueChange={(v) =>
+                    handleRecurrencePatternChange(v as (typeof RECURRENCE_PATTERN_OPTIONS)[number])
+                  }
+                  options={RECURRENCE_PATTERN_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+                  placeholder="Recurrence pattern"
+                  aria-label="Recurrence pattern"
+                />
                 <p className="text-xs text-gray-500 mt-1">
                   This work order will repeat <strong>{formData.recurrencePatternLabel}</strong>
                   {formData.recurrenceType === 'weekly' && ` (every ${formData.recurrenceInterval} week(s))`}
@@ -790,17 +799,20 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                 </div>
                 <div>
                   <Label>Timezone</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={formData.timezone}
-                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                    className="w-full border border-gray-300 rounded-md p-2"
-                  >
-                    <option value="America/New_York">Eastern Time</option>
-                    <option value="America/Chicago">Central Time</option>
-                    <option value="America/Denver">Mountain Time</option>
-                    <option value="America/Los_Angeles">Pacific Time</option>
-                    <option value="UTC">UTC</option>
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, timezone: v })}
+                    options={[
+                      { value: 'America/New_York', label: 'Eastern Time' },
+                      { value: 'America/Chicago', label: 'Central Time' },
+                      { value: 'America/Denver', label: 'Mountain Time' },
+                      { value: 'America/Los_Angeles', label: 'Pacific Time' },
+                      { value: 'UTC', label: 'UTC' },
+                    ]}
+                    placeholder="Timezone"
+                    aria-label="Timezone"
+                  />
                 </div>
               </div>
             </CardContent>

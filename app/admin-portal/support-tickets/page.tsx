@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -305,69 +306,76 @@ export default function AdminSupportTicketsPage() {
             </div>
             <div>
               <Label className="text-xs text-gray-500">Status</Label>
-              <select
-                className="mt-1 block w-full border rounded-md h-10 px-2 text-sm"
+              <SearchableSelect
+                className="mt-1 w-full min-w-[140px]"
                 value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-              >
-                <option value="all">All</option>
-                {ALL_STATUSES.map((s) => (
-                  <option key={s} value={s}>{SUPPORT_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
+                onValueChange={(v) => { setStatusFilter(v); setPage(1); }}
+                options={[
+                  { value: 'all', label: 'All' },
+                  ...ALL_STATUSES.map((s) => ({ value: s, label: SUPPORT_STATUS_LABELS[s] })),
+                ]}
+                placeholder="Status"
+                aria-label="Filter by status"
+              />
             </div>
             <div>
               <Label className="text-xs text-gray-500">Priority</Label>
-              <select
-                className="mt-1 block w-full border rounded-md h-10 px-2 text-sm"
+              <SearchableSelect
+                className="mt-1 w-full min-w-[100px]"
                 value={priorityFilter}
-                onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }}
-              >
-                <option value="all">All</option>
-                {PRIORITIES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+                onValueChange={(v) => { setPriorityFilter(v); setPage(1); }}
+                options={[
+                  { value: 'all', label: 'All' },
+                  ...PRIORITIES.map((p) => ({ value: p, label: p })),
+                ]}
+                placeholder="Priority"
+                aria-label="Filter by priority"
+              />
             </div>
             <div>
               <Label className="text-xs text-gray-500">Category</Label>
-              <select
-                className="mt-1 block w-full border rounded-md h-10 px-2 text-sm min-w-[140px]"
+              <SearchableSelect
+                className="mt-1 w-full min-w-[140px]"
                 value={categoryFilter}
-                onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-              >
-                <option value="all">All</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{SUPPORT_CATEGORY_LABELS[c]}</option>
-                ))}
-              </select>
+                onValueChange={(v) => { setCategoryFilter(v); setPage(1); }}
+                options={[
+                  { value: 'all', label: 'All' },
+                  ...CATEGORIES.map((c) => ({ value: c, label: SUPPORT_CATEGORY_LABELS[c] })),
+                ]}
+                placeholder="Category"
+                aria-label="Filter by category"
+              />
             </div>
             <div>
               <Label className="text-xs text-gray-500">Assigned</Label>
-              <select
-                className="mt-1 block w-full border rounded-md h-10 px-2 text-sm min-w-[140px]"
+              <SearchableSelect
+                className="mt-1 w-full min-w-[140px]"
                 value={assignedFilter}
-                onChange={(e) => { setAssignedFilter(e.target.value); setPage(1); }}
-              >
-                <option value="all">All</option>
-                <option value="unassigned">Unassigned</option>
-                {admins.map((a) => (
-                  <option key={a.id} value={a.id}>{a.fullName}</option>
-                ))}
-              </select>
+                onValueChange={(v) => { setAssignedFilter(v); setPage(1); }}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'unassigned', label: 'Unassigned' },
+                  ...admins.map((a) => ({ value: a.id, label: a.fullName })),
+                ]}
+                placeholder="Assigned"
+                aria-label="Filter by assignee"
+              />
             </div>
             <div>
               <Label className="text-xs text-gray-500">Submitter role</Label>
-              <select
-                className="mt-1 block w-full border rounded-md h-10 px-2 text-sm"
+              <SearchableSelect
+                className="mt-1 w-full min-w-[120px]"
                 value={roleFilter}
-                onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-              >
-                <option value="all">All</option>
-                <option value="client">Client</option>
-                <option value="subcontractor">Subcontractor</option>
-                <option value="admin">Admin</option>
-              </select>
+                onValueChange={(v) => { setRoleFilter(v); setPage(1); }}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'client', label: 'Client' },
+                  { value: 'subcontractor', label: 'Subcontractor' },
+                  { value: 'admin', label: 'Admin' },
+                ]}
+                placeholder="Role"
+                aria-label="Filter by submitter role"
+              />
             </div>
             <div>
               <Label className="text-xs text-gray-500">From</Label>
@@ -471,15 +479,14 @@ export default function AdminSupportTicketsPage() {
             <div className="space-y-3">
               <div>
                 <Label>On behalf of</Label>
-                <select
-                  className="mt-1 w-full border rounded-md h-10 px-2 text-sm"
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={form.onBehalfOfUid}
-                  onChange={(e) => setForm((f) => ({ ...f, onBehalfOfUid: e.target.value }))}
-                >
-                  {behalfOptions.map((o) => (
-                    <option key={o.id || 'self'} value={o.id}>{o.label}</option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setForm((f) => ({ ...f, onBehalfOfUid: v }))}
+                  options={behalfOptions.map((o) => ({ value: o.id, label: o.label }))}
+                  placeholder="On behalf of"
+                  aria-label="On behalf of"
+                />
               </div>
               <div>
                 <Label>Title</Label>
@@ -492,40 +499,37 @@ export default function AdminSupportTicketsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label>Category</Label>
-                  <select
-                    className="mt-1 w-full border rounded-md h-10 px-2 text-sm"
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={form.category}
-                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as SupportTicketCategory }))}
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{SUPPORT_CATEGORY_LABELS[c]}</option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => setForm((f) => ({ ...f, category: v as SupportTicketCategory }))}
+                    options={CATEGORIES.map((c) => ({ value: c, label: SUPPORT_CATEGORY_LABELS[c] }))}
+                    placeholder="Category"
+                    aria-label="Category"
+                  />
                 </div>
                 <div>
                   <Label>Priority</Label>
-                  <select
-                    className="mt-1 w-full border rounded-md h-10 px-2 text-sm"
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={form.priority}
-                    onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as SupportTicketPriority }))}
-                  >
-                    {PRIORITIES.map((p) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => setForm((f) => ({ ...f, priority: v as SupportTicketPriority }))}
+                    options={PRIORITIES.map((p) => ({ value: p, label: p }))}
+                    placeholder="Priority"
+                    aria-label="Priority"
+                  />
                 </div>
               </div>
               <div>
                 <Label>Type</Label>
-                <select
-                  className="mt-1 w-full border rounded-md h-10 px-2 text-sm"
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={form.type}
-                  onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as SupportTicketType }))}
-                >
-                  {TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                  onValueChange={(v) => setForm((f) => ({ ...f, type: v as SupportTicketType }))}
+                  options={TYPES.map((t) => ({ value: t, label: t }))}
+                  placeholder="Type"
+                  aria-label="Ticket type"
+                />
               </div>
             </div>
             <DialogFooter className="gap-2">

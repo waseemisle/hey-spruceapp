@@ -16,6 +16,7 @@ import {
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Dialog,
   DialogContent,
@@ -451,26 +452,33 @@ export default function EmailLogsPage() {
             )}
           </div>
 
-          <select
+          <SearchableSelect
+            className="min-w-[180px]"
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            <option value="all">All Types</option>
-            {(Object.keys(EMAIL_TYPE_LABELS) as EmailType[]).map((t) => (
-              <option key={t} value={t}>{EMAIL_TYPE_LABELS[t]}</option>
-            ))}
-          </select>
+            onValueChange={setTypeFilter}
+            options={[
+              { value: 'all', label: 'All Types' },
+              ...(Object.keys(EMAIL_TYPE_LABELS) as EmailType[]).map((t) => ({
+                value: t,
+                label: EMAIL_TYPE_LABELS[t],
+              })),
+            ]}
+            placeholder="Email type..."
+            aria-label="Filter by email type"
+          />
 
-          <select
+          <SearchableSelect
+            className="min-w-[140px]"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            <option value="all">All Status</option>
-            <option value="sent">Sent</option>
-            <option value="failed">Failed</option>
-          </select>
+            onValueChange={setStatusFilter}
+            options={[
+              { value: 'all', label: 'All Status' },
+              { value: 'sent', label: 'Sent' },
+              { value: 'failed', label: 'Failed' },
+            ]}
+            placeholder="Status..."
+            aria-label="Filter by status"
+          />
         </div>
 
         {/* Table */}

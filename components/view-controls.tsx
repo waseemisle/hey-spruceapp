@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, List as ListIcon } from 'lucide-react';
@@ -50,16 +51,19 @@ export default function ViewControls({
       </div>
 
       {!hideSort && (
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground">Sort by</Label>
-          <select
+        <div className="flex items-center gap-2 min-w-0">
+          <Label className="text-sm text-muted-foreground shrink-0">Sort by</Label>
+          <SearchableSelect
+            className="w-[min(100%,11rem)]"
             value={sortOption}
-            onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
-            className="border border-input rounded-md p-2 bg-background text-sm"
-          >
-            <option value="createdAt">Created At</option>
-            <option value="updatedAt">Last Modified</option>
-          </select>
+            onValueChange={(v) => setSortOption(v as typeof sortOption)}
+            options={[
+              { value: 'createdAt', label: 'Created At' },
+              { value: 'updatedAt', label: 'Last Modified' },
+            ]}
+            placeholder="Sort..."
+            aria-label="Sort by"
+          />
         </div>
       )}
     </div>

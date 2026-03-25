@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Calendar, Play, Trash2, ToggleLeft, ToggleRight, Edit2, Save, X, Search, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { getInvoicePDFBase64 } from '@/lib/pdf-generator';
@@ -496,17 +497,17 @@ export default function ScheduledInvoicesManagement() {
               <form onSubmit={handleCreate} className="space-y-4">
                 <div>
                   <Label>Client</Label>
-                  <select
-                    className="w-full mt-1 p-2 border rounded"
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={formData.clientId}
-                    onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                    required
-                  >
-                    <option value="">Select Client</option>
-                    {clients.map(client => (
-                      <option key={client.id} value={client.id}>{client.fullName}</option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, clientId: v })}
+                    options={[
+                      { value: '', label: 'Select Client' },
+                      ...clients.map((client) => ({ value: client.id, label: client.fullName })),
+                    ]}
+                    placeholder="Select Client"
+                    aria-label="Client"
+                  />
                 </div>
                 <div>
                   <Label>Title</Label>
@@ -602,16 +603,19 @@ export default function ScheduledInvoicesManagement() {
                 </div>
                 <div>
                   <Label>Frequency</Label>
-                  <select
-                    className="w-full mt-1 p-2 border rounded"
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={formData.frequency}
-                    onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
-                  >
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
+                    onValueChange={(v) => setFormData({ ...formData, frequency: v as typeof formData.frequency })}
+                    options={[
+                      { value: 'weekly', label: 'Weekly' },
+                      { value: 'monthly', label: 'Monthly' },
+                      { value: 'quarterly', label: 'Quarterly' },
+                      { value: 'yearly', label: 'Yearly' },
+                    ]}
+                    placeholder="Frequency"
+                    aria-label="Frequency"
+                  />
                 </div>
                 {formData.frequency !== 'weekly' && (
                   <div>
@@ -895,16 +899,19 @@ export default function ScheduledInvoicesManagement() {
                   </div>
                   <div>
                     <Label>Frequency *</Label>
-                    <select
-                      className="w-full mt-1 p-2 border rounded"
+                    <SearchableSelect
+                      className="mt-1 w-full"
                       value={formData.frequency}
-                      onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
-                    >
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                      <option value="quarterly">Quarterly</option>
-                      <option value="yearly">Yearly</option>
-                    </select>
+                      onValueChange={(v) => setFormData({ ...formData, frequency: v as typeof formData.frequency })}
+                      options={[
+                        { value: 'weekly', label: 'Weekly' },
+                        { value: 'monthly', label: 'Monthly' },
+                        { value: 'quarterly', label: 'Quarterly' },
+                        { value: 'yearly', label: 'Yearly' },
+                      ]}
+                      placeholder="Frequency"
+                      aria-label="Frequency"
+                    />
                   </div>
                   {formData.frequency !== 'weekly' && (
                     <div>

@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -270,15 +271,22 @@ export default function ClientSupportTicketsPage() {
           </div>
           <div>
             <Label className="text-xs text-gray-500">Status</Label>
-            <select className="mt-1 block border rounded-md h-10 px-2 text-sm" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-              <option value="all">All</option>
-              <option value="open">Open</option>
-              <option value="in-progress">In progress</option>
-              <option value="waiting-on-client">Waiting on you</option>
-              <option value="waiting-on-admin">Waiting on team</option>
-              <option value="resolved">Resolved</option>
-              <option value="closed">Closed</option>
-            </select>
+            <SearchableSelect
+              className="mt-1 w-full min-w-[160px]"
+              value={statusFilter}
+              onValueChange={(v) => { setStatusFilter(v); setPage(1); }}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'open', label: 'Open' },
+                { value: 'in-progress', label: 'In progress' },
+                { value: 'waiting-on-client', label: 'Waiting on you' },
+                { value: 'waiting-on-admin', label: 'Waiting on team' },
+                { value: 'resolved', label: 'Resolved' },
+                { value: 'closed', label: 'Closed' },
+              ]}
+              placeholder="Status"
+              aria-label="Filter by status"
+            />
           </div>
           <div>
             <Label className="text-xs text-gray-500">From</Label>
@@ -364,43 +372,70 @@ export default function ClientSupportTicketsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label>Category</Label>
-                  <select className="mt-1 w-full border rounded-md h-10 px-2 text-sm" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as SupportTicketCategory }))}>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{SUPPORT_CATEGORY_LABELS[c]}</option>)}
-                  </select>
+                  <SearchableSelect
+                    className="mt-1 w-full"
+                    value={form.category}
+                    onValueChange={(v) => setForm((f) => ({ ...f, category: v as SupportTicketCategory }))}
+                    options={CATEGORIES.map((c) => ({ value: c, label: SUPPORT_CATEGORY_LABELS[c] }))}
+                    placeholder="Category"
+                    aria-label="Category"
+                  />
                 </div>
                 <div>
                   <Label>Priority</Label>
-                  <select className="mt-1 w-full border rounded-md h-10 px-2 text-sm" value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as SupportTicketPriority }))}>
-                    {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                  <SearchableSelect
+                    className="mt-1 w-full"
+                    value={form.priority}
+                    onValueChange={(v) => setForm((f) => ({ ...f, priority: v as SupportTicketPriority }))}
+                    options={PRIORITIES.map((p) => ({ value: p, label: p }))}
+                    placeholder="Priority"
+                    aria-label="Priority"
+                  />
                 </div>
               </div>
               <div>
                 <Label>Type</Label>
-                <select className="mt-1 w-full border rounded-md h-10 px-2 text-sm" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as SupportTicketType }))}>
-                  {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <SearchableSelect
+                  className="mt-1 w-full"
+                  value={form.type}
+                  onValueChange={(v) => setForm((f) => ({ ...f, type: v as SupportTicketType }))}
+                  options={TYPES.map((t) => ({ value: t, label: t }))}
+                  placeholder="Type"
+                  aria-label="Ticket type"
+                />
               </div>
               <div>
                 <Label>Related work order</Label>
-                <select className="mt-1 w-full border rounded-md h-10 px-2 text-sm" value={form.relatedWorkOrderId} onChange={(e) => setForm((f) => ({ ...f, relatedWorkOrderId: e.target.value }))}>
-                  <option value="">None</option>
-                  {workOrders.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-                </select>
+                <SearchableSelect
+                  className="mt-1 w-full"
+                  value={form.relatedWorkOrderId}
+                  onValueChange={(v) => setForm((f) => ({ ...f, relatedWorkOrderId: v }))}
+                  options={[{ value: '', label: 'None' }, ...workOrders.map((w) => ({ value: w.id, label: w.label }))]}
+                  placeholder="None"
+                  aria-label="Related work order"
+                />
               </div>
               <div>
                 <Label>Related invoice</Label>
-                <select className="mt-1 w-full border rounded-md h-10 px-2 text-sm" value={form.relatedInvoiceId} onChange={(e) => setForm((f) => ({ ...f, relatedInvoiceId: e.target.value }))}>
-                  <option value="">None</option>
-                  {invoices.map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}
-                </select>
+                <SearchableSelect
+                  className="mt-1 w-full"
+                  value={form.relatedInvoiceId}
+                  onValueChange={(v) => setForm((f) => ({ ...f, relatedInvoiceId: v }))}
+                  options={[{ value: '', label: 'None' }, ...invoices.map((i) => ({ value: i.id, label: i.label }))]}
+                  placeholder="None"
+                  aria-label="Related invoice"
+                />
               </div>
               <div>
                 <Label>Related quote</Label>
-                <select className="mt-1 w-full border rounded-md h-10 px-2 text-sm" value={form.relatedQuoteId} onChange={(e) => setForm((f) => ({ ...f, relatedQuoteId: e.target.value }))}>
-                  <option value="">None</option>
-                  {quotes.map((q) => <option key={q.id} value={q.id}>{q.label}</option>)}
-                </select>
+                <SearchableSelect
+                  className="mt-1 w-full"
+                  value={form.relatedQuoteId}
+                  onValueChange={(v) => setForm((f) => ({ ...f, relatedQuoteId: v }))}
+                  options={[{ value: '', label: 'None' }, ...quotes.map((q) => ({ value: q.id, label: q.label }))]}
+                  placeholder="None"
+                  aria-label="Related quote"
+                />
               </div>
               <div>
                 <Label>Tags</Label>

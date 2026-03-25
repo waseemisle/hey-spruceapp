@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Search, Zap } from 'lucide-react';
 import Link from 'next/link';
@@ -328,51 +329,57 @@ export default function GuidedWorkOrderCreate() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Client *</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={clientId}
-                    onChange={(e) => {
-                      setClientId(e.target.value);
+                    onValueChange={(v) => {
+                      setClientId(v);
                       setCompanyId('');
                       setLocationId('');
                     }}
-                    className="w-full border rounded-md p-2"
-                  >
-                    <option value="">Choose client...</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.fullName}</option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: '', label: 'Choose client...' },
+                      ...clients.map((c) => ({ value: c.id, label: c.fullName })),
+                    ]}
+                    placeholder="Choose client..."
+                    aria-label="Client"
+                  />
                 </div>
                 {filteredCompanies.length > 0 && (
                   <div>
                     <Label>Company</Label>
-                    <select
+                    <SearchableSelect
+                      className="mt-1 w-full"
                       value={companyId}
-                      onChange={(e) => {
-                        setCompanyId(e.target.value);
+                      onValueChange={(v) => {
+                        setCompanyId(v);
                         setLocationId('');
                       }}
-                      className="w-full border rounded-md p-2"
-                    >
-                      <option value="">All locations</option>
-                      {filteredCompanies.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: 'All locations' },
+                        ...filteredCompanies.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                      placeholder="All locations"
+                      aria-label="Company"
+                    />
                   </div>
                 )}
                 <div className="sm:col-span-2">
                   <Label>Location *</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={locationId}
-                    onChange={(e) => setLocationId(e.target.value)}
-                    className="w-full border rounded-md p-2"
-                  >
-                    <option value="">Choose location...</option>
-                    {filteredLocations.map((l) => (
-                      <option key={l.id} value={l.id}>{l.locationName} — {formatAddress(l.address)}</option>
-                    ))}
-                  </select>
+                    onValueChange={setLocationId}
+                    options={[
+                      { value: '', label: 'Choose location...' },
+                      ...filteredLocations.map((l) => ({
+                        value: l.id,
+                        label: `${l.locationName} — ${formatAddress(l.address)}`,
+                      })),
+                    ]}
+                    placeholder="Choose location..."
+                    aria-label="Location"
+                  />
                 </div>
               </div>
 
@@ -514,41 +521,49 @@ export default function GuidedWorkOrderCreate() {
                 </div>
                 <div>
                   <Label>Weather Type</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={weatherType}
-                    onChange={(e) => setWeatherType(e.target.value)}
-                    className="w-full border rounded-md p-2"
-                  >
-                    <option value="">Select...</option>
-                    {WEATHER_TYPES.map((w) => (
-                      <option key={w} value={w}>{w}</option>
-                    ))}
-                  </select>
+                    onValueChange={setWeatherType}
+                    options={[
+                      { value: '', label: 'Select...' },
+                      ...WEATHER_TYPES.map((w) => ({ value: w, label: w })),
+                    ]}
+                    placeholder="Select..."
+                    aria-label="Weather type"
+                  />
                 </div>
                 <div>
                   <Label>Priority</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={priority}
-                    onChange={(e) => setPriority(e.target.value as any)}
-                    className="w-full border rounded-md p-2"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
+                    onValueChange={(v) => setPriority(v as typeof priority)}
+                    options={[
+                      { value: 'low', label: 'Low' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'high', label: 'High' },
+                    ]}
+                    placeholder="Priority"
+                    aria-label="Priority"
+                  />
                 </div>
                 <div>
                   <Label>Service Provider (optional)</Label>
-                  <select
+                  <SearchableSelect
+                    className="mt-1 w-full"
                     value={serviceProviderId}
-                    onChange={(e) => setServiceProviderId(e.target.value)}
-                    className="w-full border rounded-md p-2"
-                  >
-                    <option value="">Assign later</option>
-                    {subcontractors.map((s) => (
-                      <option key={s.id} value={s.id}>{s.fullName} {s.businessName ? `(${s.businessName})` : ''}</option>
-                    ))}
-                  </select>
+                    onValueChange={setServiceProviderId}
+                    options={[
+                      { value: '', label: 'Assign later' },
+                      ...subcontractors.map((s) => ({
+                        value: s.id,
+                        label: `${s.fullName}${s.businessName ? ` (${s.businessName})` : ''}`,
+                      })),
+                    ]}
+                    placeholder="Assign later"
+                    aria-label="Service provider"
+                  />
                 </div>
               </div>
               <div className="flex gap-3 pt-4">

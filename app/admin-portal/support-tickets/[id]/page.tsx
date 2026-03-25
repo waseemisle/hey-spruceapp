@@ -20,6 +20,7 @@ import { PageContainer } from '@/components/ui/page-container';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -551,27 +552,25 @@ export default function AdminSupportTicketDetailPage() {
             <div className="rounded-xl border border-gray-200 p-4 space-y-3 bg-white shadow-sm">
               <div>
                 <Label className="text-xs text-gray-500">Status</Label>
-                <select
-                  className="mt-1 w-full border rounded-md h-10 px-2 text-sm"
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={ticket.status}
-                  onChange={(e) => changeStatus(e.target.value as SupportTicketStatus)}
-                >
-                  {ALL_STATUSES.map((s) => (
-                    <option key={s} value={s}>{SUPPORT_STATUS_LABELS[s]}</option>
-                  ))}
-                </select>
+                  onValueChange={(v) => changeStatus(v as SupportTicketStatus)}
+                  options={ALL_STATUSES.map((s) => ({ value: s, label: SUPPORT_STATUS_LABELS[s] }))}
+                  placeholder="Status"
+                  aria-label="Ticket status"
+                />
               </div>
               <div>
                 <Label className="text-xs text-gray-500">Priority</Label>
-                <select
-                  className="mt-1 w-full border rounded-md h-10 px-2 text-sm"
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={ticket.priority}
-                  onChange={(e) => changePriority(e.target.value as SupportTicketPriority)}
-                >
-                  {PRIORITIES.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
+                  onValueChange={(v) => changePriority(v as SupportTicketPriority)}
+                  options={PRIORITIES.map((p) => ({ value: p, label: p }))}
+                  placeholder="Priority"
+                  aria-label="Priority"
+                />
               </div>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">{SUPPORT_TYPE_LABELS[ticket.type] || ticket.type}</Badge>
@@ -579,21 +578,21 @@ export default function AdminSupportTicketDetailPage() {
               </div>
               <div>
                 <Label className="text-xs text-gray-500">Assigned to</Label>
-                <select
-                  className="mt-1 w-full border rounded-md h-10 px-2 text-sm"
+                <SearchableSelect
+                  className="mt-1 w-full"
                   value={ticket.assignedTo || ''}
-                  onChange={(e) => {
-                    const v = e.target.value;
+                  onValueChange={(v) => {
                     if (!v) return;
                     const a = admins.find((x) => x.id === v);
                     assignTo(v, a?.fullName || '');
                   }}
-                >
-                  <option value="">Select admin…</option>
-                  {admins.map((a) => (
-                    <option key={a.id} value={a.id}>{a.fullName}</option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: 'Select admin…' },
+                    ...admins.map((a) => ({ value: a.id, label: a.fullName })),
+                  ]}
+                  placeholder="Select admin…"
+                  aria-label="Assigned admin"
+                />
               </div>
               <div>
                 <Label className="text-xs text-gray-500">Due date</Label>
