@@ -240,28 +240,36 @@ function attach(page, label) {
 
 async function login(page, email, password, label) {
   attach(page, label);
-  await page.goto(`${BASE_URL}/portal-login`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  // Ensure login form is interactive
-  await page.locator('input#email, input[type="email"]').first().waitFor({ timeout: 15000 });
-  await page.locator('input#email, input[type="email"]').first().fill(email);
-  await page.locator('input#password, input[type="password"]').first().fill(password);
-  await page.locator('button:has-text("Login"), button[type="submit"]').first().click();
-  // Wait for redirect away from portal-login (Firebase auth + router.push takes a few seconds)
-  // Note: Playwright waitForURL passes a URL object, not a string — use .toString()
-  const redirected = await page.waitForURL(url => !url.toString().includes('portal-login'), { timeout: 60000 }).then(() => true).catch(() => false);
-  if (!redirected) {
-    // waitForURL may have failed if nav already happened — recheck current URL
-    const currentUrl = page.url();
-    if (!currentUrl.includes('portal-login')) {
-      console.log(`[login:${label}] ✅ Logged in (nav already done) — url=${currentUrl}`);
-    } else {
-      console.log(`[login:${label}] WARNING: still on portal-login — url=${currentUrl}`);
-      const errMsg = await page.locator('[class*="error"], [class*="alert"], .text-red-').textContent().catch(() => '');
-      if (errMsg) console.log(`[login:${label}] Error message: ${errMsg}`);
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.goto(`${BASE_URL}/portal-login`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForTimeout(1500); // ensure React hydration
+    // Check if already logged in (previous attempt may have succeeded)
+    if (!page.url().includes('portal-login')) {
+      console.log(`[login:${label}] ✅ Already redirected — url=${page.url()}`);
+      break;
     }
-  } else {
-    console.log(`[login:${label}] ✅ Logged in — url=${page.url()}`);
+    // Ensure login form is interactive
+    await page.locator('input#email, input[type="email"]').first().waitFor({ timeout: 15000 });
+    await page.locator('input#email, input[type="email"]').first().fill(email);
+    await page.locator('input#password, input[type="password"]').first().fill(password);
+    await page.locator('button:has-text("Login"), button[type="submit"]').first().click();
+    // Wait for redirect away from portal-login
+    // Note: Playwright waitForURL passes a URL object, not a string — use .toString()
+    const redirected = await page.waitForURL(url => !url.toString().includes('portal-login'), { timeout: 60000 }).then(() => true).catch(() => false);
+    if (redirected || !page.url().includes('portal-login')) {
+      console.log(`[login:${label}] ✅ Logged in — url=${page.url()}`);
+      break;
+    }
+    if (attempt < 2) {
+      const errMsg = await page.locator('[class*="error"], [class*="alert"], .text-red-').textContent().catch(() => '');
+      console.log(`[login:${label}] Attempt ${attempt + 1} timed out${errMsg ? ' error: ' + errMsg : ''} — retrying`);
+      await page.waitForTimeout(2000);
+    } else {
+      console.log(`[login:${label}] WARNING: all login attempts exhausted — url=${page.url()}`);
+    }
   }
+
   await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
   await page.waitForTimeout(3000); // Extra wait for Firebase auth token to be stored in IndexedDB
 }
@@ -652,15 +660,25 @@ async function subAcceptAndComplete(page, title, imagePath) {
   await page.waitForTimeout(800);
   await page.getByRole('button', { name: /Approve Work Order/i }).click();
   await page.waitForTimeout(4000);
-  await page.getByRole('button', { name: 'Mark as Complete' }).first().click();
+  const openCompleteBtn = page.getByRole('button', { name: 'Mark as Complete' }).first();
+  await openCompleteBtn.evaluate(el => el.scrollIntoView({ block: 'center' })).catch(() => {});
+  await page.waitForTimeout(300);
+  await openCompleteBtn.click({ force: true }).catch(async () => {
+    await openCompleteBtn.evaluate(el => el.click());
+  });
   await page.waitForTimeout(600);
   await page.fill('#completion-details', `E2E completion ${title}`);
   await page.setInputFiles('#completion-images', imagePath);
   await page.waitForTimeout(800);
   const completeModal = page.locator('div.fixed.inset-0').filter({ hasText: 'Complete Work Order' });
   const completeBtn = completeModal.getByRole('button', { name: /Mark as Complete/i });
-  await completeBtn.scrollIntoViewIfNeeded().catch(() => {});
-  await completeBtn.click({ force: true });
+  // Scroll the button into view inside the modal overlay, then JS-click as fallback
+  await completeBtn.evaluate(el => el.scrollIntoView({ block: 'center', inline: 'center' })).catch(() => {});
+  await page.waitForTimeout(400);
+  await completeBtn.click({ force: true }).catch(async () => {
+    // Last-resort: direct DOM click via evaluate
+    await completeBtn.evaluate(el => el.click());
+  });
   await page.waitForTimeout(10000);
   report.steps.push({ ok: true, action: 'sub_complete', title });
 }
@@ -809,9 +827,10 @@ async function main() {
 
   const browser = await chromium.launch({ headless: process.env.E2E_HEADED !== '1' });
   // Each user needs an isolated browser context so Firebase auth tokens (localStorage) don't overwrite each other
-  const adminCtx = await browser.newContext();
-  const clientCtx = await browser.newContext();
-  const subCtx = await browser.newContext();
+  const ctxOpts = { viewport: { width: 1280, height: 900 } };
+  const adminCtx = await browser.newContext(ctxOpts);
+  const clientCtx = await browser.newContext(ctxOpts);
+  const subCtx = await browser.newContext(ctxOpts);
   const admin = await adminCtx.newPage();
   const client = await clientCtx.newPage();
   const sub = await subCtx.newPage();
