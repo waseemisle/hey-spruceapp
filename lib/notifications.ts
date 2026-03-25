@@ -100,8 +100,11 @@ export async function getAllAdminUserIds(): Promise<string[]> {
     );
     const snapshot = await getDocs(usersQuery);
     return snapshot.docs.map(doc => doc.id);
-  } catch (error) {
-    console.error('Error fetching admin users:', error);
+  } catch (error: any) {
+    // Expected for non-admin users — permission denied is intentional
+    if (!error?.code?.includes('permission-denied')) {
+      console.error('Error fetching admin users:', error);
+    }
     return [];
   }
 }

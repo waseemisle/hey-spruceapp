@@ -238,26 +238,31 @@ export default function SubcontractorBidding() {
           });
         }
 
-        const adminsSnapshot = await getDocs(query(collection(db, 'adminUsers')));
-        for (const adminDoc of adminsSnapshot.docs) {
-          const adminData = adminDoc.data();
-          if (adminData.email) {
-            await fetch('/api/email/send-quote-notification', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                toEmail: adminData.email,
-                toName: adminData.fullName || 'Admin',
-                workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
-                workOrderTitle: selectedBidding.workOrderTitle,
-                subcontractorName: subData.fullName || subData.businessName,
-                quoteAmount: total,
-                proposedServiceDate: quoteForm.proposedServiceDate,
-                proposedServiceTime: quoteForm.proposedServiceTime,
-                portalLink: `${window.location.origin}/admin-portal/quotes`,
-              }),
-            });
+        // Notify admins — subcontractors may not have read access to adminUsers, so this is best-effort
+        try {
+          const adminsSnapshot = await getDocs(query(collection(db, 'adminUsers')));
+          for (const adminDoc of adminsSnapshot.docs) {
+            const adminData = adminDoc.data();
+            if (adminData.email) {
+              await fetch('/api/email/send-quote-notification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  toEmail: adminData.email,
+                  toName: adminData.fullName || 'Admin',
+                  workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+                  workOrderTitle: selectedBidding.workOrderTitle,
+                  subcontractorName: subData.fullName || subData.businessName,
+                  quoteAmount: total,
+                  proposedServiceDate: quoteForm.proposedServiceDate,
+                  proposedServiceTime: quoteForm.proposedServiceTime,
+                  portalLink: `${window.location.origin}/admin-portal/quotes`,
+                }),
+              });
+            }
           }
+        } catch {
+          // Expected: subcontractors lack permission to list adminUsers — notifications sent via notifyQuoteSubmission above
         }
       } catch (emailError) {
         console.error('Failed to send quote notification emails:', emailError);

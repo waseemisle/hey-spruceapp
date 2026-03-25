@@ -181,8 +181,12 @@ function ClientWorkOrdersContent() {
                   setWorkOrders(prev => mergeAndSort(prev, batchWorkOrders, batch));
                   setLoading(false);
                 },
-                (error) => {
-                  console.error('Error fetching work orders:', error);
+                (error: any) => {
+                  // locationId queries may be rejected by Firestore rules for non-admin users;
+                  // the clientId query below will still catch all work orders for this client
+                  if (!error?.code?.includes('permission-denied')) {
+                    console.error('Error fetching work orders:', error);
+                  }
                   setLoading(false);
                 }
               );

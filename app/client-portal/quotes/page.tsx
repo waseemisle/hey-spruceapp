@@ -11,6 +11,7 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { FileText, Check, X, Calendar, DollarSign, Search, Eye, GitCompare } from 'lucide-react';
 import QuoteComparison from '@/components/quote-comparison';
 import { toast } from 'sonner';
@@ -93,40 +94,48 @@ export default function ClientQuotes() {
         unsubscribeQuotes = onSnapshot(
           quotesQuery,
           async (snapshot) => {
-            const quotesData = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data(),
-            })) as Quote[];
+            try {
+              const quotesData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+              })) as Quote[];
 
-            if (clientAssignedLocations.length > 0) {
-              const workOrderIds = quotesData.map(q => q.workOrderId).filter(Boolean) as string[];
-              const workOrdersMap = new Map<string, any>();
+              if (clientAssignedLocations.length > 0) {
+                const workOrderIds = quotesData.map(q => q.workOrderId).filter(Boolean) as string[];
+                const workOrdersMap = new Map<string, any>();
 
-              if (workOrderIds.length > 0) {
-                const batchSize = 10;
-                for (let i = 0; i < workOrderIds.length; i += batchSize) {
-                  const batch = workOrderIds.slice(i, i + batchSize);
-                  const workOrdersQuery = query(
-                    collection(db, 'workOrders'),
-                    where(documentId(), 'in', batch)
-                  );
-                  const workOrdersSnapshot = await getDocs(workOrdersQuery);
-                  workOrdersSnapshot.docs.forEach(doc => {
-                    workOrdersMap.set(doc.id, doc.data());
-                  });
+                if (workOrderIds.length > 0) {
+                  const batchSize = 10;
+                  for (let i = 0; i < workOrderIds.length; i += batchSize) {
+                    const batch = workOrderIds.slice(i, i + batchSize);
+                    const workOrdersQuery = query(
+                      collection(db, 'workOrders'),
+                      where(documentId(), 'in', batch)
+                    );
+                    try {
+                      const workOrdersSnapshot = await getDocs(workOrdersQuery);
+                      workOrdersSnapshot.docs.forEach(doc => {
+                        workOrdersMap.set(doc.id, doc.data());
+                      });
+                    } catch {
+                      // Permission denied for some work orders — show all quotes for this client
+                    }
+                  }
                 }
+
+                const filteredQuotes = quotesData.filter(quote => {
+                  if (!quote.workOrderId) return true;
+                  const workOrder = workOrdersMap.get(quote.workOrderId);
+                  if (!workOrder) return true;
+                  return clientAssignedLocations.includes(workOrder.locationId);
+                });
+
+                setQuotes(filteredQuotes);
+              } else {
+                setQuotes(quotesData);
               }
-
-              const filteredQuotes = quotesData.filter(quote => {
-                if (!quote.workOrderId) return true;
-                const workOrder = workOrdersMap.get(quote.workOrderId);
-                if (!workOrder) return true;
-                return clientAssignedLocations.includes(workOrder.locationId);
-              });
-
-              setQuotes(filteredQuotes);
-            } else {
-              setQuotes(quotesData);
+            } catch (err) {
+              console.error('Error processing quotes snapshot:', err);
             }
 
             setLoading(false);
@@ -236,14 +245,24 @@ export default function ClientQuotes() {
               },
             });
 
-            // Best effort: create assigned job record (rules may restrict client writes here)
+            // Create assigned job record via API route (server-side, bypasses Firestore client rules)
             try {
-              await addDoc(collection(db, 'assignedJobs'), {
-                workOrderId: quote.workOrderId,
-                subcontractorId: quote.subcontractorId,
-                assignedAt: serverTimestamp(),
-                status: 'pending_acceptance',
+              const idToken = await auth.currentUser?.getIdToken();
+              const assignRes = await fetch('/api/work-orders/assign', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+                },
+                body: JSON.stringify({
+                  workOrderId: quote.workOrderId,
+                  subcontractorId: quote.subcontractorId,
+                }),
               });
+              if (!assignRes.ok) {
+                const err = await assignRes.json().catch(() => ({}));
+                console.error('assignedJobs API error:', err);
+              }
             } catch (assignedJobError) {
               console.error('Work order assigned, but assignedJobs record creation failed:', assignedJobError);
             }
@@ -444,22 +463,19 @@ export default function ClientQuotes() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
-            Filter by Status:
-          </label>
-          <select
-            id="status-filter"
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm font-medium text-gray-700 shrink-0">Filter by Status:</span>
+          <SearchableSelect
+            className="min-w-[200px]"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            {filterOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label} ({option.count})
-              </option>
-            ))}
-          </select>
+            onValueChange={setFilter}
+            options={filterOptions.map((option) => ({
+              value: option.value,
+              label: `${option.label} (${option.count})`,
+            }))}
+            placeholder="Filter status..."
+            aria-label="Filter quotes by status"
+          />
         </div>
 
         {filteredQuotes.length === 0 ? (
