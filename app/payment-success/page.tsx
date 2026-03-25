@@ -46,14 +46,15 @@ function PaymentSuccessContent() {
       // Fetch invoice details from your backend
       const response = await fetch(`/api/invoices/${invoiceId}`);
       if (response.ok) {
-        const invoice = await response.json();
+        const result = await response.json();
+        const invoice = result.data ?? result;
         setPaymentDetails({
-          amount: invoice.totalAmount,
+          amount: Number(invoice.totalAmount ?? invoice.amount ?? 0) || 0,
           currency: 'USD',
           status: 'paid',
-          invoiceNumber: invoice.invoiceNumber,
-          clientName: invoice.clientName,
-          paidAt: new Date().toLocaleDateString(),
+          invoiceNumber: invoice.invoiceNumber ?? 'N/A',
+          clientName: invoice.clientName ?? 'N/A',
+          paidAt: invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString() : new Date().toLocaleDateString(),
         });
       } else {
         // Fallback to basic details if API fails
@@ -143,7 +144,7 @@ function PaymentSuccessContent() {
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <span className="text-sm font-medium text-gray-700">Amount</span>
                 <span className="text-sm font-semibold text-gray-900">
-                  ${paymentDetails.amount.toFixed(2)} {paymentDetails.currency}
+                  ${(paymentDetails.amount || 0).toFixed(2)} {paymentDetails.currency}
                 </span>
               </div>
 
