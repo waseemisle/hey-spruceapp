@@ -84,10 +84,11 @@ export default function ClientQuotes() {
         const clientAssignedLocations = clientData?.assignedLocations || [];
         setAssignedLocations(clientAssignedLocations);
 
+        // Avoid compound where+orderBy that requires a composite index and may
+        // trigger Firestore permission errors; filter status client-side instead.
         const quotesQuery = query(
           collection(db, 'quotes'),
           where('clientId', '==', user.uid),
-          where('status', 'in', ['sent_to_client', 'accepted', 'rejected']),
           orderBy('createdAt', 'desc')
         );
 
@@ -95,10 +96,14 @@ export default function ClientQuotes() {
           quotesQuery,
           async (snapshot) => {
             try {
-              const quotesData = snapshot.docs.map(doc => ({
+              const allQuotes = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
               })) as Quote[];
+              // Filter status client-side (removed from query to avoid compound index requirement)
+              const quotesData = allQuotes.filter(q =>
+                ['sent_to_client', 'accepted', 'rejected'].includes(q.status)
+              );
 
               if (clientAssignedLocations.length > 0) {
                 const workOrderIds = quotesData.map(q => q.workOrderId).filter(Boolean) as string[];

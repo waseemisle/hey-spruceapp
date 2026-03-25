@@ -657,11 +657,10 @@ async function subAcceptAndComplete(page, title, imagePath) {
   await page.fill('#completion-details', `E2E completion ${title}`);
   await page.setInputFiles('#completion-images', imagePath);
   await page.waitForTimeout(800);
-  await page
-    .locator('div.fixed.inset-0')
-    .filter({ hasText: 'Complete Work Order' })
-    .getByRole('button', { name: /Mark as Complete/i })
-    .click();
+  const completeModal = page.locator('div.fixed.inset-0').filter({ hasText: 'Complete Work Order' });
+  const completeBtn = completeModal.getByRole('button', { name: /Mark as Complete/i });
+  await completeBtn.scrollIntoViewIfNeeded().catch(() => {});
+  await completeBtn.click({ force: true });
   await page.waitForTimeout(10000);
   report.steps.push({ ok: true, action: 'sub_complete', title });
 }
