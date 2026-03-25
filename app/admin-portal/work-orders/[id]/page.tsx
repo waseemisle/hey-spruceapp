@@ -153,6 +153,9 @@ export default function ViewWorkOrder() {
   const [assignSubmitting, setAssignSubmitting] = useState(false);
   const [assignFromQuote, setAssignFromQuote] = useState<Quote | null>(null);
 
+  // One-click invoice creation
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
+
   // Share quote with client modal
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareQuote, setShareQuote] = useState<Quote | null>(null);
@@ -651,6 +654,189 @@ export default function ViewWorkOrder() {
     }
   };
 
+  const handleCreateInvoice = async () => {
+    if (!workOrder) return;
+    setCreatingInvoice(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { toast.error('You must be logged in'); return; }
+
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const createdByName = adminDoc.exists() ? (adminDoc.data()?.fullName ?? 'Admin') : 'Admin';
+
+      // Find the approved quote — prefer approvedQuoteId stored on work order
+      let approvedQuote: Quote | null = null;
+      const woData = (await getDoc(doc(db, 'workOrders', workOrder.id))).data();
+      const approvedQuoteId = woData?.approvedQuoteId;
+
+      if (approvedQuoteId) {
+        const qDoc = await getDoc(doc(db, 'quotes', approvedQuoteId));
+        if (qDoc.exists()) approvedQuote = { id: qDoc.id, ...qDoc.data() } as Quote;
+      }
+
+      // Fall back: find first accepted quote for this work order
+      if (!approvedQuote) {
+        approvedQuote = quotes.find(q => q.status === 'accepted') || quotes[0] || null;
+      }
+
+      // Build line items from quote or a single line item from work order amount
+      let lineItems: Array<{ description: string; quantity: number; unitPrice: number; amount: number }> = [];
+      let totalAmount = 0;
+
+      if (approvedQuote) {
+        const clientAmount = approvedQuote.clientAmount || approvedQuote.totalAmount || 0;
+        if (approvedQuote.lineItems && approvedQuote.lineItems.length > 0) {
+          // Scale line items proportionally to client amount
+          const scale = approvedQuote.totalAmount > 0 ? clientAmount / approvedQuote.totalAmount : 1;
+          lineItems = approvedQuote.lineItems.map(li => ({
+            description: li.description,
+            quantity: li.quantity,
+            unitPrice: parseFloat((li.unitPrice * scale).toFixed(2)),
+            amount: parseFloat((li.amount * scale).toFixed(2)),
+          }));
+        } else {
+          lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: clientAmount, amount: clientAmount }];
+        }
+        totalAmount = lineItems.reduce((s, li) => s + li.amount, 0);
+      } else {
+        // No quote — use budget or 0
+        const amt = woData?.approvedQuoteAmount || workOrder.estimateBudget || 0;
+        lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: amt, amount: amt }];
+        totalAmount = amt;
+      }
+
+      // Due date: 30 days from now
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
+
+      const invoiceRef = await addDoc(collection(db, 'invoices'), {
+        invoiceNumber,
+        clientId: workOrder.clientId,
+        clientName: workOrder.clientName,
+        clientEmail: workOrder.clientEmail,
+        workOrderId: workOrder.id,
+        workOrderTitle: workOrder.title,
+        workOrderDescription: workOrder.description || '',
+        category: workOrder.category || '',
+        priority: workOrder.priority || '',
+        status: 'sent',
+        totalAmount,
+        lineItems,
+        dueDate,
+        notes: '',
+        terms: 'Payment due within 30 days of invoice date.',
+        createdBy: currentUser.uid,
+        createdByName,
+        creationSource: 'work_order_quick_create',
+        systemInformation: {
+          createdBy: { id: currentUser.uid, name: createdByName, role: 'admin', timestamp: new Date() },
+        },
+        timeline: [{
+          id: `created_${Date.now()}`,
+          timestamp: new Date(),
+          type: 'created',
+          userId: currentUser.uid,
+          userName: createdByName,
+          userRole: 'admin',
+          details: `Invoice created from work order by ${createdByName}`,
+          metadata: { source: 'work_order_quick_create', invoiceNumber },
+        }],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Try auto-charge for Fixed Auto-Charge Plan clients
+      let autoCharged = false;
+      if (totalAmount > 0) {
+        try {
+          const clientDoc = await getDoc(doc(db, 'clients', workOrder.clientId));
+          if (clientDoc.exists()) {
+            const cd = clientDoc.data();
+            const hasFixedPlan = cd.stripeSubscriptionId && cd.subscriptionStatus === 'active';
+            const planAmount = Number(cd.subscriptionAmount);
+            const amountsMatch = Number.isFinite(planAmount) && planAmount > 0 && Math.abs(totalAmount - planAmount) < 0.01;
+            if (hasFixedPlan && amountsMatch && cd.defaultPaymentMethodId) {
+              const chargeRes = await fetch('/api/stripe/charge-saved-card', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceId: invoiceRef.id, clientId: workOrder.clientId }),
+              });
+              const chargeData = await chargeRes.json();
+              if (chargeRes.ok && chargeData.status === 'succeeded') {
+                autoCharged = true;
+              }
+            }
+          }
+        } catch { /* non-fatal */ }
+      }
+
+      // Generate Stripe payment link
+      let stripePaymentLink: string | null = null;
+      if (!autoCharged && totalAmount > 0) {
+        try {
+          const res = await fetch('/api/stripe/create-payment-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              invoiceId: invoiceRef.id,
+              invoiceNumber,
+              amount: totalAmount,
+              customerEmail: workOrder.clientEmail,
+              clientName: workOrder.clientName,
+              clientId: workOrder.clientId,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok && data.paymentLink) {
+            stripePaymentLink = data.paymentLink;
+            await updateDoc(doc(db, 'invoices', invoiceRef.id), {
+              stripePaymentLink: data.paymentLink,
+              stripeSessionId: data.sessionId,
+            });
+          }
+        } catch { /* non-fatal */ }
+      }
+
+      // Send invoice email to client
+      try {
+        await fetch('/api/email/send-invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: workOrder.clientEmail,
+            toName: workOrder.clientName,
+            invoiceNumber,
+            workOrderTitle: workOrder.title,
+            totalAmount,
+            dueDate: dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            lineItems,
+            stripePaymentLink,
+          }),
+        });
+      } catch (emailErr) {
+        console.error('Invoice email failed (non-fatal):', emailErr);
+      }
+
+      // Update work order status to completed
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        status: 'completed',
+        updatedAt: serverTimestamp(),
+      });
+
+      toast.success(`Invoice ${invoiceNumber} created and emailed to ${workOrder.clientEmail}`);
+
+      // Navigate to the new invoice
+      window.location.href = `/admin-portal/invoices/${invoiceRef.id}`;
+    } catch (err: any) {
+      console.error('Error creating invoice:', err);
+      toast.error(err.message || 'Failed to create invoice');
+    } finally {
+      setCreatingInvoice(false);
+    }
+  };
+
   const handleShareWithClient = async () => {
     if (!shareQuote || !workOrder) return;
     const markup = parseFloat(shareMarkup) || 0;
@@ -988,12 +1174,15 @@ export default function ViewWorkOrder() {
               </Button>
             )}
             {workOrder.status === 'pending_invoice' && (
-              <Link href={`/admin-portal/invoices/new?workOrderId=${workOrder.id}`}>
-                <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
-                  <Receipt className="h-4 w-4 mr-2" />
-                  Create Invoice
-                </Button>
-              </Link>
+              <Button
+                size="sm"
+                className="bg-orange-600 hover:bg-orange-700"
+                onClick={handleCreateInvoice}
+                disabled={creatingInvoice}
+              >
+                <Receipt className="h-4 w-4 mr-2" />
+                {creatingInvoice ? 'Creating Invoice...' : 'Create Invoice'}
+              </Button>
             )}
             {workOrder.status === 'completed' && workOrder.ratingCompleteToSpecs === undefined && (
               <Button size="sm" onClick={() => setShowRatingDialog(true)}>
