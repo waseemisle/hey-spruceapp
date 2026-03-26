@@ -228,8 +228,13 @@ export default function SubcontractorDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: sub.email, fullName: sub.fullName, role: 'subcontractor', uid: sub.uid }),
       });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed'); }
-      toast.success('Invitation email resent successfully!');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      if (data.legacyReset) {
+        toast.warning('A password reset email was sent via Firebase. To send the branded GroundOps invitation email, delete and recreate this account.');
+      } else {
+        toast.success('Invitation email resent successfully!');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to resend invitation');
     } finally {
