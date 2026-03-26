@@ -389,65 +389,60 @@ export default function AdminSupportTicketsPage() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ticket #</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Submitter</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Category</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Priority</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Assigned</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last activity</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Comments</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {pageSlice.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center text-muted-foreground">No tickets match filters.</td>
-                </tr>
-              ) : (
-                pageSlice.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="hover:bg-muted cursor-pointer transition-colors"
+        {pageSlice.length === 0 ? (
+          <div className="py-16 text-center text-muted-foreground">No tickets match filters.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pageSlice.map((t) => (
+              <div
+                key={t.id}
+                className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+              >
+                {/* Row 1: title + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-foreground text-sm leading-snug line-clamp-2 flex-1">{t.title}</span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${statusBadgeClass(t.status)}`}>
+                    {SUPPORT_STATUS_LABELS[t.status] || t.status}
+                  </span>
+                </div>
+
+                {/* Row 2: secondary info */}
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate">{t.submittedByName}</span>
+                    <Badge variant="outline" className="text-[10px] capitalize shrink-0">{t.submittedByRole}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityBadgeClass(t.priority)}`}>
+                      {t.priority}
+                    </span>
+                    <span>{SUPPORT_CATEGORY_LABELS[t.category] || t.category}</span>
+                    <span className="font-mono text-xs">{t.ticketNumber}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {t.assignedToName && <span>Assigned: {t.assignedToName}</span>}
+                    {t.commentCount != null && <span>{t.commentCount} comment{t.commentCount !== 1 ? 's' : ''}</span>}
+                  </div>
+                  <div>
+                    {t.lastActivityAt && typeof (t.lastActivityAt as { toDate?: () => Date }).toDate === 'function'
+                      ? (t.lastActivityAt as { toDate: () => Date }).toDate().toLocaleString()
+                      : '—'}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="border-t border-border pt-1 flex items-center gap-1">
+                  <Button
+                    className="flex-1 h-8 text-xs gap-1"
                     onClick={() => { window.location.href = `/admin-portal/support-tickets/${t.id}`; }}
                   >
-                    <td className="px-4 py-3 font-mono text-xs">{t.ticketNumber}</td>
-                    <td className="px-4 py-3 max-w-[200px] truncate font-medium text-foreground">{t.title}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        <span>{t.submittedByName}</span>
-                        <Badge variant="outline" className="w-fit text-[10px] capitalize">{t.submittedByRole}</Badge>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">{SUPPORT_CATEGORY_LABELS[t.category] || t.category}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${priorityBadgeClass(t.priority)}`}>
-                        {t.priority}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex text-xs font-medium px-2 py-0.5 rounded-full border ${statusBadgeClass(t.status)}`}>
-                        {SUPPORT_STATUS_LABELS[t.status] || t.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{t.assignedToName || '—'}</td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {t.lastActivityAt && typeof (t.lastActivityAt as { toDate?: () => Date }).toDate === 'function'
-                        ? (t.lastActivityAt as { toDate: () => Date }).toDate().toLocaleString()
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3">{t.commentCount ?? 0}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    View
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {filtered.length > rowsPerPage && (
           <div className="flex items-center justify-between text-sm text-muted-foreground">

@@ -5,7 +5,7 @@ import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestor
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { FileText, Calendar, DollarSign, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 
@@ -173,157 +173,80 @@ export default function SubcontractorQuotes() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredQuotes.map((quote) => {
               const statusInfo = getStatusBadge(quote);
               const StatusIcon = statusInfo.icon;
 
               return (
-                <Card key={quote.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-xl mb-2">{quote.workOrderTitle}</CardTitle>
-                        {quote.workOrderNumber && (
-                          <p className="text-sm text-muted-foreground">WO: {quote.workOrderNumber}</p>
-                        )}
-                        <p className="text-sm text-muted-foreground">Client: {quote.clientName}</p>
-                      </div>
-                      <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${statusInfo.style}`}>
-                        <StatusIcon className="h-4 w-4" />
-                        {statusInfo.text}
-                      </div>
+                <div
+                  key={quote.id}
+                  className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+                >
+                  {/* Row 1: title + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground text-sm truncate">{quote.workOrderTitle}</p>
+                      {quote.workOrderNumber && (
+                        <p className="text-xs text-muted-foreground">WO: {quote.workOrderNumber}</p>
+                      )}
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Quote Amount</p>
-                          <p className="text-2xl font-bold text-foreground">
-                            ${(quote.totalAmount || 0).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
+                    <span className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${statusInfo.style}`}>
+                      <StatusIcon className="h-3 w-3" />
+                      {statusInfo.text}
+                    </span>
+                  </div>
 
-                      <div>
-                        <p className="text-sm text-muted-foreground">Estimated Duration</p>
-                        <p className="text-lg font-semibold text-foreground">{quote.estimatedDuration || 'N/A'}</p>
-                      </div>
+                  {/* Row 2: secondary info */}
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    <span className="truncate">Client: {quote.clientName}</span>
+                    <span className="flex items-center gap-1">
+                      <DollarSign className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                      <span className="font-semibold text-foreground">${(quote.totalAmount || 0).toFixed(2)}</span>
+                      <span className="text-muted-foreground">total</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5 shrink-0" />
+                      Submitted {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                    </span>
+                    {quote.estimatedDuration && (
+                      <span className="truncate">Duration: {quote.estimatedDuration}</span>
+                    )}
+                  </div>
 
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Submitted</p>
-                          <p className="text-sm font-medium text-foreground">
-                            {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                          </p>
-                        </div>
-                      </div>
+                  {/* Cost breakdown */}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span>Labor: <span className="font-semibold text-foreground">${(quote.laborCost || 0).toFixed(2)}</span></span>
+                    <span>Materials: <span className="font-semibold text-foreground">${(quote.materialCost || 0).toFixed(2)}</span></span>
+                  </div>
+
+                  {quote.forwardedToClient && quote.clientAmount && quote.markupPercent && (
+                    <div className="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                      Client amount: <span className="font-bold">${(quote.clientAmount || 0).toFixed(2)}</span>
+                      <span className="ml-1 text-blue-600">({(quote.markupPercent || 0).toFixed(1)}% markup)</span>
                     </div>
+                  )}
 
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-foreground mb-3">Cost Breakdown</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Labor Cost</p>
-                          <p className="font-semibold">${(quote.laborCost || 0).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Material Cost</p>
-                          <p className="font-semibold">${(quote.materialCost || 0).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Total</p>
-                          <p className="font-semibold">${(quote.totalAmount || 0).toFixed(2)}</p>
-                        </div>
-                      </div>
+                  {quote.status === 'rejected' && quote.rejectionReason && (
+                    <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                      <span className="font-semibold">Rejected: </span>{quote.rejectionReason}
                     </div>
+                  )}
 
-                    {quote.forwardedToClient && quote.clientAmount && quote.markupPercent && (
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold text-foreground mb-2">Client Pricing</h4>
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <p className="text-muted-foreground">Your Quote</p>
-                              <p className="font-semibold">${(quote.totalAmount || 0).toFixed(2)}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Markup ({(quote.markupPercent || 0).toFixed(1)}%)</p>
-                              <p className="font-semibold">${((quote.clientAmount || 0) - (quote.totalAmount || 0)).toFixed(2)}</p>
-                            </div>
-                            <div className="col-span-2">
-                              <p className="text-muted-foreground">Client Amount</p>
-                              <p className="text-xl font-bold text-blue-600">${(quote.clientAmount || 0).toFixed(2)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                  {quote.status === 'accepted' && quote.acceptedAt && (
+                    <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-800 flex items-center gap-1">
+                      <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                      Accepted on {quote.acceptedAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                    </div>
+                  )}
 
-                    {quote.lineItems && quote.lineItems.length > 0 && (
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead className="bg-muted">
-                              <tr>
-                                <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
-                                <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
-                                <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
-                                <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                              {quote.lineItems.map((item, idx) => (
-                                <tr key={idx}>
-                                  <td className="px-4 py-2">{item.description}</td>
-                                  <td className="px-4 py-2 text-center">{item.quantity || 0}</td>
-                                  <td className="px-4 py-2 text-right">${(item.rate || 0).toFixed(2)}</td>
-                                  <td className="px-4 py-2 text-right font-semibold">${(item.amount || 0).toFixed(2)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
+                  {quote.notes && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{quote.notes}</p>
+                  )}
 
-                    {quote.notes && (
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold text-foreground mb-2">Additional Notes</h4>
-                        <p className="text-sm text-foreground">{quote.notes}</p>
-                      </div>
-                    )}
-
-                    {quote.status === 'rejected' && quote.rejectionReason && (
-                      <div className="border-t pt-4">
-                        <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                          <h4 className="font-semibold text-red-800 mb-2">Rejection Reason</h4>
-                          <p className="text-sm text-red-700">{quote.rejectionReason}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {quote.status === 'accepted' && quote.acceptedAt && (
-                      <div className="border-t pt-4">
-                        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-5 w-5 text-green-600" />
-                            <div>
-                              <p className="font-semibold text-green-800">Quote Accepted!</p>
-                              <p className="text-sm text-green-700">
-                                Accepted on {quote.acceptedAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  {/* Actions row */}
+                  <div className="border-t border-border pt-1 mt-auto" />
+                </div>
               );
             })}
           </div>

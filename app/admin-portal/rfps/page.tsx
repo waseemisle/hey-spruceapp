@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
@@ -52,46 +51,49 @@ export default function RFPsPage() {
           <p className="text-muted-foreground">Request for Proposals — competitive bids and work orders awaiting quotes</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Open RFPs / Bidding ({workOrders.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {workOrders.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <ClipboardList className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No open RFPs. Work orders in Bidding or Quotes Received appear here.</p>
-                <Link href="/admin-portal/work-orders">
-                  <Button variant="outline" className="mt-4">View Work Orders</Button>
-                </Link>
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground pb-1">
+          <FileText className="h-4 w-4" />
+          Open RFPs / Bidding ({workOrders.length})
+        </div>
+
+        {workOrders.length === 0 ? (
+          <div className="bg-card border border-border rounded-lg p-12 text-center text-muted-foreground">
+            <ClipboardList className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>No open RFPs. Work orders in Bidding or Quotes Received appear here.</p>
+            <Link href="/admin-portal/work-orders">
+              <Button variant="outline" className="mt-4">View Work Orders</Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {workOrders.map((wo) => (
+              <div key={wo.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Row 1: title + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {wo.workOrderNumber ? `${wo.workOrderNumber} — ` : ''}{wo.title}
+                  </p>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                    {wo.status.replace('_', ' ')}
+                  </span>
+                </div>
+                {/* Row 2: secondary info */}
+                <p className="text-sm text-muted-foreground truncate">
+                  {[wo.clientName, wo.locationName, wo.category].filter(Boolean).join(' · ')}
+                </p>
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 border-t border-border pt-1">
+                  <Link href={`/admin-portal/work-orders/${wo.id}`} className="flex-1">
+                    <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1">
+                      <FileText className="h-3.5 w-3.5" />
+                      View
+                    </Button>
+                  </Link>
+                </div>
               </div>
-            ) : (
-              <ul className="divide-y">
-                {workOrders.map((wo) => (
-                  <li key={wo.id} className="py-3 flex items-center justify-between gap-4">
-                    <div>
-                      <Link href={`/admin-portal/work-orders/${wo.id}`} className="font-medium text-primary hover:underline">
-                        {wo.workOrderNumber} — {wo.title}
-                      </Link>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {wo.clientName} · {wo.locationName} · {wo.category}
-                      </p>
-                    </div>
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                      {wo.status.replace('_', ' ')}
-                    </span>
-                    <Link href={`/admin-portal/work-orders/${wo.id}`}>
-                      <Button size="sm" variant="outline">View</Button>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Package, TrendingUp, AlertCircle, Wrench, Clock } from 'lucide-react';
 
@@ -95,154 +94,138 @@ export default function AssetManagementPage() {
         </div>
 
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Asset Portfolio</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">{workOrders.length}</p>
-                <p className="text-muted-foreground text-sm">Total work orders (proxy for asset-related activity)</p>
-                <p className="text-lg font-semibold mt-2">{underWarranty}</p>
-                <p className="text-muted-foreground text-sm">Under warranty</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Total Spend (invoices)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">${totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">Asset Portfolio</p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p className="text-3xl font-bold text-foreground">{workOrders.length}</p>
+                <p className="mt-1">Total work orders (proxy for asset-related activity)</p>
+                <p className="text-lg font-semibold text-foreground mt-2">{underWarranty}</p>
+                <p>Under warranty</p>
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">Total Spend (invoices)</p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p className="text-3xl font-bold text-foreground">${totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+              </div>
+            </div>
           </div>
         )}
 
         {activeTab === 'spend' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Spend Analysis by Category</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-md overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium">Category</th>
-                      <th className="px-4 py-2 text-right font-medium">WO Count</th>
-                      <th className="px-4 py-2 text-right font-medium">Spend</th>
+          <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
+            <p className="text-sm font-semibold text-foreground">Spend Analysis by Category</p>
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium">Category</th>
+                    <th className="px-4 py-2 text-right font-medium">WO Count</th>
+                    <th className="px-4 py-2 text-right font-medium">Spend</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {byCategory.map((row) => (
+                    <tr key={row.name}>
+                      <td className="px-4 py-2">{row.name}</td>
+                      <td className="px-4 py-2 text-right">{row.count}</td>
+                      <td className="px-4 py-2 text-right font-medium">${row.spend.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {byCategory.map((row) => (
-                      <tr key={row.name}>
-                        <td className="px-4 py-2">{row.name}</td>
-                        <td className="px-4 py-2 text-right">{row.count}</td>
-                        <td className="px-4 py-2 text-right font-medium">${row.spend.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {activeTab === 'condition' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Repair / Replace Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">Analysis based on category spend. Green = repair recommended; red = consider replace.</p>
-              <div className="mt-4 border rounded-md overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium w-8" aria-label="Recommendation" />
-                      <th className="px-4 py-2 text-left font-medium">Category / Asset</th>
-                      <th className="px-4 py-2 text-right font-medium">Spend</th>
-                      <th className="px-4 py-2 text-left font-medium">Recommendation</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {byCategory.slice(0, 15).map((row) => {
-                      const replaceThreshold = 5000;
-                      const recommendReplace = row.spend >= replaceThreshold;
-                      return (
-                        <tr key={row.name}>
-                          <td className="px-4 py-2">
-                            <span
-                              className={`inline-block w-3 h-3 rounded-full ${recommendReplace ? 'bg-red-500' : 'bg-green-500'}`}
-                              title={recommendReplace ? 'Consider replace' : 'Repair'}
-                            />
-                          </td>
-                          <td className="px-4 py-2">{row.name}</td>
-                          <td className="px-4 py-2 text-right font-medium">${row.spend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                          <td className="px-4 py-2 text-muted-foreground">
-                            {recommendReplace ? 'Consider replace' : 'Repair'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
+            <p className="text-sm font-semibold text-foreground">Repair / Replace Analysis</p>
+            <p className="text-muted-foreground text-sm">Analysis based on category spend. Green = repair recommended; red = consider replace.</p>
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium w-8" aria-label="Recommendation" />
+                    <th className="px-4 py-2 text-left font-medium">Category / Asset</th>
+                    <th className="px-4 py-2 text-right font-medium">Spend</th>
+                    <th className="px-4 py-2 text-left font-medium">Recommendation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {byCategory.slice(0, 15).map((row) => {
+                    const replaceThreshold = 5000;
+                    const recommendReplace = row.spend >= replaceThreshold;
+                    return (
+                      <tr key={row.name}>
+                        <td className="px-4 py-2">
+                          <span
+                            className={`inline-block w-3 h-3 rounded-full ${recommendReplace ? 'bg-red-500' : 'bg-green-500'}`}
+                            title={recommendReplace ? 'Consider replace' : 'Repair'}
+                          />
+                        </td>
+                        <td className="px-4 py-2">{row.name}</td>
+                        <td className="px-4 py-2 text-right font-medium">${row.spend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="px-4 py-2 text-muted-foreground">
+                          {recommendReplace ? 'Consider replace' : 'Repair'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {activeTab === 'wo-history' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>WO Detailed History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">Work orders by category (recent first).</p>
-              <ul className="mt-4 divide-y max-h-96 overflow-y-auto">
-                {workOrders
-                  .sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0))
-                  .slice(0, 50)
-                  .map((wo) => (
-                    <li key={wo.id} className="py-2 flex justify-between text-sm">
-                      <span>{wo.workOrderNumber} — {wo.title}</span>
-                      <span className="text-muted-foreground">{wo.category} · {wo.status}</span>
-                    </li>
-                  ))}
-              </ul>
-            </CardContent>
-          </Card>
+          <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
+            <p className="text-sm font-semibold text-foreground">WO Detailed History</p>
+            <p className="text-muted-foreground text-sm">Work orders by category (recent first).</p>
+            <ul className="divide-y max-h-96 overflow-y-auto">
+              {workOrders
+                .sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0))
+                .slice(0, 50)
+                .map((wo) => (
+                  <li key={wo.id} className="py-2 flex justify-between text-sm">
+                    <span>{wo.workOrderNumber} — {wo.title}</span>
+                    <span className="text-muted-foreground">{wo.category} · {wo.status}</span>
+                  </li>
+                ))}
+            </ul>
+          </div>
         )}
 
         {activeTab === 'resolution' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Resolution Time Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">Completed work orders: time from creation to completion.</p>
-              {workOrders.filter((w) => w.status === 'completed' && w.createdAt && w.completedAt).length === 0 ? (
-                <p className="text-muted-foreground mt-2">No completed work orders with dates to analyze.</p>
-              ) : (
-                <ul className="mt-4 space-y-2">
-                  {workOrders
-                    .filter((w) => w.status === 'completed' && w.createdAt && w.completedAt)
-                    .slice(0, 20)
-                    .map((wo) => {
-                      const created = toDate(wo.createdAt);
-                      const completed = toDate(wo.completedAt);
-                      const days = created && completed ? Math.round((completed.getTime() - created.getTime()) / 86400000) : null;
-                      return (
-                        <li key={wo.id} className="flex justify-between text-sm">
-                          <span>{wo.workOrderNumber}</span>
-                          <span>{days != null ? `${days} days` : '—'}</span>
-                        </li>
-                      );
-                    })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
+            <p className="text-sm font-semibold text-foreground">Resolution Time Analysis</p>
+            <p className="text-muted-foreground text-sm">Completed work orders: time from creation to completion.</p>
+            {workOrders.filter((w) => w.status === 'completed' && w.createdAt && w.completedAt).length === 0 ? (
+              <p className="text-muted-foreground">No completed work orders with dates to analyze.</p>
+            ) : (
+              <ul className="space-y-2">
+                {workOrders
+                  .filter((w) => w.status === 'completed' && w.createdAt && w.completedAt)
+                  .slice(0, 20)
+                  .map((wo) => {
+                    const created = toDate(wo.createdAt);
+                    const completed = toDate(wo.completedAt);
+                    const days = created && completed ? Math.round((completed.getTime() - created.getTime()) / 86400000) : null;
+                    return (
+                      <li key={wo.id} className="flex justify-between text-sm">
+                        <span>{wo.workOrderNumber}</span>
+                        <span>{days != null ? `${days} days` : '—'}</span>
+                      </li>
+                    );
+                  })}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </AdminLayout>

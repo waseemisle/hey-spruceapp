@@ -623,82 +623,75 @@ export default function SubcontractorBidding() {
             subtitle="Check back later for new bidding opportunities"
           />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredBiddingWorkOrders.map((bidding) => (
               <div
                 key={bidding.id}
-                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
               >
-                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
-                <div className="p-5 space-y-3">
-                  <div>
-                    <h3 className="font-semibold text-foreground text-base mb-1">{bidding.workOrderTitle}</h3>
+                {/* Row 1: title + priority badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground text-sm truncate">{bidding.workOrderTitle}</p>
                     {bidding.workOrderNumber && (
-                      <p className="text-xs text-muted-foreground mb-2">WO: {bidding.workOrderNumber}</p>
+                      <p className="text-xs text-muted-foreground">WO: {bidding.workOrderNumber}</p>
                     )}
-                    <div className="flex gap-1.5 flex-wrap">
-                      {bidding.priority && (
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${getPriorityBadge(bidding.priority)}`}>
-                          {bidding.priority} priority
-                        </span>
-                      )}
-                      {bidding.category && (
-                        <span className="inline-flex text-xs font-medium px-2 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-100">
-                          {bidding.category}
-                        </span>
-                      )}
-                    </div>
                   </div>
+                  {bidding.priority && (
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${getPriorityBadge(bidding.priority)}`}>
+                      {bidding.priority}
+                    </span>
+                  )}
+                </div>
 
-                  <div>
-                    <p className="text-sm font-medium text-foreground mb-0.5">Client</p>
-                    <p className="text-sm text-muted-foreground">{bidding.clientName}</p>
-                  </div>
-
+                {/* Row 2: secondary info */}
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <span className="truncate">Client: {bidding.clientName}</span>
                   {bidding.locationName && (
-                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div>{bidding.locationName}</div>
-                        {bidding.locationAddress && (
-                          <div className="text-xs text-muted-foreground">{formatAddress(bidding.locationAddress)}</div>
-                        )}
-                      </div>
-                    </div>
+                    <span className="flex items-center gap-1 truncate">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      {bidding.locationName}
+                      {bidding.locationAddress && ` · ${formatAddress(bidding.locationAddress)}`}
+                    </span>
                   )}
-
-                  <p className="text-sm text-muted-foreground line-clamp-3">{bidding.workOrderDescription}</p>
-
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>Shared {bidding.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
-                  </div>
-
-                  {bidding.images && bidding.images.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto">
-                      {bidding.images.map((image, idx) => (
-                        <img
-                          key={idx}
-                          src={image}
-                          alt={`Work order ${idx + 1}`}
-                          className="h-16 w-16 object-cover rounded-lg flex-shrink-0"
-                        />
-                      ))}
-                    </div>
+                  {bidding.category && (
+                    <span className="truncate">Category: {bidding.category}</span>
                   )}
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    Shared {bidding.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                  </span>
+                </div>
 
-                  <div className="pt-3 border-t border-border">
-                    <Button
-                      onClick={() => {
-                        setSelectedBidding(bidding);
-                        setShowQuoteForm(true);
-                      }}
-                      className="w-full gap-2"
-                    >
-                      <DollarSign className="h-3.5 w-3.5" />
-                      Submit Quote
-                    </Button>
+                {bidding.workOrderDescription && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">{bidding.workOrderDescription}</p>
+                )}
+
+                {bidding.images && bidding.images.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto">
+                    {bidding.images.map((image, idx) => (
+                      <img
+                        key={idx}
+                        src={image}
+                        alt={`Work order ${idx + 1}`}
+                        className="h-12 w-12 object-cover rounded flex-shrink-0"
+                      />
+                    ))}
                   </div>
+                )}
+
+                {/* Actions row */}
+                <div className="border-t border-border pt-1 flex gap-2 mt-auto">
+                  <Button
+                    className="flex-1 h-8 text-xs gap-1"
+                    onClick={() => {
+                      setSelectedBidding(bidding);
+                      setShowQuoteForm(true);
+                    }}
+                  >
+                    <DollarSign className="h-3.5 w-3.5" />
+                    Submit Quote
+                  </Button>
                 </div>
               </div>
             ))}

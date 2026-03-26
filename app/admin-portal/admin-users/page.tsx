@@ -229,57 +229,53 @@ export default function AdminUsersManagement() {
         {filteredAdmins.length === 0 ? (
           <EmptyState icon={User} title="No admin users found" subtitle="Try adjusting your search" />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredAdmins.map((admin) => (
-              <div
-                key={admin.uid}
-                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
-                <div className="p-5 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                    <h3 className="font-semibold text-foreground">{admin.fullName}</h3>
+              <div key={admin.uid} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Row 1: name + role badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{admin.fullName}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{admin.email}</p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="truncate">{admin.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span>{admin.phone}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-t border-border">
-                    <div className="flex items-center gap-2 text-sm text-foreground">
-                      <Bell className="h-4 w-4 text-blue-500" />
-                      <span>Work Order Emails</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleWorkOrderEmail(admin)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                        admin.workOrderEmailNotifications ? 'bg-blue-600' : 'bg-gray-300'
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold text-blue-700 bg-blue-50">Admin</span>
+                </div>
+                {/* Row 2: phone */}
+                <div className="flex items-center justify-between text-sm gap-2">
+                  <span className="text-muted-foreground truncate">{admin.phone}</span>
+                </div>
+                {/* Row 3: email notifications toggle */}
+                <div className="flex items-center justify-between text-sm gap-2 py-1 border-t border-border">
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Bell className="h-3.5 w-3.5" />
+                    WO Emails
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleWorkOrderEmail(admin)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shrink-0 ${
+                      admin.workOrderEmailNotifications ? 'bg-blue-600' : 'bg-muted-foreground/30'
+                    }`}
+                    title={admin.workOrderEmailNotifications ? 'Disable work order email notifications' : 'Enable work order email notifications'}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        admin.workOrderEmailNotifications ? 'translate-x-4' : 'translate-x-0.5'
                       }`}
-                      title={admin.workOrderEmailNotifications ? 'Disable work order email notifications' : 'Enable work order email notifications'}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform ${
-                          admin.workOrderEmailNotifications ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                  <div className="flex gap-2 pt-3 border-t border-border">
-                    <Button size="sm" variant="outline" className="flex-1 gap-2" onClick={() => handleOpenEdit(admin)}>
-                      <Edit2 className="h-3.5 w-3.5" />
-                      Edit
+                    />
+                  </button>
+                </div>
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                  <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => handleOpenEdit(admin)}>
+                    <Edit2 className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                  {auth.currentUser?.uid !== admin.uid && (
+                    <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleDeleteAdmin(admin)}>
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                    {auth.currentUser?.uid !== admin.uid && (
-                      <Button size="sm" variant="destructive" onClick={() => handleDeleteAdmin(admin)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             ))}

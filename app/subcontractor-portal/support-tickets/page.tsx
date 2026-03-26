@@ -297,52 +297,55 @@ export default function SubcontractorSupportTicketsPage() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ticket #</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Category</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Priority</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last update</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Comments</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {pageSlice.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">No tickets yet.</td></tr>
-              ) : (
-                pageSlice.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="hover:bg-muted cursor-pointer"
-                    onClick={() => { window.location.href = `/subcontractor-portal/support-tickets/${t.id}`; }}
+        {pageSlice.length === 0 ? (
+          <div className="py-12 text-center text-muted-foreground text-sm">No tickets yet.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pageSlice.map((t) => (
+              <div
+                key={t.id}
+                className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => { window.location.href = `/subcontractor-portal/support-tickets/${t.id}`; }}
+              >
+                {/* Row 1: title + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground text-sm truncate">{t.title}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{t.ticketNumber}</p>
+                  </div>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${statusClass(t.status)}`}>
+                    {SUPPORT_STATUS_LABELS[t.status]}
+                  </span>
+                </div>
+
+                {/* Row 2: secondary info */}
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <span className="truncate">Category: {SUPPORT_CATEGORY_LABELS[t.category]}</span>
+                  <span>
+                    Last update:{' '}
+                    {t.lastActivityAt && typeof (t.lastActivityAt as { toDate?: () => Date }).toDate === 'function'
+                      ? (t.lastActivityAt as { toDate: () => Date }).toDate().toLocaleDateString()
+                      : '—'}
+                  </span>
+                  <span>Comments: {t.commentCount ?? 0}</span>
+                </div>
+
+                {/* Actions row */}
+                <div className="border-t border-border pt-1 flex gap-2 mt-auto">
+                  <button
+                    className="flex-1 h-8 text-xs gap-1 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors"
+                    onClick={(e) => { e.stopPropagation(); window.location.href = `/subcontractor-portal/support-tickets/${t.id}`; }}
                   >
-                    <td className="px-4 py-3 font-mono text-xs">{t.ticketNumber}</td>
-                    <td className="px-4 py-3 font-medium max-w-[200px] truncate">{t.title}</td>
-                    <td className="px-4 py-3">{SUPPORT_CATEGORY_LABELS[t.category]}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${priorityClass(t.priority)}`}>{t.priority}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${statusClass(t.status)}`}>
-                        {SUPPORT_STATUS_LABELS[t.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {t.lastActivityAt && typeof (t.lastActivityAt as { toDate?: () => Date }).toDate === 'function'
-                        ? (t.lastActivityAt as { toDate: () => Date }).toDate().toLocaleString()
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3">{t.commentCount ?? 0}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    View Ticket
+                  </button>
+                  <span className={`shrink-0 self-center px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityClass(t.priority)}`}>
+                    {t.priority}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {filtered.length > rowsPerPage && (
           <div className="flex items-center justify-between text-sm text-muted-foreground">

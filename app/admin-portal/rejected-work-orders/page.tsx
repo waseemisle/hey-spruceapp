@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { XCircle, Search, Eye, Calendar, User } from 'lucide-react';
@@ -130,99 +129,73 @@ export default function RejectedWorkOrders() {
         </div>
 
         {/* Rejected Work Orders Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredWorkOrders.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No rejected work orders found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredWorkOrders.map((workOrder) => (
-              <Card key={workOrder.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-red-500">
-                <CardHeader>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <CardTitle className="text-lg line-clamp-2 flex-1">{workOrder.title}</CardTitle>
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(workOrder.priority)}`}>
-                        {(workOrder.priority || 'medium').toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-semibold">
-                        REJECTED
-                      </span>
-                      <span className="px-2 py-1 rounded bg-muted text-foreground text-xs font-semibold">
-                        {workOrder.workOrderNumber}
-                      </span>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground line-clamp-2">{workOrder.description}</p>
+        {filteredWorkOrders.length === 0 ? (
+          <div className="py-16 text-center text-muted-foreground">
+            <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p>No rejected work orders found</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredWorkOrders.map((workOrder) => (
+              <div
+                key={workOrder.id}
+                className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+              >
+                {/* Row 1: title + priority badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-foreground text-sm leading-snug line-clamp-2 flex-1">{workOrder.title}</span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getPriorityColor(workOrder.priority)}`}>
+                    {(workOrder.priority || 'medium').toUpperCase()}
+                  </span>
+                </div>
 
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <span className="font-semibold">Client:</span> <span className="text-foreground">{workOrder.clientName}</span>
-                    </div>
-                    {workOrder.appyRequestor && (
-                      <div className="text-sm">
-                        <span className="font-semibold">APPY Requestor:</span> <span className="text-foreground">{workOrder.appyRequestor}</span>
-                      </div>
-                    )}
-                    <div className="text-sm">
-                      <span className="font-semibold">Category:</span> <span className="text-foreground">{workOrder.category}</span>
-                    </div>
-                    {workOrder.estimateBudget && (
-                      <div className="text-sm">
-                        <span className="font-semibold">Estimate Budget:</span> <span className="text-foreground">${workOrder.estimateBudget.toLocaleString()}</span>
-                      </div>
-                    )}
+                {/* Row 2: secondary info */}
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">REJECTED</span>
+                    <span className="font-mono text-xs">{workOrder.workOrderNumber}</span>
                   </div>
-
-                  {/* Rejection Info */}
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
-                    <div className="flex items-start gap-2">
-                      <XCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-red-900 text-sm mb-1">Rejection Reason</h3>
-                        <p className="text-sm text-red-800">{workOrder.rejectionReason || 'No reason provided'}</p>
-                      </div>
+                  <div>Client: <span className="text-foreground">{workOrder.clientName}</span></div>
+                  {workOrder.appyRequestor && (
+                    <div>APPY Requestor: <span className="text-foreground">{workOrder.appyRequestor}</span></div>
+                  )}
+                  <div>Category: <span className="text-foreground">{workOrder.category}</span></div>
+                  {workOrder.estimateBudget != null && (
+                    <div>Budget: <span className="text-foreground">${workOrder.estimateBudget.toLocaleString()}</span></div>
+                  )}
+                  <div className="bg-red-50 border border-red-200 rounded p-2 mt-1">
+                    <div className="flex items-start gap-1.5">
+                      <XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" />
+                      <span className="text-red-800 text-xs line-clamp-2">{workOrder.rejectionReason || 'No reason provided'}</span>
                     </div>
                     {workOrder.rejectedAt && (
-                      <div className="flex items-center gap-2 text-xs text-red-700 pt-2 border-t border-red-200">
+                      <div className="flex items-center gap-1 text-xs text-red-700 mt-1">
                         <Calendar className="h-3 w-3" />
-                        <span>Rejected on {workOrder.rejectedAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</span>
+                        <span>Rejected {workOrder.rejectedAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</span>
                       </div>
                     )}
                   </div>
-
-                  {/* Timeline */}
-                  <div className="pt-3 border-t space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3 w-3" />
-                      <span>Created: {workOrder.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</span>
-                    </div>
+                  <div className="flex items-center gap-1 text-xs">
+                    <Calendar className="h-3 w-3" />
+                    <span>Created: {workOrder.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</span>
                   </div>
+                </div>
 
-                  {/* Action Buttons */}
-                  <div className="pt-3 border-t">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+                {/* Actions */}
+                <div className="border-t border-border pt-1 flex items-center gap-1">
+                  <Button
+                    className="flex-1 h-8 text-xs gap-1"
+                    variant="outline"
+                    onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View Details
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

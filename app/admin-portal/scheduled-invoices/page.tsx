@@ -725,67 +725,79 @@ export default function ScheduledInvoicesManagement() {
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedScheduledInvoices.map((schedule) => (
-              <Card key={schedule.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{schedule.title}</CardTitle>
-                    {schedule.isActive ? (
-                      <ToggleRight className="h-6 w-6 text-green-600" />
-                    ) : (
-                      <ToggleLeft className="h-6 w-6 text-muted-foreground" />
-                    )}
+              <div
+                key={schedule.id}
+                className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+              >
+                {/* Row 1: title + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-foreground text-sm leading-snug line-clamp-2 flex-1">{schedule.title}</span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    schedule.isActive ? 'bg-green-50 text-green-700' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {schedule.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+
+                {/* Row 2: secondary info */}
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <div>{schedule.clientName}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-foreground">${schedule.amount.toLocaleString()}</span>
+                    <span className="capitalize">{schedule.frequency}</span>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-1 text-sm">
-                    <div><span className="font-semibold">Client:</span> {schedule.clientName}</div>
-                    <div><span className="font-semibold">Amount:</span> ${schedule.amount.toLocaleString()}</div>
-                    <div><span className="font-semibold">Frequency:</span> {schedule.frequency}</div>
-                    <div><span className="font-semibold">Status:</span> {schedule.isActive ? 'Active' : 'Inactive'}</div>
-                    {schedule.nextExecution && (
-                      <div>
-                        <span className="font-semibold">Next:</span>{' '}
-                        {schedule.nextExecution.toDate?.()?.toLocaleDateString?.() || 'N/A'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => handleOpenEdit(schedule)}>
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => executeNow(schedule)}
-                      disabled={executing === schedule.id}
-                    >
-                      <Play className="h-4 w-4 mr-2" />
-                      {executing === schedule.id ? 'Executing...' : 'Execute'}
-                    </Button>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => toggleActive(schedule.id, schedule.isActive)}
-                    >
-                      Toggle
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="flex-1"
-                      onClick={() => deleteSchedule(schedule.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                  {schedule.nextExecution && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      <span>Next: {schedule.nextExecution.toDate?.()?.toLocaleDateString?.() || 'N/A'}</span>
+                    </div>
+                  )}
+                  {schedule.lastExecution && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      <span>Last: {schedule.lastExecution.toDate?.()?.toLocaleDateString?.() || 'N/A'}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="border-t border-border pt-1 flex items-center gap-1">
+                  <Button
+                    className="flex-1 h-8 text-xs gap-1"
+                    onClick={() => executeNow(schedule)}
+                    disabled={executing === schedule.id}
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    {executing === schedule.id ? 'Running…' : 'Execute'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 px-2"
+                    onClick={() => handleOpenEdit(schedule)}
+                    title="Edit"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 px-2"
+                    onClick={() => toggleActive(schedule.id, schedule.isActive)}
+                    title={schedule.isActive ? 'Deactivate' : 'Activate'}
+                  >
+                    {schedule.isActive ? <ToggleRight className="h-3.5 w-3.5 text-green-600" /> : <ToggleLeft className="h-3.5 w-3.5" />}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="h-8 px-2"
+                    onClick={() => deleteSchedule(schedule.id)}
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         )}

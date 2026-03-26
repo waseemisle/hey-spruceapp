@@ -298,52 +298,52 @@ export default function ClientSupportTicketsPage() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ticket #</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Category</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Priority</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last update</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Comments</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {pageSlice.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">No tickets yet.</td></tr>
-              ) : (
-                pageSlice.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="hover:bg-muted cursor-pointer"
-                    onClick={() => { window.location.href = `/client-portal/support-tickets/${t.id}`; }}
-                  >
-                    <td className="px-4 py-3 font-mono text-xs">{t.ticketNumber}</td>
-                    <td className="px-4 py-3 font-medium max-w-[200px] truncate">{t.title}</td>
-                    <td className="px-4 py-3">{SUPPORT_CATEGORY_LABELS[t.category]}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${priorityClass(t.priority)}`}>{t.priority}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${statusClass(t.status)}`}>
-                        {SUPPORT_STATUS_LABELS[t.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {t.lastActivityAt && typeof (t.lastActivityAt as { toDate?: () => Date }).toDate === 'function'
-                        ? (t.lastActivityAt as { toDate: () => Date }).toDate().toLocaleString()
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3">{t.commentCount ?? 0}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        {pageSlice.length === 0 ? (
+          <div className="bg-card border border-border rounded-lg p-12 text-center text-muted-foreground">
+            No tickets yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pageSlice.map((t) => (
+              <div
+                key={t.id}
+                className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+              >
+                {/* Row 1: title + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-foreground leading-snug line-clamp-2">{t.title}</p>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${statusClass(t.status)}`}>
+                    {SUPPORT_STATUS_LABELS[t.status]}
+                  </span>
+                </div>
+
+                {/* Row 2: secondary info */}
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <span className="font-mono text-xs">{t.ticketNumber}</span>
+                  <span>{SUPPORT_CATEGORY_LABELS[t.category]}</span>
+                  <span className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityClass(t.priority)}`}>{t.priority}</span>
+                    <span>{t.commentCount ?? 0} comment{(t.commentCount ?? 0) !== 1 ? 's' : ''}</span>
+                  </span>
+                  <span>
+                    {t.lastActivityAt && typeof (t.lastActivityAt as { toDate?: () => Date }).toDate === 'function'
+                      ? (t.lastActivityAt as { toDate: () => Date }).toDate().toLocaleString()
+                      : '—'}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="border-t border-border pt-1 mt-auto flex items-center gap-1">
+                  <Link href={`/client-portal/support-tickets/${t.id}`} className="flex-1">
+                    <Button variant="outline" className="w-full h-8 text-xs gap-1">
+                      View Ticket
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {filtered.length > rowsPerPage && (
           <div className="flex items-center justify-between text-sm text-muted-foreground">

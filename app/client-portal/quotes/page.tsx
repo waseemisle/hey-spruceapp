@@ -532,138 +532,70 @@ export default function ClientQuotes() {
             })()}
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredQuotes.map((quote) => (
-              <Card key={quote.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-xl mb-2">{quote.workOrderTitle}</CardTitle>
-                      {quote.workOrderNumber && (
-                        <p className="text-sm text-muted-foreground">WO: {quote.workOrderNumber}</p>
-                      )}
-                      <p className="text-sm text-muted-foreground">From: {quote.subcontractorName}</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(quote.status)}`}>
-                      {getStatusLabel(quote.status)}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5 text-green-600" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Amount</p>
-                        <p className="text-2xl font-bold text-foreground">
-                          ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
+              <div key={quote.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Row 1: title + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-foreground leading-snug line-clamp-2">{quote.workOrderTitle}</p>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusBadge(quote.status)}`}>
+                    {getStatusLabel(quote.status)}
+                  </span>
+                </div>
 
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Submitted</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {quote.sentToClientAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
+                {/* Row 2: secondary info */}
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <DollarSign className="h-3.5 w-3.5 shrink-0" />
+                    ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
+                  </span>
+                  {quote.workOrderNumber && (
+                    <span>WO: {quote.workOrderNumber}</span>
+                  )}
+                  <span>From: {quote.subcontractorName}</span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                    {quote.sentToClientAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                  </span>
                   {(quote as any).proposedServiceDate && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-start gap-2">
-                        <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-blue-900 mb-1">Proposed Service Schedule</p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            <div>
-                              <p className="text-xs text-blue-700">Date</p>
-                              <p className="text-sm font-medium text-blue-900">
-                                {(quote as any).proposedServiceDate?.toDate?.().toLocaleDateString() ||
-                                 new Date((quote as any).proposedServiceDate).toLocaleDateString()}
-                              </p>
-                            </div>
-                            {(quote as any).proposedServiceTime && (
-                              <div>
-                                <p className="text-xs text-blue-700">Time</p>
-                                <p className="text-sm font-medium text-blue-900">
-                                  {(quote as any).proposedServiceTime}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <span className="flex items-center gap-1 text-blue-700">
+                      <Calendar className="h-3.5 w-3.5 shrink-0" />
+                      Service: {(quote as any).proposedServiceDate?.toDate?.().toLocaleDateString() ||
+                        new Date((quote as any).proposedServiceDate).toLocaleDateString()}
+                      {(quote as any).proposedServiceTime && ` at ${(quote as any).proposedServiceTime}`}
+                    </span>
                   )}
+                </div>
 
-                  {quote.lineItems && quote.lineItems.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-muted">
-                            <tr>
-                              <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
-                              <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
-                              <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
-                              <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {quote.lineItems.map((item, idx) => (
-                              <tr key={idx}>
-                                <td className="px-4 py-2">{item.description}</td>
-                                <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                <td className="px-4 py-2 text-right">${item.unitPrice.toLocaleString()}</td>
-                                <td className="px-4 py-2 text-right font-semibold">${item.amount.toLocaleString()}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {quote.notes && (
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-foreground mb-2">Additional Notes</h4>
-                      <p className="text-sm text-foreground">{quote.notes}</p>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 pt-4 border-t">
-                    <Link href={`/client-portal/quotes/${quote.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full">
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Quote
-                      </Button>
-                    </Link>
-                  </div>
-
+                {/* Actions */}
+                <div className="border-t border-border pt-1 mt-auto flex items-center gap-1">
+                  <Link href={`/client-portal/quotes/${quote.id}`} className="flex-1">
+                    <Button variant="outline" className="w-full h-8 text-xs gap-1">
+                      <Eye className="h-3.5 w-3.5" />
+                      View Quote
+                    </Button>
+                  </Link>
                   {quote.status === 'sent_to_client' && (
-                    <div className="flex gap-3 pt-2">
+                    <>
                       <Button
                         onClick={() => handleApprove(quote.id)}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        className="h-8 px-2 bg-green-600 hover:bg-green-700"
+                        title="Approve Quote"
                       >
-                        <Check className="h-4 w-4 mr-2" />
-                        Approve Quote
+                        <Check className="h-3.5 w-3.5" />
                       </Button>
                       <Button
+                        variant="outline"
                         onClick={() => handleReject(quote.id)}
-                        className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
+                        className="h-8 px-2 text-red-600 border-red-300 hover:bg-red-50"
+                        title="Reject Quote"
                       >
-                        <X className="h-4 w-4 mr-2" />
-                        Reject Quote
+                        <X className="h-3.5 w-3.5" />
                       </Button>
-                    </div>
+                    </>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         )}

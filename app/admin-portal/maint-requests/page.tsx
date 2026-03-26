@@ -290,89 +290,57 @@ export default function MaintRequestsPage() {
   });
 
   const renderRequestCard = (request: MaintRequest) => (
-    <Card
-      key={request.id}
-      className={`hover:shadow-lg transition-shadow ${
-        viewMode === 'list' ? 'w-full' : ''
-      }`}
-    >
-      <CardHeader>
-        <div className="flex justify-between items-start gap-2">
-          <CardTitle className="text-lg">{request.title}</CardTitle>
-          <div className="flex gap-1 flex-shrink-0">
-            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
-              {request.priority}
-            </span>
-            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
-              {request.status}
-            </span>
-          </div>
+    <div key={request.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+      {/* Row 1: title + status badge */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">{request.title}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{request.venue || request.requestor}</p>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4 flex-shrink-0" />
-          <span>{request.venue}</span>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <User className="h-4 w-4 flex-shrink-0" />
-          <span>{request.requestor}</span>
-        </div>
-
-        <div className="text-sm text-muted-foreground line-clamp-2">
-          {request.description}
-        </div>
-
-        <div className="flex gap-2 pt-4 border-t">
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1"
-            onClick={() => handleViewDetails(request)}
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            View
-          </Button>
-          <SearchableSelect
-            className="w-full min-w-[140px]"
-            value={request.status}
-            onValueChange={(v) => handleStatusChange(request.id, v)}
-            options={MAINT_REQUEST_STATUS_OPTIONS}
-            placeholder="Status"
-            aria-label="Maintenance request status"
-          />
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => handleDelete(request.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Raw JSON Response */}
-        <div className="pt-3 border-t">
-          <button
-            onClick={() => toggleJsonCard(request.id)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
-          >
-            <Code className="h-3 w-3" />
-            <span>Raw JSON Response</span>
-            {expandedJsonCards.has(request.id) ? (
-              <ChevronUp className="h-3 w-3 ml-auto" />
-            ) : (
-              <ChevronDown className="h-3 w-3 ml-auto" />
-            )}
-          </button>
-          {expandedJsonCards.has(request.id) && (
-            <pre className="mt-2 p-3 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-60 overflow-y-auto font-mono">
-              {JSON.stringify(request.rawData, null, 2)}
-            </pre>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
+          {request.status}
+        </span>
+      </div>
+      {/* Row 2: requestor + priority badge */}
+      <div className="flex items-center justify-between text-sm gap-2">
+        <span className="text-muted-foreground truncate">{request.requestor}</span>
+        <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
+          {request.priority}
+        </span>
+      </div>
+      {/* Row 3: status selector */}
+      <SearchableSelect
+        className="w-full"
+        value={request.status}
+        onValueChange={(v) => handleStatusChange(request.id, v)}
+        options={MAINT_REQUEST_STATUS_OPTIONS}
+        placeholder="Change status"
+        aria-label="Maintenance request status"
+      />
+      {/* Actions */}
+      <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+        <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => handleViewDetails(request)}>
+          <Eye className="h-3.5 w-3.5" />
+          View
+        </Button>
+        <button
+          onClick={() => toggleJsonCard(request.id)}
+          className="h-8 px-2 border border-border rounded-md hover:bg-muted transition-colors flex items-center"
+          title="Raw JSON"
+        >
+          <Code className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+        <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleDelete(request.id)}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      {/* Raw JSON (collapsible) */}
+      {expandedJsonCards.has(request.id) && (
+        <pre className="p-3 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-60 overflow-y-auto font-mono">
+          {JSON.stringify(request.rawData, null, 2)}
+        </pre>
+      )}
+    </div>
   );
 
   return (
@@ -416,12 +384,10 @@ export default function MaintRequestsPage() {
 
         {/* Requests Grid/List */}
         {sortedRequests.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="p-12 text-center">
-              <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No maintenance requests found</p>
-            </CardContent>
-          </Card>
+          <div className="bg-card border border-border rounded-lg p-12 text-center">
+            <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No maintenance requests found</p>
+          </div>
         ) : viewMode === 'list' ? (
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full">
@@ -512,7 +478,7 @@ export default function MaintRequestsPage() {
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedRequests.map(renderRequestCard)}
           </div>
         )}
