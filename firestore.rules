@@ -159,9 +159,9 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
     }
 
-    // Categories - admins write; all signed-in users read
+    // Categories - admins write; anyone can read (needed for registration forms)
     match /categories/{categoryId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isSignedIn() && isAdmin();
     }
 
@@ -284,10 +284,11 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isAdmin();
     }
 
-    // Users (generic user profiles) - admin only
+    // Users (generic user profiles) - admin full; users can create/read their own doc
     match /users/{userId} {
       allow read: if isSignedIn() && (isAdmin() || userId == request.auth.uid);
-      allow write: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && isAdmin();
     }
 
     // Work Order Notes - admins full; involved parties can read their own
