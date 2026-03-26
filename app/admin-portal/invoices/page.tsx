@@ -772,150 +772,83 @@ export default function InvoicesManagement() {
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredInvoices.map((invoice) => (
-              <Card key={invoice.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{invoice.invoiceNumber}</CardTitle>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(invoice.status)}`}>
-                        {invoice.status.toUpperCase()}
-                      </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredInvoices.map((invoice) => {
+              const dueDate = invoice.dueDate?.toDate ? invoice.dueDate.toDate() : invoice.dueDate ? new Date(invoice.dueDate) : null;
+              const hasSavedCard = (invoice.status === 'sent' || invoice.status === 'overdue') && clientBillingMap[invoice.clientId]?.defaultPaymentMethodId;
+              return (
+                <div key={invoice.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  {/* Top row: invoice number + status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{invoice.invoiceNumber}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{invoice.workOrderTitle}</p>
                     </div>
-                    <div className="text-sm text-muted-foreground">{invoice.workOrderTitle}</div>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(invoice.status)}`}>
+                      {invoice.status.toUpperCase()}
+                    </span>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2 text-sm">
-                    <div><span className="font-semibold">Client:</span> {invoice.clientName}</div>
-                    <div><span className="font-semibold">Email:</span> {invoice.clientEmail}</div>
-                    {invoice.subcontractorName && (
-                      <div><span className="font-semibold">Subcontractor:</span> {invoice.subcontractorName}</div>
+
+                  {/* Client + amount */}
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-muted-foreground truncate">{invoice.clientName}</span>
+                    <span className="font-bold text-foreground shrink-0">${invoice.totalAmount?.toLocaleString() ?? '0'}</span>
+                  </div>
+
+                  {/* Due date + optional badges */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    {dueDate && <span>Due {dueDate.toLocaleDateString()}</span>}
+                    {invoice.stripePaymentLink && (
+                      <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-medium">Link ready</span>
+                    )}
+                    {hasSavedCard && (
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">
+                        <CreditCard className="h-3 w-3" />
+                        {clientBillingMap[invoice.clientId]?.savedCardBrand} ···{clientBillingMap[invoice.clientId]?.savedCardLast4}
+                      </span>
+                    )}
+                    {invoice.autoChargeAttempted && (
+                      <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded font-medium ${
+                        invoice.autoChargeStatus === 'succeeded' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
+                        invoice.autoChargeStatus === 'failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                        'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      }`}>
+                        {invoice.autoChargeStatus === 'succeeded' ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                        {invoice.autoChargeStatus}
+                      </span>
                     )}
                   </div>
 
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-semibold">Total Amount</span>
-                      <span className="text-2xl font-bold text-blue-600">
-                        ${invoice.totalAmount.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Stripe Payment Link */}
-                  {invoice.stripePaymentLink && (
-                    <div className="bg-green-50 p-3 rounded-lg text-sm">
-                      <div className="font-semibold text-green-800 mb-1">Payment Link Ready</div>
-                      <a
-                        href={invoice.stripePaymentLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-xs break-all"
-                      >
-                        {invoice.stripePaymentLink.substring(0, 50)}...
-                      </a>
-                    </div>
-                  )}
-
-                  {/* Auto-Charge Status */}
-                  {invoice.autoChargeAttempted && (
-                    <div className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${
-                      invoice.autoChargeStatus === 'succeeded' ? 'bg-emerald-50 text-emerald-700' :
-                      invoice.autoChargeStatus === 'failed' ? 'bg-red-50 text-red-700' :
-                      'bg-amber-50 text-amber-700'
-                    }`}>
-                      {invoice.autoChargeStatus === 'succeeded'
-                        ? <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                        : <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                      }
-                      <span>
-                        Auto-charge: <strong>{invoice.autoChargeStatus}</strong>
-                        {invoice.autoChargeError && ` — ${invoice.autoChargeError}`}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Saved Card Indicator */}
-                  {(invoice.status === 'sent' || invoice.status === 'overdue') && clientBillingMap[invoice.clientId]?.defaultPaymentMethodId && (
-                    <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg">
-                      <CreditCard className="h-3.5 w-3.5" />
-                      <span>
-                        Client has saved {clientBillingMap[invoice.clientId]?.savedCardBrand || 'card'} ending in {clientBillingMap[invoice.clientId]?.savedCardLast4}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="space-y-2 pt-2">
-                    <Link href={`/admin-portal/invoices/${invoice.id}`}>
-                      <Button size="sm" variant="outline" className="w-full">
-                        <Eye className="h-4 w-4 mr-2" />
-                        View (Timeline)
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                    <Link href={`/admin-portal/invoices/${invoice.id}`} className="flex-1">
+                      <Button size="sm" variant="outline" className="w-full h-8 text-xs">
+                        <Eye className="h-3.5 w-3.5 mr-1" />View
                       </Button>
                     </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => handleOpenEdit(invoice)}
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Edit Invoice
+                    <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => handleOpenEdit(invoice)} title="Edit">
+                      <Edit2 className="h-3.5 w-3.5" />
                     </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => downloadInvoice(invoice)}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download PDF
+                    <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => downloadInvoice(invoice)} title="Download PDF">
+                      <Download className="h-3.5 w-3.5" />
                     </Button>
-
-                    {invoice.status === 'draft' && (
-                      <>
-                        {!invoice.stripePaymentLink && (
-                          <Button
-                            size="sm"
-                            className="w-full"
-                            onClick={() => createStripePaymentLink(invoice)}
-                          >
-                            <CreditCard className="h-4 w-4 mr-2" />
-                            Create Payment Link
-                          </Button>
-                        )}
-
-                        {invoice.stripePaymentLink && (
-                          <Button
-                            size="sm"
-                            className="w-full"
-                            onClick={() => markAsSent(invoice.id)}
-                          >
-                            <Send className="h-4 w-4 mr-2" />
-                            Mark as Sent
-                          </Button>
-                        )}
-                      </>
+                    {invoice.status === 'draft' && !invoice.stripePaymentLink && (
+                      <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => createStripePaymentLink(invoice)} title="Create Payment Link">
+                        <CreditCard className="h-3.5 w-3.5" />
+                      </Button>
                     )}
-
-                    {/* Scenario 2 (variable auto-charge) removed — use client profile Charge button */}
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                      onClick={() => handleDeleteInvoice(invoice)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                      Delete
+                    {invoice.status === 'draft' && invoice.stripePaymentLink && (
+                      <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => markAsSent(invoice.id)} title="Mark as Sent">
+                        <Send className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleDeleteInvoice(invoice)} title="Delete">
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
 
