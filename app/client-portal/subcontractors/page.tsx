@@ -170,57 +170,42 @@ export default function ClientSubcontractorsView() {
             subtitle="Try adjusting your search"
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredSubcontractors.map((sub) => {
               const color = avatarColor(sub.uid);
               return (
-                <div
-                  key={sub.uid}
-                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  <div className={`h-1 w-full bg-gradient-to-r ${color}`} />
-                  <div className="p-5">
-                    <div className="flex items-center gap-3 min-w-0 mb-4">
-                      <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                <div key={sub.uid} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  {/* Row 1: avatar + name/business + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
                         {getInitials(sub.fullName)}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-foreground text-sm truncate">{sub.fullName}</p>
-                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-                          <Building className="h-3 w-3 flex-shrink-0" />
-                          {sub.businessName}
-                        </p>
+                        <p className="text-sm font-semibold text-foreground truncate">{sub.fullName}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub.businessName}</p>
                       </div>
                     </div>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="truncate">{sub.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span>{sub.phone}</span>
-                      </div>
-                      {sub.licenseNumber && (
-                        <div className="flex items-center gap-2">
-                          <Award className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className="text-xs">{sub.licenseNumber}</span>
-                        </div>
+                    <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+                      Approved
+                    </span>
+                  </div>
+                  {/* Row 2: email */}
+                  <div className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-muted-foreground truncate">{sub.email}</span>
+                    <span className="text-foreground font-medium shrink-0 text-xs">{sub.phone}</span>
+                  </div>
+                  {/* Row 3: skills */}
+                  {sub.skills && sub.skills.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {sub.skills.slice(0, 3).map((skill, i) => (
+                        <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
+                      ))}
+                      {sub.skills.length > 3 && (
+                        <span className="text-xs text-muted-foreground">+{sub.skills.length - 3}</span>
                       )}
                     </div>
-                    {sub.skills && sub.skills.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <div className="flex flex-wrap gap-1">
-                          {sub.skills.slice(0, 3).map((skill, i) => (
-                            <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
-                          ))}
-                          {sub.skills.length > 3 && (
-                            <span className="text-xs text-muted-foreground">+{sub.skills.length - 3}</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               );
             })}

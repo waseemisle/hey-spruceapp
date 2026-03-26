@@ -625,134 +625,95 @@ export default function RecurringWorkOrdersManagement() {
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedRecurringWorkOrders.map((recurringWorkOrder) => (
-              <Card key={recurringWorkOrder.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Checkbox
-                          id={`select-${recurringWorkOrder.id}`}
-                          checked={selectedIds.includes(recurringWorkOrder.id)}
-                          onCheckedChange={() => toggleSelection(recurringWorkOrder.id)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <CardTitle className="text-lg truncate">{recurringWorkOrder.title}</CardTitle>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status || '')}`}>
-                        {(recurringWorkOrder.status || 'N/A').toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority || '')}`}>
-                        {(recurringWorkOrder.priority || 'N/A').toUpperCase()}
-                      </span>
-                      <span className="px-2 py-1 rounded bg-muted text-foreground text-xs font-semibold">
-                        {recurringWorkOrder.workOrderNumber}
-                      </span>
+              <div key={recurringWorkOrder.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Row 0: checkbox + title/location + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <Checkbox
+                      id={`select-${recurringWorkOrder.id}`}
+                      checked={selectedIds.includes(recurringWorkOrder.id)}
+                      onCheckedChange={() => toggleSelection(recurringWorkOrder.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{recurringWorkOrder.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{recurringWorkOrder.locationName || recurringWorkOrder.clientName || '—'}</p>
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3 p-4 sm:p-6">
-                  <p className="text-sm text-muted-foreground line-clamp-2">{recurringWorkOrder.description}</p>
-
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <span className="font-semibold">Client:</span> {recurringWorkOrder.clientName}
-                    </div>
-                    {recurringWorkOrder.locationName && (
-                      <div className="text-sm">
-                        <span className="font-semibold">Location:</span> {recurringWorkOrder.locationName}
-                      </div>
-                    )}
-                    <div className="text-sm">
-                      <span className="font-semibold">Category:</span> {recurringWorkOrder.category}
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-semibold">Recurrence:</span> {formatRecurrencePattern(recurringWorkOrder)}
-                    </div>
-                    {recurringWorkOrder.estimateBudget && (
-                      <div className="text-sm">
-                        <span className="font-semibold">Estimate Budget:</span> ${recurringWorkOrder.estimateBudget.toLocaleString()}
-                      </div>
-                    )}
-                    <div className="text-sm">
-                      <span className="font-semibold">Next Execution:</span> {recurringWorkOrder.nextExecution ? new Date(recurringWorkOrder.nextExecution).toLocaleDateString() : 'Not scheduled'}
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-semibold">Executions:</span> {recurringWorkOrder.successfulExecutions}/{recurringWorkOrder.totalExecutions}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="pt-4 space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 min-w-0"
-                        onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}`}
-                      >
-                        <Eye className="h-4 w-4 mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">View</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 min-w-0"
-                        onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}
-                      >
-                        <Edit2 className="h-4 w-4 mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">Edit</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="px-2 sm:px-3 text-red-400 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => handleDelete(recurringWorkOrder)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {recurringWorkOrder.status === 'active' && (
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 min-w-0"
-                          onClick={() => handleToggleStatus(recurringWorkOrder)}
-                        >
-                          <Pause className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Pause Executions</span>
-                          <span className="sm:hidden">Pause</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="flex-1 min-w-0"
-                          onClick={() => handleCancel(recurringWorkOrder)}
-                        >
-                          <XCircle className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Cancel</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    {recurringWorkOrder.status === 'paused' && (
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleToggleStatus(recurringWorkOrder)}
-                      >
-                        <Play className="h-4 w-4 mr-2" />
-                        Resume Executions
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status || '')}`}>
+                    {(recurringWorkOrder.status || 'N/A').toUpperCase()}
+                  </span>
+                </div>
+                {/* Row 1: client */}
+                <div className="flex items-center justify-between text-sm gap-2">
+                  <span className="text-muted-foreground truncate">{recurringWorkOrder.clientName || '—'}</span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority || '')}`}>
+                    {(recurringWorkOrder.priority || 'N/A').toUpperCase()}
+                  </span>
+                </div>
+                {/* Row 2: recurrence + next execution */}
+                <div className="flex items-center justify-between text-sm gap-2">
+                  <span className="text-muted-foreground truncate">{formatRecurrencePattern(recurringWorkOrder)}</span>
+                  <span className="text-foreground font-medium shrink-0 text-xs">
+                    {recurringWorkOrder.nextExecution ? new Date(recurringWorkOrder.nextExecution).toLocaleDateString() : 'Not scheduled'}
+                  </span>
+                </div>
+                {/* Row 3: actions */}
+                <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 h-8 text-xs gap-1"
+                    onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2"
+                    title="Edit"
+                    onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  {recurringWorkOrder.status === 'active' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2"
+                      title="Pause Executions"
+                      onClick={() => handleToggleStatus(recurringWorkOrder)}
+                    >
+                      <Pause className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {recurringWorkOrder.status === 'paused' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2"
+                      title="Resume Executions"
+                      onClick={() => handleToggleStatus(recurringWorkOrder)}
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50"
+                    title="Delete"
+                    onClick={() => handleDelete(recurringWorkOrder)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         )}

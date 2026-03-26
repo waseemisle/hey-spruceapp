@@ -403,112 +403,59 @@ export default function ClientsManagement() {
 
         {/* Grid View */}
         {!loading && viewMode === 'grid' && filteredClients.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredClients.map((client) => {
               const status = STATUS_CONFIG[client.status] || STATUS_CONFIG.pending;
-              const color = avatarColor(client.uid);
               const clientLocations = locations.filter(l => l.clientId === client.uid || (client.companyId && l.companyId === client.companyId));
               return (
-                <div key={client.uid} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                  {/* Color bar */}
-                  <div className={`h-1 w-full bg-gradient-to-r ${color}`} />
-
-                  <div className="p-5">
-                    {/* Top row */}
-                    <div className="flex items-start justify-between gap-3 mb-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-                          {getInitials(client.fullName)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-foreground text-sm truncate">{client.fullName}</p>
-                          {client.companyName && (
-                            <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-                              <Building className="h-3 w-3 flex-shrink-0" />
-                              {client.companyName}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${status.className}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-                        {status.label}
-                      </span>
+                <div key={client.uid} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  {/* Row 1: name + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{client.fullName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{client.email}</p>
                     </div>
-
-                    {/* Details */}
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="truncate">{client.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span>{client.phone}</span>
-                      </div>
-                      {client.password && (
-                        <div className="flex items-center gap-2">
-                          <Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{client.password}</span>
-                        </div>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${status.className}`}>{status.label}</span>
+                  </div>
+                  {/* Row 2: company + phone */}
+                  <div className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-muted-foreground truncate">{client.companyName || <span className="italic">No company</span>}</span>
+                    <span className="text-foreground font-medium shrink-0">{client.phone}</span>
+                  </div>
+                  {/* Row 3: locations badge */}
+                  {clientLocations.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {clientLocations.slice(0, 2).map((location) => (
+                        <span key={location.id} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
+                          {location.locationName}
+                        </span>
+                      ))}
+                      {clientLocations.length > 2 && (
+                        <span className="text-xs text-muted-foreground">+{clientLocations.length - 2}</span>
                       )}
                     </div>
-
-                    {/* Locations */}
-                    {clientLocations.length > 0 ? (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1.5">
-                          <MapPin className="h-3 w-3" />
-                          {clientLocations.length} location{clientLocations.length !== 1 ? 's' : ''}
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {clientLocations.slice(0, 2).map((location) => (
-                            <span key={location.id} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
-                              {location.locationName}
-                            </span>
-                          ))}
-                          {clientLocations.length > 2 && (
-                            <span className="text-xs text-muted-foreground">+{clientLocations.length - 2}</span>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <p className="text-xs text-amber-600 flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          No locations assigned
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
-                      <Button size="sm" variant="secondary" className="w-full gap-2" onClick={() => router.push(`/admin-portal/clients/${client.uid}`)}>
-                        <Eye className="h-3.5 w-3.5" />
-                        View Details
+                  )}
+                  {/* Row 4: actions */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => router.push(`/admin-portal/clients/${client.uid}`)}>
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(client)}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                    {client.status === 'pending' && (
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50" title="Approve" onClick={() => handleApprove(client.uid)}>
+                        <CheckCircle className="h-3.5 w-3.5" />
                       </Button>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => handleOpenEdit(client)}>
-                          <Edit2 className="h-3.5 w-3.5" />
-                          Edit
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDeleteClient(client)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                      {client.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button size="sm" className="flex-1 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleApprove(client.uid)}>
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            Approve
-                          </Button>
-                          <Button size="sm" variant="destructive" className="flex-1 gap-1" onClick={() => handleReject(client.uid)}>
-                            <XCircle className="h-3.5 w-3.5" />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                    )}
+                    {client.status === 'pending' && (
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-amber-600 border-amber-200 hover:bg-amber-50" title="Reject" onClick={() => handleReject(client.uid)}>
+                        <XCircle className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" title="Delete" onClick={() => handleDeleteClient(client)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               );

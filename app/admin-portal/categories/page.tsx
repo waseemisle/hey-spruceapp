@@ -184,27 +184,22 @@ export default function CategoriesManagement() {
             subtitle={searchQuery ? 'Try adjusting your search' : 'Create your first category'}
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCategories.map((category) => (
-              <div
-                key={category.id}
-                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
-                <div className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Tag className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                    <h3 className="font-semibold text-foreground">{category.name}</h3>
-                  </div>
-                  <div className="flex gap-2 pt-3 border-t border-border">
-                    <Button size="sm" variant="outline" className="flex-1 gap-2" onClick={() => handleOpenEdit(category)}>
-                      <Edit2 className="h-3.5 w-3.5" />
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleDeleteCategory(category)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+              <div key={category.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Category name */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <Tag className="h-4 w-4 text-blue-600 shrink-0" />
+                  <p className="text-sm font-semibold text-foreground truncate">{category.name}</p>
+                </div>
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                  <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => handleOpenEdit(category)}>
+                    <Edit2 className="h-3.5 w-3.5" /> Edit
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" title="Delete" onClick={() => handleDeleteCategory(category)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
             ))}

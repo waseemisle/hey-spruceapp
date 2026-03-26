@@ -280,107 +280,53 @@ export default function ClientRecurringWorkOrders() {
         </div>
 
         {/* Recurring Work Orders Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {filteredRecurringWorkOrders.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <RotateCcw className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No recurring work orders found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredRecurringWorkOrders.map((recurringWorkOrder) => (
-              <Card key={recurringWorkOrder.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg truncate">{recurringWorkOrder.title}</CardTitle>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status)}`}>
-                        {recurringWorkOrder.status.toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority)}`}>
-                        {recurringWorkOrder.priority.toUpperCase()}
-                      </span>
-                      <span className="px-2 py-1 rounded bg-muted text-foreground text-xs font-semibold">
-                        {recurringWorkOrder.workOrderNumber}
-                      </span>
-                    </div>
+        {filteredRecurringWorkOrders.length === 0 ? (
+          <Card className="col-span-full">
+            <CardContent className="p-12 text-center">
+              <RotateCcw className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No recurring work orders found</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredRecurringWorkOrders.map((recurringWorkOrder) => (
+              <div key={recurringWorkOrder.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Row 1: title + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{recurringWorkOrder.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{recurringWorkOrder.locationName || 'No location'}</p>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3 p-4 sm:p-6">
-                  <p className="text-sm text-muted-foreground line-clamp-2">{recurringWorkOrder.description}</p>
-
-                  <div className="space-y-2">
-                    {recurringWorkOrder.locationName && (
-                      <div className="text-sm flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <span>
-                          <span className="font-semibold">Location:</span> {recurringWorkOrder.locationName}
-                        </span>
-                      </div>
-                    )}
-                    <div className="text-sm">
-                      <span className="font-semibold">Category:</span> {recurringWorkOrder.category}
-                    </div>
-                    <div className="text-sm flex items-start gap-2">
-                      <RotateCcw className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <span>
-                        <span className="font-semibold">Recurrence:</span> {formatRecurrencePattern(recurringWorkOrder)}
-                      </span>
-                    </div>
-                    {recurringWorkOrder.estimateBudget && (
-                      <div className="text-sm">
-                        <span className="font-semibold">Estimate Budget:</span> ${recurringWorkOrder.estimateBudget.toLocaleString()}
-                      </div>
-                    )}
-                    {recurringWorkOrder.nextExecution && (
-                      <div className="text-sm flex items-start gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                        <span>
-                          <span className="font-semibold">Next Execution:</span> {new Date(recurringWorkOrder.nextExecution).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
-                    <div className="text-sm flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <span>
-                        <span className="font-semibold">Executions:</span> {recurringWorkOrder.successfulExecutions}/{recurringWorkOrder.totalExecutions}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="pt-4 space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <Link href={`/client-portal/recurring-work-orders/${recurringWorkOrder.id}`} className="flex-1 min-w-0">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full"
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
-                        </Button>
-                      </Link>
-                      <Link href={`/client-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`} className="flex-1 min-w-0">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full"
-                        >
-                          <Edit2 className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(recurringWorkOrder.status)}`}>
+                    {recurringWorkOrder.status.toUpperCase()}
+                  </span>
+                </div>
+                {/* Row 2: recurrence + category */}
+                <div className="flex items-center justify-between text-sm gap-2">
+                  <span className="text-muted-foreground truncate flex items-center gap-1">
+                    <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+                    {formatRecurrencePattern(recurringWorkOrder)}
+                  </span>
+                  <span className="text-foreground font-medium shrink-0 text-xs">{recurringWorkOrder.category}</span>
+                </div>
+                {/* Row 3: actions */}
+                <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                  <Link href={`/client-portal/recurring-work-orders/${recurringWorkOrder.id}`} className="flex-1">
+                    <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1">
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </Button>
+                  </Link>
+                  <Link href={`/client-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}>
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="Edit">
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </ClientLayout>
   );

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { FileText, DollarSign, Send, Plus, Trash2, Search, UserPlus } from 'lucide-react';
+import { FileText, DollarSign, Send, Plus, Trash2, Search, UserPlus, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
 import { notifyQuoteSubmission } from '@/lib/notifications';
@@ -649,173 +649,104 @@ function QuotesContent() {
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedQuotes.map((quote) => (
-              <Card
-                key={quote.id}
-                className="hover:shadow-lg transition-shadow"
-              >
-                <CardHeader>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{quote.workOrderTitle}</CardTitle>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(quote.status)}`}>
-                        {quote.status.replace('_', ' ').toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      WO: {quote.workOrderNumber}
-                    </div>
+              <div key={quote.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Row 1: title + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{quote.workOrderTitle}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{quote.subcontractorName}</p>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2 text-sm">
-                    <div><span className="font-semibold">From:</span> {quote.subcontractorName}</div>
-                    <div><span className="font-semibold">Client:</span> {quote.clientName}</div>
-                  </div>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(quote.status)}`}>
+                    {quote.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </span>
+                </div>
 
-                  {/* AI Decision Engine */}
-                  <ProposalDecisionEngine
-                    quote={quote}
-                    allQuotes={quotes}
-                    onApprove={(quote.status === 'pending' || quote.status === 'sent_to_client') ? () => { setSelectedQuote(quote); setMarkupPercent(String(quote.markupPercentage || 20)); } : undefined}
-                  />
+                {/* Row 2: client + amount */}
+                <div className="flex items-center justify-between text-sm gap-2">
+                  <span className="text-muted-foreground truncate">{quote.clientName}</span>
+                  <span className="text-foreground font-medium shrink-0">
+                    {quote.clientAmount
+                      ? `$${(quote.clientAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `$${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  </span>
+                </div>
 
-                  {/* Cost Breakdown */}
-                  <div className="bg-muted p-3 rounded-lg space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span>Labor Cost:</span>
-                      <span className="font-semibold">${(quote.laborCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Material Cost:</span>
-                      <span className="font-semibold">${(quote.materialCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    {(quote.additionalCosts || 0) > 0 && (
-                      <div className="flex justify-between">
-                        <span>Additional Costs:</span>
-                        <span className="font-semibold">${(quote.additionalCosts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between pt-2 border-t border-gray-300">
-                      <span className="font-bold">Subcontractor Total:</span>
-                      <span className="font-bold text-lg">${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    {quote.clientAmount && (
-                      <>
-                        <div className="flex justify-between text-blue-600">
-                          <span>Markup ({quote.markupPercentage || 0}%):</span>
-                          <span className="font-semibold">
-                            ${((quote.clientAmount || 0) - (quote.totalAmount || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-blue-600 font-bold">
-                          <span>Client Amount:</span>
-                          <span className="text-lg">${(quote.clientAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Line Items */}
-                  {quote.lineItems && quote.lineItems.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="font-semibold text-sm">Line Items:</div>
-                      <div className="space-y-1 text-xs">
-                        {quote.lineItems.map((item, index) => (
-                          <div key={index} className="flex justify-between text-muted-foreground">
-                            <span>{item.description} ({item.quantity || 0}x)</span>
-                            <span>${(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Notes */}
-                  {quote.notes && (
-                    <div className="text-sm">
-                      <span className="font-semibold">Notes:</span>
-                      <p className="text-muted-foreground mt-1">{quote.notes}</p>
-                    </div>
-                  )}
-
-                  {/* Action: Forward / Resend to Client with Markup */}
-                  {(quote.status === 'pending' || quote.status === 'sent_to_client') && (
-                    <div className="pt-4 border-t">
-                      {selectedQuote?.id === quote.id ? (
-                        <div className="space-y-3">
-                          <Label>Markup Percentage</Label>
-                          <Input
-                            type="number"
-                            value={markupPercent}
-                            onChange={(e) => setMarkupPercent(e.target.value)}
-                            placeholder="20"
-                            min="0"
-                            max="100"
-                          />
-                          <div className="text-sm text-muted-foreground">
-                            Client will pay: ${((quote.totalAmount || 0) * (1 + parseFloat(markupPercent || '0') / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              className="flex-1"
-                              onClick={() => handleApplyMarkupAndSend(quote, parseFloat(markupPercent))}
-                            >
-                              <Send className="h-4 w-4 mr-2" />
-                              {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Send to Client'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setSelectedQuote(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className={`w-full ${quote.status === 'sent_to_client' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                          onClick={() => {
-                            setSelectedQuote(quote);
-                            setMarkupPercent(String(quote.markupPercentage || 20));
-                          }}
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Forward to Client'}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Delete Button */}
-                  <div className="pt-4 border-t space-y-2">
-                    {quote.status === 'accepted' && quote.workOrderId && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => handleAssignWorkOrderFromQuote(quote)}
-                      >
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Assign Work Order to Subcontractor
+                {/* Inline send panel — only shown when this quote is selected */}
+                {selectedQuote?.id === quote.id && (quote.status === 'pending' || quote.status === 'sent_to_client') && (
+                  <div className="space-y-2 pt-1 border-t border-border">
+                    <Label className="text-xs">Markup %</Label>
+                    <Input
+                      type="number"
+                      value={markupPercent}
+                      onChange={(e) => setMarkupPercent(e.target.value)}
+                      placeholder="20"
+                      min="0"
+                      max="100"
+                      className="h-8 text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Client pays: ${((quote.totalAmount || 0) * (1 + parseFloat(markupPercent || '0') / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <div className="flex gap-1.5">
+                      <Button size="sm" className="flex-1 h-8 text-xs gap-1" onClick={() => handleApplyMarkupAndSend(quote, parseFloat(markupPercent))}>
+                        <Send className="h-3 w-3" />
+                        {quote.status === 'sent_to_client' ? 'Resend' : 'Send'}
                       </Button>
-                    )}
+                      <Button size="sm" variant="outline" className="h-8 text-xs px-2" onClick={() => setSelectedQuote(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Decision Engine */}
+                <ProposalDecisionEngine
+                  quote={quote}
+                  allQuotes={quotes}
+                  onApprove={(quote.status === 'pending' || quote.status === 'sent_to_client') ? () => { setSelectedQuote(quote); setMarkupPercent(String(quote.markupPercentage || 20)); } : undefined}
+                />
+
+                {/* Actions row */}
+                <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                  {(quote.status === 'pending' || quote.status === 'sent_to_client') && selectedQuote?.id !== quote.id && (
                     <Button
                       size="sm"
-                      variant="destructive"
-                      className="w-full"
-                      onClick={() => handleDeleteQuote(quote)}
+                      variant="outline"
+                      className="flex-1 h-8 text-xs gap-1"
+                      onClick={() => { setSelectedQuote(quote); setMarkupPercent(String(quote.markupPercentage || 20)); }}
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Quote
+                      <Send className="h-3 w-3" />
+                      {quote.status === 'sent_to_client' ? 'Resend' : 'Send to Client'}
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                  {quote.status === 'accepted' && quote.workOrderId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 h-8 text-xs gap-1"
+                      onClick={() => handleAssignWorkOrderFromQuote(quote)}
+                      title="Assign work order to subcontractor"
+                    >
+                      <UserPlus className="h-3 w-3" />
+                      Assign WO
+                    </Button>
+                  )}
+                  {(quote.status === 'rejected' || (!['pending', 'sent_to_client', 'accepted'].includes(quote.status))) && (
+                    <span className="flex-1" />
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50"
+                    title="Delete"
+                    onClick={() => handleDeleteQuote(quote)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         )}

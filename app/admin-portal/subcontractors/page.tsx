@@ -412,124 +412,71 @@ export default function SubcontractorsManagement() {
 
         {/* Grid View */}
         {!loading && viewMode === 'grid' && filteredSubs.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredSubs.map((sub) => {
               const status = STATUS_CONFIG[sub.status] || STATUS_CONFIG.pending;
-              const color = avatarColor(sub.uid);
               return (
-                <div key={sub.uid} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                  <div className={`h-1 w-full bg-gradient-to-r ${color}`} />
-
-                  <div className="p-5">
-                    {/* Top row */}
-                    <div className="flex items-start justify-between gap-3 mb-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-                          {getInitials(sub.fullName)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-foreground text-sm truncate">{sub.fullName}</p>
-                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-                            <Building className="h-3 w-3 flex-shrink-0" />
-                            {sub.businessName}
-                          </p>
-                        </div>
-                      </div>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${status.className}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-                        {status.label}
-                      </span>
+                <div key={sub.uid} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  {/* Row 1: name + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{sub.fullName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub.businessName}</p>
                     </div>
-
-                    {/* Details */}
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="truncate">{sub.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span>{sub.phone}</span>
-                      </div>
-                      {sub.licenseNumber && (
-                        <div className="flex items-center gap-2">
-                          <Award className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className="text-xs">{sub.licenseNumber}</span>
-                        </div>
-                      )}
-                      {sub.password && (
-                        <div className="flex items-center gap-2">
-                          <Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{sub.password}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Skills */}
-                    {sub.skills && sub.skills.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-border">
-                        <div className="flex flex-wrap gap-1">
-                          {sub.skills.slice(0, 3).map((skill, i) => (
-                            <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
-                          ))}
-                          {sub.skills.length > 3 && (
-                            <span className="text-xs text-muted-foreground">+{sub.skills.length - 3}</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Account activation indicator */}
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${status.className}`}>{status.label}</span>
+                  </div>
+                  {/* Row 2: email + activation state */}
+                  <div className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-muted-foreground truncate">{sub.email}</span>
                     {sub.passwordSetAt ? (
-                      <div className="mt-3 flex items-center gap-1.5 text-xs text-emerald-600">
-                        <CheckCircle className="h-3.5 w-3.5" />
-                        <span>Account activated</span>
-                      </div>
+                      <span className="shrink-0 flex items-center gap-1 text-xs text-emerald-600">
+                        <CheckCircle className="h-3.5 w-3.5" /> Active
+                      </span>
                     ) : (
-                      <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>Awaiting password setup</span>
-                      </div>
+                      <span className="shrink-0 flex items-center gap-1 text-xs text-amber-600">
+                        <Clock className="h-3.5 w-3.5" /> Pending setup
+                      </span>
                     )}
-
-                    {/* Actions */}
-                    <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
-                      <Button size="sm" variant="secondary" className="w-full gap-2" onClick={() => router.push(`/admin-portal/subcontractors/${sub.uid}`)}>
-                        <Eye className="h-3.5 w-3.5" />
-                        View Details
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full gap-2"
-                        onClick={() => handleResendApprovalEmail(sub.uid)}
-                        disabled={resendingEmail === sub.uid}
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        {resendingEmail === sub.uid ? 'Sending...' : 'Resend Approval Email'}
-                      </Button>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => handleOpenEdit(sub)}>
-                          <Edit2 className="h-3.5 w-3.5" />
-                          Edit
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDeleteSubcontractor(sub)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                      {sub.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button size="sm" className="flex-1 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleApprove(sub.uid)}>
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            Approve
-                          </Button>
-                          <Button size="sm" variant="destructive" className="flex-1 gap-1" onClick={() => handleReject(sub.uid)}>
-                            <XCircle className="h-3.5 w-3.5" />
-                            Reject
-                          </Button>
-                        </div>
+                  </div>
+                  {/* Row 3: skills badges */}
+                  {sub.skills && sub.skills.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {sub.skills.slice(0, 3).map((skill, i) => (
+                        <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
+                      ))}
+                      {sub.skills.length > 3 && (
+                        <span className="text-xs text-muted-foreground">+{sub.skills.length - 3}</span>
                       )}
                     </div>
+                  )}
+                  {/* Row 4: actions */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => router.push(`/admin-portal/subcontractors/${sub.uid}`)}>
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(sub)}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm" variant="outline" className="h-8 px-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                      title="Resend Invitation" disabled={resendingInvitation === sub.uid}
+                      onClick={() => handleResendInvitation(sub)}
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                    </Button>
+                    {sub.status === 'pending' && (
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50" title="Approve" onClick={() => handleApprove(sub.uid)}>
+                        <CheckCircle className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {sub.status === 'pending' && (
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-amber-600 border-amber-200 hover:bg-amber-50" title="Reject" onClick={() => handleReject(sub.uid)}>
+                        <XCircle className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" title="Delete" onClick={() => handleDeleteSubcontractor(sub)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               );

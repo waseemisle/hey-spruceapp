@@ -640,145 +640,75 @@ export default function SubcontractorAssignedJobs() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredJobs.map((job) => {
               const workOrder = workOrders.get(job.workOrderId);
               if (!workOrder) return null;
 
               const effectiveStatus = (workOrder.status === 'completed' || workOrder.status === 'pending_invoice') ? 'completed' : job.status;
-              const accentGradient = CARD_ACCENTS[effectiveStatus] || 'from-gray-400 to-gray-600';
               const jobStatusCfg = JOB_STATUS_CONFIG[effectiveStatus] || JOB_STATUS_CONFIG['pending_acceptance'];
               const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || { className: 'bg-muted text-foreground border-border', dot: 'bg-gray-400' };
 
               return (
-                <div
-                  key={job.id}
-                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col"
-                >
-                  <div className={`h-1 w-full bg-gradient-to-r ${accentGradient}`} />
-                  <div className="p-5 flex flex-col flex-1 space-y-4">
-                    {/* Title + Badges */}
-                    <div>
-                      <h3 className="font-semibold text-foreground text-base line-clamp-2 mb-2">{workOrder.title}</h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${jobStatusCfg.className}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${jobStatusCfg.dot}`} />
-                          {jobStatusCfg.label}
-                        </span>
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${priorityCfg.className}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${priorityCfg.dot}`} />
-                          {workOrder.priority} priority
-                        </span>
-                        <span className="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200">
-                          {workOrder.category}
-                        </span>
-                      </div>
+                <div key={job.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  {/* Row 1: title + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{workOrder.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{workOrder.locationName || workOrder.clientName}</p>
                     </div>
-
-                    {/* Client */}
-                    <div className="text-sm">
-                      <p className="font-medium text-foreground">Client</p>
-                      <p className="text-muted-foreground">{workOrder.clientName}</p>
-                      <p className="text-xs text-muted-foreground">{workOrder.clientEmail}</p>
-                    </div>
-
-                    {/* Location */}
-                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-foreground">{workOrder.locationName}</div>
-                        <div className="text-xs text-muted-foreground">{formatAddress(workOrder.locationAddress)}</div>
-                      </div>
-                    </div>
-
-                    {/* Description */}
-                    <p className="text-sm text-muted-foreground line-clamp-2">{workOrder.description}</p>
-
-                    {/* Dates */}
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
-                          <Calendar className="h-3.5 w-3.5" />
-                          <span className="text-xs">Assigned</span>
-                        </div>
-                        <p className="font-medium text-foreground text-xs">
-                          {job.assignedAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                        </p>
-                      </div>
-
-                      {workOrder.completedAt && (
-                        <div>
-                          <div className="flex items-center gap-1.5 text-emerald-500 mb-0.5">
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            <span className="text-xs">Completed</span>
-                          </div>
-                          <p className="font-medium text-foreground text-xs">
-                            {workOrder.completedAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Images */}
-                    {workOrder.images && workOrder.images.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto">
-                        {workOrder.images.map((image, idx) => (
-                          <img
-                            key={idx}
-                            src={image}
-                            alt={`Work order ${idx + 1}`}
-                            className="h-16 w-16 object-cover rounded-lg flex-shrink-0"
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="mt-auto pt-2 space-y-2">
-                      {job.status === 'pending_acceptance' && (
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => handleAcceptAssignment(job.id, workOrder.id)}
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-9 text-sm"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1.5" />
-                            Accept
-                          </Button>
-                          <Button
-                            onClick={() => handleRejectAssignment(job.id, workOrder.id)}
-                            variant="destructive"
-                            className="flex-1 h-9 text-sm"
-                          >
-                            <X className="h-4 w-4 mr-1.5" />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-
-                      {job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${jobStatusCfg.className}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${jobStatusCfg.dot}`} />
+                      {jobStatusCfg.label}
+                    </span>
+                  </div>
+                  {/* Row 2: category + priority */}
+                  <div className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-muted-foreground truncate">{workOrder.category || '—'}</span>
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityCfg.className}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${priorityCfg.dot}`} />
+                      {workOrder.priority}
+                    </span>
+                  </div>
+                  {/* Row 3: actions */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                    {job.status === 'pending_acceptance' && (
+                      <>
                         <Button
-                          onClick={() => handleMarkComplete(workOrder.id)}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 h-9 text-sm"
+                          size="sm"
+                          onClick={() => handleAcceptAssignment(job.id, workOrder.id)}
+                          className="flex-1 h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
                         >
-                          <CheckCircle className="h-4 w-4 mr-1.5" />
-                          Mark as Complete
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Accept
                         </Button>
-                      )}
-
-                      {(workOrder.status === 'completed' || workOrder.status === 'pending_invoice') && (
-                        <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                            <div>
-                              <p className="text-sm font-semibold text-emerald-800">Job Completed</p>
-                              <p className="text-xs text-emerald-600">
-                                {workOrder.completedAt?.toDate?.().toLocaleDateString() || 'N/A'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleRejectAssignment(job.id, workOrder.id)}
+                          className="h-8 px-2"
+                          title="Reject"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                    {job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleMarkComplete(workOrder.id)}
+                        className="flex-1 h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Mark Complete
+                      </Button>
+                    )}
+                    {(workOrder.status === 'completed' || workOrder.status === 'pending_invoice') && (
+                      <span className="flex-1 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Completed {workOrder.completedAt?.toDate?.().toLocaleDateString() || ''}
+                      </span>
+                    )}
                   </div>
                 </div>
               );

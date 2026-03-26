@@ -225,73 +225,56 @@ export default function AdminCompanies() {
         )}
 
         {viewMode === 'grid' && filtered.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((c) => {
               const clients = clientCounts[c.id] || 0;
               const locations = locationCounts[c.id] || 0;
               return (
-                <div
-                  key={c.id}
-                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-                >
-                  <div className={`h-1 w-full bg-gradient-to-r ${avatarColor(c.id)}`} />
-                  <div className="p-5 space-y-4">
-                    <div className="flex items-start gap-4">
+                <div key={c.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  {/* Row 1: name + avatar */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex items-center gap-3">
                       {c.logoUrl ? (
                         <img
                           src={c.logoUrl}
                           alt={c.name}
-                          className="h-14 w-14 object-contain rounded-xl border border-border bg-muted p-1 flex-shrink-0"
+                          className="h-9 w-9 object-contain rounded-lg border border-border bg-muted p-0.5 shrink-0"
                         />
                       ) : (
-                        <div className={`h-14 w-14 rounded-xl bg-gradient-to-br ${avatarColor(c.id)} flex items-center justify-center text-white font-bold text-lg flex-shrink-0`}>
+                        <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${avatarColor(c.id)} flex items-center justify-center text-white font-bold text-xs shrink-0`}>
                           {getInitials(c.name)}
                         </div>
                       )}
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-foreground text-base leading-tight truncate">{c.name}</h3>
-                        {c.email && (
-                          <div className="flex items-center gap-1.5 mt-1.5 text-sm text-muted-foreground">
-                            <Mail className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span className="truncate">{c.email}</span>
-                          </div>
-                        )}
-                        {c.phone && (
-                          <div className="flex items-center gap-1.5 mt-0.5 text-sm text-muted-foreground">
-                            <Phone className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span>{c.phone}</span>
-                          </div>
-                        )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{c.email || c.phone || 'No contact info'}</p>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="flex items-center gap-3 border-t border-border pt-3">
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4 text-purple-500" />
-                        <span className="font-semibold">{clients}</span>
-                        <span className="text-muted-foreground">{clients === 1 ? 'client' : 'clients'}</span>
-                      </div>
-                      <div className="w-px h-4 bg-gray-200" />
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="h-4 w-4 text-green-500" />
-                        <span className="font-semibold">{locations}</span>
-                        <span className="text-muted-foreground">{locations === 1 ? 'location' : 'locations'}</span>
-                      </div>
-                    </div>
+                  {/* Row 2: client count + location count */}
+                  <div className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-muted-foreground flex items-center gap-1 truncate">
+                      <Users className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+                      {clients} {clients === 1 ? 'client' : 'clients'}
+                    </span>
+                    <span className="text-foreground font-medium shrink-0 flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-green-500" />
+                      {locations} {locations === 1 ? 'location' : 'locations'}
+                    </span>
+                  </div>
 
-                    <div className="flex gap-2 pt-1">
-                      <Button size="sm" className="flex-1 gap-1.5" onClick={() => router.push(`/admin-portal/subsidiaries/${c.id}`)}>
-                        <Eye className="h-3.5 w-3.5" />
-                        View Details
-                      </Button>
-                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => handleOpenEdit(c)}>
-                        <Edit2 className="h-3.5 w-3.5" />
-                        Edit
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200" onClick={() => performDelete(c)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                  {/* Actions row */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => router.push(`/admin-portal/subsidiaries/${c.id}`)}>
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(c)}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" title="Delete" onClick={() => performDelete(c)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               );

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import Link from 'next/link';
-import { CheckCircle, XCircle, MapPin, Building, Building2, User, Phone, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, MapPin, Building, Building2, User, Phone, Plus, Edit2, Save, X, Search, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { PageHeader } from '@/components/ui/page-header';
@@ -561,68 +561,47 @@ export default function LocationsManagement() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sortedLocations.map((location) => (
-              <div
-                key={location.id}
-                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
-                <div className="p-5 space-y-3">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-semibold text-foreground text-sm break-words">{location.locationName}</h3>
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${getStatusColor(location.status)}`}>
-                      {location.status}
-                    </span>
+              <div key={location.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Row 1: location name + status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{location.locationName}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {location.address.street}, {location.address.city}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="break-words">{location.clientName}</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5 mt-0.5 text-muted-foreground flex-shrink-0" />
-                    <div className="break-words">
-                      <div>{location.address.street}</div>
-                      <div className="text-xs text-muted-foreground">{location.address.city}, {location.address.state} {location.address.zip}</div>
-                    </div>
-                  </div>
-                  {location.propertyType && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Building className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      <span>{location.propertyType}</span>
-                    </div>
-                  )}
-                  {location.contactPhone && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      <span>{location.contactPhone}</span>
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
-                    <Link href={`/admin-portal/locations/${location.id}`}>
-                      <Button size="sm" variant="secondary" className="gap-2">
-                        <Building2 className="h-3.5 w-3.5" />
-                        View
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(location.status)}`}>
+                    {location.status}
+                  </span>
+                </div>
+                {/* Row 2: client name + property type */}
+                <div className="flex items-center justify-between text-sm gap-2">
+                  <span className="text-muted-foreground truncate">{location.clientName || '—'}</span>
+                  <span className="text-foreground font-medium shrink-0">{location.propertyType || '—'}</span>
+                </div>
+                {/* Row 3: actions */}
+                <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                  <Link href={`/admin-portal/locations/${location.id}`} className="flex-1">
+                    <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1">
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </Button>
+                  </Link>
+                  <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(location)}>
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  {location.status === 'pending' && (
+                    <>
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50" title="Approve" onClick={() => handleApprove(location.id)}>
+                        <CheckCircle className="h-3.5 w-3.5" />
                       </Button>
-                    </Link>
-                    <Button size="sm" variant="outline" className="gap-2" onClick={() => handleOpenEdit(location)}>
-                      <Edit2 className="h-3.5 w-3.5" />
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleDeleteLocation(location)} aria-label="Delete location">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                    {location.status === 'pending' && (
-                      <>
-                        <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => handleApprove(location.id)}>
-                          <CheckCircle className="h-3.5 w-3.5" />
-                          Approve
-                        </Button>
-                        <Button size="sm" variant="destructive" className="gap-2" onClick={() => handleReject(location.id)}>
-                          <XCircle className="h-3.5 w-3.5" />
-                          Reject
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-amber-600 border-amber-200 hover:bg-amber-50" title="Reject" onClick={() => handleReject(location.id)}>
+                        <XCircle className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                  <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" title="Delete" onClick={() => handleDeleteLocation(location)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
             ))}

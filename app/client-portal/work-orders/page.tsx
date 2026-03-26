@@ -812,150 +812,74 @@ function ClientWorkOrdersContent() {
           </div>
         ) : (
           /* Grid View */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredWorkOrders.map((workOrder) => {
               const statusCfg = STATUS_CONFIG[normalizeStatus(workOrder.status)] || STATUS_CONFIG.pending;
               const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || PRIORITY_CONFIG.medium;
               return (
-                <div key={workOrder.id} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-                  <div className={`h-1 w-full bg-gradient-to-r ${
-                    normalizeStatus(workOrder.status) === 'completed' ? 'from-gray-400 to-gray-500' :
-                    normalizeStatus(workOrder.status) === 'rejected' ? 'from-red-500 to-red-600' :
-                    normalizeStatus(workOrder.status) === 'assigned' || normalizeStatus(workOrder.status) === 'accepted_by_subcontractor' ? 'from-emerald-500 to-emerald-600' :
-                    'from-blue-500 to-blue-600'
-                  }`} />
-
-                  <div className="p-5 flex flex-col flex-1">
-                    {/* Top row */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground text-sm line-clamp-2">{workOrder.title}</p>
-                        {workOrder.workOrderNumber && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{workOrder.workOrderNumber}</p>
-                        )}
-                      </div>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${statusCfg.className}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />
-                        {statusCfg.label}
-                      </span>
+                <div key={workOrder.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  {/* Row 1: title + status badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{workOrder.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{workOrder.locationName || 'No location'}</p>
                     </div>
-
-                    {/* Priority */}
-                    <div className="mb-3">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${priorityCfg.className}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${priorityCfg.dot}`} />
-                        {workOrder.priority} priority
-                      </span>
-                    </div>
-
-                    {/* Details */}
-                    <div className="space-y-2 text-sm text-muted-foreground flex-1">
-                      {workOrder.locationName && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground font-medium w-16 flex-shrink-0">Location</span>
-                          <span className="truncate">{workOrder.locationName}</span>
-                        </div>
-                      )}
-                      {workOrder.category && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground font-medium w-16 flex-shrink-0">Category</span>
-                          <span className="truncate">{workOrder.category}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="text-xs">{workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
-                      </div>
-                    </div>
-
-                    {workOrder.description && (
-                      <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{workOrder.description}</p>
-                    )}
-
-                    {workOrder.status === 'rejected' && workOrder.rejectionReason && (
-                      <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                        <div className="flex gap-2">
-                          <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
-                            <p className="text-xs text-red-700">{workOrder.rejectionReason}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {workOrder.scheduleSharedWithClient && workOrder.scheduledServiceDate && workOrder.scheduledServiceTime && (
-                      <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                        <div className="flex gap-2">
-                          <Calendar className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-xs font-semibold text-green-800 mb-1">Scheduled Service:</p>
-                            <p className="text-sm text-green-700 font-medium">
-                              {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
-                            </p>
-                            {workOrder.assignedToName && (
-                              <p className="text-xs text-green-600 mt-1">Assigned to: {workOrder.assignedToName}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {workOrder.images && workOrder.images.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto mt-3">
-                        {workOrder.images.map((image, idx) => (
-                          <img
-                            key={idx}
-                            src={image}
-                            alt={`Work order ${idx + 1}`}
-                            className="h-20 w-20 object-cover rounded-lg flex-shrink-0"
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="mt-4 pt-4 border-t border-border space-y-2">
-                      {hasApproveRejectPermission && workOrder.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                            onClick={() => handleApproveWorkOrder(workOrder.id)}
-                            disabled={processingWorkOrder === workOrder.id}
-                          >
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 text-red-600 hover:text-red-700 border-red-600 hover:border-red-700 gap-1"
-                            onClick={() => handleRejectWorkOrder(workOrder.id)}
-                            disabled={processingWorkOrder === workOrder.id}
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                      {hasShareForBiddingPermission && workOrder.status === 'approved' && (
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${statusCfg.className}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />
+                      {statusCfg.label}
+                    </span>
+                  </div>
+                  {/* Row 2: category + priority */}
+                  <div className="flex items-center justify-between text-sm gap-2">
+                    <span className="text-muted-foreground truncate">{workOrder.category || '—'}</span>
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityCfg.className}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${priorityCfg.dot}`} />
+                      {workOrder.priority}
+                    </span>
+                  </div>
+                  {/* Row 3: actions */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                    <Link href={`/client-portal/work-orders/${workOrder.id}`} className="flex-1">
+                      <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1">
+                        <Eye className="h-3.5 w-3.5" />
+                        View
+                      </Button>
+                    </Link>
+                    {hasApproveRejectPermission && workOrder.status === 'pending' && (
+                      <>
                         <Button
                           size="sm"
-                          className="w-full gap-2"
-                          onClick={() => handleShareForBidding(workOrder)}
+                          variant="outline"
+                          className="h-8 px-2 text-emerald-600 hover:text-emerald-700 border-emerald-600 hover:border-emerald-700"
+                          onClick={() => handleApproveWorkOrder(workOrder.id)}
+                          disabled={processingWorkOrder === workOrder.id}
+                          title="Approve"
                         >
-                          <Share2 className="h-3.5 w-3.5" />
-                          Share for Bidding
+                          <CheckCircle className="h-3.5 w-3.5" />
                         </Button>
-                      )}
-                      <Link href={`/client-portal/work-orders/${workOrder.id}`} className="block">
-                        <Button size="sm" variant="secondary" className="w-full gap-2">
-                          <Eye className="h-3.5 w-3.5" />
-                          View Details
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 text-red-600 hover:text-red-700 border-red-600 hover:border-red-700"
+                          onClick={() => handleRejectWorkOrder(workOrder.id)}
+                          disabled={processingWorkOrder === workOrder.id}
+                          title="Reject"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
                         </Button>
-                      </Link>
-                    </div>
+                      </>
+                    )}
+                    {hasShareForBiddingPermission && workOrder.status === 'approved' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-2"
+                        onClick={() => handleShareForBidding(workOrder)}
+                        title="Share for Bidding"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
