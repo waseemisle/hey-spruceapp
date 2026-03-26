@@ -184,13 +184,13 @@ export default function RegisterClient() {
             >
               {loading ? 'Creating Account...' : 'Register'}
             </Button>
-            <div className="text-sm text-center text-gray-600">
+            <div className="text-sm text-center text-muted-foreground">
               Already have an account?{' '}
               <Link href="/portal-login" className="text-blue-600 hover:underline">
                 Login here
               </Link>
             </div>
-            <Link href="/" className="text-sm text-center text-gray-600 hover:underline">
+            <Link href="/" className="text-sm text-center text-muted-foreground hover:underline">
               ← Back to Home
             </Link>
           </CardFooter>

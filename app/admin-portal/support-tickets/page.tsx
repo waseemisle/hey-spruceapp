@@ -51,9 +51,9 @@ function statusBadgeClass(s: string) {
     'waiting-on-client': 'bg-orange-50 text-orange-800 border-orange-200',
     'waiting-on-admin': 'bg-purple-50 text-purple-800 border-purple-200',
     resolved: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    closed: 'bg-gray-100 text-gray-700 border-gray-200',
+    closed: 'bg-muted text-foreground border-border',
   };
-  return map[s] || 'bg-gray-50 text-gray-700 border-gray-200';
+  return map[s] || 'bg-muted text-foreground border-border';
 }
 
 function priorityBadgeClass(p: string) {
@@ -293,10 +293,10 @@ export default function AdminSupportTicketsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm">
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3 shadow-sm">
           <div className="flex flex-wrap gap-2 items-end">
             <div className="relative flex-1 min-w-[200px]">
-              <Label className="text-xs text-gray-500">Search</Label>
+              <Label className="text-xs text-muted-foreground">Search</Label>
               <Input
                 placeholder="Ticket #, title, submitter…"
                 value={search}
@@ -305,7 +305,7 @@ export default function AdminSupportTicketsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">Status</Label>
+              <Label className="text-xs text-muted-foreground">Status</Label>
               <SearchableSelect
                 className="mt-1 w-full min-w-[140px]"
                 value={statusFilter}
@@ -319,7 +319,7 @@ export default function AdminSupportTicketsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">Priority</Label>
+              <Label className="text-xs text-muted-foreground">Priority</Label>
               <SearchableSelect
                 className="mt-1 w-full min-w-[100px]"
                 value={priorityFilter}
@@ -333,7 +333,7 @@ export default function AdminSupportTicketsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">Category</Label>
+              <Label className="text-xs text-muted-foreground">Category</Label>
               <SearchableSelect
                 className="mt-1 w-full min-w-[140px]"
                 value={categoryFilter}
@@ -347,7 +347,7 @@ export default function AdminSupportTicketsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">Assigned</Label>
+              <Label className="text-xs text-muted-foreground">Assigned</Label>
               <SearchableSelect
                 className="mt-1 w-full min-w-[140px]"
                 value={assignedFilter}
@@ -362,7 +362,7 @@ export default function AdminSupportTicketsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">Submitter role</Label>
+              <Label className="text-xs text-muted-foreground">Submitter role</Label>
               <SearchableSelect
                 className="mt-1 w-full min-w-[120px]"
                 value={roleFilter}
@@ -378,46 +378,46 @@ export default function AdminSupportTicketsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">From</Label>
+              <Label className="text-xs text-muted-foreground">From</Label>
               <Input type="date" className="mt-1 w-[150px]" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} />
             </div>
             <div>
-              <Label className="text-xs text-gray-500">To</Label>
+              <Label className="text-xs text-muted-foreground">To</Label>
               <Input type="date" className="mt-1 w-[150px]" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
             </div>
             <Button type="button" variant="outline" onClick={clearFilters}>Clear Filters</Button>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden overflow-x-auto">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-gray-100 bg-gray-50">
+            <thead className="border-b border-border bg-muted">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Ticket #</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Title</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Submitter</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Category</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Priority</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Assigned</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Last activity</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Comments</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ticket #</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Submitter</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Category</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Priority</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Assigned</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last activity</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Comments</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {pageSlice.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center text-gray-500">No tickets match filters.</td>
+                  <td colSpan={9} className="px-4 py-16 text-center text-muted-foreground">No tickets match filters.</td>
                 </tr>
               ) : (
                 pageSlice.map((t) => (
                   <tr
                     key={t.id}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="hover:bg-muted cursor-pointer transition-colors"
                     onClick={() => { window.location.href = `/admin-portal/support-tickets/${t.id}`; }}
                   >
                     <td className="px-4 py-3 font-mono text-xs">{t.ticketNumber}</td>
-                    <td className="px-4 py-3 max-w-[200px] truncate font-medium text-gray-900">{t.title}</td>
+                    <td className="px-4 py-3 max-w-[200px] truncate font-medium text-foreground">{t.title}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         <span>{t.submittedByName}</span>
@@ -436,7 +436,7 @@ export default function AdminSupportTicketsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">{t.assignedToName || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {t.lastActivityAt && typeof (t.lastActivityAt as { toDate?: () => Date }).toDate === 'function'
                         ? (t.lastActivityAt as { toDate: () => Date }).toDate().toLocaleString()
                         : '—'}
@@ -450,7 +450,7 @@ export default function AdminSupportTicketsPage() {
         </div>
 
         {filtered.length > rowsPerPage && (
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
               {(page - 1) * rowsPerPage + 1}–{Math.min(page * rowsPerPage, filtered.length)} of {filtered.length}
             </span>

@@ -466,8 +466,8 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     return (
       <AdminLayout>
         <div className="text-center py-12">
-          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">Recurring work order not found</p>
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Recurring work order not found</p>
         </div>
       </AdminLayout>
     );
@@ -485,8 +485,8 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Edit Recurring Work Order</h1>
-            <p className="text-gray-600 mt-2">Update recurring work order settings</p>
+            <h1 className="text-3xl font-bold text-foreground">Edit Recurring Work Order</h1>
+            <p className="text-muted-foreground mt-2">Update recurring work order settings</p>
           </div>
         </div>
 
@@ -621,7 +621,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   onWheel={(e) => e.currentTarget.blur()}
                   placeholder="e.g., 5000"
                 />
-                <p className="text-xs text-gray-500 mt-1">Estimated budget per occurrence in USD</p>
+                <p className="text-xs text-muted-foreground mt-1">Estimated budget per occurrence in USD</p>
               </div>
 
               <div>
@@ -640,7 +640,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   placeholder="Select subcontractor..."
                   aria-label="Assigned subcontractor"
                 />
-                <p className="text-xs text-gray-500 mt-1">Pre-select a subcontractor for this recurring work order</p>
+                <p className="text-xs text-muted-foreground mt-1">Pre-select a subcontractor for this recurring work order</p>
               </div>
             </CardContent>
           </Card>
@@ -666,7 +666,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   placeholder="Recurrence pattern"
                   aria-label="Recurrence pattern"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   This work order will repeat <strong>{formData.recurrencePatternLabel}</strong>
                   {formData.recurrenceType === 'weekly' && ` (every ${formData.recurrenceInterval} week(s))`}
                   {formData.recurrenceType === 'monthly' && ` (every ${formData.recurrenceInterval} month(s))`}.
@@ -683,7 +683,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                     value={formData.recurrenceDayOfMonth}
                     onChange={(e) => setFormData({ ...formData, recurrenceDayOfMonth: parseInt(e.target.value) || 1 })}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Day of the month when work order should be created (1-31)</p>
+                  <p className="text-xs text-muted-foreground mt-1">Day of the month when work order should be created (1-31)</p>
                 </div>
               )}
 
@@ -694,7 +694,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   value={formData.recurrenceStartDate}
                   onChange={(e) => setFormData({ ...formData, recurrenceStartDate: e.target.value })}
                 />
-                <p className="text-xs text-gray-500 mt-1">The first date occurrences will begin. Events will appear on the calendar from this date onward.</p>
+                <p className="text-xs text-muted-foreground mt-1">The first date occurrences will begin. Events will appear on the calendar from this date onward.</p>
               </div>
 
               <div>
@@ -704,7 +704,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   value={formData.recurrenceEndDate}
                   onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
                 />
-                <p className="text-xs text-gray-500 mt-1">The last date occurrences will run. Calendar events will be generated up to this date.</p>
+                <p className="text-xs text-muted-foreground mt-1">The last date occurrences will run. Calendar events will be generated up to this date.</p>
               </div>
 
               <div>
@@ -714,7 +714,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   value={formData.nextExecution}
                   onChange={(e) => setFormData({ ...formData, nextExecution: e.target.value })}
                 />
-                <p className="text-xs text-gray-500 mt-1">Date when the next work order will be created</p>
+                <p className="text-xs text-muted-foreground mt-1">Date when the next work order will be created</p>
               </div>
 
               <div className="pt-4 border-t">
@@ -757,7 +757,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
             <CardContent className="space-y-4">
               <div>
                 <Label>Invoice Schedule Pattern</Label>
-                <div className="text-sm text-gray-600 mt-2 p-3 bg-blue-50 rounded-md">
+                <div className="text-sm text-muted-foreground mt-2 p-3 bg-blue-50 rounded-md">
                   Invoices will be sent <strong>Monthly</strong>
                 </div>
               </div>
@@ -772,7 +772,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                     onChange={(e) => setFormData({ ...formData, invoiceScheduleInterval: parseInt(e.target.value) || 1 })}
                     className="w-20"
                   />
-                  <span className="text-sm text-gray-600">month(s)</span>
+                  <span className="text-sm text-muted-foreground">month(s)</span>
                 </div>
               </div>
 
@@ -785,7 +785,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                   value={formData.invoiceScheduleDayOfMonth}
                   onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
                 />
-                <p className="text-xs text-gray-500 mt-1">Day of the month when invoice should be sent (1-31)</p>
+                <p className="text-xs text-muted-foreground mt-1">Day of the month when invoice should be sent (1-31)</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

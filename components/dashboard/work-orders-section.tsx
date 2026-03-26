@@ -42,7 +42,7 @@ export default function WorkOrdersSection({ data, portalType }: WorkOrdersSectio
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <Link
@@ -53,7 +53,7 @@ export default function WorkOrdersSection({ data, portalType }: WorkOrdersSectio
           <ExternalLink className="w-4 h-4" />
         </Link>
         <button
-          className="text-gray-400 hover:text-gray-600 transition-colors"
+          className="text-muted-foreground hover:text-muted-foreground transition-colors"
           aria-label="Settings"
         >
           <Settings className="w-5 h-5" />
@@ -65,32 +65,32 @@ export default function WorkOrdersSection({ data, portalType }: WorkOrdersSectio
         {/* Work Required Column */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium text-gray-700">Work Required</h3>
-            <span className="text-2xl font-bold text-gray-900">{data.workRequired.total}</span>
+            <h3 className="font-medium text-foreground">Work Required</h3>
+            <span className="text-2xl font-bold text-foreground">{data.workRequired.total}</span>
           </div>
-          <div className="space-y-2 pl-2 border-l-2 border-gray-200">
+          <div className="space-y-2 pl-2 border-l-2 border-border">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Dispatch Not Confirmed</span>
+              <span className="text-sm text-muted-foreground">Dispatch Not Confirmed</span>
               <span className="text-sm">
                 <span className="text-red-600 font-medium">{data.workRequired.dispatchNotConfirmed.urgent}</span>
-                <span className="text-gray-400">/</span>
-                <span className="text-gray-900">{data.workRequired.dispatchNotConfirmed.total}</span>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-foreground">{data.workRequired.dispatchNotConfirmed.total}</span>
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Declined By Provider</span>
+              <span className="text-sm text-muted-foreground">Declined By Provider</span>
               <span className="text-sm">
                 <span className="text-red-600 font-medium">{data.workRequired.declinedByProvider.urgent}</span>
-                <span className="text-gray-400">/</span>
-                <span className="text-gray-900">{data.workRequired.declinedByProvider.total}</span>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-foreground">{data.workRequired.declinedByProvider.total}</span>
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Late to Arrive</span>
+              <span className="text-sm text-muted-foreground">Late to Arrive</span>
               <span className="text-sm">
                 <span className="text-red-600 font-medium">{data.workRequired.lateToArrive.urgent}</span>
-                <span className="text-gray-400">/</span>
-                <span className="text-gray-900">{data.workRequired.lateToArrive.total}</span>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-foreground">{data.workRequired.lateToArrive.total}</span>
               </span>
             </div>
           </div>
@@ -99,29 +99,29 @@ export default function WorkOrdersSection({ data, portalType }: WorkOrdersSectio
         {/* In Progress Column */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium text-gray-700">In Progress</h3>
-            <span className="text-2xl font-bold text-gray-900">{data.inProgress.total}</span>
+            <h3 className="font-medium text-foreground">In Progress</h3>
+            <span className="text-2xl font-bold text-foreground">{data.inProgress.total}</span>
           </div>
-          <div className="space-y-2 pl-2 border-l-2 border-gray-200">
+          <div className="space-y-2 pl-2 border-l-2 border-border">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Parts on Order</span>
+              <span className="text-sm text-muted-foreground">Parts on Order</span>
               <span className="text-sm">
                 <span className="text-red-600 font-medium">{data.inProgress.partsOnOrder.urgent}</span>
-                <span className="text-gray-400">/</span>
-                <span className="text-gray-900">{data.inProgress.partsOnOrder.total}</span>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-foreground">{data.inProgress.partsOnOrder.total}</span>
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Waiting for Quote</span>
+              <span className="text-sm text-muted-foreground">Waiting for Quote</span>
               <span className="text-sm">
                 <span className="text-red-600 font-medium">{data.inProgress.waitingForQuote.urgent}</span>
-                <span className="text-gray-400">/</span>
-                <span className="text-gray-900">{data.inProgress.waitingForQuote.total}</span>
+                <span className="text-muted-foreground">/</span>
+                <span className="text-foreground">{data.inProgress.waitingForQuote.total}</span>
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Unsatisfactory</span>
-              <span className="text-sm text-gray-900 font-medium">{data.inProgress.unsatisfactory}</span>
+              <span className="text-sm text-muted-foreground">Unsatisfactory</span>
+              <span className="text-sm text-foreground font-medium">{data.inProgress.unsatisfactory}</span>
             </div>
           </div>
         </div>
@@ -129,25 +129,25 @@ export default function WorkOrdersSection({ data, portalType }: WorkOrdersSectio
         {/* Awaiting Action Column */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium text-gray-700">Awaiting Action</h3>
-            <span className="text-2xl font-bold text-gray-900">{data.awaitingAction.total}</span>
+            <h3 className="font-medium text-foreground">Awaiting Action</h3>
+            <span className="text-2xl font-bold text-foreground">{data.awaitingAction.total}</span>
           </div>
-          <div className="space-y-2 pl-2 border-l-2 border-gray-200">
+          <div className="space-y-2 pl-2 border-l-2 border-border">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Pending Confirmation</span>
+              <span className="text-sm text-muted-foreground">Pending Confirmation</span>
               <span className="text-sm text-blue-600 font-medium">{data.awaitingAction.pendingConfirmation}</span>
             </div>
             <div className="flex justify-between items-center gap-1">
               <div className="flex items-center gap-1">
-                <span className="text-sm text-gray-600">Action Required Work Orders</span>
-                <Info className="w-3 h-3 text-gray-400" />
+                <span className="text-sm text-muted-foreground">Action Required Work Orders</span>
+                <Info className="w-3 h-3 text-muted-foreground" />
               </div>
               <span className="text-sm text-red-600 font-medium">{data.awaitingAction.actionRequired}</span>
             </div>
             <div className="flex justify-between items-center gap-1">
               <div className="flex items-center gap-1">
-                <span className="text-sm text-gray-600">My Action Required Work Orders</span>
-                <Info className="w-3 h-3 text-gray-400" />
+                <span className="text-sm text-muted-foreground">My Action Required Work Orders</span>
+                <Info className="w-3 h-3 text-muted-foreground" />
               </div>
               <span className="text-sm text-red-600 font-medium">{data.awaitingAction.myActionRequired}</span>
             </div>

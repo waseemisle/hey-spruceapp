@@ -85,7 +85,7 @@ export default function ForgotPassword() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="text-sm text-gray-600 text-center">
+            <div className="text-sm text-muted-foreground text-center">
               <p>If you don't see the email in your inbox, please check your spam folder.</p>
               <p className="mt-2">The reset link will expire in 1 hour.</p>
             </div>
@@ -101,7 +101,7 @@ export default function ForgotPassword() {
             >
               Send Another Email
             </Button>
-            <Link href="/portal-login" className="text-sm text-center text-gray-600 hover:underline">
+            <Link href="/portal-login" className="text-sm text-center text-muted-foreground hover:underline">
               ← Back to Login
             </Link>
           </CardFooter>
@@ -141,13 +141,13 @@ export default function ForgotPassword() {
             >
               {loading ? 'Sending...' : 'Send Reset Email'}
             </Button>
-            <div className="text-sm text-center text-gray-600">
+            <div className="text-sm text-center text-muted-foreground">
               Remember your password?{' '}
               <Link href="/portal-login" className="text-blue-500 hover:underline">
                 Back to Login
               </Link>
             </div>
-            <div className="text-sm text-center text-gray-600">
+            <div className="text-sm text-center text-muted-foreground">
               Don't have an account?{' '}
               <Link href="/register-client" className="text-blue-500 hover:underline">
                 Register as Client
@@ -157,7 +157,7 @@ export default function ForgotPassword() {
                 Subcontractor
               </Link>
             </div>
-            <Link href="/" className="text-sm text-center text-gray-600 hover:underline flex items-center justify-center gap-1">
+            <Link href="/" className="text-sm text-center text-muted-foreground hover:underline flex items-center justify-center gap-1">
               <ArrowLeft className="w-4 h-4" />
               Back to Home
             </Link>

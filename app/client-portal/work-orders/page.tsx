@@ -55,7 +55,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string; dot: str
   bidding: { label: 'Bidding', className: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
   assigned: { label: 'Assigned', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
   accepted_by_subcontractor: { label: 'Scheduled', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  completed: { label: 'Completed', className: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-400' },
+  completed: { label: 'Completed', className: 'bg-muted text-foreground border-border', dot: 'bg-gray-400' },
   rejected: { label: 'Rejected', className: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500' },
 };
 
@@ -269,10 +269,10 @@ function ClientWorkOrdersContent() {
       assigned: 'bg-green-100 text-green-800',
       accepted_by_subcontractor: 'bg-green-100 text-green-800',
       pending_invoice: 'bg-orange-100 text-orange-800',
-      completed: 'bg-gray-100 text-gray-800',
+      completed: 'bg-muted text-foreground',
       rejected: 'bg-red-100 text-red-800',
     };
-    return styles[normalized as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[normalized as keyof typeof styles] || 'bg-muted text-foreground';
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -281,7 +281,7 @@ function ClientWorkOrdersContent() {
       medium: 'bg-yellow-100 text-yellow-800',
       high: 'bg-red-100 text-red-800',
     };
-    return styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[priority as keyof typeof styles] || 'bg-muted text-foreground';
   };
 
   const handleApproveWorkOrder = async (workOrderId: string) => {
@@ -629,11 +629,11 @@ function ClientWorkOrdersContent() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <ClipboardList className="h-7 w-7 text-blue-600" />
               {workOrderType === 'maintenance' ? 'Maintenance Requests Work Orders' : 'Work Orders'}
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {workOrderType === 'maintenance' ? 'Work orders created from maintenance requests' : 'Manage your maintenance requests'}
             </p>
           </div>
@@ -668,7 +668,7 @@ function ClientWorkOrdersContent() {
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search work orders by title, description, category, or location..."
               value={searchQuery}
@@ -677,13 +677,13 @@ function ClientWorkOrdersContent() {
             />
           </div>
 
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 overflow-x-auto">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1 overflow-x-auto">
             {filterOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => setFilter(option.value)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-                  filter === option.value ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  filter === option.value ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {option.label} ({option.count})
@@ -696,14 +696,14 @@ function ClientWorkOrdersContent() {
 
         {/* Empty State */}
         {filteredWorkOrders.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
-            <div className="h-14 w-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ClipboardList className="h-7 w-7 text-gray-400" />
+          <div className="bg-card rounded-xl border border-border p-16 text-center">
+            <div className="h-14 w-14 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <ClipboardList className="h-7 w-7 text-muted-foreground" />
             </div>
-            <p className="text-gray-900 font-medium">
+            <p className="text-foreground font-medium">
               {filter === 'all' ? 'No work orders yet' : `No ${filter} work orders`}
             </p>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-muted-foreground text-sm mt-1">
               {filter === 'all' ? 'Get started by creating your first work order' : 'Try a different filter'}
             </p>
             {filter === 'all' && workOrderType !== 'maintenance' && (
@@ -717,17 +717,17 @@ function ClientWorkOrdersContent() {
           </div>
         ) : viewMode === 'list' ? (
           /* List View */
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Work Order</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Location</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Category</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Priority</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Created</th>
-                  <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="text-left px-5 py-3 font-medium text-muted-foreground">Work Order</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Location</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Category</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Priority</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Created</th>
+                  <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -735,16 +735,16 @@ function ClientWorkOrdersContent() {
                   const statusCfg = STATUS_CONFIG[normalizeStatus(workOrder.status)] || STATUS_CONFIG.pending;
                   const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || PRIORITY_CONFIG.medium;
                   return (
-                    <tr key={workOrder.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={workOrder.id} className="hover:bg-muted transition-colors">
                       <td className="px-5 py-3.5">
-                        <p className="font-medium text-gray-900">{workOrder.title}</p>
+                        <p className="font-medium text-foreground">{workOrder.title}</p>
                         {workOrder.workOrderNumber && (
-                          <p className="text-xs text-gray-500">{workOrder.workOrderNumber}</p>
+                          <p className="text-xs text-muted-foreground">{workOrder.workOrderNumber}</p>
                         )}
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{workOrder.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{workOrder.description}</p>
                       </td>
-                      <td className="px-4 py-3.5 hidden sm:table-cell text-gray-600">{workOrder.locationName}</td>
-                      <td className="px-4 py-3.5 hidden md:table-cell text-gray-600">{workOrder.category}</td>
+                      <td className="px-4 py-3.5 hidden sm:table-cell text-muted-foreground">{workOrder.locationName}</td>
+                      <td className="px-4 py-3.5 hidden md:table-cell text-muted-foreground">{workOrder.category}</td>
                       <td className="px-4 py-3.5">
                         <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${statusCfg.className}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />
@@ -757,7 +757,7 @@ function ClientWorkOrdersContent() {
                           {workOrder.priority}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 hidden md:table-cell text-gray-600">
+                      <td className="px-4 py-3.5 hidden md:table-cell text-muted-foreground">
                         {workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                       </td>
                       <td className="px-5 py-3.5">
@@ -817,7 +817,7 @@ function ClientWorkOrdersContent() {
               const statusCfg = STATUS_CONFIG[normalizeStatus(workOrder.status)] || STATUS_CONFIG.pending;
               const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || PRIORITY_CONFIG.medium;
               return (
-                <div key={workOrder.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                <div key={workOrder.id} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col">
                   <div className={`h-1 w-full bg-gradient-to-r ${
                     normalizeStatus(workOrder.status) === 'completed' ? 'from-gray-400 to-gray-500' :
                     normalizeStatus(workOrder.status) === 'rejected' ? 'from-red-500 to-red-600' :
@@ -829,9 +829,9 @@ function ClientWorkOrdersContent() {
                     {/* Top row */}
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-gray-900 text-sm line-clamp-2">{workOrder.title}</p>
+                        <p className="font-semibold text-foreground text-sm line-clamp-2">{workOrder.title}</p>
                         {workOrder.workOrderNumber && (
-                          <p className="text-xs text-gray-500 mt-0.5">{workOrder.workOrderNumber}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{workOrder.workOrderNumber}</p>
                         )}
                       </div>
                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${statusCfg.className}`}>
@@ -849,27 +849,27 @@ function ClientWorkOrdersContent() {
                     </div>
 
                     {/* Details */}
-                    <div className="space-y-2 text-sm text-gray-600 flex-1">
+                    <div className="space-y-2 text-sm text-muted-foreground flex-1">
                       {workOrder.locationName && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400 font-medium w-16 flex-shrink-0">Location</span>
+                          <span className="text-xs text-muted-foreground font-medium w-16 flex-shrink-0">Location</span>
                           <span className="truncate">{workOrder.locationName}</span>
                         </div>
                       )}
                       {workOrder.category && (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400 font-medium w-16 flex-shrink-0">Category</span>
+                          <span className="text-xs text-muted-foreground font-medium w-16 flex-shrink-0">Category</span>
                           <span className="truncate">{workOrder.category}</span>
                         </div>
                       )}
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="text-xs">{workOrder.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                       </div>
                     </div>
 
                     {workOrder.description && (
-                      <p className="text-xs text-gray-500 mt-2 line-clamp-2">{workOrder.description}</p>
+                      <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{workOrder.description}</p>
                     )}
 
                     {workOrder.status === 'rejected' && workOrder.rejectionReason && (
@@ -915,7 +915,7 @@ function ClientWorkOrdersContent() {
                     )}
 
                     {/* Actions */}
-                    <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                    <div className="mt-4 pt-4 border-t border-border space-y-2">
                       {hasApproveRejectPermission && workOrder.status === 'pending' && (
                         <div className="flex gap-2">
                           <Button
@@ -967,12 +967,12 @@ function ClientWorkOrdersContent() {
       {/* Share for Bidding Modal */}
       {showBiddingModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+          <div className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Share for Bidding</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">
+                  <h2 className="text-xl font-bold text-foreground">Share for Bidding</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     Select subcontractors to share this work order with
                   </p>
                 </div>
@@ -982,9 +982,9 @@ function ClientWorkOrdersContent() {
                     setSelectedSubcontractors([]);
                     setWorkOrderToShare(null);
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-muted rounded-lg transition-colors"
                 >
-                  <X className="h-5 w-5 text-gray-500" />
+                  <X className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
             </div>
@@ -1006,18 +1006,18 @@ function ClientWorkOrdersContent() {
                     onChange={selectAllSubcontractors}
                     className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <label htmlFor="selectAll" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="selectAll" className="text-sm font-medium text-foreground">
                     Select All ({subcontractors.length})
                   </label>
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-muted-foreground">
                   {selectedSubcontractors.length} selected
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-200 rounded-xl p-4">
+              <div className="space-y-2 max-h-96 overflow-y-auto border border-border rounded-xl p-4">
                 {subcontractors.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">No approved subcontractors found</p>
+                  <p className="text-center text-muted-foreground py-8">No approved subcontractors found</p>
                 ) : (
                   subcontractors.map((sub) => (
                     <div
@@ -1029,7 +1029,7 @@ function ClientWorkOrdersContent() {
                             : 'bg-blue-50 border-blue-300'
                           : sub.matchesCategory
                           ? 'bg-green-50 border-green-300 hover:border-green-400'
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                          : 'bg-white border-border hover:bg-muted'
                       }`}
                       onClick={() => toggleSubcontractorSelection(sub.id)}
                     >
@@ -1042,7 +1042,7 @@ function ClientWorkOrdersContent() {
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900">{sub.fullName}</p>
+                          <p className="font-medium text-foreground">{sub.fullName}</p>
                           {sub.matchesCategory && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">
                               Matches Category
@@ -1050,9 +1050,9 @@ function ClientWorkOrdersContent() {
                           )}
                         </div>
                         {sub.businessName && (
-                          <p className="text-sm text-gray-600">{sub.businessName}</p>
+                          <p className="text-sm text-muted-foreground">{sub.businessName}</p>
                         )}
-                        <p className="text-sm text-gray-500">{sub.email}</p>
+                        <p className="text-sm text-muted-foreground">{sub.email}</p>
                       </div>
                     </div>
                   ))

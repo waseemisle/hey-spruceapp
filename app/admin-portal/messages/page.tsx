@@ -309,8 +309,8 @@ export default function MessagesManagement() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Messages</h1>
-          <p className="text-gray-600 mt-2">Chat with clients and subcontractors</p>
+          <h1 className="text-3xl font-bold text-foreground">Messages</h1>
+          <p className="text-muted-foreground mt-2">Chat with clients and subcontractors</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -334,7 +334,7 @@ export default function MessagesManagement() {
             <CardContent>
               {/* Search Bar */}
               <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search conversations..."
                   value={searchQuery}
@@ -345,8 +345,8 @@ export default function MessagesManagement() {
 
               {filteredChats.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 text-sm">No conversations found</p>
+                  <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground text-sm">No conversations found</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -358,12 +358,12 @@ export default function MessagesManagement() {
                       <div
                         key={chat.id}
                         onClick={() => setSelectedChat(chat.id)}
-                        className={`p-3 rounded-lg cursor-pointer hover:bg-gray-100 ${
-                          selectedChat === chat.id ? 'bg-blue-50 border-2 border-blue-500' : 'bg-gray-50'
+                        className={`p-3 rounded-lg cursor-pointer hover:bg-muted ${
+                          selectedChat === chat.id ? 'bg-blue-50 border-2 border-blue-500' : 'bg-muted'
                         }`}
                       >
                         <div className="font-semibold text-sm">{otherParticipant?.name || 'Unknown'}</div>
-                        <div className="text-xs text-gray-600 truncate">{chat.lastMessage}</div>
+                        <div className="text-xs text-muted-foreground truncate">{chat.lastMessage}</div>
                       </div>
                     );
                   })}
@@ -396,13 +396,13 @@ export default function MessagesManagement() {
             <CardContent>
               {!selectedChat ? (
                 <div className="text-center py-12">
-                  <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Select a conversation to start chatting</p>
+                  <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">Select a conversation to start chatting</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {/* Messages */}
-                  <div className="h-96 overflow-y-auto space-y-3 p-4 bg-gray-50 rounded-lg">
+                  <div className="h-96 overflow-y-auto space-y-3 p-4 bg-muted rounded-lg">
                     {messages.map(message => (
                       <div
                         key={message.id}
@@ -424,7 +424,7 @@ export default function MessagesManagement() {
                             className={`max-w-xs px-4 py-2 rounded-lg ${
                               message.senderId === auth.currentUser?.uid
                                 ? 'bg-blue-600 text-white'
-                                : 'bg-white text-gray-900'
+                                : 'bg-card text-foreground'
                             }`}
                           >
                             <div className="text-xs opacity-75 mb-1">{message.senderName}</div>
@@ -466,13 +466,13 @@ export default function MessagesManagement() {
         {/* Delete Message Modal */}
         {showDeleteMessageModal && messageToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Message</h2>
-                <p className="text-gray-700 mb-4">
+                <p className="text-foreground mb-4">
                   Are you sure you want to delete this message?
                 </p>
-                <div className="bg-gray-50 p-4 rounded mb-4">
+                <div className="bg-muted p-4 rounded mb-4">
                   <p className="text-sm"><strong>From:</strong> {messageToDelete.senderName}</p>
                   <p className="text-sm mt-2"><strong>Message:</strong> {messageToDelete.content}</p>
                 </div>
@@ -504,13 +504,13 @@ export default function MessagesManagement() {
         {/* Delete Thread Modal */}
         {showDeleteThreadModal && threadToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Conversation</h2>
-                <p className="text-gray-700 mb-4">
+                <p className="text-foreground mb-4">
                   Are you sure you want to delete this entire conversation?
                 </p>
-                <div className="bg-gray-50 p-4 rounded mb-4">
+                <div className="bg-muted p-4 rounded mb-4">
                   <p className="text-sm">
                     <strong>Conversation with:</strong> {
                       threadToDelete.participantDetails?.find(p => p.id !== auth.currentUser?.uid)?.name || 'Unknown'
@@ -550,7 +550,7 @@ export default function MessagesManagement() {
         {/* New Chat Modal */}
         {showNewChatModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Start New Conversation</h2>
@@ -570,7 +570,7 @@ export default function MessagesManagement() {
               <div className="p-6">
                 {/* User Search Bar */}
                 <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search users by name, email, or role..."
                     value={userSearchQuery}
@@ -587,8 +587,8 @@ export default function MessagesManagement() {
                     </div>
                   ) : filteredUsers.length === 0 ? (
                     <div className="text-center py-12">
-                      <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600 text-sm">No users found</p>
+                      <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground text-sm">No users found</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -596,12 +596,12 @@ export default function MessagesManagement() {
                         <div
                           key={user.id}
                           onClick={() => startChatWithUser(user)}
-                          className="p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 border border-transparent transition-all"
+                          className="p-4 bg-muted rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 border border-transparent transition-all"
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <div className="font-semibold text-sm">{user.name}</div>
-                              <div className="text-xs text-gray-600 mt-1">{user.email}</div>
+                              <div className="text-xs text-muted-foreground mt-1">{user.email}</div>
                             </div>
                             <div className="ml-4">
                               <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 capitalize">

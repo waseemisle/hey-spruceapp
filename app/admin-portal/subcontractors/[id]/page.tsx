@@ -101,7 +101,7 @@ function WoStatusBadge({ status }: { status: string }) {
     rejected:  { label: 'Rejected',  cls: 'bg-red-100 text-red-700' },
     rejected_by_subcontractor: { label: 'Rejected', cls: 'bg-red-100 text-red-700' },
   };
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
+  const { label, cls } = map[status] ?? { label: status, cls: 'bg-muted text-muted-foreground' };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
       {label}
@@ -278,7 +278,7 @@ export default function SubcontractorDetailPage() {
     return (
       <AdminLayout>
         <div className="text-center py-16">
-          <p className="text-gray-500 mb-4">Subcontractor not found.</p>
+          <p className="text-muted-foreground mb-4">Subcontractor not found.</p>
           <Button onClick={() => router.push('/admin-portal/subcontractors')}>Go Back</Button>
         </div>
       </AdminLayout>
@@ -302,7 +302,7 @@ export default function SubcontractorDetailPage() {
         {/* Back */}
         <Button
           variant="ghost"
-          className="gap-2 text-gray-600 hover:text-gray-900 -ml-2"
+          className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
           onClick={() => router.push('/admin-portal/subcontractors')}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -310,7 +310,7 @@ export default function SubcontractorDetailPage() {
         </Button>
 
         {/* Entity Header */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-5">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex items-center gap-5">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #059669, #10B981)' }}
@@ -318,10 +318,10 @@ export default function SubcontractorDetailPage() {
             {initials}
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-foreground">
               {sub.businessName || sub.fullName}
             </h1>
-            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1.5 text-sm text-gray-500">
+            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1.5 text-sm text-muted-foreground">
               <span>👤 {sub.fullName}</span>
               {sub.phone && <span>📞 {sub.phone}</span>}
               <span>✉️ {sub.email}</span>
@@ -396,24 +396,24 @@ export default function SubcontractorDetailPage() {
           ].map((s) => (
             <div
               key={s.label}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative overflow-hidden"
+              className="bg-card rounded-xl border border-border shadow-sm p-5 relative overflow-hidden"
             >
               <div className={`absolute top-0 left-0 right-0 h-1 ${s.top}`} />
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 {s.label}
               </p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{s.value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{s.value}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{s.sub}</p>
             </div>
           ))}
         </div>
 
         {/* Work Orders Card */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           {/* Card Header */}
-          <div className="px-5 pt-4 pb-0 border-b border-gray-200">
+          <div className="px-5 pt-4 pb-0 border-b border-border">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 text-base">Work Orders</h3>
+              <h3 className="font-semibold text-foreground text-base">Work Orders</h3>
               <Button size="sm" variant="outline" className="gap-1.5" onClick={handleExport}>
                 <Download className="h-3.5 w-3.5" />
                 Export CSV
@@ -421,15 +421,15 @@ export default function SubcontractorDetailPage() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-[-1px]">
+            <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit mb-[-1px]">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
                     activeTab === tab.key
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-card text-blue-600 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {tab.label}
@@ -441,7 +441,7 @@ export default function SubcontractorDetailPage() {
                           : 'bg-blue-100 text-blue-600'
                         : tab.danger
                         ? 'bg-red-50 text-red-500'
-                        : 'bg-gray-200 text-gray-600'
+                        : 'bg-gray-200 text-muted-foreground'
                     }`}
                   >
                     {tab.count}
@@ -454,13 +454,13 @@ export default function SubcontractorDetailPage() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted">
                 <tr>
                   {['WO #', 'Date', 'Location', 'Title', 'Quote Amount', 'Status', 'Scheduled', 'Action'].map(
                     (h) => (
                       <th
                         key={h}
-                        className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-b border-gray-200"
+                        className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-b border-border"
                       >
                         {h}
                       </th>
@@ -471,32 +471,32 @@ export default function SubcontractorDetailPage() {
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+                    <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                       No work orders found for this tab.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((wo) => (
-                    <tr key={wo.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={wo.id} className="hover:bg-muted transition-colors">
                       <td className="px-4 py-3.5 font-semibold text-blue-600 whitespace-nowrap">
                         {wo.workOrderNumber || wo.id.slice(0, 8).toUpperCase()}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
                         {fmtDate(wo.scheduledServiceDate || wo.createdAt)}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[160px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[160px] truncate">
                         {wo.locationName || '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[200px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[200px] truncate">
                         {wo.title}
                       </td>
-                      <td className="px-4 py-3.5 font-semibold text-gray-900 whitespace-nowrap">
+                      <td className="px-4 py-3.5 font-semibold text-foreground whitespace-nowrap">
                         {wo.quoteAmount > 0 ? fmtMoney(wo.quoteAmount) : '—'}
                       </td>
                       <td className="px-4 py-3.5">
                         <WoStatusBadge status={wo.status} />
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
                         {fmtDate(wo.scheduledServiceDate)}
                       </td>
                       <td className="px-4 py-3.5">

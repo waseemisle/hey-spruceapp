@@ -189,7 +189,7 @@ export default function PortalLogin() {
             >
               {loading ? 'Logging in...' : 'Login'}
             </Button>
-            <div className="text-sm text-center text-gray-600">
+            <div className="text-sm text-center text-muted-foreground">
               Don't have an account?{' '}
               <Link href="/register-client" className="text-blue-500 hover:underline">
                 Register as Client
@@ -199,7 +199,7 @@ export default function PortalLogin() {
                 Subcontractor
               </Link>
             </div>
-            <Link href="/" className="text-sm text-center text-gray-600 hover:underline">
+            <Link href="/" className="text-sm text-center text-muted-foreground hover:underline">
               ← Back to Home
             </Link>
           </CardFooter>

@@ -233,8 +233,8 @@ export default function CreateLocation() {
               Back to Locations
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Add New Location</h1>
-          <p className="text-gray-600 mt-2">Submit a new property location for approval</p>
+          <h1 className="text-3xl font-bold text-foreground">Add New Location</h1>
+          <p className="text-muted-foreground mt-2">Submit a new property location for approval</p>
         </div>
 
         <Card>
@@ -246,12 +246,12 @@ export default function CreateLocation() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <Label htmlFor="companyId">Company *</Label>
-                  <div className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 flex items-center justify-between">
-                    <span className="text-gray-900 font-medium">
+                  <div className="w-full px-3 py-2 border border-border rounded-md bg-muted flex items-center justify-between">
+                    <span className="text-foreground font-medium">
                       {assignedCompany?.name || (checkingCompany ? 'Checking assignment…' : 'No company assigned')}
                     </span>
                     {assignedCompany && (
-                      <span className="text-xs text-gray-500 uppercase tracking-wide">Auto-selected</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide">Auto-selected</span>
                     )}
                   </div>
                   {!assignedCompany && !checkingCompany && (
@@ -359,8 +359,8 @@ export default function CreateLocation() {
                   <div className="mt-2">
                     <label htmlFor="images" className="flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-blue-400 focus:outline-none">
                       <div className="flex flex-col items-center space-y-2">
-                        <Upload className="h-8 w-8 text-gray-400" />
-                        <span className="text-sm text-gray-600">
+                        <Upload className="h-8 w-8 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
                           Click to upload images
                         </span>
                       </div>

@@ -66,8 +66,8 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-          <p className="text-gray-600">No quotes available for comparison</p>
+          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">No quotes available for comparison</p>
         </CardContent>
       </Card>
     );
@@ -85,8 +85,8 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
             <div className="flex justify-between items-start">
               <div>
                 <p className="font-semibold text-lg">{quote.subcontractorName}</p>
-                <p className="text-sm text-gray-600">{quote.subcontractorEmail}</p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-sm text-muted-foreground">{quote.subcontractorEmail}</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   Submitted {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                 </p>
               </div>
@@ -94,7 +94,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                 <p className="text-3xl font-bold text-blue-600">
                   ${quote.totalAmount.toLocaleString()}
                 </p>
-                <p className="text-xs text-gray-500 capitalize">{quote.status}</p>
+                <p className="text-xs text-muted-foreground capitalize">{quote.status}</p>
               </div>
             </div>
             
@@ -115,12 +115,12 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
             {quote.notes && (
               <div className="border-t pt-4">
                 <h4 className="font-semibold mb-2">Notes</h4>
-                <p className="text-sm text-gray-600">{quote.notes}</p>
+                <p className="text-sm text-muted-foreground">{quote.notes}</p>
               </div>
             )}
 
             {quote.estimatedDuration && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 <span>Estimated Duration: {quote.estimatedDuration}</span>
               </div>
@@ -216,7 +216,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                       <User className="h-4 w-4" />
                       {quote.subcontractorName}
                     </CardTitle>
-                    <p className="text-xs text-gray-500 mt-1">{quote.subcontractorEmail}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{quote.subcontractorEmail}</p>
                   </div>
                 </div>
               </CardHeader>
@@ -224,7 +224,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
               <CardContent className="space-y-4">
                 {/* Total Amount - Highlight */}
                 <div className="text-center py-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Total Amount</p>
+                  <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
                   <p className="text-3xl font-bold text-blue-600">
                     ${quote.totalAmount.toLocaleString()}
                   </p>
@@ -233,11 +233,11 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                 {/* Breakdown */}
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Labor Cost:</span>
+                    <span className="text-muted-foreground">Labor Cost:</span>
                     <span className="font-semibold">${quote.laborCost.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Material Cost:</span>
+                    <span className="text-muted-foreground">Material Cost:</span>
                     <span className="font-semibold">${quote.materialCost.toLocaleString()}</span>
                   </div>
                   {quote.discountAmount > 0 && (
@@ -251,16 +251,16 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                 {/* Line Items Summary */}
                 {quote.lineItems && quote.lineItems.length > 0 && (
                   <div className="border-t pt-3">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Line Items ({quote.lineItems.length})</p>
+                    <p className="text-xs font-semibold text-foreground mb-2">Line Items ({quote.lineItems.length})</p>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {quote.lineItems.slice(0, 3).map((item, idx) => (
                         <div key={idx} className="text-xs flex justify-between">
-                          <span className="text-gray-600 truncate">{item.description}</span>
+                          <span className="text-muted-foreground truncate">{item.description}</span>
                           <span className="font-semibold ml-2">${item.amount.toLocaleString()}</span>
                         </div>
                       ))}
                       {quote.lineItems.length > 3 && (
-                        <p className="text-xs text-gray-500">+{quote.lineItems.length - 3} more items</p>
+                        <p className="text-xs text-muted-foreground">+{quote.lineItems.length - 3} more items</p>
                       )}
                     </div>
                   </div>
@@ -268,7 +268,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
 
                 {/* Estimated Duration */}
                 {quote.estimatedDuration && (
-                  <div className="flex items-center gap-2 text-xs text-gray-600 border-t pt-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
                     <Calendar className="h-3 w-3" />
                     <span>{quote.estimatedDuration}</span>
                   </div>
@@ -277,14 +277,14 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                 {/* Notes Preview */}
                 {quote.notes && (
                   <div className="border-t pt-3">
-                    <p className="text-xs font-semibold text-gray-700 mb-1">Notes</p>
-                    <p className="text-xs text-gray-600 line-clamp-2">{quote.notes}</p>
+                    <p className="text-xs font-semibold text-foreground mb-1">Notes</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{quote.notes}</p>
                   </div>
                 )}
 
                 {/* Submitted Date */}
                 <div className="border-t pt-3">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Submitted {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                   </p>
                 </div>

@@ -142,7 +142,7 @@ export default function ClientLocations() {
       approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       rejected: 'bg-red-50 text-red-700 border-red-200',
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-50 text-gray-700 border-gray-200';
+    return styles[status as keyof typeof styles] || 'bg-muted text-foreground border-border';
   };
 
   const handleViewDetails = async (location: Location) => {
@@ -217,7 +217,7 @@ export default function ClientLocations() {
         />
 
         {!companyInfo && !checkingCompany && (
-          <div className="bg-white rounded-xl border border-amber-200 bg-amber-50/50 p-6">
+          <div className="bg-card rounded-xl border border-amber-200 bg-amber-50/50 p-6">
             <p className="text-amber-800 font-medium">
               No company is assigned to your profile yet. Please contact an administrator to gain access to your company locations.
             </p>
@@ -235,7 +235,7 @@ export default function ClientLocations() {
             />
 
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search locations by name, address, city, state, or property type..."
                 value={searchQuery}
@@ -255,21 +255,21 @@ export default function ClientLocations() {
                 {filteredLocations.map((location) => (
                   <div
                     key={location.id}
-                    className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                    className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                   >
                     <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
                     <div className="p-5">
                       <div className="flex items-start justify-between gap-3 mb-4">
-                        <h3 className="font-semibold text-gray-900 text-sm truncate flex-1">
+                        <h3 className="font-semibold text-foreground text-sm truncate flex-1">
                           {location.name || (location as any).locationName}
                         </h3>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border flex-shrink-0 ${getStatusBadge(location.status)}`}>
                           {location.status}
                         </span>
                       </div>
-                      <div className="space-y-2 text-sm text-gray-600">
+                      <div className="space-y-2 text-sm text-muted-foreground">
                         <div className="flex items-start gap-2">
-                          <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                           <div>
                             <div>
                               {typeof location.address === 'object'
@@ -284,11 +284,11 @@ export default function ClientLocations() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                           <span>{location.propertyType}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                           <span>Created {location.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                         </div>
                       </div>
@@ -299,11 +299,11 @@ export default function ClientLocations() {
                         </div>
                       )}
                       {location.notes && (
-                        <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-600">{location.notes}</p>
+                        <div className="mt-3 p-3 bg-muted rounded-lg">
+                          <p className="text-xs text-muted-foreground">{location.notes}</p>
                         </div>
                       )}
-                      <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="mt-4 pt-4 border-t border-border">
                         <Button
                           size="sm"
                           variant="secondary"
@@ -325,8 +325,8 @@ export default function ClientLocations() {
         {/* Details Modal */}
         {showModal && selectedLocation && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+            <div className="bg-card rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">{selectedLocation.name || (selectedLocation as any).locationName}</h2>
                   <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
@@ -344,13 +344,13 @@ export default function ClientLocations() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Address</p>
-                    <p className="text-gray-900 font-medium">
+                    <p className="text-sm text-muted-foreground mb-1">Address</p>
+                    <p className="text-foreground font-medium">
                       {typeof selectedLocation.address === 'object'
                         ? selectedLocation.address.street
                         : selectedLocation.address}
                     </p>
-                    <p className="text-gray-900">
+                    <p className="text-foreground">
                       {typeof selectedLocation.address === 'object'
                         ? `${selectedLocation.address.city}, ${selectedLocation.address.state} ${selectedLocation.address.zip}`
                         : `${selectedLocation.city}, ${selectedLocation.state} ${selectedLocation.zipCode}`}
@@ -358,21 +358,21 @@ export default function ClientLocations() {
                   </div>
 
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Property Type</p>
-                    <p className="text-gray-900 font-medium">{selectedLocation.propertyType}</p>
+                    <p className="text-sm text-muted-foreground mb-1">Property Type</p>
+                    <p className="text-foreground font-medium">{selectedLocation.propertyType}</p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Created</p>
-                    <p className="text-gray-900 font-medium">
+                    <p className="text-sm text-muted-foreground mb-1">Created</p>
+                    <p className="text-foreground font-medium">
                       {selectedLocation.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                     </p>
                   </div>
 
                   {selectedLocation.approvedAt && (
                     <div>
-                      <p className="text-sm text-gray-600 mb-1">Approved</p>
-                      <p className="text-gray-900 font-medium">
+                      <p className="text-sm text-muted-foreground mb-1">Approved</p>
+                      <p className="text-foreground font-medium">
                         {selectedLocation.approvedAt?.toDate?.().toLocaleDateString() || 'N/A'}
                       </p>
                     </div>
@@ -388,16 +388,16 @@ export default function ClientLocations() {
 
                 {selectedLocation.notes && (
                   <div>
-                    <p className="text-sm text-gray-600 mb-2">Notes</p>
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-600">{selectedLocation.notes}</p>
+                    <p className="text-sm text-muted-foreground mb-2">Notes</p>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">{selectedLocation.notes}</p>
                     </div>
                   </div>
                 )}
 
                 {selectedLocation.images && selectedLocation.images.length > 0 && (
                   <div>
-                    <p className="text-sm text-gray-600 mb-2">Images</p>
+                    <p className="text-sm text-muted-foreground mb-2">Images</p>
                     <div className="grid grid-cols-2 gap-4">
                       {selectedLocation.images.map((image, index) => (
                         <img
@@ -413,19 +413,19 @@ export default function ClientLocations() {
 
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <ClipboardList className="h-4 w-4 text-gray-500" />
-                    <p className="text-sm font-semibold text-gray-800">Recent Work Orders at this Location</p>
+                    <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-sm font-semibold text-foreground">Recent Work Orders at this Location</p>
                   </div>
                   {loadingWorkOrders ? (
                     <div className="flex items-center justify-center py-6">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
                     </div>
                   ) : locationWorkOrders.length === 0 ? (
-                    <p className="text-sm text-gray-500">No work orders at this location.</p>
+                    <p className="text-sm text-muted-foreground">No work orders at this location.</p>
                   ) : (
-                    <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+                    <ul className="divide-y divide-gray-100 border border-border rounded-lg overflow-hidden">
                       {locationWorkOrders.map((wo) => (
-                        <li key={wo.id} className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
+                        <li key={wo.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted transition-colors">
                           <Link
                             href={`/client-portal/work-orders/${wo.id}`}
                             className="text-sm text-blue-600 hover:underline font-medium truncate flex-1"
@@ -433,7 +433,7 @@ export default function ClientLocations() {
                           >
                             {wo.workOrderNumber ? `${wo.workOrderNumber} — ` : ''}{wo.title}
                           </Link>
-                          <span className="ml-3 text-xs text-gray-500 flex-shrink-0 capitalize">{wo.status.replace(/_/g, ' ')}</span>
+                          <span className="ml-3 text-xs text-muted-foreground flex-shrink-0 capitalize">{wo.status.replace(/_/g, ' ')}</span>
                         </li>
                       ))}
                     </ul>

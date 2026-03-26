@@ -310,7 +310,7 @@ export default function QuoteDetail() {
       accepted: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[status as keyof typeof styles] || 'bg-muted text-foreground';
   };
 
   const getStatusLabel = (status: string) => {
@@ -422,9 +422,9 @@ export default function QuoteDetail() {
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Quote not found</h3>
-            <p className="text-gray-600 mb-4">The quote you're looking for doesn't exist or you don't have access to it.</p>
+            <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">Quote not found</h3>
+            <p className="text-muted-foreground mb-4">The quote you're looking for doesn't exist or you don't have access to it.</p>
             <Link href="/client-portal/quotes">
               <Button>
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -459,9 +459,9 @@ export default function QuoteDetail() {
             <div>
               <CardTitle className="text-2xl mb-2">{quote.workOrderTitle}</CardTitle>
               {quote.workOrderNumber && (
-                <p className="text-sm text-gray-600">Work Order: {quote.workOrderNumber}</p>
+                <p className="text-sm text-muted-foreground">Work Order: {quote.workOrderNumber}</p>
               )}
-              <p className="text-sm text-gray-600">From: {quote.subcontractorName}</p>
+              <p className="text-sm text-muted-foreground">From: {quote.subcontractorName}</p>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -470,18 +470,18 @@ export default function QuoteDetail() {
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Amount</p>
-                  <p className="text-3xl font-bold text-gray-900">
+                  <p className="text-sm text-muted-foreground">Total Amount</p>
+                  <p className="text-3xl font-bold text-foreground">
                     ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-gray-500" />
+                <Calendar className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-gray-600">Submitted</p>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm text-muted-foreground">Submitted</p>
+                  <p className="text-sm font-medium text-foreground">
                     {quote.sentToClientAt?.toDate?.().toLocaleDateString() || 'N/A'}
                   </p>
                 </div>
@@ -519,23 +519,23 @@ export default function QuoteDetail() {
 
             {/* Cost Breakdown */}
             <div className="border-t pt-6">
-              <h4 className="font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
-              <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
+              <h4 className="font-semibold text-foreground mb-3">Cost Breakdown</h4>
+              <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
                 {quote.laborCost > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Labor Cost:</span>
+                    <span className="text-muted-foreground">Labor Cost:</span>
                     <span className="font-semibold">${quote.laborCost.toLocaleString()}</span>
                   </div>
                 )}
                 {quote.materialCost > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Material Cost:</span>
+                    <span className="text-muted-foreground">Material Cost:</span>
                     <span className="font-semibold">${quote.materialCost.toLocaleString()}</span>
                   </div>
                 )}
                 {quote.additionalCosts > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Additional Costs:</span>
+                    <span className="text-muted-foreground">Additional Costs:</span>
                     <span className="font-semibold">${quote.additionalCosts.toLocaleString()}</span>
                   </div>
                 )}
@@ -546,8 +546,8 @@ export default function QuoteDetail() {
                   </div>
                 )}
                 <div className="flex justify-between pt-2 border-t border-gray-300">
-                  <span className="font-bold text-gray-900">Total Amount:</span>
-                  <span className="font-bold text-xl text-gray-900">
+                  <span className="font-bold text-foreground">Total Amount:</span>
+                  <span className="font-bold text-xl text-foreground">
                     ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
                   </span>
                 </div>
@@ -557,15 +557,15 @@ export default function QuoteDetail() {
             {/* Line Items */}
             {quote.lineItems && quote.lineItems.length > 0 && (
               <div className="border-t pt-6">
-                <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
+                <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
-                        <th className="px-4 py-2 text-center font-semibold text-gray-700">Qty</th>
-                        <th className="px-4 py-2 text-right font-semibold text-gray-700">Rate</th>
-                        <th className="px-4 py-2 text-right font-semibold text-gray-700">Amount</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
+                        <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
+                        <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
+                        <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -586,8 +586,8 @@ export default function QuoteDetail() {
             {/* Additional Notes */}
             {quote.notes && (
               <div className="border-t pt-6">
-                <h4 className="font-semibold text-gray-900 mb-2">Additional Notes</h4>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{quote.notes}</p>
+                <h4 className="font-semibold text-foreground mb-2">Additional Notes</h4>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{quote.notes}</p>
               </div>
             )}
 

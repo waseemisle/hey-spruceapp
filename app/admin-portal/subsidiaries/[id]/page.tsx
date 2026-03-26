@@ -84,13 +84,13 @@ function getInitials(name: string): string {
 
 function InvoiceStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    draft:   { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
+    draft:   { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
     sent:    { label: 'Invoiced',     cls: 'bg-blue-100 text-blue-700' },
     paid:    { label: 'Paid',         cls: 'bg-green-100 text-green-700' },
     overdue: { label: 'Overdue',      cls: 'bg-red-100 text-red-700' },
-    none:    { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
+    none:    { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
   };
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
+  const { label, cls } = map[status] ?? { label: status, cls: 'bg-muted text-muted-foreground' };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
       {label}
@@ -249,7 +249,7 @@ export default function CompanyDetailPage() {
     return (
       <AdminLayout>
         <div className="text-center py-16">
-          <p className="text-gray-500 mb-4">Company not found.</p>
+          <p className="text-muted-foreground mb-4">Company not found.</p>
           <Button onClick={() => router.push('/admin-portal/subsidiaries')}>Go Back</Button>
         </div>
       </AdminLayout>
@@ -272,7 +272,7 @@ export default function CompanyDetailPage() {
         {/* Back */}
         <Button
           variant="ghost"
-          className="gap-2 text-gray-600 hover:text-gray-900 -ml-2"
+          className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
           onClick={() => router.push('/admin-portal/subsidiaries')}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -280,12 +280,12 @@ export default function CompanyDetailPage() {
         </Button>
 
         {/* Company Header */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-5">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex items-center gap-5">
           {company.logoUrl ? (
             <img
               src={company.logoUrl}
               alt={company.name}
-              className="w-14 h-14 object-contain rounded-2xl border bg-gray-50 p-1 flex-shrink-0"
+              className="w-14 h-14 object-contain rounded-2xl border bg-muted p-1 flex-shrink-0"
             />
           ) : (
             <div
@@ -296,8 +296,8 @@ export default function CompanyDetailPage() {
             </div>
           )}
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-gray-900">{company.name}</h1>
-            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1.5 text-sm text-gray-500">
+            <h1 className="text-xl font-bold text-foreground">{company.name}</h1>
+            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1.5 text-sm text-muted-foreground">
               {company.email && <span>✉️ {company.email}</span>}
               {company.phone && <span>📞 {company.phone}</span>}
               <span>👥 {clients.length} client{clients.length !== 1 ? 's' : ''}</span>
@@ -341,30 +341,30 @@ export default function CompanyDetailPage() {
           ].map((s) => (
             <div
               key={s.label}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative overflow-hidden"
+              className="bg-card rounded-xl border border-border shadow-sm p-5 relative overflow-hidden"
             >
               <div className={`absolute top-0 left-0 right-0 h-1 ${s.top}`} />
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{s.label}</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{s.value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{s.label}</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{s.value}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{s.sub}</p>
             </div>
           ))}
         </div>
 
         {/* Clients List */}
         {clients.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-900 text-base">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h3 className="font-semibold text-foreground text-base">
                 Clients ({clients.length})
               </h3>
             </div>
             <div className="divide-y divide-gray-100">
               {clients.map((client) => (
-                <div key={client.uid} className="px-5 py-3 flex items-center justify-between hover:bg-gray-50">
+                <div key={client.uid} className="px-5 py-3 flex items-center justify-between hover:bg-muted">
                   <div>
-                    <p className="font-medium text-gray-900 text-sm">{client.fullName}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-medium text-foreground text-sm">{client.fullName}</p>
+                    <p className="text-xs text-muted-foreground">
                       {client.email}
                       {client.phone && ` · ${client.phone}`}
                     </p>
@@ -385,11 +385,11 @@ export default function CompanyDetailPage() {
         )}
 
         {/* Work Orders Card */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           {/* Card Header */}
-          <div className="px-5 pt-4 pb-0 border-b border-gray-200">
+          <div className="px-5 pt-4 pb-0 border-b border-border">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 text-base">Work Orders</h3>
+              <h3 className="font-semibold text-foreground text-base">Work Orders</h3>
               <Button size="sm" variant="outline" className="gap-1.5" onClick={handleExport}>
                 <Download className="h-3.5 w-3.5" />
                 Export CSV
@@ -397,15 +397,15 @@ export default function CompanyDetailPage() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-[-1px]">
+            <div className="flex flex-wrap gap-1 bg-muted rounded-lg p-1 w-fit mb-[-1px]">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
                     activeTab === tab.key
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-card text-blue-600 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {tab.label}
@@ -417,7 +417,7 @@ export default function CompanyDetailPage() {
                           : 'bg-blue-100 text-blue-600'
                         : tab.danger
                         ? 'bg-red-50 text-red-500'
-                        : 'bg-gray-200 text-gray-600'
+                        : 'bg-gray-200 text-muted-foreground'
                     }`}
                   >
                     {tab.count}
@@ -430,13 +430,13 @@ export default function CompanyDetailPage() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted">
                 <tr>
                   {['WO #', 'Client', 'Date', 'Location', 'Title', 'Amount', 'Invoice Status', 'Due Date', 'Action'].map(
                     (h) => (
                       <th
                         key={h}
-                        className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-b border-gray-200"
+                        className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-b border-border"
                       >
                         {h}
                       </th>
@@ -447,7 +447,7 @@ export default function CompanyDetailPage() {
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-gray-400">
+                    <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
                       {enriched.length === 0
                         ? 'No work orders found for this company.'
                         : 'No work orders found for this tab.'}
@@ -455,23 +455,23 @@ export default function CompanyDetailPage() {
                   </tr>
                 ) : (
                   filtered.map((wo) => (
-                    <tr key={wo.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={wo.id} className="hover:bg-muted transition-colors">
                       <td className="px-4 py-3.5 font-semibold text-blue-600 whitespace-nowrap">
                         {wo.workOrderNumber || wo.id.slice(0, 8).toUpperCase()}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[140px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[140px] truncate">
                         {wo.clientName || '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
                         {fmtDate(wo.scheduledServiceDate || wo.createdAt)}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[140px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[140px] truncate">
                         {wo.locationName || '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[180px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[180px] truncate">
                         {wo.title}
                       </td>
-                      <td className="px-4 py-3.5 font-semibold text-gray-900 whitespace-nowrap">
+                      <td className="px-4 py-3.5 font-semibold text-foreground whitespace-nowrap">
                         {wo.invoiceAmount > 0 ? fmtMoney(wo.invoiceAmount) : '—'}
                       </td>
                       <td className="px-4 py-3.5">
@@ -479,7 +479,7 @@ export default function CompanyDetailPage() {
                       </td>
                       <td
                         className={`px-4 py-3.5 whitespace-nowrap font-medium ${
-                          wo.invStatus === 'overdue' ? 'text-red-600' : 'text-gray-600'
+                          wo.invStatus === 'overdue' ? 'text-red-600' : 'text-muted-foreground'
                         }`}
                       >
                         {fmtDate(wo.dueDate)}

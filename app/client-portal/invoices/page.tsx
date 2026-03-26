@@ -131,12 +131,12 @@ export default function ClientInvoices() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      draft: 'bg-gray-50 text-gray-700 border-gray-200',
+      draft: 'bg-muted text-foreground border-border',
       sent: 'bg-blue-50 text-blue-700 border-blue-200',
       paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       overdue: 'bg-red-50 text-red-700 border-red-200',
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-50 text-gray-700 border-gray-200';
+    return styles[status as keyof typeof styles] || 'bg-muted text-foreground border-border';
   };
 
   const getStatusLabel = (status: string) => {
@@ -236,13 +236,13 @@ export default function ClientInvoices() {
           </div>
         )}
 
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 overflow-x-auto">
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1 overflow-x-auto">
           {filterOptions.map(option => (
             <button
               key={option.value}
               onClick={() => setFilter(option.value)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-                filter === option.value ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                filter === option.value ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {option.label} ({option.count})
@@ -261,28 +261,28 @@ export default function ClientInvoices() {
             {filteredInvoices.map((invoice) => (
               <div
                 key={invoice.id}
-                className={`bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow ${invoice.status === 'overdue' ? 'border-red-200' : 'border-gray-200'}`}
+                className={`bg-card rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow ${invoice.status === 'overdue' ? 'border-red-200' : 'border-border'}`}
               >
                 <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
                 <div className="p-5 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-semibold text-gray-900">{invoice.invoiceNumber}</h3>
-                      <p className="text-sm text-gray-600">{invoice.workOrderTitle}</p>
+                      <h3 className="font-semibold text-foreground">{invoice.invoiceNumber}</h3>
+                      <p className="text-sm text-muted-foreground">{invoice.workOrderTitle}</p>
                     </div>
                     <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${getStatusBadge(invoice.status)}`}>
                       {getStatusLabel(invoice.status)}
                     </span>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900">${invoice.totalAmount.toLocaleString()}</p>
-                  <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+                  <p className="text-2xl font-bold text-foreground">${invoice.totalAmount.toLocaleString()}</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                       <span>{invoice.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                     </div>
                     {invoice.dueDate && (
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                         <span>Due {invoice.dueDate?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                       </div>
                     )}
@@ -312,7 +312,7 @@ export default function ClientInvoices() {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100">
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
                     <Link href={`/client-portal/invoices/${invoice.id}`} className="flex-1 min-w-[100px]">
                       <Button variant="secondary" className="w-full gap-2" size="sm">
                         <Eye className="h-3.5 w-3.5" />

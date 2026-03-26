@@ -144,8 +144,8 @@ export default function ClientMessages() {
     <ClientLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Messages</h1>
-          <p className="text-gray-600 mt-2">Chat with admin team</p>
+          <h1 className="text-3xl font-bold text-foreground">Messages</h1>
+          <p className="text-muted-foreground mt-2">Chat with admin team</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -157,8 +157,8 @@ export default function ClientMessages() {
             <CardContent>
               {chats.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 text-sm">No conversations yet</p>
+                  <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground text-sm">No conversations yet</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -170,12 +170,12 @@ export default function ClientMessages() {
                       <div
                         key={chat.id}
                         onClick={() => setSelectedChat(chat.id)}
-                        className={`p-3 rounded-lg cursor-pointer hover:bg-gray-100 ${
-                          selectedChat === chat.id ? 'bg-blue-50 border-2 border-blue-500' : 'bg-gray-50'
+                        className={`p-3 rounded-lg cursor-pointer hover:bg-muted ${
+                          selectedChat === chat.id ? 'bg-blue-50 border-2 border-blue-500' : 'bg-muted'
                         }`}
                       >
                         <div className="font-semibold text-sm">{otherParticipant?.name || 'Admin'}</div>
-                        <div className="text-xs text-gray-600 truncate">{chat.lastMessage}</div>
+                        <div className="text-xs text-muted-foreground truncate">{chat.lastMessage}</div>
                       </div>
                     );
                   })}
@@ -196,13 +196,13 @@ export default function ClientMessages() {
             <CardContent>
               {!selectedChat ? (
                 <div className="text-center py-12">
-                  <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Select a conversation to start chatting</p>
+                  <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">Select a conversation to start chatting</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {/* Messages */}
-                  <div className="h-96 overflow-y-auto space-y-3 p-4 bg-gray-50 rounded-lg">
+                  <div className="h-96 overflow-y-auto space-y-3 p-4 bg-muted rounded-lg">
                     {messages.map(message => (
                       <div
                         key={message.id}
@@ -214,7 +214,7 @@ export default function ClientMessages() {
                           className={`max-w-xs px-4 py-2 rounded-lg ${
                             message.senderId === auth.currentUser?.uid
                               ? 'bg-blue-600 text-white'
-                              : 'bg-white text-gray-900'
+                              : 'bg-card text-foreground'
                           }`}
                         >
                           <div className="text-xs opacity-75 mb-1">{message.senderName}</div>

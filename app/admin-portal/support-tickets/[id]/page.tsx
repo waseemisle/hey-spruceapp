@@ -405,7 +405,7 @@ export default function AdminSupportTicketDetailPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <span className="font-mono text-sm text-gray-500">{ticket.ticketNumber}</span>
+          <span className="font-mono text-sm text-muted-foreground">{ticket.ticketNumber}</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -421,7 +421,7 @@ export default function AdminSupportTicketDetailPage() {
               </Button>
             </div>
             <div>
-              <Label className="text-gray-500 text-xs">Description</Label>
+              <Label className="text-muted-foreground text-xs">Description</Label>
               <Textarea
                 className="mt-1 min-h-[160px] font-mono text-sm"
                 value={descEdit}
@@ -429,14 +429,14 @@ export default function AdminSupportTicketDetailPage() {
               />
             </div>
 
-            <div className="flex border-b border-gray-200 gap-4">
+            <div className="flex border-b border-border gap-4">
               {(['comments', 'activity', 'attachments'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTab(t)}
                   className={`pb-2 px-1 text-sm font-medium capitalize border-b-2 -mb-px transition-colors ${
-                    tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800'
+                    tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {t === 'comments' && <MessageSquare className="inline h-4 w-4 mr-1" />}
@@ -452,10 +452,10 @@ export default function AdminSupportTicketDetailPage() {
                 {comments.map((c) => (
                   <div
                     key={c.id}
-                    className={`rounded-xl border p-4 ${c.isInternal ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200'}`}
+                    className={`rounded-xl border p-4 ${c.isInternal ? 'bg-amber-50 border-amber-200' : 'bg-card border-border'}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-700">
+                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-foreground">
                         {c.authorAvatarInitials || initialsFromName(c.authorName)}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -465,9 +465,9 @@ export default function AdminSupportTicketDetailPage() {
                           {c.isInternal && (
                             <Badge className="bg-amber-200 text-amber-900 border-amber-300 text-[10px]">Internal Note</Badge>
                           )}
-                          <span className="text-xs text-gray-500">{formatTs(c.createdAt)}</span>
+                          <span className="text-xs text-muted-foreground">{formatTs(c.createdAt)}</span>
                         </div>
-                        <p className="mt-2 text-sm whitespace-pre-wrap text-gray-800">{c.body}</p>
+                        <p className="mt-2 text-sm whitespace-pre-wrap text-foreground">{c.body}</p>
                         {(c.attachments?.length ?? 0) > 0 && (
                           <div className="mt-2 flex flex-wrap gap-2">
                             {c.attachments!.map((a) => (
@@ -482,7 +482,7 @@ export default function AdminSupportTicketDetailPage() {
                   </div>
                 ))}
 
-                <div className="rounded-xl border border-gray-200 p-4 space-y-3 bg-gray-50">
+                <div className="rounded-xl border border-border p-4 space-y-3 bg-muted">
                   <Textarea
                     placeholder="Add a comment (markdown-friendly plain text)"
                     value={commentBody}
@@ -508,11 +508,11 @@ export default function AdminSupportTicketDetailPage() {
             {tab === 'activity' && (
               <ul className="space-y-3">
                 {sortedTimeline.map((ev) => (
-                  <li key={ev.id} className="flex gap-3 text-sm border-b border-gray-100 pb-3">
+                  <li key={ev.id} className="flex gap-3 text-sm border-b border-border pb-3">
                     <span className="text-lg leading-none">{timelineIcon(ev.type)}</span>
                     <div>
-                      <p className="text-gray-900">{ev.details}</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-foreground">{ev.details}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
                         {formatTs(ev.timestamp)} · {ev.userName}
                       </p>
                     </div>
@@ -524,7 +524,7 @@ export default function AdminSupportTicketDetailPage() {
             {tab === 'attachments' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {attachmentList.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No attachments.</p>
+                  <p className="text-muted-foreground text-sm">No attachments.</p>
                 ) : (
                   attachmentList.map((a) => (
                     <a
@@ -532,12 +532,12 @@ export default function AdminSupportTicketDetailPage() {
                       href={a.fileUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50"
+                      className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-muted"
                     >
-                      <Paperclip className="h-8 w-8 text-gray-400" />
+                      <Paperclip className="h-8 w-8 text-muted-foreground" />
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">{a.fileName}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {(a as { uploadedBy?: string }).uploadedBy || '—'} · {formatTs((a as { uploadedAt?: unknown }).uploadedAt)}
                         </p>
                       </div>
@@ -549,9 +549,9 @@ export default function AdminSupportTicketDetailPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-xl border border-gray-200 p-4 space-y-3 bg-white shadow-sm">
+            <div className="rounded-xl border border-border p-4 space-y-3 bg-card shadow-sm">
               <div>
-                <Label className="text-xs text-gray-500">Status</Label>
+                <Label className="text-xs text-muted-foreground">Status</Label>
                 <SearchableSelect
                   className="mt-1 w-full"
                   value={ticket.status}
@@ -562,7 +562,7 @@ export default function AdminSupportTicketDetailPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs text-gray-500">Priority</Label>
+                <Label className="text-xs text-muted-foreground">Priority</Label>
                 <SearchableSelect
                   className="mt-1 w-full"
                   value={ticket.priority}
@@ -577,7 +577,7 @@ export default function AdminSupportTicketDetailPage() {
                 <Badge variant="secondary">{SUPPORT_CATEGORY_LABELS[ticket.category] || ticket.category}</Badge>
               </div>
               <div>
-                <Label className="text-xs text-gray-500">Assigned to</Label>
+                <Label className="text-xs text-muted-foreground">Assigned to</Label>
                 <SearchableSelect
                   className="mt-1 w-full"
                   value={ticket.assignedTo || ''}
@@ -595,7 +595,7 @@ export default function AdminSupportTicketDetailPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs text-gray-500">Due date</Label>
+                <Label className="text-xs text-muted-foreground">Due date</Label>
                 <div className="flex gap-2 mt-1">
                   <Input type="date" value={dueInput} onChange={(e) => setDueInput(e.target.value)} />
                   <Button type="button" size="sm" variant="secondary" onClick={saveDueDate}>Save</Button>
@@ -603,19 +603,19 @@ export default function AdminSupportTicketDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 p-4 space-y-2 bg-white shadow-sm">
+            <div className="rounded-xl border border-border p-4 space-y-2 bg-card shadow-sm">
               <h3 className="font-semibold text-sm flex items-center gap-2">
                 <User className="h-4 w-4" /> Submitter
               </h3>
               <p className="text-sm font-medium">{ticket.submittedByName}</p>
-              <p className="text-xs text-gray-600">{ticket.submittedByEmail}</p>
+              <p className="text-xs text-muted-foreground">{ticket.submittedByEmail}</p>
               <Badge variant="outline" className="capitalize">{ticket.submittedByRole}</Badge>
               <Link href={submitterProfileHref} className="text-xs text-blue-600 block mt-2">
                 Open directory →
               </Link>
             </div>
 
-            <div className="rounded-xl border border-gray-200 p-4 space-y-2 bg-white shadow-sm">
+            <div className="rounded-xl border border-border p-4 space-y-2 bg-card shadow-sm">
               <h3 className="font-semibold text-sm flex items-center gap-2">
                 <LinkIcon className="h-4 w-4" /> Related
               </h3>
@@ -635,28 +635,28 @@ export default function AdminSupportTicketDetailPage() {
                 </Link>
               )}
               {!ticket.relatedWorkOrderId && !ticket.relatedInvoiceId && !ticket.relatedQuoteId && (
-                <p className="text-xs text-gray-500">None linked</p>
+                <p className="text-xs text-muted-foreground">None linked</p>
               )}
             </div>
 
-            <div className="rounded-xl border border-gray-200 p-4 space-y-2 bg-white shadow-sm">
+            <div className="rounded-xl border border-border p-4 space-y-2 bg-card shadow-sm">
               <h3 className="font-semibold text-sm flex items-center gap-2">
                 <Clock className="h-4 w-4" /> SLA / timing
               </h3>
-              <p className="text-xs text-gray-600">Created: {formatTs(ticket.createdAt)}</p>
-              <p className="text-xs text-gray-600">First response: {formatTs(ticket.firstResponseAt)}</p>
-              <p className="text-xs text-gray-600">Resolved: {formatTs(ticket.resolvedAt)}</p>
-              <p className="text-xs text-gray-600">Closed: {formatTs(ticket.closedAt)}</p>
+              <p className="text-xs text-muted-foreground">Created: {formatTs(ticket.createdAt)}</p>
+              <p className="text-xs text-muted-foreground">First response: {formatTs(ticket.firstResponseAt)}</p>
+              <p className="text-xs text-muted-foreground">Resolved: {formatTs(ticket.resolvedAt)}</p>
+              <p className="text-xs text-muted-foreground">Closed: {formatTs(ticket.closedAt)}</p>
             </div>
 
-            <div className="rounded-xl border border-gray-200 p-4 space-y-2 bg-white shadow-sm">
+            <div className="rounded-xl border border-border p-4 space-y-2 bg-card shadow-sm">
               <Label className="text-xs">Tags</Label>
               <div className="flex flex-wrap gap-1">
                 {(ticket.tags || []).map((t) => (
                   <button
                     key={t}
                     type="button"
-                    className="text-xs px-2 py-0.5 rounded-full bg-gray-100 border border-gray-200 hover:bg-gray-200"
+                    className="text-xs px-2 py-0.5 rounded-full bg-muted border border-border hover:bg-gray-200"
                     onClick={() => removeTag(t)}
                   >
                     {t} ×
@@ -669,7 +669,7 @@ export default function AdminSupportTicketDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 p-4 space-y-2 bg-white shadow-sm">
+            <div className="rounded-xl border border-border p-4 space-y-2 bg-card shadow-sm">
               <Label className="text-xs">Internal notes (not visible to clients)</Label>
               <Textarea value={internalNotesLocal} onChange={(e) => setInternalNotesLocal(e.target.value)} className="min-h-[80px]" />
               <Button size="sm" variant="outline" onClick={saveInternalNotes}>Save notes</Button>

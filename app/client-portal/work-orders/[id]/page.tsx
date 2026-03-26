@@ -189,7 +189,7 @@ export default function ViewClientWorkOrder() {
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -198,7 +198,7 @@ export default function ViewClientWorkOrder() {
       case 'high': return 'text-red-600 bg-red-50';
       case 'medium': return 'text-orange-600 bg-orange-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -456,7 +456,7 @@ export default function ViewClientWorkOrder() {
     return (
       <ClientLayout>
         <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-gray-900">Work Order Not Found</h2>
+          <h2 className="text-2xl font-bold text-foreground">Work Order Not Found</h2>
           <Link href="/client-portal/work-orders">
             <Button className="mt-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -677,7 +677,7 @@ export default function ViewClientWorkOrder() {
                     <CardContent className="space-y-4">
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <div className="flex justify-between items-center mb-4">
-                          <span className="text-lg font-semibold text-gray-700">Total Amount</span>
+                          <span className="text-lg font-semibold text-foreground">Total Amount</span>
                           <span className="text-3xl font-bold text-green-600">
                             ${workOrder.approvedQuoteAmount.toLocaleString()}
                           </span>
@@ -686,19 +686,19 @@ export default function ViewClientWorkOrder() {
                           <div className="space-y-2 pt-3 border-t border-green-300">
                             {(workOrder.approvedQuoteLaborCost ?? 0) > 0 && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Labor Cost</span>
+                                <span className="text-muted-foreground">Labor Cost</span>
                                 <span className="font-medium">${(workOrder.approvedQuoteLaborCost ?? 0).toLocaleString()}</span>
                               </div>
                             )}
                             {(workOrder.approvedQuoteMaterialCost ?? 0) > 0 && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Material Cost</span>
+                                <span className="text-muted-foreground">Material Cost</span>
                                 <span className="font-medium">${(workOrder.approvedQuoteMaterialCost ?? 0).toLocaleString()}</span>
                               </div>
                             )}
                             {(workOrder.approvedQuoteTaxAmount ?? 0) > 0 && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-600">Tax</span>
+                                <span className="text-muted-foreground">Tax</span>
                                 <span className="font-medium">${(workOrder.approvedQuoteTaxAmount ?? 0).toLocaleString()}</span>
                               </div>
                             )}
@@ -707,15 +707,15 @@ export default function ViewClientWorkOrder() {
                       </div>
                       {workOrder.approvedQuoteLineItems && workOrder.approvedQuoteLineItems.length > 0 && (
                         <div className="border-t pt-4">
-                          <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
+                          <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                              <thead className="bg-gray-50">
+                              <thead className="bg-muted">
                                 <tr>
-                                  <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
-                                  <th className="px-4 py-2 text-center font-semibold text-gray-700">Qty</th>
-                                  <th className="px-4 py-2 text-right font-semibold text-gray-700">Rate</th>
-                                  <th className="px-4 py-2 text-right font-semibold text-gray-700">Amount</th>
+                                  <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
+                                  <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
+                                  <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
+                                  <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y">
@@ -733,7 +733,7 @@ export default function ViewClientWorkOrder() {
                         </div>
                       )}
                       {workOrder.assignedSubcontractorName && (
-                        <div className="text-sm text-gray-600 pt-3 border-t">
+                        <div className="text-sm text-muted-foreground pt-3 border-t">
                           <span className="font-semibold">Contractor:</span> {workOrder.assignedSubcontractorName}
                         </div>
                       )}

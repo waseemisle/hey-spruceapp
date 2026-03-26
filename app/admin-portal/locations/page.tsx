@@ -411,7 +411,7 @@ export default function LocationsManagement() {
       case 'pending': return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'approved': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'rejected': return 'bg-red-50 text-red-700 border-red-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+      default: return 'bg-muted text-foreground border-border';
     }
   };
 
@@ -449,7 +449,7 @@ export default function LocationsManagement() {
 
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, client, address, or property type..."
               value={searchQuery}
@@ -457,13 +457,13 @@ export default function LocationsManagement() {
               className="pl-10"
             />
           </div>
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             {(['all', 'approved', 'pending', 'rejected'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                  filter === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  filter === f ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {f} ({f === 'all' ? stats.total : f === 'approved' ? stats.approved : f === 'pending' ? stats.pending : stats.rejected})
@@ -473,9 +473,9 @@ export default function LocationsManagement() {
         </div>
 
         {loading ? (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-5 py-3 border-b border-gray-100 animate-pulse">
+              <div key={i} className="flex items-center gap-4 px-5 py-3 border-b border-border animate-pulse">
                 <div className="h-4 w-36 rounded bg-gray-200" />
                 <div className="h-4 w-28 rounded bg-gray-200" />
                 <div className="h-4 flex-1 rounded bg-gray-200" />
@@ -487,32 +487,32 @@ export default function LocationsManagement() {
         ) : sortedLocations.length === 0 ? (
           <EmptyState icon={MapPin} title="No locations found" subtitle="Try adjusting your search or filters" />
         ) : viewMode === 'list' ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Location Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Client</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Address</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Property Type</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Contact</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-                  <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="text-left px-5 py-3 font-medium text-muted-foreground">Location Name</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Client</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Address</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Property Type</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Contact</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                  <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {sortedLocations.map((location) => (
-                  <tr key={location.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={location.id} className="hover:bg-muted transition-colors">
                     <td className="px-5 py-3.5">
-                      <div className="font-medium text-gray-900">{location.locationName}</div>
+                      <div className="font-medium text-foreground">{location.locationName}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{location.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{location.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       <div>{location.address.street}</div>
-                      <div className="text-xs text-gray-500">{location.address.city}, {location.address.state} {location.address.zip}</div>
+                      <div className="text-xs text-muted-foreground">{location.address.city}, {location.address.state} {location.address.zip}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{location.propertyType || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{location.contactPhone || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{location.propertyType || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{location.contactPhone || '-'}</td>
                     <td className="px-4 py-3.5">
                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${getStatusColor(location.status)}`}>
                         {location.status}
@@ -563,40 +563,40 @@ export default function LocationsManagement() {
             {sortedLocations.map((location) => (
               <div
                 key={location.id}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
               >
                 <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
                 <div className="p-5 space-y-3">
                   <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-semibold text-gray-900 text-sm break-words">{location.locationName}</h3>
+                    <h3 className="font-semibold text-foreground text-sm break-words">{location.locationName}</h3>
                     <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${getStatusColor(location.status)}`}>
                       {location.status}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <User className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     <span className="break-words">{location.clientName}</span>
                   </div>
-                  <div className="flex items-start gap-2 text-sm text-gray-600">
-                    <MapPin className="h-3.5 w-3.5 mt-0.5 text-gray-400 flex-shrink-0" />
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5 mt-0.5 text-muted-foreground flex-shrink-0" />
                     <div className="break-words">
                       <div>{location.address.street}</div>
-                      <div className="text-xs text-gray-500">{location.address.city}, {location.address.state} {location.address.zip}</div>
+                      <div className="text-xs text-muted-foreground">{location.address.city}, {location.address.state} {location.address.zip}</div>
                     </div>
                   </div>
                   {location.propertyType && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Building className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Building className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                       <span>{location.propertyType}</span>
                     </div>
                   )}
                   {location.contactPhone && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Phone className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                       <span>{location.contactPhone}</span>
                     </div>
                   )}
-                  <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
+                  <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
                     <Link href={`/admin-portal/locations/${location.id}`}>
                       <Button size="sm" variant="secondary" className="gap-2">
                         <Building2 className="h-3.5 w-3.5" />
@@ -632,8 +632,8 @@ export default function LocationsManagement() {
         {/* Create/Edit Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+            <div className="bg-card rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center gap-4">
                   <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                     {editingId ? 'Edit Location' : 'Create New Location'}
@@ -829,8 +829,8 @@ export default function LocationsManagement() {
         {/* Reject Reason Modal */}
         {showRejectModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center gap-4">
                   <h2 className="text-xl sm:text-2xl font-bold text-foreground">Reject Location</h2>
                   <Button

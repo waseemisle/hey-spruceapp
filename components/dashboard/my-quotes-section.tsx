@@ -15,7 +15,7 @@ interface MyQuotesSectionProps {
 
 export default function MyQuotesSection({ data }: MyQuotesSectionProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <Link
@@ -26,7 +26,7 @@ export default function MyQuotesSection({ data }: MyQuotesSectionProps) {
           <ExternalLink className="w-4 h-4" />
         </Link>
         <button
-          className="text-gray-400 hover:text-gray-600 transition-colors"
+          className="text-muted-foreground hover:text-muted-foreground transition-colors"
           aria-label="Settings"
         >
           <Settings className="w-5 h-5" />
@@ -37,15 +37,15 @@ export default function MyQuotesSection({ data }: MyQuotesSectionProps) {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
         {/* Total Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">Total</h3>
+          <h3 className="font-medium text-foreground text-sm">Total</h3>
           <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{data.total}</div>
+            <div className="text-2xl font-bold text-foreground">{data.total}</div>
           </div>
         </div>
 
         {/* Pending Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">Pending</h3>
+          <h3 className="font-medium text-foreground text-sm">Pending</h3>
           <div className="text-center">
             <div className="text-2xl font-bold text-yellow-600">{data.pending}</div>
           </div>
@@ -53,7 +53,7 @@ export default function MyQuotesSection({ data }: MyQuotesSectionProps) {
 
         {/* Under Review Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">Under Review</h3>
+          <h3 className="font-medium text-foreground text-sm">Under Review</h3>
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">{data.underReview}</div>
           </div>
@@ -61,7 +61,7 @@ export default function MyQuotesSection({ data }: MyQuotesSectionProps) {
 
         {/* Accepted Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">Accepted</h3>
+          <h3 className="font-medium text-foreground text-sm">Accepted</h3>
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">{data.accepted}</div>
           </div>
@@ -69,7 +69,7 @@ export default function MyQuotesSection({ data }: MyQuotesSectionProps) {
 
         {/* Rejected Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">Rejected</h3>
+          <h3 className="font-medium text-foreground text-sm">Rejected</h3>
           <div className="text-center">
             <div className="text-2xl font-bold text-red-600">{data.rejected}</div>
           </div>

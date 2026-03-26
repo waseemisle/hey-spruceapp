@@ -168,7 +168,7 @@ export default function CategoriesManagement() {
         <StatCards items={[{ label: 'Total', value: categories.length, icon: Tag, color: 'blue' }]} />
 
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search categories..."
             value={searchQuery}
@@ -188,15 +188,15 @@ export default function CategoriesManagement() {
             {filteredCategories.map((category) => (
               <div
                 key={category.id}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
               >
                 <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
                 <div className="p-5">
                   <div className="flex items-center gap-2 mb-4">
                     <Tag className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                    <h3 className="font-semibold text-gray-900">{category.name}</h3>
+                    <h3 className="font-semibold text-foreground">{category.name}</h3>
                   </div>
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
+                  <div className="flex gap-2 pt-3 border-t border-border">
                     <Button size="sm" variant="outline" className="flex-1 gap-2" onClick={() => handleOpenEdit(category)}>
                       <Edit2 className="h-3.5 w-3.5" />
                       Edit
@@ -214,8 +214,8 @@ export default function CategoriesManagement() {
         {/* Create/Edit Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">
                     {editingId ? 'Edit Category' : 'Create New Category'}
@@ -235,7 +235,7 @@ export default function CategoriesManagement() {
                     placeholder="e.g., HVAC, Plumbing, Electrical"
                     autoFocus
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     This category will be available in all work order forms
                   </p>
                 </div>
@@ -265,10 +265,10 @@ export default function CategoriesManagement() {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && categoryToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Category</h2>
-                <p className="text-gray-700 mb-4">
+                <p className="text-foreground mb-4">
                   Are you sure you want to delete the category <strong>"{categoryToDelete.name}"</strong>?
                 </p>
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">

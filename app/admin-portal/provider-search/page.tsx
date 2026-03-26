@@ -122,7 +122,7 @@ function ProviderCard({
         {rank <= 3 && (
           <div className={`flex-shrink-0 px-2 py-1 rounded-lg text-xs font-bold ${
             rank === 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-            rank === 2 ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' :
+            rank === 2 ? 'bg-muted text-foreground dark:bg-gray-800 dark:text-gray-300' :
             'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
           }`}>
             #{rank} CHOICE
@@ -420,7 +420,7 @@ export default function ProviderSearchPage() {
                   value={searchTrade}
                   onChange={e => setSearchTrade(e.target.value)}
                   placeholder="Trade or service type (e.g. Electrical, HVAC)"
-                  className="pl-9 bg-white text-gray-900 border-0 h-11"
+                  className="pl-9 bg-card text-foreground border-0 h-11"
                   list="skills-list"
                 />
                 <datalist id="skills-list">
@@ -433,10 +433,10 @@ export default function ProviderSearchPage() {
                   value={searchLocation}
                   onChange={e => setSearchLocation(e.target.value)}
                   placeholder="Location (City, State)"
-                  className="pl-9 bg-white text-gray-900 border-0 h-11"
+                  className="pl-9 bg-card text-foreground border-0 h-11"
                 />
               </div>
-              <Button size="lg" className="bg-white text-primary hover:bg-white/90 h-11 px-6">
+              <Button size="lg" className="bg-card text-primary hover:bg-muted h-11 px-6">
                 <Search className="h-4 w-4" />
               </Button>
             </div>

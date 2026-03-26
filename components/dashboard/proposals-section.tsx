@@ -28,7 +28,7 @@ export default function ProposalsSection({ data, portalType }: ProposalsSectionP
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <Link
@@ -39,7 +39,7 @@ export default function ProposalsSection({ data, portalType }: ProposalsSectionP
           <ExternalLink className="w-4 h-4" />
         </Link>
         <button
-          className="text-gray-400 hover:text-gray-600 transition-colors"
+          className="text-muted-foreground hover:text-muted-foreground transition-colors"
           aria-label="Settings"
         >
           <Settings className="w-5 h-5" />
@@ -50,35 +50,35 @@ export default function ProposalsSection({ data, portalType }: ProposalsSectionP
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {/* Pending Approval Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">Pending Approval</h3>
+          <h3 className="font-medium text-foreground text-sm">Pending Approval</h3>
           <div className="text-center">
             <div className="text-2xl font-bold">
               <span className="text-red-600">{data.pendingApproval.urgent}</span>
-              <span className="text-gray-400">/</span>
-              <span className="text-gray-900">{data.pendingApproval.total}</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="text-foreground">{data.pendingApproval.total}</span>
             </div>
           </div>
         </div>
 
         {/* On Hold Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">On Hold</h3>
+          <h3 className="font-medium text-foreground text-sm">On Hold</h3>
           <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{data.onHold}</div>
+            <div className="text-2xl font-bold text-foreground">{data.onHold}</div>
           </div>
         </div>
 
         {/* Rejected Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">Rejected</h3>
+          <h3 className="font-medium text-foreground text-sm">Rejected</h3>
           <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{data.rejected}</div>
+            <div className="text-2xl font-bold text-foreground">{data.rejected}</div>
           </div>
         </div>
 
         {/* Approved Column */}
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-700 text-sm">Approved</h3>
+          <h3 className="font-medium text-foreground text-sm">Approved</h3>
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">{data.approved}</div>
           </div>

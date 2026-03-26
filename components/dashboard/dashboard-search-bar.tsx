@@ -62,7 +62,7 @@ export default function DashboardSearchBar({ portalType, onSearch }: DashboardSe
   const createButtonLabel = getCreateButtonLabel();
 
   return (
-    <div className="bg-white border-b border-gray-200 py-4 px-6">
+    <div className="bg-card border-b border-border py-4 px-6">
       <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
         {/* Search Type Dropdown */}
         <div className="flex-shrink-0 w-full md:w-auto md:min-w-[220px]">

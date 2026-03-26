@@ -407,7 +407,7 @@ export default function ClientQuotes() {
       accepted: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
+    return styles[status as keyof typeof styles] || 'bg-muted text-foreground';
   };
 
   const getStatusLabel = (status: string) => {
@@ -446,8 +446,8 @@ export default function ClientQuotes() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Quotes</h1>
-            <p className="text-gray-600 mt-2">Review and approve quotes from contractors</p>
+            <h1 className="text-3xl font-bold text-foreground">Quotes</h1>
+            <p className="text-muted-foreground mt-2">Review and approve quotes from contractors</p>
           </div>
           {quotes.length > 0 && (
             <div className="flex items-center gap-2">
@@ -472,7 +472,7 @@ export default function ClientQuotes() {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-medium text-gray-700 shrink-0">Filter by Status:</span>
+          <span className="text-sm font-medium text-foreground shrink-0">Filter by Status:</span>
           <SearchableSelect
             className="min-w-[200px]"
             value={filter}
@@ -489,11 +489,11 @@ export default function ClientQuotes() {
         {filteredQuotes.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
                 {filter === 'all' ? 'No quotes yet' : `No ${filter} quotes`}
               </h3>
-              <p className="text-gray-600 text-center">
+              <p className="text-muted-foreground text-center">
                 {filter === 'all'
                   ? 'Quotes will appear here once subcontractors submit them and admin forwards them to you.'
                   : 'Try a different filter'}
@@ -516,7 +516,7 @@ export default function ClientQuotes() {
                   <CardHeader>
                     <CardTitle>{workOrderQuotes[0].workOrderTitle}</CardTitle>
                     {workOrderQuotes[0].workOrderNumber && (
-                      <p className="text-sm text-gray-600 mt-1">WO: {workOrderQuotes[0].workOrderNumber}</p>
+                      <p className="text-sm text-muted-foreground mt-1">WO: {workOrderQuotes[0].workOrderNumber}</p>
                     )}
                   </CardHeader>
                   <CardContent>
@@ -540,9 +540,9 @@ export default function ClientQuotes() {
                     <div>
                       <CardTitle className="text-xl mb-2">{quote.workOrderTitle}</CardTitle>
                       {quote.workOrderNumber && (
-                        <p className="text-sm text-gray-600">WO: {quote.workOrderNumber}</p>
+                        <p className="text-sm text-muted-foreground">WO: {quote.workOrderNumber}</p>
                       )}
-                      <p className="text-sm text-gray-600">From: {quote.subcontractorName}</p>
+                      <p className="text-sm text-muted-foreground">From: {quote.subcontractorName}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(quote.status)}`}>
                       {getStatusLabel(quote.status)}
@@ -554,18 +554,18 @@ export default function ClientQuotes() {
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-5 w-5 text-green-600" />
                       <div>
-                        <p className="text-sm text-gray-600">Total Amount</p>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-sm text-muted-foreground">Total Amount</p>
+                        <p className="text-2xl font-bold text-foreground">
                           ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5 text-gray-500" />
+                      <Calendar className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="text-sm text-gray-600">Submitted</p>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm text-muted-foreground">Submitted</p>
+                        <p className="text-sm font-medium text-foreground">
                           {quote.sentToClientAt?.toDate?.().toLocaleDateString() || 'N/A'}
                         </p>
                       </div>
@@ -602,15 +602,15 @@ export default function ClientQuotes() {
 
                   {quote.lineItems && quote.lineItems.length > 0 && (
                     <div className="border-t pt-4">
-                      <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
+                      <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                          <thead className="bg-gray-50">
+                          <thead className="bg-muted">
                             <tr>
-                              <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
-                              <th className="px-4 py-2 text-center font-semibold text-gray-700">Qty</th>
-                              <th className="px-4 py-2 text-right font-semibold text-gray-700">Rate</th>
-                              <th className="px-4 py-2 text-right font-semibold text-gray-700">Amount</th>
+                              <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
+                              <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
+                              <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
+                              <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y">
@@ -630,8 +630,8 @@ export default function ClientQuotes() {
 
                   {quote.notes && (
                     <div className="border-t pt-4">
-                      <h4 className="font-semibold text-gray-900 mb-2">Additional Notes</h4>
-                      <p className="text-sm text-gray-700">{quote.notes}</p>
+                      <h4 className="font-semibold text-foreground mb-2">Additional Notes</h4>
+                      <p className="text-sm text-foreground">{quote.notes}</p>
                     </div>
                   )}
 

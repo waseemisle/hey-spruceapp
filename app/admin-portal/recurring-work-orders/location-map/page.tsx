@@ -279,8 +279,8 @@ export default function LocationMapPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Location Map</h1>
-            <p className="text-gray-600 mt-2 text-sm sm:text-base">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Location Map</h1>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">
               Map CSV location names to system locations for recurring work order imports
             </p>
           </div>
@@ -307,7 +307,7 @@ export default function LocationMapPage() {
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search mappings by CSV location name or system location..."
             value={searchQuery}
@@ -324,9 +324,9 @@ export default function LocationMapPage() {
           <CardContent>
             {filteredMappings.length === 0 ? (
               <div className="text-center py-12">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No location mappings found</p>
-                <p className="text-sm text-gray-500 mt-2">
+                <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No location mappings found</p>
+                <p className="text-sm text-muted-foreground mt-2">
                   Create mappings to link CSV location names to system locations
                 </p>
               </div>
@@ -335,16 +335,16 @@ export default function LocationMapPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left p-3 font-semibold text-gray-700">CSV Location Name</th>
-                      <th className="text-left p-3 font-semibold text-gray-700">System Location</th>
-                      <th className="text-right p-3 font-semibold text-gray-700">Actions</th>
+                      <th className="text-left p-3 font-semibold text-foreground">CSV Location Name</th>
+                      <th className="text-left p-3 font-semibold text-foreground">System Location</th>
+                      <th className="text-right p-3 font-semibold text-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredMappings.map((mapping) => (
-                      <tr key={mapping.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 text-gray-900">{mapping.csvLocationName}</td>
-                        <td className="p-3 text-gray-600">{mapping.systemLocationName || 'N/A'}</td>
+                      <tr key={mapping.id} className="border-b hover:bg-muted">
+                        <td className="p-3 text-foreground">{mapping.csvLocationName}</td>
+                        <td className="p-3 text-muted-foreground">{mapping.systemLocationName || 'N/A'}</td>
                         <td className="p-3 text-right">
                           <div className="flex justify-end gap-2">
                             <Button

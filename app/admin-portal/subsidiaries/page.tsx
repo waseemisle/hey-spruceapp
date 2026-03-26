@@ -207,7 +207,7 @@ export default function AdminCompanies() {
         </div>
 
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, email, or phone..."
             value={searchQuery}
@@ -232,7 +232,7 @@ export default function AdminCompanies() {
               return (
                 <div
                   key={c.id}
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                 >
                   <div className={`h-1 w-full bg-gradient-to-r ${avatarColor(c.id)}`} />
                   <div className="p-5 space-y-4">
@@ -241,7 +241,7 @@ export default function AdminCompanies() {
                         <img
                           src={c.logoUrl}
                           alt={c.name}
-                          className="h-14 w-14 object-contain rounded-xl border border-gray-200 bg-gray-50 p-1 flex-shrink-0"
+                          className="h-14 w-14 object-contain rounded-xl border border-border bg-muted p-1 flex-shrink-0"
                         />
                       ) : (
                         <div className={`h-14 w-14 rounded-xl bg-gradient-to-br ${avatarColor(c.id)} flex items-center justify-center text-white font-bold text-lg flex-shrink-0`}>
@@ -249,15 +249,15 @@ export default function AdminCompanies() {
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-gray-900 text-base leading-tight truncate">{c.name}</h3>
+                        <h3 className="font-semibold text-foreground text-base leading-tight truncate">{c.name}</h3>
                         {c.email && (
-                          <div className="flex items-center gap-1.5 mt-1.5 text-sm text-gray-500">
+                          <div className="flex items-center gap-1.5 mt-1.5 text-sm text-muted-foreground">
                             <Mail className="h-3.5 w-3.5 flex-shrink-0" />
                             <span className="truncate">{c.email}</span>
                           </div>
                         )}
                         {c.phone && (
-                          <div className="flex items-center gap-1.5 mt-0.5 text-sm text-gray-500">
+                          <div className="flex items-center gap-1.5 mt-0.5 text-sm text-muted-foreground">
                             <Phone className="h-3.5 w-3.5 flex-shrink-0" />
                             <span>{c.phone}</span>
                           </div>
@@ -265,17 +265,17 @@ export default function AdminCompanies() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
-                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <div className="flex items-center gap-3 border-t border-border pt-3">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <Users className="h-4 w-4 text-purple-500" />
                         <span className="font-semibold">{clients}</span>
-                        <span className="text-gray-400">{clients === 1 ? 'client' : 'clients'}</span>
+                        <span className="text-muted-foreground">{clients === 1 ? 'client' : 'clients'}</span>
                       </div>
                       <div className="w-px h-4 bg-gray-200" />
-                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <MapPin className="h-4 w-4 text-green-500" />
                         <span className="font-semibold">{locations}</span>
-                        <span className="text-gray-400">{locations === 1 ? 'location' : 'locations'}</span>
+                        <span className="text-muted-foreground">{locations === 1 ? 'location' : 'locations'}</span>
                       </div>
                     </div>
 
@@ -301,15 +301,15 @@ export default function AdminCompanies() {
 
         {/* List View */}
         {viewMode === 'list' && filtered.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Company</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Contact</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Clients</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Locations</th>
-                  <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="text-left px-5 py-3 font-medium text-muted-foreground">Company</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Contact</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Clients</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Locations</th>
+                  <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -318,23 +318,23 @@ export default function AdminCompanies() {
                   const locations = locationCounts[c.id] || 0;
                   const color = avatarColor(c.id);
                   return (
-                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={c.id} className="hover:bg-muted transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           {c.logoUrl ? (
-                            <img src={c.logoUrl} alt={c.name} className="h-9 w-9 object-contain rounded-lg border border-gray-200 bg-gray-50 p-0.5 flex-shrink-0" />
+                            <img src={c.logoUrl} alt={c.name} className="h-9 w-9 object-contain rounded-lg border border-border bg-muted p-0.5 flex-shrink-0" />
                           ) : (
                             <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
                               {getInitials(c.name)}
                             </div>
                           )}
-                          <p className="font-medium text-gray-900">{c.name}</p>
+                          <p className="font-medium text-foreground">{c.name}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3.5 hidden sm:table-cell">
-                        {c.email && <p className="text-gray-700">{c.email}</p>}
-                        {c.phone && <p className="text-xs text-gray-500">{c.phone}</p>}
-                        {!c.email && !c.phone && <span className="text-gray-400 text-xs">—</span>}
+                        {c.email && <p className="text-foreground">{c.email}</p>}
+                        {c.phone && <p className="text-xs text-muted-foreground">{c.phone}</p>}
+                        {!c.email && !c.phone && <span className="text-muted-foreground text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3.5 hidden md:table-cell">
                         <span className="text-xs bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded-full">
@@ -371,11 +371,11 @@ export default function AdminCompanies() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
-            <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl flex items-center justify-between">
+          <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl">
+            <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">{editingId ? 'Edit Company' : 'Add Company'}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">{editingId ? 'Update company details' : 'Create a new company'}</p>
+                <h2 className="text-xl font-bold text-foreground">{editingId ? 'Edit Company' : 'Add Company'}</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{editingId ? 'Update company details' : 'Create a new company'}</p>
               </div>
               <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
                 <X className="h-4 w-4" />
@@ -418,7 +418,7 @@ export default function AdminCompanies() {
                         <img
                           src={logoPreview || formData.logoUrl}
                           alt="Logo preview"
-                          className="h-24 w-24 object-contain border rounded-lg p-2 bg-gray-50"
+                          className="h-24 w-24 object-contain border rounded-lg p-2 bg-muted"
                         />
                         {logoFile && (
                           <button
@@ -432,14 +432,14 @@ export default function AdminCompanies() {
                       </div>
                     )}
                     <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                      <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-muted">
                         <Upload className="h-4 w-4" />
                         <span className="text-sm">{logoPreview || formData.logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
                         <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" disabled={uploadingLogo} />
                       </label>
-                      {uploadingLogo && <span className="text-sm text-gray-500">Uploading...</span>}
+                      {uploadingLogo && <span className="text-sm text-muted-foreground">Uploading...</span>}
                     </div>
-                    <p className="text-xs text-gray-400">Square image recommended, max 5MB</p>
+                    <p className="text-xs text-muted-foreground">Square image recommended, max 5MB</p>
                   </div>
                 </div>
               </div>

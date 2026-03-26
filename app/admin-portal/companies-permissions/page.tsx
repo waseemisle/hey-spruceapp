@@ -204,11 +204,11 @@ export default function CompaniesPermissions() {
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
               <Shield className="h-8 w-8 text-blue-600" />
               Companies Permissions
             </h1>
-            <p className="text-gray-500 mt-1">Manage portal access permissions for each company's clients</p>
+            <p className="text-muted-foreground mt-1">Manage portal access permissions for each company's clients</p>
           </div>
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
             <Lock className="h-4 w-4" />
@@ -218,7 +218,7 @@ export default function CompaniesPermissions() {
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search companies..."
             value={searchQuery}
@@ -230,9 +230,9 @@ export default function CompaniesPermissions() {
         {/* Company List */}
         <div className="space-y-4">
           {filtered.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <div className="bg-card rounded-xl border border-border p-12 text-center">
               <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No companies found</p>
+              <p className="text-muted-foreground font-medium">No companies found</p>
             </div>
           ) : (
             filtered.map((company) => {
@@ -247,7 +247,7 @@ export default function CompaniesPermissions() {
               return (
                 <div
                   key={company.id}
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden"
                 >
                   {/* Color accent */}
                   <div className={`h-1 w-full bg-gradient-to-r ${avatarColor(company.id)}`} />
@@ -261,7 +261,7 @@ export default function CompaniesPermissions() {
                           <img
                             src={company.logoUrl}
                             alt={company.name}
-                            className="h-12 w-12 object-contain rounded-xl border border-gray-200 bg-gray-50 p-1 flex-shrink-0"
+                            className="h-12 w-12 object-contain rounded-xl border border-border bg-muted p-1 flex-shrink-0"
                           />
                         ) : (
                           <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${avatarColor(company.id)} flex items-center justify-center text-white font-bold text-base flex-shrink-0`}>
@@ -271,21 +271,21 @@ export default function CompaniesPermissions() {
 
                         {/* Info */}
                         <div className="min-w-0">
-                          <h2 className="font-semibold text-gray-900 text-base">{company.name}</h2>
+                          <h2 className="font-semibold text-foreground text-base">{company.name}</h2>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1">
                             {company.email && (
-                              <span className="flex items-center gap-1 text-sm text-gray-500">
+                              <span className="flex items-center gap-1 text-sm text-muted-foreground">
                                 <Mail className="h-3.5 w-3.5" />
                                 {company.email}
                               </span>
                             )}
                             {company.phone && (
-                              <span className="flex items-center gap-1 text-sm text-gray-500">
+                              <span className="flex items-center gap-1 text-sm text-muted-foreground">
                                 <Phone className="h-3.5 w-3.5" />
                                 {company.phone}
                               </span>
                             )}
-                            <span className="flex items-center gap-1 text-sm text-gray-500">
+                            <span className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Users className="h-3.5 w-3.5" />
                               {companyClients.length} {companyClients.length === 1 ? 'client' : 'clients'}
                             </span>
@@ -297,7 +297,7 @@ export default function CompaniesPermissions() {
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {/* Permission summary */}
                         {companyClients.length > 0 && (
-                          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+                          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium bg-muted text-muted-foreground px-2.5 py-1 rounded-full">
                             <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                             {totalEnabled}/{totalPossible} enabled
                           </span>
@@ -329,11 +329,11 @@ export default function CompaniesPermissions() {
 
                   {/* Expanded: Clients + Permissions */}
                   {isExpanded && (
-                    <div className="border-t border-gray-100 bg-gray-50/50">
+                    <div className="border-t border-border bg-muted/50">
                       {companyClients.length === 0 ? (
                         <div className="py-10 text-center">
                           <Users className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500 text-sm">No clients associated with this company</p>
+                          <p className="text-muted-foreground text-sm">No clients associated with this company</p>
                         </div>
                       ) : (
                         <div className="p-4 space-y-3">
@@ -346,11 +346,11 @@ export default function CompaniesPermissions() {
                             return (
                               <div
                                 key={client.id}
-                                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+                                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden"
                               >
                                 {/* Client Header */}
                                 <div
-                                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted transition-colors"
                                   onClick={() => setExpandedClient(isClientExpanded ? null : client.id)}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
@@ -358,15 +358,15 @@ export default function CompaniesPermissions() {
                                       {getInitials(client.fullName)}
                                     </div>
                                     <div className="min-w-0">
-                                      <p className="font-semibold text-gray-900 text-sm">{client.fullName}</p>
-                                      <p className="text-xs text-gray-500 truncate">{client.email}</p>
+                                      <p className="font-semibold text-foreground text-sm">{client.fullName}</p>
+                                      <p className="text-xs text-muted-foreground truncate">{client.email}</p>
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2 flex-shrink-0">
                                     {/* Permission pill */}
                                     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
                                       enabled === 0
-                                        ? 'bg-gray-100 text-gray-500'
+                                        ? 'bg-muted text-muted-foreground'
                                         : enabled === PERMISSION_DEFS.length
                                         ? 'bg-green-100 text-green-700'
                                         : 'bg-blue-100 text-blue-700'
@@ -375,22 +375,22 @@ export default function CompaniesPermissions() {
                                       <span className="hidden sm:inline"> active</span>
                                     </span>
                                     {isClientExpanded
-                                      ? <ChevronUp className="h-4 w-4 text-gray-400" />
-                                      : <ChevronDown className="h-4 w-4 text-gray-400" />
+                                      ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                      : <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                     }
                                   </div>
                                 </div>
 
                                 {/* Permission toggles */}
                                 {isClientExpanded && (
-                                  <div className="border-t border-gray-100 p-4 space-y-0">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                                  <div className="border-t border-border p-4 space-y-0">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-muted rounded-lg overflow-hidden border border-border">
                                       {PERMISSION_DEFS.map((perm, idx) => {
                                         const isEnabled = permissions[perm.key] || false;
                                         return (
                                           <div
                                             key={perm.key}
-                                            className={`bg-white p-3.5 flex items-start gap-3 hover:bg-gray-50 transition-colors ${
+                                            className={`bg-card p-3.5 flex items-start gap-3 hover:bg-muted transition-colors ${
                                               idx === PERMISSION_DEFS.length - 1 && PERMISSION_DEFS.length % 2 !== 0
                                                 ? 'md:col-span-2'
                                                 : ''
@@ -407,11 +407,11 @@ export default function CompaniesPermissions() {
                                             <div className="flex-1 min-w-0">
                                               <Label
                                                 htmlFor={`${perm.key}-${client.id}`}
-                                                className="font-medium text-sm cursor-pointer text-gray-900"
+                                                className="font-medium text-sm cursor-pointer text-foreground"
                                               >
                                                 {perm.label}
                                               </Label>
-                                              <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{perm.desc}</p>
+                                              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{perm.desc}</p>
                                             </div>
                                             {isEnabled ? (
                                               <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />

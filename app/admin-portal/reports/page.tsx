@@ -103,13 +103,13 @@ function exportCSV(rows: Record<string, any>[], filename: string) {
 
 function CustomerStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    none:    { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
-    draft:   { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
+    none:    { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
+    draft:   { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
     sent:    { label: 'Invoiced',     cls: 'bg-blue-100 text-blue-700' },
     paid:    { label: 'Paid',         cls: 'bg-green-100 text-green-700' },
     overdue: { label: 'Overdue',      cls: 'bg-red-100 text-red-700' },
   };
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
+  const { label, cls } = map[status] ?? { label: status, cls: 'bg-muted text-muted-foreground' };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
       {label}
@@ -126,9 +126,9 @@ function VendorStatusBadge({ status }: { status: string }) {
     completed:  { label: 'Completed', cls: 'bg-green-100 text-green-700' },
     bidding:    { label: 'Bidding',   cls: 'bg-purple-100 text-purple-700' },
     quotes_received: { label: 'Quotes In', cls: 'bg-indigo-100 text-indigo-700' },
-    none:       { label: 'Unassigned', cls: 'bg-gray-100 text-gray-500' },
+    none:       { label: 'Unassigned', cls: 'bg-muted text-muted-foreground' },
   };
-  const { label, cls } = map[status] ?? { label: status.replace(/_/g, ' '), cls: 'bg-gray-100 text-gray-600' };
+  const { label, cls } = map[status] ?? { label: status.replace(/_/g, ' '), cls: 'bg-muted text-muted-foreground' };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
       {label}
@@ -144,11 +144,11 @@ function KpiCard({
   label: string; value: string; sub: string; topColor: string; valueColor?: string;
 }) {
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative overflow-hidden`}>
+    <div className={`bg-card rounded-xl border border-border shadow-sm p-5 relative overflow-hidden`}>
       <div className={`absolute top-0 left-0 right-0 h-1 ${topColor}`} />
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${valueColor ?? 'text-gray-900'}`}>{value}</p>
-      <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${valueColor ?? 'text-foreground'}`}>{value}</p>
+      <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
     </div>
   );
 }
@@ -450,8 +450,8 @@ export default function ReportsPage() {
         {/* ── Page Header ── */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-            <p className="text-gray-500 mt-1 text-sm">Financial overview of all jobs</p>
+            <h1 className="text-2xl font-bold text-foreground">Reports</h1>
+            <p className="text-muted-foreground mt-1 text-sm">Financial overview of all jobs</p>
           </div>
           <div className="flex gap-2 print:hidden">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
@@ -466,11 +466,11 @@ export default function ReportsPage() {
         </div>
 
         {/* ── Filters ── */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 print:hidden">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-4 print:hidden">
           <div className="flex flex-wrap gap-3 items-center">
             {/* Period quick-select */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-600">Period:</span>
+              <span className="text-sm font-semibold text-muted-foreground">Period:</span>
               <div className="flex gap-1">
                 {[
                   { v: 'all', l: 'All Time' },
@@ -486,7 +486,7 @@ export default function ReportsPage() {
                     className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                       period === v
                         ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-muted text-muted-foreground hover:bg-gray-200'
                     }`}
                   >
                     {l}
@@ -499,21 +499,21 @@ export default function ReportsPage() {
             {period === 'custom' && (
               <>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">From:</span>
+                  <span className="text-sm text-muted-foreground">From:</span>
                   <input
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700"
+                    className="border border-gray-300 rounded-md px-2 py-1 text-sm text-foreground"
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">To:</span>
+                  <span className="text-sm text-muted-foreground">To:</span>
                   <input
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="border border-gray-300 rounded-md px-2 py-1 text-sm text-gray-700"
+                    className="border border-gray-300 rounded-md px-2 py-1 text-sm text-foreground"
                   />
                 </div>
               </>
@@ -523,7 +523,7 @@ export default function ReportsPage() {
 
             {/* Customer filter */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-600">Customer:</span>
+              <span className="text-sm font-semibold text-muted-foreground">Customer:</span>
               <SearchableSelect
                 className="w-full min-w-[180px] sm:w-56"
                 value={filterClientId}
@@ -542,7 +542,7 @@ export default function ReportsPage() {
 
             {/* Vendor filter */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-gray-600">Vendor:</span>
+              <span className="text-sm font-semibold text-muted-foreground">Vendor:</span>
               <SearchableSelect
                 className="w-full min-w-[180px] sm:w-56"
                 value={filterSubId}
@@ -617,11 +617,11 @@ export default function ReportsPage() {
         </div>
 
         {/* ── Main Report Table ── */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-gray-900 text-base">All Jobs</h3>
-              <p className="text-xs text-gray-500 mt-0.5">{rows.length} job{rows.length !== 1 ? 's' : ''} in current filter</p>
+              <h3 className="font-semibold text-foreground text-base">All Jobs</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">{rows.length} job{rows.length !== 1 ? 's' : ''} in current filter</p>
             </div>
             <Button size="sm" variant="outline" className="gap-1.5 print:hidden" onClick={handleExport}>
               <Download className="h-3.5 w-3.5" />
@@ -631,7 +631,7 @@ export default function ReportsPage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted">
                 <tr>
                   {[
                     { label: 'Job #', cls: '' },
@@ -646,7 +646,7 @@ export default function ReportsPage() {
                   ].map((h) => (
                     <th
                       key={h.label}
-                      className={`px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-b border-gray-200 ${h.cls}`}
+                      className={`px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-b border-border ${h.cls}`}
                     >
                       {h.label}
                     </th>
@@ -656,29 +656,29 @@ export default function ReportsPage() {
               <tbody className="divide-y divide-gray-100">
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-gray-400">
+                    <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
                       No jobs found for the current filters.
                     </td>
                   </tr>
                 ) : (
                   rows.map((r) => (
-                    <tr key={r.wo.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={r.wo.id} className="hover:bg-muted transition-colors">
                       <td className="px-4 py-3.5 font-semibold text-blue-600 whitespace-nowrap">
                         {r.wo.workOrderNumber || r.wo.id.slice(0, 8).toUpperCase()}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
                         {fmtDate(r.date)}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[160px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[160px] truncate">
                         {r.clientName}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[140px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[140px] truncate">
                         {r.vendorName}
                       </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-gray-900 whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-right font-semibold text-foreground whitespace-nowrap">
                         {r.customerPrice > 0 ? fmtMoney(r.customerPrice) : '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-gray-900 whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-right font-semibold text-foreground whitespace-nowrap">
                         {r.vendorCost > 0 ? fmtMoney(r.vendorCost) : '—'}
                       </td>
                       <td
@@ -687,7 +687,7 @@ export default function ReportsPage() {
                             ? 'text-green-600'
                             : r.profit < 0
                             ? 'text-red-600'
-                            : 'text-gray-400'
+                            : 'text-muted-foreground'
                         }`}
                       >
                         {r.customerPrice > 0 || r.vendorCost > 0
@@ -707,20 +707,20 @@ export default function ReportsPage() {
 
               {/* Totals footer */}
               {rows.length > 0 && (
-                <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                <tfoot className="bg-muted border-t-2 border-border">
                   <tr>
-                    <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-gray-600">
+                    <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-muted-foreground">
                       Totals ({rows.length} jobs)
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-gray-900">
+                    <td className="px-4 py-3 text-right font-bold text-foreground">
                       {fmtMoney(kpis.totalRevenue)}
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-gray-900">
+                    <td className="px-4 py-3 text-right font-bold text-foreground">
                       {fmtMoney(kpis.totalCost)}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-green-700">
                       {fmtMoney(kpis.totalProfit)}
-                      <span className="text-xs text-gray-500 ml-1">({kpis.margin.toFixed(1)}%)</span>
+                      <span className="text-xs text-muted-foreground ml-1">({kpis.margin.toFixed(1)}%)</span>
                     </td>
                     <td colSpan={2} />
                   </tr>
@@ -732,14 +732,14 @@ export default function ReportsPage() {
 
         {/* ── Additional Report Views ── */}
         <div>
-          <h3 className="font-semibold text-gray-900 mb-4 text-base">Additional Report Views</h3>
+          <h3 className="font-semibold text-foreground mb-4 text-base">Additional Report Views</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Aging Report */}
             <div
-              className={`bg-white border rounded-xl p-5 cursor-pointer transition-all hover:shadow-md ${
+              className={`bg-card border rounded-xl p-5 cursor-pointer transition-all hover:shadow-md ${
                 expandedView === 'aging'
                   ? 'border-blue-400 ring-1 ring-blue-200'
-                  : 'border-gray-200'
+                  : 'border-border'
               }`}
               onClick={() => setExpandedView(expandedView === 'aging' ? null : 'aging')}
             >
@@ -749,22 +749,22 @@ export default function ReportsPage() {
                     <BarChart2 className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">Aging Report</p>
-                    <p className="text-xs text-gray-500 mt-0.5">0–30, 31–60, 61–90, 90+ days buckets</p>
+                    <p className="font-semibold text-foreground">Aging Report</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">0–30, 31–60, 61–90, 90+ days buckets</p>
                   </div>
                 </div>
                 <ChevronDown
-                  className={`h-4 w-4 text-gray-400 transition-transform ${expandedView === 'aging' ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${expandedView === 'aging' ? 'rotate-180' : ''}`}
                 />
               </div>
             </div>
 
             {/* Cash Flow */}
             <div
-              className={`bg-white border rounded-xl p-5 cursor-pointer transition-all hover:shadow-md ${
+              className={`bg-card border rounded-xl p-5 cursor-pointer transition-all hover:shadow-md ${
                 expandedView === 'cashflow'
                   ? 'border-green-400 ring-1 ring-green-200'
-                  : 'border-gray-200'
+                  : 'border-border'
               }`}
               onClick={() => setExpandedView(expandedView === 'cashflow' ? null : 'cashflow')}
             >
@@ -774,22 +774,22 @@ export default function ReportsPage() {
                     <Clock className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">Cash Flow</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Receivables vs payables breakdown</p>
+                    <p className="font-semibold text-foreground">Cash Flow</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Receivables vs payables breakdown</p>
                   </div>
                 </div>
                 <ChevronDown
-                  className={`h-4 w-4 text-gray-400 transition-transform ${expandedView === 'cashflow' ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${expandedView === 'cashflow' ? 'rotate-180' : ''}`}
                 />
               </div>
             </div>
 
             {/* Profit by Customer / Vendor */}
             <div
-              className={`bg-white border rounded-xl p-5 cursor-pointer transition-all hover:shadow-md ${
+              className={`bg-card border rounded-xl p-5 cursor-pointer transition-all hover:shadow-md ${
                 expandedView === 'profit'
                   ? 'border-purple-400 ring-1 ring-purple-200'
-                  : 'border-gray-200'
+                  : 'border-border'
               }`}
               onClick={() => setExpandedView(expandedView === 'profit' ? null : 'profit')}
             >
@@ -799,12 +799,12 @@ export default function ReportsPage() {
                     <PieChart className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">Profit by Customer / Vendor</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Most profitable relationships</p>
+                    <p className="font-semibold text-foreground">Profit by Customer / Vendor</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Most profitable relationships</p>
                   </div>
                 </div>
                 <ChevronDown
-                  className={`h-4 w-4 text-gray-400 transition-transform ${expandedView === 'profit' ? 'rotate-180' : ''}`}
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${expandedView === 'profit' ? 'rotate-180' : ''}`}
                 />
               </div>
             </div>
@@ -813,9 +813,9 @@ export default function ReportsPage() {
 
         {/* ── Aging Report Detail ── */}
         {expandedView === 'aging' && (
-          <div className="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Accounts Receivable Aging</h3>
+          <div className="bg-card rounded-xl border border-blue-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Accounts Receivable Aging</h3>
               <Button
                 size="sm"
                 variant="outline"
@@ -833,10 +833,10 @@ export default function ReportsPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
                     {['Age Bucket', 'Invoice Count', 'Amount Outstanding', 'Share'].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border">
                         {h}
                       </th>
                     ))}
@@ -847,19 +847,19 @@ export default function ReportsPage() {
                     const total = agingRows.reduce((s, b) => s + b.amount, 0);
                     const share = total > 0 ? (bucket.amount / total) * 100 : 0;
                     return (
-                      <tr key={bucket.label} className="hover:bg-gray-50">
-                        <td className="px-4 py-3.5 font-semibold text-gray-800">{bucket.label}</td>
-                        <td className="px-4 py-3.5 text-gray-600">{bucket.count}</td>
-                        <td className="px-4 py-3.5 font-semibold text-gray-900">{fmtMoney(bucket.amount)}</td>
+                      <tr key={bucket.label} className="hover:bg-muted">
+                        <td className="px-4 py-3.5 font-semibold text-foreground">{bucket.label}</td>
+                        <td className="px-4 py-3.5 text-muted-foreground">{bucket.count}</td>
+                        <td className="px-4 py-3.5 font-semibold text-foreground">{fmtMoney(bucket.amount)}</td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden max-w-[120px]">
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[120px]">
                               <div
                                 className="h-full bg-blue-500 rounded-full"
                                 style={{ width: `${share}%` }}
                               />
                             </div>
-                            <span className="text-xs text-gray-500">{share.toFixed(1)}%</span>
+                            <span className="text-xs text-muted-foreground">{share.toFixed(1)}%</span>
                           </div>
                         </td>
                       </tr>
@@ -873,9 +873,9 @@ export default function ReportsPage() {
 
         {/* ── Cash Flow Detail ── */}
         {expandedView === 'cashflow' && (
-          <div className="bg-white rounded-xl border border-green-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-900">Cash Flow Summary</h3>
+          <div className="bg-card rounded-xl border border-green-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h3 className="font-semibold text-foreground">Cash Flow Summary</h3>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-blue-50 rounded-xl p-5">
@@ -909,9 +909,9 @@ export default function ReportsPage() {
         {expandedView === 'profit' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* By Customer */}
-            <div className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Profit by Customer</h3>
+            <div className="bg-card rounded-xl border border-purple-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <h3 className="font-semibold text-foreground">Profit by Customer</h3>
                 <Button
                   size="sm"
                   variant="outline"
@@ -936,10 +936,10 @@ export default function ReportsPage() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
                       {['Customer', 'Jobs', 'Revenue', 'Cost', 'Profit', 'Margin'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border">
                           {h}
                         </th>
                       ))}
@@ -947,14 +947,14 @@ export default function ReportsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {profitByCustomer.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">No data</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No data</td></tr>
                     ) : (
                       profitByCustomer.map((c, i) => (
-                        <tr key={i} className="hover:bg-gray-50">
-                          <td className="px-4 py-3.5 font-medium text-gray-900 max-w-[140px] truncate">{c.name}</td>
-                          <td className="px-4 py-3.5 text-gray-500">{c.jobs}</td>
-                          <td className="px-4 py-3.5 font-medium text-gray-700">{fmtMoney(c.revenue)}</td>
-                          <td className="px-4 py-3.5 text-gray-500">{fmtMoney(c.cost)}</td>
+                        <tr key={i} className="hover:bg-muted">
+                          <td className="px-4 py-3.5 font-medium text-foreground max-w-[140px] truncate">{c.name}</td>
+                          <td className="px-4 py-3.5 text-muted-foreground">{c.jobs}</td>
+                          <td className="px-4 py-3.5 font-medium text-foreground">{fmtMoney(c.revenue)}</td>
+                          <td className="px-4 py-3.5 text-muted-foreground">{fmtMoney(c.cost)}</td>
                           <td className="px-4 py-3.5 font-semibold text-green-600">{fmtMoney(c.profit)}</td>
                           <td className="px-4 py-3.5">
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.margin >= 30 ? 'bg-green-100 text-green-700' : c.margin >= 15 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'}`}>
@@ -970,9 +970,9 @@ export default function ReportsPage() {
             </div>
 
             {/* By Vendor */}
-            <div className="bg-white rounded-xl border border-purple-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Profit by Vendor</h3>
+            <div className="bg-card rounded-xl border border-purple-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <h3 className="font-semibold text-foreground">Profit by Vendor</h3>
                 <Button
                   size="sm"
                   variant="outline"
@@ -997,10 +997,10 @@ export default function ReportsPage() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
                       {['Vendor', 'Jobs', 'Revenue', 'Cost', 'Profit', 'Margin'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border">
                           {h}
                         </th>
                       ))}
@@ -1008,14 +1008,14 @@ export default function ReportsPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {profitByVendor.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">No data</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No data</td></tr>
                     ) : (
                       profitByVendor.map((v, i) => (
-                        <tr key={i} className="hover:bg-gray-50">
-                          <td className="px-4 py-3.5 font-medium text-gray-900 max-w-[140px] truncate">{v.name}</td>
-                          <td className="px-4 py-3.5 text-gray-500">{v.jobs}</td>
-                          <td className="px-4 py-3.5 font-medium text-gray-700">{fmtMoney(v.revenue)}</td>
-                          <td className="px-4 py-3.5 text-gray-500">{fmtMoney(v.cost)}</td>
+                        <tr key={i} className="hover:bg-muted">
+                          <td className="px-4 py-3.5 font-medium text-foreground max-w-[140px] truncate">{v.name}</td>
+                          <td className="px-4 py-3.5 text-muted-foreground">{v.jobs}</td>
+                          <td className="px-4 py-3.5 font-medium text-foreground">{fmtMoney(v.revenue)}</td>
+                          <td className="px-4 py-3.5 text-muted-foreground">{fmtMoney(v.cost)}</td>
                           <td className="px-4 py-3.5 font-semibold text-green-600">{fmtMoney(v.profit)}</td>
                           <td className="px-4 py-3.5">
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${v.margin >= 30 ? 'bg-green-100 text-green-700' : v.margin >= 15 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-600'}`}>

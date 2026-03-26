@@ -28,11 +28,11 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
             "flex h-5 w-5 items-center justify-center rounded border-2 transition-colors cursor-pointer",
             checked
               ? "bg-primary border-primary"
-              : "border-gray-300 bg-white hover:border-gray-400",
+              : "border-input bg-card hover:border-foreground/40",
             className
           )}
         >
-          {checked && <Check className="h-3 w-3 text-white" />}
+          {checked && <Check className="h-3 w-3 text-primary-foreground" />}
         </label>
       </div>
     )

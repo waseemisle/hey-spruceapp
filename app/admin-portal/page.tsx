@@ -216,7 +216,7 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         {/* Search Bar */}
         <DashboardSearchBar portalType="admin" onSearch={handleSearch} />
 
@@ -234,10 +234,10 @@ export default function AdminDashboard() {
               <button
                 type="button"
                 onClick={() => setIsCompanyDropdownOpen(v => !v)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-gray-300 transition-colors min-w-[200px]"
+                className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg shadow-sm hover:border-gray-300 transition-colors min-w-[200px]"
               >
-                <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
-                <span className="text-sm text-gray-700 flex-1 text-left truncate max-w-[200px]">
+                <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm text-foreground flex-1 text-left truncate max-w-[200px]">
                   {selectedCompany ? selectedCompany.name : 'All Companies'}
                 </span>
                 {selectedCompanyId ? (
@@ -249,31 +249,31 @@ export default function AdminDashboard() {
                       setIsCompanyDropdownOpen(false);
                       setCompanySearch('');
                     }}
-                    className="p-0.5 hover:bg-gray-100 rounded cursor-pointer"
+                    className="p-0.5 hover:bg-muted rounded cursor-pointer"
                   >
-                    <X className="h-3.5 w-3.5 text-gray-400" />
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </span>
                 ) : (
-                  <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${isCompanyDropdownOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isCompanyDropdownOpen ? 'rotate-180' : ''}`} />
                 )}
               </button>
 
               {isCompanyDropdownOpen && (
-                <div className="absolute top-full right-0 z-50 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg">
-                  <div className="p-2 border-b border-gray-100">
+                <div className="absolute top-full right-0 z-50 mt-1 w-72 bg-card border border-border rounded-lg shadow-lg">
+                  <div className="p-2 border-b border-border">
                     <input
                       type="text"
                       placeholder="Search companies..."
                       value={companySearch}
                       onChange={e => setCompanySearch(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       autoFocus
                     />
                   </div>
                   <div className="max-h-60 overflow-y-auto py-1">
                     <button
                       type="button"
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${!selectedCompanyId ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'}`}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${!selectedCompanyId ? 'bg-blue-50 text-blue-600 font-medium' : 'text-foreground'}`}
                       onClick={() => {
                         setSelectedCompanyId(null);
                         setIsCompanyDropdownOpen(false);
@@ -283,13 +283,13 @@ export default function AdminDashboard() {
                       All Companies
                     </button>
                     {filteredCompanies.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-gray-400">No companies found</p>
+                      <p className="px-3 py-2 text-sm text-muted-foreground">No companies found</p>
                     ) : (
                       filteredCompanies.map(company => (
                         <button
                           key={company.id}
                           type="button"
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${selectedCompanyId === company.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'}`}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${selectedCompanyId === company.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-foreground'}`}
                           onClick={() => {
                             setSelectedCompanyId(company.id);
                             setIsCompanyDropdownOpen(false);

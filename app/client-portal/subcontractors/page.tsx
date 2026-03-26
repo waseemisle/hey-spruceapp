@@ -154,7 +154,7 @@ export default function ClientSubcontractorsView() {
         />
 
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, business, email, phone, license, or skills..."
             value={searchQuery}
@@ -176,7 +176,7 @@ export default function ClientSubcontractorsView() {
               return (
                 <div
                   key={sub.uid}
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                 >
                   <div className={`h-1 w-full bg-gradient-to-r ${color}`} />
                   <div className="p-5">
@@ -185,37 +185,37 @@ export default function ClientSubcontractorsView() {
                         {getInitials(sub.fullName)}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 text-sm truncate">{sub.fullName}</p>
-                        <p className="text-xs text-gray-500 truncate flex items-center gap-1 mt-0.5">
+                        <p className="font-semibold text-foreground text-sm truncate">{sub.fullName}</p>
+                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
                           <Building className="h-3 w-3 flex-shrink-0" />
                           {sub.businessName}
                         </p>
                       </div>
                     </div>
-                    <div className="space-y-2 text-sm text-gray-600">
+                    <div className="space-y-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <Mail className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="truncate">{sub.email}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span>{sub.phone}</span>
                       </div>
                       {sub.licenseNumber && (
                         <div className="flex items-center gap-2">
-                          <Award className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <Award className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                           <span className="text-xs">{sub.licenseNumber}</span>
                         </div>
                       )}
                     </div>
                     {sub.skills && sub.skills.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="mt-3 pt-3 border-t border-border">
                         <div className="flex flex-wrap gap-1">
                           {sub.skills.slice(0, 3).map((skill, i) => (
                             <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
                           ))}
                           {sub.skills.length > 3 && (
-                            <span className="text-xs text-gray-400">+{sub.skills.length - 3}</span>
+                            <span className="text-xs text-muted-foreground">+{sub.skills.length - 3}</span>
                           )}
                         </div>
                       </div>

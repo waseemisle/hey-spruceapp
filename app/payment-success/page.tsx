@@ -97,17 +97,17 @@ function PaymentSuccessContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Processing your payment...</p>
+          <p className="mt-4 text-muted-foreground">Processing your payment...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -121,13 +121,13 @@ function PaymentSuccessContent() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center">
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               Thank you for your payment. Your invoice has been processed successfully.
             </p>
             
             {sessionId && (
-              <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                <p className="text-sm text-gray-500">
+              <div className="bg-muted p-3 rounded-lg mb-4">
+                <p className="text-sm text-muted-foreground">
                   <strong>Transaction ID:</strong> {sessionId}
                 </p>
               </div>
@@ -137,27 +137,27 @@ function PaymentSuccessContent() {
           {paymentDetails && (
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Status</span>
+                <span className="text-sm font-medium text-foreground">Status</span>
                 <span className="text-sm font-semibold text-green-600">Paid</span>
               </div>
               
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Amount</span>
-                <span className="text-sm font-semibold text-gray-900">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm font-medium text-foreground">Amount</span>
+                <span className="text-sm font-semibold text-foreground">
                   ${(paymentDetails.amount || 0).toFixed(2)} {paymentDetails.currency}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Invoice</span>
-                <span className="text-sm font-semibold text-gray-900">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm font-medium text-foreground">Invoice</span>
+                <span className="text-sm font-semibold text-foreground">
                   {paymentDetails.invoiceNumber}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Date</span>
-                <span className="text-sm font-semibold text-gray-900">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="text-sm font-medium text-foreground">Date</span>
+                <span className="text-sm font-semibold text-foreground">
                   {paymentDetails.paidAt}
                 </span>
               </div>
@@ -197,7 +197,7 @@ function PaymentSuccessContent() {
           </div>
 
           <div className="text-center pt-4">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               A receipt has been sent to your email address.
             </p>
           </div>
@@ -210,10 +210,10 @@ function PaymentSuccessContent() {
 export default function PaymentSuccess() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </div>
     }>

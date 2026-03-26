@@ -67,12 +67,12 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-start justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl my-8 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-card rounded-lg shadow-xl w-full max-w-7xl my-8 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-card z-10">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Compare Quotes</h2>
-            <p className="text-gray-600 mt-1">Comparing {quotes.length} quotes for work order</p>
+            <h2 className="text-2xl font-bold text-foreground">Compare Quotes</h2>
+            <p className="text-muted-foreground mt-1">Comparing {quotes.length} quotes for work order</p>
           </div>
           <div className="flex items-center gap-4">
             <SearchableSelect
@@ -117,36 +117,36 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
                       <User className="h-4 w-4" />
                       {quote.subcontractorName}
                     </CardTitle>
-                    <p className="text-xs text-gray-500 mt-1">{quote.subcontractorEmail}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{quote.subcontractorEmail}</p>
                   </CardHeader>
 
                   <CardContent className="space-y-4">
                     {/* Total Amount - Highlight */}
                     <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-xs text-gray-600 mb-1 font-medium">Total Amount</p>
+                      <p className="text-xs text-muted-foreground mb-1 font-medium">Total Amount</p>
                       <p className="text-3xl font-bold text-blue-600">
                         ${quote.totalAmount.toLocaleString()}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1 capitalize">{quote.status.replace(/_/g, ' ')}</p>
+                      <p className="text-xs text-muted-foreground mt-1 capitalize">{quote.status.replace(/_/g, ' ')}</p>
                     </div>
 
                     {/* Cost Breakdown */}
                     <div className="space-y-2 text-sm border-t pt-3">
-                      <p className="font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                      <p className="font-semibold text-foreground mb-2 flex items-center gap-1">
                         <DollarSign className="h-3 w-3" />
                         Cost Breakdown
                       </p>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Labor Cost:</span>
+                        <span className="text-muted-foreground">Labor Cost:</span>
                         <span className="font-semibold">${quote.laborCost.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Material Cost:</span>
+                        <span className="text-muted-foreground">Material Cost:</span>
                         <span className="font-semibold">${quote.materialCost.toLocaleString()}</span>
                       </div>
                       {quote.additionalCosts > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Additional Costs:</span>
+                          <span className="text-muted-foreground">Additional Costs:</span>
                           <span className="font-semibold">${quote.additionalCosts.toLocaleString()}</span>
                         </div>
                       )}
@@ -161,16 +161,16 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
                     {/* Line Items */}
                     {quote.lineItems && quote.lineItems.length > 0 && (
                       <div className="border-t pt-3">
-                        <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                        <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
                           <FileText className="h-3 w-3" />
                           Line Items ({quote.lineItems.length})
                         </p>
                         <div className="space-y-1 max-h-40 overflow-y-auto">
                           {quote.lineItems.map((item, idx) => (
-                            <div key={idx} className="text-xs flex justify-between items-start bg-gray-50 p-2 rounded">
+                            <div key={idx} className="text-xs flex justify-between items-start bg-muted p-2 rounded">
                               <div className="flex-1">
-                                <p className="font-medium text-gray-700">{item.description}</p>
-                                <p className="text-gray-500">Qty: {item.quantity} × ${item.unitPrice.toLocaleString()}</p>
+                                <p className="font-medium text-foreground">{item.description}</p>
+                                <p className="text-muted-foreground">Qty: {item.quantity} × ${item.unitPrice.toLocaleString()}</p>
                               </div>
                               <span className="font-semibold ml-2">${item.amount.toLocaleString()}</span>
                             </div>
@@ -181,7 +181,7 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
 
                     {/* Estimated Duration */}
                     {quote.estimatedDuration && (
-                      <div className="flex items-center gap-2 text-xs text-gray-600 border-t pt-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
                         <Calendar className="h-3 w-3" />
                         <span><strong>Duration:</strong> {quote.estimatedDuration}</span>
                       </div>
@@ -190,14 +190,14 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
                     {/* Notes */}
                     {quote.notes && (
                       <div className="border-t pt-3">
-                        <p className="text-xs font-semibold text-gray-700 mb-1">Notes</p>
-                        <p className="text-xs text-gray-600 bg-yellow-50 p-2 rounded border border-yellow-200">{quote.notes}</p>
+                        <p className="text-xs font-semibold text-foreground mb-1">Notes</p>
+                        <p className="text-xs text-muted-foreground bg-yellow-50 p-2 rounded border border-yellow-200">{quote.notes}</p>
                       </div>
                     )}
 
                     {/* Submitted Date */}
                     <div className="border-t pt-3">
-                      <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         Submitted: {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                       </p>

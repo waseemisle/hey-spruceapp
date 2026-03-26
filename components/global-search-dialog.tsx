@@ -336,7 +336,7 @@ export default function GlobalSearchDialog() {
               <div className="py-2">
                 {Object.entries(grouped).map(([category, items]) => {
                   const catStartIndex = flatResults.findIndex((r) => r.category === category);
-                  const { Icon, color } = CATEGORY_ICONS[category] || { Icon: Search, color: 'text-gray-500' };
+                  const { Icon, color } = CATEGORY_ICONS[category] || { Icon: Search, color: 'text-muted-foreground' };
                   return (
                     <div key={category}>
                       <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">

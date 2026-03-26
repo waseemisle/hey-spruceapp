@@ -127,19 +127,19 @@ export default function SubcontractorAccountSettings() {
     <SubcontractorLayout>
       <div className="max-w-3xl mx-auto space-y-8 pb-16 p-6">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+          <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage your profile and security settings</p>
+            <h1 className="text-2xl font-bold text-foreground">Account Settings</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage your profile and security settings</p>
           </div>
         </div>
 
         {loading ? (
           <div className="space-y-6">
             {[1, 2].map(i => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4 animate-pulse">
+              <div key={i} className="bg-card rounded-xl border border-border p-6 space-y-4 animate-pulse">
                 <div className="h-5 w-40 rounded bg-gray-200" /><div className="h-10 w-full rounded bg-gray-200" />
               </div>
             ))}
@@ -147,8 +147,8 @@ export default function SubcontractorAccountSettings() {
         ) : (
           <>
             {/* Profile Photo */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center gap-3 mb-6"><Camera className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-gray-900">Profile Photo</h2></div>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center gap-3 mb-6"><Camera className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Profile Photo</h2></div>
               <div className="flex items-center gap-6">
                 <Avatar className="h-24 w-24 ring-4 ring-gray-100">
                   {photoPreview ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} /> : <AvatarFallback className="text-xl font-bold bg-blue-100 text-blue-700">{initials}</AvatarFallback>}
@@ -156,14 +156,14 @@ export default function SubcontractorAccountSettings() {
                 <div className="space-y-2">
                   <Label htmlFor="profilePhoto" className="text-sm font-medium">Upload new photo</Label>
                   <Input id="profilePhoto" type="file" accept="image/*" onChange={handleFileChange} className="max-w-xs" />
-                  <p className="text-xs text-gray-400">JPG, PNG or WebP. Max 5MB.</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG or WebP. Max 5MB.</p>
                 </div>
               </div>
             </div>
 
             {/* Personal & Business Information */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center gap-3 mb-6"><User className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-gray-900">Personal & Business Information</h2></div>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center gap-3 mb-6"><User className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Personal & Business Information</h2></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="fullName">Full Name</Label>
@@ -172,29 +172,29 @@ export default function SubcontractorAccountSettings() {
                 <div className="space-y-1.5">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input id="email" value={email} disabled className="pl-9 bg-gray-50 text-gray-500 cursor-not-allowed" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="email" value={email} disabled className="pl-9 bg-muted text-muted-foreground cursor-not-allowed" />
                   </div>
-                  <p className="text-xs text-gray-400">Email cannot be changed</p>
+                  <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="phone">Phone Number</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="phone" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 (555) 000-0000" className="pl-9" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="businessName">Business Name</Label>
                   <div className="relative">
-                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="businessName" value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Your business name" className="pl-9" />
                   </div>
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="licenseNumber">License Number</Label>
                   <div className="relative">
-                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input id="licenseNumber" value={licenseNumber} onChange={e => setLicenseNumber(e.target.value)} placeholder="Contractor license number" className="pl-9" />
                   </div>
                 </div>
@@ -211,10 +211,10 @@ export default function SubcontractorAccountSettings() {
             <Separator />
 
             {/* Change Password */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Lock className="h-5 w-5 text-blue-600" />
-                <div><h2 className="text-base font-semibold text-gray-900">Change Password</h2><p className="text-sm text-gray-500 mt-0.5">Re-enter your current password to set a new one</p></div>
+                <div><h2 className="text-base font-semibold text-foreground">Change Password</h2><p className="text-sm text-muted-foreground mt-0.5">Re-enter your current password to set a new one</p></div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2 space-y-1.5">

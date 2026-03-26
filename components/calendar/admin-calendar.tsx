@@ -465,7 +465,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
           }}
         />
         {/* Legend */}
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-gray-600">
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#7c3aed' }} />
             <span>🔄 Recurring WO Template</span>

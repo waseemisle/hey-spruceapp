@@ -220,7 +220,7 @@ export default function ViewWorkOrder() {
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -229,7 +229,7 @@ export default function ViewWorkOrder() {
       case 'high': return 'text-red-600 bg-red-50';
       case 'medium': return 'text-orange-600 bg-orange-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -1054,7 +1054,7 @@ export default function ViewWorkOrder() {
     return (
       <AdminLayout>
         <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-gray-900">Work Order Not Found</h2>
+          <h2 className="text-2xl font-bold text-foreground">Work Order Not Found</h2>
           <Link href="/admin-portal/work-orders">
             <Button className="mt-4">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1716,12 +1716,12 @@ export default function ViewWorkOrder() {
       {/* Share for Bidding Modal */}
       {showBiddingModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+          <div className="bg-card rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl sm:text-2xl font-bold">Share for Bidding</h2>
-                  <p className="text-sm text-gray-600 mt-1">Select subcontractors to share this work order with</p>
+                  <p className="text-sm text-muted-foreground mt-1">Select subcontractors to share this work order with</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); }}>
                   <X className="h-4 w-4" />
@@ -1742,13 +1742,13 @@ export default function ViewWorkOrder() {
                     onChange={() => setSelectedSubcontractors(selectedSubcontractors.length === subcontractors.length ? [] : subcontractors.map(s => s.id))}
                     className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <label htmlFor="selectAll" className="text-sm font-medium text-gray-700">Select All ({subcontractors.length})</label>
+                  <label htmlFor="selectAll" className="text-sm font-medium text-foreground">Select All ({subcontractors.length})</label>
                 </div>
-                <div className="text-sm text-gray-600">{selectedSubcontractors.length} selected</div>
+                <div className="text-sm text-muted-foreground">{selectedSubcontractors.length} selected</div>
               </div>
               <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
                 {subcontractors.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">No approved subcontractors found</p>
+                  <p className="text-center text-muted-foreground py-8">No approved subcontractors found</p>
                 ) : (
                   subcontractors.map(sub => (
                     <div
@@ -1756,7 +1756,7 @@ export default function ViewWorkOrder() {
                       className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
                         selectedSubcontractors.includes(sub.id)
                           ? sub.matchesCategory ? 'bg-green-50 border-green-400 ring-2 ring-green-200' : 'bg-blue-50 border-blue-300'
-                          : sub.matchesCategory ? 'bg-green-50 border-green-300 hover:border-green-400' : 'bg-white border-gray-200 hover:bg-gray-50'
+                          : sub.matchesCategory ? 'bg-green-50 border-green-300 hover:border-green-400' : 'bg-card border-border hover:bg-muted'
                       }`}
                       onClick={() => setSelectedSubcontractors(prev => prev.includes(sub.id) ? prev.filter(id => id !== sub.id) : [...prev, sub.id])}
                     >
@@ -1769,13 +1769,13 @@ export default function ViewWorkOrder() {
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900">{sub.fullName}</p>
+                          <p className="font-medium text-foreground">{sub.fullName}</p>
                           {sub.matchesCategory && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">Matches Category</span>
                           )}
                         </div>
-                        {sub.businessName && <p className="text-sm text-gray-600">{sub.businessName}</p>}
-                        <p className="text-sm text-gray-500">{sub.email}</p>
+                        {sub.businessName && <p className="text-sm text-muted-foreground">{sub.businessName}</p>}
+                        <p className="text-sm text-muted-foreground">{sub.email}</p>
                       </div>
                     </div>
                   ))
@@ -1821,7 +1821,7 @@ export default function ViewWorkOrder() {
                 </div>
               )}
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Select Subcontractor</label>
+                <label className="text-sm font-medium text-foreground block mb-1">Select Subcontractor</label>
                 <SearchableSelect
                   className="mt-1 w-full"
                   value={selectedAssignSubId}
@@ -1865,7 +1865,7 @@ export default function ViewWorkOrder() {
                 Sharing quote from <strong>{shareQuote.subcontractorName}</strong> — ${(shareQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Markup %</label>
+                <label className="text-sm font-medium text-foreground block mb-1">Markup %</label>
                 <Input
                   type="number"
                   min="0"

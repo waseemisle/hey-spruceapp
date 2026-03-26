@@ -193,7 +193,7 @@ export default function ClientRecurringWorkOrders() {
       case 'active': return 'text-green-600 bg-green-50';
       case 'paused': return 'text-yellow-600 bg-yellow-50';
       case 'cancelled': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -202,7 +202,7 @@ export default function ClientRecurringWorkOrders() {
       case 'high': return 'text-red-600 bg-red-50';
       case 'medium': return 'text-orange-600 bg-orange-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -232,7 +232,7 @@ export default function ClientRecurringWorkOrders() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-600">You do not have permission to view recurring work orders</p>
+            <p className="text-muted-foreground">You do not have permission to view recurring work orders</p>
           </div>
         </div>
       </ClientLayout>
@@ -244,14 +244,14 @@ export default function ClientRecurringWorkOrders() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recurring Work Orders</h1>
-            <p className="text-gray-600 mt-2 text-sm sm:text-base">View and manage recurring work orders</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Recurring Work Orders</h1>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">View and manage recurring work orders</p>
           </div>
         </div>
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search recurring work orders by title, description, number, category, or location..."
             value={searchQuery}
@@ -262,7 +262,7 @@ export default function ClientRecurringWorkOrders() {
 
         {/* Filter Controls */}
         <div className="flex items-center gap-3">
-          <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
+          <label htmlFor="status-filter" className="text-sm font-medium text-foreground">
             Filter by Status:
           </label>
           <SearchableSelect
@@ -284,8 +284,8 @@ export default function ClientRecurringWorkOrders() {
           {filteredRecurringWorkOrders.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
-                <RotateCcw className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No recurring work orders found</p>
+                <RotateCcw className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No recurring work orders found</p>
               </CardContent>
             </Card>
           ) : (
@@ -303,19 +303,19 @@ export default function ClientRecurringWorkOrders() {
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority)}`}>
                         {recurringWorkOrder.priority.toUpperCase()}
                       </span>
-                      <span className="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold">
+                      <span className="px-2 py-1 rounded bg-muted text-foreground text-xs font-semibold">
                         {recurringWorkOrder.workOrderNumber}
                       </span>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 p-4 sm:p-6">
-                  <p className="text-sm text-gray-600 line-clamp-2">{recurringWorkOrder.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{recurringWorkOrder.description}</p>
 
                   <div className="space-y-2">
                     {recurringWorkOrder.locationName && (
                       <div className="text-sm flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                         <span>
                           <span className="font-semibold">Location:</span> {recurringWorkOrder.locationName}
                         </span>
@@ -325,7 +325,7 @@ export default function ClientRecurringWorkOrders() {
                       <span className="font-semibold">Category:</span> {recurringWorkOrder.category}
                     </div>
                     <div className="text-sm flex items-start gap-2">
-                      <RotateCcw className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <RotateCcw className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <span>
                         <span className="font-semibold">Recurrence:</span> {formatRecurrencePattern(recurringWorkOrder)}
                       </span>
@@ -337,14 +337,14 @@ export default function ClientRecurringWorkOrders() {
                     )}
                     {recurringWorkOrder.nextExecution && (
                       <div className="text-sm flex items-start gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <Calendar className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                         <span>
                           <span className="font-semibold">Next Execution:</span> {new Date(recurringWorkOrder.nextExecution).toLocaleDateString()}
                         </span>
                       </div>
                     )}
                     <div className="text-sm flex items-start gap-2">
-                      <CheckCircle className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <span>
                         <span className="font-semibold">Executions:</span> {recurringWorkOrder.successfulExecutions}/{recurringWorkOrder.totalExecutions}
                       </span>

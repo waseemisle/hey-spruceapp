@@ -251,7 +251,7 @@ export default function MaintRequestsPage() {
       case 'high': return 'text-red-600 bg-red-50';
       case 'medium': return 'text-yellow-600 bg-yellow-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -260,7 +260,7 @@ export default function MaintRequestsPage() {
       case 'pending': return 'text-yellow-600 bg-yellow-50';
       case 'in-progress': return 'text-blue-600 bg-blue-50';
       case 'completed': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -310,17 +310,17 @@ export default function MaintRequestsPage() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="h-4 w-4 flex-shrink-0" />
           <span>{request.venue}</span>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <User className="h-4 w-4 flex-shrink-0" />
           <span>{request.requestor}</span>
         </div>
 
-        <div className="text-sm text-gray-600 line-clamp-2">
+        <div className="text-sm text-muted-foreground line-clamp-2">
           {request.description}
         </div>
 
@@ -355,7 +355,7 @@ export default function MaintRequestsPage() {
         <div className="pt-3 border-t">
           <button
             onClick={() => toggleJsonCard(request.id)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors w-full"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
           >
             <Code className="h-3 w-3" />
             <span>Raw JSON Response</span>
@@ -380,8 +380,8 @@ export default function MaintRequestsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Maintenance Requests</h1>
-            <p className="text-gray-600 mt-2">View and manage incoming maintenance requests</p>
+            <h1 className="text-3xl font-bold text-foreground">Maintenance Requests</h1>
+            <p className="text-muted-foreground mt-2">View and manage incoming maintenance requests</p>
           </div>
           <Button onClick={() => setShowTokenModal(true)} className="flex items-center gap-2">
             <Key className="h-4 w-4" />
@@ -391,7 +391,7 @@ export default function MaintRequestsPage() {
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search requests by title, venue, requestor, or description..."
             value={searchQuery}
@@ -418,34 +418,34 @@ export default function MaintRequestsPage() {
         {sortedRequests.length === 0 ? (
           <Card className="col-span-full">
             <CardContent className="p-12 text-center">
-              <Wrench className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No maintenance requests found</p>
+              <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No maintenance requests found</p>
             </CardContent>
           </Card>
         ) : viewMode === 'list' ? (
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Venue</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Requestor</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Title</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Venue</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Requestor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Priority</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Created</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-gray-200">
                 {sortedRequests.map((request) => (
                   <React.Fragment key={request.id}>
-                    <tr className="hover:bg-gray-50 transition-colors">
+                    <tr className="hover:bg-muted transition-colors">
                       <td className="px-4 py-3 text-sm">
-                        <div className="font-medium text-gray-900">{request.title}</div>
-                        <div className="text-gray-500 text-xs mt-1 line-clamp-1">{request.description}</div>
+                        <div className="font-medium text-foreground">{request.title}</div>
+                        <div className="text-muted-foreground text-xs mt-1 line-clamp-1">{request.description}</div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{request.venue}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{request.requestor}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{request.venue}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{request.requestor}</td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityColor(request.priority)}`}>
                           {request.priority}
@@ -456,7 +456,7 @@ export default function MaintRequestsPage() {
                           {request.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
                         {request.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -470,10 +470,10 @@ export default function MaintRequestsPage() {
                           </Button>
                           <button
                             onClick={() => toggleJsonCard(request.id)}
-                            className="p-1.5 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+                            className="p-1.5 border border-gray-300 rounded-md hover:bg-muted transition-colors"
                             title="View Raw JSON"
                           >
-                            <Code className="h-4 w-4 text-gray-600" />
+                            <Code className="h-4 w-4 text-muted-foreground" />
                           </button>
                           <SearchableSelect
                             className="w-full min-w-[120px]"
@@ -495,10 +495,10 @@ export default function MaintRequestsPage() {
                     </tr>
                     {expandedJsonCards.has(request.id) && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-3 bg-gray-50">
+                        <td colSpan={7} className="px-4 py-3 bg-muted">
                           <div className="flex items-center gap-2 mb-2">
-                            <Code className="h-3 w-3 text-gray-500" />
-                            <span className="text-xs font-semibold text-gray-500">Raw JSON Response</span>
+                            <Code className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs font-semibold text-muted-foreground">Raw JSON Response</span>
                           </div>
                           <pre className="p-3 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-60 overflow-y-auto font-mono">
                             {JSON.stringify(request.rawData, null, 2)}
@@ -520,8 +520,8 @@ export default function MaintRequestsPage() {
         {/* Details Modal */}
         {showModal && selectedRequest && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
+            <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">{selectedRequest.title}</h2>
                   <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
@@ -542,31 +542,31 @@ export default function MaintRequestsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-gray-600">Venue</Label>
-                    <p className="text-gray-900 font-medium">{selectedRequest.venue}</p>
+                    <Label className="text-muted-foreground">Venue</Label>
+                    <p className="text-foreground font-medium">{selectedRequest.venue}</p>
                   </div>
 
                   <div>
-                    <Label className="text-gray-600">Requestor</Label>
-                    <p className="text-gray-900 font-medium">{selectedRequest.requestor}</p>
+                    <Label className="text-muted-foreground">Requestor</Label>
+                    <p className="text-foreground font-medium">{selectedRequest.requestor}</p>
                   </div>
 
                   <div>
-                    <Label className="text-gray-600">Created At</Label>
-                    <p className="text-gray-900 font-medium">
+                    <Label className="text-muted-foreground">Created At</Label>
+                    <p className="text-foreground font-medium">
                       {selectedRequest.createdAt?.toDate?.().toLocaleString() || 'N/A'}
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <Label className="text-gray-600">Description</Label>
-                  <p className="text-gray-900 mt-2 whitespace-pre-wrap">{selectedRequest.description}</p>
+                  <Label className="text-muted-foreground">Description</Label>
+                  <p className="text-foreground mt-2 whitespace-pre-wrap">{selectedRequest.description}</p>
                 </div>
 
                 {selectedRequest.image && (
                   <div>
-                    <Label className="text-gray-600 mb-2 block">Image</Label>
+                    <Label className="text-muted-foreground mb-2 block">Image</Label>
                     <img
                       src={selectedRequest.image}
                       alt="Maintenance request"
@@ -577,7 +577,7 @@ export default function MaintRequestsPage() {
 
                 <div className="flex gap-3 pt-4 border-t">
                   <div className="flex-1">
-                    <Label className="text-gray-600 mb-2 block">Update Status</Label>
+                    <Label className="text-muted-foreground mb-2 block">Update Status</Label>
                     <SearchableSelect
                       className="mt-1 w-full"
                       value={selectedRequest.status}
@@ -592,8 +592,8 @@ export default function MaintRequestsPage() {
                 {/* Raw JSON Response */}
                 <div className="pt-4 border-t">
                   <div className="flex items-center gap-2 mb-3">
-                    <Code className="h-4 w-4 text-gray-500" />
-                    <Label className="text-gray-600 font-semibold">Raw JSON Response (Firebase)</Label>
+                    <Code className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-muted-foreground font-semibold">Raw JSON Response (Firebase)</Label>
                   </div>
                   <pre className="p-4 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-80 overflow-y-auto font-mono">
                     {JSON.stringify(selectedRequest.rawData, null, 2)}
@@ -607,8 +607,8 @@ export default function MaintRequestsPage() {
         {/* API Token Management Modal */}
         {showTokenModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
+            <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">API Token Management</h2>
                   <Button variant="outline" size="sm" onClick={() => {
@@ -653,7 +653,7 @@ export default function MaintRequestsPage() {
                           <Input
                             value={newlyGeneratedToken}
                             readOnly
-                            className="font-mono text-sm bg-white"
+                            className="font-mono text-sm bg-card"
                           />
                           <Button
                             size="sm"
@@ -672,7 +672,7 @@ export default function MaintRequestsPage() {
                   <h3 className="text-lg font-semibold mb-3">Active Tokens ({apiTokens.length})</h3>
                   {apiTokens.length === 0 ? (
                     <Card>
-                      <CardContent className="p-8 text-center text-gray-500">
+                      <CardContent className="p-8 text-center text-muted-foreground">
                         No API tokens generated yet
                       </CardContent>
                     </Card>
@@ -687,9 +687,9 @@ export default function MaintRequestsPage() {
                                   <Key className="h-4 w-4 text-blue-600" />
                                   <span className="font-semibold">{token.name}</span>
                                 </div>
-                                <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                                   <div className="flex gap-2">
-                                    <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                                    <span className="font-mono bg-muted px-2 py-1 rounded">
                                       {token.token.substring(0, 16)}...{token.token.substring(token.token.length - 8)}
                                     </span>
                                     <Button

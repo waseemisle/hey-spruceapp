@@ -688,8 +688,8 @@ export default function AdminInvoiceDetail() {
       {/* Edit Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b sticky top-0 bg-white z-10 flex justify-between items-center">
+          <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center">
               <h2 className="text-xl font-bold">Edit Invoice</h2>
               <Button variant="outline" size="sm" onClick={() => setShowEditModal(false)}>
                 <X className="h-4 w-4" />
@@ -715,7 +715,7 @@ export default function AdminInvoiceDetail() {
               {/* Line Items */}
               <div>
                 <Label className="mb-2 block">Line Items</Label>
-                <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase px-1 mb-1">
+                <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground uppercase px-1 mb-1">
                   <div className="col-span-5">Description</div>
                   <div className="col-span-2 text-right">Qty</div>
                   <div className="col-span-2 text-right">Unit Price</div>
@@ -750,7 +750,7 @@ export default function AdminInvoiceDetail() {
                   <Plus className="h-4 w-4 mr-1" /> Add Line Item
                 </Button>
                 <div className="text-right mt-2">
-                  <span className="text-sm text-gray-500">Total: </span>
+                  <span className="text-sm text-muted-foreground">Total: </span>
                   <span className="font-bold">${editLineItems.reduce((s, li) => s + (li.amount || 0), 0).toFixed(2)}</span>
                 </div>
               </div>

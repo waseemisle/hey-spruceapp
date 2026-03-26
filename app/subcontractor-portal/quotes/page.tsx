@@ -127,13 +127,13 @@ export default function SubcontractorQuotes() {
     <SubcontractorLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Quotes</h1>
-          <p className="text-gray-600 mt-2">Track your submitted quotes and their status</p>
+          <h1 className="text-3xl font-bold text-foreground">My Quotes</h1>
+          <p className="text-muted-foreground mt-2">Track your submitted quotes and their status</p>
         </div>
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search quotes by title, client, or estimated duration..."
             value={searchQuery}
@@ -150,7 +150,7 @@ export default function SubcontractorQuotes() {
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
                 filter === option.value
                   ? 'bg-green-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  : 'bg-card text-foreground border border-gray-300 hover:bg-muted'
               }`}
             >
               {option.label} ({option.count})
@@ -161,11 +161,11 @@ export default function SubcontractorQuotes() {
         {filteredQuotes.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
                 {filter === 'all' ? 'No quotes yet' : `No ${filter} quotes`}
               </h3>
-              <p className="text-gray-600 text-center">
+              <p className="text-muted-foreground text-center">
                 {filter === 'all'
                   ? 'Start submitting quotes for available work orders'
                   : 'Try a different filter'}
@@ -185,9 +185,9 @@ export default function SubcontractorQuotes() {
                       <div>
                         <CardTitle className="text-xl mb-2">{quote.workOrderTitle}</CardTitle>
                         {quote.workOrderNumber && (
-                          <p className="text-sm text-gray-600">WO: {quote.workOrderNumber}</p>
+                          <p className="text-sm text-muted-foreground">WO: {quote.workOrderNumber}</p>
                         )}
-                        <p className="text-sm text-gray-600">Client: {quote.clientName}</p>
+                        <p className="text-sm text-muted-foreground">Client: {quote.clientName}</p>
                       </div>
                       <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${statusInfo.style}`}>
                         <StatusIcon className="h-4 w-4" />
@@ -200,23 +200,23 @@ export default function SubcontractorQuotes() {
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-5 w-5 text-green-600" />
                         <div>
-                          <p className="text-sm text-gray-600">Quote Amount</p>
-                          <p className="text-2xl font-bold text-gray-900">
+                          <p className="text-sm text-muted-foreground">Quote Amount</p>
+                          <p className="text-2xl font-bold text-foreground">
                             ${(quote.totalAmount || 0).toFixed(2)}
                           </p>
                         </div>
                       </div>
 
                       <div>
-                        <p className="text-sm text-gray-600">Estimated Duration</p>
-                        <p className="text-lg font-semibold text-gray-900">{quote.estimatedDuration || 'N/A'}</p>
+                        <p className="text-sm text-muted-foreground">Estimated Duration</p>
+                        <p className="text-lg font-semibold text-foreground">{quote.estimatedDuration || 'N/A'}</p>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5 text-gray-500" />
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="text-sm text-gray-600">Submitted</p>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm text-muted-foreground">Submitted</p>
+                          <p className="text-sm font-medium text-foreground">
                             {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                           </p>
                         </div>
@@ -224,18 +224,18 @@ export default function SubcontractorQuotes() {
                     </div>
 
                     <div className="border-t pt-4">
-                      <h4 className="font-semibold text-gray-900 mb-3">Cost Breakdown</h4>
+                      <h4 className="font-semibold text-foreground mb-3">Cost Breakdown</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                         <div>
-                          <p className="text-gray-600">Labor Cost</p>
+                          <p className="text-muted-foreground">Labor Cost</p>
                           <p className="font-semibold">${(quote.laborCost || 0).toFixed(2)}</p>
                         </div>
                         <div>
-                          <p className="text-gray-600">Material Cost</p>
+                          <p className="text-muted-foreground">Material Cost</p>
                           <p className="font-semibold">${(quote.materialCost || 0).toFixed(2)}</p>
                         </div>
                         <div>
-                          <p className="text-gray-600">Total</p>
+                          <p className="text-muted-foreground">Total</p>
                           <p className="font-semibold">${(quote.totalAmount || 0).toFixed(2)}</p>
                         </div>
                       </div>
@@ -243,19 +243,19 @@ export default function SubcontractorQuotes() {
 
                     {quote.forwardedToClient && quote.clientAmount && quote.markupPercent && (
                       <div className="border-t pt-4">
-                        <h4 className="font-semibold text-gray-900 mb-2">Client Pricing</h4>
+                        <h4 className="font-semibold text-foreground mb-2">Client Pricing</h4>
                         <div className="bg-blue-50 p-3 rounded-lg">
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                              <p className="text-gray-600">Your Quote</p>
+                              <p className="text-muted-foreground">Your Quote</p>
                               <p className="font-semibold">${(quote.totalAmount || 0).toFixed(2)}</p>
                             </div>
                             <div>
-                              <p className="text-gray-600">Markup ({(quote.markupPercent || 0).toFixed(1)}%)</p>
+                              <p className="text-muted-foreground">Markup ({(quote.markupPercent || 0).toFixed(1)}%)</p>
                               <p className="font-semibold">${((quote.clientAmount || 0) - (quote.totalAmount || 0)).toFixed(2)}</p>
                             </div>
                             <div className="col-span-2">
-                              <p className="text-gray-600">Client Amount</p>
+                              <p className="text-muted-foreground">Client Amount</p>
                               <p className="text-xl font-bold text-blue-600">${(quote.clientAmount || 0).toFixed(2)}</p>
                             </div>
                           </div>
@@ -265,15 +265,15 @@ export default function SubcontractorQuotes() {
 
                     {quote.lineItems && quote.lineItems.length > 0 && (
                       <div className="border-t pt-4">
-                        <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
+                        <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-muted">
                               <tr>
-                                <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
-                                <th className="px-4 py-2 text-center font-semibold text-gray-700">Qty</th>
-                                <th className="px-4 py-2 text-right font-semibold text-gray-700">Rate</th>
-                                <th className="px-4 py-2 text-right font-semibold text-gray-700">Amount</th>
+                                <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
+                                <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
+                                <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
+                                <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y">
@@ -293,8 +293,8 @@ export default function SubcontractorQuotes() {
 
                     {quote.notes && (
                       <div className="border-t pt-4">
-                        <h4 className="font-semibold text-gray-900 mb-2">Additional Notes</h4>
-                        <p className="text-sm text-gray-700">{quote.notes}</p>
+                        <h4 className="font-semibold text-foreground mb-2">Additional Notes</h4>
+                        <p className="text-sm text-foreground">{quote.notes}</p>
                       </div>
                     )}
 

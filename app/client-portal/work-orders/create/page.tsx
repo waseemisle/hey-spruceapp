@@ -362,14 +362,14 @@ export default function CreateWorkOrder() {
               Back to Work Orders
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Create Work Order</h1>
-          <p className="text-gray-600 mt-2">Submit a new maintenance request</p>
+          <h1 className="text-3xl font-bold text-foreground">Create Work Order</h1>
+          <p className="text-muted-foreground mt-2">Submit a new maintenance request</p>
         </div>
 
         {checkingCompany ? (
           <Card>
             <CardContent className="py-12">
-              <div className="text-center text-gray-600">Checking your company access…</div>
+              <div className="text-center text-muted-foreground">Checking your company access…</div>
             </CardContent>
           </Card>
         ) : !companyInfo ? (
@@ -386,7 +386,7 @@ export default function CreateWorkOrder() {
           <Card>
             <CardContent className="py-12">
               <div className="text-center">
-                <p className="text-gray-600 mb-4">
+                <p className="text-muted-foreground mb-4">
                   You need at least one approved location before creating a work order.
                 </p>
                 <Link href="/client-portal/locations/create">
@@ -493,10 +493,10 @@ export default function CreateWorkOrder() {
                       onWheel={(e) => e.currentTarget.blur()}
                       placeholder="e.g., 5000"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Estimated budget for this work order in USD</p>
+                    <p className="text-xs text-muted-foreground mt-1">Estimated budget for this work order in USD</p>
                   </div>
 
-                  <div className="md:col-span-2 flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/80 p-4">
+                  <div className="md:col-span-2 flex items-start gap-3 rounded-lg border border-border bg-muted/80 p-4">
                     <input
                       type="checkbox"
                       id="isMaintenanceRequestOrder"
@@ -507,10 +507,10 @@ export default function CreateWorkOrder() {
                       className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <div>
-                      <Label htmlFor="isMaintenanceRequestOrder" className="text-gray-900 cursor-pointer">
+                      <Label htmlFor="isMaintenanceRequestOrder" className="text-foreground cursor-pointer">
                         Maintenance Request Work Order
                       </Label>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Check this if this request should appear under maintenance-request work orders for your team.
                       </p>
                     </div>
@@ -521,8 +521,8 @@ export default function CreateWorkOrder() {
                     <div className="mt-2">
                       <label htmlFor="images" className="flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-blue-400 focus:outline-none">
                         <div className="flex flex-col items-center space-y-2">
-                          <Upload className="h-8 w-8 text-gray-400" />
-                          <span className="text-sm text-gray-600">
+                          <Upload className="h-8 w-8 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
                             Click to upload images (required)
                           </span>
                         </div>

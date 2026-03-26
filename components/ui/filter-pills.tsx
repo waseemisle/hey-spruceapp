@@ -15,14 +15,14 @@ interface FilterPillsProps<T extends string> {
 
 export function FilterPills<T extends string>({ options, value, onChange, className = '' }: FilterPillsProps<T>) {
   return (
-    <div className={`flex items-center gap-1 bg-gray-100 rounded-lg p-1 ${className}`}>
+    <div className={`flex items-center gap-1 bg-muted rounded-lg p-1 ${className}`}>
       {options.map((opt) => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
           className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-            value === opt.value ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            value === opt.value ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           {opt.label} {opt.count !== undefined ? `(${opt.count})` : ''}

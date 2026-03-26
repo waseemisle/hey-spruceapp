@@ -577,11 +577,11 @@ export default function SubcontractorAssignedJobs() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <ClipboardList className="h-7 w-7 text-blue-600" />
               Assigned Jobs
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage your assigned work orders</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage your assigned work orders</p>
           </div>
         </div>
 
@@ -601,7 +601,7 @@ export default function SubcontractorAssignedJobs() {
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search assigned jobs by title, description, client, category, or location..."
               value={searchQuery}
@@ -609,15 +609,15 @@ export default function SubcontractorAssignedJobs() {
               className="pl-10"
             />
           </div>
-          <div className="flex bg-gray-100 rounded-lg p-1 gap-1 flex-shrink-0">
+          <div className="flex bg-muted rounded-lg p-1 gap-1 flex-shrink-0">
             {filterOptions.map(option => (
               <button
                 key={option.value}
                 onClick={() => setFilter(option.value)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                   filter === option.value
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {option.label} <span className="text-xs opacity-70">({option.count})</span>
@@ -628,12 +628,12 @@ export default function SubcontractorAssignedJobs() {
 
         {/* Jobs Grid */}
         {filteredJobs.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
+          <div className="bg-card rounded-xl border border-border p-16 text-center">
             <ClipboardList className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+            <h3 className="text-lg font-semibold text-foreground mb-1">
               {filter === 'all' ? 'No assigned jobs yet' : `No ${filter} jobs`}
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {filter === 'all'
                 ? 'Jobs will appear here once your quotes are accepted'
                 : 'Try a different filter'}
@@ -648,18 +648,18 @@ export default function SubcontractorAssignedJobs() {
               const effectiveStatus = (workOrder.status === 'completed' || workOrder.status === 'pending_invoice') ? 'completed' : job.status;
               const accentGradient = CARD_ACCENTS[effectiveStatus] || 'from-gray-400 to-gray-600';
               const jobStatusCfg = JOB_STATUS_CONFIG[effectiveStatus] || JOB_STATUS_CONFIG['pending_acceptance'];
-              const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || { className: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-400' };
+              const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || { className: 'bg-muted text-foreground border-border', dot: 'bg-gray-400' };
 
               return (
                 <div
                   key={job.id}
-                  className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col"
+                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col"
                 >
                   <div className={`h-1 w-full bg-gradient-to-r ${accentGradient}`} />
                   <div className="p-5 flex flex-col flex-1 space-y-4">
                     {/* Title + Badges */}
                     <div>
-                      <h3 className="font-semibold text-gray-900 text-base line-clamp-2 mb-2">{workOrder.title}</h3>
+                      <h3 className="font-semibold text-foreground text-base line-clamp-2 mb-2">{workOrder.title}</h3>
                       <div className="flex flex-wrap gap-1.5">
                         <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${jobStatusCfg.className}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${jobStatusCfg.dot}`} />
@@ -677,31 +677,31 @@ export default function SubcontractorAssignedJobs() {
 
                     {/* Client */}
                     <div className="text-sm">
-                      <p className="font-medium text-gray-700">Client</p>
-                      <p className="text-gray-600">{workOrder.clientName}</p>
-                      <p className="text-xs text-gray-400">{workOrder.clientEmail}</p>
+                      <p className="font-medium text-foreground">Client</p>
+                      <p className="text-muted-foreground">{workOrder.clientName}</p>
+                      <p className="text-xs text-muted-foreground">{workOrder.clientEmail}</p>
                     </div>
 
                     {/* Location */}
-                    <div className="flex items-start gap-2 text-sm text-gray-600">
-                      <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="font-medium text-gray-700">{workOrder.locationName}</div>
-                        <div className="text-xs text-gray-400">{formatAddress(workOrder.locationAddress)}</div>
+                        <div className="font-medium text-foreground">{workOrder.locationName}</div>
+                        <div className="text-xs text-muted-foreground">{formatAddress(workOrder.locationAddress)}</div>
                       </div>
                     </div>
 
                     {/* Description */}
-                    <p className="text-sm text-gray-600 line-clamp-2">{workOrder.description}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{workOrder.description}</p>
 
                     {/* Dates */}
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <div className="flex items-center gap-1.5 text-gray-400 mb-0.5">
+                        <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
                           <Calendar className="h-3.5 w-3.5" />
                           <span className="text-xs">Assigned</span>
                         </div>
-                        <p className="font-medium text-gray-800 text-xs">
+                        <p className="font-medium text-foreground text-xs">
                           {job.assignedAt?.toDate?.().toLocaleDateString() || 'N/A'}
                         </p>
                       </div>
@@ -712,7 +712,7 @@ export default function SubcontractorAssignedJobs() {
                             <CheckCircle className="h-3.5 w-3.5" />
                             <span className="text-xs">Completed</span>
                           </div>
-                          <p className="font-medium text-gray-800 text-xs">
+                          <p className="font-medium text-foreground text-xs">
                             {workOrder.completedAt?.toDate?.().toLocaleDateString() || 'N/A'}
                           </p>
                         </div>
@@ -789,9 +789,9 @@ export default function SubcontractorAssignedJobs() {
         {/* Accept Assignment Modal with Service Date/Time */}
         {showAcceptModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Schedule Service</h2>
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
+                <h2 className="text-xl font-bold text-foreground">Schedule Service</h2>
                 <Button
                   variant="outline"
                   size="sm"
@@ -806,7 +806,7 @@ export default function SubcontractorAssignedJobs() {
               </div>
 
               <div className="p-6 space-y-4">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Please select the scheduled date and arrival time window for this job:
                 </p>
 
@@ -852,7 +852,7 @@ export default function SubcontractorAssignedJobs() {
                     min={serviceTimeStart}
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Client will be notified that service will arrive between these times
                   </p>
                 </div>
@@ -884,9 +884,9 @@ export default function SubcontractorAssignedJobs() {
         {/* Completion Form Modal */}
         {showCompletionModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Complete Work Order</h2>
+            <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
+                <h2 className="text-xl font-bold text-foreground">Complete Work Order</h2>
                 <Button
                   variant="outline"
                   size="sm"
@@ -902,7 +902,7 @@ export default function SubcontractorAssignedJobs() {
               </div>
 
               <div className="p-6 space-y-4">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Please provide details about the work you completed. This information will be shared with the admin and client.
                 </p>
 
@@ -942,10 +942,10 @@ export default function SubcontractorAssignedJobs() {
                     <label htmlFor="completion-images" className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg appearance-none cursor-pointer focus:outline-none ${completionPreviewUrls.length > 0 ? 'border-emerald-400' : 'border-red-300 hover:border-red-400'}`}>
                       <div className="flex flex-col items-center space-y-2">
                         <Upload className={`h-8 w-8 ${completionPreviewUrls.length > 0 ? 'text-emerald-500' : 'text-red-400'}`} />
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {completionPreviewUrls.length > 0 ? `${completionPreviewUrls.length} file(s) selected — click to add more` : 'Click to upload completion images/files'}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           {completionPreviewUrls.length > 0 ? '' : 'At least one photo of completed work is required'}
                         </span>
                       </div>

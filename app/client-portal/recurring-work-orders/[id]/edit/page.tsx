@@ -188,7 +188,7 @@ export default function ClientEditRecurringWorkOrder() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-600">You do not have permission to edit this recurring work order</p>
+            <p className="text-muted-foreground">You do not have permission to edit this recurring work order</p>
           </div>
         </div>
       </ClientLayout>
@@ -206,8 +206,8 @@ export default function ClientEditRecurringWorkOrder() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Edit Recurring Work Order</h1>
-            <p className="text-gray-600 mt-2">Update recurring work order details</p>
+            <h1 className="text-3xl font-bold text-foreground">Edit Recurring Work Order</h1>
+            <p className="text-muted-foreground mt-2">Update recurring work order details</p>
           </div>
         </div>
 
@@ -283,7 +283,7 @@ export default function ClientEditRecurringWorkOrder() {
                 onWheel={(e) => e.currentTarget.blur()}
                 placeholder="e.g., 5000"
               />
-              <p className="text-xs text-gray-500 mt-1">Estimated budget per occurrence in USD</p>
+              <p className="text-xs text-muted-foreground mt-1">Estimated budget per occurrence in USD</p>
             </div>
 
             <div>

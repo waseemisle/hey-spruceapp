@@ -90,19 +90,19 @@ function SearchableSelect({
         type="button"
         disabled={disabled}
         onClick={() => { if (!disabled) { setOpen(true); setSearch(''); setTimeout(() => inputRef.current?.focus(), 0); } }}
-        className={`w-full flex items-center justify-between border border-gray-300 rounded-md p-2 bg-white text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:border-gray-400 cursor-pointer'}`}
+        className={`w-full flex items-center justify-between border border-gray-300 rounded-md p-2 bg-card text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : 'hover:border-gray-400 cursor-pointer'}`}
       >
-        <span className={selected ? 'text-gray-900' : 'text-gray-400'}>
+        <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
           {selected ? selected.label : placeholder}
         </span>
-        <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
-          <div className="p-2 border-b border-gray-100">
-            <div className="flex items-center gap-2 px-2 py-1 border border-gray-200 rounded-md">
-              <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg">
+          <div className="p-2 border-b border-border">
+            <div className="flex items-center gap-2 px-2 py-1 border border-border rounded-md">
+              <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               <input
                 ref={inputRef}
                 type="text"
@@ -115,12 +115,12 @@ function SearchableSelect({
           </div>
           <ul className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0
-              ? <li className="px-3 py-2 text-sm text-gray-400">No results</li>
+              ? <li className="px-3 py-2 text-sm text-muted-foreground">No results</li>
               : filtered.map(opt => (
                 <li
                   key={opt.value}
                   onMouseDown={() => { onChange(opt.value); setOpen(false); setSearch(''); }}
-                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${opt.value === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${opt.value === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-foreground'}`}
                 >
                   {opt.label}
                   {opt.value === value && <Check className="h-3.5 w-3.5 text-blue-600" />}
@@ -444,8 +444,8 @@ function CreateInvoiceContent() {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Create Invoice</h1>
-            <p className="text-gray-600 mt-1">Fill in the details or select a work order to auto-fill</p>
+            <h1 className="text-3xl font-bold text-foreground">Create Invoice</h1>
+            <p className="text-muted-foreground mt-1">Fill in the details or select a work order to auto-fill</p>
           </div>
         </div>
 
@@ -460,7 +460,7 @@ function CreateInvoiceContent() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Select Work Order <span className="text-gray-400 font-normal">(auto-fills fields below)</span></Label>
+                <Label>Select Work Order <span className="text-muted-foreground font-normal">(auto-fills fields below)</span></Label>
                 <div className="mt-1">
                   <SearchableSelect
                     options={workOrderOptions}
@@ -497,7 +497,7 @@ function CreateInvoiceContent() {
                   <Input
                     value={formData.clientEmail}
                     readOnly
-                    className="mt-1 bg-gray-50 text-gray-600"
+                    className="mt-1 bg-muted text-muted-foreground"
                     placeholder="Auto-filled from client"
                   />
                 </div>
@@ -584,7 +584,7 @@ function CreateInvoiceContent() {
             </CardHeader>
             <CardContent className="space-y-3">
               {/* Header row */}
-              <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-gray-500 uppercase px-1">
+              <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground uppercase px-1">
                 <div className="col-span-5">Description</div>
                 <div className="col-span-2 text-right">Qty</div>
                 <div className="col-span-2 text-right">Unit Price</div>
@@ -657,8 +657,8 @@ function CreateInvoiceContent() {
 
               <div className="flex justify-end pt-2 border-t">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Total</p>
-                  <p className="text-2xl font-bold text-gray-900">${totalAmount.toFixed(2)}</p>
+                  <p className="text-sm text-muted-foreground">Total</p>
+                  <p className="text-2xl font-bold text-foreground">${totalAmount.toFixed(2)}</p>
                 </div>
               </div>
             </CardContent>

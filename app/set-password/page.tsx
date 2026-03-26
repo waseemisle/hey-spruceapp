@@ -145,8 +145,8 @@ function SetPasswordContent() {
                 <CheckCircle className="w-12 h-12 text-green-600" />
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Set Successfully!</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Password Set Successfully!</h2>
+            <p className="text-muted-foreground mb-6">
               Your password has been set. Redirecting you to the login page...
             </p>
           </CardContent>
@@ -171,11 +171,11 @@ function SetPasswordContent() {
             Welcome to GroundOps! Please create a password to activate your account.
           </CardDescription>
           <div className="pt-4 space-y-2 bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
-            <p className="text-lg text-gray-800">
+            <p className="text-lg text-foreground">
               Setting password for Email: <span className="text-green-600">{email || 'Loading...'}</span>
             </p>
             {role && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Role: <span className="font-medium text-blue-600">{role}</span>
               </p>
             )}
@@ -198,7 +198,7 @@ function SetPasswordContent() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -223,7 +223,7 @@ function SetPasswordContent() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -245,7 +245,7 @@ function SetPasswordContent() {
           </form>
 
           <div className="mt-6 pt-4 border-t text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Already have a password?{' '}
               <a href="/portal-login" className="text-green-600 hover:text-green-700 font-medium">
                 Sign in here
@@ -264,7 +264,7 @@ export default function SetPasswordPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-          <p className="mt-2 text-gray-600">Loading...</p>
+          <p className="mt-2 text-muted-foreground">Loading...</p>
         </div>
       </div>
     }>

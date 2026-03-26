@@ -7,10 +7,10 @@ import { cn } from '@/lib/utils';
 export type SearchableSelectOption = { value: string; label: string; disabled?: boolean };
 
 const TRIGGER =
-  'min-h-[42px] border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-2 bg-white';
-const TRIGGER_FOCUS = 'cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500';
+  'min-h-[42px] border border-border rounded-lg px-3 py-2 flex items-center gap-2 bg-background';
+const TRIGGER_FOCUS = 'cursor-text focus-within:ring-2 focus-within:ring-ring focus-within:border-ring';
 const PANEL =
-  'absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-auto';
+  'absolute z-50 w-full mt-1 bg-card border border-border rounded-xl shadow-lg max-h-52 overflow-auto';
 
 export interface SearchableSelectProps {
   value: string;
@@ -82,7 +82,7 @@ export function SearchableSelect({
         className={cn(
           TRIGGER,
           !disabled && TRIGGER_FOCUS,
-          disabled && 'opacity-50 cursor-not-allowed bg-gray-50',
+          disabled && 'opacity-50 cursor-not-allowed bg-muted',
           triggerClassName
         )}
         onClick={() => !disabled && openDropdown()}
@@ -136,7 +136,7 @@ export function SearchableSelect({
               openDropdown();
             }
           }}
-          className="text-gray-400 hover:text-gray-600 shrink-0"
+          className="text-muted-foreground hover:text-muted-foreground shrink-0"
           tabIndex={-1}
         >
           <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
@@ -146,7 +146,7 @@ export function SearchableSelect({
         <div id={listboxId} role="listbox" className={PANEL}>
           <div className="p-1">
             {filtered.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-gray-400 text-center">{emptyMessage}</div>
+              <div className="px-3 py-3 text-sm text-muted-foreground text-center">{emptyMessage}</div>
             ) : (
               filtered.map((opt) => (
                 <button
@@ -241,9 +241,9 @@ export function SearchableMultiSelect({
     <div ref={containerRef} className={cn('relative', className)}>
       <div
         className={cn(
-          'min-h-[42px] border border-gray-200 rounded-lg px-3 py-2 flex flex-wrap gap-2 items-center bg-white',
-          !disabled && 'cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500',
-          disabled && 'opacity-50 cursor-not-allowed bg-gray-50'
+          'min-h-[42px] border border-border rounded-lg px-3 py-2 flex flex-wrap gap-2 items-center bg-background',
+          !disabled && 'cursor-text focus-within:ring-2 focus-within:ring-ring focus-within:border-ring',
+          disabled && 'opacity-50 cursor-not-allowed bg-muted'
         )}
         onClick={() => {
           if (disabled) return;
@@ -303,7 +303,7 @@ export function SearchableMultiSelect({
             e.stopPropagation();
             setOpen(!open);
           }}
-          className="text-gray-400 hover:text-gray-600 ml-auto shrink-0"
+          className="text-muted-foreground hover:text-muted-foreground ml-auto shrink-0"
           tabIndex={-1}
         >
           <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
@@ -313,7 +313,7 @@ export function SearchableMultiSelect({
         <div className={PANEL}>
           <div className="p-1">
             {filtered.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-gray-400 text-center">
+              <div className="px-3 py-3 text-sm text-muted-foreground text-center">
                 {searchQuery.trim() ? emptyMessage : noMoreMessage}
               </div>
             ) : (

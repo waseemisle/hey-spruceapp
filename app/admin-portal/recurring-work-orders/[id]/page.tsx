@@ -342,7 +342,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       case 'active': return 'text-green-600 bg-green-50';
       case 'paused': return 'text-yellow-600 bg-yellow-50';
       case 'cancelled': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -351,8 +351,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       case 'executed': return 'text-green-600 bg-green-50';
       case 'failed': return 'text-red-600 bg-red-50';
       case 'pending': return 'text-yellow-600 bg-yellow-50';
-      case 'skipped': return 'text-gray-600 bg-gray-50';
-      default: return 'text-gray-600 bg-gray-50';
+      case 'skipped': return 'text-muted-foreground bg-muted';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -460,8 +460,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     return (
       <AdminLayout>
         <div className="text-center py-12">
-          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">Recurring work order not found</p>
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">Recurring work order not found</p>
         </div>
       </AdminLayout>
     );
@@ -480,8 +480,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               Back
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{recurringWorkOrder.title}</h1>
-              <p className="text-gray-600 mt-2">{recurringWorkOrder.workOrderNumber}</p>
+              <h1 className="text-3xl font-bold text-foreground">{recurringWorkOrder.title}</h1>
+              <p className="text-muted-foreground mt-2">{recurringWorkOrder.workOrderNumber}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -559,7 +559,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <span className="font-semibold">Location:</span>
                   <span className="ml-2">{recurringWorkOrder.locationName}</span>
                   {recurringWorkOrder.locationAddress && (
-                    <div className="text-sm text-gray-600 mt-1">{formatAddress(recurringWorkOrder.locationAddress)}</div>
+                    <div className="text-sm text-muted-foreground mt-1">{formatAddress(recurringWorkOrder.locationAddress)}</div>
                   )}
                 </div>
 
@@ -584,7 +584,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
 
                 <div>
                   <span className="font-semibold">Description:</span>
-                  <p className="mt-1 text-gray-700">{recurringWorkOrder.description}</p>
+                  <p className="mt-1 text-foreground">{recurringWorkOrder.description}</p>
                 </div>
               </CardContent>
             </Card>
@@ -686,8 +686,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <CardContent>
                     {nextDates.length === 0 ? (
                       <div className="text-center py-6">
-                        <AlertCircle className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600 text-sm">
+                        <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                        <p className="text-muted-foreground text-sm">
                           {endDate && endDate < new Date()
                             ? 'This recurring work order has passed its end date.'
                             : 'No upcoming executions could be calculated. Check the recurrence pattern and start date.'}
@@ -711,7 +711,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                 <div className="font-semibold text-sm">
                                   Execution #{index + 1}{isToday && <span className="ml-2 text-blue-600 text-xs font-normal">(Today)</span>}
                                 </div>
-                                <div className="text-xs text-gray-600">
+                                <div className="text-xs text-muted-foreground">
                                   {date.toLocaleDateString('en-US', {
                                     weekday: 'long',
                                     year: 'numeric',
@@ -724,7 +724,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                           );
                         })}
                         {endDate && (
-                          <p className="text-xs text-gray-500 pt-1">
+                          <p className="text-xs text-muted-foreground pt-1">
                             Recurrence ends on {endDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}.
                           </p>
                         )}
@@ -757,8 +757,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <CardContent>
                     {serviceDates.length === 0 ? (
                       <div className="text-center py-8">
-                        <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">No service dates scheduled yet</p>
+                        <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">No service dates scheduled yet</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -781,7 +781,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                 key={index}
                                 className={`flex items-center justify-between p-3 rounded-lg border ${
                                   isPast
-                                    ? 'bg-gray-50 border-gray-200'
+                                    ? 'bg-muted border-border'
                                     : isToday
                                     ? 'bg-blue-50 border-blue-300'
                                     : 'bg-green-50 border-green-200'
@@ -799,7 +799,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                     <div className="font-semibold text-sm">
                                       Execution #{index + 1}
                                     </div>
-                                    <div className="text-xs text-gray-600">
+                                    <div className="text-xs text-muted-foreground">
                                       {dateObj.toLocaleDateString('en-US', {
                                         weekday: 'short',
                                         year: 'numeric',
@@ -843,7 +843,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                             );
                           })}
                         {serviceDates.length > 5 && (
-                          <div className="text-sm text-gray-500 text-center pt-2">
+                          <div className="text-sm text-muted-foreground text-center pt-2">
                             + {serviceDates.length - 5} more execution(s)
                           </div>
                         )}
@@ -896,14 +896,14 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               <CardContent className="space-y-4">
                 <div>
                   <span className="font-semibold">Last Updated:</span>
-                  <div className="text-sm text-gray-600 mt-1">
+                  <div className="text-sm text-muted-foreground mt-1">
                     {new Date(recurringWorkOrder.updatedAt).toLocaleDateString()} at {new Date(recurringWorkOrder.updatedAt).toLocaleTimeString()}
                   </div>
                 </div>
 
                 <div>
                   <span className="font-semibold">Success Rate:</span>
-                  <div className="text-sm text-gray-600 mt-1">
+                  <div className="text-sm text-muted-foreground mt-1">
                     {recurringWorkOrder.totalExecutions > 0 
                       ? Math.round((recurringWorkOrder.successfulExecutions / recurringWorkOrder.totalExecutions) * 100)
                       : 0}%
@@ -925,8 +925,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
           <CardContent>
             {executions.length === 0 ? (
               <div className="text-center py-8">
-                <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No executions yet</p>
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No executions yet</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -939,7 +939,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                           {execution.status.toUpperCase()}
                         </span>
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-muted-foreground">
                         Scheduled: {new Date(execution.scheduledDate).toLocaleDateString()}
                       </div>
                     </div>
@@ -956,7 +956,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                         <span className="ml-2">
                           {execution.emailSent ? 'Yes' : 'No'}
                           {execution.emailSentAt && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-muted-foreground">
                               {new Date(execution.emailSentAt).toLocaleDateString()}
                             </div>
                           )}

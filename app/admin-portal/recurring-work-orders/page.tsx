@@ -327,7 +327,7 @@ export default function RecurringWorkOrdersManagement() {
       case 'active': return 'text-green-600 bg-green-50';
       case 'paused': return 'text-yellow-600 bg-yellow-50';
       case 'cancelled': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -336,7 +336,7 @@ export default function RecurringWorkOrdersManagement() {
       case 'high': return 'text-red-600 bg-red-50';
       case 'medium': return 'text-orange-600 bg-orange-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -360,8 +360,8 @@ export default function RecurringWorkOrdersManagement() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recurring Work Orders</h1>
-            <p className="text-gray-600 mt-2 text-sm sm:text-base">Manage recurring work orders and their schedules</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Recurring Work Orders</h1>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">Manage recurring work orders and their schedules</p>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -395,7 +395,7 @@ export default function RecurringWorkOrdersManagement() {
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search recurring work orders by title, description, client, number, or category..."
             value={searchQuery}
@@ -412,11 +412,11 @@ export default function RecurringWorkOrdersManagement() {
               checked={filteredRecurringWorkOrders.length > 0 && selectedIds.length === filteredRecurringWorkOrders.length}
               onCheckedChange={toggleSelectAll}
             />
-            <label htmlFor="select-all" className="text-sm font-medium text-gray-700 cursor-pointer">
+            <label htmlFor="select-all" className="text-sm font-medium text-foreground cursor-pointer">
               Select All ({filteredRecurringWorkOrders.length})
             </label>
             {selectedIds.length > 0 && (
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 {selectedIds.length} selected
               </span>
             )}
@@ -467,7 +467,7 @@ export default function RecurringWorkOrdersManagement() {
           })()}
 
           <div className="flex flex-wrap items-center gap-3">
-            <label htmlFor="location-filter" className="text-sm font-medium text-gray-700">
+            <label htmlFor="location-filter" className="text-sm font-medium text-foreground">
               Location:
             </label>
             <SearchableSelect
@@ -486,7 +486,7 @@ export default function RecurringWorkOrdersManagement() {
               aria-label="Filter by location"
             />
 
-            <label htmlFor="status-filter" className="text-sm font-medium text-gray-700">
+            <label htmlFor="status-filter" className="text-sm font-medium text-foreground">
               Status:
             </label>
             <SearchableSelect
@@ -511,37 +511,37 @@ export default function RecurringWorkOrdersManagement() {
         {sortedRecurringWorkOrders.length === 0 ? (
           <Card className="col-span-full">
             <CardContent className="p-12 text-center">
-              <RotateCcw className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No recurring work orders found</p>
+              <RotateCcw className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No recurring work orders found</p>
             </CardContent>
           </Card>
         ) : viewMode === 'list' ? (
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <Checkbox
                       id="select-all-table"
                       checked={sortedRecurringWorkOrders.length > 0 && selectedIds.length === sortedRecurringWorkOrders.length}
                       onCheckedChange={toggleSelectAll}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order #</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Recurrence</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Next Execution</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Title</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Work Order #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Priority</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recurrence</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Next Execution</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-gray-200">
                 {sortedRecurringWorkOrders.map((recurringWorkOrder) => (
-                  <tr key={recurringWorkOrder.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={recurringWorkOrder.id} className="hover:bg-muted transition-colors">
                     <td className="px-4 py-3">
                       <Checkbox
                         id={`select-${recurringWorkOrder.id}-table`}
@@ -550,13 +550,13 @@ export default function RecurringWorkOrdersManagement() {
                       />
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-gray-900">{recurringWorkOrder.title}</div>
-                      <div className="text-gray-500 text-xs mt-1 line-clamp-1">{recurringWorkOrder.description}</div>
+                      <div className="font-medium text-foreground">{recurringWorkOrder.title}</div>
+                      <div className="text-muted-foreground text-xs mt-1 line-clamp-1">{recurringWorkOrder.description}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.workOrderNumber}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.locationName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{recurringWorkOrder.category}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{recurringWorkOrder.workOrderNumber}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{recurringWorkOrder.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{recurringWorkOrder.locationName || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{recurringWorkOrder.category}</td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority || '')}`}>
                         {(recurringWorkOrder.priority || 'N/A').toUpperCase()}
@@ -567,10 +567,10 @@ export default function RecurringWorkOrdersManagement() {
                         {(recurringWorkOrder.status || 'N/A').toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {formatRecurrencePattern(recurringWorkOrder)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {recurringWorkOrder.nextExecution ? new Date(recurringWorkOrder.nextExecution).toLocaleDateString() : 'Not scheduled'}
                     </td>
                     <td className="px-4 py-3 text-sm">
@@ -648,14 +648,14 @@ export default function RecurringWorkOrdersManagement() {
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(recurringWorkOrder.priority || '')}`}>
                         {(recurringWorkOrder.priority || 'N/A').toUpperCase()}
                       </span>
-                      <span className="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold">
+                      <span className="px-2 py-1 rounded bg-muted text-foreground text-xs font-semibold">
                         {recurringWorkOrder.workOrderNumber}
                       </span>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 p-4 sm:p-6">
-                  <p className="text-sm text-gray-600 line-clamp-2">{recurringWorkOrder.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{recurringWorkOrder.description}</p>
 
                   <div className="space-y-2">
                     <div className="text-sm">

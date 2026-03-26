@@ -98,19 +98,19 @@ function SearchableSelect({ options, value, onChange, placeholder = 'Select...',
         type="button"
         onClick={handleOpen}
         disabled={disabled}
-        className={`w-full flex items-center justify-between border border-gray-300 rounded-md p-2 bg-white text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:border-gray-400 cursor-pointer'}`}
+        className={`w-full flex items-center justify-between border border-gray-300 rounded-md p-2 bg-card text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : 'hover:border-gray-400 cursor-pointer'}`}
       >
-        <span className={selected ? 'text-gray-900' : 'text-gray-400'}>
+        <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
           {selected ? selected.label : placeholder}
         </span>
-        <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
-          <div className="p-2 border-b border-gray-100">
-            <div className="flex items-center gap-2 px-2 py-1 border border-gray-200 rounded-md">
-              <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg">
+          <div className="p-2 border-b border-border">
+            <div className="flex items-center gap-2 px-2 py-1 border border-border rounded-md">
+              <Search className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               <input
                 ref={inputRef}
                 type="text"
@@ -123,13 +123,13 @@ function SearchableSelect({ options, value, onChange, placeholder = 'Select...',
           </div>
           <ul className="max-h-52 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-gray-400">No results found</li>
+              <li className="px-3 py-2 text-sm text-muted-foreground">No results found</li>
             ) : (
               filtered.map(opt => (
                 <li
                   key={opt.value}
                   onMouseDown={() => handleSelect(opt.value)}
-                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${opt.value === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${opt.value === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-foreground'}`}
                 >
                   {opt.label}
                   {opt.value === value && <Check className="h-3.5 w-3.5 text-blue-600" />}
@@ -595,8 +595,8 @@ export default function CreateRecurringWorkOrder() {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Create Recurring Work Order</h1>
-            <p className="text-gray-600 mt-2">Set up a work order that repeats automatically</p>
+            <h1 className="text-3xl font-bold text-foreground">Create Recurring Work Order</h1>
+            <p className="text-muted-foreground mt-2">Set up a work order that repeats automatically</p>
           </div>
         </div>
 
@@ -703,7 +703,7 @@ export default function CreateRecurringWorkOrder() {
                   onWheel={(e) => e.currentTarget.blur()}
                   placeholder="e.g., 5000"
                 />
-                <p className="text-xs text-gray-500 mt-1">Estimated budget per occurrence in USD</p>
+                <p className="text-xs text-muted-foreground mt-1">Estimated budget per occurrence in USD</p>
               </div>
             </CardContent>
           </Card>
@@ -727,7 +727,7 @@ export default function CreateRecurringWorkOrder() {
                     placeholder="Select pattern..."
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   This work order will repeat <strong>{formData.recurrencePatternLabel}</strong>
                   {formData.recurrencePatternLabel !== 'DAILY' && formData.recurrenceType === 'weekly' && ` (every ${formData.recurrenceInterval} week(s))`}
                   {formData.recurrencePatternLabel !== 'DAILY' && formData.recurrenceType === 'monthly' && ` (every ${formData.recurrenceInterval} month(s))`}.
@@ -745,7 +745,7 @@ export default function CreateRecurringWorkOrder() {
                         className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                           formData.recurrenceDaysOfWeek.includes(index)
                             ? 'bg-blue-50 border-blue-400 text-blue-700'
-                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                            : 'border-border hover:bg-muted text-foreground'
                         }`}
                       >
                         <input
@@ -773,7 +773,7 @@ export default function CreateRecurringWorkOrder() {
                   value={formData.recurrenceStartDate}
                   onChange={(e) => setFormData({ ...formData, recurrenceStartDate: e.target.value })}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   The first date occurrences will begin. Events will appear on the calendar from this date onward.
                 </p>
                 {formData.recurrencePatternLabel === 'DAILY' && formData.recurrenceDaysOfWeek.length > 0 && formData.recurrenceStartDate && (() => {
@@ -808,7 +808,7 @@ export default function CreateRecurringWorkOrder() {
                   value={formData.recurrenceEndDate}
                   onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   The last date occurrences will run. Calendar events will be generated up to this date.
                 </p>
               </div>
@@ -876,7 +876,7 @@ export default function CreateRecurringWorkOrder() {
                         onChange={(e) => setFormData({ ...formData, invoiceScheduleInterval: parseInt(e.target.value) || 1 })}
                         className="w-20"
                       />
-                      <span className="text-sm text-gray-600">month(s)</span>
+                      <span className="text-sm text-muted-foreground">month(s)</span>
                     </div>
                   </div>
 
@@ -885,7 +885,7 @@ export default function CreateRecurringWorkOrder() {
 
               {formData.invoiceScheduleType === 'bi-monthly' && (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500">Two invoices will be sent each month — one on the 1st date and one on the 2nd date.</p>
+                  <p className="text-xs text-muted-foreground">Two invoices will be sent each month — one on the 1st date and one on the 2nd date.</p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>1st Invoice Day</Label>
@@ -896,7 +896,7 @@ export default function CreateRecurringWorkOrder() {
                         value={formData.invoiceScheduleDayOfMonth}
                         onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
                       />
-                      <p className="text-xs text-gray-500 mt-1">e.g., 1 = 1st of month</p>
+                      <p className="text-xs text-muted-foreground mt-1">e.g., 1 = 1st of month</p>
                     </div>
                     <div>
                       <Label>2nd Invoice Day</Label>
@@ -907,7 +907,7 @@ export default function CreateRecurringWorkOrder() {
                         value={formData.invoiceScheduleSecondDayOfMonth}
                         onChange={(e) => setFormData({ ...formData, invoiceScheduleSecondDayOfMonth: parseInt(e.target.value) || 15 })}
                       />
-                      <p className="text-xs text-gray-500 mt-1">e.g., 15 = 15th of month</p>
+                      <p className="text-xs text-muted-foreground mt-1">e.g., 15 = 15th of month</p>
                     </div>
                   </div>
                   <div className="p-3 bg-blue-50 rounded-md text-sm text-blue-700">

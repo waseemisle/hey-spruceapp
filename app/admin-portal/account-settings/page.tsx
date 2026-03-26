@@ -164,20 +164,20 @@ export default function AdminAccountSettings() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.back()}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage your profile and security settings</p>
+            <h1 className="text-2xl font-bold text-foreground">Account Settings</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage your profile and security settings</p>
           </div>
         </div>
 
         {loading ? (
           <div className="space-y-6">
             {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4 animate-pulse">
+              <div key={i} className="bg-card rounded-xl border border-border p-6 space-y-4 animate-pulse">
                 <div className="h-5 w-40 rounded bg-gray-200" />
                 <div className="h-10 w-full rounded bg-gray-200" />
                 <div className="h-10 w-full rounded bg-gray-200" />
@@ -187,10 +187,10 @@ export default function AdminAccountSettings() {
         ) : (
           <>
             {/* Profile Photo */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Camera className="h-5 w-5 text-blue-600" />
-                <h2 className="text-base font-semibold text-gray-900">Profile Photo</h2>
+                <h2 className="text-base font-semibold text-foreground">Profile Photo</h2>
               </div>
               <div className="flex items-center gap-6">
                 <Avatar className="h-24 w-24 ring-4 ring-gray-100">
@@ -208,16 +208,16 @@ export default function AdminAccountSettings() {
                     onChange={handleFileChange}
                     className="max-w-xs"
                   />
-                  <p className="text-xs text-gray-400">JPG, PNG or WebP. Max 5MB.</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG or WebP. Max 5MB.</p>
                 </div>
               </div>
             </div>
 
             {/* Personal Information */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
                 <User className="h-5 w-5 text-blue-600" />
-                <h2 className="text-base font-semibold text-gray-900">Personal Information</h2>
+                <h2 className="text-base font-semibold text-foreground">Personal Information</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -232,20 +232,20 @@ export default function AdminAccountSettings() {
                 <div className="space-y-1.5">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="email"
                       value={email}
                       disabled
-                      className="pl-9 bg-gray-50 text-gray-500 cursor-not-allowed"
+                      className="pl-9 bg-muted text-muted-foreground cursor-not-allowed"
                     />
                   </div>
-                  <p className="text-xs text-gray-400">Email cannot be changed</p>
+                  <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="phone">Phone Number</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="phone"
                       value={phone}
@@ -257,24 +257,24 @@ export default function AdminAccountSettings() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Role</Label>
-                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-gray-200 bg-gray-50">
+                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-border bg-muted">
                     <ShieldCheck className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm text-gray-700 font-medium">Admin</span>
+                    <span className="text-sm text-foreground font-medium">Admin</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Notification Preferences */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Bell className="h-5 w-5 text-blue-600" />
-                <h2 className="text-base font-semibold text-gray-900">Notification Preferences</h2>
+                <h2 className="text-base font-semibold text-foreground">Notification Preferences</h2>
               </div>
-              <div className="flex items-center justify-between py-3 border border-gray-100 rounded-lg px-4">
+              <div className="flex items-center justify-between py-3 border border-border rounded-lg px-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Work Order Email Notifications</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Receive email alerts when work orders are created or updated</p>
+                  <p className="text-sm font-medium text-foreground">Work Order Email Notifications</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Receive email alerts when work orders are created or updated</p>
                 </div>
                 <button
                   type="button"
@@ -286,7 +286,7 @@ export default function AdminAccountSettings() {
                   }`}
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-card shadow ring-0 transition-transform ${
                       workOrderEmailNotifications ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
@@ -305,12 +305,12 @@ export default function AdminAccountSettings() {
             <Separator />
 
             {/* Change Password */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Lock className="h-5 w-5 text-blue-600" />
                 <div>
-                  <h2 className="text-base font-semibold text-gray-900">Change Password</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">Re-enter your current password to set a new one</p>
+                  <h2 className="text-base font-semibold text-foreground">Change Password</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">Re-enter your current password to set a new one</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

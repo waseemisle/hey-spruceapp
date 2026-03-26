@@ -109,7 +109,7 @@ export default function ClientMaintenanceRequests() {
       high: 'bg-orange-100 text-orange-800',
       urgent: 'bg-red-100 text-red-800',
     };
-    return badges[priority.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    return badges[priority.toLowerCase()] || 'bg-muted text-foreground';
   };
 
   const getStatusBadge = (status: string) => {
@@ -118,7 +118,7 @@ export default function ClientMaintenanceRequests() {
       'in-progress': 'bg-blue-100 text-blue-800',
       completed: 'bg-green-100 text-green-800',
     };
-    return badges[status.toLowerCase()] || 'bg-gray-100 text-gray-800';
+    return badges[status.toLowerCase()] || 'bg-muted text-foreground';
   };
 
   const formatDate = (date: any) => {
@@ -166,12 +166,12 @@ export default function ClientMaintenanceRequests() {
     return (
       <ClientLayout>
         <div className="text-center py-12">
-          <Wrench className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
-          <p className="text-gray-600 mb-4">
+          <Wrench className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-foreground mb-2">Access Restricted</h2>
+          <p className="text-muted-foreground mb-4">
             You don't have permission to view maintenance requests.
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Please contact your administrator to request access.
           </p>
         </div>
@@ -184,13 +184,13 @@ export default function ClientMaintenanceRequests() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Maintenance Requests</h1>
-            <p className="text-gray-600 mt-2">View maintenance requests from your properties</p>
+            <h1 className="text-3xl font-bold text-foreground">Maintenance Requests</h1>
+            <p className="text-muted-foreground mt-2">View maintenance requests from your properties</p>
           </div>
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search maintenance requests..."
             value={searchQuery}
@@ -203,8 +203,8 @@ export default function ClientMaintenanceRequests() {
           {filtered.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
-                <Wrench className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No maintenance requests found</p>
+                <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No maintenance requests found</p>
               </CardContent>
             </Card>
           ) : (
@@ -227,19 +227,19 @@ export default function ClientMaintenanceRequests() {
                     />
                   )}
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-gray-600">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <MapPin className="h-4 w-4" />
                       <span>{request.venue}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-600">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <User className="h-4 w-4" />
                       <span>{request.requestor}</span>
                     </div>
-                    <div className="text-gray-600">
+                    <div className="text-muted-foreground">
                       <span className="font-medium">Date: </span>
                       {formatDate(request.date)}
                     </div>
-                    <p className="text-gray-700 line-clamp-3">{request.description}</p>
+                    <p className="text-foreground line-clamp-3">{request.description}</p>
                     <div className="flex items-center justify-between pt-2">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(request.status)}`}>
                         {request.status}
@@ -266,8 +266,8 @@ export default function ClientMaintenanceRequests() {
         {/* Detail Modal */}
         {showModal && selectedRequest && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white">
+            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-card">
                 <h2 className="text-2xl font-bold">{selectedRequest.title}</h2>
                 <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
                   <X className="h-4 w-4" />
@@ -283,33 +283,33 @@ export default function ClientMaintenanceRequests() {
                 )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Venue</p>
+                    <p className="text-sm text-muted-foreground">Venue</p>
                     <p className="font-medium">{selectedRequest.venue}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Requestor</p>
+                    <p className="text-sm text-muted-foreground">Requestor</p>
                     <p className="font-medium">{selectedRequest.requestor}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Date</p>
+                    <p className="text-sm text-muted-foreground">Date</p>
                     <p className="font-medium">{formatDate(selectedRequest.date)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Priority</p>
+                    <p className="text-sm text-muted-foreground">Priority</p>
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(selectedRequest.priority)}`}>
                       {selectedRequest.priority}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Status</p>
+                    <p className="text-sm text-muted-foreground">Status</p>
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(selectedRequest.status)}`}>
                       {selectedRequest.status}
                     </span>
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 mb-2">Description</p>
-                  <p className="text-gray-900">{selectedRequest.description}</p>
+                  <p className="text-sm text-muted-foreground mb-2">Description</p>
+                  <p className="text-foreground">{selectedRequest.description}</p>
                 </div>
               </div>
             </div>

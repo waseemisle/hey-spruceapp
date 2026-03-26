@@ -32,14 +32,14 @@ function PaymentCancelledContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -53,13 +53,13 @@ function PaymentCancelledContent() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center">
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               Your payment was cancelled. No charges have been made to your account.
             </p>
             
             {invoiceId && (
-              <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                <p className="text-sm text-gray-500">
+              <div className="bg-muted p-3 rounded-lg mb-4">
+                <p className="text-sm text-muted-foreground">
                   <strong>Invoice ID:</strong> {invoiceId}
                 </p>
               </div>
@@ -99,7 +99,7 @@ function PaymentCancelledContent() {
           </div>
 
           <div className="text-center pt-4">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Questions? Contact us at{' '}
               <a href="mailto:support@groundops.com" className="text-blue-600 hover:underline">
                 support@groundops.com
@@ -115,10 +115,10 @@ function PaymentCancelledContent() {
 export default function PaymentCancelled() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </div>
     }>

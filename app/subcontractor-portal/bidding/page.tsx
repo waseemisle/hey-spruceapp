@@ -377,7 +377,7 @@ export default function SubcontractorBidding() {
       medium: 'bg-amber-50 text-amber-700 border-amber-200',
       high: 'bg-red-50 text-red-700 border-red-200',
     };
-    return styles[priority as keyof typeof styles] || 'bg-gray-50 text-gray-700 border-gray-200';
+    return styles[priority as keyof typeof styles] || 'bg-muted text-foreground border-border';
   };
 
   if (loading) {
@@ -409,7 +409,7 @@ export default function SubcontractorBidding() {
             }
           />
 
-          <Card className="rounded-xl border border-gray-200 shadow-sm">
+          <Card className="rounded-xl border border-border shadow-sm">
             <CardHeader>
               <CardTitle>Quote Details</CardTitle>
             </CardHeader>
@@ -439,7 +439,7 @@ export default function SubcontractorBidding() {
                       required
                       min={new Date().toISOString().split('T')[0]}
                     />
-                    <p className="text-xs text-gray-500 mt-1">Date you can perform the work</p>
+                    <p className="text-xs text-muted-foreground mt-1">Date you can perform the work</p>
                   </div>
 
                   <div>
@@ -452,7 +452,7 @@ export default function SubcontractorBidding() {
                       onChange={handleQuoteFormChange}
                       required
                     />
-                    <p className="text-xs text-gray-500 mt-1">Time you can perform the work</p>
+                    <p className="text-xs text-muted-foreground mt-1">Time you can perform the work</p>
                   </div>
 
                   <div className="md:col-span-2">
@@ -477,15 +477,15 @@ export default function SubcontractorBidding() {
                       Add Item
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500 mb-4">At least one line item with a description and amount is required</p>
+                  <p className="text-xs text-muted-foreground mb-4">At least one line item with a description and amount is required</p>
 
                   <div className="space-y-3">
                     {/* Column headers */}
                     <div className="grid grid-cols-12 gap-3 px-1">
-                      <div className="col-span-5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</div>
-                      <div className="col-span-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Qty</div>
-                      <div className="col-span-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Unit Price</div>
-                      <div className="col-span-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</div>
+                      <div className="col-span-5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Description</div>
+                      <div className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Qty</div>
+                      <div className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Unit Price</div>
+                      <div className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</div>
                       <div className="col-span-1"></div>
                     </div>
                     {lineItems.map((item, index) => (
@@ -521,7 +521,7 @@ export default function SubcontractorBidding() {
                           <Input
                             value={`$${item.amount.toFixed(2)}`}
                             readOnly
-                            className="bg-gray-50"
+                            className="bg-muted"
                           />
                         </div>
                         <div className="col-span-1">
@@ -542,17 +542,17 @@ export default function SubcontractorBidding() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <div className="bg-gray-50 p-6 rounded-lg">
+                  <div className="bg-muted p-6 rounded-lg">
                     <h3 className="font-semibold text-lg mb-4">Quote Summary</h3>
                     <div className="space-y-2">
                       {lineItems.filter(item => item.description && item.amount > 0).map((item, idx) => (
                         <div key={idx} className="flex justify-between text-sm">
-                          <span className="text-gray-700">{item.description} {item.quantity > 1 ? `(×${item.quantity})` : ''}</span>
+                          <span className="text-foreground">{item.description} {item.quantity > 1 ? `(×${item.quantity})` : ''}</span>
                           <span className="font-semibold">${item.amount.toFixed(2)}</span>
                         </div>
                       ))}
                       {lineItems.filter(item => item.description && item.amount > 0).length === 0 && (
-                        <p className="text-sm text-gray-500">Add line items above to see the summary</p>
+                        <p className="text-sm text-muted-foreground">Add line items above to see the summary</p>
                       )}
                       <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2">
                         <span>Total:</span>
@@ -607,7 +607,7 @@ export default function SubcontractorBidding() {
         />
 
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by title, description, client, category, or location..."
             value={searchQuery}
@@ -627,14 +627,14 @@ export default function SubcontractorBidding() {
             {filteredBiddingWorkOrders.map((bidding) => (
               <div
                 key={bidding.id}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
               >
                 <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
                 <div className="p-5 space-y-3">
                   <div>
-                    <h3 className="font-semibold text-gray-900 text-base mb-1">{bidding.workOrderTitle}</h3>
+                    <h3 className="font-semibold text-foreground text-base mb-1">{bidding.workOrderTitle}</h3>
                     {bidding.workOrderNumber && (
-                      <p className="text-xs text-gray-500 mb-2">WO: {bidding.workOrderNumber}</p>
+                      <p className="text-xs text-muted-foreground mb-2">WO: {bidding.workOrderNumber}</p>
                     )}
                     <div className="flex gap-1.5 flex-wrap">
                       {bidding.priority && (
@@ -651,25 +651,25 @@ export default function SubcontractorBidding() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium text-gray-700 mb-0.5">Client</p>
-                    <p className="text-sm text-gray-600">{bidding.clientName}</p>
+                    <p className="text-sm font-medium text-foreground mb-0.5">Client</p>
+                    <p className="text-sm text-muted-foreground">{bidding.clientName}</p>
                   </div>
 
                   {bidding.locationName && (
-                    <div className="flex items-start gap-2 text-sm text-gray-600">
-                      <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <div>
                         <div>{bidding.locationName}</div>
                         {bidding.locationAddress && (
-                          <div className="text-xs text-gray-500">{formatAddress(bidding.locationAddress)}</div>
+                          <div className="text-xs text-muted-foreground">{formatAddress(bidding.locationAddress)}</div>
                         )}
                       </div>
                     </div>
                   )}
 
-                  <p className="text-sm text-gray-600 line-clamp-3">{bidding.workOrderDescription}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-3">{bidding.workOrderDescription}</p>
 
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5" />
                     <span>Shared {bidding.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>
                   </div>
@@ -687,7 +687,7 @@ export default function SubcontractorBidding() {
                     </div>
                   )}
 
-                  <div className="pt-3 border-t border-gray-100">
+                  <div className="pt-3 border-t border-border">
                     <Button
                       onClick={() => {
                         setSelectedBidding(bidding);

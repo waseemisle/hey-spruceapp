@@ -325,11 +325,11 @@ export default function SubcontractorsManagement() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Wrench className="h-7 w-7 text-blue-600" />
               Subcontractors
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage subcontractor registrations and approvals</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage subcontractor registrations and approvals</p>
           </div>
           <Button onClick={handleOpenCreate} className="gap-2 self-start sm:self-auto">
             <Plus className="h-4 w-4" />
@@ -358,7 +358,7 @@ export default function SubcontractorsManagement() {
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, business, email, skills..."
               value={searchQuery}
@@ -367,13 +367,13 @@ export default function SubcontractorsManagement() {
             />
           </div>
 
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             {(['all', 'approved', 'pending', 'rejected'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                  filter === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  filter === f ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {f} {f === 'all' ? `(${stats.total})` : f === 'approved' ? `(${stats.approved})` : f === 'pending' ? `(${stats.pending})` : `(${stats.rejected})`}
@@ -387,7 +387,7 @@ export default function SubcontractorsManagement() {
         {loading && (
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 animate-pulse">
+              <div key={i} className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border animate-pulse">
                 <div className="h-10 w-10 rounded-full bg-gray-200 shrink-0" />
                 <div className="flex-1 space-y-2">
                   <div className="h-4 w-36 rounded bg-gray-200" />
@@ -401,12 +401,12 @@ export default function SubcontractorsManagement() {
 
         {/* Empty state */}
         {!loading && filteredSubs.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
-            <div className="h-14 w-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <User className="h-7 w-7 text-gray-400" />
+          <div className="bg-card rounded-xl border border-border p-16 text-center">
+            <div className="h-14 w-14 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <User className="h-7 w-7 text-muted-foreground" />
             </div>
-            <p className="text-gray-900 font-medium">No subcontractors found</p>
-            <p className="text-gray-500 text-sm mt-1">Try adjusting your search or filters</p>
+            <p className="text-foreground font-medium">No subcontractors found</p>
+            <p className="text-muted-foreground text-sm mt-1">Try adjusting your search or filters</p>
           </div>
         )}
 
@@ -417,7 +417,7 @@ export default function SubcontractorsManagement() {
               const status = STATUS_CONFIG[sub.status] || STATUS_CONFIG.pending;
               const color = avatarColor(sub.uid);
               return (
-                <div key={sub.uid} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                <div key={sub.uid} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                   <div className={`h-1 w-full bg-gradient-to-r ${color}`} />
 
                   <div className="p-5">
@@ -428,8 +428,8 @@ export default function SubcontractorsManagement() {
                           {getInitials(sub.fullName)}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 text-sm truncate">{sub.fullName}</p>
-                          <p className="text-xs text-gray-500 truncate flex items-center gap-1 mt-0.5">
+                          <p className="font-semibold text-foreground text-sm truncate">{sub.fullName}</p>
+                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
                             <Building className="h-3 w-3 flex-shrink-0" />
                             {sub.businessName}
                           </p>
@@ -442,38 +442,38 @@ export default function SubcontractorsManagement() {
                     </div>
 
                     {/* Details */}
-                    <div className="space-y-2 text-sm text-gray-600">
+                    <div className="space-y-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <Mail className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="truncate">{sub.email}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span>{sub.phone}</span>
                       </div>
                       {sub.licenseNumber && (
                         <div className="flex items-center gap-2">
-                          <Award className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                          <Award className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                           <span className="text-xs">{sub.licenseNumber}</span>
                         </div>
                       )}
                       {sub.password && (
                         <div className="flex items-center gap-2">
-                          <Lock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{sub.password}</span>
+                          <Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{sub.password}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Skills */}
                     {sub.skills && sub.skills.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="mt-3 pt-3 border-t border-border">
                         <div className="flex flex-wrap gap-1">
                           {sub.skills.slice(0, 3).map((skill, i) => (
                             <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
                           ))}
                           {sub.skills.length > 3 && (
-                            <span className="text-xs text-gray-400">+{sub.skills.length - 3}</span>
+                            <span className="text-xs text-muted-foreground">+{sub.skills.length - 3}</span>
                           )}
                         </div>
                       </div>
@@ -493,7 +493,7 @@ export default function SubcontractorsManagement() {
                     )}
 
                     {/* Actions */}
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
+                    <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
                       <Button size="sm" variant="secondary" className="w-full gap-2" onClick={() => router.push(`/admin-portal/subcontractors/${sub.uid}`)}>
                         <Eye className="h-3.5 w-3.5" />
                         View Details
@@ -539,15 +539,15 @@ export default function SubcontractorsManagement() {
 
         {/* List View */}
         {!loading && viewMode === 'list' && filteredSubs.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Subcontractor</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Contact</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Skills</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-                  <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="text-left px-5 py-3 font-medium text-muted-foreground">Subcontractor</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Contact</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Skills</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                  <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -555,21 +555,21 @@ export default function SubcontractorsManagement() {
                   const status = STATUS_CONFIG[sub.status] || STATUS_CONFIG.pending;
                   const color = avatarColor(sub.uid);
                   return (
-                    <tr key={sub.uid} className="hover:bg-gray-50 transition-colors">
+                    <tr key={sub.uid} className="hover:bg-muted transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
                             {getInitials(sub.fullName)}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{sub.fullName}</p>
-                            <p className="text-xs text-gray-500">{sub.businessName}</p>
+                            <p className="font-medium text-foreground">{sub.fullName}</p>
+                            <p className="text-xs text-muted-foreground">{sub.businessName}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3.5 hidden sm:table-cell">
-                        <p className="text-gray-700">{sub.email}</p>
-                        <p className="text-xs text-gray-500">{sub.phone}</p>
+                        <p className="text-foreground">{sub.email}</p>
+                        <p className="text-xs text-muted-foreground">{sub.phone}</p>
                       </td>
                       <td className="px-4 py-3.5 hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
@@ -577,7 +577,7 @@ export default function SubcontractorsManagement() {
                             <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded-full">{skill}</span>
                           ))}
                           {sub.skills && sub.skills.length > 2 && (
-                            <span className="text-xs text-gray-400">+{sub.skills.length - 2}</span>
+                            <span className="text-xs text-muted-foreground">+{sub.skills.length - 2}</span>
                           )}
                         </div>
                       </td>
@@ -649,13 +649,13 @@ export default function SubcontractorsManagement() {
         {/* Create/Edit Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+            <div className="bg-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-900">
+                  <h2 className="text-xl font-semibold text-foreground">
                     {editingId ? 'Edit Subcontractor' : 'Create New Subcontractor'}
                   </h2>
-                  <button onClick={resetForm} className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                  <button onClick={resetForm} className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -664,33 +664,33 @@ export default function SubcontractorsManagement() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Full Name *</Label>
+                    <Label className="text-sm font-medium text-foreground">Full Name *</Label>
                     <Input value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder="John Doe" className="mt-1" />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Business Name *</Label>
+                    <Label className="text-sm font-medium text-foreground">Business Name *</Label>
                     <Input value={formData.businessName} onChange={(e) => setFormData({ ...formData, businessName: e.target.value })} placeholder="ABC Services" className="mt-1" />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Email *</Label>
+                    <Label className="text-sm font-medium text-foreground">Email *</Label>
                     <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="abc@gmail.com" disabled={!!editingId} className="mt-1" />
                     {!editingId && <p className="text-xs text-emerald-600 mt-1">An invitation email will be sent to set up password</p>}
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Phone *</Label>
+                    <Label className="text-sm font-medium text-foreground">Phone *</Label>
                     <Input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="(555) 123-4567" className="mt-1" />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">License Number</Label>
+                    <Label className="text-sm font-medium text-foreground">License Number</Label>
                     <Input value={formData.licenseNumber} onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })} placeholder="Optional" className="mt-1" />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Status *</Label>
+                    <Label className="text-sm font-medium text-foreground">Status *</Label>
                     <SearchableSelect
                       className="mt-1"
                       value={formData.status}
@@ -702,8 +702,8 @@ export default function SubcontractorsManagement() {
 
                   {editingId && (
                     <div className="md:col-span-2">
-                      <Label className="text-sm font-medium text-gray-700">Password (View Only)</Label>
-                      <Input type="text" value={formData.password || ''} readOnly className="mt-1 bg-gray-50 cursor-default font-mono" placeholder="Not set yet" />
+                      <Label className="text-sm font-medium text-foreground">Password (View Only)</Label>
+                      <Input type="text" value={formData.password || ''} readOnly className="mt-1 bg-muted cursor-default font-mono" placeholder="Not set yet" />
                       <p className={`text-xs mt-1 flex items-center gap-1 ${formData.password ? 'text-emerald-600' : 'text-amber-600'}`}>
                         <span className={`inline-block w-1.5 h-1.5 rounded-full ${formData.password ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                         {formData.password ? 'Password set by subcontractor' : 'Waiting for subcontractor to set password'}
@@ -712,7 +712,7 @@ export default function SubcontractorsManagement() {
                   )}
 
                   <div className="md:col-span-2">
-                    <Label className="text-sm font-medium text-gray-700">Skills *</Label>
+                    <Label className="text-sm font-medium text-foreground">Skills *</Label>
                     <SearchableMultiSelect
                       className="mt-1"
                       values={selectedSkills}
@@ -726,7 +726,7 @@ export default function SubcontractorsManagement() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                <div className="flex gap-3 pt-4 border-t border-border">
                   <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>
                     <Save className="h-4 w-4" />
                     {submitting ? 'Saving...' : editingId ? 'Update Subcontractor' : 'Create Subcontractor'}
@@ -741,16 +741,16 @@ export default function SubcontractorsManagement() {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && subToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <Trash2 className="h-5 w-5 text-red-600" />
                   </div>
-                  <h2 className="text-lg font-semibold text-gray-900">Delete Subcontractor</h2>
+                  <h2 className="text-lg font-semibold text-foreground">Delete Subcontractor</h2>
                 </div>
-                <p className="text-gray-600 text-sm mb-4">
-                  Are you sure you want to delete <strong className="text-gray-900">"{subToDelete.fullName}"</strong>?
+                <p className="text-muted-foreground text-sm mb-4">
+                  Are you sure you want to delete <strong className="text-foreground">"{subToDelete.fullName}"</strong>?
                 </p>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 text-sm text-amber-800">
                   <p className="font-medium mb-1">This will also delete:</p>

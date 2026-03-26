@@ -186,12 +186,12 @@ export default function ClientInvoiceDetail() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      draft: 'bg-gray-100 text-gray-800',
+      draft: 'bg-muted text-foreground',
       sent: 'bg-blue-100 text-blue-800',
       paid: 'bg-green-100 text-green-800',
       overdue: 'bg-red-100 text-red-800',
     };
-    return styles[status] || 'bg-gray-100 text-gray-800';
+    return styles[status] || 'bg-muted text-foreground';
   };
 
   const getStatusLabel = (status: string) => {
@@ -219,9 +219,9 @@ export default function ClientInvoiceDetail() {
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <Receipt className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Invoice not found</h3>
-            <p className="text-gray-600 mb-4">This invoice does not exist or you do not have access.</p>
+            <Receipt className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">Invoice not found</h3>
+            <p className="text-muted-foreground mb-4">This invoice does not exist or you do not have access.</p>
             <Link href="/client-portal/invoices">
               <Button>
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -253,7 +253,7 @@ export default function ClientInvoiceDetail() {
           <CardHeader>
             <div>
               <CardTitle className="text-2xl mb-2">{invoice.invoiceNumber}</CardTitle>
-              <p className="text-sm text-gray-600">{invoice.workOrderTitle}</p>
+              <p className="text-sm text-muted-foreground">{invoice.workOrderTitle}</p>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -261,15 +261,15 @@ export default function ClientInvoiceDetail() {
               <div className="flex items-center gap-2">
                 <Receipt className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Amount</p>
-                  <p className="text-3xl font-bold text-gray-900">${invoice.totalAmount.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">Total Amount</p>
+                  <p className="text-3xl font-bold text-foreground">${invoice.totalAmount.toLocaleString()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-gray-500" />
+                <Calendar className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm text-gray-600">Due Date</p>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm text-muted-foreground">Due Date</p>
+                  <p className="text-sm font-medium text-foreground">
                     {invoice.dueDate?.toDate?.()?.toLocaleDateString() || 'N/A'}
                   </p>
                 </div>
@@ -285,15 +285,15 @@ export default function ClientInvoiceDetail() {
             )}
             {invoice.lineItems && invoice.lineItems.length > 0 && (
               <div className="border-t pt-6">
-                <h4 className="font-semibold text-gray-900 mb-3">Line Items</h4>
+                <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-2 text-left font-semibold text-gray-700">Description</th>
-                        <th className="px-4 py-2 text-center font-semibold text-gray-700">Qty</th>
-                        <th className="px-4 py-2 text-right font-semibold text-gray-700">Rate</th>
-                        <th className="px-4 py-2 text-right font-semibold text-gray-700">Amount</th>
+                        <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
+                        <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
+                        <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
+                        <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">

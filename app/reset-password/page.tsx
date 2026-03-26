@@ -133,7 +133,7 @@ function ResetPasswordForm() {
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Verifying reset link...</p>
+              <p className="mt-4 text-muted-foreground">Verifying reset link...</p>
             </div>
           </CardContent>
         </Card>
@@ -156,7 +156,7 @@ function ResetPasswordForm() {
             <Link href="/forgot-password">
               <Button className="w-full">Request New Reset Link</Button>
             </Link>
-            <Link href="/portal-login" className="text-sm text-center text-gray-600 hover:underline">
+            <Link href="/portal-login" className="text-sm text-center text-muted-foreground hover:underline">
               ← Back to Login
             </Link>
           </CardFooter>
@@ -182,7 +182,7 @@ function ResetPasswordForm() {
             <Link href="/portal-login">
               <Button className="w-full">Go to Login</Button>
             </Link>
-            <Link href="/" className="text-sm text-center text-gray-600 hover:underline flex items-center justify-center gap-1">
+            <Link href="/" className="text-sm text-center text-muted-foreground hover:underline flex items-center justify-center gap-1">
               <ArrowLeft className="w-4 h-4" />
               Back to Home
             </Link>
@@ -198,7 +198,7 @@ function ResetPasswordForm() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-gray-600">Please wait while we verify your reset link...</p>
+              <p className="text-muted-foreground">Please wait while we verify your reset link...</p>
             </div>
           </CardContent>
         </Card>
@@ -241,7 +241,7 @@ function ResetPasswordForm() {
                 minLength={6}
               />
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
               <p>Password must be at least 6 characters long.</p>
             </div>
           </CardContent>
@@ -253,7 +253,7 @@ function ResetPasswordForm() {
             >
               {loading ? 'Updating Password...' : 'Update Password'}
             </Button>
-            <Link href="/portal-login" className="text-sm text-center text-gray-600 hover:underline">
+            <Link href="/portal-login" className="text-sm text-center text-muted-foreground hover:underline">
               ← Back to Login
             </Link>
           </CardFooter>
@@ -271,7 +271,7 @@ export default function ResetPassword() {
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading...</p>
+              <p className="mt-4 text-muted-foreground">Loading...</p>
             </div>
           </CardContent>
         </Card>

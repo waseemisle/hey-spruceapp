@@ -1165,23 +1165,23 @@ export default function RecurringWorkOrdersImportModal({
                 disabled={isProcessing || isImporting}
               />
               <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-sm text-gray-600 mb-2">
+                <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground mb-2">
                   Click to upload or drag and drop
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   CSV, XLSX, or XLS files only
                 </p>
               </label>
               {file && (
-                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-700">
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-foreground">
                   <FileText className="h-4 w-4" />
                   <span>{file.name}</span>
                 </div>
               )}
             </div>
             {isProcessing && (
-              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
+              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Processing file...</span>
               </div>
@@ -1190,8 +1190,8 @@ export default function RecurringWorkOrdersImportModal({
 
           {/* Import Mode Selector */}
           {parsedData.length > 0 && (
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">
+            <div className="p-4 bg-muted border border-border rounded-lg">
+              <Label className="text-sm font-medium text-foreground mb-3 block">
                 Import Mode
               </Label>
               <div className="flex gap-3">
@@ -1202,10 +1202,10 @@ export default function RecurringWorkOrdersImportModal({
                   className={`flex-1 flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
                     importMode === 'create'
                       ? 'border-blue-500 bg-blue-50 text-blue-800'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      : 'border-border bg-card text-muted-foreground hover:border-gray-300'
                   }`}
                 >
-                  <Plus className={`h-5 w-5 ${importMode === 'create' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <Plus className={`h-5 w-5 ${importMode === 'create' ? 'text-blue-600' : 'text-muted-foreground'}`} />
                   <div className="text-left">
                     <div className="font-medium text-sm">Create New</div>
                     <div className="text-xs opacity-75">Create all rows as new recurring work orders</div>
@@ -1218,10 +1218,10 @@ export default function RecurringWorkOrdersImportModal({
                   className={`flex-1 flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
                     importMode === 'update_or_create'
                       ? 'border-green-500 bg-green-50 text-green-800'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      : 'border-border bg-card text-muted-foreground hover:border-gray-300'
                   }`}
                 >
-                  <RefreshCw className={`h-5 w-5 ${importMode === 'update_or_create' ? 'text-green-600' : 'text-gray-400'}`} />
+                  <RefreshCw className={`h-5 w-5 ${importMode === 'update_or_create' ? 'text-green-600' : 'text-muted-foreground'}`} />
                   <div className="text-left">
                     <div className="font-medium text-sm">Update or Create</div>
                     <div className="text-xs opacity-75">Update existing orders (match by Location + Service Type + Frequency), create new if not found</div>
@@ -1239,9 +1239,9 @@ export default function RecurringWorkOrdersImportModal({
 
           {/* Location Mapping Section */}
           {parsedData.length > 0 && uniqueRestaurants.length > 0 && (
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="p-4 bg-muted border border-border rounded-lg">
               <div className="flex items-center justify-between mb-3">
-                <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <Label className="text-sm font-medium text-foreground flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
                   Location Mapping
                 </Label>
@@ -1255,11 +1255,11 @@ export default function RecurringWorkOrdersImportModal({
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-100">
+                  <thead className="bg-muted">
                     <tr>
-                      <th className="p-2 text-left border-b text-xs font-medium text-gray-600">Restaurant (from file)</th>
-                      <th className="p-2 text-left border-b text-xs font-medium text-gray-600">Mapped Location</th>
-                      <th className="p-2 text-left border-b text-xs font-medium text-gray-600 w-16">Status</th>
+                      <th className="p-2 text-left border-b text-xs font-medium text-muted-foreground">Restaurant (from file)</th>
+                      <th className="p-2 text-left border-b text-xs font-medium text-muted-foreground">Mapped Location</th>
+                      <th className="p-2 text-left border-b text-xs font-medium text-muted-foreground w-16">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1269,12 +1269,12 @@ export default function RecurringWorkOrdersImportModal({
                         ? locations.find(l => l.id === locationMap[restaurant])
                         : null;
                       return (
-                        <tr key={restaurant} className={isMapped ? 'bg-white' : 'bg-amber-50'}>
+                        <tr key={restaurant} className={isMapped ? 'bg-card' : 'bg-amber-50'}>
                           <td className="p-2 border-b text-xs font-medium">{restaurant}</td>
                           <td className="p-2 border-b">
                             {isMapped && !unmappedRestaurants.includes(restaurant) ? (
                               <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-700">{mappedLocation?.locationName || locationMap[restaurant]}</span>
+                                <span className="text-xs text-foreground">{mappedLocation?.locationName || locationMap[restaurant]}</span>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1348,12 +1348,12 @@ export default function RecurringWorkOrdersImportModal({
                   )}
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-gray-700">{validRows.length} valid</span>
+                    <span className="text-foreground">{validRows.length} valid</span>
                   </div>
                   {invalidRows.length > 0 && (
                     <div className="flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-red-600" />
-                      <span className="text-gray-700">{invalidRows.length} with errors</span>
+                      <span className="text-foreground">{invalidRows.length} with errors</span>
                     </div>
                   )}
                 </div>
@@ -1368,8 +1368,8 @@ export default function RecurringWorkOrdersImportModal({
               )}
 
               {/* Global Client Selector */}
-              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <Label htmlFor="global-client-select" className="text-sm font-medium text-gray-700 mb-2 block">
+              <div className="mb-4 p-3 bg-muted border border-border rounded-lg">
+                <Label htmlFor="global-client-select" className="text-sm font-medium text-foreground mb-2 block">
                   Apply Client to All Orders
                 </Label>
                 <SearchableSelect
@@ -1388,7 +1388,7 @@ export default function RecurringWorkOrdersImportModal({
                   aria-label="Apply client to all orders"
                   disabled={isImporting}
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   This will apply the selected client to all orders. You can still override individual orders below.
                 </p>
               </div>
@@ -1447,12 +1447,12 @@ export default function RecurringWorkOrdersImportModal({
                                     <td className="p-2 border-b text-xs whitespace-nowrap">
                                       {oldLastServiced !== newLastServiced ? (
                                         <span>
-                                          <span className="text-gray-400 line-through">{oldLastServiced}</span>
+                                          <span className="text-muted-foreground line-through">{oldLastServiced}</span>
                                           <ArrowRight className="inline h-3 w-3 mx-1 text-green-600" />
                                           <span className="font-medium text-green-700">{newLastServiced}</span>
                                         </span>
                                       ) : (
-                                        <span className="text-gray-500">{newLastServiced}</span>
+                                        <span className="text-muted-foreground">{newLastServiced}</span>
                                       )}
                                     </td>
                                     {[0, 1, 2, 3, 4].map(dateIdx => {
@@ -1463,12 +1463,12 @@ export default function RecurringWorkOrdersImportModal({
                                         <td key={dateIdx} className="p-2 border-b text-xs whitespace-nowrap">
                                           {changed ? (
                                             <span>
-                                              <span className="text-gray-400 line-through">{oldVal}</span>
+                                              <span className="text-muted-foreground line-through">{oldVal}</span>
                                               <ArrowRight className="inline h-3 w-3 mx-1 text-green-600" />
                                               <span className="font-medium text-green-700">{newVal}</span>
                                             </span>
                                           ) : (
-                                            <span className="text-gray-500">{newVal}</span>
+                                            <span className="text-muted-foreground">{newVal}</span>
                                           )}
                                         </td>
                                       );
@@ -1534,7 +1534,7 @@ export default function RecurringWorkOrdersImportModal({
                     {creatingOpen && (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                          <thead className="bg-gray-50">
+                          <thead className="bg-muted">
                             <tr>
                               <th className="p-2 text-left border-b">Row</th>
                               <th className="p-2 text-left border-b">Restaurant</th>
@@ -1548,7 +1548,7 @@ export default function RecurringWorkOrdersImportModal({
                           </thead>
                           <tbody>
                             {currentCreatingRows.map((row) => (
-                              <tr key={row.rowNumber} className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                              <tr key={row.rowNumber} className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-muted'}>
                                 <td className="p-2 border-b">{row.rowNumber}</td>
                                 <td className="p-2 border-b">{row.restaurant || '-'}</td>
                                 <td className="p-2 border-b">{row.serviceType || '-'}</td>
@@ -1564,7 +1564,7 @@ export default function RecurringWorkOrdersImportModal({
                                       disabled={isImporting}
                                     />
                                   ) : (
-                                    <span className="text-gray-400 text-xs">-</span>
+                                    <span className="text-muted-foreground text-xs">-</span>
                                   )}
                                 </td>
                                 <td className="p-2 border-b text-xs whitespace-nowrap">
@@ -1585,7 +1585,7 @@ export default function RecurringWorkOrdersImportModal({
                                       disabled={isImporting}
                                     />
                                   ) : (
-                                    <span className="text-gray-400 text-xs">Fix errors first</span>
+                                    <span className="text-muted-foreground text-xs">Fix errors first</span>
                                   )}
                                 </td>
                                 <td className="p-2 border-b">
@@ -1603,7 +1603,7 @@ export default function RecurringWorkOrdersImportModal({
                                       disabled={isImporting}
                                     />
                                   ) : (
-                                    <span className="text-gray-400 text-xs">Fix errors first</span>
+                                    <span className="text-muted-foreground text-xs">Fix errors first</span>
                                   )}
                                 </td>
                                 <td className="p-2 border-b">
@@ -1626,8 +1626,8 @@ export default function RecurringWorkOrdersImportModal({
 
                         {/* Pagination Controls for Creating section */}
                         {creatingRows.length > 0 && (
-                          <div className="border-t bg-gray-50 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <div className="border-t bg-muted p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-sm text-foreground">
                               <span>Rows per page:</span>
                               <SearchableSelect
                                 className="w-20 min-w-[4.5rem]"
@@ -1641,7 +1641,7 @@ export default function RecurringWorkOrdersImportModal({
                                 aria-label="Rows per page"
                                 disabled={isImporting}
                               />
-                              <span className="text-gray-600">
+                              <span className="text-muted-foreground">
                                 Showing {startIndexCreating + 1} to {Math.min(endIndexCreating, creatingRows.length)} of {creatingRows.length} rows
                               </span>
                             </div>
@@ -1653,7 +1653,7 @@ export default function RecurringWorkOrdersImportModal({
                                 <ChevronLeft className="h-4 w-4" />
                               </Button>
                               <div className="flex items-center gap-1 px-2">
-                                <span className="text-sm text-gray-700">
+                                <span className="text-sm text-foreground">
                                   Page <strong>{currentPage}</strong> of <strong>{totalPagesCreating || 1}</strong>
                                 </span>
                               </div>
@@ -1674,7 +1674,7 @@ export default function RecurringWorkOrdersImportModal({
                 /* ===== SINGLE TABLE (create mode or no match results yet) ===== */
                 <div className="overflow-x-auto border rounded-lg">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
                         <th className="p-2 text-left border-b">Row</th>
                         <th className="p-2 text-left border-b">Restaurant</th>
@@ -1690,7 +1690,7 @@ export default function RecurringWorkOrdersImportModal({
                       {currentRows.map((row) => (
                         <tr
                           key={row.rowNumber}
-                          className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-gray-50'}
+                          className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-muted'}
                         >
                           <td className="p-2 border-b">{row.rowNumber}</td>
                           <td className="p-2 border-b">{row.restaurant || '-'}</td>
@@ -1707,7 +1707,7 @@ export default function RecurringWorkOrdersImportModal({
                                 disabled={isImporting}
                               />
                             ) : (
-                              <span className="text-gray-400 text-xs">-</span>
+                              <span className="text-muted-foreground text-xs">-</span>
                             )}
                           </td>
                           <td className="p-2 border-b text-xs whitespace-nowrap">
@@ -1728,7 +1728,7 @@ export default function RecurringWorkOrdersImportModal({
                                 disabled={isImporting}
                               />
                             ) : (
-                              <span className="text-gray-400 text-xs">Fix errors first</span>
+                              <span className="text-muted-foreground text-xs">Fix errors first</span>
                             )}
                           </td>
                           <td className="p-2 border-b">
@@ -1746,7 +1746,7 @@ export default function RecurringWorkOrdersImportModal({
                                 disabled={isImporting}
                               />
                             ) : (
-                              <span className="text-gray-400 text-xs">Fix errors first</span>
+                              <span className="text-muted-foreground text-xs">Fix errors first</span>
                             )}
                           </td>
                           <td className="p-2 border-b">
@@ -1769,8 +1769,8 @@ export default function RecurringWorkOrdersImportModal({
 
                   {/* Pagination Controls */}
                   {parsedData.length > 0 && (
-                    <div className="border-t bg-gray-50 p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <div className="border-t bg-muted p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm text-foreground">
                         <span>Rows per page:</span>
                         <SearchableSelect
                           className="w-20 min-w-[4.5rem]"
@@ -1784,7 +1784,7 @@ export default function RecurringWorkOrdersImportModal({
                           aria-label="Rows per page"
                           disabled={isImporting}
                         />
-                        <span className="text-gray-600">
+                        <span className="text-muted-foreground">
                           Showing {startIndex + 1} to {Math.min(endIndex, parsedData.length)} of {parsedData.length} rows
                         </span>
                       </div>
@@ -1810,7 +1810,7 @@ export default function RecurringWorkOrdersImportModal({
                         </Button>
 
                         <div className="flex items-center gap-1 px-2">
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-foreground">
                             Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
                           </span>
                         </div>

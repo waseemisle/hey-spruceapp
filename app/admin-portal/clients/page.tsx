@@ -314,11 +314,11 @@ export default function ClientsManagement() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Users className="h-7 w-7 text-blue-600" />
               Clients
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage client registrations and approvals</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage client registrations and approvals</p>
           </div>
           <Button onClick={handleOpenCreate} className="gap-2 self-start sm:self-auto">
             <Plus className="h-4 w-4" />
@@ -348,7 +348,7 @@ export default function ClientsManagement() {
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, email, phone, or company..."
               value={searchQuery}
@@ -358,13 +358,13 @@ export default function ClientsManagement() {
           </div>
 
           {/* Filter tabs */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             {(['all', 'approved', 'pending', 'rejected'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                  filter === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                  filter === f ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {f} {f === 'all' ? `(${stats.total})` : f === 'approved' ? `(${stats.approved})` : f === 'pending' ? `(${stats.pending})` : `(${stats.rejected})`}
@@ -378,7 +378,7 @@ export default function ClientsManagement() {
         {loading && (
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200 animate-pulse">
+              <div key={i} className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border animate-pulse">
                 <div className="h-10 w-10 rounded-full bg-gray-200 shrink-0" />
                 <div className="flex-1 space-y-2">
                   <div className="h-4 w-32 rounded bg-gray-200" />
@@ -392,12 +392,12 @@ export default function ClientsManagement() {
 
         {/* Empty state */}
         {!loading && filteredClients.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
-            <div className="h-14 w-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <User className="h-7 w-7 text-gray-400" />
+          <div className="bg-card rounded-xl border border-border p-16 text-center">
+            <div className="h-14 w-14 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <User className="h-7 w-7 text-muted-foreground" />
             </div>
-            <p className="text-gray-900 font-medium">No clients found</p>
-            <p className="text-gray-500 text-sm mt-1">Try adjusting your search or filters</p>
+            <p className="text-foreground font-medium">No clients found</p>
+            <p className="text-muted-foreground text-sm mt-1">Try adjusting your search or filters</p>
           </div>
         )}
 
@@ -409,7 +409,7 @@ export default function ClientsManagement() {
               const color = avatarColor(client.uid);
               const clientLocations = locations.filter(l => l.clientId === client.uid || (client.companyId && l.companyId === client.companyId));
               return (
-                <div key={client.uid} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                <div key={client.uid} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                   {/* Color bar */}
                   <div className={`h-1 w-full bg-gradient-to-r ${color}`} />
 
@@ -421,9 +421,9 @@ export default function ClientsManagement() {
                           {getInitials(client.fullName)}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-semibold text-gray-900 text-sm truncate">{client.fullName}</p>
+                          <p className="font-semibold text-foreground text-sm truncate">{client.fullName}</p>
                           {client.companyName && (
-                            <p className="text-xs text-gray-500 truncate flex items-center gap-1 mt-0.5">
+                            <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
                               <Building className="h-3 w-3 flex-shrink-0" />
                               {client.companyName}
                             </p>
@@ -437,27 +437,27 @@ export default function ClientsManagement() {
                     </div>
 
                     {/* Details */}
-                    <div className="space-y-2 text-sm text-gray-600">
+                    <div className="space-y-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <Mail className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="truncate">{client.email}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Phone className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span>{client.phone}</span>
                       </div>
                       {client.password && (
                         <div className="flex items-center gap-2">
-                          <Lock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{client.password}</span>
+                          <Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{client.password}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Locations */}
                     {clientLocations.length > 0 ? (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs font-medium text-gray-500 flex items-center gap-1 mb-1.5">
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1.5">
                           <MapPin className="h-3 w-3" />
                           {clientLocations.length} location{clientLocations.length !== 1 ? 's' : ''}
                         </p>
@@ -468,12 +468,12 @@ export default function ClientsManagement() {
                             </span>
                           ))}
                           {clientLocations.length > 2 && (
-                            <span className="text-xs text-gray-400">+{clientLocations.length - 2}</span>
+                            <span className="text-xs text-muted-foreground">+{clientLocations.length - 2}</span>
                           )}
                         </div>
                       </div>
                     ) : (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="mt-3 pt-3 border-t border-border">
                         <p className="text-xs text-amber-600 flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
                           No locations assigned
@@ -482,7 +482,7 @@ export default function ClientsManagement() {
                     )}
 
                     {/* Actions */}
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
+                    <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
                       <Button size="sm" variant="secondary" className="w-full gap-2" onClick={() => router.push(`/admin-portal/clients/${client.uid}`)}>
                         <Eye className="h-3.5 w-3.5" />
                         View Details
@@ -518,15 +518,15 @@ export default function ClientsManagement() {
 
         {/* List View */}
         {!loading && viewMode === 'list' && filteredClients.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Client</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Contact</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Locations</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-                  <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="text-left px-5 py-3 font-medium text-muted-foreground">Client</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Contact</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Locations</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                  <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -535,21 +535,21 @@ export default function ClientsManagement() {
                   const color = avatarColor(client.uid);
                   const clientLocations = locations.filter(l => l.clientId === client.uid || (client.companyId && l.companyId === client.companyId));
                   return (
-                    <tr key={client.uid} className="hover:bg-gray-50 transition-colors">
+                    <tr key={client.uid} className="hover:bg-muted transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
                             {getInitials(client.fullName)}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{client.fullName}</p>
-                            {client.companyName && <p className="text-xs text-gray-500">{client.companyName}</p>}
+                            <p className="font-medium text-foreground">{client.fullName}</p>
+                            {client.companyName && <p className="text-xs text-muted-foreground">{client.companyName}</p>}
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3.5 hidden sm:table-cell">
-                        <p className="text-gray-700">{client.email}</p>
-                        <p className="text-xs text-gray-500">{client.phone}</p>
+                        <p className="text-foreground">{client.email}</p>
+                        <p className="text-xs text-muted-foreground">{client.phone}</p>
                       </td>
                       <td className="px-4 py-3.5 hidden md:table-cell">
                         {clientLocations.length > 0 ? (
@@ -600,13 +600,13 @@ export default function ClientsManagement() {
         {/* Create/Edit Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+            <div className="bg-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-900">
+                  <h2 className="text-xl font-semibold text-foreground">
                     {editingId ? 'Edit Client' : 'Create New Client'}
                   </h2>
-                  <button onClick={resetForm} className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                  <button onClick={resetForm} className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -615,7 +615,7 @@ export default function ClientsManagement() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Full Name *</Label>
+                    <Label className="text-sm font-medium text-foreground">Full Name *</Label>
                     <Input
                       value={formData.fullName}
                       onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
@@ -625,7 +625,7 @@ export default function ClientsManagement() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Company</Label>
+                    <Label className="text-sm font-medium text-foreground">Company</Label>
                     <SearchableSelect
                       className="mt-1 w-full"
                       value={formData.companyId}
@@ -640,12 +640,12 @@ export default function ClientsManagement() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label className="text-sm font-medium text-gray-700">Assigned Locations *</Label>
-                    <div className="mt-1 border border-gray-200 rounded-lg p-3 max-h-52 overflow-y-auto bg-white">
+                    <Label className="text-sm font-medium text-foreground">Assigned Locations *</Label>
+                    <div className="mt-1 border border-border rounded-lg p-3 max-h-52 overflow-y-auto bg-card">
                       {formData.companyId ? (
                         locations.filter(loc => loc.companyId === formData.companyId).length > 0 ? (
                           locations.filter(loc => loc.companyId === formData.companyId).map((location) => (
-                            <label key={location.id} className="flex items-center gap-2.5 py-2 px-2 hover:bg-gray-50 rounded-lg cursor-pointer">
+                            <label key={location.id} className="flex items-center gap-2.5 py-2 px-2 hover:bg-muted rounded-lg cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={formData.assignedLocations.includes(location.id)}
@@ -659,20 +659,20 @@ export default function ClientsManagement() {
                                 }}
                                 className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                               />
-                              <span className="text-sm text-gray-700">{location.locationName}</span>
+                              <span className="text-sm text-foreground">{location.locationName}</span>
                             </label>
                           ))
                         ) : (
-                          <p className="text-sm text-gray-400 italic text-center py-4">No locations for this company.</p>
+                          <p className="text-sm text-muted-foreground italic text-center py-4">No locations for this company.</p>
                         )
                       ) : (
-                        <p className="text-sm text-gray-400 italic text-center py-4">Select a company to see locations.</p>
+                        <p className="text-sm text-muted-foreground italic text-center py-4">Select a company to see locations.</p>
                       )}
                     </div>
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Email *</Label>
+                    <Label className="text-sm font-medium text-foreground">Email *</Label>
                     <Input
                       type="email"
                       value={formData.email}
@@ -685,7 +685,7 @@ export default function ClientsManagement() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Phone *</Label>
+                    <Label className="text-sm font-medium text-foreground">Phone *</Label>
                     <Input
                       type="tel"
                       value={formData.phone}
@@ -697,12 +697,12 @@ export default function ClientsManagement() {
 
                   {editingId && (
                     <div className="md:col-span-2">
-                      <Label className="text-sm font-medium text-gray-700">Password (View Only)</Label>
+                      <Label className="text-sm font-medium text-foreground">Password (View Only)</Label>
                       <Input
                         type="text"
                         value={formData.password || ''}
                         readOnly
-                        className="mt-1 bg-gray-50 cursor-default font-mono"
+                        className="mt-1 bg-muted cursor-default font-mono"
                         placeholder="Not set yet"
                       />
                       <p className={`text-xs mt-1 flex items-center gap-1 ${formData.password ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -713,7 +713,7 @@ export default function ClientsManagement() {
                   )}
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700">Status *</Label>
+                    <Label className="text-sm font-medium text-foreground">Status *</Label>
                     <SearchableSelect
                       className="mt-1 w-full"
                       value={formData.status}
@@ -729,7 +729,7 @@ export default function ClientsManagement() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                <div className="flex gap-3 pt-4 border-t border-border">
                   <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>
                     <Save className="h-4 w-4" />
                     {submitting ? 'Saving...' : editingId ? 'Update Client' : 'Create Client'}
@@ -744,16 +744,16 @@ export default function ClientsManagement() {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && clientToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <Trash2 className="h-5 w-5 text-red-600" />
                   </div>
-                  <h2 className="text-lg font-semibold text-gray-900">Delete Client</h2>
+                  <h2 className="text-lg font-semibold text-foreground">Delete Client</h2>
                 </div>
-                <p className="text-gray-600 text-sm mb-4">
-                  Are you sure you want to delete <strong className="text-gray-900">"{clientToDelete.fullName || clientToDelete.companyName}"</strong>?
+                <p className="text-muted-foreground text-sm mb-4">
+                  Are you sure you want to delete <strong className="text-foreground">"{clientToDelete.fullName || clientToDelete.companyName}"</strong>?
                 </p>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 text-sm text-amber-800">
                   <p className="font-medium mb-1">This will permanently delete:</p>

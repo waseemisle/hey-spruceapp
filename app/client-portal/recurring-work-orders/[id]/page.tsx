@@ -108,7 +108,7 @@ export default function ClientRecurringWorkOrderDetails() {
       case 'active': return 'text-green-600 bg-green-50';
       case 'paused': return 'text-yellow-600 bg-yellow-50';
       case 'cancelled': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -117,7 +117,7 @@ export default function ClientRecurringWorkOrderDetails() {
       case 'high': return 'text-red-600 bg-red-50';
       case 'medium': return 'text-orange-600 bg-orange-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -147,7 +147,7 @@ export default function ClientRecurringWorkOrderDetails() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-600">You do not have permission to view this recurring work order</p>
+            <p className="text-muted-foreground">You do not have permission to view this recurring work order</p>
           </div>
         </div>
       </ClientLayout>
@@ -165,9 +165,9 @@ export default function ClientRecurringWorkOrderDetails() {
             </Button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">{recurringWorkOrder.title}</h1>
+            <h1 className="text-3xl font-bold text-foreground">{recurringWorkOrder.title}</h1>
             {recurringWorkOrder.workOrderNumber && (
-              <p className="text-gray-600 mt-1">Work Order: {recurringWorkOrder.workOrderNumber}</p>
+              <p className="text-muted-foreground mt-1">Work Order: {recurringWorkOrder.workOrderNumber}</p>
             )}
           </div>
           <div className="flex gap-2">
@@ -194,23 +194,23 @@ export default function ClientRecurringWorkOrderDetails() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-1">Description</p>
-                <p className="text-gray-900">{recurringWorkOrder.description}</p>
+                <p className="text-sm font-semibold text-foreground mb-1">Description</p>
+                <p className="text-foreground">{recurringWorkOrder.description}</p>
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-1">Category</p>
-                <p className="text-gray-900">{recurringWorkOrder.category}</p>
+                <p className="text-sm font-semibold text-foreground mb-1">Category</p>
+                <p className="text-foreground">{recurringWorkOrder.category}</p>
               </div>
 
               {recurringWorkOrder.locationName && (
                 <div className="flex items-start gap-2">
-                  <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-700 mb-1">Location</p>
-                    <p className="text-gray-900">{recurringWorkOrder.locationName}</p>
+                    <p className="text-sm font-semibold text-foreground mb-1">Location</p>
+                    <p className="text-foreground">{recurringWorkOrder.locationName}</p>
                     {recurringWorkOrder.locationAddress && (
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-muted-foreground mt-1">
                         {formatAddress(recurringWorkOrder.locationAddress)}
                       </p>
                     )}
@@ -220,10 +220,10 @@ export default function ClientRecurringWorkOrderDetails() {
 
               {recurringWorkOrder.estimateBudget && (
                 <div className="flex items-start gap-2">
-                  <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-700 mb-1">Estimate Budget</p>
-                    <p className="text-gray-900">${recurringWorkOrder.estimateBudget.toLocaleString()}</p>
+                    <p className="text-sm font-semibold text-foreground mb-1">Estimate Budget</p>
+                    <p className="text-foreground">${recurringWorkOrder.estimateBudget.toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -237,19 +237,19 @@ export default function ClientRecurringWorkOrderDetails() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start gap-2">
-                <RotateCcw className="h-5 w-5 text-gray-400 mt-0.5" />
+                <RotateCcw className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-700 mb-1">Recurrence Pattern</p>
-                  <p className="text-gray-900">{formatRecurrencePattern(recurringWorkOrder)}</p>
+                  <p className="text-sm font-semibold text-foreground mb-1">Recurrence Pattern</p>
+                  <p className="text-foreground">{formatRecurrencePattern(recurringWorkOrder)}</p>
                 </div>
               </div>
 
               {recurringWorkOrder.nextExecution && (
                 <div className="flex items-start gap-2">
-                  <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-700 mb-1">Next Execution</p>
-                    <p className="text-gray-900">
+                    <p className="text-sm font-semibold text-foreground mb-1">Next Execution</p>
+                    <p className="text-foreground">
                       {new Date(recurringWorkOrder.nextExecution).toLocaleDateString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
@@ -263,10 +263,10 @@ export default function ClientRecurringWorkOrderDetails() {
 
               {recurringWorkOrder.lastExecution && (
                 <div className="flex items-start gap-2">
-                  <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
+                  <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-700 mb-1">Last Execution</p>
-                    <p className="text-gray-900">
+                    <p className="text-sm font-semibold text-foreground mb-1">Last Execution</p>
+                    <p className="text-foreground">
                       {new Date(recurringWorkOrder.lastExecution).toLocaleDateString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
@@ -279,10 +279,10 @@ export default function ClientRecurringWorkOrderDetails() {
               )}
 
               <div className="flex items-start gap-2">
-                <CheckCircle className="h-5 w-5 text-gray-400 mt-0.5" />
+                <CheckCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-700 mb-1">Execution Statistics</p>
-                  <p className="text-gray-900">
+                  <p className="text-sm font-semibold text-foreground mb-1">Execution Statistics</p>
+                  <p className="text-foreground">
                     {recurringWorkOrder.successfulExecutions} successful / {recurringWorkOrder.totalExecutions} total
                   </p>
                   {recurringWorkOrder.failedExecutions > 0 && (
@@ -295,14 +295,14 @@ export default function ClientRecurringWorkOrderDetails() {
 
               {recurringWorkOrder.invoiceSchedule && (
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-1">Invoice Schedule</p>
-                  <p className="text-gray-900">
+                  <p className="text-sm font-semibold text-foreground mb-1">Invoice Schedule</p>
+                  <p className="text-foreground">
                     {recurringWorkOrder.invoiceSchedule.type === 'monthly' 
                       ? `Monthly on day ${recurringWorkOrder.invoiceSchedule.dayOfMonth || 1}`
                       : 'Custom schedule'}
                   </p>
                   {recurringWorkOrder.invoiceSchedule.time && (
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Time: {recurringWorkOrder.invoiceSchedule.time}
                     </p>
                   )}
@@ -318,7 +318,7 @@ export default function ClientRecurringWorkOrderDetails() {
                 <CardTitle>Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-900 whitespace-pre-wrap">{recurringWorkOrder.notes}</p>
+                <p className="text-foreground whitespace-pre-wrap">{recurringWorkOrder.notes}</p>
               </CardContent>
             </Card>
           )}

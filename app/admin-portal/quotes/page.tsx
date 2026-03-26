@@ -505,7 +505,7 @@ function QuotesContent() {
       case 'sent_to_client': return 'text-blue-600 bg-blue-50';
       case 'accepted': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -514,8 +514,8 @@ function QuotesContent() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Quotes</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-3xl font-bold text-foreground">Quotes</h1>
+            <p className="text-muted-foreground mt-2">
               {workOrderIdFilter
                 ? 'Showing quotes for this work order'
                 : 'Review quotes from subcontractors and forward to clients'}
@@ -534,7 +534,7 @@ function QuotesContent() {
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search quotes by title, client, subcontractor, or work order number..."
             value={searchQuery}
@@ -562,7 +562,7 @@ function QuotesContent() {
         {loading ? (
           <div className="border rounded-lg overflow-hidden">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-gray-100 animate-pulse">
+              <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border animate-pulse">
                 <div className="h-4 flex-1 rounded bg-gray-200" />
                 <div className="h-4 w-28 rounded bg-gray-200" />
                 <div className="h-4 w-24 rounded bg-gray-200" />
@@ -574,35 +574,35 @@ function QuotesContent() {
         ) : sortedQuotes.length === 0 ? (
           <Card className="col-span-full">
             <CardContent className="p-12 text-center">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No quotes found</p>
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No quotes found</p>
             </CardContent>
           </Card>
         ) : viewMode === 'list' ? (
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Subcontractor</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Work Order</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Subcontractor</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-gray-200">
                 {sortedQuotes.map((quote) => (
-                  <tr key={quote.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={quote.id} className="hover:bg-muted transition-colors">
                     <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-gray-900">{quote.workOrderTitle}</div>
-                      <div className="text-gray-500 text-xs mt-1">WO: {quote.workOrderNumber || 'N/A'}</div>
+                      <div className="font-medium text-foreground">{quote.workOrderTitle}</div>
+                      <div className="text-muted-foreground text-xs mt-1">WO: {quote.workOrderNumber || 'N/A'}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{quote.subcontractorName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{quote.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{quote.subcontractorName}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{quote.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {quote.clientAmount ? `$${(quote.clientAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                     </td>
                     <td className="px-4 py-3 text-sm">
@@ -663,7 +663,7 @@ function QuotesContent() {
                         {quote.status.replace('_', ' ').toUpperCase()}
                       </span>
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       WO: {quote.workOrderNumber}
                     </div>
                   </div>
@@ -682,7 +682,7 @@ function QuotesContent() {
                   />
 
                   {/* Cost Breakdown */}
-                  <div className="bg-gray-50 p-3 rounded-lg space-y-1 text-sm">
+                  <div className="bg-muted p-3 rounded-lg space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span>Labor Cost:</span>
                       <span className="font-semibold">${(quote.laborCost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -723,7 +723,7 @@ function QuotesContent() {
                       <div className="font-semibold text-sm">Line Items:</div>
                       <div className="space-y-1 text-xs">
                         {quote.lineItems.map((item, index) => (
-                          <div key={index} className="flex justify-between text-gray-600">
+                          <div key={index} className="flex justify-between text-muted-foreground">
                             <span>{item.description} ({item.quantity || 0}x)</span>
                             <span>${(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
@@ -736,7 +736,7 @@ function QuotesContent() {
                   {quote.notes && (
                     <div className="text-sm">
                       <span className="font-semibold">Notes:</span>
-                      <p className="text-gray-600 mt-1">{quote.notes}</p>
+                      <p className="text-muted-foreground mt-1">{quote.notes}</p>
                     </div>
                   )}
 
@@ -754,7 +754,7 @@ function QuotesContent() {
                             min="0"
                             max="100"
                           />
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-muted-foreground">
                             Client will pay: ${((quote.totalAmount || 0) * (1 + parseFloat(markupPercent || '0') / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                           <div className="flex gap-2">
@@ -823,8 +823,8 @@ function QuotesContent() {
         {/* Create Quote Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
+            <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Create New Quote</h2>
                   <Button variant="outline" onClick={resetForm}>Cancel</Button>
@@ -892,7 +892,7 @@ function QuotesContent() {
 
                   <div className="space-y-3">
                     {lineItems.map((item, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                      <div key={index} className="border border-border rounded-lg p-4">
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                           <div className="md:col-span-6">
                             <Label className="text-xs">Description</Label>

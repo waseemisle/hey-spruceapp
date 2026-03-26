@@ -606,11 +606,11 @@ export default function InvoicesManagement() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft': return 'text-gray-600 bg-gray-50';
+      case 'draft': return 'text-muted-foreground bg-muted';
       case 'sent': return 'text-blue-600 bg-blue-50';
       case 'paid': return 'text-green-600 bg-green-50';
       case 'overdue': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -619,8 +619,8 @@ export default function InvoicesManagement() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Invoices</h1>
-            <p className="text-gray-600 mt-2">Generate and manage invoices with Stripe payment links</p>
+            <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
+            <p className="text-muted-foreground mt-2">Generate and manage invoices with Stripe payment links</p>
           </div>
           <div className="flex items-center gap-2">
             <Link href="/admin-portal/invoices/new">
@@ -645,10 +645,10 @@ export default function InvoicesManagement() {
             <CardContent>
               <div className="space-y-2">
                 {quotes.map(quote => (
-                  <div key={quote.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={quote.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div>
                       <div className="font-semibold">{quote.workOrderTitle}</div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-muted-foreground">
                         {quote.clientName} - ${quote.clientAmount?.toLocaleString() || quote.totalAmount?.toLocaleString()}
                       </div>
                     </div>
@@ -668,7 +668,7 @@ export default function InvoicesManagement() {
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search invoices by number, title, client, or email..."
             value={searchQuery}
@@ -697,7 +697,7 @@ export default function InvoicesManagement() {
           {loading ? (
             <>
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-lg border border-gray-200 p-6 space-y-4 animate-pulse">
+                <div key={i} className="bg-card rounded-lg border border-border p-6 space-y-4 animate-pulse">
                   <div className="flex justify-between">
                     <div className="h-5 w-32 rounded bg-gray-200" />
                     <div className="h-6 w-16 rounded-full bg-gray-200" />
@@ -711,8 +711,8 @@ export default function InvoicesManagement() {
           ) : filteredInvoices.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
-                <Receipt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No invoices found</p>
+                <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No invoices found</p>
               </CardContent>
             </Card>
           ) : (
@@ -726,7 +726,7 @@ export default function InvoicesManagement() {
                         {invoice.status.toUpperCase()}
                       </span>
                     </div>
-                    <div className="text-sm text-gray-600">{invoice.workOrderTitle}</div>
+                    <div className="text-sm text-muted-foreground">{invoice.workOrderTitle}</div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -865,8 +865,8 @@ export default function InvoicesManagement() {
         {/* Edit Modal */}
         {showModal && editingId && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-white z-10">
+            <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Edit Invoice</h2>
                   <Button variant="outline" size="sm" onClick={resetForm}>
@@ -888,7 +888,7 @@ export default function InvoicesManagement() {
 
                   <div className="space-y-3">
                     {lineItems.map((item, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                      <div key={index} className="border border-border rounded-lg p-4">
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                           <div className="md:col-span-6">
                             <Label className="text-xs">Description</Label>
@@ -1016,7 +1016,7 @@ export default function InvoicesManagement() {
         {/* Upload PDF Modal */}
         {showUploadModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Upload Invoice PDF</h2>
@@ -1043,7 +1043,7 @@ export default function InvoicesManagement() {
                     className="w-full border border-gray-300 rounded-md p-2 mt-1"
                   />
                   {selectedFile && (
-                    <p className="text-sm text-gray-600 mt-2">
+                    <p className="text-sm text-muted-foreground mt-2">
                       Selected: {selectedFile.name}
                     </p>
                   )}
@@ -1088,13 +1088,13 @@ export default function InvoicesManagement() {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && invoiceToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Invoice</h2>
-                <p className="text-gray-700 mb-4">
+                <p className="text-foreground mb-4">
                   Are you sure you want to delete invoice <strong>"{invoiceToDelete.invoiceNumber}"</strong>?
                 </p>
-                <div className="bg-gray-50 p-4 rounded mb-4">
+                <div className="bg-muted p-4 rounded mb-4">
                   <p className="text-sm"><strong>Client:</strong> {invoiceToDelete.clientName}</p>
                   <p className="text-sm"><strong>Amount:</strong> ${invoiceToDelete.totalAmount?.toFixed(2) || '0.00'}</p>
                 </div>

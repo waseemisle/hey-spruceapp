@@ -50,9 +50,9 @@ function statusClass(s: string) {
     'waiting-on-client': 'bg-orange-50 text-orange-800 border-orange-200',
     'waiting-on-admin': 'bg-purple-50 text-purple-800 border-purple-200',
     resolved: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    closed: 'bg-gray-100 text-gray-700 border-gray-200',
+    closed: 'bg-muted text-foreground border-border',
   };
-  return map[s] || 'bg-gray-50 text-gray-700 border-gray-200';
+  return map[s] || 'bg-muted text-foreground border-border';
 }
 
 function priorityClass(p: string) {
@@ -264,13 +264,13 @@ export default function ClientSupportTicketsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-end shadow-sm">
+        <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap gap-3 items-end shadow-sm">
           <div className="relative flex-1 min-w-[180px]">
-            <Label className="text-xs text-gray-500">Search</Label>
+            <Label className="text-xs text-muted-foreground">Search</Label>
             <Input className="mt-1" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Ticket # or title" />
           </div>
           <div>
-            <Label className="text-xs text-gray-500">Status</Label>
+            <Label className="text-xs text-muted-foreground">Status</Label>
             <SearchableSelect
               className="mt-1 w-full min-w-[160px]"
               value={statusFilter}
@@ -289,36 +289,36 @@ export default function ClientSupportTicketsPage() {
             />
           </div>
           <div>
-            <Label className="text-xs text-gray-500">From</Label>
+            <Label className="text-xs text-muted-foreground">From</Label>
             <Input type="date" className="mt-1 w-[150px]" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} />
           </div>
           <div>
-            <Label className="text-xs text-gray-500">To</Label>
+            <Label className="text-xs text-muted-foreground">To</Label>
             <Input type="date" className="mt-1 w-[150px]" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-gray-100 bg-gray-50">
+            <thead className="border-b border-border bg-muted">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Ticket #</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Title</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Category</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Priority</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Last update</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Comments</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ticket #</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Title</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Category</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Priority</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last update</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Comments</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {pageSlice.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-500">No tickets yet.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">No tickets yet.</td></tr>
               ) : (
                 pageSlice.map((t) => (
                   <tr
                     key={t.id}
-                    className="hover:bg-gray-50 cursor-pointer"
+                    className="hover:bg-muted cursor-pointer"
                     onClick={() => { window.location.href = `/client-portal/support-tickets/${t.id}`; }}
                   >
                     <td className="px-4 py-3 font-mono text-xs">{t.ticketNumber}</td>
@@ -332,7 +332,7 @@ export default function ClientSupportTicketsPage() {
                         {SUPPORT_STATUS_LABELS[t.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {t.lastActivityAt && typeof (t.lastActivityAt as { toDate?: () => Date }).toDate === 'function'
                         ? (t.lastActivityAt as { toDate: () => Date }).toDate().toLocaleString()
                         : '—'}
@@ -346,7 +346,7 @@ export default function ClientSupportTicketsPage() {
         </div>
 
         {filtered.length > rowsPerPage && (
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>{(page - 1) * rowsPerPage + 1}–{Math.min(page * rowsPerPage, filtered.length)} of {filtered.length}</span>
             <div className="flex gap-1">
               <Button variant="outline" size="icon" disabled={page <= 1} onClick={() => setPage(1)}><ChevronsLeft className="h-4 w-4" /></Button>
@@ -455,7 +455,7 @@ export default function ClientSupportTicketsPage() {
                 </div>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {form.tags.map((t) => (
-                    <button key={t} type="button" className="text-xs px-2 py-0.5 rounded-full bg-gray-100 border" onClick={() => setForm((f) => ({ ...f, tags: f.tags.filter((x) => x !== t) }))}>
+                    <button key={t} type="button" className="text-xs px-2 py-0.5 rounded-full bg-muted border" onClick={() => setForm((f) => ({ ...f, tags: f.tags.filter((x) => x !== t) }))}>
                       {t} ×
                     </button>
                   ))}

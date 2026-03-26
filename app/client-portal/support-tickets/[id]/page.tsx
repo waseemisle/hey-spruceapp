@@ -222,24 +222,24 @@ export default function ClientSupportTicketDetailPage() {
           <Link href="/client-portal/support-tickets">
             <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
           </Link>
-          <span className="font-mono text-sm text-gray-500">{ticket.ticketNumber}</span>
+          <span className="font-mono text-sm text-muted-foreground">{ticket.ticketNumber}</span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
-            <h1 className="text-2xl font-bold text-gray-900">{ticket.title}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{ticket.title}</h1>
             <div className="prose prose-sm max-w-none">
-              <p className="whitespace-pre-wrap text-gray-700">{ticket.description}</p>
+              <p className="whitespace-pre-wrap text-foreground">{ticket.description}</p>
             </div>
 
-            <div className="flex border-b border-gray-200 gap-4">
+            <div className="flex border-b border-border gap-4">
               {(['comments', 'activity', 'attachments'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTab(t)}
                   className={`pb-2 px-1 text-sm font-medium capitalize border-b-2 -mb-px ${
-                    tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500'
+                    tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-muted-foreground'
                   }`}
                 >
                   {t === 'comments' && <MessageSquare className="inline h-4 w-4 mr-1" />}
@@ -253,7 +253,7 @@ export default function ClientSupportTicketDetailPage() {
             {tab === 'comments' && (
               <div className="space-y-4">
                 {comments.map((c) => (
-                  <div key={c.id} className="rounded-xl border border-gray-200 p-4 bg-white">
+                  <div key={c.id} className="rounded-xl border border-border p-4 bg-card">
                     <div className="flex gap-3">
                       <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold">
                         {c.authorAvatarInitials || initialsFromName(c.authorName)}
@@ -262,7 +262,7 @@ export default function ClientSupportTicketDetailPage() {
                         <div className="flex flex-wrap gap-2 items-center">
                           <span className="font-medium">{c.authorName}</span>
                           <Badge variant="outline" className="text-[10px] capitalize">{c.authorRole}</Badge>
-                          <span className="text-xs text-gray-500">{formatTs(c.createdAt)}</span>
+                          <span className="text-xs text-muted-foreground">{formatTs(c.createdAt)}</span>
                         </div>
                         <p className="mt-2 text-sm whitespace-pre-wrap">{c.body}</p>
                         {(c.attachments?.length ?? 0) > 0 && (
@@ -276,7 +276,7 @@ export default function ClientSupportTicketDetailPage() {
                     </div>
                   </div>
                 ))}
-                <div className="rounded-xl border border-gray-200 p-4 space-y-3 bg-gray-50">
+                <div className="rounded-xl border border-border p-4 space-y-3 bg-muted">
                   <Textarea placeholder="Your message" value={commentBody} onChange={(e) => setCommentBody(e.target.value)} className="min-h-[100px]" />
                   <Input type="file" multiple onChange={(e) => setCommentFiles(e.target.files ? Array.from(e.target.files) : [])} />
                   <Button onClick={postComment} disabled={posting || !commentBody.trim()}>{posting ? 'Sending…' : 'Send reply'}</Button>
@@ -287,11 +287,11 @@ export default function ClientSupportTicketDetailPage() {
             {tab === 'activity' && (
               <ul className="space-y-3">
                 {sortedTimeline.map((ev) => (
-                  <li key={ev.id} className="flex gap-3 text-sm border-b border-gray-100 pb-3">
+                  <li key={ev.id} className="flex gap-3 text-sm border-b border-border pb-3">
                     <span className="text-lg">{timelineIcon(ev.type)}</span>
                     <div>
                       <p>{ev.details}</p>
-                      <p className="text-xs text-gray-500 mt-1">{formatTs(ev.timestamp)} · {ev.userName}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{formatTs(ev.timestamp)} · {ev.userName}</p>
                     </div>
                   </li>
                 ))}
@@ -308,12 +308,12 @@ export default function ClientSupportTicketDetailPage() {
                       href={a.fileUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-3 rounded-lg border p-3 hover:bg-gray-50"
+                      className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted"
                     >
-                      <Paperclip className="h-8 w-8 text-gray-400" />
+                      <Paperclip className="h-8 w-8 text-muted-foreground" />
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">{a.fileName}</p>
-                        <p className="text-xs text-gray-500">{formatTs((a as { uploadedAt?: unknown }).uploadedAt)}</p>
+                        <p className="text-xs text-muted-foreground">{formatTs((a as { uploadedAt?: unknown }).uploadedAt)}</p>
                       </div>
                     </a>
                   ))}
@@ -322,16 +322,16 @@ export default function ClientSupportTicketDetailPage() {
             )}
           </div>
 
-          <div className="rounded-xl border border-gray-200 p-4 space-y-3 bg-white shadow-sm h-fit">
-            <h3 className="font-semibold text-sm text-gray-500">Status</h3>
+          <div className="rounded-xl border border-border p-4 space-y-3 bg-card shadow-sm h-fit">
+            <h3 className="font-semibold text-sm text-muted-foreground">Status</h3>
             <p className="text-sm font-medium">{SUPPORT_STATUS_LABELS[ticket.status]}</p>
-            <h3 className="font-semibold text-sm text-gray-500">Priority</h3>
+            <h3 className="font-semibold text-sm text-muted-foreground">Priority</h3>
             <p className="text-sm font-medium capitalize">{ticket.priority}</p>
-            <h3 className="font-semibold text-sm text-gray-500">Category</h3>
+            <h3 className="font-semibold text-sm text-muted-foreground">Category</h3>
             <p className="text-sm">{SUPPORT_CATEGORY_LABELS[ticket.category]}</p>
-            <h3 className="font-semibold text-sm text-gray-500">Type</h3>
+            <h3 className="font-semibold text-sm text-muted-foreground">Type</h3>
             <Badge variant="outline">{SUPPORT_TYPE_LABELS[ticket.type]}</Badge>
-            <h3 className="font-semibold text-sm text-gray-500">Assigned to</h3>
+            <h3 className="font-semibold text-sm text-muted-foreground">Assigned to</h3>
             <p className="text-sm">{ticket.assignedToName || '—'}</p>
           </div>
         </div>

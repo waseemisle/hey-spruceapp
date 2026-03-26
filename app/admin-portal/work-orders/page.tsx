@@ -2075,7 +2075,7 @@ const handleLocationSelect = (locationId: string) => {
       case 'completed': return 'text-emerald-600 bg-emerald-50';
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'rejected_by_subcontractor': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -2108,7 +2108,7 @@ const handleLocationSelect = (locationId: string) => {
       case 'high': return 'text-red-600 bg-red-50';
       case 'medium': return 'text-orange-600 bg-orange-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -2128,12 +2128,12 @@ const filteredLocationsForForm = locations.filter((location) => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {workOrderType === 'standard' && 'Standard Work Orders'}
               {workOrderType === 'maintenance' && 'Maintenance Requests Work Orders'}
               {workOrderType === 'all' && 'All Work Orders'}
             </h1>
-            <p className="text-gray-600 mt-2 text-sm sm:text-base">
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">
               {workOrderType === 'standard' && 'Manage standard work orders (excluding maintenance requests)'}
               {workOrderType === 'maintenance' && 'Manage work orders created from maintenance requests'}
               {workOrderType === 'all' && 'Manage all work orders and assignments'}
@@ -2163,7 +2163,7 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search work orders by title, client, number, category..."
               value={searchQuery}
@@ -2189,11 +2189,11 @@ const filteredLocationsForForm = locations.filter((location) => {
               checked={filteredWorkOrders.length > 0 && selectedIds.length === filteredWorkOrders.length}
               onCheckedChange={toggleSelectAll}
             />
-            <label htmlFor="select-all-wo" className="text-sm font-medium text-gray-700 cursor-pointer">
+            <label htmlFor="select-all-wo" className="text-sm font-medium text-foreground cursor-pointer">
               Select All ({filteredWorkOrders.length})
             </label>
             {selectedIds.length > 0 && (
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 {selectedIds.length} selected
               </span>
             )}
@@ -2202,7 +2202,7 @@ const filteredLocationsForForm = locations.filter((location) => {
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-3">
               {deleteProgress && (
-                <span className="text-sm text-gray-500">{deleteProgress}</span>
+                <span className="text-sm text-muted-foreground">{deleteProgress}</span>
               )}
               <Button
                 variant="destructive"
@@ -2221,7 +2221,7 @@ const filteredLocationsForForm = locations.filter((location) => {
         {loading ? (
           <div className="border rounded-lg overflow-hidden">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-gray-100 animate-pulse">
+              <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border animate-pulse">
                 <div className="h-4 w-4 rounded bg-gray-200" />
                 <div className="h-4 w-24 rounded bg-gray-200" />
                 <div className="h-4 flex-1 rounded bg-gray-200" />
@@ -2234,14 +2234,14 @@ const filteredLocationsForForm = locations.filter((location) => {
         ) : sortedWorkOrders.length === 0 ? (
           <Card className="col-span-full">
             <CardContent className="p-12 text-center">
-              <ClipboardList className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No work orders found</p>
+              <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No work orders found</p>
             </CardContent>
           </Card>
         ) : viewMode === 'list' ? (
           <div className="border rounded-lg overflow-hidden">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-muted border-b">
                 <tr>
                   <th className="px-4 py-3 w-10">
                     <Checkbox
@@ -2249,19 +2249,19 @@ const filteredLocationsForForm = locations.filter((location) => {
                       onCheckedChange={toggleSelectAll}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order #</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Budget</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Title</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Work Order #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Priority</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Budget</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-gray-200">
                 {paginatedWorkOrders.map((workOrder) => (
-                  <tr key={workOrder.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={workOrder.id} className="hover:bg-muted transition-colors">
                     <td className="px-4 py-3">
                       <Checkbox
                         checked={selectedIds.includes(workOrder.id)}
@@ -2269,12 +2269,12 @@ const filteredLocationsForForm = locations.filter((location) => {
                       />
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-gray-900">{workOrder.title}</div>
-                      <div className="text-gray-500 text-xs mt-1 line-clamp-1">{workOrder.description}</div>
+                      <div className="font-medium text-foreground">{workOrder.title}</div>
+                      <div className="text-muted-foreground text-xs mt-1 line-clamp-1">{workOrder.description}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.workOrderNumber}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{getWorkOrderClientDisplayName(workOrder)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{workOrder.category}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{workOrder.workOrderNumber}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{getWorkOrderClientDisplayName(workOrder)}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{workOrder.category}</td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${getPriorityColor(workOrder.priority)}`}>
                         {(workOrder.priority || 'medium').toUpperCase()}
@@ -2285,7 +2285,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                         {getStatusLabel(workOrder.status)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {workOrder.estimateBudget ? `$${workOrder.estimateBudget.toLocaleString()}` : '-'}
                     </td>
                     <td className="px-4 py-3 text-sm">
@@ -2344,67 +2344,67 @@ const filteredLocationsForForm = locations.filter((location) => {
                       <span className={`px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${getPriorityColor(workOrder.priority)}`}>
                         {(workOrder.priority || 'medium').toUpperCase()}
                       </span>
-                      <span className="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap">
+                      <span className="px-2 py-1 rounded bg-muted text-foreground text-xs font-semibold whitespace-nowrap">
                         {workOrder.workOrderNumber}
                       </span>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col space-y-3 pb-4">
-                  <p className="text-sm text-gray-600 line-clamp-2 min-h-[2.5rem]">{workOrder.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">{workOrder.description}</p>
 
                   <div className="space-y-2 flex-shrink-0">
                     <div className="text-sm">
-                      <span className="font-semibold">Client:</span> <span className="text-gray-700">{getWorkOrderClientDisplayName(workOrder)}</span>
+                      <span className="font-semibold">Client:</span> <span className="text-foreground">{getWorkOrderClientDisplayName(workOrder)}</span>
                     </div>
                     {workOrder.appyRequestor && (
                       <div className="text-sm">
-                        <span className="font-semibold">APPY Requestor:</span> <span className="text-gray-700">{workOrder.appyRequestor}</span>
+                        <span className="font-semibold">APPY Requestor:</span> <span className="text-foreground">{workOrder.appyRequestor}</span>
                       </div>
                     )}
                     <div className="text-sm">
-                      <span className="font-semibold">Category:</span> <span className="text-gray-700">{workOrder.category}</span>
+                      <span className="font-semibold">Category:</span> <span className="text-foreground">{workOrder.category}</span>
                     </div>
                     <div className="text-sm min-h-[1.25rem]">
                       {workOrder.estimateBudget ? (
                         <>
-                          <span className="font-semibold">Estimate Budget:</span> <span className="text-gray-700">${workOrder.estimateBudget.toLocaleString()}</span>
+                          <span className="font-semibold">Estimate Budget:</span> <span className="text-foreground">${workOrder.estimateBudget.toLocaleString()}</span>
                         </>
                       ) : (
-                        <span className="text-gray-400">No budget estimate</span>
+                        <span className="text-muted-foreground">No budget estimate</span>
                       )}
                     </div>
                     <div className="text-sm min-h-[1.25rem]">
                       {workOrder.assignedToName || workOrder.assignedSubcontractorName ? (
                         <>
                           <span className="font-semibold">Assigned to:</span>{' '}
-                          <span className="text-gray-700">
+                          <span className="text-foreground">
                             {workOrder.assignedSubcontractorName || workOrder.assignedToName}
                           </span>
                         </>
                       ) : (
-                        <span className="text-gray-400">Not assigned</span>
+                        <span className="text-muted-foreground">Not assigned</span>
                       )}
                     </div>
                     <div className="text-sm min-h-[1.25rem]">
                       {workOrder.quoteCount !== undefined && workOrder.quoteCount > 0 ? (
                         <>
-                          <span className="font-semibold">Quotes Received:</span> <span className="text-gray-700">{workOrder.quoteCount}</span>
+                          <span className="font-semibold">Quotes Received:</span> <span className="text-foreground">{workOrder.quoteCount}</span>
                         </>
                       ) : (
-                        <span className="text-gray-400">No quotes yet</span>
+                        <span className="text-muted-foreground">No quotes yet</span>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-gray-600 min-h-[1.5rem] flex-shrink-0">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground min-h-[1.5rem] flex-shrink-0">
                     {workOrder.images && workOrder.images.length > 0 ? (
                       <>
                         <ImageIcon className="h-4 w-4" />
                         <span>{workOrder.images.length} image(s)</span>
                       </>
                     ) : (
-                      <span className="text-gray-400">No images</span>
+                      <span className="text-muted-foreground">No images</span>
                     )}
                   </div>
 
@@ -2435,7 +2435,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                   </div>
 
                   {/* Action Buttons - Always at bottom */}
-                  <div className="pt-4 space-y-2 border-t border-gray-200 flex-shrink-0">
+                  <div className="pt-4 space-y-2 border-t border-border flex-shrink-0">
                     <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
@@ -2568,8 +2568,8 @@ const filteredLocationsForForm = locations.filter((location) => {
 
         {/* Pagination */}
         {sortedWorkOrders.length > 0 && (
-          <div className="border-t bg-gray-50 rounded-b-lg px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm text-gray-700">
+          <div className="border-t bg-muted rounded-b-lg px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-foreground">
               <span>Rows per page:</span>
               <SearchableSelect
                 className="w-24"
@@ -2583,7 +2583,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                 placeholder="Rows"
                 aria-label="Rows per page"
               />
-              <span className="text-gray-500">
+              <span className="text-muted-foreground">
                 {((currentPage - 1) * rowsPerPage) + 1}–{Math.min(currentPage * rowsPerPage, sortedWorkOrders.length)} of {sortedWorkOrders.length}
               </span>
             </div>
@@ -2594,7 +2594,7 @@ const filteredLocationsForForm = locations.filter((location) => {
               <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-gray-700 px-3">
+              <span className="text-sm text-foreground px-3">
                 Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
               </span>
               <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>
@@ -2610,8 +2610,8 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Create/Edit Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+            <div className="bg-card rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl sm:text-2xl font-bold">
                     {editingId ? 'Edit Work Order' : 'Create New Work Order'}
@@ -2650,10 +2650,10 @@ const filteredLocationsForForm = locations.filter((location) => {
                         type="text"
                         value={workOrders.find(wo => wo.id === editingId)?.appyRequestor || ''}
                         disabled
-                        className="w-full border border-gray-300 rounded-md p-2 bg-gray-50"
+                        className="w-full border border-gray-300 rounded-md p-2 bg-muted"
                         placeholder="N/A"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         This field is set automatically from the maintenance API request
                       </p>
                     </div>
@@ -2734,7 +2734,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                       onWheel={(e) => e.currentTarget.blur()}
                       placeholder="e.g., 5000"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Estimated budget in USD</p>
+                    <p className="text-xs text-muted-foreground mt-1">Estimated budget in USD</p>
                   </div>
 
                   <div>
@@ -2789,11 +2789,11 @@ const filteredLocationsForForm = locations.filter((location) => {
                         disabled={formData.isMaintenanceRequestOrder}
                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
-                      <Label htmlFor="isMaintenanceRequestOrder" className={formData.isMaintenanceRequestOrder ? 'text-gray-500' : ''}>
+                      <Label htmlFor="isMaintenanceRequestOrder" className={formData.isMaintenanceRequestOrder ? 'text-muted-foreground' : ''}>
                         Maintenance Request Order
                       </Label>
                       {formData.isMaintenanceRequestOrder && (
-                        <span className="text-xs text-gray-500 ml-2">(This field cannot be edited)</span>
+                        <span className="text-xs text-muted-foreground ml-2">(This field cannot be edited)</span>
                       )}
                     </div>
                   </div>
@@ -2825,12 +2825,12 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Share for Bidding Modal */}
         {showBiddingModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold">Share for Bidding</h2>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Select subcontractors to share this work order with
                     </p>
                   </div>
@@ -2865,18 +2865,18 @@ const filteredLocationsForForm = locations.filter((location) => {
                       onChange={selectAllSubcontractors}
                       className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
-                    <label htmlFor="selectAll" className="text-sm font-medium text-gray-700">
+                    <label htmlFor="selectAll" className="text-sm font-medium text-foreground">
                       Select All ({subcontractors.length})
                     </label>
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-muted-foreground">
                     {selectedSubcontractors.length} selected
                   </div>
                 </div>
 
                 <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
                   {subcontractors.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">No approved subcontractors found</p>
+                    <p className="text-center text-muted-foreground py-8">No approved subcontractors found</p>
                   ) : (
                     subcontractors.map((sub) => (
                       <div
@@ -2888,7 +2888,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                               : 'bg-blue-50 border-blue-300'
                             : sub.matchesCategory
                             ? 'bg-green-50 border-green-300 hover:border-green-400'
-                            : 'bg-white border-gray-200 hover:bg-gray-50'
+                            : 'bg-card border-border hover:bg-muted'
                         }`}
                         onClick={() => toggleSubcontractorSelection(sub.id)}
                       >
@@ -2901,7 +2901,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-gray-900">{sub.fullName}</p>
+                            <p className="font-medium text-foreground">{sub.fullName}</p>
                             {sub.matchesCategory && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">
                                 Matches Category
@@ -2909,9 +2909,9 @@ const filteredLocationsForForm = locations.filter((location) => {
                             )}
                           </div>
                           {sub.businessName && (
-                            <p className="text-sm text-gray-600">{sub.businessName}</p>
+                            <p className="text-sm text-muted-foreground">{sub.businessName}</p>
                           )}
-                          <p className="text-sm text-gray-500">{sub.email}</p>
+                          <p className="text-sm text-muted-foreground">{sub.email}</p>
                         </div>
                       </div>
                     ))
@@ -2953,7 +2953,7 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Work Order Type Selection Modal */}
         {showWorkOrderTypeModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl sm:text-2xl font-bold">Create Work Order</h2>
@@ -2968,15 +2968,15 @@ const filteredLocationsForForm = locations.filter((location) => {
               </div>
 
               <div className="p-4 sm:p-6 space-y-4">
-                <p className="text-gray-600 mb-6">Choose the type of work order you want to create:</p>
+                <p className="text-muted-foreground mb-6">Choose the type of work order you want to create:</p>
                 
                 <div className="space-y-3">
                   <button
                     className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateNormalWorkOrder}
                   >
-                    <div className="font-semibold text-lg text-gray-900">Standard Work Order</div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="font-semibold text-lg text-foreground">Standard Work Order</div>
+                    <div className="text-sm text-muted-foreground mt-1">
                       Create a one-time work order for immediate or scheduled work
                     </div>
                   </button>
@@ -2985,8 +2985,8 @@ const filteredLocationsForForm = locations.filter((location) => {
                     className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateMaintenanceWorkOrder}
                   >
-                    <div className="font-semibold text-lg text-gray-900">Maintenance Request Work Order</div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="font-semibold text-lg text-foreground">Maintenance Request Work Order</div>
+                    <div className="text-sm text-muted-foreground mt-1">
                       Create a maintenance request work order for facility upkeep and repairs
                     </div>
                   </button>
@@ -2995,8 +2995,8 @@ const filteredLocationsForForm = locations.filter((location) => {
                     className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateRecurringWorkOrder}
                   >
-                    <div className="font-semibold text-lg text-gray-900">Recurring Work Order</div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="font-semibold text-lg text-foreground">Recurring Work Order</div>
+                    <div className="text-sm text-muted-foreground mt-1">
                       Create a recurring work order that repeats automatically (daily, weekly, monthly, yearly, or custom)
                     </div>
                   </button>
@@ -3005,8 +3005,8 @@ const filteredLocationsForForm = locations.filter((location) => {
                     className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateGuidedWorkOrder}
                   >
-                    <div className="font-semibold text-lg text-gray-900">Guided Work Order</div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="font-semibold text-lg text-foreground">Guided Work Order</div>
+                    <div className="text-sm text-muted-foreground mt-1">
                       Step-by-step wizard with location, problem search, duplicate detection, and troubleshooting tips
                     </div>
                   </button>
@@ -3029,7 +3029,7 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Reject Reason Modal */}
         {showRejectModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl sm:text-2xl font-bold">Reject Work Order</h2>
@@ -3088,7 +3088,7 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Assign to Subcontractor Modal */}
         {showAssignModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl sm:text-2xl font-bold">Assign to Subcontractor</h2>
@@ -3162,8 +3162,8 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Import Work Orders Modal */}
         {showImportModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-white z-10">
+            <div className="bg-card rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl sm:text-2xl font-bold">Import Work Orders</h2>
                   <Button variant="outline" size="sm" onClick={() => {
@@ -3195,7 +3195,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                     }}
                     className="mt-2"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Supported formats: CSV, XLSX, XLS
                   </p>
                 </div>
@@ -3206,7 +3206,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm border-collapse">
                         <thead>
-                          <tr className="bg-gray-50">
+                          <tr className="bg-muted">
                             {Object.keys(importPreview[0]).map((key) => (
                               <th key={key} className="border p-2 text-left font-semibold">
                                 {key}
@@ -3227,7 +3227,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                         </tbody>
                       </table>
                       {importPreview.length > 5 && (
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-xs text-muted-foreground mt-2">
                           Showing first 5 of {importPreview.length} rows
                         </p>
                       )}

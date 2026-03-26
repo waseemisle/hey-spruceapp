@@ -88,7 +88,7 @@ export default function RejectedWorkOrders() {
       case 'high': return 'text-red-600 bg-red-50';
       case 'medium': return 'text-orange-600 bg-orange-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -107,20 +107,20 @@ export default function RejectedWorkOrders() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
               <XCircle className="h-8 w-8 text-red-600" />
               Rejected Work Orders
             </h1>
-            <p className="text-gray-600 mt-2">View all rejected work orders and rejection reasons</p>
+            <p className="text-muted-foreground mt-2">View all rejected work orders and rejection reasons</p>
           </div>
-          <div className="text-sm text-gray-600">
-            Total: <span className="font-bold text-gray-900">{workOrders.length}</span> rejected work orders
+          <div className="text-sm text-muted-foreground">
+            Total: <span className="font-bold text-foreground">{workOrders.length}</span> rejected work orders
           </div>
         </div>
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search rejected work orders..."
             value={searchQuery}
@@ -134,8 +134,8 @@ export default function RejectedWorkOrders() {
           {filteredWorkOrders.length === 0 ? (
             <Card className="col-span-full">
               <CardContent className="p-12 text-center">
-                <XCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No rejected work orders found</p>
+                <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">No rejected work orders found</p>
               </CardContent>
             </Card>
           ) : (
@@ -153,30 +153,30 @@ export default function RejectedWorkOrders() {
                       <span className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-semibold">
                         REJECTED
                       </span>
-                      <span className="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold">
+                      <span className="px-2 py-1 rounded bg-muted text-foreground text-xs font-semibold">
                         {workOrder.workOrderNumber}
                       </span>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-sm text-gray-600 line-clamp-2">{workOrder.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{workOrder.description}</p>
 
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <span className="font-semibold">Client:</span> <span className="text-gray-700">{workOrder.clientName}</span>
+                      <span className="font-semibold">Client:</span> <span className="text-foreground">{workOrder.clientName}</span>
                     </div>
                     {workOrder.appyRequestor && (
                       <div className="text-sm">
-                        <span className="font-semibold">APPY Requestor:</span> <span className="text-gray-700">{workOrder.appyRequestor}</span>
+                        <span className="font-semibold">APPY Requestor:</span> <span className="text-foreground">{workOrder.appyRequestor}</span>
                       </div>
                     )}
                     <div className="text-sm">
-                      <span className="font-semibold">Category:</span> <span className="text-gray-700">{workOrder.category}</span>
+                      <span className="font-semibold">Category:</span> <span className="text-foreground">{workOrder.category}</span>
                     </div>
                     {workOrder.estimateBudget && (
                       <div className="text-sm">
-                        <span className="font-semibold">Estimate Budget:</span> <span className="text-gray-700">${workOrder.estimateBudget.toLocaleString()}</span>
+                        <span className="font-semibold">Estimate Budget:</span> <span className="text-foreground">${workOrder.estimateBudget.toLocaleString()}</span>
                       </div>
                     )}
                   </div>
@@ -199,7 +199,7 @@ export default function RejectedWorkOrders() {
                   </div>
 
                   {/* Timeline */}
-                  <div className="pt-3 border-t space-y-1 text-xs text-gray-500">
+                  <div className="pt-3 border-t space-y-1 text-xs text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3 w-3" />
                       <span>Created: {workOrder.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</span>

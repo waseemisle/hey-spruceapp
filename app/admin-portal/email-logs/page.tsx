@@ -83,7 +83,7 @@ const EMAIL_TYPE_COLORS: Record<EmailType, string> = {
   'auto-charge-receipt': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
   'work-order-completion-client': 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-300',
   'work-order-received': 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-300',
-  test: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+  test: 'bg-muted text-foreground dark:bg-gray-700 dark:text-gray-300',
 };
 
 const PAGE_SIZE = 25;
@@ -547,7 +547,7 @@ export default function EmailLogsPage() {
 
                         {/* Type badge */}
                         <td className="px-4 py-3 whitespace-nowrap cursor-pointer" onClick={() => setSelected(log)}>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${EMAIL_TYPE_COLORS[log.type] || 'bg-gray-100 text-gray-800'}`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${EMAIL_TYPE_COLORS[log.type] || 'bg-muted text-foreground'}`}>
                             {EMAIL_TYPE_LABELS[log.type] || log.type}
                           </span>
                         </td>
@@ -669,7 +669,7 @@ export default function EmailLogsPage() {
                       <XCircle className="h-3.5 w-3.5" /> Failed
                     </span>
                   )}
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${EMAIL_TYPE_COLORS[selected.type] || 'bg-gray-100 text-gray-800'}`}>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${EMAIL_TYPE_COLORS[selected.type] || 'bg-muted text-foreground'}`}>
                     {EMAIL_TYPE_LABELS[selected.type] || selected.type}
                   </span>
                 </div>

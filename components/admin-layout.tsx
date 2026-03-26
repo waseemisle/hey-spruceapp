@@ -260,10 +260,10 @@ export default function AdminLayout({ children, headerExtra }: { children: React
   return (
     <div className="min-h-screen bg-background">
       {/* ── Fixed two-row header ── */}
-      <header className="bg-card border-b fixed w-full top-0 z-50 shadow-sm">
+      <header className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border fixed w-full top-0 z-50">
 
         {/* Row 1 — logo / search / user controls (h-14 = 56px) */}
-        <div className="flex items-center justify-between px-4 h-14 border-b">
+        <div className="flex items-center justify-between px-4 h-14 border-b border-border">
           <div className="flex items-center gap-3">
             {/* Hamburger — mobile only */}
             <button
@@ -334,7 +334,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
                   {/* Dropdown — rendered in normal flow, not clipped */}
                   {isOpen && (
                     <div
-                      className="absolute top-full left-0 bg-card border border-border rounded-b-lg shadow-xl min-w-[220px] z-[100] py-1"
+                      className="absolute top-full left-0 bg-popover border border-border rounded-lg shadow-md min-w-[220px] z-[100] py-1 mt-1"
                       onMouseEnter={() => openMenu(item.name)}
                       onMouseLeave={scheduleClose}
                     >
@@ -392,7 +392,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="fixed top-14 left-0 right-0 bg-card border-b z-50 md:hidden overflow-y-auto max-h-[calc(100vh-3.5rem)]">
+          <div className="fixed top-14 left-0 right-0 bg-background border-b border-border z-50 md:hidden overflow-y-auto max-h-[calc(100vh-3.5rem)]">
             <nav className="p-2 space-y-0.5">
               {NAV_ITEMS.map((item) => {
                 const active = isItemActive(item);

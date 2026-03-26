@@ -148,13 +148,13 @@ function ordinal(n: number): string {
 
 function InvoiceStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    draft:   { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
+    draft:   { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
     sent:    { label: 'Invoiced',     cls: 'bg-blue-100 text-blue-700' },
     paid:    { label: 'Paid',         cls: 'bg-green-100 text-green-700' },
     overdue: { label: 'Overdue',      cls: 'bg-red-100 text-red-700' },
-    none:    { label: 'Not Invoiced', cls: 'bg-gray-100 text-gray-600' },
+    none:    { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
   };
-  const { label, cls } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' };
+  const { label, cls } = map[status] ?? { label: status, cls: 'bg-muted text-muted-foreground' };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
       {label}
@@ -640,7 +640,7 @@ export default function ClientDetailPage() {
     return (
       <AdminLayout>
         <div className="text-center py-16">
-          <p className="text-gray-500 mb-4">Client not found.</p>
+          <p className="text-muted-foreground mb-4">Client not found.</p>
           <Button onClick={() => router.push('/admin-portal/clients')}>Go Back</Button>
         </div>
       </AdminLayout>
@@ -678,7 +678,7 @@ export default function ClientDetailPage() {
       headerExtra={
         <Button
           variant="ghost"
-          className="gap-2 text-gray-600 hover:text-gray-900 shrink-0"
+          className="gap-2 text-muted-foreground hover:text-foreground shrink-0"
           onClick={() => router.push('/admin-portal/clients')}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -689,7 +689,7 @@ export default function ClientDetailPage() {
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
 
         {/* Entity Header */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex items-center gap-5">
+        <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex items-center gap-5">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)' }}
@@ -697,10 +697,10 @@ export default function ClientDetailPage() {
             {initials}
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-foreground">
               {client.companyName || client.fullName}
             </h1>
-            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1.5 text-sm text-gray-500">
+            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1.5 text-sm text-muted-foreground">
               <span>👤 {client.fullName}</span>
               {client.phone && <span>📞 {client.phone}</span>}
               <span>✉️ {client.email}</span>
@@ -748,11 +748,11 @@ export default function ClientDetailPage() {
             { label: 'Overdue',         value: fmtMoney(stats.overdueAmount),     sub: `${stats.overdueCount} invoice${stats.overdueCount !== 1 ? 's' : ''} past due`, top: 'bg-red-500' },
             { label: 'Not Invoiced',    value: stats.notInvoicedCount + ' jobs',  sub: 'No invoice sent',           top: 'bg-purple-500' },
           ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 relative overflow-hidden">
+            <div key={s.label} className="bg-card rounded-xl border border-border shadow-sm p-5 relative overflow-hidden">
               <div className={`absolute top-0 left-0 right-0 h-1 ${s.top}`} />
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{s.label}</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{s.value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{s.label}</p>
+              <p className="text-2xl font-bold text-foreground mt-1">{s.value}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{s.sub}</p>
             </div>
           ))}
         </div>
@@ -760,9 +760,9 @@ export default function ClientDetailPage() {
         {/* ══════════════════════════════════════════════════════════════════════
             BILLING & PAYMENT INFO CARD
         ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between gap-2 flex-wrap">
-            <h3 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+            <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-blue-600" />
               Billing &amp; Payment Info
             </h3>
@@ -798,7 +798,7 @@ export default function ClientDetailPage() {
             {/* ── Saved Cards ─────────────────────────────────────────────── */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Saved Cards
                   {displayMethods.length > 0 && (
                     <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
@@ -811,8 +811,8 @@ export default function ClientDetailPage() {
               {displayMethods.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-300 p-6 flex flex-col items-center gap-2 text-center">
                   <CreditCard className="h-8 w-8 text-gray-300" />
-                  <p className="text-sm text-gray-500">No cards saved for this client.</p>
-                  <p className="text-xs text-gray-400">Click "Add Card" to save a card for auto-charging.</p>
+                  <p className="text-sm text-muted-foreground">No cards saved for this client.</p>
+                  <p className="text-xs text-muted-foreground">Click "Add Card" to save a card for auto-charging.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -822,7 +822,7 @@ export default function ClientDetailPage() {
                       className={`rounded-lg border p-4 flex items-center gap-4 ${
                         pm.isDefault
                           ? 'border-blue-200 bg-blue-50/40'
-                          : 'border-gray-200 bg-white'
+                          : 'border-border bg-card'
                       }`}
                     >
                       {/* Card graphic */}
@@ -833,7 +833,7 @@ export default function ClientDetailPage() {
                       {/* Card info */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-gray-900 text-sm">
+                          <p className="font-semibold text-foreground text-sm">
                             {pm.brand
                               ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)
                               : 'Card'}{' '}
@@ -854,10 +854,10 @@ export default function ClientDetailPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           Expires {String(pm.expMonth).padStart(2, '0')} / {pm.expYear}
                           <span className="mx-2 text-gray-300">|</span>
-                          <span className="font-mono text-gray-400 text-[11px]">{pm.id}</span>
+                          <span className="font-mono text-muted-foreground text-[11px]">{pm.id}</span>
                         </p>
                       </div>
 
@@ -916,9 +916,9 @@ export default function ClientDetailPage() {
 
             {/* ── Stripe Account ── */}
             {client.stripeCustomerId && (
-              <div className="rounded-lg border border-gray-200 overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Stripe Account</p>
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="bg-muted px-4 py-2 border-b border-border">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stripe Account</p>
                 </div>
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                   <BillingRow label="Stripe Customer ID" value={client.stripeCustomerId} mono truncate />
@@ -934,12 +934,12 @@ export default function ClientDetailPage() {
             )}
 
             {/* ── Fixed Recurring Plan (Scenario 1) ── */}
-            <div className="rounded-lg border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Fixed Auto-Charge Plan
                 </p>
-                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Scenario 1</span>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Scenario 1</span>
               </div>
               <div className="p-4">
                 {client.stripeSubscriptionId && client.subscriptionStatus === 'active' ? (
@@ -959,7 +959,7 @@ export default function ClientDetailPage() {
                         ) : null;
                       })()}
                     </div>
-                    <div className="pt-2 border-t border-gray-100 flex gap-2">
+                    <div className="pt-2 border-t border-border flex gap-2">
                       <Button
                         size="sm"
                         variant="outline"
@@ -999,8 +999,8 @@ export default function ClientDetailPage() {
                         <BillingRow label="Subscription ID" value={client.stripeSubscriptionId} mono truncate />
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-gray-500 text-sm">
-                      <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span>No active fixed auto-charge plan.</span>
                     </div>
                     {displayMethods.length > 0 ? (
@@ -1034,14 +1034,14 @@ export default function ClientDetailPage() {
         ══════════════════════════════════════════════════════════════════════ */}
         {showSubModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-foreground">
                   {client.stripeSubscriptionId && client.subscriptionStatus === 'active'
                     ? 'Edit Fixed Auto-Charge Plan'
                     : 'Create Fixed Auto-Charge Plan'}
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Charges a fixed amount on the same day every month via Stripe Subscription (Scenario 1).
                 </p>
               </div>
@@ -1049,7 +1049,7 @@ export default function ClientDetailPage() {
               <div className="space-y-3">
                 {/* Card selector */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 block mb-1">Charge Card</label>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Charge Card</label>
                   <SearchableSelect
                     className="mt-1 w-full"
                     value={subCardId}
@@ -1065,7 +1065,7 @@ export default function ClientDetailPage() {
 
                 {/* Amount */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 block mb-1">Fixed Auto-Charge Plan Amount (USD)</label>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Fixed Auto-Charge Plan Amount (USD)</label>
                   <input
                     type="number"
                     min="1"
@@ -1079,7 +1079,7 @@ export default function ClientDetailPage() {
 
                 {/* Billing day */}
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 block mb-1">
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">
                     Billing Day of Month (1–28)
                   </label>
                   <input
@@ -1141,9 +1141,9 @@ export default function ClientDetailPage() {
         {/* ══════════════════════════════════════════════════════════════════════
             TRANSACTION HISTORY
         ══════════════════════════════════════════════════════════════════════ */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+            <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
               <History className="h-4 w-4 text-blue-600" />
               Transaction History
               {charges.length > 0 && (
@@ -1153,14 +1153,14 @@ export default function ClientDetailPage() {
               )}
             </h3>
             {charges.length > 0 && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 Total charged: {fmtMoney(charges.filter(c => c.status === 'succeeded').reduce((s, c) => s + c.amount, 0))}
               </span>
             )}
           </div>
           <div className="p-5">
             {charges.length === 0 ? (
-              <div className="flex items-center gap-2 text-gray-500 text-sm py-2">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
                 <Receipt className="h-4 w-4 text-gray-300 flex-shrink-0" />
                 <span>No charges yet for this client.</span>
               </div>
@@ -1168,28 +1168,28 @@ export default function ClientDetailPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200">
+                    <tr className="border-b border-border">
                       {['Date & Time', 'Amount', 'Card', 'Description', 'Status', 'Stripe ID'].map((h) => (
-                        <th key={h} className="pb-2 pr-4 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                        <th key={h} className="pb-2 pr-4 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {charges.map((charge) => (
-                      <tr key={charge.id} className="hover:bg-gray-50/50">
-                        <td className="py-3 pr-4 text-gray-600 text-xs whitespace-nowrap">
+                      <tr key={charge.id} className="hover:bg-muted/50">
+                        <td className="py-3 pr-4 text-muted-foreground text-xs whitespace-nowrap">
                           {fmtDateTime(charge.chargedAt)}
                         </td>
-                        <td className="py-3 pr-4 font-semibold text-gray-900 whitespace-nowrap">
+                        <td className="py-3 pr-4 font-semibold text-foreground whitespace-nowrap">
                           {fmtMoney(charge.amount)}
                         </td>
-                        <td className="py-3 pr-4 text-gray-600 whitespace-nowrap text-xs">
+                        <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap text-xs">
                           {charge.cardBrand
                             ? charge.cardBrand.charAt(0).toUpperCase() + charge.cardBrand.slice(1)
                             : 'Card'}{' '}
                           •••• {charge.cardLast4}
                         </td>
-                        <td className="py-3 pr-4 text-gray-500 text-xs max-w-[180px] truncate">
+                        <td className="py-3 pr-4 text-muted-foreground text-xs max-w-[180px] truncate">
                           {charge.description || '—'}
                         </td>
                         <td className="py-3 pr-4 whitespace-nowrap">
@@ -1207,7 +1207,7 @@ export default function ClientDetailPage() {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 text-[10px] font-mono text-gray-400 truncate max-w-[120px]">
+                        <td className="py-3 text-[10px] font-mono text-muted-foreground truncate max-w-[120px]">
                           {charge.stripePaymentIntentId || '—'}
                         </td>
                       </tr>
@@ -1220,9 +1220,9 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Assigned Locations */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900 text-base flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
               <MapPin className="h-4 w-4 text-blue-600" />
               Assigned Locations
               <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold px-1.5">
@@ -1232,8 +1232,8 @@ export default function ClientDetailPage() {
           </div>
           <div className="p-5">
             {locations.length === 0 ? (
-              <div className="flex items-center gap-2 text-gray-500 text-sm py-1">
-                <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-muted-foreground text-sm py-1">
+                <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>No locations assigned to this client.</span>
               </div>
             ) : (
@@ -1244,17 +1244,17 @@ export default function ClientDetailPage() {
                     ? [addr.street, addr.city, addr.state, addr.zip].filter(Boolean).join(', ')
                     : null;
                   return (
-                    <div key={loc.id} className="rounded-lg border border-gray-200 p-4 flex items-start gap-3">
+                    <div key={loc.id} className="rounded-lg border border-border p-4 flex items-start gap-3">
                       <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
                         <MapPin className="h-4 w-4 text-blue-600" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 text-sm truncate">{loc.locationName}</p>
+                        <p className="font-semibold text-foreground text-sm truncate">{loc.locationName}</p>
                         {loc.companyName && (
-                          <p className="text-xs text-gray-500 truncate">{loc.companyName}</p>
+                          <p className="text-xs text-muted-foreground truncate">{loc.companyName}</p>
                         )}
                         {addrStr && (
-                          <p className="text-xs text-gray-400 mt-0.5 truncate">{addrStr}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{addrStr}</p>
                         )}
                       </div>
                     </div>
@@ -1266,25 +1266,25 @@ export default function ClientDetailPage() {
         </div>
 
         {/* Work Orders Card */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 pt-4 pb-0 border-b border-gray-200">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 pt-4 pb-0 border-b border-border">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900 text-base">Work Orders</h3>
+              <h3 className="font-semibold text-foreground text-base">Work Orders</h3>
               <Button size="sm" variant="outline" className="gap-1.5" onClick={handleExport}>
                 <Download className="h-3.5 w-3.5" />
                 Export CSV
               </Button>
             </div>
 
-            <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-[-1px]">
+            <div className="flex flex-wrap gap-1 bg-muted rounded-lg p-1 w-fit mb-[-1px]">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
                     activeTab === tab.key
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-card text-blue-600 shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {tab.label}
@@ -1292,7 +1292,7 @@ export default function ClientDetailPage() {
                     className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-xs font-bold px-1 ${
                       activeTab === tab.key
                         ? tab.danger ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
-                        : tab.danger ? 'bg-red-50 text-red-500' : 'bg-gray-200 text-gray-600'
+                        : tab.danger ? 'bg-red-50 text-red-500' : 'bg-gray-200 text-muted-foreground'
                     }`}
                   >
                     {tab.count}
@@ -1304,13 +1304,13 @@ export default function ClientDetailPage() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted">
                 <tr>
                   {['WO #', 'Date', 'Location', 'Title', 'Amount', 'Invoice Status', 'Due Date', 'Action'].map(
                     (h) => (
                       <th
                         key={h}
-                        className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap border-b border-gray-200"
+                        className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap border-b border-border"
                       >
                         {h}
                       </th>
@@ -1321,26 +1321,26 @@ export default function ClientDetailPage() {
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+                    <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                       No work orders found for this tab.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((wo) => (
-                    <tr key={wo.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={wo.id} className="hover:bg-muted transition-colors">
                       <td className="px-4 py-3.5 font-semibold text-blue-600 whitespace-nowrap">
                         {wo.workOrderNumber || wo.id.slice(0, 8).toUpperCase()}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
                         {fmtDate(wo.scheduledServiceDate || wo.createdAt)}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[160px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[160px] truncate">
                         {wo.locationName || '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-700 max-w-[200px] truncate">
+                      <td className="px-4 py-3.5 text-foreground max-w-[200px] truncate">
                         {wo.title}
                       </td>
-                      <td className="px-4 py-3.5 font-semibold text-gray-900 whitespace-nowrap">
+                      <td className="px-4 py-3.5 font-semibold text-foreground whitespace-nowrap">
                         {wo.invoiceAmount > 0 ? fmtMoney(wo.invoiceAmount) : '—'}
                       </td>
                       <td className="px-4 py-3.5">
@@ -1348,7 +1348,7 @@ export default function ClientDetailPage() {
                       </td>
                       <td
                         className={`px-4 py-3.5 whitespace-nowrap font-medium ${
-                          wo.invStatus === 'overdue' ? 'text-red-600' : 'text-gray-600'
+                          wo.invStatus === 'overdue' ? 'text-red-600' : 'text-muted-foreground'
                         }`}
                       >
                         {fmtDate(wo.dueDate)}
@@ -1381,23 +1381,23 @@ export default function ClientDetailPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !chargingNow && !chargeResult && setShowChargeModal(false)}
           />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
                   <DollarSign className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-sm">Charge Card</h3>
-                  <p className="text-xs text-gray-400">
+                  <h3 className="font-semibold text-foreground text-sm">Charge Card</h3>
+                  <p className="text-xs text-muted-foreground">
                     {client?.companyName || client?.fullName} — Scenario 1
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => { if (!chargingNow) { setShowChargeModal(false); setChargeResult(null); } }}
-                className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1412,10 +1412,10 @@ export default function ClientDetailPage() {
                     : <AlertCircle className="h-7 w-7 text-red-500" />}
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 text-base">
+                  <p className="font-semibold text-foreground text-base">
                     {chargeResult.success ? 'Charge Successful!' : 'Charge Failed'}
                   </p>
-                  <p className={`text-sm mt-1.5 ${chargeResult.success ? 'text-gray-500' : 'text-red-600'}`}>
+                  <p className={`text-sm mt-1.5 ${chargeResult.success ? 'text-muted-foreground' : 'text-red-600'}`}>
                     {chargeResult.message}
                   </p>
                 </div>
@@ -1431,7 +1431,7 @@ export default function ClientDetailPage() {
               <div className="p-6 space-y-4">
                 {/* Card selector */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Select Card</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Select Card</label>
                   <SearchableSelect
                     className="mt-1 w-full"
                     value={chargeCardId}
@@ -1447,9 +1447,9 @@ export default function ClientDetailPage() {
 
                 {/* Amount */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Amount (USD)</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Amount (USD)</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">$</span>
                     <input
                       type="number"
                       min="0.01"
@@ -1464,7 +1464,7 @@ export default function ClientDetailPage() {
 
                 {/* Description */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Description (optional)</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Description (optional)</label>
                   <input
                     type="text"
                     value={chargeDesc}
@@ -1521,30 +1521,30 @@ export default function ClientDetailPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !submittingCard && setShowCardModal(false)}
           />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
                   <CreditCard className="h-4 w-4 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-sm">Add Card for {client?.fullName}</h3>
-                  <p className="text-xs text-gray-400">Secured by Stripe</p>
+                  <h3 className="font-semibold text-foreground text-sm">Add Card for {client?.fullName}</h3>
+                  <p className="text-xs text-muted-foreground">Secured by Stripe</p>
                 </div>
               </div>
               <button
                 onClick={() => !submittingCard && setShowCardModal(false)}
-                className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <form onSubmit={handleAdminCardSubmit} className="p-6 space-y-5">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-2">Card details</label>
+                <label className="block text-xs font-medium text-muted-foreground mb-2">Card details</label>
                 <div
                   ref={cardMountRef}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
+                  className="w-full rounded-lg border border-gray-300 bg-card px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
                 />
                 {cardError && (
                   <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
@@ -1577,9 +1577,9 @@ export default function ClientDetailPage() {
               </div>
             </form>
             <div className="px-6 pb-5">
-              <div className="flex items-center gap-2 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+              <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                <p className="text-[11px] text-gray-500">
+                <p className="text-[11px] text-muted-foreground">
                   Card number is encrypted by Stripe and never touches our servers.
                 </p>
               </div>
@@ -1610,11 +1610,11 @@ function BillingRow({
     ? 'text-blue-700 font-semibold'
     : highlight === 'red'
     ? 'text-red-600 font-semibold'
-    : 'text-gray-900';
+    : 'text-foreground';
 
   return (
     <div className="flex items-baseline gap-2 py-1">
-      <span className="text-xs text-gray-500 w-36 flex-shrink-0">{label}</span>
+      <span className="text-xs text-muted-foreground w-36 flex-shrink-0">{label}</span>
       <span className={`text-sm ${valueClass} ${mono ? 'font-mono text-xs' : ''} ${truncate ? 'truncate max-w-[160px]' : ''}`}>
         {value}
       </span>

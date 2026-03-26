@@ -31,7 +31,7 @@ export default function QuoteSystemInfo({ timeline, systemInformation, creationS
       case 'rejected':
         return <XCircle className="h-4 w-4 text-red-600" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-600" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -103,10 +103,10 @@ export default function QuoteSystemInfo({ timeline, systemInformation, creationS
           {systemInformation && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {systemInformation.createdBy && (
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-1">Created By</p>
-                  <p className="text-sm font-medium text-gray-900">{systemInformation.createdBy.name}</p>
-                  <p className="text-xs text-gray-500">{formatTimestamp(systemInformation.createdBy.timestamp)}</p>
+                <div className="bg-muted p-3 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Created By</p>
+                  <p className="text-sm font-medium text-foreground">{systemInformation.createdBy.name}</p>
+                  <p className="text-xs text-muted-foreground">{formatTimestamp(systemInformation.createdBy.timestamp)}</p>
                 </div>
               )}
               {systemInformation.sentToClientBy && (
@@ -135,19 +135,19 @@ export default function QuoteSystemInfo({ timeline, systemInformation, creationS
 
           {timeline && timeline.length > 0 && (
             <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Activity Timeline</h4>
+              <h4 className="text-sm font-semibold text-foreground mb-3">Activity Timeline</h4>
               <div className="space-y-3">
                 {timeline.map((event, index) => (
                   <div
                     key={event.id || index}
-                    className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0"
+                    className="flex items-start gap-3 pb-3 border-b border-border last:border-0"
                   >
                     <div className="mt-0.5">{getEventIcon(event.type)}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{getEventLabel(event.type)}</p>
-                          <p className="text-sm text-gray-600 mt-0.5">
+                          <p className="text-sm font-medium text-foreground">{getEventLabel(event.type)}</p>
+                          <p className="text-sm text-muted-foreground mt-0.5">
                             {event.details || (event.type === 'created' ? 'Quote created' : '')}
                           </p>
                           {event.metadata && Object.keys(event.metadata).length > 0 && (
@@ -160,9 +160,9 @@ export default function QuoteSystemInfo({ timeline, systemInformation, creationS
                                       : String(value)
                                     : '—';
                                 return (
-                                  <span key={key} className="inline text-gray-600">
-                                    <span className="font-medium text-gray-500">{formatMetadataKey(key)}:</span>{' '}
-                                    <span className="text-gray-700">{displayValue}</span>
+                                  <span key={key} className="inline text-muted-foreground">
+                                    <span className="font-medium text-muted-foreground">{formatMetadataKey(key)}:</span>{' '}
+                                    <span className="text-foreground">{displayValue}</span>
                                   </span>
                                 );
                               })}
@@ -170,8 +170,8 @@ export default function QuoteSystemInfo({ timeline, systemInformation, creationS
                           )}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-xs text-gray-500">{formatTimestamp(event.timestamp)}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">by {event.userName}</p>
+                          <p className="text-xs text-muted-foreground">{formatTimestamp(event.timestamp)}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">by {event.userName}</p>
                         </div>
                       </div>
                     </div>

@@ -217,7 +217,7 @@ export default function AdminUsersManagement() {
         <StatCards items={[{ label: 'Total', value: adminUsers.length, icon: User, color: 'blue' }]} />
 
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, email, or phone..."
             value={searchQuery}
@@ -233,24 +233,24 @@ export default function AdminUsersManagement() {
             {filteredAdmins.map((admin) => (
               <div
                 key={admin.uid}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
               >
                 <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
                 <div className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                    <h3 className="font-semibold text-gray-900">{admin.fullName}</h3>
+                    <h3 className="font-semibold text-foreground">{admin.fullName}</h3>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Mail className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     <span className="truncate">{admin.email}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Phone className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     <span>{admin.phone}</span>
                   </div>
-                  <div className="flex items-center justify-between py-2 border-t border-gray-100">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <div className="flex items-center justify-between py-2 border-t border-border">
+                    <div className="flex items-center gap-2 text-sm text-foreground">
                       <Bell className="h-4 w-4 text-blue-500" />
                       <span>Work Order Emails</span>
                     </div>
@@ -263,13 +263,13 @@ export default function AdminUsersManagement() {
                       title={admin.workOrderEmailNotifications ? 'Disable work order email notifications' : 'Enable work order email notifications'}
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform ${
                           admin.workOrderEmailNotifications ? 'translate-x-6' : 'translate-x-1'
                         }`}
                       />
                     </button>
                   </div>
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
+                  <div className="flex gap-2 pt-3 border-t border-border">
                     <Button size="sm" variant="outline" className="flex-1 gap-2" onClick={() => handleOpenEdit(admin)}>
                       <Edit2 className="h-3.5 w-3.5" />
                       Edit
@@ -289,8 +289,8 @@ export default function AdminUsersManagement() {
         {/* Create/Edit Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-white z-10 rounded-t-2xl">
+            <div className="bg-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">
                     {editingId ? 'Edit Admin User' : 'Create New Admin User'}
@@ -332,7 +332,7 @@ export default function AdminUsersManagement() {
                       disabled={!!editingId}
                     />
                     {editingId && (
-                      <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                      <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
                     )}
                     {!editingId && (
                       <p className="text-xs text-green-600 mt-1">An invitation email will be sent to set up password</p>
@@ -365,10 +365,10 @@ export default function AdminUsersManagement() {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && adminToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Admin User</h2>
-                <p className="text-gray-700 mb-4">
+                <p className="text-foreground mb-4">
                   Are you sure you want to delete admin user <strong>"{adminToDelete.fullName}"</strong>?
                 </p>
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
