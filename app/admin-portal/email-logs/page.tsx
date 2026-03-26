@@ -58,6 +58,7 @@ const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
   'support-ticket-assigned': 'Support Ticket (assigned)',
   'auto-charge-receipt': 'Auto-Charge Receipt',
   'work-order-completion-client': 'WO Completed (Client)',
+  'work-order-received': 'Work Order Received (Client)',
   test: 'Test Email',
 };
 
@@ -81,6 +82,7 @@ const EMAIL_TYPE_COLORS: Record<EmailType, string> = {
   'support-ticket-assigned': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300',
   'auto-charge-receipt': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300',
   'work-order-completion-client': 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-300',
+  'work-order-received': 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-300',
   test: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
 };
 
