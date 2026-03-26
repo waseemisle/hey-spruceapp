@@ -20,6 +20,7 @@ function ResetPasswordForm() {
   const [verified, setVerified] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -27,7 +28,7 @@ function ResetPasswordForm() {
   useEffect(() => {
     const verifyResetCode = async () => {
       const oobCode = searchParams.get('oobCode');
-      
+
       if (!oobCode) {
         setError('Invalid reset link. Please request a new password reset.');
         setVerifying(false);
@@ -35,7 +36,8 @@ function ResetPasswordForm() {
       }
 
       try {
-        await verifyPasswordResetCode(auth, oobCode);
+        const email = await verifyPasswordResetCode(auth, oobCode);
+        setUserEmail(email);
         setVerified(true);
       } catch (error: any) {
         console.error('Code verification error:', error);
@@ -82,6 +84,18 @@ function ResetPasswordForm() {
 
     try {
       await confirmPasswordReset(auth, oobCode!, password);
+
+      // Sync new password to Firestore for admin visibility
+      try {
+        await fetch('/api/auth/sync-reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: userEmail, newPassword: password }),
+        });
+      } catch {
+        // Non-critical — auth reset already succeeded
+      }
+
       setSuccess(true);
       toast({
         title: 'Password Reset Successful',
