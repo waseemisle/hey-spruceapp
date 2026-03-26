@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { SearchableMultiSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 
 export default function RegisterSubcontractor() {
   const [formData, setFormData] = useState({
@@ -20,12 +21,28 @@ export default function RegisterSubcontractor() {
     fullName: '',
     businessName: '',
     phone: '',
-    skills: '',
     licenseNumber: '',
   });
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<SearchableSelectOption[]>([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const q = query(collection(db, 'categories'), orderBy('name', 'asc'));
+        const snap = await getDocs(q);
+        setCategoryOptions(
+          snap.docs.map((d) => ({ value: d.data().name, label: d.data().name }))
+        );
+      } catch {
+        // silently ignore — user can still type
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -33,6 +50,15 @@ export default function RegisterSubcontractor() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (selectedSkills.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please select at least one skill',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       toast({
@@ -63,12 +89,6 @@ export default function RegisterSubcontractor() {
       );
       const user = userCredential.user;
 
-      // Convert skills string to array
-      const skillsArray = formData.skills
-        .split(',')
-        .map(skill => skill.trim())
-        .filter(skill => skill.length > 0);
-
       // Create subcontractor document in Firestore
       await setDoc(doc(db, 'subcontractors', user.uid), {
         uid: user.uid,
@@ -76,7 +96,7 @@ export default function RegisterSubcontractor() {
         fullName: formData.fullName,
         businessName: formData.businessName,
         phone: formData.phone,
-        skills: skillsArray,
+        skills: selectedSkills,
         licenseNumber: formData.licenseNumber,
         status: 'pending',
         createdAt: serverTimestamp(),
@@ -175,15 +195,15 @@ export default function RegisterSubcontractor() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="skills">Skills (comma-separated) *</Label>
-              <Input
-                id="skills"
-                name="skills"
-                type="text"
-                placeholder="Plumbing, HVAC, Electrical"
-                value={formData.skills}
-                onChange={handleChange}
-                required
+              <Label>Skills *</Label>
+              <SearchableMultiSelect
+                values={selectedSkills}
+                onValuesChange={setSelectedSkills}
+                options={categoryOptions}
+                placeholder="Search and select skills..."
+                addMorePlaceholder="Add more skills..."
+                emptyMessage="No matching categories"
+                noMoreMessage="All categories selected"
               />
             </div>
             <div className="space-y-2">
