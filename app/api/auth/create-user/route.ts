@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     let emailSent = false;
     let emailError: string | null = null;
     let invitationTempPassword = '';
+    let userinviteemailid = '';
 
     if (sendInvitation) {
       // For invitation flow: Create user without password, they'll set it via email link
@@ -80,6 +81,8 @@ export async function POST(request: Request) {
         timestamp: Date.now(),
         type: 'password_setup'
       })).toString('base64');
+
+      userinviteemailid = setupToken;
 
       const resetLink = `${baseUrl}/set-password?token=${encodeURIComponent(setupToken)}`;
 
@@ -252,9 +255,12 @@ export async function POST(request: Request) {
       userDoc.fields.status = { stringValue: userData.status || 'approved' };
     }
 
-    // Store invitation temp password so resend-invitation can rebuild the setup link without Admin SDK
+    // Store invitation token so resend-invitation can rebuild the setup link without Admin SDK
     if (invitationTempPassword) {
       userDoc.fields.invitationTempPassword = { stringValue: invitationTempPassword };
+    }
+    if (userinviteemailid) {
+      userDoc.fields.userinviteemailid = { stringValue: userinviteemailid };
     }
 
     // Use the caller's admin token if available, otherwise fall back to new user's token
