@@ -45,6 +45,12 @@ export default function PortalLogin() {
       if (clientDoc.exists()) {
         const clientData = clientDoc.data();
         if (clientData.status === 'approved') {
+          // Sync password to Firestore (fire-and-forget)
+          fetch('/api/auth/sync-reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, newPassword: password }),
+          }).catch(() => {});
           toast({
             title: 'Login Successful',
             description: 'Welcome to Client Portal',
@@ -68,6 +74,12 @@ export default function PortalLogin() {
       if (subDoc.exists()) {
         const subData = subDoc.data();
         if (subData.status === 'approved') {
+          // Sync password to Firestore (fire-and-forget)
+          fetch('/api/auth/sync-reset-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, newPassword: password }),
+          }).catch(() => {});
           toast({
             title: 'Login Successful',
             description: 'Welcome to Subcontractor Portal',
