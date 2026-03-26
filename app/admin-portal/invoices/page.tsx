@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useViewControls } from '@/contexts/view-controls-context';
 import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
@@ -57,6 +58,7 @@ interface ClientBilling {
 }
 
 export default function InvoicesManagement() {
+  const { viewMode } = useViewControls();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [clientBillingMap, setClientBillingMap] = useState<Record<string, ClientBilling>>({});
@@ -692,31 +694,86 @@ export default function InvoicesManagement() {
           ))}
         </div>
 
-        {/* Invoices Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {loading ? (
-            <>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-card rounded-lg border border-border p-6 space-y-4 animate-pulse">
-                  <div className="flex justify-between">
-                    <div className="h-5 w-32 rounded bg-gray-200" />
-                    <div className="h-6 w-16 rounded-full bg-gray-200" />
-                  </div>
-                  <div className="h-4 w-48 rounded bg-gray-200" />
-                  <div className="h-8 w-24 rounded bg-gray-200" />
-                  <div className="h-4 w-full rounded bg-gray-200" />
+        {/* Invoices — list or grid based on viewMode */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-card rounded-lg border border-border p-6 space-y-4 animate-pulse">
+                <div className="flex justify-between">
+                  <div className="h-5 w-32 rounded bg-muted" />
+                  <div className="h-6 w-16 rounded-full bg-muted" />
                 </div>
-              ))}
-            </>
-          ) : filteredInvoices.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No invoices found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredInvoices.map((invoice) => (
+                <div className="h-4 w-48 rounded bg-muted" />
+                <div className="h-8 w-24 rounded bg-muted" />
+                <div className="h-4 w-full rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+        ) : filteredInvoices.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No invoices found</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'list' ? (
+          <div className="border border-border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-muted border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Work Order</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Due Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-card divide-y divide-border">
+                {filteredInvoices.map((invoice) => {
+                  const dueDate = invoice.dueDate?.toDate ? invoice.dueDate.toDate() : invoice.dueDate ? new Date(invoice.dueDate) : null;
+                  return (
+                    <tr key={invoice.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="px-4 py-3 text-sm font-medium text-foreground">{invoice.invoiceNumber}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground max-w-[200px] truncate">{invoice.workOrderTitle}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{invoice.clientName}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(invoice.status)}`}>
+                          {invoice.status.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-foreground">
+                        ${invoice.totalAmount?.toLocaleString() ?? '0'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {dueDate ? dueDate.toLocaleDateString() : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Link href={`/admin-portal/invoices/${invoice.id}`}>
+                            <Button size="sm" variant="outline"><Eye className="h-4 w-4" /></Button>
+                          </Link>
+                          <Button size="sm" variant="outline" onClick={() => handleOpenEdit(invoice)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => downloadInvoice(invoice)}>
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => handleDeleteInvoice(invoice)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredInvoices.map((invoice) => (
               <Card key={invoice.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="space-y-2">
@@ -858,9 +915,9 @@ export default function InvoicesManagement() {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Edit Modal */}
         {showModal && editingId && (
