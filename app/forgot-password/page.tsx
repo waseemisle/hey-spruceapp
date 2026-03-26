@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,47 +19,11 @@ export default function ForgotPassword() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const checkUserExists = async (email: string) => {
-    try {
-      // Check all collections for the email
-      const collections = ['users', 'clients', 'adminUsers', 'subcontractors'];
-      
-      for (const collectionName of collections) {
-        const q = query(collection(db, collectionName), where('email', '==', email));
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-          return { exists: true, collection: collectionName };
-        }
-      }
-      
-      return { exists: false, collection: null };
-    } catch (error) {
-      console.error('Error checking user existence:', error);
-      throw error;
-    }
-  };
-
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // First, check if user exists in any collection
-      const userCheck = await checkUserExists(email);
-      
-      if (!userCheck.exists) {
-        console.log("User not Found!, Please register first");
-        toast({
-          title: 'User not Found!',
-          description: 'Please Register First',
-          className: 'bg-[#e06e6e] text-white border-[#e06e6e]',
-        });
-        setLoading(false);
-        return;
-      }
-
-      // User exists, proceed with password reset
       await sendPasswordResetEmail(auth, email);
       setEmailSent(true);
       toast({
