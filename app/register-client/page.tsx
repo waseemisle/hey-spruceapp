@@ -66,6 +66,7 @@ export default function RegisterClient() {
         email: formData.email,
         fullName: formData.fullName,
         phone: formData.phone,
+        password: formData.password,
         status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
