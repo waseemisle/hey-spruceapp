@@ -23,8 +23,21 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
 
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      toast({
+        title: 'Email Required',
+        description: 'Please enter your email address.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, trimmedEmail);
+      setEmail(trimmedEmail);
       setEmailSent(true);
       toast({
         title: 'Reset Email Sent',
