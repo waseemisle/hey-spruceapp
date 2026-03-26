@@ -2319,249 +2319,106 @@ const filteredLocationsForForm = locations.filter((location) => {
             </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {paginatedWorkOrders.map((workOrder) => (
-              <Card
-                key={workOrder.id}
-                className="h-full flex flex-col min-h-[500px] hover:shadow-lg transition-shadow"
-              >
-                <CardHeader className="flex-shrink-0 pb-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <Checkbox
-                          checked={selectedIds.includes(workOrder.id)}
-                          onCheckedChange={() => toggleSelection(workOrder.id)}
-                          className="mt-1"
-                        />
-                        <CardTitle className="text-lg line-clamp-2 flex-1 min-w-0">{workOrder.title}</CardTitle>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusColor(workOrder.status)}`}>
-                        {getStatusLabel(workOrder.status)}
-                      </span>
+              <div key={workOrder.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                {/* Row 1: checkbox + title + status */}
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    checked={selectedIds.includes(workOrder.id)}
+                    onCheckedChange={() => toggleSelection(workOrder.id)}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <div className="flex items-start justify-between gap-2 flex-1 min-w-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{workOrder.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{workOrder.workOrderNumber}</p>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold whitespace-nowrap ${getPriorityColor(workOrder.priority)}`}>
-                        {(workOrder.priority || 'medium').toUpperCase()}
-                      </span>
-                      <span className="px-2 py-1 rounded bg-muted text-foreground text-xs font-semibold whitespace-nowrap">
-                        {workOrder.workOrderNumber}
-                      </span>
-                    </div>
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(workOrder.status)}`}>
+                      {getStatusLabel(workOrder.status)}
+                    </span>
                   </div>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col space-y-3 pb-4">
-                  <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">{workOrder.description}</p>
+                </div>
 
-                  <div className="space-y-2 flex-shrink-0">
-                    <div className="text-sm">
-                      <span className="font-semibold">Client:</span> <span className="text-foreground">{getWorkOrderClientDisplayName(workOrder)}</span>
-                    </div>
-                    {workOrder.appyRequestor && (
-                      <div className="text-sm">
-                        <span className="font-semibold">APPY Requestor:</span> <span className="text-foreground">{workOrder.appyRequestor}</span>
-                      </div>
-                    )}
-                    <div className="text-sm">
-                      <span className="font-semibold">Category:</span> <span className="text-foreground">{workOrder.category}</span>
-                    </div>
-                    <div className="text-sm min-h-[1.25rem]">
-                      {workOrder.estimateBudget ? (
-                        <>
-                          <span className="font-semibold">Estimate Budget:</span> <span className="text-foreground">${workOrder.estimateBudget.toLocaleString()}</span>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">No budget estimate</span>
-                      )}
-                    </div>
-                    <div className="text-sm min-h-[1.25rem]">
-                      {workOrder.assignedToName || workOrder.assignedSubcontractorName ? (
-                        <>
-                          <span className="font-semibold">Assigned to:</span>{' '}
-                          <span className="text-foreground">
-                            {workOrder.assignedSubcontractorName || workOrder.assignedToName}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">Not assigned</span>
-                      )}
-                    </div>
-                    <div className="text-sm min-h-[1.25rem]">
-                      {workOrder.quoteCount !== undefined && workOrder.quoteCount > 0 ? (
-                        <>
-                          <span className="font-semibold">Quotes Received:</span> <span className="text-foreground">{workOrder.quoteCount}</span>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">No quotes yet</span>
-                      )}
-                    </div>
+                {/* Row 2: client + priority */}
+                <div className="flex items-center justify-between text-sm gap-2">
+                  <span className="text-muted-foreground truncate">{getWorkOrderClientDisplayName(workOrder)}</span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-semibold ${getPriorityColor(workOrder.priority)}`}>
+                    {(workOrder.priority || 'medium').toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Row 3: category + budget/assigned */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground gap-2">
+                  <span className="truncate">{workOrder.category || '—'}</span>
+                  <span className="shrink-0">
+                    {workOrder.estimateBudget ? `$${workOrder.estimateBudget.toLocaleString()}` : workOrder.assignedSubcontractorName || workOrder.assignedToName || '—'}
+                  </span>
+                </div>
+
+                {/* Row 4: scheduled date badge (if accepted) */}
+                {workOrder.status === 'accepted_by_subcontractor' && workOrder.scheduledServiceDate && (
+                  <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    <CheckCircle className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      Scheduled: {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} {workOrder.scheduledServiceTime && `at ${workOrder.scheduledServiceTime}`}
+                    </span>
                   </div>
+                )}
 
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground min-h-[1.5rem] flex-shrink-0">
-                    {workOrder.images && workOrder.images.length > 0 ? (
-                      <>
-                        <ImageIcon className="h-4 w-4" />
-                        <span>{workOrder.images.length} image(s)</span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">No images</span>
-                    )}
+                {/* Row 5: invoice sent badge */}
+                {(workOrder.status === 'pending_invoice' || workOrder.status === 'completed') && workOrder.hasInvoice && (
+                  <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    <CheckCircle className="h-3 w-3 shrink-0" />
+                    <span>Invoice Sent</span>
                   </div>
+                )}
 
-                  {/* Status-specific content area - always reserves space */}
-                  <div className="flex-1 min-h-[120px] flex flex-col justify-end">
-                    {workOrder.status === 'accepted_by_subcontractor' && (
-                      <div className="space-y-2 mb-2">
-                        {workOrder.scheduledServiceDate && workOrder.scheduledServiceTime ? (
-                          <div className="space-y-2">
-                            <div className="text-sm bg-green-50 p-3 rounded-md">
-                              <p className="font-semibold text-green-800">Scheduled Service:</p>
-                              <p className="text-green-700">
-                                {workOrder.scheduledServiceDate?.toDate?.().toLocaleDateString() || 'N/A'} at {workOrder.scheduledServiceTime}
-                              </p>
-                            </div>
-                            <div className="text-sm bg-blue-50 p-3 rounded-md flex items-center gap-2">
-                              <CheckCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                              <p className="text-blue-800 text-xs">Schedule automatically shared with client</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-sm bg-green-50 p-3 rounded-md min-h-[60px] flex items-center">
-                            <span className="text-green-700">No schedule set</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action Buttons - Always at bottom */}
-                  <div className="pt-4 space-y-2 border-t border-border flex-shrink-0">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 min-w-0"
-                        onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}
-                      >
-                        <Eye className="h-4 w-4 mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">View</span>
+                {/* Actions row */}
+                <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                  <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1"
+                    onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}>
+                    <Eye className="h-3.5 w-3.5" /> View
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(workOrder)}>
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  {workOrder.status === 'pending' && (
+                    <>
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50" title="Approve" onClick={() => handleApprove(workOrder.id)}>
+                        <CheckCircle className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 min-w-0"
-                        onClick={() => handleOpenEdit(workOrder)}
-                      >
-                        <Edit2 className="h-4 w-4 mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">Edit</span>
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" title="Reject" onClick={() => handleReject(workOrder.id)}>
+                        <XCircle className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="px-2 sm:px-3"
-                        onClick={() => handleDeleteWorkOrder(workOrder)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {/* Status-specific action buttons - always reserve same space */}
-                    <div className="min-h-[36px] flex items-center">
-                      {workOrder.status === 'pending' && (
-                        <div className="flex flex-wrap gap-2 w-full">
-                          <Button
-                            size="sm"
-                            className="flex-1 min-w-0"
-                            onClick={() => handleApprove(workOrder.id)}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Approve</span>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="flex-1 min-w-0"
-                            onClick={() => handleReject(workOrder.id)}
-                          >
-                            <XCircle className="h-4 w-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Reject</span>
-                          </Button>
-                        </div>
-                      )}
-
-                      {(workOrder.status === 'approved' || workOrder.status === 'bidding') && (
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleShareForBidding(workOrder)}
-                        >
-                          <Share2 className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Share for Bidding</span>
-                          <span className="sm:hidden">Share</span>
-                        </Button>
-                      )}
-
-                      {workOrder.status === 'quotes_received' && (
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          onClick={() => window.location.href = `/admin-portal/quotes?workOrderId=${workOrder.id}`}
-                        >
-                          <span className="hidden sm:inline">View Quotes</span>
-                          <span className="sm:hidden">Quotes</span>
-                        </Button>
-                      )}
-
-                      {workOrder.status === 'to_be_started' && (
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleAssignToSubcontractor(workOrder)}
-                        >
-                          <UserPlus className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Assign to Subcontractor</span>
-                          <span className="sm:hidden">Assign</span>
-                        </Button>
-                      )}
-
-                      {workOrder.status === 'rejected_by_subcontractor' && (
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleAssignToSubcontractor(workOrder)}
-                        >
-                          <UserPlus className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Reassign to Subcontractor</span>
-                          <span className="sm:hidden">Reassign</span>
-                        </Button>
-                      )}
-
-                      {(workOrder.status === 'pending_invoice' || workOrder.status === 'completed') && !workOrder.hasInvoice && (
-                        <Button
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleSendInvoice(workOrder)}
-                        >
-                          <Receipt className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Generate & Send Invoice</span>
-                          <span className="sm:hidden">Generate & Send</span>
-                        </Button>
-                      )}
-
-                      {(workOrder.status === 'pending_invoice' || workOrder.status === 'completed') && workOrder.hasInvoice && (
-                        <div className="w-full text-center text-sm text-green-600 bg-green-50 py-2 px-3 rounded-md flex items-center justify-center gap-2">
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Invoice Sent</span>
-                        </div>
-                      )}
-
-                      {!['pending', 'approved', 'bidding', 'quotes_received', 'to_be_started', 'rejected_by_subcontractor', 'pending_invoice', 'completed', 'accepted_by_subcontractor'].includes(workOrder.status) && (
-                        <div className="w-full h-[36px]"></div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    </>
+                  )}
+                  {(workOrder.status === 'approved' || workOrder.status === 'bidding') && (
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="Share for Bidding" onClick={() => handleShareForBidding(workOrder)}>
+                      <Share2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {workOrder.status === 'quotes_received' && (
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="View Quotes"
+                      onClick={() => window.location.href = `/admin-portal/quotes?workOrderId=${workOrder.id}`}>
+                      <FileText className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {(workOrder.status === 'to_be_started' || workOrder.status === 'rejected_by_subcontractor') && (
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="Assign to Subcontractor" onClick={() => handleAssignToSubcontractor(workOrder)}>
+                      <UserPlus className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {(workOrder.status === 'pending_invoice' || workOrder.status === 'completed') && !workOrder.hasInvoice && (
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="Generate & Send Invoice" onClick={() => handleSendInvoice(workOrder)}>
+                      <Receipt className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" title="Delete" onClick={() => handleDeleteWorkOrder(workOrder)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         )}

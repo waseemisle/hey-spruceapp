@@ -379,12 +379,12 @@ export default function ClientsManagement() {
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border animate-pulse">
-                <div className="h-10 w-10 rounded-full bg-gray-200 shrink-0" />
+                <div className="h-10 w-10 rounded-full bg-muted shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-32 rounded bg-gray-200" />
-                  <div className="h-3 w-48 rounded bg-gray-200" />
+                  <div className="h-4 w-32 rounded bg-muted" />
+                  <div className="h-3 w-48 rounded bg-muted" />
                 </div>
-                <div className="h-6 w-20 rounded-full bg-gray-200" />
+                <div className="h-6 w-20 rounded-full bg-muted" />
               </div>
             ))}
           </div>
@@ -476,7 +476,7 @@ export default function ClientsManagement() {
                   <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {filteredClients.map((client) => {
                   const status = STATUS_CONFIG[client.status] || STATUS_CONFIG.pending;
                   const color = avatarColor(client.uid);
@@ -604,7 +604,7 @@ export default function ClientsManagement() {
                                       : formData.assignedLocations.filter(id => id !== location.id),
                                   });
                                 }}
-                                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                className="h-4 w-4 text-blue-600 rounded border-input focus:ring-ring"
                               />
                               <span className="text-sm text-foreground">{location.locationName}</span>
                             </label>
