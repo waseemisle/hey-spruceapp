@@ -6,7 +6,7 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Mail, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -122,6 +122,7 @@ export default function SubcontractorDetailPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
+  const [resendingInvitation, setResendingInvitation] = useState(false);
 
   // Real-time subcontractor doc
   useEffect(() => {
@@ -217,6 +218,24 @@ export default function SubcontractorDetailPage() {
   }, [enriched]);
 
   // ─── Export CSV ────────────────────────────────────────────────────────────
+
+  const handleResendInvitation = async () => {
+    if (!sub) return;
+    setResendingInvitation(true);
+    try {
+      const res = await fetch('/api/auth/resend-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: sub.email, fullName: sub.fullName, role: 'subcontractor', uid: sub.uid }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed'); }
+      toast.success('Invitation email resent successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to resend invitation');
+    } finally {
+      setResendingInvitation(false);
+    }
+  };
 
   const handleExport = () => {
     const rows = filtered.map((wo) => ({
@@ -316,7 +335,17 @@ export default function SubcontractorDetailPage() {
               )}
             </div>
           </div>
-          <div className="ml-auto flex-shrink-0">
+          <div className="ml-auto flex-shrink-0 flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={handleResendInvitation}
+              disabled={resendingInvitation}
+            >
+              {resendingInvitation ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+              Resend Invitation Email
+            </Button>
             <span
               className={`px-3 py-1 rounded-full text-xs font-semibold ${
                 sub.status === 'approved'

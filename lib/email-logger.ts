@@ -21,6 +21,7 @@ export type EmailType =
   | 'support-ticket-assigned'
   | 'auto-charge-receipt'
   | 'work-order-completion-client'
+  | 'work-order-received'
   | 'test';
 
 export interface EmailLogEntry {

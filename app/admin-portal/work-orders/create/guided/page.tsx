@@ -250,6 +250,22 @@ export default function GuidedWorkOrderCreate() {
         }),
       }).catch(err => console.error('Failed to send work order notification emails:', err));
 
+      // Send confirmation email to the client
+      fetch('/api/email/send-work-order-received', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workOrderId: docRef.id,
+          workOrderNumber,
+          title,
+          clientName: client?.fullName || 'Client',
+          clientEmail: client?.email || '',
+          locationName: selectedLocation.locationName,
+          priority,
+          description: description.trim(),
+        }),
+      }).catch(err => console.error('Failed to send work order received email:', err));
+
       toast.success('Work order created successfully');
       router.push(`/admin-portal/work-orders/${docRef.id}`);
     } catch (e: any) {

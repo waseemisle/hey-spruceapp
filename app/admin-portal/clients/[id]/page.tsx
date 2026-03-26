@@ -209,6 +209,7 @@ export default function ClientDetailPage() {
   const [subCardId, setSubCardId] = useState('');
   const [creatingSub, setCreatingSub] = useState(false);
   const [cancelingSub, setCancelingSub] = useState(false);
+  const [resendingInvitation, setResendingInvitation] = useState(false);
 
   // Legacy: handle redirect from Stripe Checkout (no longer used but kept for backward compat)
   useEffect(() => {
@@ -330,6 +331,24 @@ export default function ClientDetailPage() {
   }, [enriched]);
 
   // ─── Export CSV ────────────────────────────────────────────────────────────
+
+  const handleResendInvitation = async () => {
+    if (!client) return;
+    setResendingInvitation(true);
+    try {
+      const res = await fetch('/api/auth/resend-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: client.email, fullName: client.fullName, role: 'client', uid: client.uid }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Failed'); }
+      toast.success('Invitation email resent successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to resend invitation');
+    } finally {
+      setResendingInvitation(false);
+    }
+  };
 
   const handleExport = () => {
     const rows = filtered.map((wo) => ({
@@ -695,7 +714,17 @@ export default function ClientDetailPage() {
               </div>
             )}
           </div>
-          <div className="ml-auto flex-shrink-0">
+          <div className="ml-auto flex-shrink-0 flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={handleResendInvitation}
+              disabled={resendingInvitation}
+            >
+              {resendingInvitation ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+              Resend Invitation Email
+            </Button>
             <span
               className={`px-3 py-1 rounded-full text-xs font-semibold ${
                 client.status === 'approved'

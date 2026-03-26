@@ -739,7 +739,7 @@ function ClientWorkOrdersContent() {
                       <td className="px-5 py-3.5">
                         <p className="font-medium text-gray-900">{workOrder.title}</p>
                         {workOrder.workOrderNumber && (
-                          <p className="text-xs text-gray-500">WO: {workOrder.workOrderNumber}</p>
+                          <p className="text-xs text-gray-500">{workOrder.workOrderNumber}</p>
                         )}
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{workOrder.description}</p>
                       </td>
@@ -831,7 +831,7 @@ function ClientWorkOrdersContent() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-gray-900 text-sm line-clamp-2">{workOrder.title}</p>
                         {workOrder.workOrderNumber && (
-                          <p className="text-xs text-gray-500 mt-0.5">WO: {workOrder.workOrderNumber}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{workOrder.workOrderNumber}</p>
                         )}
                       </div>
                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border flex-shrink-0 ${statusCfg.className}`}>
