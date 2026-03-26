@@ -186,17 +186,24 @@ export default function GlobalSearchDialog() {
             const matched: SearchResultItem[] = [];
             snap.forEach((doc) => {
               const data = { id: doc.id, ...doc.data() } as any;
-              const searchText = [doc.id, ...cfg.searchFields.map((f) => data[f])]
+              const toStr = (v: unknown): string => {
+                if (v == null) return '';
+                if (typeof v === 'string') return v;
+                if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+                return '';
+              };
+
+              const searchText = [doc.id, ...cfg.searchFields.map((f) => toStr(data[f]))]
                 .filter(Boolean)
                 .join(' ')
                 .toLowerCase();
               if (!searchText.includes(q.toLowerCase())) return;
 
               const title =
-                data[cfg.titleField] ||
-                cfg.titleFallbacks.map((f) => data[f]).find(Boolean) ||
+                toStr(data[cfg.titleField]) ||
+                cfg.titleFallbacks.map((f) => toStr(data[f])).find(Boolean) ||
                 doc.id;
-              const subtitle = cfg.subtitleFields.map((f) => data[f]).filter(Boolean).join(' · ');
+              const subtitle = cfg.subtitleFields.map((f) => toStr(data[f])).filter(Boolean).join(' · ');
 
               matched.push({
                 id: doc.id,
