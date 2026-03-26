@@ -498,18 +498,6 @@ export default function SubcontractorsManagement() {
                         <Eye className="h-3.5 w-3.5" />
                         View Details
                       </Button>
-                      {!sub.passwordSetAt && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full gap-2 text-emerald-600 border-emerald-200 hover:border-emerald-300"
-                          onClick={() => handleResendInvitation(sub)}
-                          disabled={resendingInvitation === sub.uid}
-                        >
-                          <Lock className="h-3.5 w-3.5" />
-                          {resendingInvitation === sub.uid ? 'Sending...' : 'Resend Setup Link'}
-                        </Button>
-                      )}
                       <Button
                         size="sm"
                         variant="outline"
