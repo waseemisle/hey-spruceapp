@@ -1,55 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
+import { doc, getDoc } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 import { sendEmail } from '@/lib/email';
+import { logEmail } from '@/lib/email-logger';
+import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, fullName, role, uid: providedUid } = await request.json();
+    const { email, fullName, role, uid } = await request.json();
 
-    if (!email || !role) {
-      return NextResponse.json({ error: 'Email and role are required' }, { status: 400 });
+    if (!email || !role || !uid) {
+      return NextResponse.json({ error: 'email, role, and uid are required' }, { status: 400 });
     }
 
-    // Get Firebase Admin auth
-    const adminAuth = getAdminAuth();
+    // Read the user document to retrieve the stored invitationTempPassword
+    const db = await getServerDb();
+    const collectionName =
+      role === 'subcontractor' ? 'subcontractors' :
+      role === 'client' ? 'clients' :
+      'adminUsers';
 
-    // Look up user — use provided UID or look up by email
-    let uid: string;
-    try {
-      if (providedUid) {
-        const userRecord = await adminAuth.getUser(providedUid);
-        uid = userRecord.uid;
-      } else {
-        const userRecord = await adminAuth.getUserByEmail(email);
-        uid = userRecord.uid;
-      }
-    } catch (err: any) {
+    const userSnap = await getDoc(doc(db, collectionName, uid));
+    if (!userSnap.exists()) {
+      return NextResponse.json({ error: 'User not found in Firestore.' }, { status: 404 });
+    }
+
+    const userData = userSnap.data();
+    const tempPassword = userData?.invitationTempPassword;
+
+    if (!tempPassword) {
       return NextResponse.json(
-        { error: 'User not found. Make sure the subcontractor account was created.' },
-        { status: 404 }
+        { error: 'No invitation token found for this user. Please delete and recreate the account to generate a new invitation.' },
+        { status: 400 }
       );
     }
 
-    // Generate a new temporary password
-    const tempPassword =
-      Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
-
-    // Update the user's password using Admin SDK so the new token is valid
-    await adminAuth.updateUser(uid, { password: tempPassword });
-
-    // Build a new setup token
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
       'https://groundopscos.vercel.app';
 
+    // Build a fresh token (new timestamp so the 24-hour check passes)
     const setupToken = Buffer.from(
       JSON.stringify({
         email,
         uid,
         tempPassword,
         role,
-        fullName: fullName || '',
+        fullName: fullName || userData?.fullName || '',
         timestamp: Date.now(),
         type: 'password_setup',
       })
@@ -60,89 +58,43 @@ export async function POST(request: NextRequest) {
     const roleTitle =
       role === 'subcontractor' ? 'Subcontractor' : role === 'client' ? 'Client' : 'Admin User';
     const portalName =
-      role === 'subcontractor'
-        ? 'Subcontractor Portal'
-        : role === 'client'
-        ? 'Client Portal'
-        : 'Admin Portal';
+      role === 'subcontractor' ? 'Subcontractor Portal' :
+      role === 'client' ? 'Client Portal' : 'Admin Portal';
 
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Welcome to GroundOps</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to GroundOps!</h1>
-          </div>
-
-          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
-            <p style="font-size: 16px; margin-bottom: 20px;">Hello ${fullName || 'there'},</p>
-
-            <p style="font-size: 16px; margin-bottom: 20px;">
-              You've been invited to join GroundOps as a <strong>${roleTitle}</strong>.
-              Click the button below to set up your password and activate your account.
-            </p>
-
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetLink}"
-                 style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                        color: white;
-                        padding: 15px 40px;
-                        text-decoration: none;
-                        border-radius: 8px;
-                        font-size: 16px;
-                        font-weight: bold;
-                        display: inline-block;">
-                Set Up Password
-              </a>
-            </div>
-
-            <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
-              Or copy and paste this link into your browser:
-            </p>
-            <p style="font-size: 14px; color: #10b981; word-break: break-all;">
-              ${resetLink}
-            </p>
-
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-            <ul style="font-size: 14px; color: #6b7280;">
-              <li><strong>Email:</strong> ${email}</li>
-              <li><strong>Role:</strong> ${roleTitle}</li>
-              <li><strong>Portal:</strong> ${portalName}</li>
-            </ul>
-
-            <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
-              Once you've set your password, you can log in at:
-              <a href="${baseUrl}/portal-login" style="color: #10b981; text-decoration: none;">
-                ${baseUrl}/portal-login
-              </a>
-            </p>
-
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-
-            <p style="font-size: 12px; color: #9ca3af;">
-              If you didn't expect this invitation, you can safely ignore this email.
-              This link will expire in 24 hours.
-            </p>
-          </div>
-
-          <div style="text-align: center; margin-top: 20px; padding: 20px; color: #9ca3af; font-size: 12px;">
-            <p>&copy; ${new Date().getFullYear()} GroundOps LLC. All rights reserved.</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    await sendEmail({
-      to: email,
-      subject: `Welcome to GroundOps - Set Up Your ${roleTitle} Account`,
-      html: emailHtml,
+    const emailHtml = emailLayout({
+      title: 'Welcome to GroundOps',
+      preheader: `You've been invited to join GroundOps as a ${roleTitle}`,
+      body: `
+        <p style="margin:0 0 20px 0;">Hello <strong>${fullName || userData?.fullName || 'there'}</strong>,</p>
+        <p style="margin:0 0 20px 0;color:#5A6C7A;">You've been invited to join <strong>GroundOps</strong> as a <strong>${roleTitle}</strong>. Set up your password to get started.</p>
+        ${alertBox('You\'ll have access to the <strong>' + portalName + '</strong> once your account is activated.', 'info')}
+        ${ctaButton('Set Up Your Password', resetLink)}
+        <p style="margin:24px 0 0 0;font-size:13px;color:#8A9CAB;text-align:center;">This invitation link expires in 24 hours. If you did not expect this invitation, you can safely ignore this email.</p>
+      `,
     });
+
+    const subject = `Welcome to GroundOps - Set Up Your ${roleTitle} Account`;
+
+    try {
+      await sendEmail({ to: email, subject, html: emailHtml });
+      await logEmail({
+        type: 'invitation',
+        to: email,
+        subject,
+        status: 'sent',
+        context: { fullName, role, roleTitle, uid },
+      });
+    } catch (err: any) {
+      await logEmail({
+        type: 'invitation',
+        to: email,
+        subject,
+        status: 'failed',
+        context: { fullName, role, roleTitle, uid },
+        error: err.message,
+      });
+      throw err;
+    }
 
     return NextResponse.json({ success: true, message: 'Invitation email resent successfully' });
   } catch (error: any) {

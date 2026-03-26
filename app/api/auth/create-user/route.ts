@@ -33,11 +33,13 @@ export async function POST(request: Request) {
     let idToken: string;
     let emailSent = false;
     let emailError: string | null = null;
+    let invitationTempPassword = '';
 
     if (sendInvitation) {
       // For invitation flow: Create user without password, they'll set it via email link
       // We'll use a temporary random password and immediately send a password reset email
       const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+      invitationTempPassword = tempPassword;
 
       const signUpUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`;
 
@@ -248,6 +250,11 @@ export async function POST(request: Request) {
     if (role === 'client') {
       if (userData.companyName) userDoc.fields.companyName = { stringValue: userData.companyName };
       userDoc.fields.status = { stringValue: userData.status || 'approved' };
+    }
+
+    // Store invitation temp password so resend-invitation can rebuild the setup link without Admin SDK
+    if (invitationTempPassword) {
+      userDoc.fields.invitationTempPassword = { stringValue: invitationTempPassword };
     }
 
     // Use the caller's admin token if available, otherwise fall back to new user's token
