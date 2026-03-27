@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import {
   updateProfile,
   reauthenticateWithCredential,
@@ -80,16 +80,28 @@ export default function SubcontractorAccountSettings() {
     if (!db || !auth || !uid) return;
     setSavingProfile(true);
     try {
-      let uploadedUrl = photoPreview;
+      let uploadedUrl: string | null = photoPreview && !photoPreview.startsWith('blob:') ? photoPreview : null;
       if (photoFile && storage) {
-        const storageRef = ref(storage, `profile-images/${uid}-${Date.now()}`);
-        await uploadBytes(storageRef, photoFile);
-        uploadedUrl = await getDownloadURL(storageRef);
+        try {
+          const storageRef = ref(storage, `profile-images/${uid}-${Date.now()}`);
+          const uploadPromise = uploadBytes(storageRef, photoFile).then(snap => getDownloadURL(snap.ref));
+          const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Photo upload timed out')), 15000)
+          );
+          uploadedUrl = await Promise.race([uploadPromise, timeout]);
+        } catch (photoErr: any) {
+          console.error('Photo upload failed:', photoErr);
+          toast.error('Photo upload failed — profile saved without new photo');
+        }
       }
-      await updateDoc(doc(db, 'subcontractors', uid), {
+      const savePromise = setDoc(doc(db, 'subcontractors', uid), {
         fullName, phone, businessName, licenseNumber,
         profileImageUrl: uploadedUrl || null, updatedAt: serverTimestamp(),
-      });
+      }, { merge: true });
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Save timed out. Check your connection.')), 15000)
+      );
+      await Promise.race([savePromise, timeout]);
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: fullName || undefined, photoURL: uploadedUrl || undefined });
       }
