@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, FileText, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { createTimelineEvent, createInvoiceTimelineEvent } from '@/lib/timeline';
