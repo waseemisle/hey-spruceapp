@@ -10,8 +10,8 @@ import {
   updatePassword,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { db, auth, storage } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,17 +79,12 @@ export default function ClientAccountSettings() {
     setSavingProfile(true);
     try {
       let uploadedUrl: string | null = photoPreview && !photoPreview.startsWith('blob:') ? photoPreview : null;
-      if (photoFile && storage) {
+      if (photoFile) {
         try {
-          const storageRef = ref(storage, `profile-images/${uid}-${Date.now()}`);
-          const uploadPromise = uploadBytes(storageRef, photoFile).then(snap => getDownloadURL(snap.ref));
-          const timeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Photo upload timed out')), 15000)
-          );
-          uploadedUrl = await Promise.race([uploadPromise, timeout]);
+          uploadedUrl = await uploadToCloudinary(photoFile);
         } catch (photoErr: any) {
           console.error('Photo upload failed:', photoErr);
-          toast.error('Photo upload failed — profile saved without new photo');
+          toast.error(photoErr?.message || 'Photo upload failed — profile saved without new photo');
         }
       }
       const savePromise = setDoc(doc(db, 'clients', uid), {
