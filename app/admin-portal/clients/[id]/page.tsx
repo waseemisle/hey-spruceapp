@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { addDoc, collection, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,7 @@ interface Client {
   subscriptionPaymentMethodId?: string;
   paymentTermsDays?: number;
   autoChargeThreshold?: number;
+  assignedLocations?: string[];
 }
 
 interface WorkOrder {
@@ -90,6 +91,11 @@ interface Location {
   clientId?: string;
   companyId?: string;
   address?: { street?: string; city?: string; state?: string; zip?: string };
+}
+
+interface Company {
+  id: string;
+  name: string;
 }
 
 interface ClientCharge {
@@ -194,6 +200,8 @@ export default function ClientDetailPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
 
@@ -232,7 +240,13 @@ export default function ClientDetailPage() {
   const [showEditClientModal, setShowEditClientModal] = useState(false);
   const [editFullName, setEditFullName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editCompanyId, setEditCompanyId] = useState('');
+  const [editStatus, setEditStatus] = useState<'pending' | 'approved' | 'rejected'>('approved');
+  const [editAssignedLocations, setEditAssignedLocations] = useState<string[]>([]);
   const [savingClientInfo, setSavingClientInfo] = useState(false);
+
+  // Delete work order
+  const [deletingWorkOrderId, setDeletingWorkOrderId] = useState<string | null>(null);
 
   // Charge Now modal
   const [showChargeModal, setShowChargeModal] = useState(false);
@@ -275,15 +289,21 @@ export default function ClientDetailPage() {
     return () => unsub();
   }, [id]);
 
-  // Fetch locations
+  // Fetch locations + companies
   useEffect(() => {
     if (!id) return;
     const fetchLocations = async () => {
       const snap = await getDocs(collection(db, 'locations'));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Location));
+      setAllLocations(all);
       setLocations(all.filter((l) => l.clientId === id || (client?.companyId && l.companyId === client.companyId)));
     };
+    const fetchCompanies = async () => {
+      const snap = await getDocs(collection(db, 'companies'));
+      setCompanies(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Company)));
+    };
     fetchLocations();
+    fetchCompanies();
   }, [id, client?.companyId]);
 
   // Real-time work orders
@@ -842,8 +862,12 @@ export default function ClientDetailPage() {
   };
 
   const handleOpenEditClientModal = () => {
-    setEditFullName(client?.fullName || '');
-    setEditPhone(client?.phone || '');
+    if (!client) return;
+    setEditFullName(client.fullName || '');
+    setEditPhone(client.phone || '');
+    setEditCompanyId(client.companyId || '');
+    setEditStatus(client.status || 'approved');
+    setEditAssignedLocations(client.assignedLocations || []);
     setShowEditClientModal(true);
   };
 
@@ -851,16 +875,44 @@ export default function ClientDetailPage() {
     if (!client || !editFullName || !editPhone) { toast.error('Name and phone are required'); return; }
     setSavingClientInfo(true);
     try {
+      const selectedCompany = companies.find((c) => c.id === editCompanyId);
       await updateDoc(doc(db, 'clients', client.uid), {
         fullName: editFullName,
         phone: editPhone,
+        companyId: editCompanyId || null,
+        companyName: selectedCompany?.name || null,
+        status: editStatus,
+        assignedLocations: editAssignedLocations,
       });
-      toast.success('Client info updated');
+      toast.success('Client updated');
       setShowEditClientModal(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to save client info');
     } finally {
       setSavingClientInfo(false);
+    }
+  };
+
+  const handleDeleteWorkOrder = async (woId: string) => {
+    if (!confirm('Delete this work order and all related quotes & invoices?')) return;
+    setDeletingWorkOrderId(woId);
+    try {
+      const batch = writeBatch(db);
+      const [quotesSnap, invoicesSnap, biddingSnap] = await Promise.all([
+        getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', woId))),
+        getDocs(query(collection(db, 'invoices'), where('workOrderId', '==', woId))),
+        getDocs(query(collection(db, 'biddingWorkOrders'), where('workOrderId', '==', woId))),
+      ]);
+      quotesSnap.docs.forEach((d) => batch.delete(d.ref));
+      invoicesSnap.docs.forEach((d) => batch.delete(d.ref));
+      biddingSnap.docs.forEach((d) => batch.delete(d.ref));
+      batch.delete(doc(db, 'workOrders', woId));
+      await batch.commit();
+      toast.success('Work order deleted');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete work order');
+    } finally {
+      setDeletingWorkOrderId(null);
     }
   };
 
@@ -1879,7 +1931,7 @@ export default function ClientDetailPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
-                  {['WO #', 'Date', 'Location', 'Title', 'Amount', 'Invoice Status', 'Due Date', 'Action'].map(
+                  {['WO #', 'Date', 'Location', 'Title', 'Amount', 'Invoice Status', 'Due Date', 'Actions'].map(
                     (h) => (
                       <th
                         key={h}
@@ -1927,15 +1979,26 @@ export default function ClientDetailPage() {
                         {fmtDate(wo.dueDate)}
                       </td>
                       <td className="px-4 py-3.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => router.push(`/admin-portal/work-orders/${wo.id}`)}
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          View
-                        </Button>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => router.push(`/admin-portal/work-orders/${wo.id}`)}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:border-red-300 hover:bg-red-50"
+                            disabled={deletingWorkOrderId === wo.id}
+                            onClick={() => handleDeleteWorkOrder(wo.id)}
+                          >
+                            {deletingWorkOrderId === wo.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -2222,16 +2285,28 @@ export default function ClientDetailPage() {
       {/* ── Edit Client Info Modal ────────────────────────────────────────── */}
       {showEditClientModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Edit Client Info</h2>
+              <h2 className="text-lg font-semibold text-foreground">Edit Client</h2>
               <button onClick={() => setShowEditClientModal(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="space-y-4">
+
+            {/* Email (read-only) */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">Email (cannot be changed)</label>
+              <input
+                type="email"
+                value={client?.email || ''}
+                disabled
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-muted text-muted-foreground cursor-default"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-muted-foreground block mb-1">Full Name</label>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Full Name *</label>
                 <input
                   type="text"
                   value={editFullName}
@@ -2241,7 +2316,7 @@ export default function ClientDetailPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-muted-foreground block mb-1">Phone</label>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Phone *</label>
                 <input
                   type="tel"
                   value={editPhone}
@@ -2251,7 +2326,69 @@ export default function ClientDetailPage() {
                 />
               </div>
             </div>
-            <div className="flex gap-2 pt-2">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Company</label>
+                <SearchableSelect
+                  className="w-full"
+                  value={editCompanyId}
+                  onValueChange={(v) => { setEditCompanyId(v); setEditAssignedLocations([]); }}
+                  options={[
+                    { value: '', label: 'No company' },
+                    ...companies.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                  placeholder="Select company"
+                  aria-label="Company"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Status</label>
+                <SearchableSelect
+                  className="w-full"
+                  value={editStatus}
+                  onValueChange={(v) => setEditStatus(v as 'pending' | 'approved' | 'rejected')}
+                  options={[
+                    { value: 'approved', label: 'Approved' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'rejected', label: 'Rejected' },
+                  ]}
+                  placeholder="Status"
+                  aria-label="Status"
+                />
+              </div>
+            </div>
+
+            {/* Assigned Locations */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">Assigned Locations</label>
+              <div className="border border-border rounded-lg p-3 max-h-48 overflow-y-auto bg-card">
+                {(() => {
+                  const locPool = editCompanyId
+                    ? allLocations.filter((l) => l.companyId === editCompanyId)
+                    : allLocations;
+                  if (locPool.length === 0) {
+                    return <p className="text-sm text-muted-foreground italic text-center py-3">{editCompanyId ? 'No locations for this company' : 'No locations available'}</p>;
+                  }
+                  return locPool.map((loc) => (
+                    <label key={loc.id} className="flex items-center gap-2.5 py-2 px-2 hover:bg-muted rounded-lg cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editAssignedLocations.includes(loc.id)}
+                        onChange={(e) => setEditAssignedLocations((prev) =>
+                          e.target.checked ? [...prev, loc.id] : prev.filter((x) => x !== loc.id)
+                        )}
+                        className="h-4 w-4 text-blue-600 rounded border-input"
+                      />
+                      <span className="text-sm text-foreground">{loc.locationName}</span>
+                      {loc.companyName && <span className="text-xs text-muted-foreground">· {loc.companyName}</span>}
+                    </label>
+                  ));
+                })()}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-border">
               <Button variant="outline" onClick={() => setShowEditClientModal(false)} className="flex-1" disabled={savingClientInfo}>Cancel</Button>
               <Button onClick={handleSaveClientInfo} disabled={savingClientInfo} className="flex-1 bg-blue-600 hover:bg-blue-700">
                 {savingClientInfo ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</> : 'Save Changes'}
