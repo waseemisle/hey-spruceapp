@@ -222,6 +222,18 @@ export default function ClientDetailPage() {
   const [consolidatedChargeCardId, setConsolidatedChargeCardId] = useState('');
   const [markingConsolidatedPaid, setMarkingConsolidatedPaid] = useState<string | null>(null);
 
+  // Edit billing terms modal
+  const [showBillingTermsModal, setShowBillingTermsModal] = useState(false);
+  const [editPaymentTerms, setEditPaymentTerms] = useState('');
+  const [editAutoChargeThreshold, setEditAutoChargeThreshold] = useState('');
+  const [savingBillingTerms, setSavingBillingTerms] = useState(false);
+
+  // Edit client info modal
+  const [showEditClientModal, setShowEditClientModal] = useState(false);
+  const [editFullName, setEditFullName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [savingClientInfo, setSavingClientInfo] = useState(false);
+
   // Charge Now modal
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [chargeCardId, setChargeCardId] = useState('');
@@ -806,6 +818,52 @@ export default function ClientDetailPage() {
     }
   };
 
+  const handleOpenBillingTermsModal = () => {
+    setEditPaymentTerms(client?.paymentTermsDays ? String(client.paymentTermsDays) : '');
+    setEditAutoChargeThreshold(client?.autoChargeThreshold ? String(client.autoChargeThreshold) : '');
+    setShowBillingTermsModal(true);
+  };
+
+  const handleSaveBillingTerms = async () => {
+    if (!client) return;
+    setSavingBillingTerms(true);
+    try {
+      await updateDoc(doc(db, 'clients', client.uid), {
+        paymentTermsDays: editPaymentTerms ? parseInt(editPaymentTerms) : null,
+        autoChargeThreshold: editAutoChargeThreshold ? parseFloat(editAutoChargeThreshold) : null,
+      });
+      toast.success('Billing terms updated');
+      setShowBillingTermsModal(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save billing terms');
+    } finally {
+      setSavingBillingTerms(false);
+    }
+  };
+
+  const handleOpenEditClientModal = () => {
+    setEditFullName(client?.fullName || '');
+    setEditPhone(client?.phone || '');
+    setShowEditClientModal(true);
+  };
+
+  const handleSaveClientInfo = async () => {
+    if (!client || !editFullName || !editPhone) { toast.error('Name and phone are required'); return; }
+    setSavingClientInfo(true);
+    try {
+      await updateDoc(doc(db, 'clients', client.uid), {
+        fullName: editFullName,
+        phone: editPhone,
+      });
+      toast.success('Client info updated');
+      setShowEditClientModal(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save client info');
+    } finally {
+      setSavingClientInfo(false);
+    }
+  };
+
   const handleCancelSubscription = async () => {
     if (!client) return;
     if (!confirm('Cancel this fixed recurring plan? The client will no longer be auto-charged.')) return;
@@ -917,6 +975,15 @@ export default function ClientDetailPage() {
             )}
           </div>
           <div className="ml-auto flex-shrink-0 flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={handleOpenEditClientModal}
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+              Edit Client
+            </Button>
             <Button
               size="sm"
               variant="outline"
@@ -1234,7 +1301,13 @@ export default function ClientDetailPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Consolidated Billing Terms
                 </p>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Scenario 2</span>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground" onClick={handleOpenBillingTermsModal}>
+                    <Edit2 className="h-3 w-3" />
+                    Edit
+                  </Button>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Scenario 2</span>
+                </div>
               </div>
               <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                 <BillingRow
@@ -2083,6 +2156,106 @@ export default function ClientDetailPage() {
                   Card number is encrypted by Stripe and never touches our servers.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Billing Terms Modal ───────────────────────────────────────── */}
+      {showBillingTermsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Edit Billing Terms</h2>
+              <button onClick={() => setShowBillingTermsModal(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Payment Terms</label>
+                <SearchableSelect
+                  className="w-full"
+                  value={editPaymentTerms}
+                  onValueChange={setEditPaymentTerms}
+                  options={[
+                    { value: '', label: 'Not set' },
+                    { value: '7', label: 'Net 7 — every 7 days' },
+                    { value: '14', label: 'Net 14 — every 14 days' },
+                    { value: '15', label: 'Net 15 — every 15 days' },
+                    { value: '30', label: 'Net 30 — every 30 days' },
+                    { value: '45', label: 'Net 45 — every 45 days' },
+                    { value: '60', label: 'Net 60 — every 60 days' },
+                  ]}
+                  placeholder="Select payment terms"
+                  aria-label="Payment terms"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Consolidated invoice sent after this many days</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Auto-Charge Threshold (USD)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editAutoChargeThreshold}
+                    onChange={(e) => setEditAutoChargeThreshold(e.target.value)}
+                    placeholder="e.g. 500.00"
+                    className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Auto-charge when consolidated invoice reaches this amount</p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowBillingTermsModal(false)} className="flex-1" disabled={savingBillingTerms}>Cancel</Button>
+              <Button onClick={handleSaveBillingTerms} disabled={savingBillingTerms} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                {savingBillingTerms ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</> : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Client Info Modal ────────────────────────────────────────── */}
+      {showEditClientModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Edit Client Info</h2>
+              <button onClick={() => setShowEditClientModal(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  placeholder="Full name"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowEditClientModal(false)} className="flex-1" disabled={savingClientInfo}>Cancel</Button>
+              <Button onClick={handleSaveClientInfo} disabled={savingClientInfo} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                {savingClientInfo ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</> : 'Save Changes'}
+              </Button>
             </div>
           </div>
         </div>
