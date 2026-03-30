@@ -1254,13 +1254,12 @@ export default function ClientDetailPage() {
               </div>
             )}
 
-            {/* ── Fixed Recurring Plan (Scenario 1) ── */}
+            {/* ── Fixed Monthly Auto-Charge (optional) ── */}
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Fixed Auto-Charge Plan
+                  Fixed Monthly Auto-Charge (Optional)
                 </p>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Scenario 1</span>
               </div>
               <div className="p-4">
                 {client.stripeSubscriptionId && client.subscriptionStatus === 'active' ? (
@@ -1351,14 +1350,13 @@ export default function ClientDetailPage() {
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Consolidated Billing Terms
+                  Consolidated Billing Terms (Primary)
                 </p>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground" onClick={handleOpenBillingTermsModal}>
                     <Edit2 className="h-3 w-3" />
                     Edit
                   </Button>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Scenario 2</span>
                 </div>
               </div>
               <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
@@ -1411,7 +1409,7 @@ export default function ClientDetailPage() {
                     : 'Create Fixed Auto-Charge Plan'}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Charges a fixed amount on the same day every month via Stripe Subscription (Scenario 1).
+                  Charges a fixed amount on the same day every month via Stripe Subscription.
                 </p>
               </div>
 
@@ -2027,7 +2025,7 @@ export default function ClientDetailPage() {
                 <div>
                   <h3 className="font-semibold text-foreground text-sm">Charge Card</h3>
                   <p className="text-xs text-muted-foreground">
-                    {client?.companyName || client?.fullName} — Scenario 1
+                    {client?.companyName || client?.fullName}
                   </p>
                 </div>
               </div>
