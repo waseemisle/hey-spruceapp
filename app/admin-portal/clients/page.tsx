@@ -27,6 +27,8 @@ interface Client {
   password?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
+  paymentTermsDays?: number;
+  autoChargeThreshold?: number;
 }
 
 interface Company {
@@ -94,6 +96,8 @@ export default function ClientsManagement() {
     assignedLocations: [] as string[],
     password: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
+    paymentTermsDays: '',
+    autoChargeThreshold: '',
   });
 
   const fetchClients = async () => {
@@ -188,7 +192,7 @@ export default function ClientsManagement() {
   };
 
   const resetForm = () => {
-    setFormData({ email: '', fullName: '', companyId: '', phone: '', assignedLocations: [], password: '', status: 'approved' });
+    setFormData({ email: '', fullName: '', companyId: '', phone: '', assignedLocations: [], password: '', status: 'approved', paymentTermsDays: '', autoChargeThreshold: '' });
     setEditingId(null);
     setShowModal(false);
   };
@@ -200,6 +204,8 @@ export default function ClientsManagement() {
       email: client.email, fullName: client.fullName, companyId: client.companyId || '',
       phone: client.phone, assignedLocations: client.assignedLocations || [],
       status: client.status, password: client.password || '',
+      paymentTermsDays: client.paymentTermsDays ? String(client.paymentTermsDays) : '',
+      autoChargeThreshold: client.autoChargeThreshold ? String(client.autoChargeThreshold) : '',
     });
     setEditingId(client.uid);
     setShowModal(true);
@@ -215,11 +221,15 @@ export default function ClientsManagement() {
       const selectedCompany = companies.find(c => c.id === formData.companyId);
       const companyName = selectedCompany ? selectedCompany.name : '';
 
+      const paymentTermsDays = formData.paymentTermsDays ? parseInt(formData.paymentTermsDays) : null;
+      const autoChargeThreshold = formData.autoChargeThreshold ? parseFloat(formData.autoChargeThreshold) : null;
+
       if (editingId) {
         await updateDoc(doc(db, 'clients', editingId), {
           fullName: formData.fullName, companyId: formData.companyId || null,
           companyName, phone: formData.phone,
           assignedLocations: formData.assignedLocations, status: formData.status, updatedAt: serverTimestamp(),
+          paymentTermsDays, autoChargeThreshold,
         });
         toast.success('Client updated successfully');
       } else {
@@ -228,7 +238,7 @@ export default function ClientsManagement() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email, role: 'client', sendInvitation: true,
-            userData: { fullName: formData.fullName, companyId: formData.companyId || null, companyName, phone: formData.phone, assignedLocations: formData.assignedLocations, status: formData.status },
+            userData: { fullName: formData.fullName, companyId: formData.companyId || null, companyName, phone: formData.phone, assignedLocations: formData.assignedLocations, status: formData.status, paymentTermsDays, autoChargeThreshold },
           }),
         });
         if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to create client'); }
@@ -432,6 +442,21 @@ export default function ClientsManagement() {
                       ))}
                       {clientLocations.length > 2 && (
                         <span className="text-xs text-muted-foreground">+{clientLocations.length - 2}</span>
+                      )}
+                    </div>
+                  )}
+                  {/* Row 3b: billing terms */}
+                  {(client.paymentTermsDays || client.autoChargeThreshold) && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {client.paymentTermsDays && (
+                        <span className="text-xs bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded-full">
+                          Net {client.paymentTermsDays}
+                        </span>
+                      )}
+                      {client.autoChargeThreshold && (
+                        <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full">
+                          Threshold ${client.autoChargeThreshold.toLocaleString()}
+                        </span>
                       )}
                     </div>
                   )}
@@ -673,6 +698,41 @@ export default function ClientsManagement() {
                       placeholder="Status"
                       aria-label="Client status"
                     />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-foreground">Payment Terms</Label>
+                    <SearchableSelect
+                      className="mt-1 w-full"
+                      value={formData.paymentTermsDays}
+                      onValueChange={(v) => setFormData({ ...formData, paymentTermsDays: v })}
+                      options={[
+                        { value: '', label: 'Not set' },
+                        { value: '7', label: 'Net 7 — every 7 days' },
+                        { value: '14', label: 'Net 14 — every 14 days' },
+                        { value: '15', label: 'Net 15 — every 15 days' },
+                        { value: '30', label: 'Net 30 — every 30 days' },
+                        { value: '45', label: 'Net 45 — every 45 days' },
+                        { value: '60', label: 'Net 60 — every 60 days' },
+                      ]}
+                      placeholder="Select payment terms"
+                      aria-label="Payment terms"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Consolidated invoice sent to client after this many days</p>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-foreground">Auto-Charge Threshold ($)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.autoChargeThreshold}
+                      onChange={(e) => setFormData({ ...formData, autoChargeThreshold: e.target.value })}
+                      placeholder="e.g. 500.00"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Auto-charge when consolidated invoice total reaches this amount</p>
                   </div>
                 </div>
 

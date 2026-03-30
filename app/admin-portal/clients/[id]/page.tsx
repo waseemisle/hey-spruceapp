@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { collection, doc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   ArrowLeft, Download, ExternalLink, CreditCard, CheckCircle, AlertCircle,
   Plus, XCircle, MapPin, Star, Trash2, Edit2, Loader2, Mail, X, ShieldCheck,
-  Zap, DollarSign, History, Receipt,
+  Zap, DollarSign, History, Receipt, FileText, Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,6 +49,8 @@ interface Client {
   subscriptionBillingDay?: number;
   subscriptionStatus?: string;
   subscriptionPaymentMethodId?: string;
+  paymentTermsDays?: number;
+  autoChargeThreshold?: number;
 }
 
 interface WorkOrder {
@@ -104,6 +106,24 @@ interface ClientCharge {
   chargedAt: any;
   error?: string;
   source: 'manual_admin' | 'subscription';
+}
+
+interface ConsolidatedInvoice {
+  id: string;
+  clientId: string;
+  clientName: string;
+  invoiceIds: string[];
+  invoiceCount: number;
+  totalAmount: number;
+  periodStart: any;
+  periodEnd: any;
+  status: 'draft' | 'sent' | 'paid';
+  autoCharged: boolean;
+  autoChargeStatus?: 'pending' | 'succeeded' | 'failed';
+  stripePaymentIntentId?: string;
+  notes?: string;
+  createdAt: any;
+  paidAt?: any;
 }
 
 type TabKey = 'all' | 'not-invoiced' | 'invoiced' | 'paid' | 'overdue';
@@ -194,6 +214,14 @@ export default function ClientDetailPage() {
   // Transaction history
   const [charges, setCharges] = useState<ClientCharge[]>([]);
 
+  // Consolidated invoices
+  const [consolidatedInvoices, setConsolidatedInvoices] = useState<ConsolidatedInvoice[]>([]);
+  const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
+  const [generatingConsolidated, setGeneratingConsolidated] = useState(false);
+  const [consolidatedChargeCardId, setConsolidatedChargeCardId] = useState('');
+  const [markingConsolidatedPaid, setMarkingConsolidatedPaid] = useState<string | null>(null);
+
   // Charge Now modal
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [chargeCardId, setChargeCardId] = useState('');
@@ -279,6 +307,23 @@ export default function ClientDetailPage() {
         return db_.getTime() - da.getTime();
       });
       setCharges(all);
+    });
+    return () => unsub();
+  }, [id]);
+
+  // Real-time consolidated invoices
+  useEffect(() => {
+    if (!id) return;
+    const q = query(collection(db, 'consolidatedInvoices'), where('clientId', '==', id));
+    const unsub = onSnapshot(q, (snap) => {
+      const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ConsolidatedInvoice));
+      all.sort((a, b) => {
+        const da = toDate(a.createdAt);
+        const db_ = toDate(b.createdAt);
+        if (!da || !db_) return 0;
+        return db_.getTime() - da.getTime();
+      });
+      setConsolidatedInvoices(all);
     });
     return () => unsub();
   }, [id]);
@@ -601,6 +646,163 @@ export default function ClientDetailPage() {
       toast.error(error.message || 'Failed to send test email');
     } finally {
       setTestingEmail(false);
+    }
+  };
+
+  // ─── Consolidated Invoice Actions ─────────────────────────────────────────
+
+  // IDs already used in existing consolidated invoices
+  const alreadyConsolidatedIds = new Set(consolidatedInvoices.flatMap((ci) => ci.invoiceIds));
+
+  // Invoices eligible for consolidation: sent or overdue, not already consolidated
+  const eligibleInvoices = invoices.filter(
+    (inv) => (inv.status === 'sent' || inv.status === 'overdue') && !alreadyConsolidatedIds.has(inv.id)
+  );
+
+  const consolidatedTotal = selectedInvoiceIds.reduce((sum, iid) => {
+    const inv = invoices.find((i) => i.id === iid);
+    return sum + (inv?.totalAmount ?? 0);
+  }, 0);
+
+  const handleOpenConsolidatedModal = () => {
+    setSelectedInvoiceIds(eligibleInvoices.map((i) => i.id));
+    setConsolidatedChargeCardId(client?.defaultPaymentMethodId || '');
+    setShowConsolidatedModal(true);
+  };
+
+  const handleGenerateConsolidated = async () => {
+    if (!client || selectedInvoiceIds.length === 0) return;
+    setGeneratingConsolidated(true);
+    try {
+      const now = new Date();
+      const periodStart = new Date(now.getTime() - (client.paymentTermsDays || 30) * 24 * 60 * 60 * 1000);
+
+      let chargeStatus: string | undefined;
+      let paymentIntentId: string | undefined;
+
+      // If a card is selected, charge first
+      if (consolidatedChargeCardId) {
+        const chargeRes = await fetch('/api/stripe/charge-client-now', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId: client.uid,
+            paymentMethodId: consolidatedChargeCardId,
+            amount: consolidatedTotal,
+            description: `Consolidated invoice — ${selectedInvoiceIds.length} invoice${selectedInvoiceIds.length !== 1 ? 's' : ''}`,
+          }),
+        });
+        const chargeData = await chargeRes.json();
+        if (!chargeRes.ok || !chargeData.success) {
+          throw new Error(chargeData.error || chargeData.message || 'Charge failed');
+        }
+        chargeStatus = 'succeeded';
+        paymentIntentId = chargeData.paymentIntentId;
+      }
+
+      const isPaid = !!consolidatedChargeCardId && chargeStatus === 'succeeded';
+
+      // Create consolidated invoice document
+      const docRef = await addDoc(collection(db, 'consolidatedInvoices'), {
+        clientId: client.uid,
+        clientName: client.companyName || client.fullName,
+        invoiceIds: selectedInvoiceIds,
+        invoiceCount: selectedInvoiceIds.length,
+        totalAmount: consolidatedTotal,
+        periodStart,
+        periodEnd: now,
+        status: isPaid ? 'paid' : 'draft',
+        autoCharged: isPaid,
+        autoChargeStatus: chargeStatus || null,
+        stripePaymentIntentId: paymentIntentId || null,
+        paidAt: isPaid ? serverTimestamp() : null,
+        createdAt: serverTimestamp(),
+      });
+
+      // If charged, mark all individual invoices as paid
+      if (isPaid) {
+        const batch = writeBatch(db);
+        for (const invId of selectedInvoiceIds) {
+          batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
+        }
+        await batch.commit();
+      }
+
+      toast.success(
+        isPaid
+          ? `${fmtMoney(consolidatedTotal)} charged and ${selectedInvoiceIds.length} invoice${selectedInvoiceIds.length !== 1 ? 's' : ''} marked as paid`
+          : `Consolidated invoice for ${fmtMoney(consolidatedTotal)} created as draft`
+      );
+      setShowConsolidatedModal(false);
+      setSelectedInvoiceIds([]);
+      setConsolidatedChargeCardId('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate consolidated invoice');
+    } finally {
+      setGeneratingConsolidated(false);
+    }
+  };
+
+  const handleChargeAndMarkPaid = async (ci: ConsolidatedInvoice) => {
+    if (!client || !consolidatedChargeCardId) {
+      toast.error('Select a card to charge');
+      return;
+    }
+    setMarkingConsolidatedPaid(ci.id);
+    try {
+      // Charge via Stripe
+      const chargeRes = await fetch('/api/stripe/charge-client-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: client.uid,
+          paymentMethodId: consolidatedChargeCardId,
+          amount: ci.totalAmount,
+          description: `Consolidated invoice — ${ci.invoiceCount} invoice${ci.invoiceCount !== 1 ? 's' : ''}`,
+        }),
+      });
+      const chargeData = await chargeRes.json();
+      if (!chargeRes.ok || !chargeData.success) {
+        throw new Error(chargeData.error || chargeData.message || 'Charge failed');
+      }
+
+      // Batch: mark consolidated invoice as paid + mark each individual invoice as paid
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'consolidatedInvoices', ci.id), {
+        status: 'paid',
+        autoCharged: true,
+        autoChargeStatus: 'succeeded',
+        stripePaymentIntentId: chargeData.paymentIntentId,
+        paidAt: serverTimestamp(),
+      });
+      for (const invId of ci.invoiceIds) {
+        batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
+      }
+      await batch.commit();
+
+      toast.success(`${fmtMoney(ci.totalAmount)} charged and ${ci.invoiceCount} invoice${ci.invoiceCount !== 1 ? 's' : ''} marked as paid`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to charge consolidated invoice');
+    } finally {
+      setMarkingConsolidatedPaid(null);
+    }
+  };
+
+  const handleMarkConsolidatedPaidManual = async (ci: ConsolidatedInvoice) => {
+    if (!confirm(`Mark this consolidated invoice (${fmtMoney(ci.totalAmount)}) and all ${ci.invoiceCount} invoices as paid?`)) return;
+    setMarkingConsolidatedPaid(ci.id);
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'consolidatedInvoices', ci.id), { status: 'paid', paidAt: serverTimestamp() });
+      for (const invId of ci.invoiceIds) {
+        batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
+      }
+      await batch.commit();
+      toast.success(`Consolidated invoice marked as paid`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to mark as paid');
+    } finally {
+      setMarkingConsolidatedPaid(null);
     }
   };
 
@@ -1026,6 +1228,48 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
+            {/* ── Consolidated Billing Terms ── */}
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Consolidated Billing Terms
+                </p>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Scenario 2</span>
+              </div>
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                <BillingRow
+                  label="Payment Terms"
+                  value={client.paymentTermsDays ? `Net ${client.paymentTermsDays} (every ${client.paymentTermsDays} days)` : 'Not set'}
+                  highlight={client.paymentTermsDays ? 'blue' : undefined}
+                />
+                <BillingRow
+                  label="Auto-Charge Threshold"
+                  value={client.autoChargeThreshold ? fmtMoney(client.autoChargeThreshold) : 'Not set'}
+                  highlight={client.autoChargeThreshold ? 'green' : undefined}
+                />
+                <BillingRow
+                  label="Eligible Invoices"
+                  value={`${eligibleInvoices.length} invoice${eligibleInvoices.length !== 1 ? 's' : ''} pending consolidation`}
+                />
+                <BillingRow
+                  label="Consolidated Invoices"
+                  value={`${consolidatedInvoices.length} generated`}
+                />
+              </div>
+              {eligibleInvoices.length > 0 && (
+                <div className="px-4 pb-4">
+                  <Button
+                    size="sm"
+                    onClick={handleOpenConsolidatedModal}
+                    className="gap-1.5 text-xs bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    Generate Consolidated Invoice ({eligibleInvoices.length})
+                  </Button>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
 
@@ -1131,6 +1375,262 @@ export default function ClientDetailPage() {
                     client.stripeSubscriptionId && client.subscriptionStatus === 'active'
                       ? 'Update Plan'
                       : 'Create Plan'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            CONSOLIDATED INVOICES
+        ══════════════════════════════════════════════════════════════════════ */}
+        {consolidatedInvoices.length > 0 && (
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
+                <Layers className="h-4 w-4 text-purple-600" />
+                Consolidated Invoices
+                <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold px-1.5">
+                  {consolidatedInvoices.length}
+                </span>
+              </h3>
+              {eligibleInvoices.length > 0 && (
+                <Button size="sm" variant="outline" onClick={handleOpenConsolidatedModal} className="gap-1.5 text-xs text-purple-700 border-purple-200 hover:border-purple-400">
+                  <Plus className="h-3.5 w-3.5" />
+                  Generate New
+                </Button>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted">
+                    {['Period', 'Invoices', 'Total Amount', 'Status', 'Created', 'Actions'].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {consolidatedInvoices.map((ci) => (
+                    <tr key={ci.id} className="hover:bg-muted/50">
+                      <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {fmtDate(ci.periodStart)} – {fmtDate(ci.periodEnd)}
+                      </td>
+                      <td className="px-4 py-3.5 text-foreground">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                          {ci.invoiceCount} invoice{ci.invoiceCount !== 1 ? 's' : ''}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 font-semibold text-foreground whitespace-nowrap">
+                        {fmtMoney(ci.totalAmount)}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {ci.status === 'paid' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                            <CheckCircle className="h-3 w-3" />Paid
+                          </span>
+                        ) : ci.status === 'sent' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                            <Mail className="h-3 w-3" />Sent
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            <FileText className="h-3 w-3" />Draft
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
+                        {fmtDate(ci.createdAt)}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {ci.status !== 'paid' && (
+                          <div className="flex items-center gap-2">
+                            {displayMethods.length > 0 && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={markingConsolidatedPaid === ci.id}
+                                onClick={() => {
+                                  setConsolidatedChargeCardId(client.defaultPaymentMethodId || displayMethods[0]?.id || '');
+                                  handleChargeAndMarkPaid(ci);
+                                }}
+                                className="h-7 text-xs gap-1 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50"
+                              >
+                                {markingConsolidatedPaid === ci.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                                Charge &amp; Mark Paid
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={markingConsolidatedPaid === ci.id}
+                              onClick={() => handleMarkConsolidatedPaidManual(ci)}
+                              className="h-7 text-xs gap-1 text-blue-700 border-blue-200 hover:border-blue-400"
+                            >
+                              {markingConsolidatedPaid === ci.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                              Mark Paid
+                            </Button>
+                          </div>
+                        )}
+                        {ci.status === 'paid' && ci.paidAt && (
+                          <span className="text-xs text-muted-foreground">Paid {fmtDate(ci.paidAt)}</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            GENERATE CONSOLIDATED INVOICE MODAL
+        ══════════════════════════════════════════════════════════════════════ */}
+        {showConsolidatedModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="bg-card rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Generate Consolidated Invoice</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {client.paymentTermsDays ? `Net ${client.paymentTermsDays} billing cycle` : 'Select invoices to consolidate'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setShowConsolidatedModal(false); setSelectedInvoiceIds([]); }}
+                  className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Invoice selection */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Eligible Invoices ({eligibleInvoices.length})
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      className="text-xs text-blue-600 hover:underline"
+                      onClick={() => setSelectedInvoiceIds(eligibleInvoices.map((i) => i.id))}
+                    >
+                      Select all
+                    </button>
+                    <span className="text-muted-foreground">·</span>
+                    <button
+                      className="text-xs text-muted-foreground hover:underline"
+                      onClick={() => setSelectedInvoiceIds([])}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="border border-border rounded-lg divide-y divide-border max-h-60 overflow-y-auto">
+                  {eligibleInvoices.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic p-4 text-center">No eligible invoices</p>
+                  ) : (
+                    eligibleInvoices.map((inv) => (
+                      <label key={inv.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedInvoiceIds.includes(inv.id)}
+                          onChange={(e) => {
+                            setSelectedInvoiceIds((prev) =>
+                              e.target.checked ? [...prev, inv.id] : prev.filter((x) => x !== inv.id)
+                            );
+                          }}
+                          className="h-4 w-4 text-purple-600 rounded border-input"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground">{inv.invoiceNumber || inv.id.slice(0, 8).toUpperCase()}</p>
+                          <p className="text-xs text-muted-foreground">{fmtDate(inv.createdAt)}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-semibold text-foreground">{fmtMoney(inv.totalAmount)}</p>
+                          <span className={`text-xs ${inv.status === 'overdue' ? 'text-red-600' : 'text-blue-600'}`}>
+                            {inv.status === 'overdue' ? 'Overdue' : 'Sent'}
+                          </span>
+                        </div>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Card selector for auto-charge */}
+              {displayMethods.length > 0 && (
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1 uppercase tracking-wide">
+                    Auto-Charge Card (optional)
+                  </label>
+                  <SearchableSelect
+                    className="w-full"
+                    value={consolidatedChargeCardId}
+                    onValueChange={setConsolidatedChargeCardId}
+                    options={[
+                      { value: '', label: 'No auto-charge — generate draft only' },
+                      ...displayMethods.map((pm) => ({
+                        value: pm.id,
+                        label: `${pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• ${pm.last4}${pm.isDefault ? ' (Default)' : ''} — Exp ${String(pm.expMonth).padStart(2, '0')}/${pm.expYear}`,
+                      })),
+                    ]}
+                    placeholder="Select card"
+                    aria-label="Card for auto-charge"
+                  />
+                  {client.autoChargeThreshold && consolidatedTotal >= client.autoChargeThreshold && (
+                    <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Total {fmtMoney(consolidatedTotal)} meets the {fmtMoney(client.autoChargeThreshold)} auto-charge threshold
+                    </p>
+                  )}
+                  {client.autoChargeThreshold && consolidatedTotal < client.autoChargeThreshold && (
+                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Total {fmtMoney(consolidatedTotal)} is below the {fmtMoney(client.autoChargeThreshold)} auto-charge threshold
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Summary */}
+              {selectedInvoiceIds.length > 0 && (
+                <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-800">
+                  <div className="flex justify-between">
+                    <span>{selectedInvoiceIds.length} invoice{selectedInvoiceIds.length !== 1 ? 's' : ''} selected</span>
+                    <strong>{fmtMoney(consolidatedTotal)}</strong>
+                  </div>
+                  {consolidatedChargeCardId && (
+                    <p className="text-xs mt-1 text-purple-700">
+                      Will charge {fmtMoney(consolidatedTotal)} and mark all as paid
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setShowConsolidatedModal(false); setSelectedInvoiceIds([]); }}
+                  className="flex-1"
+                  disabled={generatingConsolidated}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleGenerateConsolidated}
+                  disabled={generatingConsolidated || selectedInvoiceIds.length === 0}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700"
+                >
+                  {generatingConsolidated ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-1" />Generating…</>
+                  ) : consolidatedChargeCardId ? (
+                    <><Zap className="h-4 w-4 mr-1" />Charge &amp; Generate</>
+                  ) : (
+                    <><FileText className="h-4 w-4 mr-1" />Generate Invoice</>
                   )}
                 </Button>
               </div>

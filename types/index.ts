@@ -36,6 +36,10 @@ export interface Client {
   subscriptionAmount?: number;
   subscriptionBillingDay?: number; // day of month (1-31)
   subscriptionStatus?: 'active' | 'paused' | 'cancelled';
+  subscriptionPaymentMethodId?: string;
+  // Consolidated billing
+  paymentTermsDays?: number; // billing cycle in days (e.g. 15, 30)
+  autoChargeThreshold?: number; // auto-charge when consolidated invoice exceeds this
 }
 
 export interface Subcontractor {
