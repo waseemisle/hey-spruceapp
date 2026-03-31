@@ -231,7 +231,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Dashboard', href: '/client-portal', icon: Home, badgeKey: null },
     { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: null },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: null },
-    ...(hasMaintenancePermission ? [{ name: 'Maintenance Requests', href: '/client-portal/maintenance-requests', icon: Wrench, badgeKey: null }] : []),
     { name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
     ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
