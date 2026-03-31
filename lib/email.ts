@@ -1,3 +1,6 @@
+import FormData from 'form-data';
+import Mailgun from 'mailgun.js';
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -28,6 +31,18 @@ type AttachmentInput = {
   disposition?: string;
 };
 
+function getMailgunClient() {
+  const apiKey = process.env.MAILGUN_API_KEY;
+  if (!apiKey) throw new Error('MAILGUN_API_KEY is not configured.');
+
+  const mailgun = new Mailgun(FormData);
+  return mailgun.client({
+    username: 'api',
+    key: apiKey,
+    ...(process.env.MAILGUN_EU === 'true' ? { url: 'https://api.eu.mailgun.net' } : {}),
+  });
+}
+
 export async function sendEmail({
   to,
   subject,
@@ -39,25 +54,27 @@ export async function sendEmail({
   html: string;
   attachments?: AttachmentInput[];
 }) {
-  const apiKey = process.env.MAILGUN_API_KEY;
   const domain = process.env.MAILGUN_DOMAIN;
   const fromEmail = process.env.FROM_EMAIL || 'info@groundops.co';
 
-  if (!apiKey) {
-    throw new Error('MAILGUN_API_KEY is not configured.');
-  }
-  if (!domain) {
-    throw new Error('MAILGUN_DOMAIN is not configured.');
-  }
+  if (!process.env.MAILGUN_API_KEY) throw new Error('MAILGUN_API_KEY is not configured.');
+  if (!domain) throw new Error('MAILGUN_DOMAIN is not configured.');
 
   const recipients = Array.isArray(to) ? to : [to];
 
-  // Use EU endpoint if MAILGUN_EU=true, otherwise US
-  const baseUrl = process.env.MAILGUN_EU === 'true'
-    ? `https://api.eu.mailgun.net/v3/${domain}/messages`
-    : `https://api.mailgun.net/v3/${domain}/messages`;
+  const messageData: any = {
+    from: `GroundOps <${fromEmail}>`,
+    to: recipients,
+    subject,
+    html,
+  };
 
-  const authHeader = 'Basic ' + Buffer.from(`api:${apiKey}`).toString('base64');
+  if (attachments.length > 0) {
+    messageData.attachment = attachments.map((att) => ({
+      filename: att.filename,
+      data: Buffer.from(att.content, 'base64'),
+    }));
+  }
 
   const MAX_RETRIES = 4;
   let lastError: any;
@@ -74,42 +91,16 @@ export async function sendEmail({
         console.log('📧 Subject:', subject);
       }
 
-      const formData = new FormData();
-      formData.append('from', `GroundOps <${fromEmail}>`);
-      recipients.forEach((r) => formData.append('to', r));
-      formData.append('subject', subject);
-      formData.append('html', html);
+      const mg = getMailgunClient();
+      const data = await mg.messages.create(domain, messageData);
 
-      for (const att of attachments) {
-        const buffer = Buffer.from(att.content, 'base64');
-        const blob = new Blob([buffer], { type: att.type || 'application/octet-stream' });
-        formData.append('attachment', blob, att.filename);
-      }
-
-      const response = await fetch(baseUrl, {
-        method: 'POST',
-        headers: { Authorization: authHeader },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({ message: response.statusText }));
-        const isRateLimit = response.status === 429;
-
-        if (isRateLimit && attempt < MAX_RETRIES - 1) {
-          console.warn(`⚠️ Mailgun rate limit hit (attempt ${attempt + 1}), will retry...`);
-          lastError = new Error(errorBody.message || 'Rate limit');
-          continue;
-        }
-
-        throw new Error(`Mailgun error ${response.status}: ${errorBody.message || response.statusText}`);
-      }
-
-      const data = await response.json();
       console.log('✅ Email sent successfully via Mailgun. ID:', data?.id);
       return { success: true, id: data?.id };
     } catch (err: any) {
-      const isRateLimit = err?.message?.toLowerCase().includes('rate limit') || err?.status === 429;
+      const isRateLimit =
+        err?.status === 429 ||
+        err?.message?.toLowerCase().includes('rate limit') ||
+        err?.message?.toLowerCase().includes('too many requests');
 
       if (isRateLimit && attempt < MAX_RETRIES - 1) {
         console.warn(`⚠️ Mailgun rate limit hit (attempt ${attempt + 1}), will retry...`);
