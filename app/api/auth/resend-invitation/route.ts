@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
-import { getAdminAuth } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
@@ -67,34 +66,46 @@ export async function POST(request: NextRequest) {
     }
 
     if (!tempPassword) {
-      // No stored invitation data — generate a fresh temp password, update Auth, and persist it
-      const newTempPassword =
-        Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+      // No stored invitation data and no Admin SDK available — fall back to Firebase's
+      // built-in password reset email (only requires the web API key, no service account).
+      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+      if (!apiKey) {
+        return NextResponse.json({ error: 'Firebase API key not configured' }, { status: 500 });
+      }
 
-      await getAdminAuth().updateUser(uid, { password: newTempPassword });
+      const oobRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestType: 'PASSWORD_RESET',
+            email,
+            continueUrl: `${BASE_URL}/portal-login`,
+          }),
+        }
+      );
 
-      const newToken = Buffer.from(
-        JSON.stringify({
-          email,
-          uid,
-          tempPassword: newTempPassword,
-          role,
-          fullName: name,
-          timestamp: Date.now(),
-          type: 'password_setup',
-        })
-      ).toString('base64');
+      if (!oobRes.ok) {
+        const oobErr = await oobRes.json();
+        throw new Error(oobErr.error?.message || 'Failed to send password reset email');
+      }
 
-      const db2 = await getServerDb();
-      await updateDoc(doc(db2, collectionName, uid), {
-        invitationTempPassword: newTempPassword,
-        userinviteemailid: newToken,
+      await logEmail({
+        type: 'invitation',
+        to: email,
+        subject: 'Password Reset (Firebase fallback)',
+        status: 'sent',
+        context: { name, role, roleTitle, uid },
       });
 
-      tempPassword = newTempPassword;
+      return NextResponse.json({
+        success: true,
+        message: 'Password reset email sent successfully. The user should check their inbox.',
+      });
     }
 
-    // Build a fresh token with a new timestamp so the 24-hour expiry passes
+    // Build a fresh token with a new timestamp so the 24-hour expiry resets
     const freshToken = Buffer.from(
       JSON.stringify({
         email,
