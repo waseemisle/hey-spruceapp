@@ -14,6 +14,7 @@ import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw,
   Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail, Headphones,
+  Database, FlaskConical,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -107,6 +108,13 @@ const NAV_ITEMS: NavItem[] = [
       { name: 'Analytics', href: '/admin-portal/analytics', icon: BarChart2 },
       { name: 'Contractor Scorecard', href: '/admin-portal/contractor-scorecard', icon: Award },
       { name: 'Provider Search', href: '/admin-portal/provider-search', icon: Search },
+    ],
+  },
+  {
+    name: 'System',
+    icon: Database,
+    children: [
+      { name: 'Sandbox Refresh', href: '/admin-portal/sandbox-refresh', icon: FlaskConical },
     ],
   },
 ];
