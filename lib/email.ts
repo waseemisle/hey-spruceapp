@@ -1,12 +1,8 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Send multiple emails sequentially with a delay between each to avoid
- * Resend's 2 req/s rate limit. Each item is a sendEmail() call factory.
+ * rate limits. Each item is a sendEmail() call factory.
  */
 export async function sendEmailsSequentially(
   tasks: (() => Promise<{ success: boolean; id?: string }>)[],
@@ -43,27 +39,25 @@ export async function sendEmail({
   html: string;
   attachments?: AttachmentInput[];
 }) {
+  const apiKey = process.env.MAILGUN_API_KEY;
+  const domain = process.env.MAILGUN_DOMAIN;
   const fromEmail = process.env.FROM_EMAIL || 'info@groundops.co';
 
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error('RESEND_API_KEY is not configured.');
+  if (!apiKey) {
+    throw new Error('MAILGUN_API_KEY is not configured.');
+  }
+  if (!domain) {
+    throw new Error('MAILGUN_DOMAIN is not configured.');
   }
 
   const recipients = Array.isArray(to) ? to : [to];
 
-  const messageData: any = {
-    from: `GroundOps <${fromEmail}>`,
-    to: recipients,
-    subject,
-    html,
-  };
+  // Use EU endpoint if MAILGUN_EU=true, otherwise US
+  const baseUrl = process.env.MAILGUN_EU === 'true'
+    ? `https://api.eu.mailgun.net/v3/${domain}/messages`
+    : `https://api.mailgun.net/v3/${domain}/messages`;
 
-  if (attachments.length > 0) {
-    messageData.attachments = attachments.map((att) => ({
-      filename: att.filename,
-      content: att.content,
-    }));
-  }
+  const authHeader = 'Basic ' + Buffer.from(`api:${apiKey}`).toString('base64');
 
   const MAX_RETRIES = 4;
   let lastError: any;
@@ -71,47 +65,59 @@ export async function sendEmail({
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       if (attempt > 0) {
-        // Exponential backoff: 600ms, 1200ms, 2400ms
         const delay = 600 * Math.pow(2, attempt - 1);
         console.log(`📧 Retry attempt ${attempt}/${MAX_RETRIES - 1} after ${delay}ms...`);
         await sleep(delay);
       } else {
-        console.log('📧 Sending email via Resend...');
+        console.log('📧 Sending email via Mailgun...');
         console.log('📧 To:', recipients.join(', '));
         console.log('📧 Subject:', subject);
       }
 
-      const { data, error } = await resend.emails.send(messageData);
+      const formData = new FormData();
+      formData.append('from', `GroundOps <${fromEmail}>`);
+      recipients.forEach((r) => formData.append('to', r));
+      formData.append('subject', subject);
+      formData.append('html', html);
 
-      if (error) {
-        const isRateLimit =
-          error.message?.toLowerCase().includes('too many requests') ||
-          error.message?.toLowerCase().includes('rate limit') ||
-          (error as any).statusCode === 429;
-
-        if (isRateLimit && attempt < MAX_RETRIES - 1) {
-          console.warn(`⚠️ Resend rate limit hit (attempt ${attempt + 1}), will retry...`);
-          lastError = error;
-          continue;
-        }
-        throw new Error(`Resend error: ${error.message}`);
+      for (const att of attachments) {
+        const buffer = Buffer.from(att.content, 'base64');
+        const blob = new Blob([buffer], { type: att.type || 'application/octet-stream' });
+        formData.append('attachment', blob, att.filename);
       }
 
-      console.log('✅ Email sent successfully via Resend. ID:', data?.id);
+      const response = await fetch(baseUrl, {
+        method: 'POST',
+        headers: { Authorization: authHeader },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({ message: response.statusText }));
+        const isRateLimit = response.status === 429;
+
+        if (isRateLimit && attempt < MAX_RETRIES - 1) {
+          console.warn(`⚠️ Mailgun rate limit hit (attempt ${attempt + 1}), will retry...`);
+          lastError = new Error(errorBody.message || 'Rate limit');
+          continue;
+        }
+
+        throw new Error(`Mailgun error ${response.status}: ${errorBody.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Email sent successfully via Mailgun. ID:', data?.id);
       return { success: true, id: data?.id };
     } catch (err: any) {
-      const isRateLimit =
-        err?.message?.toLowerCase().includes('too many requests') ||
-        err?.message?.toLowerCase().includes('rate limit') ||
-        err?.statusCode === 429;
+      const isRateLimit = err?.message?.toLowerCase().includes('rate limit') || err?.status === 429;
 
       if (isRateLimit && attempt < MAX_RETRIES - 1) {
-        console.warn(`⚠️ Resend rate limit hit (attempt ${attempt + 1}), will retry...`);
+        console.warn(`⚠️ Mailgun rate limit hit (attempt ${attempt + 1}), will retry...`);
         lastError = err;
         continue;
       }
 
-      console.error('❌ Resend Error:', err);
+      console.error('❌ Mailgun Error:', err);
       throw new Error(`Failed to send email: ${err?.message || String(err)}`);
     }
   }
