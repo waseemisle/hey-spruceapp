@@ -428,13 +428,9 @@ export default function SubcontractorsManagement() {
                   {/* Row 2: email + activation state */}
                   <div className="flex items-center justify-between text-sm gap-2">
                     <span className="text-muted-foreground truncate">{sub.email}</span>
-                    {sub.passwordSetAt ? (
+                    {sub.passwordSetAt && (
                       <span className="shrink-0 flex items-center gap-1 text-xs text-emerald-600">
                         <CheckCircle className="h-3.5 w-3.5" /> Active
-                      </span>
-                    ) : (
-                      <span className="shrink-0 flex items-center gap-1 text-xs text-amber-600">
-                        <Clock className="h-3.5 w-3.5" /> Pending setup
                       </span>
                     )}
                   </div>
