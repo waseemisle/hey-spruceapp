@@ -92,3 +92,8 @@ export function getAdminFirestore() {
   return getFirestore(app);
 }
 
+/** Returns the Firestore instance for the 'sandbox' database (same Firebase project). */
+export function getSandboxAdminFirestore() {
+  return getFirestore(getAdminApp(), 'sandbox');
+}
+

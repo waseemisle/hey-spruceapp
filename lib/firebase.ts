@@ -29,7 +29,10 @@ if (firebaseConfig.apiKey) {
 
   // Initialize Firebase services
   auth = getAuth(app);
-  db = getFirestore(app);
+  // In the staging deployment use the 'sandbox' Firestore database so production
+  // and sandbox data are fully isolated within the same Firebase project.
+  const dbId = process.env.NEXT_PUBLIC_APP_ENV === 'staging' ? 'sandbox' : '(default)';
+  db = getFirestore(app, dbId);
   storage = getStorage(app);
 
   // Initialize Analytics (only in browser environment)

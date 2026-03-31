@@ -363,61 +363,37 @@ export default function SandboxRefreshPage() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                  <span>Production Firebase: Connected</span>
+                  <span>Firebase project: shared (same project for production &amp; sandbox)</span>
                 </div>
-                <div className="flex items-start gap-2">
-                  {process.env.NEXT_PUBLIC_STAGING_CONFIGURED === 'true' ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span>Staging Firebase: Configured</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <div className="space-y-2">
-                        <span className="text-amber-700 dark:text-amber-400">
-                          Staging Firebase credentials not yet added to Vercel.
-                        </span>
-                        <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground space-y-1">
-                          <p className="font-semibold text-foreground">One-time setup:</p>
-                          <ol className="list-decimal list-inside space-y-1">
-                            <li>
-                              Create a new Firebase project for staging (e.g.{' '}
-                              <code>groundops-staging</code>)
-                            </li>
-                            <li>
-                              Firebase Console → Project Settings → Service Accounts →{' '}
-                              <strong>Generate New Private Key</strong>
-                            </li>
-                            <li>
-                              Add to Vercel → groundopscos project →{' '}
-                              <strong>Production</strong> environment only:
-                              <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
-                                <li>
-                                  <code>STAGING_FIREBASE_PROJECT_ID</code>
-                                </li>
-                                <li>
-                                  <code>STAGING_FIREBASE_CLIENT_EMAIL</code>
-                                </li>
-                                <li>
-                                  <code>STAGING_FIREBASE_PRIVATE_KEY</code>
-                                </li>
-                                <li>
-                                  <code>NEXT_PUBLIC_STAGING_CONFIGURED=true</code>
-                                </li>
-                              </ul>
-                            </li>
-                            <li>
-                              On the <strong>staging</strong> Vercel deployment, update{' '}
-                              <code>NEXT_PUBLIC_FIREBASE_*</code> vars to point to the staging
-                              Firebase project, and set{' '}
-                              <code>NEXT_PUBLIC_APP_ENV=staging</code>
-                            </li>
-                          </ol>
-                        </div>
-                      </div>
-                    </>
-                  )}
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  <span>
+                    Production database: <code className="bg-muted px-1 rounded text-xs">(default)</code>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                  <span>
+                    Sandbox database: <code className="bg-muted px-1 rounded text-xs">sandbox</code>
+                  </span>
+                </div>
+                <div className="mt-3 p-3 bg-muted rounded-lg text-xs text-muted-foreground space-y-1">
+                  <p className="font-semibold text-foreground">One-time setup (if not done yet):</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>
+                      Firebase Console → your project → Firestore Database → <strong>Add Database</strong>
+                      → name it exactly <code>sandbox</code>
+                    </li>
+                    <li>
+                      On the staging Vercel deployment set{' '}
+                      <code>NEXT_PUBLIC_APP_ENV=staging</code> — this makes the staging app read/write
+                      to the <code>sandbox</code> database automatically
+                    </li>
+                    <li>
+                      Copy your Firestore security rules to the <code>sandbox</code> database so
+                      client-side reads work in staging
+                    </li>
+                  </ol>
                 </div>
               </CardContent>
             </Card>

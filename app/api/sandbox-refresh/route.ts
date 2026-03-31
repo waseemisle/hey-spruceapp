@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
-import { getStagingFirestore, isStagingConfigured } from '@/lib/firebase-staging-admin';
+import { getStagingFirestore } from '@/lib/firebase-staging-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Firestore, QueryDocumentSnapshot, DocumentData } from 'firebase-admin/firestore';
 import { SYNC_COLLECTIONS, SUBCOLLECTIONS } from '@/lib/sandbox-config';
@@ -66,19 +66,7 @@ export async function POST(request: Request) {
     const adminDoc = await prodDb.collection('adminUsers').doc(decodedToken.uid).get();
     if (!adminDoc.exists) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    // 2. Check staging credentials
-    if (!isStagingConfigured()) {
-      return NextResponse.json(
-        {
-          error:
-            'Staging Firebase not configured. Add STAGING_FIREBASE_PROJECT_ID, ' +
-            'STAGING_FIREBASE_CLIENT_EMAIL, and STAGING_FIREBASE_PRIVATE_KEY to ' +
-            'Vercel Production environment variables.',
-        },
-        { status: 400 },
-      );
-    }
-
+    // 2. Get sandbox Firestore (same Firebase project, 'sandbox' database)
     const stagingDb = getStagingFirestore();
     const adminData = adminDoc.data()!;
 
