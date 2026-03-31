@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, AlertTriangle, BarChart2, MoreHorizontal, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, BarChart2, MoreHorizontal, FileText } from 'lucide-react';
 
 interface Quote {
   id: string;
@@ -109,19 +109,6 @@ export default function ProposalDecisionEngine({
           </ul>
         </div>
 
-        <div className="flex items-center gap-2">
-          {recommendation === 'approve' ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
-              <CheckCircle className="h-3.5 w-3.5" />
-              Approval Recommended
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Rejection Recommended
-            </span>
-          )}
-        </div>
 
         {similarProposals.length > 0 && (
           <div className="pt-2 border-t">

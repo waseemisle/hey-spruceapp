@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
 import { getStagingFirestore } from '@/lib/firebase-staging-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import type { Firestore, QueryDocumentSnapshot, DocumentData } from 'firebase-admin/firestore';
+import type { Firestore, QueryDocumentSnapshot, DocumentData, DocumentReference } from 'firebase-admin/firestore';
 import { SYNC_COLLECTIONS, SUBCOLLECTIONS } from '@/lib/sandbox-config';
 
 export const runtime = 'nodejs';
@@ -53,6 +53,7 @@ async function writeSubInBatches(
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
+  let historyRef: DocumentReference | null = null;
 
   try {
     // 1. Verify admin
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
     // 3. Use client-provided jobId so the client can listen to it in real time
     const body = await request.json().catch(() => ({}));
     const jobId: string = body.jobId || prodDb.collection('sandboxRefreshHistory').doc().id;
-    const historyRef = prodDb.collection('sandboxRefreshHistory').doc(jobId);
+    historyRef = prodDb.collection('sandboxRefreshHistory').doc(jobId) as DocumentReference;
 
     await historyRef.set({
       id: jobId,
@@ -189,6 +190,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, id: jobId, totalDocumentsCopied, duration, stats });
   } catch (err: any) {
     console.error('[sandbox-refresh] Fatal error:', err);
+    if (historyRef) {
+      const duration = Math.round((Date.now() - startedAt) / 1000);
+      await historyRef.update({
+        status: 'failed',
+        completedAt: FieldValue.serverTimestamp(),
+        currentCollection: '',
+        duration,
+        error: err.message || 'Internal server error',
+      }).catch(() => {}); // best-effort
+    }
     return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
   }
 }
