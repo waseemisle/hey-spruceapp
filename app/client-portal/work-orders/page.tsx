@@ -573,11 +573,10 @@ function ClientWorkOrdersContent() {
     }
   };
 
-  // When type=maintenance, only show work orders created from maintenance requests
-  // Otherwise, exclude maintenance request work orders from the default view
+  // Show all work orders; when type=maintenance only show maintenance request ones
   const workOrdersToShow = workOrderType === 'maintenance'
     ? workOrders.filter(wo => wo.isMaintenanceRequestOrder === true)
-    : workOrders.filter(wo => !wo.isMaintenanceRequestOrder);
+    : workOrders;
 
   const filteredWorkOrders = workOrdersToShow.filter(wo => {
     const statusMatch = filter === 'all' || normalizeStatus(wo.status) === filter;
