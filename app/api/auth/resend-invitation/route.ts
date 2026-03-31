@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc } from 'firebase/firestore';
+
+export const runtime = 'nodejs';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { getAdminAuth } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
@@ -64,13 +67,31 @@ export async function POST(request: NextRequest) {
     }
 
     if (!tempPassword) {
-      return NextResponse.json(
-        {
-          error:
-            'No invitation data found for this account. Please delete and recreate the account to generate a new invitation.',
-        },
-        { status: 400 }
-      );
+      // No stored invitation data — generate a fresh temp password, update Auth, and persist it
+      const newTempPassword =
+        Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+
+      await getAdminAuth().updateUser(uid, { password: newTempPassword });
+
+      const newToken = Buffer.from(
+        JSON.stringify({
+          email,
+          uid,
+          tempPassword: newTempPassword,
+          role,
+          fullName: name,
+          timestamp: Date.now(),
+          type: 'password_setup',
+        })
+      ).toString('base64');
+
+      const db2 = await getServerDb();
+      await updateDoc(doc(db2, collectionName, uid), {
+        invitationTempPassword: newTempPassword,
+        userinviteemailid: newToken,
+      });
+
+      tempPassword = newTempPassword;
     }
 
     // Build a fresh token with a new timestamp so the 24-hour expiry passes
