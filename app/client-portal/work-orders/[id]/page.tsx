@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, Timestamp, addDoc, arrayUnion } from 'firebase/firestore';
 import { createTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -9,11 +9,13 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
 import { toast } from 'sonner';
+import { notifyBiddingOpportunity } from '@/lib/notifications';
+import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
 
@@ -72,6 +74,15 @@ interface WorkOrder {
   rejectedAt?: any;
 }
 
+interface Subcontractor {
+  id: string;
+  fullName: string;
+  email: string;
+  businessName?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  matchesCategory?: boolean;
+}
+
 interface LineItem {
   description: string;
   quantity: number;
@@ -122,7 +133,12 @@ export default function ViewClientWorkOrder() {
   const [hasApproveRejectPermission, setHasApproveRejectPermission] = useState(false);
   const [hasCompareQuotesPermission, setHasCompareQuotesPermission] = useState(false);
   const [hasViewTimelinePermission, setHasViewTimelinePermission] = useState(false);
+  const [hasShareForBiddingPermission, setHasShareForBiddingPermission] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [showBiddingModal, setShowBiddingModal] = useState(false);
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
@@ -137,6 +153,7 @@ export default function ViewClientWorkOrder() {
           setHasApproveRejectPermission(clientData?.permissions?.approveRejectOrder === true);
           setHasCompareQuotesPermission(clientData?.permissions?.compareQuotes === true);
           setHasViewTimelinePermission(clientData?.permissions?.viewTimeline === true);
+          setHasShareForBiddingPermission(clientData?.permissions?.shareForBidding === true);
         } catch (error) {
           console.error('Error fetching client permissions:', error);
         }
@@ -296,6 +313,206 @@ export default function ViewClientWorkOrder() {
       });
     }
     return events;
+  };
+
+  const handleShareForBidding = async () => {
+    if (!hasShareForBiddingPermission) {
+      toast.error('You do not have permission to share work orders for bidding');
+      return;
+    }
+    if (!workOrder) return;
+
+    try {
+      const subsQuery = query(collection(db, 'subcontractors'), where('status', '==', 'approved'));
+      const subsSnapshot = await getDocs(subsQuery);
+
+      if (subsSnapshot.empty) {
+        toast.error('No approved subcontractors found');
+        return;
+      }
+
+      const allSubsData = subsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        fullName: doc.data().fullName,
+        email: doc.data().email,
+        businessName: doc.data().businessName,
+        skills: doc.data().skills || [],
+      })) as (Subcontractor & { skills: string[] })[];
+
+      let matchingCount = 0;
+      const subsData = allSubsData.map(sub => {
+        let matchesCategory = false;
+        if (workOrder.category) {
+          const categoryLower = workOrder.category.toLowerCase();
+          if (sub.skills && sub.skills.length > 0) {
+            matchesCategory = sub.skills.some(skill =>
+              skill.toLowerCase().includes(categoryLower) ||
+              categoryLower.includes(skill.toLowerCase())
+            );
+          }
+        }
+        if (matchesCategory) matchingCount++;
+        return { id: sub.id, fullName: sub.fullName, email: sub.email, businessName: sub.businessName, matchesCategory } as Subcontractor;
+      });
+
+      if (workOrder.category) {
+        if (matchingCount === 0) {
+          toast.warning(`No subcontractors found matching category "${workOrder.category}". Showing all ${subsData.length} subcontractor(s).`);
+        } else {
+          toast.success(`Found ${matchingCount} subcontractor(s) matching category "${workOrder.category}".`);
+        }
+      }
+
+      setSubcontractors(subsData);
+      setSelectedSubcontractors([]);
+      setShowBiddingModal(true);
+    } catch (error) {
+      console.error('Error loading subcontractors:', error);
+      toast.error('Failed to load subcontractors');
+    }
+  };
+
+  const handleSubmitBidding = async () => {
+    if (!workOrder) return;
+    if (selectedSubcontractors.length === 0) {
+      toast.error('Please select at least one subcontractor');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const workOrderNumber = workOrder.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
+
+      const subAuthIds = selectedSubcontractors.map(subId => {
+        const sub = subcontractors.find(s => s.id === subId);
+        return sub ? subcontractorAuthId(sub) : subId;
+      });
+
+      const promises = selectedSubcontractors.map(async subId => {
+        const sub = subcontractors.find(s => s.id === subId);
+        if (!sub) return;
+        const authId = subcontractorAuthId(sub);
+        await addDoc(collection(db, 'biddingWorkOrders'), {
+          workOrderId: workOrder.id,
+          workOrderNumber,
+          subcontractorId: authId,
+          subcontractorName: sub.fullName,
+          subcontractorEmail: sub.email,
+          workOrderTitle: workOrder.title,
+          workOrderDescription: workOrder.description,
+          clientId: workOrder.clientId,
+          clientName: workOrder.clientName,
+          status: 'pending',
+          sharedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+        });
+      });
+
+      await Promise.all(promises);
+
+      await notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title);
+
+      try {
+        for (const subId of selectedSubcontractors) {
+          const sub = subcontractors.find(s => s.id === subId);
+          if (sub && sub.email) {
+            await fetch('/api/email/send-bidding-opportunity', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toEmail: sub.email,
+                toName: sub.fullName,
+                workOrderNumber,
+                workOrderTitle: workOrder.title,
+                workOrderDescription: workOrder.description,
+                locationName: workOrder.locationName,
+                category: workOrder.category,
+                priority: workOrder.priority,
+                portalLink: `${window.location.origin}/subcontractor-portal/bidding`,
+              }),
+            });
+          }
+        }
+      } catch (emailError) {
+        console.error('Failed to send bidding opportunity emails:', emailError);
+      }
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+      const clientName = clientDoc.exists() ? clientDoc.data().fullName : 'Client';
+
+      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const woData = woDoc.data();
+      const existingTimeline = woData?.timeline || [];
+      const existingSysInfo = woData?.systemInformation || {};
+
+      const selectedSubNames = selectedSubcontractors.map(subId => {
+        const sub = subcontractors.find(s => s.id === subId);
+        return sub ? sub.fullName : 'Unknown';
+      }).join(', ');
+
+      const timelineEvent = {
+        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: Timestamp.now(),
+        type: 'shared_for_bidding',
+        userId: currentUser.uid,
+        userName: clientName,
+        userRole: 'client',
+        details: `Shared for bidding with ${selectedSubcontractors.length} subcontractor(s): ${selectedSubNames}`,
+        metadata: { subcontractorIds: selectedSubcontractors, subcontractorCount: selectedSubcontractors.length },
+      };
+
+      const updatedSysInfo = {
+        ...existingSysInfo,
+        sharedForBidding: {
+          by: { id: currentUser.uid, name: clientName },
+          timestamp: Timestamp.now(),
+          subcontractors: selectedSubcontractors.map(subId => {
+            const sub = subcontractors.find(s => s.id === subId);
+            return { id: subId, name: sub ? sub.fullName : 'Unknown' };
+          }),
+        },
+      };
+
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        status: 'bidding',
+        workOrderNumber,
+        sharedForBiddingAt: serverTimestamp(),
+        biddingSubcontractors: arrayUnion(...subAuthIds),
+        updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, timelineEvent],
+        systemInformation: updatedSysInfo,
+      });
+
+      toast.success(`Work order shared with ${selectedSubcontractors.length} subcontractor(s)`);
+      setShowBiddingModal(false);
+      setSelectedSubcontractors([]);
+
+      const refreshDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      if (refreshDoc.exists()) {
+        setWorkOrder({ id: refreshDoc.id, ...refreshDoc.data() } as WorkOrder);
+      }
+    } catch (error: any) {
+      console.error('Error sharing work order:', error);
+      toast.error(error.message || 'Failed to share work order');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleSubcontractorSelection = (subId: string) => {
+    setSelectedSubcontractors(prev =>
+      prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
+    );
+  };
+
+  const selectAllSubcontractors = () => {
+    if (selectedSubcontractors.length === subcontractors.length) {
+      setSelectedSubcontractors([]);
+    } else {
+      setSelectedSubcontractors(subcontractors.map(s => s.id));
+    }
   };
 
   const handleQuoteSelection = (quoteId: string, checked: boolean) => {
@@ -532,6 +749,12 @@ export default function ViewClientWorkOrder() {
                   Reject
                 </Button>
               </>
+            )}
+            {hasShareForBiddingPermission && workOrder.status === 'approved' && (
+              <Button size="sm" variant="outline" onClick={handleShareForBidding}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share for Bidding
+              </Button>
             )}
             {(workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && workOrder.assignedSubcontractor && (
               <Link href={`/client-portal/messages?workOrderId=${workOrder.id}`}>
@@ -886,6 +1109,87 @@ export default function ViewClientWorkOrder() {
         isOpen={showCompareDialog}
         onClose={() => setShowCompareDialog(false)}
       />
+
+      {/* Share for Bidding Modal */}
+      {showBiddingModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Share for Bidding</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">Select subcontractors to share this work order with</p>
+                </div>
+                <button onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); }} className="p-2 hover:bg-muted rounded-lg transition-colors">
+                  <X className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <h3 className="font-semibold text-blue-900 mb-1">{workOrder.title}</h3>
+                {workOrder.workOrderNumber && <p className="text-sm text-blue-700">{workOrder.workOrderNumber}</p>}
+              </div>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="selectAll"
+                    checked={selectedSubcontractors.length === subcontractors.length && subcontractors.length > 0}
+                    onChange={selectAllSubcontractors}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="selectAll" className="text-sm font-medium text-foreground">Select All ({subcontractors.length})</label>
+                </div>
+                <div className="text-sm text-muted-foreground">{selectedSubcontractors.length} selected</div>
+              </div>
+              <div className="space-y-2 max-h-96 overflow-y-auto border border-border rounded-xl p-4">
+                {subcontractors.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No approved subcontractors found</p>
+                ) : (
+                  subcontractors.map(sub => (
+                    <div
+                      key={sub.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                        selectedSubcontractors.includes(sub.id)
+                          ? sub.matchesCategory ? 'bg-green-50 border-green-400 ring-2 ring-green-200' : 'bg-blue-50 border-blue-300'
+                          : sub.matchesCategory ? 'bg-green-50 border-green-300 hover:border-green-400' : 'bg-white border-border hover:bg-muted'
+                      }`}
+                      onClick={() => toggleSubcontractorSelection(sub.id)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSubcontractors.includes(sub.id)}
+                        onChange={() => toggleSubcontractorSelection(sub.id)}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        onClick={e => e.stopPropagation()}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-foreground">{sub.fullName}</p>
+                          {sub.matchesCategory && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">Matches Category</span>
+                          )}
+                        </div>
+                        {sub.businessName && <p className="text-sm text-muted-foreground">{sub.businessName}</p>}
+                        <p className="text-sm text-muted-foreground">{sub.email}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t mt-6">
+                <Button variant="outline" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); }} disabled={submitting} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmitBidding} disabled={submitting || selectedSubcontractors.length === 0} className="flex-1">
+                  {submitting ? 'Sharing...' : `Share with ${selectedSubcontractors.length} Subcontractor${selectedSubcontractors.length !== 1 ? 's' : ''}`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </ClientLayout>
   );
 }
