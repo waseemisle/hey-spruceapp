@@ -1,0 +1,21 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "devCommand": "npm run dev",
+  "functions": {
+    "app/api/maint-requests/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "app/api/sync/firebase-to-supabase/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "app/api/sandbox-refresh/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    }
+  }
+}
