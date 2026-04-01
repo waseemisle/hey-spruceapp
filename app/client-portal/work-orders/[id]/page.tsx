@@ -910,7 +910,8 @@ export default function ViewClientWorkOrder() {
                             ${workOrder.approvedQuoteAmount.toLocaleString()}
                           </span>
                         </div>
-                        {workOrder.assignedSubcontractorName && (
+                      </div>
+                      {workOrder.assignedSubcontractorName && (
                         <div className="text-sm text-muted-foreground pt-3 border-t">
                           <span className="font-semibold">Contractor:</span> {workOrder.assignedSubcontractorName}
                         </div>
