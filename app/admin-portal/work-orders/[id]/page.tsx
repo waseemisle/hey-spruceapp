@@ -849,6 +849,12 @@ export default function ViewWorkOrder() {
       const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
       const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
       const clientAmount = shareQuote.totalAmount * (1 + markup / 100);
+      const markupFactor = shareQuote.totalAmount > 0 ? clientAmount / shareQuote.totalAmount : 1;
+      const clientLineItems = (shareQuote.lineItems || []).map((item: any) => ({
+        ...item,
+        unitPrice: item.unitPrice * markupFactor,
+        amount: item.amount * markupFactor,
+      }));
       const isResend = shareQuote.status === 'sent_to_client';
       const existingQuoteTimeline = (shareQuote as any).timeline || [];
       const sentEvent = createQuoteTimelineEvent({
@@ -865,6 +871,7 @@ export default function ViewWorkOrder() {
       await updateDoc(doc(db, 'quotes', shareQuote.id), {
         markupPercentage: markup,
         clientAmount,
+        clientLineItems,
         originalAmount: shareQuote.totalAmount,
         status: 'sent_to_client',
         sentToClientAt: serverTimestamp(),
@@ -1857,17 +1864,17 @@ export default function ViewWorkOrder() {
         </div>
       )}
       {showShareModal && shareQuote && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-lg shadow-lg max-w-sm w-full">
-            <div className="p-6 border-b flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-card rounded-lg shadow-lg max-w-lg w-full my-4">
+            <div className="p-5 border-b flex justify-between items-center">
               <h2 className="text-lg font-semibold">Share Quote with Client</h2>
               <Button variant="outline" size="sm" onClick={() => setShowShareModal(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
               <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                Sharing quote from <strong>{shareQuote.subcontractorName}</strong> — ${(shareQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                Sharing quote from <strong>{shareQuote.subcontractorName}</strong> — subcontractor total: <strong>${(shareQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1">Markup %</label>
@@ -1878,12 +1885,47 @@ export default function ViewWorkOrder() {
                   onChange={e => setShareMarkup(e.target.value)}
                   placeholder="e.g. 20"
                 />
-                {shareMarkup && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Client will see: ${(shareQuote.totalAmount * (1 + (parseFloat(shareMarkup) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </p>
-                )}
               </div>
+              {/* Real-time line items preview */}
+              {shareQuote.lineItems && shareQuote.lineItems.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Client will see</p>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-muted text-muted-foreground text-xs uppercase">
+                          <th className="px-3 py-2 text-left">Description</th>
+                          <th className="px-3 py-2 text-center">Qty</th>
+                          <th className="px-3 py-2 text-right">Unit Price</th>
+                          <th className="px-3 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shareQuote.lineItems.map((item: any, idx: number) => {
+                          const factor = 1 + (parseFloat(shareMarkup) || 0) / 100;
+                          return (
+                            <tr key={idx} className="border-t border-border">
+                              <td className="px-3 py-2">{item.description}</td>
+                              <td className="px-3 py-2 text-center">{(item.quantity || 1).toFixed(1)}</td>
+                              <td className="px-3 py-2 text-right">${(item.unitPrice * factor).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right font-medium">${(item.amount * factor).toFixed(2)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-2 flex justify-between items-center text-sm font-semibold border-t pt-2">
+                    <span>Client Total</span>
+                    <span className="text-blue-600">${(shareQuote.totalAmount * (1 + (parseFloat(shareMarkup) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              )}
+              {(!shareQuote.lineItems || shareQuote.lineItems.length === 0) && shareMarkup && (
+                <p className="text-sm font-semibold">
+                  Client will see: <span className="text-blue-600">${(shareQuote.totalAmount * (1 + (parseFloat(shareMarkup) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </p>
+              )}
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowShareModal(false)}>Cancel</Button>
                 <Button
