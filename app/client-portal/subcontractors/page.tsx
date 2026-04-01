@@ -59,7 +59,7 @@ export default function ClientSubcontractorsView() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createForm, setCreateForm] = useState({
-    email: '', fullName: '', businessName: '', phone: '', licenseNumber: '',
+    email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '',
   });
   const [skillInput, setSkillInput] = useState('');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -117,6 +117,8 @@ export default function ClientSubcontractorsView() {
             fullName: createForm.fullName,
             businessName: createForm.businessName,
             phone: createForm.phone,
+            city: createForm.city,
+            state: createForm.state,
             licenseNumber: createForm.licenseNumber,
             skills: selectedSkills,
             status: 'pending',
@@ -131,7 +133,7 @@ export default function ClientSubcontractorsView() {
         toast.success('Subcontractor created! An invitation email has been sent.');
       }
       setShowCreateModal(false);
-      setCreateForm({ email: '', fullName: '', businessName: '', phone: '', licenseNumber: '' });
+      setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
       setSelectedSkills([]);
       setSkillInput('');
       await fetchSubcontractors();
@@ -299,7 +301,7 @@ export default function ClientSubcontractorsView() {
                   <h2 className="text-xl font-bold">Add Subcontractor</h2>
                   <Button variant="outline" size="sm" onClick={() => {
                     setShowCreateModal(false);
-                    setCreateForm({ email: '', fullName: '', businessName: '', phone: '', licenseNumber: '' });
+                    setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
                     setSelectedSkills([]);
                     setSkillInput('');
                   }}>
@@ -345,6 +347,26 @@ export default function ClientSubcontractorsView() {
                     onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sub-city">City</Label>
+                    <Input
+                      id="sub-city"
+                      placeholder="New York"
+                      value={createForm.city}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, city: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sub-state">State</Label>
+                    <Input
+                      id="sub-state"
+                      placeholder="NY"
+                      value={createForm.state}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, state: e.target.value }))}
+                    />
+                  </div>
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="sub-license">License Number</Label>
                   <Input
@@ -382,7 +404,7 @@ export default function ClientSubcontractorsView() {
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => {
                     setShowCreateModal(false);
-                    setCreateForm({ email: '', fullName: '', businessName: '', phone: '', licenseNumber: '' });
+                    setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
                     setSelectedSkills([]);
                     setSkillInput('');
                   }}>Cancel</Button>

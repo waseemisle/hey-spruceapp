@@ -244,6 +244,8 @@ export async function POST(request: Request) {
     if (role === 'subcontractor') {
       if (userData.businessName) userDoc.fields.businessName = { stringValue: userData.businessName };
       if (userData.licenseNumber) userDoc.fields.licenseNumber = { stringValue: userData.licenseNumber };
+      if (userData.city) userDoc.fields.city = { stringValue: userData.city };
+      if (userData.state) userDoc.fields.state = { stringValue: userData.state };
       if (userData.skills && Array.isArray(userData.skills)) {
         userDoc.fields.skills = { arrayValue: { values: userData.skills.map((s: string) => ({ stringValue: s })) } };
       }

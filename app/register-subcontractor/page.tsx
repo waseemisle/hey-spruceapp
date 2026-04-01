@@ -21,6 +21,8 @@ export default function RegisterSubcontractor() {
     fullName: '',
     businessName: '',
     phone: '',
+    city: '',
+    state: '',
     licenseNumber: '',
   });
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -96,6 +98,8 @@ export default function RegisterSubcontractor() {
         fullName: formData.fullName,
         businessName: formData.businessName,
         phone: formData.phone,
+        city: formData.city,
+        state: formData.state,
         skills: selectedSkills,
         licenseNumber: formData.licenseNumber,
         password: formData.password,
@@ -194,6 +198,30 @@ export default function RegisterSubcontractor() {
                 onChange={handleChange}
                 required
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  name="city"
+                  type="text"
+                  placeholder="New York"
+                  value={formData.city}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  name="state"
+                  type="text"
+                  placeholder="NY"
+                  value={formData.state}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Skills *</Label>

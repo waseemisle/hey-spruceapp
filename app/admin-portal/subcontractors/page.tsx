@@ -23,6 +23,8 @@ interface Subcontractor {
   fullName: string;
   businessName: string;
   phone: string;
+  city?: string;
+  state?: string;
   skills: string[];
   licenseNumber?: string;
   password?: string;
@@ -93,6 +95,8 @@ export default function SubcontractorsManagement() {
     fullName: '',
     businessName: '',
     phone: '',
+    city: '',
+    state: '',
     licenseNumber: '',
     password: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
@@ -219,7 +223,7 @@ export default function SubcontractorsManagement() {
   };
 
   const resetForm = () => {
-    setFormData({ email: '', fullName: '', businessName: '', phone: '', licenseNumber: '', password: '', status: 'approved' });
+    setFormData({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '', password: '', status: 'approved' });
     setSelectedSkills([]);
     setEditingId(null);
     setShowModal(false);
@@ -230,7 +234,8 @@ export default function SubcontractorsManagement() {
   const handleOpenEdit = (sub: Subcontractor) => {
     setFormData({
       email: sub.email, fullName: sub.fullName, businessName: sub.businessName,
-      phone: sub.phone, licenseNumber: sub.licenseNumber || '', password: sub.password || '', status: sub.status,
+      phone: sub.phone, city: sub.city || '', state: sub.state || '',
+      licenseNumber: sub.licenseNumber || '', password: sub.password || '', status: sub.status,
     });
     setSelectedSkills(sub.skills || []);
     setEditingId(sub.uid);
@@ -247,6 +252,7 @@ export default function SubcontractorsManagement() {
       if (editingId) {
         await updateDoc(doc(db, 'subcontractors', editingId), {
           fullName: formData.fullName, businessName: formData.businessName, phone: formData.phone,
+          city: formData.city, state: formData.state,
           licenseNumber: formData.licenseNumber, skills: selectedSkills, status: formData.status, updatedAt: serverTimestamp(),
         });
         toast.success('Subcontractor updated successfully');
@@ -258,6 +264,7 @@ export default function SubcontractorsManagement() {
             email: formData.email, role: 'subcontractor', sendInvitation: true,
             userData: {
               fullName: formData.fullName, businessName: formData.businessName, phone: formData.phone,
+              city: formData.city, state: formData.state,
               licenseNumber: formData.licenseNumber, skills: selectedSkills, status: formData.status,
             },
           }),
@@ -625,6 +632,16 @@ export default function SubcontractorsManagement() {
                   <div>
                     <Label className="text-sm font-medium text-foreground">Phone *</Label>
                     <Input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="(555) 123-4567" className="mt-1" />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-foreground">City</Label>
+                    <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder="New York" className="mt-1" />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-foreground">State</Label>
+                    <Input value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} placeholder="NY" className="mt-1" />
                   </div>
 
                   <div>
