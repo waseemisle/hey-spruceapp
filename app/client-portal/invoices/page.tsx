@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -48,7 +49,9 @@ interface Invoice {
   createdAt: any;
 }
 
-export default function ClientInvoices() {
+function ClientInvoicesInner() {
+  const searchParams = useSearchParams();
+  const workOrderIdFilter = searchParams.get('workOrderId');
   const { auth, db } = useFirebaseInstance();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,19 +152,23 @@ export default function ClientInvoices() {
     return labels[status as keyof typeof labels] || status;
   };
 
-  const filteredInvoices = invoices.filter(invoice => {
+  const scopedInvoices = workOrderIdFilter
+    ? invoices.filter((i) => i.workOrderId === workOrderIdFilter)
+    : invoices;
+
+  const filteredInvoices = scopedInvoices.filter(invoice => {
     if (filter === 'all') return true;
     return invoice.status === filter;
   });
 
   const filterOptions = [
-    { value: 'all', label: 'All', count: invoices.length },
-    { value: 'sent', label: 'Awaiting Payment', count: invoices.filter(i => i.status === 'sent').length },
-    { value: 'paid', label: 'Paid', count: invoices.filter(i => i.status === 'paid').length },
-    { value: 'overdue', label: 'Overdue', count: invoices.filter(i => i.status === 'overdue').length },
+    { value: 'all', label: 'All', count: scopedInvoices.length },
+    { value: 'sent', label: 'Awaiting Payment', count: scopedInvoices.filter(i => i.status === 'sent').length },
+    { value: 'paid', label: 'Paid', count: scopedInvoices.filter(i => i.status === 'paid').length },
+    { value: 'overdue', label: 'Overdue', count: scopedInvoices.filter(i => i.status === 'overdue').length },
   ];
 
-  const totalUnpaid = invoices
+  const totalUnpaid = scopedInvoices
     .filter(i => i.status === 'sent' || i.status === 'overdue')
     .reduce((sum, i) => sum + i.totalAmount, 0);
 
@@ -185,12 +192,25 @@ export default function ClientInvoices() {
           iconClassName="text-blue-600"
         />
 
+        {workOrderIdFilter && (
+          <div className="rounded-xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm text-blue-900">
+            Showing invoices for this work order ·{' '}
+            <Link href={`/client-portal/work-orders/${workOrderIdFilter}`} className="font-medium underline">
+              Back to work order
+            </Link>
+            {' · '}
+            <Link href="/client-portal/invoices" className="font-medium underline">
+              All invoices
+            </Link>
+          </div>
+        )}
+
         <StatCards
           items={[
-            { label: 'Total', value: invoices.length, icon: Receipt, color: 'blue' },
-            { label: 'Awaiting Payment', value: invoices.filter(i => i.status === 'sent').length, icon: CreditCard, color: 'amber' },
-            { label: 'Paid', value: invoices.filter(i => i.status === 'paid').length, icon: CheckCircle, color: 'emerald' },
-            { label: 'Overdue', value: invoices.filter(i => i.status === 'overdue').length, icon: Receipt, color: 'red' },
+            { label: 'Total', value: scopedInvoices.length, icon: Receipt, color: 'blue' },
+            { label: 'Awaiting Payment', value: scopedInvoices.filter(i => i.status === 'sent').length, icon: CreditCard, color: 'amber' },
+            { label: 'Paid', value: scopedInvoices.filter(i => i.status === 'paid').length, icon: CheckCircle, color: 'emerald' },
+            { label: 'Overdue', value: scopedInvoices.filter(i => i.status === 'overdue').length, icon: Receipt, color: 'red' },
           ]}
         />
 
@@ -202,7 +222,7 @@ export default function ClientInvoices() {
               <p className="text-xl font-bold leading-none">${totalUnpaid.toLocaleString()}</p>
             </div>
             <p className="ml-auto text-sm text-amber-700">
-              {invoices.filter(i => i.status === 'sent' || i.status === 'overdue').length} unpaid invoice(s)
+              {scopedInvoices.filter(i => i.status === 'sent' || i.status === 'overdue').length} unpaid invoice(s)
             </p>
           </div>
         )}
@@ -254,7 +274,13 @@ export default function ClientInvoices() {
           <EmptyState
             icon={Receipt}
             title={filter === 'all' ? 'No invoices yet' : `No ${filter} invoices`}
-            subtitle={filter === 'all' ? 'Invoices will appear here once quotes are approved.' : 'Try a different filter'}
+            subtitle={
+              workOrderIdFilter
+                ? 'No invoices for this work order yet.'
+                : filter === 'all'
+                  ? 'Invoices will appear here once quotes are approved.'
+                  : 'Try a different filter'
+            }
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -337,5 +363,21 @@ export default function ClientInvoices() {
         )}
       </PageContainer>
     </ClientLayout>
+  );
+}
+
+export default function ClientInvoices() {
+  return (
+    <Suspense
+      fallback={
+        <ClientLayout>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </ClientLayout>
+      }
+    >
+      <ClientInvoicesInner />
+    </Suspense>
   );
 }

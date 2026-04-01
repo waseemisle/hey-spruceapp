@@ -116,6 +116,27 @@ export function subscribeSubcontractorSupportTickets(
 
 const OPEN_LIST = [...OPEN_SUPPORT_STATUSES];
 
+/**
+ * Admin nav badge: count of open-status tickets that have no assignee.
+ * Uses a status-filtered query instead of listening to the entire collection.
+ */
+export function subscribeAdminUnassignedOpenSupportTicketCount(
+  db: Firestore,
+  onCount: (n: number) => void,
+  onError: (e: unknown) => void,
+): () => void {
+  const col = collection(db, 'supportTickets');
+  const q = query(col, where('status', 'in', OPEN_LIST));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const n = snap.docs.filter((d) => !d.data().assignedTo).length;
+      onCount(n);
+    },
+    onError,
+  );
+}
+
 export function subscribeClientOpenSupportTicketCount(
   db: Firestore,
   uid: string,

@@ -145,7 +145,10 @@ export default function ViewClientWorkOrder() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'attachments' | 'quotes' | 'history'>('overview');
+  const [relatedInvoices, setRelatedInvoices] = useState<
+    Array<{ id: string; invoiceNumber?: string; totalAmount?: number; status?: string; createdAt?: { toDate?: () => Date } }>
+  >([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'attachments' | 'quotes' | 'invoices' | 'history'>('overview');
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -190,6 +193,22 @@ export default function ViewClientWorkOrder() {
               allClientQuotes.filter(
                 q => q.workOrderId === id && ['sent_to_client', 'accepted', 'rejected'].includes(q.status)
               )
+            );
+
+            const invQuery = query(
+              collection(db, 'invoices'),
+              where('clientId', '==', currentUser.uid),
+              where('workOrderId', '==', id)
+            );
+            const invSnap = await getDocs(invQuery);
+            setRelatedInvoices(
+              invSnap.docs.map((d) => ({
+                id: d.id,
+                invoiceNumber: d.data().invoiceNumber,
+                totalAmount: d.data().totalAmount,
+                status: d.data().status,
+                createdAt: d.data().createdAt,
+              }))
             );
           }
         }
@@ -700,6 +719,11 @@ export default function ViewClientWorkOrder() {
     { key: 'overview', label: 'Overview', icon: FileText },
     { key: 'attachments', label: `Attachments${totalImages > 0 ? ` (${totalImages})` : ''}`, icon: Paperclip },
     ...(quotes.length > 0 ? [{ key: 'quotes', label: `Quotes (${quotes.length})`, icon: Receipt }] : []),
+    {
+      key: 'invoices' as const,
+      label: `Invoices${relatedInvoices.length > 0 ? ` (${relatedInvoices.length})` : ''}`,
+      icon: DollarSign,
+    },
     ...(hasViewTimelinePermission ? [{ key: 'history', label: 'History', icon: History }] : []),
   ] as { key: typeof activeTab; label: string; icon: any }[];
 
@@ -1041,6 +1065,73 @@ export default function ViewClientWorkOrder() {
                           Compare {selectedQuoteIds.length} Quotes
                         </Button>
                       )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* INVOICES TAB */}
+          {activeTab === 'invoices' && (
+            <div className="max-w-3xl">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Related Invoices ({relatedInvoices.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {relatedInvoices.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground">No invoices yet for this work order.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {relatedInvoices.map((inv) => (
+                        <div key={inv.id} className="p-4 border rounded-lg hover:bg-muted/30 transition-colors">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-semibold text-sm">
+                                Invoice #{inv.invoiceNumber || inv.id.slice(0, 8)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {inv.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-primary">
+                                ${(inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </p>
+                              <span
+                                className={`text-xs capitalize px-2 py-0.5 rounded-full ${
+                                  inv.status === 'paid'
+                                    ? 'bg-green-100 text-green-700'
+                                    : inv.status === 'overdue'
+                                      ? 'bg-red-100 text-red-700'
+                                      : 'bg-yellow-100 text-yellow-700'
+                                }`}
+                              >
+                                {inv.status || 'draft'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <Link href={`/client-portal/invoices/${inv.id}`}>
+                              <Button variant="outline" size="sm">
+                                Open invoice
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                      <Link href={`/client-portal/invoices?workOrderId=${workOrder.id}`}>
+                        <Button variant="outline" className="w-full mt-2">
+                          View Invoice
+                        </Button>
+                      </Link>
                     </div>
                   )}
                 </CardContent>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
-import { emailLayout, infoCard, infoRow, ctaButton, alertBox } from '@/lib/email-template';
+import { emailLayout, infoCard, infoRow, ctaButton, alertBox, emailTotalsSummaryCard } from '@/lib/email-template';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app';
 
@@ -70,11 +70,15 @@ export async function POST(request: Request) {
         ${lineItems && lineItems.length > 0 && serviceItems.length === 0 && materialItems.length === 0 ? `
           ${tableHtml(buildRowsHtml(lineItems))}
         ` : ''}
-        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:16px 20px;margin:20px 0;">
-          ${materialsSubtotal > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#5A6C7A;">Materials subtotal</span><span>$${materialsSubtotal.toFixed(2)}</span></div>` : ''}
-          ${lineItems && lineItems.length > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#5A6C7A;">Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>` : ''}
-          <div style="display:flex;justify-content:space-between;padding-top:12px;border-top:2px solid #0D1520;"><span style="font-size:16px;font-weight:700;color:#1A2635;">Total</span><span style="font-size:20px;font-weight:700;color:#2563EB;">$${displayAmount.toFixed(2)}</span></div>
-        </div>
+        ${emailTotalsSummaryCard([
+          ...(materialsSubtotal > 0
+            ? [{ label: 'Materials subtotal', amount: `$${materialsSubtotal.toFixed(2)}`, variant: 'muted' as const }]
+            : []),
+          ...(lineItems && lineItems.length > 0
+            ? [{ label: 'Subtotal', amount: `$${subtotal.toFixed(2)}`, variant: 'muted' as const }]
+            : []),
+          { label: 'Total', amount: `$${displayAmount.toFixed(2)}`, variant: 'emphasis' },
+        ])}
         ${notes ? alertBox(notes, 'info') : ''}
         ${ctaButton('Review & Approve Quote', APP_URL + '/client-portal')}
       `,

@@ -2,6 +2,43 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.
 const LOGO_URL = `${APP_URL}/logo.png`;
 const YEAR = new Date().getFullYear();
 
+/** Font stack repeated on table cells so Outlook/Gmail don’t fall back to messy defaults */
+const EMAIL_BODY_FONT =
+  "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+
+/**
+ * Invoice/quote summary amounts — table-based (not flex) for email client compatibility.
+ */
+export function emailTotalsSummaryCard(
+  lines: Array<{ label: string; amount: string; variant?: 'muted' | 'emphasis' }>,
+): string {
+  const rows = lines
+    .map((line, index) => {
+      const isLast = index === lines.length - 1;
+      const emphasis = line.variant === 'emphasis';
+      const padBottom = !isLast && !emphasis ? '8px' : '0';
+      const padTop = emphasis ? '12px' : '0';
+      const borderTop = emphasis ? '2px solid #0D1520' : 'none';
+      const labelSize = emphasis ? '16px' : '14px';
+      const labelWeight = emphasis ? '700' : '400';
+      const labelColor = emphasis ? '#1A2635' : '#5A6C7A';
+      const amountSize = emphasis ? '20px' : '14px';
+      const amountWeight = emphasis ? '700' : '600';
+      const amountColor = emphasis ? '#2563EB' : '#1A2635';
+      return `<tr>
+        <td style="padding:${padTop} 0 ${padBottom} 0;font-family:${EMAIL_BODY_FONT};font-size:${labelSize};line-height:1.5;font-weight:${labelWeight};color:${labelColor};vertical-align:top;border-top:${borderTop};">${line.label}</td>
+        <td style="padding:${padTop} 0 ${padBottom} 0;font-family:${EMAIL_BODY_FONT};font-size:${amountSize};line-height:1.5;font-weight:${amountWeight};color:${amountColor};text-align:right;vertical-align:top;border-top:${borderTop};white-space:nowrap;">${line.amount}</td>
+      </tr>`;
+    })
+    .join('');
+
+  return `<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:16px 20px;margin:20px 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
+      ${rows}
+    </table>
+  </div>`;
+}
+
 export function emailLayout({
   title,
   preheader = '',

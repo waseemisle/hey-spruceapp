@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
-import { emailLayout, infoCard, infoRow, ctaButton, alertBox } from '@/lib/email-template';
+import { emailLayout, infoCard, infoRow, ctaButton, emailTotalsSummaryCard } from '@/lib/email-template';
 
 export async function POST(request: Request) {
   let toEmail: string = '', toName: string = '', invoiceNumber: string = '', workOrderTitle: string = '', totalAmount: number = 0;
@@ -151,11 +151,13 @@ export async function POST(request: Request) {
           </table>
           <p style="font-size:12px;color:#8A9CAB;font-style:italic;margin:4px 0 16px 0;">To avoid this fee, pay with cash, Zelle, check, or ACH transfer.</p>
         ` : ''}
-        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:16px 20px;margin:20px 0;">
-          ${materialsSubtotal > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#5A6C7A;">Materials subtotal</span><span>$${materialsSubtotal.toFixed(2)}</span></div>` : ''}
-          <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:14px;"><span style="color:#5A6C7A;">Subtotal</span><span>$${subtotalWithPaymentFee.toFixed(2)}</span></div>
-          <div style="display:flex;justify-content:space-between;padding-top:12px;border-top:2px solid #0D1520;"><span style="font-size:16px;font-weight:700;color:#1A2635;">Amount Due</span><span style="font-size:20px;font-weight:700;color:#2563EB;">$${finalTotal.toFixed(2)}</span></div>
-        </div>
+        ${emailTotalsSummaryCard([
+          ...(materialsSubtotal > 0
+            ? [{ label: 'Materials subtotal', amount: `$${materialsSubtotal.toFixed(2)}`, variant: 'muted' as const }]
+            : []),
+          { label: 'Subtotal', amount: `$${subtotalWithPaymentFee.toFixed(2)}`, variant: 'muted' },
+          { label: 'Amount Due', amount: `$${finalTotal.toFixed(2)}`, variant: 'emphasis' },
+        ])}
         ${stripePaymentLink ? ctaButton('Pay Now', stripePaymentLink) : ''}
       `,
     });

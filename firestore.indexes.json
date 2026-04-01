@@ -62,6 +62,14 @@
       ]
     },
     {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "workOrderId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "biddingWorkOrders",
       "queryScope": "COLLECTION",
       "fields": [

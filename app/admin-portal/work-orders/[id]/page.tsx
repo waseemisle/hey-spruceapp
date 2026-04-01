@@ -183,18 +183,40 @@ export default function ViewWorkOrder() {
     const fetchWorkOrder = async () => {
       if (!id) return;
 
+      setQuotes([]);
+      setRelatedInvoices([]);
+      setNotes([]);
+      setLoading(true);
+      let woExists = false;
       try {
-        // Fetch work order + all related data in parallel
-        const [woDoc, quotesSnapshot, invoicesSnapshot, notesSnapshot] = await Promise.all([
-          getDoc(doc(db, 'workOrders', id)),
+        const woDoc = await getDoc(doc(db, 'workOrders', id));
+        if (woDoc.exists()) {
+          setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
+          woExists = true;
+        } else {
+          setWorkOrder(null);
+          setQuotes([]);
+          setRelatedInvoices([]);
+          setNotes([]);
+        }
+      } catch (error) {
+        console.error('Error fetching work order:', error);
+        setWorkOrder(null);
+        setQuotes([]);
+        setRelatedInvoices([]);
+        setNotes([]);
+      } finally {
+        setLoading(false);
+      }
+
+      if (!woExists) return;
+
+      try {
+        const [quotesSnapshot, invoicesSnapshot, notesSnapshot] = await Promise.all([
           getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', id))),
           getDocs(query(collection(db, 'invoices'), where('workOrderId', '==', id))),
           getDocs(query(collection(db, 'workOrderNotes'), where('workOrderId', '==', id))),
         ]);
-
-        if (woDoc.exists()) {
-          setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
-        }
 
         setQuotes(quotesSnapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Quote[]);
         setRelatedInvoices(invoicesSnapshot.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -204,9 +226,7 @@ export default function ViewWorkOrder() {
             .sort((a: any, b: any) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
         );
       } catch (error) {
-        console.error('Error fetching work order:', error);
-      } finally {
-        setLoading(false);
+        console.error('Error fetching related work order data:', error);
       }
     };
 
@@ -1743,7 +1763,7 @@ export default function ViewWorkOrder() {
                         </div>
                       ))}
                       <Link href={`/admin-portal/invoices?workOrderId=${workOrder.id}`}>
-                        <Button variant="outline" className="w-full mt-2">View All Related Invoices</Button>
+                        <Button variant="outline" className="w-full mt-2">View Invoice</Button>
                       </Link>
                     </div>
                   )}

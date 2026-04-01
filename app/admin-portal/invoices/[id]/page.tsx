@@ -429,9 +429,16 @@ export default function AdminInvoiceDetail() {
             <div>
               <CardTitle className="text-2xl mb-2">{invoice.invoiceNumber}</CardTitle>
               <p className="text-sm text-muted-foreground">{invoice.workOrderTitle}</p>
-              {invoice.workOrderNumber && (
-                <p className="text-sm text-muted-foreground">Tracking: {invoice.workOrderNumber}</p>
-              )}
+              {invoice.workOrderId ? (
+                <Link
+                  href={`/admin-portal/work-orders/${invoice.workOrderId}`}
+                  className="text-sm text-blue-600 hover:underline mt-1 inline-block"
+                >
+                  {invoice.workOrderNumber ? `Work order #${invoice.workOrderNumber}` : 'View work order'}
+                </Link>
+              ) : invoice.workOrderNumber ? (
+                <p className="text-sm text-muted-foreground mt-1">Tracking: {invoice.workOrderNumber}</p>
+              ) : null}
               <p className="text-sm text-muted-foreground">Client: {invoice.clientName}</p>
               {invoice.subcontractorName && (
                 <p className="text-sm text-muted-foreground">Provider: {invoice.subcontractorName}</p>

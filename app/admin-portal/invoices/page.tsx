@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -57,7 +58,9 @@ interface ClientBilling {
   autoPayEnabled?: boolean;
 }
 
-export default function InvoicesManagement() {
+function InvoicesManagementInner() {
+  const searchParams = useSearchParams();
+  const workOrderIdFilter = searchParams.get('workOrderId');
   const { viewMode } = useViewControls();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -591,6 +594,7 @@ export default function InvoicesManagement() {
   };
 
   const filteredInvoices = invoices.filter(inv => {
+    if (workOrderIdFilter && inv.workOrderId !== workOrderIdFilter) return false;
     // Filter by status
     const statusMatch = filter === 'all' || inv.status === filter;
 
@@ -621,6 +625,18 @@ export default function InvoicesManagement() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
+            {workOrderIdFilter && (
+              <p className="text-sm text-muted-foreground mb-1">
+                Showing invoices for this work order ·{' '}
+                <Link href={`/admin-portal/work-orders/${workOrderIdFilter}`} className="text-primary hover:underline">
+                  Back to work order
+                </Link>
+                {' · '}
+                <Link href="/admin-portal/invoices" className="text-primary hover:underline">
+                  All invoices
+                </Link>
+              </p>
+            )}
             <h1 className="text-3xl font-bold text-foreground">Invoices</h1>
             <p className="text-muted-foreground mt-2">Generate and manage invoices with Stripe payment links</p>
           </div>
@@ -1114,5 +1130,21 @@ export default function InvoicesManagement() {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+export default function InvoicesManagement() {
+  return (
+    <Suspense
+      fallback={
+        <AdminLayout>
+          <div className="flex items-center justify-center min-h-[40vh]">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+          </div>
+        </AdminLayout>
+      }
+    >
+      <InvoicesManagementInner />
+    </Suspense>
   );
 }

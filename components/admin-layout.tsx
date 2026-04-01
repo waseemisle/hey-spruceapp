@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
+import { subscribeAdminUnassignedOpenSupportTicketCount } from '@/lib/support-ticket-snapshots';
 
 type NavChild = { name: string; href: string; icon: React.ElementType };
 type NavItem = {
@@ -166,17 +167,9 @@ export default function AdminLayout({ children, headerExtra }: { children: React
               (err) => console.error('Work orders badge listener error:', err),
             );
 
-            const openSupportStatuses = ['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin'];
-            unsubscribeSupportTickets = onSnapshot(
-              collection(db, 'supportTickets'),
-              (s) => {
-                const n = s.docs.filter((d) => {
-                  const st = d.data().status as string;
-                  const unassigned = !d.data().assignedTo;
-                  return openSupportStatuses.includes(st) && unassigned;
-                }).length;
-                setBadgeCounts((prev) => ({ ...prev, supportTickets: n }));
-              },
+            unsubscribeSupportTickets = subscribeAdminUnassignedOpenSupportTicketCount(
+              db,
+              (n) => setBadgeCounts((prev) => ({ ...prev, supportTickets: n })),
               (err) => console.error('Support tickets badge listener error:', err),
             );
           } else {
