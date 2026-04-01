@@ -111,6 +111,7 @@ interface Quote {
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
   estimatedDuration?: string;
   createdAt: any;
+  sentToClientAt?: any;
 }
 
 const STATUS_PIPELINE = [
