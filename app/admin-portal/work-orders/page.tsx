@@ -82,6 +82,8 @@ interface Subcontractor {
   fullName: string;
   email: string;
   businessName?: string;
+  city?: string;
+  state?: string;
   status: 'pending' | 'approved' | 'rejected';
   matchesCategory?: boolean;
 }

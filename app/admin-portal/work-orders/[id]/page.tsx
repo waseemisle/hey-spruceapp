@@ -92,6 +92,8 @@ interface Subcontractor {
   fullName: string;
   email: string;
   businessName?: string;
+  city?: string;
+  state?: string;
   matchesCategory?: boolean;
 }
 
