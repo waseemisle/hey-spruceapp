@@ -40,6 +40,28 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Test whether the stored customer ID is valid in the current Stripe mode.
+    // If it was created in test mode and we're now in live mode (or vice versa),
+    // create a fresh customer and persist the new ID.
+    try {
+      await stripe.customers.retrieve(stripeCustomerId);
+    } catch (e: any) {
+      if (e?.code === 'resource_missing') {
+        const customer = await stripe.customers.create({
+          email: clientData.email,
+          name: clientData.fullName,
+          metadata: { clientId, companyName: clientData.companyName || '' },
+        });
+        stripeCustomerId = customer.id;
+        await updateDoc(doc(db, 'clients', clientId), {
+          stripeCustomerId,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        throw e;
+      }
+    }
+
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomerId,
       usage: 'off_session',

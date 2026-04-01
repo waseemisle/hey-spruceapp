@@ -37,14 +37,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Card already saved' });
     }
 
-    // Attach payment method to Stripe customer if not already
+    // Attach payment method to Stripe customer if not already.
+    // If the stored customer ID belongs to the wrong Stripe mode (e.g. test vs live),
+    // the payment method will already be attached to the correct customer via the
+    // SetupIntent, so we can safely skip the attach call in that case.
     if (clientData.stripeCustomerId && pm.customer !== clientData.stripeCustomerId) {
       try {
         await stripe.paymentMethods.attach(paymentMethodId, {
           customer: clientData.stripeCustomerId,
         });
       } catch (e: any) {
-        if (!e.message?.includes('already been attached')) throw e;
+        if (!e.message?.includes('already been attached') && (e as any)?.code !== 'resource_missing') throw e;
       }
     }
 
