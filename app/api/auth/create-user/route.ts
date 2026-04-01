@@ -254,6 +254,12 @@ export async function POST(request: Request) {
 
     if (role === 'client') {
       if (userData.companyName) userDoc.fields.companyName = { stringValue: userData.companyName };
+      if (userData.companyId) userDoc.fields.companyId = { stringValue: userData.companyId };
+      if (userData.assignedLocations && Array.isArray(userData.assignedLocations)) {
+        userDoc.fields.assignedLocations = { arrayValue: { values: userData.assignedLocations.map((l: string) => ({ stringValue: l })) } };
+      }
+      if (userData.paymentTermsDays != null) userDoc.fields.paymentTermsDays = { integerValue: String(userData.paymentTermsDays) };
+      if (userData.autoChargeThreshold != null) userDoc.fields.autoChargeThreshold = { doubleValue: userData.autoChargeThreshold };
       userDoc.fields.status = { stringValue: userData.status || 'approved' };
     }
 
