@@ -51,6 +51,7 @@ export default function ClientLocations() {
   const [checkingCompany, setCheckingCompany] = useState(true);
   const [locationWorkOrders, setLocationWorkOrders] = useState<WorkOrder[]>([]);
   const [loadingWorkOrders, setLoadingWorkOrders] = useState(false);
+  const [canCreateLocation, setCanCreateLocation] = useState(false);
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
@@ -69,6 +70,8 @@ export default function ClientLocations() {
           }
 
           const clientData = clientDoc.data();
+          const permissions = clientData.permissions || {};
+          setCanCreateLocation(!!permissions.createLocation);
           const clientCompanyId = clientData.companyId;
           if (!clientCompanyId) {
             setCompanyInfo(null);
@@ -206,14 +209,14 @@ export default function ClientLocations() {
           subtitle="Manage your property locations"
           icon={Building2}
           iconClassName="text-blue-600"
-          action={
+          action={canCreateLocation ? (
             <Link href="/client-portal/locations/create">
               <Button disabled={!companyInfo || checkingCompany} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Add New Location
               </Button>
             </Link>
-          }
+          ) : undefined}
         />
 
         {!companyInfo && !checkingCompany && (

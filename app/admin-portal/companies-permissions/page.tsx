@@ -41,6 +41,9 @@ interface Client {
     compareQuotes?: boolean;
     viewRecurringWorkOrders?: boolean;
     viewTimeline?: boolean;
+    createSubcontractors?: boolean;
+    createLocation?: boolean;
+    createRecurringWorkOrders?: boolean;
   };
 }
 
@@ -91,6 +94,21 @@ const PERMISSION_DEFS: { key: PermKey; label: string; desc: string }[] = [
     key: 'viewTimeline',
     label: 'View Timeline',
     desc: 'Client can see the Timeline section (creation, approval, activity) on work orders, quotes, and invoices.',
+  },
+  {
+    key: 'createSubcontractors',
+    label: 'Create Subcontractors',
+    desc: 'Client can create new subcontractors and send them an invitation to join the platform.',
+  },
+  {
+    key: 'createLocation',
+    label: 'Create Location',
+    desc: 'Client can add new property locations to their company.',
+  },
+  {
+    key: 'createRecurringWorkOrders',
+    label: 'Create Recurring Work Orders',
+    desc: 'Client can create new recurring work orders for their locations.',
   },
 ];
 
@@ -156,6 +174,9 @@ export default function CompaniesPermissions() {
           compareQuotes: client.permissions?.compareQuotes || false,
           viewRecurringWorkOrders: client.permissions?.viewRecurringWorkOrders || false,
           viewTimeline: client.permissions?.viewTimeline || false,
+          createSubcontractors: client.permissions?.createSubcontractors || false,
+          createLocation: client.permissions?.createLocation || false,
+          createRecurringWorkOrders: client.permissions?.createRecurringWorkOrders || false,
         };
       });
       setClientPermissions(permissionsMap);

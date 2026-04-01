@@ -78,6 +78,14 @@ export default function CreateLocation() {
         }
 
         const clientData = clientDoc.data();
+
+        // Check createLocation permission
+        const permissions = clientData.permissions || {};
+        if (!permissions.createLocation) {
+          router.push('/client-portal/locations');
+          return;
+        }
+
         const clientCompanyId = clientData.companyId;
 
         if (!clientCompanyId) {

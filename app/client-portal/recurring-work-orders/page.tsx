@@ -9,9 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { 
-  RotateCcw, Edit2, Search, Eye, 
-  Calendar, Clock, CheckCircle, XCircle, AlertCircle, MapPin
+import {
+  RotateCcw, Edit2, Search, Eye,
+  Calendar, Clock, CheckCircle, XCircle, AlertCircle, MapPin, Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder } from '@/types';
@@ -26,6 +26,7 @@ export default function ClientRecurringWorkOrders() {
   const [filter, setFilter] = useState<'all' | 'active' | 'paused' | 'cancelled'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [hasPermission, setHasPermission] = useState(false);
+  const [canCreate, setCanCreate] = useState(false);
   const [assignedLocations, setAssignedLocations] = useState<string[]>([]);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function ClientRecurringWorkOrders() {
             const clientData = clientDoc.data();
             const assignedLocationsList = clientData?.assignedLocations || [];
             setAssignedLocations(assignedLocationsList);
+            setCanCreate(!!(clientData?.permissions?.createRecurringWorkOrders));
 
             setHasPermission(true);
 
@@ -247,6 +249,14 @@ export default function ClientRecurringWorkOrders() {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Recurring Work Orders</h1>
             <p className="text-muted-foreground mt-2 text-sm sm:text-base">View and manage recurring work orders</p>
           </div>
+          {canCreate && (
+            <Link href="/client-portal/recurring-work-orders/create">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                New Recurring Work Order
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Search Bar */}
