@@ -13,7 +13,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { FileText, DollarSign, Send, Plus, Trash2, Search, UserPlus, Eye, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
-import { notifyQuoteSubmission } from '@/lib/notifications';
+import { notifyClientOfQuoteSent } from '@/lib/notifications';
 import { useViewControls } from '@/contexts/view-controls-context';
 import ProposalDecisionEngine from '@/components/proposal-decision-engine';
 
@@ -224,13 +224,12 @@ function QuotesContent() {
         });
       }
 
-      // Notify client about quote
+      // Notify client that their quote is ready (with markup-inclusive amount)
       if (quote.workOrderId && quote.workOrderNumber) {
-        await notifyQuoteSubmission(
+        await notifyClientOfQuoteSent(
           quote.clientId,
           quote.workOrderId,
           quote.workOrderNumber,
-          quote.subcontractorName,
           clientAmount
         );
       }

@@ -18,7 +18,7 @@ import { formatAddress } from '@/lib/utils';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
 import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
-import { notifyBiddingOpportunity, notifyQuoteSubmission } from '@/lib/notifications';
+import { notifyBiddingOpportunity, notifyClientOfQuoteSent } from '@/lib/notifications';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { toast } from 'sonner';
@@ -901,11 +901,10 @@ export default function ViewWorkOrder() {
       });
       if (shareQuote.workOrderId && shareQuote.workOrderNumber) {
         try {
-          await notifyQuoteSubmission(
+          await notifyClientOfQuoteSent(
             (workOrder as any).clientId,
             shareQuote.workOrderId,
             shareQuote.workOrderNumber,
-            shareQuote.subcontractorName,
             clientAmount
           );
         } catch { /* best effort */ }

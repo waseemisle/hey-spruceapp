@@ -176,7 +176,9 @@ export async function notifyClientOfWorkOrderApproval(clientId: string, workOrde
 }
 
 /**
- * Notifies client and admin about quote submission
+ * Notifies admins only when a subcontractor submits a quote.
+ * Clients must NOT be notified here — they are notified separately
+ * only after the admin adds markup and clicks "Send to Client".
  */
 export async function notifyQuoteSubmission(
   clientId: string,
@@ -186,19 +188,7 @@ export async function notifyQuoteSubmission(
   quoteAmount: number
 ) {
   try {
-    // Notify client
-    await createNotification({
-      userId: clientId,
-      userRole: 'client',
-      type: 'quote',
-      title: 'New Quote Received',
-      message: `New quote of $${quoteAmount.toLocaleString()} from ${subcontractorName} for WO ${workOrderNumber}`,
-      link: `/client-portal/quotes`,
-      referenceId: workOrderId,
-      referenceType: 'workOrder',
-    });
-
-    // Notify all admins
+    // Notify all admins only — client is notified via notifyClientOfQuoteSent
     const adminIds = await getAllAdminUserIds();
     if (adminIds.length > 0) {
       await createNotification({
@@ -214,6 +204,32 @@ export async function notifyQuoteSubmission(
     }
   } catch (error) {
     console.error('Error notifying quote submission:', error);
+  }
+}
+
+/**
+ * Notifies the client that a quote has been shared with them by the admin.
+ * Call this ONLY after the admin has applied markup and clicked "Send to Client".
+ */
+export async function notifyClientOfQuoteSent(
+  clientId: string,
+  workOrderId: string,
+  workOrderNumber: string,
+  clientAmount: number
+) {
+  try {
+    await createNotification({
+      userId: clientId,
+      userRole: 'client',
+      type: 'quote',
+      title: 'Quote Ready for Review',
+      message: `A quote of $${clientAmount.toLocaleString()} for WO ${workOrderNumber} is ready for your review`,
+      link: `/client-portal/quotes`,
+      referenceId: workOrderId,
+      referenceType: 'workOrder',
+    });
+  } catch (error) {
+    console.error('Error notifying client of quote:', error);
   }
 }
 
