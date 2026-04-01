@@ -12,7 +12,7 @@ import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
-import { Home, ClipboardList, FileText, CheckSquare, MessageSquare, LogOut, Menu, X, Headphones } from 'lucide-react';
+import { Home, ClipboardList, FileText, CheckSquare, ClipboardCheck, MessageSquare, LogOut, Menu, X, Headphones } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
@@ -202,6 +202,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
     { name: 'Bidding Work Orders', href: '/subcontractor-portal/bidding', icon: ClipboardList, badgeKey: 'bidding' },
     { name: 'My Quotes', href: '/subcontractor-portal/quotes', icon: FileText, badgeKey: null },
     { name: 'Assigned Jobs', href: '/subcontractor-portal/assigned', icon: CheckSquare, badgeKey: null },
+    { name: 'My Completed Jobs', href: '/subcontractor-portal/completed-jobs', icon: ClipboardCheck, badgeKey: null },
     { name: 'Messages', href: '/subcontractor-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
     { name: 'Support Tickets', href: '/subcontractor-portal/support-tickets', icon: Headphones, badgeKey: 'supportTickets' },
   ];
