@@ -41,6 +41,12 @@ interface Quote {
     unitPrice: number;
     amount: number;
   }>;
+  clientLineItems?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
   notes?: string;
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
   createdAt: any;
@@ -332,11 +338,13 @@ export default function QuoteDetail() {
 
   const buildQuoteTimeline = (q: Quote): QuoteTimelineEvent[] => {
     if (q.timeline && q.timeline.length > 0) {
-      return [...q.timeline].sort((a, b) => {
-        const ta = toDate(a.timestamp)?.getTime() ?? 0;
-        const tb = toDate(b.timestamp)?.getTime() ?? 0;
-        return ta - tb;
-      });
+      return [...q.timeline]
+        .filter(e => e.type !== 'sent_to_client')
+        .sort((a, b) => {
+          const ta = toDate(a.timestamp)?.getTime() ?? 0;
+          const tb = toDate(b.timestamp)?.getTime() ?? 0;
+          return ta - tb;
+        });
     }
     const events: QuoteTimelineEvent[] = [];
     const createdTs = toDate(q.createdAt);
@@ -352,19 +360,7 @@ export default function QuoteDetail() {
         metadata: { source: q.creationSource || 'subcontractor_bidding' },
       });
     }
-    const sentTs = toDate(q.sentToClientAt);
-    if (sentTs) {
-      events.push({
-        id: 'sent',
-        timestamp: q.sentToClientAt,
-        type: 'sent_to_client',
-        userId: (q as any).sentBy || 'unknown',
-        userName: q.systemInformation?.sentToClientBy?.name || 'Admin',
-        userRole: 'admin',
-        details: 'Quote sent to client',
-        metadata: q.workOrderNumber ? { workOrderNumber: q.workOrderNumber } : undefined,
-      });
-    }
+    // Intentionally skip sent_to_client events — clients don't need to see admin markup details
     const acceptedTs = toDate(q.acceptedAt);
     if (acceptedTs) {
       events.push({
@@ -487,6 +483,76 @@ export default function QuoteDetail() {
                 </div>
               </div>
             </div>
+
+            {/* Line Items Breakdown */}
+            {(() => {
+              const displayItems = quote.clientLineItems || quote.lineItems || [];
+              if (displayItems.length === 0) return null;
+              const serviceItems = displayItems.filter(item => {
+                const desc = item.description?.toLowerCase() || '';
+                return !desc.includes('material') && !desc.includes('parts') && !desc.includes('supply');
+              });
+              const materialItems = displayItems.filter(item => {
+                const desc = item.description?.toLowerCase() || '';
+                return desc.includes('material') || desc.includes('parts') || desc.includes('supply');
+              });
+              const materialsSubtotal = materialItems.reduce((s, i) => s + i.amount, 0);
+              const subtotal = displayItems.reduce((s, i) => s + i.amount, 0);
+              const renderTable = (items: typeof displayItems) => (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted text-muted-foreground text-xs uppercase">
+                      <th className="px-3 py-2 text-left">Description</th>
+                      <th className="px-3 py-2 text-center">Qty</th>
+                      <th className="px-3 py-2 text-right">Unit Price</th>
+                      <th className="px-3 py-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, idx) => (
+                      <tr key={idx} className="border-b border-border last:border-0">
+                        <td className="px-3 py-2">{item.description}</td>
+                        <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
+                        <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              );
+              return (
+                <div className="border-t pt-6 space-y-4">
+                  {serviceItems.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Services</p>
+                      <div className="border rounded-md overflow-hidden">{renderTable(serviceItems)}</div>
+                    </div>
+                  )}
+                  {materialItems.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Materials</p>
+                      <div className="border rounded-md overflow-hidden">{renderTable(materialItems)}</div>
+                    </div>
+                  )}
+                  <div className="bg-muted/50 border rounded-md px-4 py-3 space-y-1 text-sm">
+                    {materialsSubtotal > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Materials subtotal</span>
+                        <span>${materialsSubtotal.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-base border-t border-border pt-2 mt-2">
+                      <span>Total</span>
+                      <span>${(quote.clientAmount || quote.totalAmount).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Proposed Service Schedule */}
             {quote.proposedServiceDate && (

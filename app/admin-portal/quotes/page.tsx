@@ -153,6 +153,12 @@ function QuotesContent() {
 
       const markupDecimal = markup / 100;
       const clientAmount = quote.totalAmount * (1 + markupDecimal);
+      const markupFactor = quote.totalAmount > 0 ? clientAmount / quote.totalAmount : 1;
+      const clientLineItems = (quote.lineItems || []).map(item => ({
+        ...item,
+        unitPrice: item.unitPrice * markupFactor,
+        amount: item.amount * markupFactor,
+      }));
       const isResend = quote.status === 'sent_to_client';
 
       const existingQuoteTimeline = (quote as any).timeline || [];
@@ -170,6 +176,7 @@ function QuotesContent() {
       await updateDoc(doc(db, 'quotes', quote.id), {
         markupPercentage: markup,
         clientAmount: clientAmount,
+        clientLineItems: clientLineItems,
         originalAmount: quote.totalAmount,
         status: 'sent_to_client',
         sentToClientAt: serverTimestamp(),
