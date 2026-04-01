@@ -188,46 +188,51 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation, viewe
             <div className="border-t pt-4">
               <h4 className="text-sm font-semibold text-foreground mb-3">Activity Timeline</h4>
               <div className="space-y-3">
-                {visibleTimeline.map((event, index) => (
-                  <div key={event.id || index} className="flex items-start gap-3 pb-3 border-b border-border last:border-0">
-                    <div className="mt-0.5">
-                      {getEventIcon(event.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-foreground">
-                            {getEventLabel(event.type)}
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            {event.details || (event.type === 'created' ? 'Work order created' : '')}
-                          </p>
-                          {event.metadata && Object.keys(event.metadata).length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-                              {Object.entries(event.metadata).map(([key, value]) => {
-                                const displayValue = value != null && value !== '' ? (typeof value === 'object' ? JSON.stringify(value) : String(value)) : '—';
-                                return (
-                                  <span key={key} className="inline text-muted-foreground">
-                                    <span className="font-medium text-muted-foreground">{formatMetadataKey(key)}:</span>{' '}
-                                    <span className="text-foreground">{displayValue}</span>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-xs text-muted-foreground">
-                            {formatTimestamp(event.timestamp)}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            by {event.userName}
-                          </p>
+                {visibleTimeline.map((event, index) => {
+                  const isClientSensitiveEvent = viewerRole === 'client' && event.type === 'quote_shared_with_client';
+                  return (
+                    <div key={event.id || index} className="flex items-start gap-3 pb-3 border-b border-border last:border-0">
+                      <div className="mt-0.5">
+                        {getEventIcon(event.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-foreground">
+                              {getEventLabel(event.type)}
+                            </p>
+                            {!isClientSensitiveEvent && (
+                              <p className="text-sm text-muted-foreground mt-0.5">
+                                {event.details || (event.type === 'created' ? 'Work order created' : '')}
+                              </p>
+                            )}
+                            {!isClientSensitiveEvent && event.metadata && Object.keys(event.metadata).length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                                {Object.entries(event.metadata).map(([key, value]) => {
+                                  const displayValue = value != null && value !== '' ? (typeof value === 'object' ? JSON.stringify(value) : String(value)) : '—';
+                                  return (
+                                    <span key={key} className="inline text-muted-foreground">
+                                      <span className="font-medium text-muted-foreground">{formatMetadataKey(key)}:</span>{' '}
+                                      <span className="text-foreground">{displayValue}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-xs text-muted-foreground">
+                              {formatTimestamp(event.timestamp)}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              by {event.userName}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

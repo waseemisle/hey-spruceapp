@@ -172,17 +172,22 @@ export default function ViewClientWorkOrder() {
         if (woDoc.exists()) {
           setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
 
-          if (hasCompareQuotesPermission) {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
             const quotesQuery = query(
               collection(db, 'quotes'),
-              where('workOrderId', '==', id)
+              where('clientId', '==', currentUser.uid)
             );
             const quotesSnapshot = await getDocs(quotesQuery);
-            const quotesData = quotesSnapshot.docs.map(doc => ({
+            const allClientQuotes = quotesSnapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data(),
             })) as Quote[];
-            setQuotes(quotesData);
+            setQuotes(
+              allClientQuotes.filter(
+                q => q.workOrderId === id && ['sent_to_client', 'accepted', 'rejected'].includes(q.status)
+              )
+            );
           }
         }
       } catch (error) {
@@ -691,7 +696,7 @@ export default function ViewClientWorkOrder() {
   const TABS = [
     { key: 'overview', label: 'Overview', icon: FileText },
     { key: 'attachments', label: `Attachments${totalImages > 0 ? ` (${totalImages})` : ''}`, icon: Paperclip },
-    ...(hasCompareQuotesPermission ? [{ key: 'quotes', label: `Quotes${quotes.length > 0 ? ` (${quotes.length})` : ''}`, icon: Receipt }] : []),
+    ...(quotes.length > 0 ? [{ key: 'quotes', label: `Quotes (${quotes.length})`, icon: Receipt }] : []),
     ...(hasViewTimelinePermission ? [{ key: 'history', label: 'History', icon: History }] : []),
   ] as { key: typeof activeTab; label: string; icon: any }[];
 
@@ -905,57 +910,7 @@ export default function ViewClientWorkOrder() {
                             ${workOrder.approvedQuoteAmount.toLocaleString()}
                           </span>
                         </div>
-                        {(workOrder.approvedQuoteLaborCost || workOrder.approvedQuoteMaterialCost || workOrder.approvedQuoteTaxAmount) && (
-                          <div className="space-y-2 pt-3 border-t border-green-300">
-                            {(workOrder.approvedQuoteLaborCost ?? 0) > 0 && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Labor Cost</span>
-                                <span className="font-medium">${(workOrder.approvedQuoteLaborCost ?? 0).toLocaleString()}</span>
-                              </div>
-                            )}
-                            {(workOrder.approvedQuoteMaterialCost ?? 0) > 0 && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Material Cost</span>
-                                <span className="font-medium">${(workOrder.approvedQuoteMaterialCost ?? 0).toLocaleString()}</span>
-                              </div>
-                            )}
-                            {(workOrder.approvedQuoteTaxAmount ?? 0) > 0 && (
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Tax</span>
-                                <span className="font-medium">${(workOrder.approvedQuoteTaxAmount ?? 0).toLocaleString()}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {workOrder.approvedQuoteLineItems && workOrder.approvedQuoteLineItems.length > 0 && (
-                        <div className="border-t pt-4">
-                          <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead className="bg-muted">
-                                <tr>
-                                  <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
-                                  <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
-                                  <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
-                                  <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y">
-                                {workOrder.approvedQuoteLineItems.map((item, idx) => (
-                                  <tr key={idx}>
-                                    <td className="px-4 py-2">{item.description}</td>
-                                    <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                    <td className="px-4 py-2 text-right">${item.unitPrice.toLocaleString()}</td>
-                                    <td className="px-4 py-2 text-right font-semibold">${item.amount.toLocaleString()}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                      {workOrder.assignedSubcontractorName && (
+                        {workOrder.assignedSubcontractorName && (
                         <div className="text-sm text-muted-foreground pt-3 border-t">
                           <span className="font-semibold">Contractor:</span> {workOrder.assignedSubcontractorName}
                         </div>
@@ -1029,7 +984,7 @@ export default function ViewClientWorkOrder() {
           )}
 
           {/* QUOTES TAB */}
-          {activeTab === 'quotes' && hasCompareQuotesPermission && (
+          {activeTab === 'quotes' && (
             <div className="max-w-3xl">
               <Card>
                 <CardHeader>
@@ -1043,7 +998,7 @@ export default function ViewClientWorkOrder() {
                     <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
                   ) : (
                     <div className="space-y-3">
-                      {quotes.length >= 2 && (
+                      {hasCompareQuotesPermission && quotes.length >= 2 && (
                         <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
                           <p className="text-sm text-primary">Select 2 or more quotes to compare them side-by-side</p>
                         </div>
@@ -1051,7 +1006,7 @@ export default function ViewClientWorkOrder() {
                       {quotes.map((quote) => (
                         <div key={quote.id} className={`p-4 border rounded-lg hover:bg-muted/30 transition-colors ${selectedQuoteIds.includes(quote.id) ? 'bg-primary/5 border-primary/30' : ''}`}>
                           <div className="flex items-start gap-3">
-                            {quotes.length >= 2 && (
+                            {hasCompareQuotesPermission && quotes.length >= 2 && (
                               <Checkbox
                                 checked={selectedQuoteIds.includes(quote.id)}
                                 onCheckedChange={(checked) => handleQuoteSelection(quote.id, checked === true)}
@@ -1060,23 +1015,23 @@ export default function ViewClientWorkOrder() {
                             )}
                             <div className="flex-1 flex justify-between items-start">
                               <div>
-                                <p className="font-semibold">{quote.subcontractorName}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                                  {quote.sentToClientAt?.toDate?.().toLocaleDateString() || quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                                 </p>
                                 {quote.notes && <p className="text-sm text-muted-foreground mt-1">{quote.notes}</p>}
                               </div>
                               <div className="text-right">
                                 <p className="text-2xl font-bold text-primary">
-                                  ${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  ${(quote.clientAmount || quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </p>
                                 <p className="text-xs text-muted-foreground capitalize">{quote.status.replace(/_/g, ' ')}</p>
+                                <Link href={`/client-portal/quotes/${quote.id}`} className="text-xs text-primary underline mt-1 inline-block">View Details</Link>
                               </div>
                             </div>
                           </div>
                         </div>
                       ))}
-                      {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
+                      {hasCompareQuotesPermission && quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
                         <Button onClick={handleCompareQuotes} className="w-full">
                           <GitCompare className="h-4 w-4 mr-2" />
                           Compare {selectedQuoteIds.length} Quotes
