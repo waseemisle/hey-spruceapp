@@ -283,33 +283,6 @@ export default function ClientInvoiceDetail() {
                 </div>
               </div>
             )}
-            {invoice.lineItems && invoice.lineItems.length > 0 && (
-              <div className="border-t pt-6">
-                <h4 className="font-semibold text-foreground mb-3">Line Items</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted">
-                      <tr>
-                        <th className="px-4 py-2 text-left font-semibold text-foreground">Description</th>
-                        <th className="px-4 py-2 text-center font-semibold text-foreground">Qty</th>
-                        <th className="px-4 py-2 text-right font-semibold text-foreground">Rate</th>
-                        <th className="px-4 py-2 text-right font-semibold text-foreground">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {invoice.lineItems.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="px-4 py-2">{item.description}</td>
-                          <td className="px-4 py-2 text-center">{item.quantity}</td>
-                          <td className="px-4 py-2 text-right">${item.unitPrice.toLocaleString()}</td>
-                          <td className="px-4 py-2 text-right font-semibold">${item.amount.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
             <div className="flex gap-2 pt-4">
               <Button onClick={handleDownloadPDF} variant="outline" className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
