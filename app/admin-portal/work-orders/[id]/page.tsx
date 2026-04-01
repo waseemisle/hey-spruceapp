@@ -184,27 +184,25 @@ export default function ViewWorkOrder() {
       if (!id) return;
 
       try {
-        const woDoc = await getDoc(doc(db, 'workOrders', id));
+        // Fetch work order + all related data in parallel
+        const [woDoc, quotesSnapshot, invoicesSnapshot, notesSnapshot] = await Promise.all([
+          getDoc(doc(db, 'workOrders', id)),
+          getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', id))),
+          getDocs(query(collection(db, 'invoices'), where('workOrderId', '==', id))),
+          getDocs(query(collection(db, 'workOrderNotes'), where('workOrderId', '==', id))),
+        ]);
+
         if (woDoc.exists()) {
           setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
-
-          // Fetch related quotes, invoices, and notes in parallel
-          const [quotesSnapshot, invoicesSnapshot, notesSnapshot] = await Promise.all([
-            getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', id))),
-            getDocs(query(collection(db, 'invoices'), where('workOrderId', '==', id))),
-            getDocs(query(collection(db, 'workOrderNotes'), where('workOrderId', '==', id))),
-          ]);
-          const quotesData = quotesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Quote[];
-          setQuotes(quotesData);
-          const invoicesData = invoicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          setRelatedInvoices(invoicesData);
-          const notesData = invoicesSnapshot.docs.length >= 0
-            ? notesSnapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .sort((a: any, b: any) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
-            : [];
-          setNotes(notesData);
         }
+
+        setQuotes(quotesSnapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Quote[]);
+        setRelatedInvoices(invoicesSnapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        setNotes(
+          notesSnapshot.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a: any, b: any) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+        );
       } catch (error) {
         console.error('Error fetching work order:', error);
       } finally {
@@ -1703,9 +1701,6 @@ export default function ViewWorkOrder() {
                           <GitCompare className="h-4 w-4 mr-2" />Compare {selectedQuoteIds.length} Quotes
                         </Button>
                       )}
-                      <Link href={`/admin-portal/quotes?workOrderId=${workOrder.id}`}>
-                        <Button variant="outline" className="w-full mt-2">View in Quotes</Button>
-                      </Link>
                     </div>
                   )}
                 </CardContent>
