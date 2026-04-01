@@ -10,7 +10,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   ArrowLeft, Download, ExternalLink, CreditCard, CheckCircle, AlertCircle,
   Plus, XCircle, MapPin, Star, Trash2, Edit2, Loader2, Mail, X, ShieldCheck,
-  Zap, DollarSign, History, Receipt, FileText, Layers,
+  Zap, DollarSign, History, Receipt, FileText, Layers, Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -18,12 +18,19 @@ import { toast } from 'sonner';
 
 interface PaymentMethod {
   id: string;
+  type?: 'card' | 'us_bank_account';
   last4: string;
   brand: string;
-  expMonth: number;
-  expYear: number;
+  expMonth: number | null;
+  expYear: number | null;
   isDefault: boolean;
   createdAt?: any;
+  // Bank account fields
+  bankName?: string;
+  routingNumber?: string;
+  accountHolderType?: string;
+  accountType?: string;
+  verificationStatus?: 'pending' | 'verified';
 }
 
 interface Client {
@@ -218,6 +225,16 @@ export default function ClientDetailPage() {
   const cardMountRef = useRef<HTMLDivElement>(null);
   const stripeRef = useRef<any>(null);
   const cardElementRef = useRef<any>(null);
+
+  // Bank account form
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [submittingBank, setSubmittingBank] = useState(false);
+  const [bankError, setBankError] = useState<string | null>(null);
+  const [bankRouting, setBankRouting] = useState('');
+  const [bankAccountNum, setBankAccountNum] = useState('');
+  const [bankHolderType, setBankHolderType] = useState<'individual' | 'company'>('individual');
+  const [bankAccountType, setBankAccountType] = useState<'checking' | 'savings'>('checking');
+  const [bankHolderName, setBankHolderName] = useState('');
 
   // Transaction history
   const [charges, setCharges] = useState<ClientCharge[]>([]);
@@ -547,6 +564,56 @@ export default function ClientDetailPage() {
   const handleAddCard = () => {
     setShowCardModal(true);
     setAddingCard(false);
+  };
+
+  /** Admin-initiated: open bank account form */
+  const handleOpenBankModal = () => {
+    setBankRouting('');
+    setBankAccountNum('');
+    setBankHolderType('individual');
+    setBankAccountType('checking');
+    setBankHolderName(client?.fullName || '');
+    setBankError(null);
+    setShowBankModal(true);
+  };
+
+  const handleAddBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client) return;
+    setBankError(null);
+
+    if (!/^\d{9}$/.test(bankRouting.trim())) {
+      setBankError('Routing number must be exactly 9 digits.');
+      return;
+    }
+    if (bankAccountNum.trim().length < 4) {
+      setBankError('Please enter a valid account number.');
+      return;
+    }
+
+    setSubmittingBank(true);
+    try {
+      const res = await fetch('/api/stripe/add-bank-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: client.uid,
+          routingNumber: bankRouting.trim(),
+          accountNumber: bankAccountNum.trim(),
+          accountHolderType: bankHolderType,
+          accountType: bankAccountType,
+          holderName: bankHolderName.trim() || client.fullName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add bank account');
+      toast.success(`Bank account added${data.bankName ? ` — ${data.bankName}` : ''}`);
+      setShowBankModal(false);
+    } catch (error: any) {
+      setBankError(error.message || 'Failed to add bank account. Please try again.');
+    } finally {
+      setSubmittingBank(false);
+    }
   };
 
   const handleSetDefault = async (pmId: string) => {
@@ -1104,6 +1171,15 @@ export default function ClientDetailPage() {
               )}
               <Button
                 size="sm"
+                variant="outline"
+                onClick={handleOpenBankModal}
+                className="gap-1.5 text-xs h-8"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                Add Bank Account
+              </Button>
+              <Button
+                size="sm"
                 onClick={handleAddCard}
                 disabled={addingCard}
                 className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-xs h-8"
@@ -1116,11 +1192,11 @@ export default function ClientDetailPage() {
 
           <div className="p-5 space-y-5">
 
-            {/* ── Saved Cards ─────────────────────────────────────────────── */}
+            {/* ── Saved Payment Methods ────────────────────────────────────── */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Saved Cards
+                  Saved Payment Methods
                   {displayMethods.length > 0 && (
                     <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
                       {displayMethods.length}
@@ -1132,12 +1208,14 @@ export default function ClientDetailPage() {
               {displayMethods.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-300 p-6 flex flex-col items-center gap-2 text-center">
                   <CreditCard className="h-8 w-8 text-gray-300" />
-                  <p className="text-sm text-muted-foreground">No cards saved for this client.</p>
-                  <p className="text-xs text-muted-foreground">Click "Add Card" to save a card for auto-charging.</p>
+                  <p className="text-sm text-muted-foreground">No payment methods saved for this client.</p>
+                  <p className="text-xs text-muted-foreground">Add a card or bank account to enable auto-charging.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {displayMethods.map((pm) => (
+                  {displayMethods.map((pm) => {
+                    const isBankAccount = pm.type === 'us_bank_account';
+                    return (
                     <div
                       key={pm.id}
                       className={`rounded-lg border p-4 flex items-center gap-4 ${
@@ -1146,24 +1224,36 @@ export default function ClientDetailPage() {
                           : 'border-border bg-card'
                       }`}
                     >
-                      {/* Card graphic */}
-                      <div className="h-10 w-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-md flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <CreditCard className="h-5 w-5 text-white" />
-                      </div>
+                      {/* Payment method graphic */}
+                      {isBankAccount ? (
+                        <div className="h-10 w-16 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-md flex items-center justify-center flex-shrink-0 shadow-sm">
+                          <Building2 className="h-5 w-5 text-white" />
+                        </div>
+                      ) : (
+                        <div className="h-10 w-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-md flex items-center justify-center flex-shrink-0 shadow-sm">
+                          <CreditCard className="h-5 w-5 text-white" />
+                        </div>
+                      )}
 
-                      {/* Card info */}
+                      {/* Payment method info */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-foreground text-sm">
-                            {pm.brand
-                              ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)
-                              : 'Card'}{' '}
+                            {isBankAccount
+                              ? (pm.bankName || 'Bank Account')
+                              : (pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card')
+                            }{' '}
                             •••• {pm.last4}
                           </p>
                           {pm.isDefault && (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
                               <Star className="h-3 w-3 fill-blue-600 text-blue-600" />
                               Default
+                            </span>
+                          )}
+                          {isBankAccount && pm.verificationStatus === 'pending' && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                              Pending Verification
                             </span>
                           )}
                           {client.stripeSubscriptionId &&
@@ -1175,11 +1265,20 @@ export default function ClientDetailPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Expires {String(pm.expMonth).padStart(2, '0')} / {pm.expYear}
-                          <span className="mx-2 text-gray-300">|</span>
-                          <span className="font-mono text-muted-foreground text-[11px]">{pm.id}</span>
-                        </p>
+                        {isBankAccount ? (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {pm.accountType ? pm.accountType.charAt(0).toUpperCase() + pm.accountType.slice(1) : 'Checking'}
+                            {pm.routingNumber && <> · Routing ••••{pm.routingNumber.slice(-4)}</>}
+                            <span className="mx-2 text-gray-300">|</span>
+                            <span className="font-mono text-muted-foreground text-[11px]">{pm.id}</span>
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Expires {pm.expMonth ? String(pm.expMonth).padStart(2, '0') : '--'} / {pm.expYear || '--'}
+                            <span className="mx-2 text-gray-300">|</span>
+                            <span className="font-mono text-muted-foreground text-[11px]">{pm.id}</span>
+                          </p>
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -1230,7 +1329,8 @@ export default function ClientDetailPage() {
                         </Button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2215,6 +2315,130 @@ export default function ClientDetailPage() {
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
                   Card number is encrypted by Stripe and never touches our servers.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Bank Account Modal ────────────────────────────────────────── */}
+      {showBankModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !submittingBank && setShowBankModal(false)}
+          />
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                  <Building2 className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground text-sm">Add Bank Account for {client?.fullName}</h3>
+                  <p className="text-xs text-muted-foreground">ACH Direct Debit via Stripe</p>
+                </div>
+              </div>
+              <button
+                onClick={() => !submittingBank && setShowBankModal(false)}
+                className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleAddBankAccount} className="p-6 space-y-4">
+              {/* Account Holder Name */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Holder Name</label>
+                <input
+                  type="text"
+                  value={bankHolderName}
+                  onChange={(e) => setBankHolderName(e.target.value)}
+                  placeholder="Full name on account"
+                  required
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {/* Account Holder Type + Account Type */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Holder Type</label>
+                  <select
+                    value={bankHolderType}
+                    onChange={(e) => setBankHolderType(e.target.value as 'individual' | 'company')}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="individual">Individual</option>
+                    <option value="company">Company</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Type</label>
+                  <select
+                    value={bankAccountType}
+                    onChange={(e) => setBankAccountType(e.target.value as 'checking' | 'savings')}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="checking">Checking</option>
+                    <option value="savings">Savings</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Routing Number */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Routing Number</label>
+                <input
+                  type="text"
+                  value={bankRouting}
+                  onChange={(e) => setBankRouting(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                  placeholder="9-digit routing number"
+                  maxLength={9}
+                  required
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {/* Account Number */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Number</label>
+                <input
+                  type="text"
+                  value={bankAccountNum}
+                  onChange={(e) => setBankAccountNum(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Account number"
+                  required
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {bankError && (
+                <p className="text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                  {bankError}
+                </p>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setShowBankModal(false)} disabled={submittingBank}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-2" disabled={submittingBank}>
+                  {submittingBank ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
+                  ) : (
+                    <><CheckCircle className="h-4 w-4" />Save Bank Account</>
+                  )}
+                </Button>
+              </div>
+            </form>
+            <div className="px-6 pb-5">
+              <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                <p className="text-[11px] text-muted-foreground">
+                  Bank details are securely transmitted to Stripe. Micro-deposit verification may be required before charging.
                 </p>
               </div>
             </div>
