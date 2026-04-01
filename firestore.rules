@@ -205,10 +205,17 @@ service cloud.firestore {
       allow write: if isSignedIn() && isAdmin();
     }
 
-    // Assigned Jobs - admins full; subcontractors read their own
+    // Assigned Jobs - admins full; subcontractors read their own; clients can create for their own work orders
     match /assignedJobs/{jobId} {
       allow read: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
-      allow create, delete: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        (
+          request.resource.data.workOrderId is string &&
+          get(/databases/$(database)/documents/workOrders/$(request.resource.data.workOrderId)).data.clientId == request.auth.uid
+        )
+      );
+      allow delete: if isSignedIn() && isAdmin();
       allow update: if isSignedIn() && (
         isAdmin() ||
         (
