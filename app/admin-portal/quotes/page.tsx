@@ -46,6 +46,7 @@ interface Quote {
   clientAmount?: number;
   markupPercentage?: number;
   lineItems: LineItem[];
+  clientLineItems?: LineItem[];
   notes: string;
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
   createdAt: any;
@@ -834,10 +835,45 @@ function QuotesContent() {
                     <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuote.markupPercentage != null ? `(${viewQuote.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">${viewQuote.clientAmount.toFixed(2)}</p></div>
                   )}
                 </div>
-                {/* Line Items */}
+                {/* Line Items — client-facing (with markup) */}
+                {viewQuote.clientLineItems && viewQuote.clientLineItems.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                      Line Items — Client View ({viewQuote.markupPercentage ?? 0}% markup)
+                    </p>
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted text-muted-foreground text-xs uppercase">
+                            <th className="px-3 py-2 text-left">Description</th>
+                            <th className="px-3 py-2 text-center">Qty</th>
+                            <th className="px-3 py-2 text-right">Unit Price</th>
+                            <th className="px-3 py-2 text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {viewQuote.clientLineItems.map((item, idx) => (
+                            <tr key={idx} className="border-t border-border">
+                              <td className="px-3 py-2">{item.description}</td>
+                              <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
+                              <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-2 text-right text-sm font-semibold text-blue-600">
+                      Client Total: ${(viewQuote.clientAmount || 0).toFixed(2)}
+                    </div>
+                  </div>
+                )}
+                {/* Line Items — original subcontractor amounts */}
                 {viewQuote.lineItems && viewQuote.lineItems.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Line Items</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                      {viewQuote.clientLineItems?.length ? 'Original Subcontractor Quote' : 'Line Items'}
+                    </p>
                     <div className="border rounded-md overflow-hidden">
                       <table className="w-full text-sm">
                         <thead>
@@ -860,7 +896,9 @@ function QuotesContent() {
                         </tbody>
                       </table>
                     </div>
-                    <div className="mt-2 text-right text-sm font-semibold">Total: ${(viewQuote.totalAmount || 0).toFixed(2)}</div>
+                    <div className="mt-2 text-right text-sm font-semibold">
+                      Total: ${(viewQuote.totalAmount || 0).toFixed(2)}
+                    </div>
                   </div>
                 )}
                 {/* Notes */}
