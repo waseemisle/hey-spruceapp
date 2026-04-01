@@ -81,7 +81,6 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             requestType: 'PASSWORD_RESET',
             email,
-            continueUrl: `${BASE_URL}/portal-login`,
           }),
         }
       );
