@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -121,6 +121,7 @@ interface Quote {
   clientAmount?: number;
   markupPercentage?: number;
   lineItems: LineItem[];
+  clientLineItems?: LineItem[];
   notes?: string;
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
   estimatedDuration?: string;
@@ -157,6 +158,9 @@ export default function ViewWorkOrder() {
 
   // One-click invoice creation
   const [creatingInvoice, setCreatingInvoice] = useState(false);
+
+  // View quote detail modal
+  const [viewQuoteDetail, setViewQuoteDetail] = useState<Quote | null>(null);
 
   // Share quote with client modal
   const [showShareModal, setShowShareModal] = useState(false);
@@ -1407,15 +1411,34 @@ export default function ViewWorkOrder() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {quotes.slice(0, 2).map(q => (
-                          <div key={q.id} className="flex justify-between items-center p-3 bg-muted/40 rounded-lg">
-                            <div>
-                              <p className="font-medium text-sm">{q.subcontractorName}</p>
-                              <p className="text-xs text-muted-foreground capitalize">{q.status}</p>
+                        {quotes.slice(0, 2).map(q => {
+                          const qDisplayAmount = q.clientAmount || q.totalAmount || 0;
+                          const qStatusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-blue-600', accepted: 'text-green-600', rejected: 'text-red-600' };
+                          const qStatusLabels: Record<string, string> = { pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' };
+                          const canAssignQ = q.status === 'accepted' && !['assigned', 'accepted_by_subcontractor', 'pending_invoice', 'completed'].includes(workOrder.status);
+                          return (
+                          <div key={q.id} className={`p-3 rounded-lg ${q.status === 'accepted' ? 'bg-green-50 border border-green-200' : 'bg-muted/40'}`}>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium text-sm">{q.subcontractorName}</p>
+                                <p className={`text-xs font-medium ${qStatusColors[q.status] || 'text-muted-foreground'}`}>{qStatusLabels[q.status] || q.status}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-primary">${qDisplayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                {q.clientAmount && q.markupPercentage != null && (
+                                  <p className="text-xs text-muted-foreground">{q.markupPercentage}% markup</p>
+                                )}
+                              </div>
                             </div>
-                            <p className="font-bold text-primary">${(q.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            {canAssignQ && (
+                              <Button size="sm" className="w-full mt-2 bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={() => openAssignModal(q)}>
+                                <UserPlus className="h-3 w-3 mr-1" />
+                                Assign to Subcontractor
+                              </Button>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                         {quotes.length > 2 && <p className="text-xs text-muted-foreground text-center">+{quotes.length - 2} more quotes</p>}
                       </div>
                     </CardContent>
@@ -1626,8 +1649,15 @@ export default function ViewWorkOrder() {
                           <p className="text-sm text-primary">Select 2+ quotes to compare them side-by-side</p>
                         </div>
                       )}
-                      {quotes.map(quote => (
-                        <div key={quote.id} className={`p-4 border rounded-lg hover:bg-muted/30 transition-colors ${selectedQuoteIds.includes(quote.id) ? 'bg-primary/5 border-primary/30' : ''}`}>
+                      {quotes.map(quote => {
+                        const displayAmount = quote.clientAmount || quote.totalAmount || 0;
+                        const isAccepted = quote.status === 'accepted';
+                        const canAssign = !['assigned', 'accepted_by_subcontractor', 'pending_invoice', 'completed'].includes(workOrder.status);
+                        const canShare = workOrder.status === 'quotes_received' && quote.status !== 'accepted' && quote.status !== 'rejected';
+                        const statusLabels: Record<string, string> = { pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' };
+                        const statusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-blue-600', accepted: 'text-green-600', rejected: 'text-red-600' };
+                        return (
+                        <div key={quote.id} className={`p-4 border rounded-lg hover:bg-muted/30 transition-colors ${isAccepted ? 'border-green-300 bg-green-50/30' : ''} ${selectedQuoteIds.includes(quote.id) ? 'bg-primary/5 border-primary/30' : ''}`}>
                           <div className="flex items-start gap-3">
                             {quotes.length >= 2 && (
                               <Checkbox checked={selectedQuoteIds.includes(quote.id)} onCheckedChange={(c) => handleQuoteSelection(quote.id, c === true)} className="mt-1" />
@@ -1639,27 +1669,35 @@ export default function ViewWorkOrder() {
                                 {quote.notes && <p className="text-sm text-muted-foreground mt-1">{quote.notes}</p>}
                               </div>
                               <div className="text-right">
-                                <p className="text-2xl font-bold text-primary">${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                                <p className="text-xs text-muted-foreground capitalize">{quote.status}</p>
+                                <p className="text-2xl font-bold text-primary">${displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                {quote.clientAmount && quote.markupPercentage != null && (
+                                  <p className="text-xs text-muted-foreground">incl. {quote.markupPercentage}% markup</p>
+                                )}
+                                <p className={`text-xs font-medium capitalize ${statusColors[quote.status] || 'text-muted-foreground'}`}>{statusLabels[quote.status] || quote.status}</p>
                               </div>
                             </div>
                           </div>
-                          {workOrder.status !== 'assigned' && workOrder.status !== 'accepted_by_subcontractor' && workOrder.status !== 'pending_invoice' && workOrder.status !== 'completed' && (
-                            <div className="mt-3 pt-3 border-t flex flex-col gap-2">
-                              {workOrder.status === 'quotes_received' && (
-                                <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { setShareQuote(quote); setShareMarkup(String(quote.markupPercentage || 20)); setShowShareModal(true); }}>
-                                  <Share2 className="h-3.5 w-3.5 mr-2" />
-                                  {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Share Quote with Client'}
-                                </Button>
-                              )}
-                              <Button size="sm" variant={workOrder.status === 'quotes_received' ? 'outline' : 'default'} className="w-full" onClick={() => openAssignModal(quote)}>
-                                <UserPlus className="h-3.5 w-3.5 mr-2" />
-                                Assign This Subcontractor
+                          <div className="mt-3 pt-3 border-t flex flex-col gap-2">
+                            <Button size="sm" variant="outline" className="w-full" onClick={() => setViewQuoteDetail(quote)}>
+                              <Eye className="h-3.5 w-3.5 mr-2" />
+                              View Full Quote
+                            </Button>
+                            {canShare && (
+                              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { setShareQuote(quote); setShareMarkup(String(quote.markupPercentage || 20)); setShowShareModal(true); }}>
+                                <Share2 className="h-3.5 w-3.5 mr-2" />
+                                {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Share Quote with Client'}
                               </Button>
-                            </div>
-                          )}
+                            )}
+                            {isAccepted && canAssign && (
+                              <Button size="sm" className="w-full bg-green-600 hover:bg-green-700" onClick={() => openAssignModal(quote)}>
+                                <UserPlus className="h-3.5 w-3.5 mr-2" />
+                                Assign to Subcontractor
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      ))}
+                        );
+                      })}
                       {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
                         <Button onClick={handleCompareQuotes} className="w-full">
                           <GitCompare className="h-4 w-4 mr-2" />Compare {selectedQuoteIds.length} Quotes
@@ -1862,6 +1900,100 @@ export default function ViewWorkOrder() {
           </div>
         </div>
       )}
+      {/* View Quote Detail Modal */}
+      {viewQuoteDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-card rounded-lg shadow-lg max-w-2xl w-full my-4">
+            <div className="p-5 border-b flex justify-between items-center sticky top-0 bg-card z-10">
+              <div>
+                <h2 className="text-lg font-semibold">{viewQuoteDetail.subcontractorName}</h2>
+                <p className="text-xs text-muted-foreground">{viewQuoteDetail.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${{ pending: 'text-yellow-600 bg-yellow-50', sent_to_client: 'text-blue-600 bg-blue-50', accepted: 'text-green-600 bg-green-50', rejected: 'text-red-600 bg-red-50' }[viewQuoteDetail.status] || 'text-muted-foreground bg-muted'}`}>
+                  {{ pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' }[viewQuoteDetail.status] || viewQuoteDetail.status}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setViewQuoteDetail(null)}><X className="h-4 w-4" /></Button>
+              </div>
+            </div>
+            <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Amounts */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">${(viewQuoteDetail.totalAmount || 0).toFixed(2)}</p></div>
+                {viewQuoteDetail.clientAmount != null && (
+                  <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuoteDetail.markupPercentage != null ? `(${viewQuoteDetail.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">${viewQuoteDetail.clientAmount.toFixed(2)}</p></div>
+                )}
+              </div>
+              {/* Client-facing line items */}
+              {viewQuoteDetail.clientLineItems && viewQuoteDetail.clientLineItems.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Line Items — Client View ({viewQuoteDetail.markupPercentage ?? 0}% markup)</p>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead><tr className="bg-muted text-muted-foreground text-xs uppercase"><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-center">Qty</th><th className="px-3 py-2 text-right">Unit Price</th><th className="px-3 py-2 text-right">Amount</th></tr></thead>
+                      <tbody>
+                        {viewQuoteDetail.clientLineItems.map((item, idx) => (
+                          <tr key={idx} className="border-t border-border">
+                            <td className="px-3 py-2">{item.description}</td>
+                            <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
+                            <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-2 text-right text-sm font-semibold text-blue-600">Client Total: ${(viewQuoteDetail.clientAmount || 0).toFixed(2)}</div>
+                </div>
+              )}
+              {/* Original subcontractor line items */}
+              {viewQuoteDetail.lineItems && viewQuoteDetail.lineItems.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{viewQuoteDetail.clientLineItems?.length ? 'Original Subcontractor Quote' : 'Line Items'}</p>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead><tr className="bg-muted text-muted-foreground text-xs uppercase"><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-center">Qty</th><th className="px-3 py-2 text-right">Unit Price</th><th className="px-3 py-2 text-right">Amount</th></tr></thead>
+                      <tbody>
+                        {viewQuoteDetail.lineItems.map((item, idx) => (
+                          <tr key={idx} className="border-t border-border">
+                            <td className="px-3 py-2">{item.description}</td>
+                            <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
+                            <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-2 text-right text-sm font-semibold">Total: ${(viewQuoteDetail.totalAmount || 0).toFixed(2)}</div>
+                </div>
+              )}
+              {viewQuoteDetail.notes && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
+                  <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-3">{viewQuoteDetail.notes}</p>
+                </div>
+              )}
+              {/* Actions */}
+              <div className="border-t pt-4 flex flex-col gap-2">
+                {viewQuoteDetail.status !== 'accepted' && viewQuoteDetail.status !== 'rejected' && workOrder.status === 'quotes_received' && (
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { setShareQuote(viewQuoteDetail); setShareMarkup(String(viewQuoteDetail.markupPercentage || 20)); setShowShareModal(true); setViewQuoteDetail(null); }}>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    {viewQuoteDetail.status === 'sent_to_client' ? 'Resend to Client' : 'Share with Client'}
+                  </Button>
+                )}
+                {viewQuoteDetail.status === 'accepted' && !['assigned', 'accepted_by_subcontractor', 'pending_invoice', 'completed'].includes(workOrder.status) && (
+                  <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => { openAssignModal(viewQuoteDetail); setViewQuoteDetail(null); }}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Assign to Subcontractor
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showShareModal && shareQuote && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-card rounded-lg shadow-lg max-w-lg w-full my-4">

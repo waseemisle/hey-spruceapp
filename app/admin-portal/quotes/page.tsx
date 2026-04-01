@@ -640,16 +640,6 @@ function QuotesContent() {
                             <Send className="h-4 w-4" />
                           </Button>
                         )}
-                        {quote.status === 'accepted' && quote.workOrderId && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAssignWorkOrderFromQuote(quote)}
-                            title="Assign this work order to the quote's subcontractor"
-                          >
-                            <UserPlus className="h-4 w-4" />
-                          </Button>
-                        )}
                         <Button
                           size="sm"
                           variant="destructive"
@@ -769,18 +759,6 @@ function QuotesContent() {
                     >
                       <Send className="h-3 w-3" />
                       {quote.status === 'sent_to_client' ? 'Resend' : 'Send to Client'}
-                    </Button>
-                  )}
-                  {quote.status === 'accepted' && quote.workOrderId && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 h-8 text-xs gap-1"
-                      onClick={() => handleAssignWorkOrderFromQuote(quote)}
-                      title="Assign work order to subcontractor"
-                    >
-                      <UserPlus className="h-3 w-3" />
-                      Assign WO
                     </Button>
                   )}
                   {(quote.status === 'rejected' || (!['pending', 'sent_to_client', 'accepted'].includes(quote.status))) && (
