@@ -4,16 +4,15 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Building2, Search, Users, CheckCircle2, XCircle, Save, Shield,
-  Mail, Phone, ChevronDown, ChevronUp, Eye, Lock,
+  Mail, Phone, ChevronDown, ChevronUp, Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter } from 'next/navigation';
 
 interface Company {
@@ -50,66 +49,18 @@ interface Client {
 type PermKey = keyof NonNullable<Client['permissions']>;
 
 const PERMISSION_DEFS: { key: PermKey; label: string; desc: string }[] = [
-  {
-    key: 'shareForBidding',
-    label: 'Share for Bidding',
-    desc: 'Client can share work orders with subcontractors for bidding. Quotes will be shared without markup.',
-  },
-  {
-    key: 'viewMaintenanceRequests',
-    label: 'View Maintenance Requests',
-    desc: 'Client can view maintenance requests in their portal.',
-  },
-  {
-    key: 'viewMaintenanceRequestsWorkOrders',
-    label: 'Maintenance Requests Work Orders',
-    desc: 'Client can view maintenance request work orders. Nav will show as "Maintenance Requests Work Orders".',
-  },
-  {
-    key: 'approveRejectOrder',
-    label: 'Approve / Reject Order',
-    desc: 'Client can approve or reject work orders in their portal.',
-  },
-  {
-    key: 'rejectedWorkOrders',
-    label: 'Rejected Work Orders',
-    desc: 'Client can view rejected work orders in their portal.',
-  },
-  {
-    key: 'viewSubcontractors',
-    label: 'View Subcontractors',
-    desc: 'Client can view all subcontractors (read-only).',
-  },
-  {
-    key: 'compareQuotes',
-    label: 'Compare Quotes',
-    desc: 'Client can compare multiple quotes side-by-side with detailed subcontractor information.',
-  },
-  {
-    key: 'viewRecurringWorkOrders',
-    label: 'Recurring Work Orders',
-    desc: 'Client can view and edit recurring work orders in their portal.',
-  },
-  {
-    key: 'viewTimeline',
-    label: 'View Timeline',
-    desc: 'Client can see the Timeline section (creation, approval, activity) on work orders, quotes, and invoices.',
-  },
-  {
-    key: 'createSubcontractors',
-    label: 'Create Subcontractors',
-    desc: 'Client can create new subcontractors and send them an invitation to join the platform.',
-  },
-  {
-    key: 'createLocation',
-    label: 'Create Location',
-    desc: 'Client can add new property locations to their company.',
-  },
-  {
-    key: 'createRecurringWorkOrders',
-    label: 'Create Recurring Work Orders',
-    desc: 'Client can create new recurring work orders for their locations.',
-  },
+  { key: 'shareForBidding', label: 'Share for Bidding', desc: 'Client can share work orders with subcontractors for bidding. Quotes will be shared without markup.' },
+  { key: 'viewMaintenanceRequests', label: 'View Maintenance Requests', desc: 'Client can view maintenance requests in their portal.' },
+  { key: 'viewMaintenanceRequestsWorkOrders', label: 'Maintenance Request Work Orders', desc: 'Client can view maintenance request work orders. Nav will show as "Maintenance Requests Work Orders".' },
+  { key: 'approveRejectOrder', label: 'Approve / Reject Order', desc: 'Client can approve or reject work orders in their portal.' },
+  { key: 'rejectedWorkOrders', label: 'Rejected Work Orders', desc: 'Client can view rejected work orders in their portal.' },
+  { key: 'viewSubcontractors', label: 'View Subcontractors', desc: 'Client can view all subcontractors (read-only).' },
+  { key: 'compareQuotes', label: 'Compare Quotes', desc: 'Client can compare multiple quotes side-by-side with detailed subcontractor information.' },
+  { key: 'viewRecurringWorkOrders', label: 'Recurring Work Orders', desc: 'Client can view and edit recurring work orders in their portal.' },
+  { key: 'viewTimeline', label: 'View Timeline', desc: 'Client can see the Timeline section on work orders, quotes, and invoices.' },
+  { key: 'createSubcontractors', label: 'Create Subcontractors', desc: 'Client can create new subcontractors and send them an invitation to join the platform.' },
+  { key: 'createLocation', label: 'Create Location', desc: 'Client can add new property locations to their company.' },
+  { key: 'createRecurringWorkOrders', label: 'Create Recurring Work Orders', desc: 'Client can create new recurring work orders for their locations.' },
 ];
 
 const AVATAR_COLORS = [
@@ -219,22 +170,56 @@ export default function CompaniesPermissions() {
     !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const totalClients = clients.length;
+  const totalEnabled = clients.reduce((sum, cl) => sum + enabledCount(clientPermissions[cl.id] || {}), 0);
+  const totalPossible = totalClients * PERMISSION_DEFS.length;
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
+
         {/* Header */}
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <Shield className="h-8 w-8 text-blue-600" />
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Shield className="h-7 w-7 text-blue-600" />
               Companies Permissions
             </h1>
-            <p className="text-muted-foreground mt-1">Manage portal access permissions for each company's clients</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage portal access permissions for each company's clients</p>
           </div>
-          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-700">
-            <Lock className="h-4 w-4" />
-            <span>{PERMISSION_DEFS.length} permission types</span>
-          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Companies', value: companies.length, icon: Building2, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+            { label: 'Clients', value: totalClients, icon: Users, color: 'text-purple-600 bg-purple-50 border-purple-100' },
+            { label: 'Permission Types', value: PERMISSION_DEFS.length, icon: Shield, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+            {
+              label: 'Permissions Enabled',
+              value: totalPossible > 0 ? `${totalEnabled}/${totalPossible}` : '0',
+              icon: CheckCircle2,
+              color: 'text-amber-600 bg-amber-50 border-amber-100',
+            },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <div key={label} className={`rounded-xl border p-4 flex items-center gap-3 ${color}`}>
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              <div>
+                <p className="text-xl font-bold leading-none">{value}</p>
+                <p className="text-xs mt-0.5 opacity-75">{label}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Search */}
@@ -249,115 +234,90 @@ export default function CompaniesPermissions() {
         </div>
 
         {/* Company List */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-12 text-center">
-              <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-muted-foreground font-medium">No companies found</p>
+            <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
+              <Building2 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">No companies found</p>
             </div>
           ) : (
             filtered.map((company) => {
               const companyClients = getCompanyClients(company.id);
               const isExpanded = expandedCompany === company.id;
-              const totalEnabled = companyClients.reduce(
-                (sum, cl) => sum + enabledCount(clientPermissions[cl.id] || {}),
-                0
-              );
-              const totalPossible = companyClients.length * PERMISSION_DEFS.length;
 
               return (
-                <div
-                  key={company.id}
-                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden"
-                >
-                  {/* Color accent */}
-                  <div className={`h-1 w-full bg-gradient-to-r ${avatarColor(company.id)}`} />
+                <div key={company.id} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
 
-                  {/* Company Header */}
-                  <div className="p-5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-4 min-w-0">
-                        {/* Avatar */}
-                        {company.logoUrl ? (
-                          <img
-                            src={company.logoUrl}
-                            alt={company.name}
-                            className="h-12 w-12 object-contain rounded-xl border border-border bg-muted p-1 flex-shrink-0"
-                          />
-                        ) : (
-                          <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${avatarColor(company.id)} flex items-center justify-center text-white font-bold text-base flex-shrink-0`}>
-                            {getInitials(company.name)}
-                          </div>
-                        )}
-
-                        {/* Info */}
-                        <div className="min-w-0">
-                          <h2 className="font-semibold text-foreground text-base">{company.name}</h2>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1">
-                            {company.email && (
-                              <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Mail className="h-3.5 w-3.5" />
-                                {company.email}
-                              </span>
-                            )}
-                            {company.phone && (
-                              <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Phone className="h-3.5 w-3.5" />
-                                {company.phone}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Users className="h-3.5 w-3.5" />
-                              {companyClients.length} {companyClients.length === 1 ? 'client' : 'clients'}
+                  {/* Company Row */}
+                  <div className="flex items-center justify-between gap-4 px-5 py-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {company.logoUrl ? (
+                        <img
+                          src={company.logoUrl}
+                          alt={company.name}
+                          className="h-10 w-10 object-contain rounded-lg border border-border bg-muted p-1 flex-shrink-0"
+                        />
+                      ) : (
+                        <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${avatarColor(company.id)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
+                          {getInitials(company.name)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground text-sm">{company.name}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                          {company.email && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Mail className="h-3 w-3" />{company.email}
                             </span>
-                          </div>
+                          )}
+                          {company.phone && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Phone className="h-3 w-3" />{company.phone}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Users className="h-3 w-3" />
+                            {companyClients.length} {companyClients.length === 1 ? 'client' : 'clients'}
+                          </span>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Right side actions */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* Permission summary */}
-                        {companyClients.length > 0 && (
-                          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium bg-muted text-muted-foreground px-2.5 py-1 rounded-full">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                            {totalEnabled}/{totalPossible} enabled
-                          </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 h-8 text-xs"
+                        onClick={() => router.push(`/admin-portal/subsidiaries/${company.id}`)}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        View
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={isExpanded ? 'default' : 'outline'}
+                        className="gap-1.5 h-8 text-xs"
+                        onClick={() => setExpandedCompany(isExpanded ? null : company.id)}
+                      >
+                        {isExpanded ? (
+                          <><ChevronUp className="h-3.5 w-3.5" />Collapse</>
+                        ) : (
+                          <><ChevronDown className="h-3.5 w-3.5" />Permissions</>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5"
-                          onClick={() => router.push(`/admin-portal/subsidiaries/${company.id}`)}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={isExpanded ? 'default' : 'outline'}
-                          className="gap-1.5"
-                          onClick={() => setExpandedCompany(isExpanded ? null : company.id)}
-                        >
-                          {isExpanded ? (
-                            <><ChevronUp className="h-3.5 w-3.5" /> Collapse</>
-                          ) : (
-                            <><ChevronDown className="h-3.5 w-3.5" /> Permissions</>
-                          )}
-                        </Button>
-                      </div>
+                      </Button>
                     </div>
                   </div>
 
-                  {/* Expanded: Clients + Permissions */}
+                  {/* Expanded: Clients */}
                   {isExpanded && (
-                    <div className="border-t border-border bg-muted/50">
+                    <div className="border-t border-border bg-muted/40">
                       {companyClients.length === 0 ? (
                         <div className="py-10 text-center">
-                          <Users className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                          <p className="text-muted-foreground text-sm">No clients associated with this company</p>
+                          <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No clients associated with this company</p>
                         </div>
                       ) : (
-                        <div className="p-4 space-y-3">
+                        <div className="p-4 space-y-2">
                           {companyClients.map((client) => {
                             const permissions = clientPermissions[client.id] || {};
                             const isSaving = saving === client.id;
@@ -365,32 +325,29 @@ export default function CompaniesPermissions() {
                             const isClientExpanded = expandedClient === client.id;
 
                             return (
-                              <div
-                                key={client.id}
-                                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden"
-                              >
-                                {/* Client Header */}
+                              <div key={client.id} className="bg-card rounded-lg border border-border overflow-hidden">
+
+                                {/* Client row */}
                                 <div
-                                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted transition-colors"
+                                  className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/60 transition-colors"
                                   onClick={() => setExpandedClient(isClientExpanded ? null : client.id)}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
-                                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                                       {getInitials(client.fullName)}
                                     </div>
                                     <div className="min-w-0">
-                                      <p className="font-semibold text-foreground text-sm">{client.fullName}</p>
+                                      <p className="font-medium text-foreground text-sm">{client.fullName}</p>
                                       <p className="text-xs text-muted-foreground truncate">{client.email}</p>
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2 flex-shrink-0">
-                                    {/* Permission pill */}
-                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
                                       enabled === 0
                                         ? 'bg-muted text-muted-foreground'
                                         : enabled === PERMISSION_DEFS.length
-                                        ? 'bg-green-100 text-green-700'
-                                        : 'bg-blue-100 text-blue-700'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-blue-50 text-blue-700 border border-blue-200'
                                     }`}>
                                       {enabled}/{PERMISSION_DEFS.length}
                                       <span className="hidden sm:inline"> active</span>
@@ -404,14 +361,14 @@ export default function CompaniesPermissions() {
 
                                 {/* Permission toggles */}
                                 {isClientExpanded && (
-                                  <div className="border-t border-border p-4 space-y-0">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-muted rounded-lg overflow-hidden border border-border">
+                                  <div className="border-t border-border p-4 space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-border rounded-lg overflow-hidden border border-border">
                                       {PERMISSION_DEFS.map((perm, idx) => {
                                         const isEnabled = permissions[perm.key] || false;
                                         return (
                                           <div
                                             key={perm.key}
-                                            className={`bg-card p-3.5 flex items-start gap-3 hover:bg-muted transition-colors ${
+                                            className={`bg-card p-3.5 flex items-start gap-3 hover:bg-muted/50 transition-colors ${
                                               idx === PERMISSION_DEFS.length - 1 && PERMISSION_DEFS.length % 2 !== 0
                                                 ? 'md:col-span-2'
                                                 : ''
@@ -434,17 +391,16 @@ export default function CompaniesPermissions() {
                                               </Label>
                                               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{perm.desc}</p>
                                             </div>
-                                            {isEnabled ? (
-                                              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                                            ) : (
-                                              <XCircle className="h-4 w-4 text-gray-300 flex-shrink-0 mt-0.5" />
-                                            )}
+                                            {isEnabled
+                                              ? <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                                              : <XCircle className="h-4 w-4 text-muted-foreground/30 flex-shrink-0 mt-0.5" />
+                                            }
                                           </div>
                                         );
                                       })}
                                     </div>
 
-                                    <div className="flex justify-end pt-3">
+                                    <div className="flex justify-end">
                                       <Button
                                         size="sm"
                                         onClick={() => handleSavePermissions(client.id)}
