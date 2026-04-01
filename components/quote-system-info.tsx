@@ -109,13 +109,6 @@ export default function QuoteSystemInfo({ timeline, systemInformation, creationS
                   <p className="text-xs text-muted-foreground">{formatTimestamp(systemInformation.createdBy.timestamp)}</p>
                 </div>
               )}
-              {systemInformation.sentToClientBy && (
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-xs text-blue-700 mb-1">Sent to Client By</p>
-                  <p className="text-sm font-medium text-blue-900">{systemInformation.sentToClientBy.name}</p>
-                  <p className="text-xs text-blue-600">{formatTimestamp(systemInformation.sentToClientBy.timestamp)}</p>
-                </div>
-              )}
               {systemInformation.acceptedBy && (
                 <div className="bg-green-50 p-3 rounded-lg">
                   <p className="text-xs text-green-700 mb-1">Approved By</p>
