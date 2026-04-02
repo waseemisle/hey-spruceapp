@@ -153,8 +153,6 @@ function WorkOrdersContent() {
     isMaintenanceRequestOrder: false,
   });
 
-  const QUERY_CHUNK_SIZE = 30; // Firestore 'in' query limit
-
   // Client-side pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -162,47 +160,26 @@ function WorkOrdersContent() {
   const fetchWorkOrders = async () => {
     try {
       setLoading(true);
-      const workOrdersQuery = query(collection(db, 'workOrders'), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(workOrdersQuery);
 
-      // Only fetch quotes/invoices for IDs relevant to the current type filter
-      const relevantIds = snapshot.docs
-        .filter((d) => {
-          const data = d.data();
-          if (workOrderType === 'standard') return !data.isMaintenanceRequestOrder;
-          if (workOrderType === 'maintenance') return !!data.isMaintenanceRequestOrder;
-          return true;
-        })
-        .map((d) => d.id);
+      // Fetch work orders, quotes, and invoices fully in parallel — eliminates the
+      // previous waterfall where quotes/invoices couldn't start until all WO IDs arrived.
+      const [woSnap, quotesSnap, invoicesSnap] = await Promise.all([
+        getDocs(query(collection(db, 'workOrders'), orderBy('createdAt', 'desc'))),
+        getDocs(collection(db, 'quotes')),
+        getDocs(collection(db, 'invoices')),
+      ]);
 
-      // Build chunks for batch queries (Firestore 'in' limit is 30)
-      const chunks: string[][] = [];
-      for (let i = 0; i < relevantIds.length; i += QUERY_CHUNK_SIZE) {
-        chunks.push(relevantIds.slice(i, i + QUERY_CHUNK_SIZE));
-      }
-
-      // Fetch all quote chunks and invoice chunks fully in parallel
       const quoteCountByWoId = new Map<string, number>();
-      const hasInvoiceByWoId = new Set<string>();
+      quotesSnap.docs.forEach((d) => {
+        const wid = d.data().workOrderId;
+        if (wid) quoteCountByWoId.set(wid, (quoteCountByWoId.get(wid) ?? 0) + 1);
+      });
 
-      if (chunks.length > 0) {
-        const [quoteSnaps, invoiceSnaps] = await Promise.all([
-          Promise.all(chunks.map((chunk) => getDocs(query(collection(db, 'quotes'), where('workOrderId', 'in', chunk))))),
-          Promise.all(chunks.map((chunk) => getDocs(query(collection(db, 'invoices'), where('workOrderId', 'in', chunk))))),
-        ]);
+      const hasInvoiceByWoId = new Set<string>(
+        invoicesSnap.docs.map((d) => d.data().workOrderId).filter(Boolean)
+      );
 
-        quoteSnaps.forEach((snap) =>
-          snap.docs.forEach((d) => {
-            const wid = d.data().workOrderId;
-            quoteCountByWoId.set(wid, (quoteCountByWoId.get(wid) ?? 0) + 1);
-          })
-        );
-        invoiceSnaps.forEach((snap) =>
-          snap.docs.forEach((d) => hasInvoiceByWoId.add(d.data().workOrderId))
-        );
-      }
-
-      const workOrdersData: WorkOrder[] = snapshot.docs.map((woDoc) => {
+      const workOrdersData: WorkOrder[] = woSnap.docs.map((woDoc) => {
         const woData = { id: woDoc.id, ...woDoc.data() } as WorkOrder;
         woData.quoteCount = quoteCountByWoId.get(woDoc.id) ?? 0;
         woData.hasInvoice = hasInvoiceByWoId.has(woDoc.id);

@@ -502,7 +502,7 @@ export default function SubcontractorBidding() {
                           <Input
                             type="number"
                             placeholder="Qty *"
-                            value={item.quantity}
+                            value={item.quantity || ''}
                             onChange={(e) => handleLineItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                             required
                           />
@@ -512,7 +512,7 @@ export default function SubcontractorBidding() {
                             type="number"
                             step="0.01"
                             placeholder="Unit Price *"
-                            value={item.unitPrice}
+                            value={item.unitPrice || ''}
                             onChange={(e) => handleLineItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                             required
                           />

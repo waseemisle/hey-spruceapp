@@ -190,6 +190,16 @@ function InvoicesManagementInner() {
 
       const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
       const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
+
+      // Resolve client email — quotes may not store it, so fall back to the clients collection
+      let clientEmail = quote.clientEmail || '';
+      if (!clientEmail && quote.clientId) {
+        const clientDoc = await getDoc(doc(db, 'clients', quote.clientId));
+        if (clientDoc.exists()) {
+          clientEmail = clientDoc.data()?.email || clientDoc.data()?.clientEmail || '';
+        }
+      }
+
       const createdEvent = createInvoiceTimelineEvent({
         type: 'created',
         userId: currentUser.uid,
@@ -205,7 +215,7 @@ function InvoicesManagementInner() {
         workOrderTitle: quote.workOrderTitle,
         clientId: quote.clientId,
         clientName: quote.clientName,
-        clientEmail: quote.clientEmail,
+        clientEmail,
         subcontractorId: quote.subcontractorId,
         subcontractorName: quote.subcontractorName,
         status: 'draft',
@@ -237,8 +247,8 @@ function InvoicesManagementInner() {
         return;
       }
 
-      if (!quote.clientEmail) {
-        toast.error('Cannot create invoice: Client email is missing');
+      if (!clientEmail) {
+        toast.error('Cannot create invoice: Client email is missing. Please add an email to this client.');
         setGenerating(null);
         return;
       }
@@ -254,7 +264,7 @@ function InvoicesManagementInner() {
             invoiceId: invoiceRef.id,
             invoiceNumber: invoiceNumber,
             amount: invoiceData.totalAmount,
-            customerEmail: quote.clientEmail || invoiceData.clientEmail,
+            customerEmail: clientEmail,
             clientName: quote.clientName || invoiceData.clientName,
             clientId: quote.clientId || invoiceData.clientId,
           }),
@@ -667,6 +677,7 @@ function InvoicesManagementInner() {
                     <div>
                       <div className="font-semibold">{quote.workOrderTitle}</div>
                       <div className="text-sm text-muted-foreground">
+                        {quote.workOrderNumber && <span className="mr-1 font-medium text-foreground/70">#{quote.workOrderNumber}</span>}
                         {quote.clientName} - ${quote.clientAmount?.toLocaleString() || quote.totalAmount?.toLocaleString()}
                       </div>
                     </div>

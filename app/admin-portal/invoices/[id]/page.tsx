@@ -196,7 +196,7 @@ export default function AdminInvoiceDetail() {
       status: invoice.status,
       notes: invoice.notes || '',
       terms: invoice.terms || '',
-      discountAmount: String(invoice.discountAmount ?? 0),
+      discountAmount: invoice.discountAmount ? String(invoice.discountAmount) : '',
     });
     setEditLineItems(
       invoice.lineItems?.length
