@@ -92,7 +92,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update Firestore document via Admin SDK
+    // Update Firestore document via Admin SDK.
+    // Query by email so we find the correct document even if the doc ID has drifted
+    // from the Firebase Auth UID (e.g. after account recreation).
     try {
       const adminDb = getAdminFirestore();
       const collectionName =
@@ -100,12 +102,20 @@ export async function POST(request: NextRequest) {
         role === 'client' ? 'clients' :
         'subcontractors';
 
-      const docRef = adminDb.collection(collectionName).doc(uid);
-      const docSnap = await docRef.get();
+      const querySnap = await adminDb.collection(collectionName)
+        .where('email', '==', email)
+        .limit(1)
+        .get();
 
-      if (!docSnap.exists) {
-        // Create the document if it was never written
-        await docRef.set({
+      if (!querySnap.empty) {
+        await querySnap.docs[0].ref.update({
+          password: newPassword,
+          passwordSetAt: new Date(),
+          updatedAt: new Date(),
+        });
+      } else {
+        // Fallback: create document keyed by uid
+        await adminDb.collection(collectionName).doc(uid).set({
           email,
           role: role || 'subcontractor',
           fullName: decoded.fullName || '',
@@ -113,12 +123,6 @@ export async function POST(request: NextRequest) {
           password: newPassword,
           passwordSetAt: new Date(),
           createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      } else {
-        await docRef.update({
-          password: newPassword,
-          passwordSetAt: new Date(),
           updatedAt: new Date(),
         });
       }

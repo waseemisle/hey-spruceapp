@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { getServerDb } from '@/lib/firebase-server';
+import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
@@ -26,29 +25,42 @@ export async function POST(request: NextRequest) {
       role === 'subcontractor' ? 'Subcontractor Portal' :
       role === 'client' ? 'Client Portal' : 'Admin Portal';
 
-    // Read the user document
-    const db = await getServerDb();
+    const adminAuth = getAdminAuth();
+    const adminDb = getAdminFirestore();
+
     const collectionName =
       role === 'subcontractor' ? 'subcontractors' :
       role === 'client' ? 'clients' : 'adminUsers';
 
-    const userSnap = await getDoc(doc(db, collectionName, uid));
-    if (!userSnap.exists()) {
+    // Read the user document via Admin SDK
+    const docRef = adminDb.collection(collectionName).doc(uid);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
-    const userData = userSnap.data();
+    const userData = docSnap.data()!;
     const name = fullName || userData?.fullName || 'there';
 
     // Generate a fresh placeholder temp password for the token payload.
-    // Note: this value is NOT used for authentication — the set-password API uses
-    // Admin SDK to directly update the password when the user submits the form.
     const tempPassword =
       Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
+    // Ensure the Firebase Auth user exists with the correct uid.
+    // If it has been deleted or never properly created, recreate it with the same uid
+    // so that portal-login (which looks up Firestore by user.uid) continues to work.
+    try {
+      await adminAuth.updateUser(uid, { password: tempPassword, email });
+    } catch (authErr: any) {
+      if (authErr.code === 'auth/user-not-found') {
+        // Recreate with the exact same uid so Firestore doc ID stays in sync
+        await adminAuth.createUser({ uid, email, password: tempPassword });
+      } else {
+        throw authErr;
+      }
+    }
+
     // Build a fresh token with a new timestamp (gives the user a fresh 24-hour window).
-    // Use base64url encoding (RFC 4648) which uses - and _ instead of + and /,
-    // so the token is already URL-safe and doesn't need encodeURIComponent.
     const freshToken = Buffer.from(
       JSON.stringify({
         email,
@@ -61,14 +73,13 @@ export async function POST(request: NextRequest) {
       })
     ).toString('base64url');
 
-    // Persist the new token back to Firestore so future resends also use a fresh password
+    // Persist the new token back to Firestore
     try {
-      await updateDoc(doc(db, collectionName, uid), {
+      await docRef.update({
         userinviteemailid: freshToken,
         invitationTempPassword: tempPassword,
       });
     } catch (updateErr) {
-      // Non-critical — the email link will still work even if Firestore update fails
       console.warn('Could not update userinviteemailid in Firestore:', updateErr);
     }
 
