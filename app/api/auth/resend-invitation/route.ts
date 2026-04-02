@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
-import { getAdminAuth } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
@@ -41,22 +40,13 @@ export async function POST(request: NextRequest) {
     const userData = userSnap.data();
     const name = fullName || userData?.fullName || 'there';
 
-    // Always generate a fresh temp password and reset the Firebase Auth password so the
-    // new invitation link is guaranteed to work regardless of the account's prior state.
+    // Generate a fresh placeholder temp password for the token payload.
+    // Note: this value is NOT used for authentication — the set-password API uses
+    // Admin SDK to directly update the password when the user submits the form.
     const tempPassword =
       Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
-    try {
-      await getAdminAuth().updateUser(uid, { password: tempPassword });
-    } catch (adminErr: any) {
-      console.error('Admin SDK updateUser failed:', adminErr);
-      return NextResponse.json(
-        { error: 'Failed to reset invitation credentials. Please try again.' },
-        { status: 500 }
-      );
-    }
-
-    // Build a fresh token with the new temp password and a new timestamp.
+    // Build a fresh token with a new timestamp (gives the user a fresh 24-hour window).
     // Use base64url encoding (RFC 4648) which uses - and _ instead of + and /,
     // so the token is already URL-safe and doesn't need encodeURIComponent.
     const freshToken = Buffer.from(
