@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { getAdminAuth } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
@@ -40,71 +41,22 @@ export async function POST(request: NextRequest) {
     const userData = userSnap.data();
     const name = fullName || userData?.fullName || 'there';
 
-    // ── Decode stored userinviteemailid to get the original tempPassword ──────
-    const storedToken: string | undefined =
-      userData?.userinviteemailid || userData?.invitationTempPassword
-        ? undefined  // handled below
-        : undefined;
+    // Always generate a fresh temp password and reset the Firebase Auth password so the
+    // new invitation link is guaranteed to work regardless of the account's prior state.
+    const tempPassword =
+      Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
-    // Try userinviteemailid first (full base64 token stored on creation)
-    let tempPassword: string | undefined;
-
-    if (userData?.userinviteemailid) {
-      try {
-        const decoded = JSON.parse(
-          Buffer.from(userData.userinviteemailid, 'base64').toString('utf8')
-        );
-        tempPassword = decoded.tempPassword;
-      } catch {
-        // malformed — fall through to invitationTempPassword
-      }
-    }
-
-    // Fall back to raw invitationTempPassword field (older field)
-    if (!tempPassword && userData?.invitationTempPassword) {
-      tempPassword = userData.invitationTempPassword;
-    }
-
-    if (!tempPassword) {
-      // No stored invitation data and no Admin SDK available — fall back to Firebase's
-      // built-in password reset email (only requires the web API key, no service account).
-      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-      if (!apiKey) {
-        return NextResponse.json({ error: 'Firebase API key not configured' }, { status: 500 });
-      }
-
-      const oobRes = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            requestType: 'PASSWORD_RESET',
-            email,
-          }),
-        }
+    try {
+      await getAdminAuth().updateUser(uid, { password: tempPassword });
+    } catch (adminErr: any) {
+      console.error('Admin SDK updateUser failed:', adminErr);
+      return NextResponse.json(
+        { error: 'Failed to reset invitation credentials. Please try again.' },
+        { status: 500 }
       );
-
-      if (!oobRes.ok) {
-        const oobErr = await oobRes.json();
-        throw new Error(oobErr.error?.message || 'Failed to send password reset email');
-      }
-
-      await logEmail({
-        type: 'invitation',
-        to: email,
-        subject: 'Password Reset (Firebase fallback)',
-        status: 'sent',
-        context: { name, role, roleTitle, uid },
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Password reset email sent successfully. The user should check their inbox.',
-      });
     }
 
-    // Build a fresh token with a new timestamp so the 24-hour expiry resets
+    // Build a fresh token with the new temp password and a new timestamp
     const freshToken = Buffer.from(
       JSON.stringify({
         email,
@@ -116,6 +68,17 @@ export async function POST(request: NextRequest) {
         type: 'password_setup',
       })
     ).toString('base64');
+
+    // Persist the new token back to Firestore so future resends also use a fresh password
+    try {
+      await updateDoc(doc(db, collectionName, uid), {
+        userinviteemailid: freshToken,
+        invitationTempPassword: tempPassword,
+      });
+    } catch (updateErr) {
+      // Non-critical — the email link will still work even if Firestore update fails
+      console.warn('Could not update userinviteemailid in Firestore:', updateErr);
+    }
 
     const resetLink = `${BASE_URL}/set-password?token=${encodeURIComponent(freshToken)}`;
     const subject = `Welcome to GroundOps - Set Up Your ${roleTitle} Account`;
