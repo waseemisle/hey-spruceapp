@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
+import { doc, getDoc, updateDoc, collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
+import { getAdminAuth } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
@@ -25,30 +27,28 @@ export async function POST(request: NextRequest) {
       role === 'subcontractor' ? 'Subcontractor Portal' :
       role === 'client' ? 'Client Portal' : 'Admin Portal';
 
-    const adminAuth = getAdminAuth();
-    const adminDb = getAdminFirestore();
-
     const collectionName =
       role === 'subcontractor' ? 'subcontractors' :
       role === 'client' ? 'clients' : 'adminUsers';
 
-    // Read the user document via Admin SDK
-    const docRef = adminDb.collection(collectionName).doc(uid);
-    const docSnap = await docRef.get();
-    if (!docSnap.exists) {
+    // Read the user document via server-side client SDK
+    const db = await getServerDb();
+    const userSnap = await getDoc(doc(db, collectionName, uid));
+    if (!userSnap.exists()) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
-    const userData = docSnap.data()!;
+    const userData = userSnap.data();
     const name = fullName || userData?.fullName || 'there';
 
     // Generate a fresh placeholder temp password for the token payload.
     const tempPassword =
       Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
-    // Ensure the Firebase Auth user exists with the correct uid.
-    // If it has been deleted or never properly created, recreate it with the same uid
-    // so that portal-login (which looks up Firestore by user.uid) continues to work.
+    // Ensure the Firebase Auth user exists with the correct uid via Admin SDK.
+    // If it has been deleted or never properly created, recreate it with the SAME uid
+    // so portal-login (which looks up Firestore by user.uid) keeps working.
+    const adminAuth = getAdminAuth();
     try {
       await adminAuth.updateUser(uid, { password: tempPassword, email });
     } catch (authErr: any) {
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     // Persist the new token back to Firestore
     try {
-      await docRef.update({
+      await updateDoc(doc(db, collectionName, uid), {
         userinviteemailid: freshToken,
         invitationTempPassword: tempPassword,
       });

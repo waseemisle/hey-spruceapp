@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
+import { getAdminAuth } from '@/lib/firebase-admin';
+import { collection, query, where, limit, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 
 export const runtime = 'nodejs';
 
@@ -92,30 +94,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update Firestore document via Admin SDK.
+    // Update Firestore document via server-side client SDK (getServerDb works in production;
+    // Admin Firestore SDK requires a service account cert which may not be configured).
     // Query by email so we find the correct document even if the doc ID has drifted
     // from the Firebase Auth UID (e.g. after account recreation).
     try {
-      const adminDb = getAdminFirestore();
+      const db = await getServerDb();
       const collectionName =
         role === 'admin' ? 'adminUsers' :
         role === 'client' ? 'clients' :
         'subcontractors';
 
-      const querySnap = await adminDb.collection(collectionName)
-        .where('email', '==', email)
-        .limit(1)
-        .get();
+      const q = query(collection(db, collectionName), where('email', '==', email), limit(1));
+      const querySnap = await getDocs(q);
 
       if (!querySnap.empty) {
-        await querySnap.docs[0].ref.update({
+        await updateDoc(querySnap.docs[0].ref, {
           password: newPassword,
           passwordSetAt: new Date(),
           updatedAt: new Date(),
         });
       } else {
         // Fallback: create document keyed by uid
-        await adminDb.collection(collectionName).doc(uid).set({
+        await setDoc(doc(db, collectionName, uid), {
           email,
           role: role || 'subcontractor',
           fullName: decoded.fullName || '',
