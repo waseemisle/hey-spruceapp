@@ -67,10 +67,11 @@ export async function POST(request: Request) {
 
       // We need to use a custom token approach since Firebase's sendOobCode sends an email automatically
       // Store the temporary password in the token so we can sign in and update it later
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app';
 
-      // Create a temporary token for password setup
-      // We'll store the user's email, temp password, and timestamp
+      // Create a temporary token for password setup.
+      // Use base64url encoding (RFC 4648) which uses - and _ instead of + and /,
+      // so the token is already URL-safe and doesn't need encodeURIComponent.
       const setupToken = Buffer.from(JSON.stringify({
         email,
         uid,
@@ -80,11 +81,11 @@ export async function POST(request: Request) {
         phone: userData.phone || '',
         timestamp: Date.now(),
         type: 'password_setup'
-      })).toString('base64');
+      })).toString('base64url');
 
       userinviteemailid = setupToken;
 
-      const resetLink = `${baseUrl}/set-password?token=${encodeURIComponent(setupToken)}`;
+      const resetLink = `${baseUrl}/set-password?token=${setupToken}`;
 
       // Send invitation email directly using sendEmail (Mailgun)
       try {

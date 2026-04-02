@@ -9,7 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-/** Decode base64 token in the browser. Handles URL corruption: + can become space in query params. */
+/**
+ * Decode a setup token in the browser.
+ * Handles both base64url (new, using - and _) and standard base64 (legacy, using + and /).
+ * Also handles URL corruption where + becomes a space in query params.
+ */
 function decodeSetupToken(tokenParam: string): {
   email: string;
   uid: string;
@@ -19,8 +23,14 @@ function decodeSetupToken(tokenParam: string): {
   timestamp?: number;
 } | null {
   try {
-    const normalized = tokenParam.replace(/ /g, '+');
-    const jsonString = atob(normalized);
+    // Convert base64url to standard base64 (handles both formats):
+    // - replace - with + (base64url → base64)
+    // - replace _ with / (base64url → base64)
+    // - replace spaces with + (some email clients corrupt %2B to space in legacy tokens)
+    const base64 = tokenParam.replace(/-/g, '+').replace(/_/g, '/').replace(/ /g, '+');
+    // Add padding if needed (base64url strips trailing =)
+    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+    const jsonString = atob(padded);
     const decoded = JSON.parse(jsonString);
     return {
       email: decoded.email || '',
@@ -49,7 +59,8 @@ function SetPasswordContent() {
   const [role, setRole] = useState<'client' | 'subcontractor' | 'admin' | ''>('');
 
   useEffect(() => {
-    let tokenParam = searchParams.get('token') || '';
+    // searchParams.get() automatically URL-decodes the value, so %2B → +, %2F → /, etc.
+    const tokenParam = searchParams.get('token') || '';
 
     if (!tokenParam) {
       toast.error('Invalid or missing password setup link');
@@ -57,9 +68,7 @@ function SetPasswordContent() {
       return;
     }
 
-    tokenParam = decodeURIComponent(tokenParam);
-    const normalizedToken = tokenParam.replace(/ /g, '+');
-    const decoded = decodeSetupToken(normalizedToken);
+    const decoded = decodeSetupToken(tokenParam);
     if (!decoded) {
       toast.error('Invalid password setup link');
       router.push('/portal-login');
@@ -78,7 +87,8 @@ function SetPasswordContent() {
       return;
     }
 
-    setRawToken(normalizedToken);
+    // Store the raw token as-is (from the URL) so it can be sent to the API
+    setRawToken(tokenParam);
     setEmail(decoded.email);
     setRole(decoded.role as 'client' | 'subcontractor' | 'admin' | '');
   }, [searchParams, router]);

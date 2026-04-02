@@ -56,7 +56,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build a fresh token with the new temp password and a new timestamp
+    // Build a fresh token with the new temp password and a new timestamp.
+    // Use base64url encoding (RFC 4648) which uses - and _ instead of + and /,
+    // so the token is already URL-safe and doesn't need encodeURIComponent.
     const freshToken = Buffer.from(
       JSON.stringify({
         email,
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
         timestamp: Date.now(),
         type: 'password_setup',
       })
-    ).toString('base64');
+    ).toString('base64url');
 
     // Persist the new token back to Firestore so future resends also use a fresh password
     try {
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
       console.warn('Could not update userinviteemailid in Firestore:', updateErr);
     }
 
-    const resetLink = `${BASE_URL}/set-password?token=${encodeURIComponent(freshToken)}`;
+    const resetLink = `${BASE_URL}/set-password?token=${freshToken}`;
     const subject = `Welcome to GroundOps - Set Up Your ${roleTitle} Account`;
 
     const emailHtml = emailLayout({

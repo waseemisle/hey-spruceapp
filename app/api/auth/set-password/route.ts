@@ -22,7 +22,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Decode and verify token
+    // Decode and verify token.
+    // Handles both base64url (new tokens: uses - and _) and standard base64 (legacy tokens: uses + and /).
+    // Also handles spaces that some email clients introduce when mangling %2B in URLs.
     let decoded: {
       email?: string;
       uid?: string;
@@ -33,8 +35,9 @@ export async function POST(request: NextRequest) {
       type?: string;
     };
     try {
-      const normalizedToken = token.replace(/ /g, '+');
-      decoded = JSON.parse(Buffer.from(normalizedToken, 'base64').toString('utf8'));
+      // Normalize to standard base64: convert base64url chars and space-corrupted + signs
+      const base64 = token.replace(/-/g, '+').replace(/_/g, '/').replace(/ /g, '+');
+      decoded = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
     } catch {
       return NextResponse.json(
         { error: 'Invalid or expired setup link. Please use the exact link from your invitation email or ask for a new one.' },
@@ -100,7 +103,7 @@ export async function POST(request: NextRequest) {
       const docRef = adminDb.collection(collectionName).doc(uid);
       const docSnap = await docRef.get();
 
-      if (!docSnap.exists()) {
+      if (!docSnap.exists) {
         // Create the document if it was never written
         await docRef.set({
           email,
