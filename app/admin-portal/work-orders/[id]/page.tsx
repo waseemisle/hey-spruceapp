@@ -176,6 +176,11 @@ export default function ViewWorkOrder() {
   const [vendorPaymentBaseAmount, setVendorPaymentBaseAmount] = useState('');
   const [vendorPaymentInternalNotes, setVendorPaymentInternalNotes] = useState('');
   const [creatingVendorPayment, setCreatingVendorPayment] = useState(false);
+  // Adjustments being staged inside the create modal (before saving)
+  const [modalAdjustments, setModalAdjustments] = useState<VendorPaymentAdjustment[]>([]);
+  const [modalAdjType, setModalAdjType] = useState<'increase' | 'decrease'>('increase');
+  const [modalAdjAmount, setModalAdjAmount] = useState('');
+  const [modalAdjReason, setModalAdjReason] = useState('');
   const [addAdjustmentType, setAddAdjustmentType] = useState<'increase' | 'decrease'>('increase');
   const [addAdjustmentAmount, setAddAdjustmentAmount] = useState('');
   const [addAdjustmentReason, setAddAdjustmentReason] = useState('');
@@ -273,6 +278,10 @@ export default function ViewWorkOrder() {
     const defaultBase = preferredBaseQuote?.totalAmount ?? 0;
     setVendorPaymentBaseAmount(String(defaultBase));
     setVendorPaymentInternalNotes('');
+    setModalAdjustments([]);
+    setModalAdjType('increase');
+    setModalAdjAmount('');
+    setModalAdjReason('');
     setShowCreateVendorPaymentModal(true);
   };
 
@@ -322,7 +331,7 @@ export default function ViewWorkOrder() {
       const subcontractorId = workOrder.assignedSubcontractor || workOrder.assignedTo;
       const subcontractorName = workOrder.assignedSubcontractorName || workOrder.assignedToName || 'Subcontractor';
       const status: VendorPaymentStatus = 'created';
-      const adjustments: VendorPaymentAdjustment[] = [];
+      const adjustments: VendorPaymentAdjustment[] = modalAdjustments;
       const { adjustmentTotal, finalAmount } = computeTotals(baseAmount, adjustments);
 
       // Guard: one per work order
@@ -1934,7 +1943,7 @@ export default function ViewWorkOrder() {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label>Work order</Label>
@@ -1963,10 +1972,125 @@ export default function ViewWorkOrder() {
                       Quote default: {preferredBaseQuote ? formatMoney(preferredBaseQuote.totalAmount, 'USD') : '—'}
                     </div>
                   </div>
+
+                  {/* Live totals preview */}
+                  {(() => {
+                    const base = Number(vendorPaymentBaseAmount) || 0;
+                    const { adjustmentTotal, finalAmount } = computeTotals(base, modalAdjustments);
+                    return (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-lg border border-border p-3 text-center">
+                          <div className="text-xs text-muted-foreground">Base amount</div>
+                          <div className="font-semibold">{formatMoney(base, 'USD')}</div>
+                        </div>
+                        <div className="rounded-lg border border-border p-3 text-center">
+                          <div className="text-xs text-muted-foreground">Adjustments total</div>
+                          <div className="font-semibold">{formatMoney(adjustmentTotal, 'USD')}</div>
+                        </div>
+                        <div className="rounded-lg border border-border p-3 text-center">
+                          <div className="text-xs text-muted-foreground">Final amount</div>
+                          <div className="font-semibold text-emerald-700">{formatMoney(finalAmount, 'USD')}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Add adjustment */}
+                  <div className="rounded-xl border border-border p-4 space-y-3">
+                    <div className="font-semibold text-sm">Add adjustment</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Type</Label>
+                        <select
+                          className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                          value={modalAdjType}
+                          onChange={(e) => setModalAdjType(e.target.value as any)}
+                        >
+                          <option value="increase">Increase</option>
+                          <option value="decrease">Decrease</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label>Amount</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={modalAdjAmount}
+                          onChange={(e) => setModalAdjAmount(e.target.value)}
+                          onWheel={(e) => e.currentTarget.blur()}
+                          placeholder="e.g. 50"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Reason</Label>
+                      <Textarea
+                        value={modalAdjReason}
+                        onChange={(e) => setModalAdjReason(e.target.value)}
+                        placeholder="Why are we adjusting the base amount?"
+                        className="mt-1 min-h-[60px]"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const amt = Number(modalAdjAmount);
+                        if (!Number.isFinite(amt) || amt <= 0) { toast.error('Adjustment amount must be greater than 0.'); return; }
+                        if (!modalAdjReason.trim()) { toast.error('Please provide a reason for the adjustment.'); return; }
+                        const base = Number(vendorPaymentBaseAmount) || 0;
+                        const next: VendorPaymentAdjustment[] = [...modalAdjustments, {
+                          id: (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}`,
+                          type: modalAdjType,
+                          amount: amt,
+                          reason: modalAdjReason.trim(),
+                        }];
+                        const { finalAmount } = computeTotals(base, next);
+                        if (finalAmount < 0) { toast.error('Final amount cannot be negative.'); return; }
+                        setModalAdjustments(next);
+                        setModalAdjAmount('');
+                        setModalAdjReason('');
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add adjustment
+                    </Button>
+
+                    {modalAdjustments.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <div className="text-xs font-medium text-muted-foreground">Adjustments to be saved</div>
+                        {modalAdjustments.map((a, i) => {
+                          const signed = a.type === 'decrease' ? -Math.abs(a.amount) : Math.abs(a.amount);
+                          return (
+                            <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg border border-border p-2.5">
+                              <div className="min-w-0">
+                                <div className="text-sm text-foreground truncate">{a.reason}</div>
+                                <div className="text-xs text-muted-foreground capitalize">{a.type}</div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`text-sm font-semibold ${signed >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                                  {signed >= 0 ? '+' : '−'}{formatMoney(Math.abs(signed), 'USD')}
+                                </span>
+                                <button
+                                  className="text-muted-foreground hover:text-red-500"
+                                  onClick={() => setModalAdjustments(modalAdjustments.filter((_, idx) => idx !== i))}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <Label>Internal notes (admin only)</Label>
                     <Textarea
-                      className="mt-1 min-h-[90px]"
+                      className="mt-1 min-h-[70px]"
                       value={vendorPaymentInternalNotes}
                       onChange={(e) => setVendorPaymentInternalNotes(e.target.value)}
                       placeholder="Optional internal context for accounting…"

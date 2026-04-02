@@ -66,6 +66,7 @@ const PRIORITY_CONFIG: Record<string, { className: string; dot: string }> = {
 
 export default function SubcontractorCompletedJobs() {
   const { auth, db } = useFirebaseInstance();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [assignedJobs, setAssignedJobs] = useState<AssignedJob[]>([]);
   const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
   const [vendorPaymentsByWorkOrderId, setVendorPaymentsByWorkOrderId] = useState<Map<string, VendorPayment>>(new Map());
@@ -76,6 +77,7 @@ export default function SubcontractorCompletedJobs() {
     let unsubscribeWorkOrders: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid ?? null);
       if (user) {
         const assignedQuery = query(
           collection(db, 'assignedJobs'),
@@ -160,56 +162,35 @@ export default function SubcontractorCompletedJobs() {
   }, [assignedJobs, workOrders]);
 
   useEffect(() => {
-    // Fetch vendor payments in bulk for the completed work orders.
-    // Use chunked `in` queries to avoid Firestore limits.
-    const workOrderIds = Array.from(new Set(completedRows.map((r) => r.workOrder.id)));
-    if (workOrderIds.length === 0) {
+    // Query vendor payments by subcontractorId to satisfy Firestore security rules
+    // (rules require resource.data.subcontractorId == auth.uid for subcontractor reads).
+    if (!currentUserId) {
       setVendorPaymentsByWorkOrderId(new Map());
       return;
     }
 
-    const chunkSize = 10; // safe default for Firestore 'in' queries
-    const chunks: string[][] = [];
-    for (let i = 0; i < workOrderIds.length; i += chunkSize) {
-      chunks.push(workOrderIds.slice(i, i + chunkSize));
-    }
+    const vpQuery = query(
+      collection(db, 'vendorPayments'),
+      where('subcontractorId', '==', currentUserId),
+    );
 
-    const unsubscribes: Array<() => void> = [];
-    const merged = new Map<string, VendorPayment>();
+    const unsubscribe = onSnapshot(
+      vpQuery,
+      (snapshot) => {
+        const map = new Map<string, VendorPayment>();
+        snapshot.docs.forEach((d) => {
+          const vp = { id: d.id, ...d.data() } as VendorPayment;
+          map.set(vp.workOrderId, vp);
+        });
+        setVendorPaymentsByWorkOrderId(map);
+      },
+      (error) => {
+        console.error('Vendor payments listener error:', error);
+      },
+    );
 
-    chunks.forEach((chunk) => {
-      const vpQuery = query(
-        collection(db, 'vendorPayments'),
-        where('workOrderId', 'in', chunk),
-      );
-
-      const unsubscribe = onSnapshot(
-        vpQuery,
-        (snapshot) => {
-          snapshot.docs.forEach((d) => {
-            const vp = { id: d.id, ...d.data() } as VendorPayment;
-            merged.set(vp.workOrderId, vp);
-          });
-          // Also clear entries for work orders that no longer have a vendor payment in this snapshot
-          // by rebuilding per-chunk keys.
-          const snapshotWorkOrderIds = new Set(snapshot.docs.map((d) => (d.data() as any).workOrderId).filter(Boolean));
-          chunk.forEach((woId) => {
-            if (!snapshotWorkOrderIds.has(woId)) merged.delete(woId);
-          });
-
-          setVendorPaymentsByWorkOrderId(new Map(merged));
-        },
-        (error) => {
-          console.error('Vendor payments listener error:', error);
-        },
-      );
-      unsubscribes.push(unsubscribe);
-    });
-
-    return () => {
-      unsubscribes.forEach((u) => u());
-    };
-  }, [completedRows, db]);
+    return () => unsubscribe();
+  }, [currentUserId, db]);
 
   const formatMoney = (amount: number, currency = 'USD') => {
     try {
