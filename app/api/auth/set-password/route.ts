@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminAuth, getAdminFirestore } from '@/lib/firebase-admin';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { token, newPassword } = body;
 
-    // Accept either { token, newPassword } or legacy { token, email, uid, tempPassword, newPassword }
     if (!token || !newPassword) {
       return NextResponse.json(
         { error: 'Missing required fields: token and newPassword' },
@@ -13,7 +15,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate password length
     if (newPassword.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters long' },
@@ -21,35 +22,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Decode and verify token (token may be URL-encoded; normalize for base64)
-    let decoded: { email?: string; uid?: string; tempPassword?: string; role?: string; timestamp?: number; type?: string };
+    // Decode and verify token
+    let decoded: {
+      email?: string;
+      uid?: string;
+      role?: string;
+      fullName?: string;
+      phone?: string;
+      timestamp?: number;
+      type?: string;
+    };
     try {
-      const normalizedToken = token.replace(/ /g, '+'); // some clients turn + into space
+      const normalizedToken = token.replace(/ /g, '+');
       decoded = JSON.parse(Buffer.from(normalizedToken, 'base64').toString('utf8'));
-    } catch (decodeError) {
+    } catch {
       return NextResponse.json(
-        { error: 'Invalid or expired setup link. Please use the link from your invitation email or request a new one.' },
+        { error: 'Invalid or expired setup link. Please use the exact link from your invitation email or ask for a new one.' },
         { status: 400 }
       );
     }
 
-    const email = decoded.email;
-    const uid = decoded.uid;
-    const tempPassword = decoded.tempPassword;
+    const { email, uid, role } = decoded;
 
-    if (!email || !uid || !tempPassword) {
+    if (!email || !uid) {
       return NextResponse.json(
         { error: 'Invalid setup link. Please request a new invitation.' },
-        { status: 400 }
-      );
-    }
-
-    // Check if token is expired (24 hours)
-    const tokenAge = Date.now() - (decoded.timestamp || 0);
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    if (tokenAge > maxAge) {
-      return NextResponse.json(
-        { error: 'This setup link has expired. Please request a new invitation.' },
         { status: 400 }
       );
     }
@@ -61,121 +58,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update password using Firebase Auth REST API
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-
-    if (!apiKey) {
+    // Check 24-hour expiry
+    const tokenAge = Date.now() - (decoded.timestamp || 0);
+    if (tokenAge > 24 * 60 * 60 * 1000) {
       return NextResponse.json(
-        { error: 'Firebase API key not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Sign in with the temporary password to get an idToken
-    const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`;
-
-    const signInResponse = await fetch(signInUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: email,
-        password: tempPassword,
-        returnSecureToken: true,
-      }),
-    });
-
-    if (!signInResponse.ok) {
-      const errorData = await signInResponse.json();
-      console.error('Firebase sign-in error:', errorData);
-      const code = errorData?.error?.message || '';
-      if (code.includes('INVALID_LOGIN_CREDENTIALS') || code.includes('invalid-credential')) {
-        return NextResponse.json(
-          { error: 'Invalid or expired setup link. Please use the exact link from your invitation email or ask for a new one.' },
-          { status: 400 }
-        );
-      }
-      return NextResponse.json(
-        { error: 'Failed to verify setup link. Please request a new invitation.' },
+        { error: 'This setup link has expired. Please request a new invitation.' },
         { status: 400 }
       );
     }
 
-    const signInData = await signInResponse.json();
-    const idToken = signInData.idToken;
+    // Use Admin SDK to update password directly — no tempPassword sign-in needed
+    try {
+      const adminAuth = getAdminAuth();
 
-    // Now update the password using the idToken
-    const updateUrl = `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`;
+      // Verify the uid belongs to the expected email
+      const userRecord = await adminAuth.getUser(uid);
+      if (userRecord.email?.toLowerCase() !== email.toLowerCase()) {
+        return NextResponse.json(
+          { error: 'Invalid setup link. Please request a new invitation.' },
+          { status: 400 }
+        );
+      }
 
-    const updateResponse = await fetch(updateUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        idToken: idToken,
-        password: newPassword,
-        returnSecureToken: false,
-      }),
-    });
-
-    if (!updateResponse.ok) {
-      const errorData = await updateResponse.json();
-      throw new Error(errorData.error?.message || 'Failed to update password');
+      await adminAuth.updateUser(uid, { password: newPassword });
+    } catch (authErr: any) {
+      console.error('Admin SDK updateUser failed:', authErr);
+      return NextResponse.json(
+        { error: 'Failed to update password. Please request a new invitation.' },
+        { status: 500 }
+      );
     }
 
-    // Upsert Firestore document using the user's own idToken.
-    // This creates the document if it was never written (e.g. invite creation failed),
-    // or patches it if it already exists.
-    const role = decoded.role;
-    const collectionName = role === 'admin' ? 'adminUsers' : role === 'client' ? 'clients' : 'subcontractors';
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    if (projectId) {
-      try {
-        // First check if the document already exists
-        const getUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}/${uid}`;
-        const getResp = await fetch(getUrl, {
-          headers: { 'Authorization': `Bearer ${idToken}` },
-        });
+    // Update Firestore document via Admin SDK
+    try {
+      const adminDb = getAdminFirestore();
+      const collectionName =
+        role === 'admin' ? 'adminUsers' :
+        role === 'client' ? 'clients' :
+        'subcontractors';
 
-        if (getResp.status === 404) {
-          // Document doesn't exist — create it with all available data from the token
-          const createUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?documentId=${uid}`;
-          await fetch(createUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({
-              fields: {
-                email: { stringValue: email },
-                role: { stringValue: role === 'admin' ? 'admin' : role },
-                fullName: { stringValue: (decoded as any).fullName || '' },
-                phone: { stringValue: (decoded as any).phone || '' },
-                createdAt: { timestampValue: new Date().toISOString() },
-                updatedAt: { timestampValue: new Date().toISOString() },
-                passwordSetAt: { timestampValue: new Date().toISOString() },
-              }
-            }),
-          });
-          console.log('✅ Created missing Firestore document for', email);
-        } else if (getResp.ok) {
-          // Document exists — patch the passwordSetAt field and save password for admin viewing
-          const patchUrl = `${getUrl}?updateMask.fieldPaths=passwordSetAt&updateMask.fieldPaths=updatedAt&updateMask.fieldPaths=password`;
-          await fetch(patchUrl, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-            body: JSON.stringify({
-              fields: {
-                passwordSetAt: { timestampValue: new Date().toISOString() },
-                updatedAt: { timestampValue: new Date().toISOString() },
-                password: { stringValue: newPassword },
-              }
-            }),
-          });
-        }
-      } catch (firestoreErr) {
-        console.warn('Firestore upsert skipped (non-critical):', firestoreErr);
+      const docRef = adminDb.collection(collectionName).doc(uid);
+      const docSnap = await docRef.get();
+
+      if (!docSnap.exists()) {
+        // Create the document if it was never written
+        await docRef.set({
+          email,
+          role: role || 'subcontractor',
+          fullName: decoded.fullName || '',
+          phone: decoded.phone || '',
+          password: newPassword,
+          passwordSetAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      } else {
+        await docRef.update({
+          password: newPassword,
+          passwordSetAt: new Date(),
+          updatedAt: new Date(),
+        });
       }
+    } catch (dbErr) {
+      // Non-critical — password was already set in Auth; log and continue
+      console.warn('Firestore update skipped (non-critical):', dbErr);
     }
 
     return NextResponse.json({
