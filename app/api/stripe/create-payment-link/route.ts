@@ -10,22 +10,42 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export async function POST(request: NextRequest) {
   const db = await getServerDb();
   try {
-    const { invoiceId, invoiceNumber, amount, customerEmail, clientName, clientId } = await request.json();
+    const body = await request.json();
+    const { invoiceId, invoiceNumber: bodyInvoiceNumber, amount: bodyAmount, customerEmail: bodyCustomerEmail, clientName: bodyClientName, clientId: bodyClientId } = body;
 
-    // Validate required fields
-    if (!invoiceId || !invoiceNumber || amount === undefined || amount === null) {
+    if (!invoiceId) {
+      return NextResponse.json({ error: 'Missing required field: invoiceId' }, { status: 400 });
+    }
+
+    const invoiceSnap = await getDoc(doc(db, 'invoices', invoiceId));
+    if (!invoiceSnap.exists()) {
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    }
+    const inv = invoiceSnap.data();
+
+    const resolvedAmount = Number(inv.totalAmount);
+    if (!Number.isFinite(resolvedAmount) || resolvedAmount <= 0) {
       return NextResponse.json(
-        { error: `Missing required fields: ${!invoiceId ? 'invoiceId ' : ''}${!invoiceNumber ? 'invoiceNumber ' : ''}${amount === undefined || amount === null ? 'amount' : ''}` },
+        { error: 'Invoice total must be a positive number. Save the invoice before creating a payment link.' },
         { status: 400 }
       );
     }
 
-    // Validate amount is greater than 0
-    if (amount <= 0) {
-      return NextResponse.json(
-        { error: 'Amount must be greater than 0' },
-        { status: 400 }
-      );
+    const invoiceNumber = inv.invoiceNumber || bodyInvoiceNumber || '';
+    if (!invoiceNumber) {
+      return NextResponse.json({ error: 'Invoice has no invoice number' }, { status: 400 });
+    }
+
+    const clientId = inv.clientId || bodyClientId || '';
+    const customerEmail = inv.clientEmail || bodyCustomerEmail || '';
+    const clientName = inv.clientName || bodyClientName || 'Client';
+
+    if (typeof bodyAmount === 'number' && Math.abs(bodyAmount - resolvedAmount) > 0.009) {
+      console.warn('[create-payment-link] Client amount differs from Firestore; using Firestore total.', {
+        invoiceId,
+        clientAmount: bodyAmount,
+        firestoreTotal: resolvedAmount,
+      });
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
@@ -63,7 +83,7 @@ export async function POST(request: NextRequest) {
               name: `Invoice ${invoiceNumber}`,
               description: `Payment for GroundOps Facility Maintenance services`,
             },
-            unit_amount: Math.round(amount * 100),
+            unit_amount: Math.round(resolvedAmount * 100),
           },
           quantity: 1,
         },
@@ -87,6 +107,12 @@ export async function POST(request: NextRequest) {
         metadata: { invoiceId, clientId: clientId || '' },
       };
     } else {
+      if (!customerEmail?.trim()) {
+        return NextResponse.json(
+          { error: 'Invoice has no client email; cannot create guest Checkout link.' },
+          { status: 400 }
+        );
+      }
       sessionParams.customer_email = customerEmail;
     }
 

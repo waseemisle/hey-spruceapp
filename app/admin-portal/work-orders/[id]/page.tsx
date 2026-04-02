@@ -235,7 +235,7 @@ export default function ViewWorkOrder() {
         ]);
 
         setQuotes(quotesSnapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Quote[]);
-        setRelatedInvoices(invoicesSnapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        setRelatedInvoices(invoicesSnapshot.docs.map(d => ({ ...d.data(), id: d.id })));
         setNotes(
           notesSnapshot.docs
             .map(d => ({ id: d.id, ...d.data() }))
@@ -2205,15 +2205,12 @@ export default function ViewWorkOrder() {
                             </div>
                           </div>
                           <div className="mt-3">
-                            <Link href={`/admin-portal/invoices/${inv.id}`}>
-                              <Button variant="outline" size="sm">Open Full Invoice</Button>
-                            </Link>
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/admin-portal/invoices/${inv.id}`}>View Invoice</Link>
+                            </Button>
                           </div>
                         </div>
                       ))}
-                      <Link href={`/admin-portal/invoices?workOrderId=${workOrder.id}`}>
-                        <Button variant="outline" className="w-full mt-2">View Invoice</Button>
-                      </Link>
                     </div>
                   )}
                 </CardContent>

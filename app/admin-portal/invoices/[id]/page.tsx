@@ -69,6 +69,7 @@ interface Invoice {
   systemInformation?: InvoiceSystemInformation;
   creationSource?: string;
   stripePaymentLink?: string;
+  stripeSessionId?: string;
   checkInOut?: Array<{ type: 'check_in' | 'check_out'; timestamp: any; location?: string }>;
   attachments?: Array<{ name: string; url: string }>;
   approvalChain?: Array<{ role: string; name?: string; status: 'pending' | 'approved' | 'rejected'; at?: any }>;
@@ -102,6 +103,8 @@ export default function AdminInvoiceDetail() {
   const [saving, setSaving] = useState(false);
   const [charging, setCharging] = useState(false);
   const [resharing, setResharing] = useState(false);
+  /** edit = save only; reshare = opened from Reshare Invoice (save & reshare with client) */
+  const [editModalIntent, setEditModalIntent] = useState<'edit' | 'reshare'>('edit');
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -113,10 +116,21 @@ export default function AdminInvoiceDetail() {
       try {
         const snap = await getDoc(doc(db, 'invoices', id));
         if (!snap.exists()) {
+          const byWorkOrder = await getDocs(
+            query(collection(db, 'invoices'), where('workOrderId', '==', id))
+          );
+          if (byWorkOrder.docs.length === 1) {
+            router.replace(`/admin-portal/invoices/${byWorkOrder.docs[0].id}`);
+            return;
+          }
+          if (byWorkOrder.docs.length > 1) {
+            router.replace(`/admin-portal/invoices?workOrderId=${encodeURIComponent(id)}`);
+            return;
+          }
           router.push('/admin-portal/invoices');
           return;
         }
-        const data = { id: snap.id, ...snap.data() } as Invoice;
+        const data = { ...snap.data(), id: snap.id } as Invoice;
         setInvoice(data);
         // Fetch client billing info
         if (data.clientId) {
@@ -141,7 +155,7 @@ export default function AdminInvoiceDetail() {
             query(collection(db, 'invoices'), where('workOrderId', '==', data.workOrderId))
           );
           const related = relatedSnap.docs
-            .map((d) => ({ id: d.id, ...d.data() } as Invoice))
+            .map((d) => ({ ...d.data(), id: d.id } as Invoice))
             .filter((inv) => inv.id !== id);
           setRelatedInvoices(related);
         }
@@ -175,8 +189,9 @@ export default function AdminInvoiceDetail() {
     });
   };
 
-  const handleOpenEdit = () => {
+  const openEditModal = (intent: 'edit' | 'reshare') => {
     if (!invoice) return;
+    setEditModalIntent(intent);
     setEditForm({
       status: invoice.status,
       notes: invoice.notes || '',
@@ -191,149 +206,175 @@ export default function AdminInvoiceDetail() {
     setShowEditModal(true);
   };
 
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditModalIntent('edit');
+  };
+
+  const persistEditsToFirestore = async () => {
+    if (!invoice) throw new Error('No invoice');
+    const subtotal = editLineItems.reduce((s, li) => s + (li.amount || 0), 0);
+    const discountAmount = Math.max(0, Number(editForm.discountAmount || 0));
+    if (!Number.isFinite(discountAmount)) {
+      toast.error('Discount must be a valid number.');
+      throw new Error('validation');
+    }
+    const newTotal = subtotal - discountAmount;
+    if (newTotal < 0) {
+      toast.error('Discount cannot be greater than subtotal.');
+      throw new Error('validation');
+    }
+
+    await updateDoc(doc(db, 'invoices', invoice.id), {
+      status: editForm.status,
+      notes: editForm.notes,
+      terms: editForm.terms,
+      lineItems: editLineItems,
+      totalAmount: newTotal,
+      discountAmount,
+      stripePaymentLink: null,
+      stripeSessionId: null,
+      updatedAt: serverTimestamp(),
+    });
+    setInvoice(prev => prev ? {
+      ...prev,
+      status: editForm.status as Invoice['status'],
+      notes: editForm.notes,
+      terms: editForm.terms,
+      lineItems: editLineItems,
+      discountAmount,
+      totalAmount: newTotal,
+      stripePaymentLink: undefined,
+      stripeSessionId: undefined,
+    } : prev);
+  };
+
+  /** Load latest invoice from Firestore, create Stripe Checkout for that total, email client, update timeline. */
+  const runReshareAfterPersist = async (invoiceId: string) => {
+    const snap = await getDoc(doc(db, 'invoices', invoiceId));
+    if (!snap.exists()) {
+      throw new Error('Invoice not found');
+    }
+    const inv = { ...snap.data(), id: snap.id } as Invoice;
+
+    if (inv.status === 'paid') {
+      toast.error('Invoice is already paid.');
+      throw new Error('paid');
+    }
+    if (!inv.clientEmail) {
+      toast.error('Client email is missing.');
+      throw new Error('missing email');
+    }
+    const totalNum = Number(inv.totalAmount);
+    if (!Number.isFinite(totalNum) || totalNum <= 0) {
+      toast.error('Invoice total must be greater than 0 to generate a Stripe link.');
+      throw new Error('bad total');
+    }
+
+    const stripeRes = await fetch('/api/stripe/create-payment-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        amount: totalNum,
+        customerEmail: inv.clientEmail,
+        clientName: inv.clientName || 'Client',
+        clientId: inv.clientId,
+      }),
+    });
+    const stripeData = await stripeRes.json();
+    if (!stripeRes.ok || !stripeData.paymentLink) {
+      throw new Error(stripeData.error || 'Failed to create Stripe payment link');
+    }
+
+    const adminUid = auth.currentUser?.uid || 'unknown';
+    const adminName = auth.currentUser?.email || 'Admin';
+    const sentEvent = createInvoiceTimelineEvent({
+      type: 'sent',
+      userId: adminUid,
+      userName: adminName,
+      userRole: 'admin',
+      details: 'Invoice re-shared with updated total and payment link',
+      metadata: { invoiceNumber: inv.invoiceNumber, reason: 'admin_reshare_after_edit' },
+    });
+
+    const existingTimeline = inv.timeline || [];
+    const existingSysInfo = inv.systemInformation || {};
+
+    await updateDoc(doc(db, 'invoices', inv.id), {
+      stripePaymentLink: stripeData.paymentLink,
+      stripeSessionId: stripeData.sessionId,
+      status: 'sent',
+      sentAt: serverTimestamp(),
+      timeline: [...existingTimeline, sentEvent],
+      systemInformation: {
+        ...existingSysInfo,
+        sentBy: { id: adminUid, name: adminName, timestamp: Timestamp.now() },
+      },
+      updatedAt: serverTimestamp(),
+    } as Record<string, unknown>);
+
+    const emailRes = await fetch('/api/email/send-invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toEmail: inv.clientEmail,
+        toName: inv.clientName,
+        invoiceNumber: inv.invoiceNumber,
+        workOrderTitle: inv.workOrderTitle,
+        totalAmount: totalNum,
+        dueDate: inv.dueDate?.toDate?.()?.toLocaleDateString?.() || 'Net 10',
+        lineItems: inv.lineItems || [],
+        notes: inv.notes || '',
+        stripePaymentLink: stripeData.paymentLink,
+      }),
+    });
+    const emailData = await emailRes.json();
+    if (!emailRes.ok) {
+      throw new Error(emailData.details || emailData.error || 'Failed to send invoice email');
+    }
+
+    setInvoice((prev) => prev ? ({
+      ...prev,
+      status: 'sent',
+      stripePaymentLink: stripeData.paymentLink,
+      stripeSessionId: stripeData.sessionId,
+      timeline: [...(prev.timeline || []), sentEvent],
+      sentAt: new Date(),
+    }) : prev);
+
+    toast.success('Invoice re-shared with updated Stripe link and new Checkout total.');
+  };
+
   const handleSaveEdit = async () => {
     if (!invoice) return;
     setSaving(true);
     try {
-      const subtotal = editLineItems.reduce((s, li) => s + (li.amount || 0), 0);
-      const discountAmount = Math.max(0, Number(editForm.discountAmount || 0));
-      const newTotal = subtotal - discountAmount;
-      if (!Number.isFinite(discountAmount)) {
-        toast.error('Discount must be a valid number.');
-        return;
-      }
-      if (newTotal < 0) {
-        toast.error('Discount cannot be greater than subtotal.');
-        return;
-      }
-
-      await updateDoc(doc(db, 'invoices', invoice.id), {
-        status: editForm.status,
-        notes: editForm.notes,
-        terms: editForm.terms,
-        lineItems: editLineItems,
-        totalAmount: newTotal,
-        discountAmount,
-        // Payment link is now stale; regenerate when resending.
-        stripePaymentLink: null,
-        stripeSessionId: null,
-        updatedAt: serverTimestamp(),
-      });
-      setInvoice(prev => prev ? {
-        ...prev,
-        status: editForm.status as any,
-        notes: editForm.notes,
-        terms: editForm.terms,
-        lineItems: editLineItems,
-        discountAmount,
-        totalAmount: newTotal,
-        stripePaymentLink: undefined,
-      } : prev);
-      setShowEditModal(false);
+      await persistEditsToFirestore();
+      closeEditModal();
       toast.success('Invoice updated');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save');
+      if (err?.message !== 'validation') {
+        toast.error(err.message || 'Failed to save');
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  const handleReshareInvoice = async () => {
+  const handleSaveAndReshare = async () => {
     if (!invoice) return;
-    if (invoice.status === 'paid') {
-      toast.error('Invoice is already paid.');
-      return;
-    }
-    if (!invoice.clientEmail) {
-      toast.error('Client email is missing.');
-      return;
-    }
-    if (!invoice.totalAmount || invoice.totalAmount <= 0) {
-      toast.error('Invoice total must be greater than 0 to generate a Stripe link.');
-      return;
-    }
-
     setResharing(true);
     try {
-      // 1) Regenerate Stripe link for the updated amount.
-      const stripeRes = await fetch('/api/stripe/create-payment-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          amount: invoice.totalAmount,
-          customerEmail: invoice.clientEmail,
-          clientName: invoice.clientName || 'Client',
-          clientId: invoice.clientId,
-        }),
-      });
-      const stripeData = await stripeRes.json();
-      if (!stripeRes.ok || !stripeData.paymentLink) {
-        throw new Error(stripeData.error || 'Failed to create Stripe payment link');
-      }
-
-      const adminUid = auth.currentUser?.uid || 'unknown';
-      const adminName = auth.currentUser?.email || 'Admin';
-      const sentEvent = createInvoiceTimelineEvent({
-        type: 'sent',
-        userId: adminUid,
-        userName: adminName,
-        userRole: 'admin',
-        details: 'Invoice re-shared with updated total and payment link',
-        metadata: { invoiceNumber: invoice.invoiceNumber, reason: 'admin_reshare_after_edit' },
-      });
-
-      const existingTimeline = invoice.timeline || [];
-      const existingSysInfo = invoice.systemInformation || {};
-
-      // 2) Persist link + timeline + sentAt.
-      await updateDoc(doc(db, 'invoices', invoice.id), {
-        stripePaymentLink: stripeData.paymentLink,
-        stripeSessionId: stripeData.sessionId,
-        status: 'sent',
-        sentAt: serverTimestamp(),
-        timeline: [...existingTimeline, sentEvent],
-        systemInformation: {
-          ...existingSysInfo,
-          sentBy: { id: adminUid, name: adminName, timestamp: Timestamp.now() },
-        },
-        updatedAt: serverTimestamp(),
-      } as any);
-
-      // 3) Email invoice to client with the updated total + link.
-      const emailRes = await fetch('/api/email/send-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toEmail: invoice.clientEmail,
-          toName: invoice.clientName,
-          invoiceNumber: invoice.invoiceNumber,
-          workOrderTitle: invoice.workOrderTitle,
-          totalAmount: invoice.totalAmount,
-          dueDate: invoice.dueDate?.toDate?.()?.toLocaleDateString?.() || 'Net 10',
-          lineItems: invoice.lineItems || [],
-          notes: invoice.notes || '',
-          stripePaymentLink: stripeData.paymentLink,
-        }),
-      });
-      const emailData = await emailRes.json();
-      if (!emailRes.ok) {
-        throw new Error(emailData.details || emailData.error || 'Failed to send invoice email');
-      }
-
-      setInvoice((prev) => prev ? ({
-        ...prev,
-        status: 'sent',
-        stripePaymentLink: stripeData.paymentLink,
-        timeline: [...(prev.timeline || []), sentEvent],
-        sentAt: new Date() as any,
-      }) : prev);
-
-      toast.success('Invoice re-shared with updated Stripe link.');
+      await persistEditsToFirestore();
+      await runReshareAfterPersist(invoice.id);
+      closeEditModal();
     } catch (err: any) {
-      console.error('Error resharing invoice:', err);
-      toast.error(err?.message || 'Failed to reshare invoice');
+      if (err?.message && !['validation', 'paid', 'missing email', 'bad total'].includes(err.message)) {
+        toast.error(err.message || 'Failed to save and reshare');
+      }
+      console.error('Save & reshare error:', err);
     } finally {
       setResharing(false);
     }
@@ -521,14 +562,14 @@ export default function AdminInvoiceDetail() {
               <Download className="h-4 w-4 mr-2" />
               Download PDF
             </Button>
-            <Button onClick={handleOpenEdit} variant="outline" size="sm">
+            <Button onClick={() => openEditModal('edit')} variant="outline" size="sm">
               <Edit2 className="h-4 w-4 mr-2" />
               Edit
             </Button>
             {invoice.status !== 'paid' && (
-              <Button onClick={handleReshareInvoice} size="sm" disabled={resharing}>
+              <Button onClick={() => openEditModal('reshare')} size="sm" disabled={resharing}>
                 <Receipt className="h-4 w-4 mr-2" />
-                {resharing ? 'Re-sharing…' : 'Reshare Invoice'}
+                Reshare Invoice
               </Button>
             )}
             {(invoice.status === 'sent' || invoice.status === 'overdue') &&
@@ -831,13 +872,28 @@ export default function AdminInvoiceDetail() {
       {showEditModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Edit Invoice</h2>
-              <Button variant="outline" size="sm" onClick={() => setShowEditModal(false)}>
+            <div className="p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center gap-3">
+              <div>
+                <h2 className="text-xl font-bold">
+                  {editModalIntent === 'reshare' ? 'Update invoice & reshare' : 'Edit Invoice'}
+                </h2>
+                {editModalIntent === 'reshare' && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Adjust line items and discount, then save and email the client. Stripe Checkout will use the new total.
+                  </p>
+                )}
+              </div>
+              <Button variant="outline" size="sm" onClick={() => closeEditModal()} disabled={saving || resharing}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <div className="p-6 space-y-6">
+              {editModalIntent === 'reshare' && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
+                  The payment link always matches the invoice total saved in the database. After you save, we create a new Stripe Checkout session for that amount and email it to the client.
+                </div>
+              )}
+
               {/* Status */}
               <div>
                 <Label>Status</Label>
@@ -852,33 +908,6 @@ export default function AdminInvoiceDetail() {
                   placeholder="Status"
                   aria-label="Invoice status"
                 />
-              </div>
-
-              {/* Discount */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label>Discount</Label>
-                  <Input
-                    className="mt-1"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editForm.discountAmount}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, discountAmount: e.target.value }))}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    placeholder="e.g. 25"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Applied to subtotal (line items total).</p>
-                </div>
-                <div className="rounded-lg border border-border p-3 bg-muted/30">
-                  <div className="text-xs text-muted-foreground">New total preview</div>
-                  <div className="text-lg font-bold">
-                    ${Math.max(0, (editLineItems.reduce((s, li) => s + (li.amount || 0), 0) - (Number(editForm.discountAmount || 0) || 0))).toFixed(2)}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    After saving, you can use <span className="font-medium">Reshare Invoice</span> to regenerate the Stripe link and email the client.
-                  </div>
-                </div>
               </div>
 
               {/* Line Items */}
@@ -918,9 +947,38 @@ export default function AdminInvoiceDetail() {
                 <Button type="button" variant="outline" size="sm" onClick={() => setEditLineItems(prev => [...prev, { description: '', quantity: 1, unitPrice: 0, amount: 0 }])}>
                   <Plus className="h-4 w-4 mr-1" /> Add Line Item
                 </Button>
-                <div className="text-right mt-2">
-                  <span className="text-sm text-muted-foreground">Total: </span>
-                  <span className="font-bold">${editLineItems.reduce((s, li) => s + (li.amount || 0), 0).toFixed(2)}</span>
+                <div className="flex flex-wrap justify-end gap-4 mt-3 text-sm">
+                  <span className="text-muted-foreground">
+                    Subtotal:{' '}
+                    <span className="font-semibold text-foreground">${editLineItems.reduce((s, li) => s + (li.amount || 0), 0).toFixed(2)}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Discount & total (after line items) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>Discount</Label>
+                  <Input
+                    className="mt-1"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.discountAmount}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, discountAmount: e.target.value }))}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="e.g. 20"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Subtracted from the line items subtotal.</p>
+                </div>
+                <div className="rounded-lg border border-border p-3 bg-muted/30">
+                  <div className="text-xs text-muted-foreground">Invoice total (after discount)</div>
+                  <div className="text-lg font-bold">
+                    ${Math.max(0, (editLineItems.reduce((s, li) => s + (li.amount || 0), 0) - (Number(editForm.discountAmount || 0) || 0))).toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    This is the amount sent to Stripe when you reshare.
+                  </p>
                 </div>
               </div>
 
@@ -944,11 +1002,44 @@ export default function AdminInvoiceDetail() {
                 />
               </div>
             </div>
-            <div className="p-6 border-t flex gap-3">
-              <Button className="flex-1" onClick={handleSaveEdit} disabled={saving}>
-                {saving ? 'Saving…' : 'Save Changes'}
-              </Button>
-              <Button variant="outline" onClick={() => setShowEditModal(false)} disabled={saving}>
+            <div className="p-6 border-t flex flex-col sm:flex-row gap-3">
+              {editModalIntent === 'reshare' ? (
+             <>
+                  <Button className="flex-1" onClick={handleSaveAndReshare} disabled={saving || resharing}>
+                    {resharing ? 'Saving & re-sharing…' : 'Save & reshare with client'}
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={handleSaveEdit} disabled={saving || resharing}>
+                    {saving ? 'Saving…' : 'Save changes only'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    type="button"
+                    disabled={resharing || saving}
+                    onClick={async () => {
+                      if (!invoice) return;
+                      setResharing(true);
+                      try {
+                        await runReshareAfterPersist(invoice.id);
+                        closeEditModal();
+                      } catch (err: any) {
+                        console.error(err);
+                      } finally {
+                        setResharing(false);
+                      }
+                    }}
+                  >
+                    {resharing ? 'Working…' : 'Reshare saved invoice only'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button className="flex-1" onClick={handleSaveEdit} disabled={saving}>
+                    {saving ? 'Saving…' : 'Save Changes'}
+                  </Button>
+                </>
+              )}
+              <Button variant="outline" onClick={() => closeEditModal()} disabled={saving || resharing}>
                 Cancel
               </Button>
             </div>

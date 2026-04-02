@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
@@ -60,11 +60,26 @@ export default function ClientInvoiceDetail() {
         const invoiceId = params.id as string;
         const invoiceDoc = await getDoc(doc(db, 'invoices', invoiceId));
         if (!invoiceDoc.exists()) {
+          const byWorkOrder = await getDocs(
+            query(
+              collection(db, 'invoices'),
+              where('clientId', '==', user.uid),
+              where('workOrderId', '==', invoiceId)
+            )
+          );
+          if (byWorkOrder.docs.length === 1) {
+            router.replace(`/client-portal/invoices/${byWorkOrder.docs[0].id}`);
+            return;
+          }
+          if (byWorkOrder.docs.length > 1) {
+            router.replace(`/client-portal/invoices?workOrderId=${encodeURIComponent(invoiceId)}`);
+            return;
+          }
           toast.error('Invoice not found');
           router.push('/client-portal/invoices');
           return;
         }
-        const data = { id: invoiceDoc.id, ...invoiceDoc.data() } as Invoice;
+        const data = { ...invoiceDoc.data(), id: invoiceDoc.id } as Invoice;
         if (data.clientId !== user.uid) {
           toast.error('You are not authorized to view this invoice');
           router.push('/client-portal/invoices');

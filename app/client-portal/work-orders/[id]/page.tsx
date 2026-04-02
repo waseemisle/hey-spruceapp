@@ -1119,19 +1119,19 @@ export default function ViewClientWorkOrder() {
                             </div>
                           </div>
                           <div className="mt-3">
-                            <Link href={`/client-portal/invoices/${inv.id}`}>
-                              <Button variant="outline" size="sm">
-                                Open invoice
-                              </Button>
-                            </Link>
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/client-portal/invoices/${inv.id}`}>View Invoice</Link>
+                            </Button>
                           </div>
                         </div>
                       ))}
-                      <Link href={`/client-portal/invoices?workOrderId=${workOrder.id}`}>
-                        <Button variant="outline" className="w-full mt-2">
-                          View Invoice
-                        </Button>
-                      </Link>
+                      {relatedInvoices.length > 1 && (
+                        <Link href={`/client-portal/invoices?workOrderId=${workOrder.id}`}>
+                          <Button variant="outline" className="w-full mt-2">
+                            View all invoices
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   )}
                 </CardContent>
