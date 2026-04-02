@@ -672,14 +672,18 @@ function InvoicesManagementInner() {
         </div>
 
         {/* Generate from Accepted Quotes */}
-        {quotes.length > 0 && (
+        {quotes.filter(q =>
+          !invoices.some(inv => inv.quoteId === q.id || inv.workOrderId === q.workOrderId)
+        ).length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Generate Invoices from Accepted Quotes</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {quotes.map(quote => (
+                {quotes.filter(q =>
+                  !invoices.some(inv => inv.quoteId === q.id || inv.workOrderId === q.workOrderId)
+                ).map(quote => (
                   <div key={quote.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div>
                       <div className="font-semibold">{quote.workOrderTitle}</div>
