@@ -1,0 +1,148 @@
+import { NextResponse } from 'next/server';
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
+import { getBearerUid } from '@/lib/api-verify-firebase';
+import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * Approves a quote server-side (using admin credentials) to bypass Firestore
+ * client rules that block clients from updating work orders they don't own directly.
+ * Called by the client portal when a client approves a quote.
+ */
+export async function POST(request: Request) {
+  try {
+    const uid = await getBearerUid(request);
+    if (!uid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { quoteId } = await request.json();
+    if (!quoteId) {
+      return NextResponse.json({ error: 'Missing quoteId' }, { status: 400 });
+    }
+
+    const db = await getServerDb();
+
+    // Fetch quote and verify the requesting user is the client
+    const quoteDoc = await getDoc(doc(db, 'quotes', quoteId));
+    if (!quoteDoc.exists()) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+    const quoteData = quoteDoc.data();
+
+    if (quoteData.clientId !== uid) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    if (!quoteData.workOrderId) {
+      return NextResponse.json({ error: 'Quote has no associated work order' }, { status: 400 });
+    }
+
+    // Get client's display name
+    let clientName: string = quoteData.clientName || 'Client';
+    const clientDoc = await getDoc(doc(db, 'clients', uid));
+    if (clientDoc.exists()) {
+      clientName = clientDoc.data().fullName || clientName;
+    }
+
+    // Fetch work order
+    const workOrderDoc = await getDoc(doc(db, 'workOrders', quoteData.workOrderId));
+    if (!workOrderDoc.exists()) {
+      return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+    }
+    const workOrderData = workOrderDoc.data();
+
+    // Update quote status
+    const existingQuoteTimeline = quoteData.timeline || [];
+    const existingQuoteSysInfo = quoteData.systemInformation || {};
+    const acceptedEvent = createQuoteTimelineEvent({
+      type: 'accepted',
+      userId: uid,
+      userName: clientName,
+      userRole: 'client',
+      details: `Quote approved by ${clientName}. Work order assigned to ${quoteData.subcontractorName}.`,
+      metadata: quoteData.workOrderNumber ? { workOrderNumber: quoteData.workOrderNumber } : undefined,
+    });
+    await updateDoc(doc(db, 'quotes', quoteId), {
+      status: 'accepted',
+      acceptedAt: serverTimestamp(),
+      timeline: [...existingQuoteTimeline, acceptedEvent],
+      systemInformation: {
+        ...existingQuoteSysInfo,
+        acceptedBy: {
+          id: uid,
+          name: clientName,
+          timestamp: Timestamp.now(),
+        },
+      },
+      updatedAt: serverTimestamp(),
+    });
+
+    // Update work order with assignment + approved quote pricing
+    const existingTimeline = workOrderData.timeline || [];
+    const existingSysInfo = workOrderData.systemInformation || {};
+    await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
+      status: 'assigned',
+      assignedSubcontractor: quoteData.subcontractorId,
+      assignedSubcontractorName: quoteData.subcontractorName,
+      assignedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      approvedQuoteId: quoteId,
+      approvedQuoteAmount: quoteData.clientAmount || quoteData.totalAmount,
+      approvedQuoteLaborCost: quoteData.laborCost,
+      approvedQuoteMaterialCost: quoteData.materialCost,
+      approvedQuoteLineItems: quoteData.lineItems || [],
+      timeline: [
+        ...existingTimeline,
+        createTimelineEvent({
+          type: 'quote_approved_by_client',
+          userId: uid,
+          userName: clientName,
+          userRole: 'client',
+          details: `Quote from ${quoteData.subcontractorName} approved by ${clientName}. Work order assigned.`,
+          metadata: {
+            quoteId,
+            subcontractorName: quoteData.subcontractorName,
+            amount: quoteData.clientAmount || quoteData.totalAmount,
+          },
+        }),
+      ],
+      systemInformation: {
+        ...existingSysInfo,
+        quoteApprovalByClient: {
+          quoteId,
+          approvedBy: { id: uid, name: clientName },
+          timestamp: Timestamp.now(),
+        },
+      },
+    });
+
+    // Create assignedJobs record
+    await addDoc(collection(db, 'assignedJobs'), {
+      workOrderId: quoteData.workOrderId,
+      subcontractorId: quoteData.subcontractorId,
+      assignedAt: serverTimestamp(),
+      status: 'pending_acceptance',
+    });
+
+    return NextResponse.json({
+      success: true,
+      workOrderData: {
+        workOrderNumber: workOrderData.workOrderNumber || quoteData.workOrderId,
+        locationName: workOrderData.locationName,
+        locationAddress: workOrderData.locationAddress,
+        workOrderTitle: quoteData.workOrderTitle,
+        subcontractorEmail: quoteData.subcontractorEmail,
+        subcontractorName: quoteData.subcontractorName,
+        clientName: quoteData.clientName,
+        subcontractorId: quoteData.subcontractorId,
+        workOrderId: quoteData.workOrderId,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error approving quote server-side:', error);
+    return NextResponse.json({ error: error.message || 'Failed to approve quote' }, { status: 500 });
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, updateDoc, serverTimestamp, addDoc, collection, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { createQuoteTimelineEvent } from '@/lib/timeline';
@@ -144,87 +144,44 @@ export default function QuoteDetail() {
         label: 'Approve',
         onClick: async () => {
           try {
-            if (!quote.workOrderId) {
-              toast.error('Quote does not have an associated work order');
-              return;
-            }
-
-            // Get work order details
-            const workOrderDoc = await getDoc(doc(db, 'workOrders', quote.workOrderId));
-            if (!workOrderDoc.exists()) {
-              toast.error('Work order not found');
-              return;
-            }
-            const workOrderData = workOrderDoc.data();
-
-            const currentUser = auth.currentUser;
-            const clientDocForName = currentUser ? await getDoc(doc(db, 'clients', currentUser.uid)) : null;
-            const clientName = clientDocForName?.exists() ? clientDocForName.data()?.fullName : quote.clientName || 'Client';
-            const existingQuoteTimeline = (quote.timeline || []) as QuoteTimelineEvent[];
-            const existingQuoteSysInfo = quote.systemInformation || {};
-            const acceptedEvent = createQuoteTimelineEvent({
-              type: 'accepted',
-              userId: currentUser?.uid || 'unknown',
-              userName: clientName,
-              userRole: 'client',
-              details: `Quote approved by ${clientName}. Work order assigned to ${quote.subcontractorName}.`,
-              metadata: { workOrderNumber: workOrderData.workOrderNumber },
-            });
-            await updateDoc(doc(db, 'quotes', quote.id), {
-              status: 'accepted',
-              acceptedAt: serverTimestamp(),
-              timeline: [...existingQuoteTimeline, acceptedEvent],
-              systemInformation: {
-                ...existingQuoteSysInfo,
-                acceptedBy: {
-                  id: currentUser?.uid || 'unknown',
-                  name: clientName,
-                  timestamp: Timestamp.now(),
-                },
+            const idToken = await auth.currentUser?.getIdToken();
+            const res = await fetch('/api/quotes/approve', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
               },
-              updatedAt: serverTimestamp(),
+              body: JSON.stringify({ quoteId: quote.id }),
             });
 
-            // AUTO-ASSIGN: Create assigned job record
-            await addDoc(collection(db, 'assignedJobs'), {
-              workOrderId: quote.workOrderId,
-              subcontractorId: quote.subcontractorId,
-              assignedAt: serverTimestamp(),
-              status: 'pending_acceptance',
-            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.error || 'Failed to approve quote');
+            }
 
-            // Update work order status, assignment, and approved quote pricing
-            await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
-              status: 'assigned',
-              assignedSubcontractor: quote.subcontractorId,
-              assignedSubcontractorName: quote.subcontractorName,
-              assignedAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-              approvedQuoteId: quote.id,
-              approvedQuoteAmount: quote.clientAmount || quote.totalAmount,
-              approvedQuoteLaborCost: quote.laborCost,
-              approvedQuoteMaterialCost: quote.materialCost,
-              approvedQuoteLineItems: quote.lineItems || [],
-            });
+            const result = await res.json();
+            const workOrderData = result.workOrderData;
 
             // Notify subcontractor of assignment (in-app notification)
-            await notifySubcontractorAssignment(
-              quote.subcontractorId,
-              quote.workOrderId,
-              workOrderData.workOrderNumber || quote.workOrderId
-            );
+            try {
+              await notifySubcontractorAssignment(
+                quote.subcontractorId,
+                workOrderData.workOrderId,
+                workOrderData.workOrderNumber || workOrderData.workOrderId
+              );
+            } catch (notifyError) {
+              console.error('Failed to create assignment notification:', notifyError);
+            }
 
             // Send email notification to subcontractor
             try {
               await fetch('/api/email/send-assignment', {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   toEmail: quote.subcontractorEmail,
                   toName: quote.subcontractorName,
-                  workOrderNumber: workOrderData.workOrderNumber || quote.workOrderId,
+                  workOrderNumber: workOrderData.workOrderNumber,
                   workOrderTitle: quote.workOrderTitle,
                   clientName: quote.clientName,
                   locationName: workOrderData.locationName,
@@ -233,7 +190,6 @@ export default function QuoteDetail() {
               });
             } catch (emailError) {
               console.error('Failed to send assignment email:', emailError);
-              // Don't fail the whole operation if email fails
             }
 
             toast.success('Quote accepted! Work order automatically assigned to subcontractor.');

@@ -78,12 +78,22 @@ export async function POST(request: NextRequest) {
 
     const bankAccount = pm.us_bank_account as any;
 
-    // Attach to Stripe customer
-    try {
-      await stripe.paymentMethods.attach(pm.id, { customer: stripeCustomerId });
-    } catch (e: any) {
-      if (!e.message?.includes('already been attached')) throw e;
-    }
+    // us_bank_account PMs cannot be attached directly — Stripe requires going
+    // through a SetupIntent with an offline mandate to satisfy the
+    // "must be verified before they can be attached" requirement.
+    const setupIntent = await stripe.setupIntents.create({
+      customer: stripeCustomerId,
+      payment_method: pm.id,
+      payment_method_types: ['us_bank_account'],
+    });
+
+    await (stripe.setupIntents.confirm as any)(setupIntent.id, {
+      mandate_data: {
+        customer_acceptance: {
+          type: 'offline',
+        },
+      },
+    });
 
     // Check for duplicates in Firestore
     const existingMethods: any[] = clientData.paymentMethods || [];
