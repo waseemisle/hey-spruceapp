@@ -290,6 +290,11 @@ export default function ClientsManagement() {
         await deleteDoc(workOrderDoc.ref);
       }
       await deleteDoc(doc(db, 'clients', clientToDelete.uid));
+      await fetch('/api/auth/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: clientToDelete.uid }),
+      });
       toast.success('Client and all related data deleted');
       setShowDeleteModal(false);
       setClientToDelete(null);

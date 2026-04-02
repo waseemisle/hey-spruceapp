@@ -351,6 +351,11 @@ export default function SubcontractorsManagement() {
         getDocs(query(collection(db, 'biddingWorkOrders'), where('subcontractorId', '==', subToDelete.uid))).then(s => Promise.all(s.docs.map(d => deleteDoc(d.ref)))),
       ]);
       await deleteDoc(doc(db, 'subcontractors', subToDelete.uid));
+      await fetch('/api/auth/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: subToDelete.uid }),
+      });
       toast.success('Subcontractor and related data deleted');
       setShowDeleteModal(false);
       setSubToDelete(null);
