@@ -334,6 +334,13 @@ function InvoicesManagementInner() {
         });
       }
 
+      // Mark the quote as invoiced so it no longer appears in the pending list
+      await updateDoc(doc(db, 'quotes', quote.id), {
+        status: 'invoiced',
+        invoiceId: invoiceRef.id,
+        updatedAt: serverTimestamp(),
+      });
+
       fetchInvoices();
       fetchAcceptedQuotes();
     } catch (error) {

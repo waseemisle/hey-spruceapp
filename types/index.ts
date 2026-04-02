@@ -296,7 +296,7 @@ export interface Quote {
   proposedServiceDate?: Date; // Date subcontractor can perform the work
   proposedServiceTime?: string; // Time subcontractor can perform the work (e.g., "2:00 PM")
   estimatedDuration?: string; // Estimated duration (e.g., "2-3 days")
-  status: 'pending' | 'accepted' | 'rejected' | 'sent_to_client';
+  status: 'pending' | 'accepted' | 'rejected' | 'sent_to_client' | 'invoiced';
   isBiddingWorkOrder: boolean;
   acceptedAt?: Date;
   rejectedAt?: Date;
