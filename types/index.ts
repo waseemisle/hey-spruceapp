@@ -372,6 +372,38 @@ export interface Invoice {
   updatedAt: Date;
 }
 
+// Vendor Payment Types
+export type VendorPaymentStatus = 'created' | 'paid';
+
+export interface VendorPaymentAdjustment {
+  id: string;
+  type: 'increase' | 'decrease';
+  amount: number;
+  reason: string;
+  createdAt: Date | any;
+  createdBy: { uid: string; email?: string; name?: string; role: 'admin' };
+}
+
+export interface VendorPayment {
+  id: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  subcontractorId: string;
+  subcontractorName: string;
+  status: VendorPaymentStatus;
+  currency: string; // e.g. "USD"
+  baseAmount: number;
+  adjustments: VendorPaymentAdjustment[];
+  adjustmentTotal: number;
+  finalAmount: number;
+  internalNotes?: string;
+  sourceQuoteId?: string | null;
+  createdAt: Date | any;
+  createdBy: { uid: string; email?: string; name?: string };
+  updatedAt: Date | any;
+  updatedBy?: { uid: string; email?: string; name?: string };
+}
+
 export interface ScheduledInvoice {
   id: string;
   clientId: string;

@@ -18,8 +18,10 @@ import {
   MapPin,
   Search,
   Calendar,
+  DollarSign,
 } from 'lucide-react';
 import { formatAddress } from '@/lib/utils';
+import type { VendorPayment } from '@/types';
 
 interface AssignedJob {
   id: string;
@@ -66,6 +68,7 @@ export default function SubcontractorCompletedJobs() {
   const { auth, db } = useFirebaseInstance();
   const [assignedJobs, setAssignedJobs] = useState<AssignedJob[]>([]);
   const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
+  const [vendorPaymentsByWorkOrderId, setVendorPaymentsByWorkOrderId] = useState<Map<string, VendorPayment>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -156,6 +159,66 @@ export default function SubcontractorCompletedJobs() {
     return rows;
   }, [assignedJobs, workOrders]);
 
+  useEffect(() => {
+    // Fetch vendor payments in bulk for the completed work orders.
+    // Use chunked `in` queries to avoid Firestore limits.
+    const workOrderIds = Array.from(new Set(completedRows.map((r) => r.workOrder.id)));
+    if (workOrderIds.length === 0) {
+      setVendorPaymentsByWorkOrderId(new Map());
+      return;
+    }
+
+    const chunkSize = 10; // safe default for Firestore 'in' queries
+    const chunks: string[][] = [];
+    for (let i = 0; i < workOrderIds.length; i += chunkSize) {
+      chunks.push(workOrderIds.slice(i, i + chunkSize));
+    }
+
+    const unsubscribes: Array<() => void> = [];
+    const merged = new Map<string, VendorPayment>();
+
+    chunks.forEach((chunk) => {
+      const vpQuery = query(
+        collection(db, 'vendorPayments'),
+        where('workOrderId', 'in', chunk),
+      );
+
+      const unsubscribe = onSnapshot(
+        vpQuery,
+        (snapshot) => {
+          snapshot.docs.forEach((d) => {
+            const vp = { id: d.id, ...d.data() } as VendorPayment;
+            merged.set(vp.workOrderId, vp);
+          });
+          // Also clear entries for work orders that no longer have a vendor payment in this snapshot
+          // by rebuilding per-chunk keys.
+          const snapshotWorkOrderIds = new Set(snapshot.docs.map((d) => (d.data() as any).workOrderId).filter(Boolean));
+          chunk.forEach((woId) => {
+            if (!snapshotWorkOrderIds.has(woId)) merged.delete(woId);
+          });
+
+          setVendorPaymentsByWorkOrderId(new Map(merged));
+        },
+        (error) => {
+          console.error('Vendor payments listener error:', error);
+        },
+      );
+      unsubscribes.push(unsubscribe);
+    });
+
+    return () => {
+      unsubscribes.forEach((u) => u());
+    };
+  }, [completedRows, db]);
+
+  const formatMoney = (amount: number, currency = 'USD') => {
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount || 0);
+    } catch {
+      return `$${(amount || 0).toFixed(2)}`;
+    }
+  };
+
   const filteredRows = completedRows.filter(({ workOrder }) => {
     const searchLower = searchQuery.toLowerCase();
     if (!searchQuery) return true;
@@ -243,6 +306,19 @@ export default function SubcontractorCompletedJobs() {
                 workOrder.status === 'pending_invoice' ? 'bg-orange-500' : 'bg-emerald-500';
               const completedLabel =
                 workOrder.completedAt?.toDate?.().toLocaleDateString?.() || '—';
+              const vendorPayment = vendorPaymentsByWorkOrderId.get(workOrder.id);
+              const vendorPaymentBadgeClass =
+                vendorPayment?.status === 'paid'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : vendorPayment
+                    ? 'bg-blue-50 text-blue-800 border-blue-200'
+                    : 'bg-muted text-foreground border-border';
+              const vendorPaymentLabel =
+                vendorPayment?.status === 'paid'
+                  ? 'Paid'
+                  : vendorPayment
+                    ? 'Created'
+                    : 'Not created';
 
               return (
                 <div
@@ -273,6 +349,22 @@ export default function SubcontractorCompletedJobs() {
                       <Calendar className="h-3.5 w-3.5 shrink-0" />
                       <span>Completed {completedLabel}</span>
                     </div>
+
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="text-muted-foreground inline-flex items-center gap-1.5">
+                        <DollarSign className="h-3.5 w-3.5" />
+                        Vendor Payment
+                      </span>
+                      <span
+                        className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${vendorPaymentBadgeClass}`}
+                        title={vendorPayment ? `Final: ${formatMoney(vendorPayment.finalAmount, vendorPayment.currency)}` : 'No vendor payment yet'}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${vendorPayment ? (vendorPayment.status === 'paid' ? 'bg-emerald-500' : 'bg-blue-500') : 'bg-gray-400'}`} />
+                        {vendorPaymentLabel}
+                        {vendorPayment ? ` • ${formatMoney(vendorPayment.finalAmount, vendorPayment.currency)}` : ''}
+                      </span>
+                    </div>
+
                     <div className="flex items-center justify-between text-sm gap-2 pt-2 border-t border-border">
                       <span className="text-muted-foreground truncate">{workOrder.category || '—'}</span>
                       <span

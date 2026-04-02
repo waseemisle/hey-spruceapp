@@ -292,6 +292,12 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isAdmin();
     }
 
+    // Vendor Payments - admin write; subcontractor read own; clients no access
+    match /vendorPayments/{vendorPaymentId} {
+      allow read: if isSignedIn() && (isAdmin() || resource.data.subcontractorId == request.auth.uid);
+      allow create, update, delete: if isSignedIn() && isAdmin();
+    }
+
     // Users (generic user profiles) - admin full; users can create/read their own doc
     match /users/{userId} {
       allow read: if isSignedIn() && (isAdmin() || userId == request.auth.uid);

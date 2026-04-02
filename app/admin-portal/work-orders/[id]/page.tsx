@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -22,6 +22,7 @@ import { notifyBiddingOpportunity, notifyClientOfQuoteSent } from '@/lib/notific
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { toast } from 'sonner';
+import type { VendorPayment, VendorPaymentAdjustment, VendorPaymentStatus } from '@/types';
 
 const WORK_ORDER_EDIT_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -137,7 +138,7 @@ export default function ViewWorkOrder() {
   const [loading, setLoading] = useState(true);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'history' | 'attachments' | 'quotes' | 'invoices'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'history' | 'attachments' | 'quotes' | 'invoices' | 'vendor_payment'>('overview');
   const [notes, setNotes] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
@@ -168,6 +169,19 @@ export default function ViewWorkOrder() {
   const [shareMarkup, setShareMarkup] = useState('20');
   const [shareSubmitting, setShareSubmitting] = useState(false);
 
+  // Vendor payment
+  const [vendorPayment, setVendorPayment] = useState<VendorPayment | null>(null);
+  const [vendorPaymentLoading, setVendorPaymentLoading] = useState(false);
+  const [showCreateVendorPaymentModal, setShowCreateVendorPaymentModal] = useState(false);
+  const [vendorPaymentBaseAmount, setVendorPaymentBaseAmount] = useState('');
+  const [vendorPaymentInternalNotes, setVendorPaymentInternalNotes] = useState('');
+  const [creatingVendorPayment, setCreatingVendorPayment] = useState(false);
+  const [addAdjustmentType, setAddAdjustmentType] = useState<'increase' | 'decrease'>('increase');
+  const [addAdjustmentAmount, setAddAdjustmentAmount] = useState('');
+  const [addAdjustmentReason, setAddAdjustmentReason] = useState('');
+  const [addingAdjustment, setAddingAdjustment] = useState(false);
+  const [markingVendorPaid, setMarkingVendorPaid] = useState(false);
+
   // Inline edit mode
   const [editMode, setEditMode] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -186,6 +200,7 @@ export default function ViewWorkOrder() {
       setQuotes([]);
       setRelatedInvoices([]);
       setNotes([]);
+      setVendorPayment(null);
       setLoading(true);
       let woExists = false;
       try {
@@ -212,10 +227,11 @@ export default function ViewWorkOrder() {
       if (!woExists) return;
 
       try {
-        const [quotesSnapshot, invoicesSnapshot, notesSnapshot] = await Promise.all([
+        const [quotesSnapshot, invoicesSnapshot, notesSnapshot, vendorPaymentSnapshot] = await Promise.all([
           getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', id))),
           getDocs(query(collection(db, 'invoices'), where('workOrderId', '==', id))),
           getDocs(query(collection(db, 'workOrderNotes'), where('workOrderId', '==', id))),
+          getDocs(query(collection(db, 'vendorPayments'), where('workOrderId', '==', id))),
         ]);
 
         setQuotes(quotesSnapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Quote[]);
@@ -225,6 +241,9 @@ export default function ViewWorkOrder() {
             .map(d => ({ id: d.id, ...d.data() }))
             .sort((a: any, b: any) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
         );
+
+        const vpDoc = vendorPaymentSnapshot.docs[0];
+        setVendorPayment(vpDoc ? ({ id: vpDoc.id, ...vpDoc.data() } as VendorPayment) : null);
       } catch (error) {
         console.error('Error fetching related work order data:', error);
       }
@@ -232,6 +251,195 @@ export default function ViewWorkOrder() {
 
     fetchWorkOrder();
   }, [id]);
+
+  const canCreateVendorPayment = useMemo(() => {
+    if (!workOrder) return { ok: false, reason: 'Work order not loaded' };
+    if (!(workOrder.status === 'pending_invoice' || workOrder.status === 'completed')) {
+      return { ok: false, reason: 'Vendor payments can only be created when WO is Pending Invoice or Completed' };
+    }
+    const subId = workOrder.assignedSubcontractor || workOrder.assignedTo;
+    if (!subId) return { ok: false, reason: 'No subcontractor assigned to this work order' };
+    if (vendorPayment) return { ok: false, reason: 'Vendor payment already exists for this work order' };
+    return { ok: true, reason: '' };
+  }, [workOrder, vendorPayment]);
+
+  const preferredBaseQuote = useMemo(() => {
+    if (!quotes || quotes.length === 0) return null;
+    return quotes.find(q => q.status === 'accepted') || quotes[0] || null;
+  }, [quotes]);
+
+  const openCreateVendorPayment = () => {
+    if (!workOrder) return;
+    const defaultBase = preferredBaseQuote?.totalAmount ?? 0;
+    setVendorPaymentBaseAmount(String(defaultBase));
+    setVendorPaymentInternalNotes('');
+    setShowCreateVendorPaymentModal(true);
+  };
+
+  const refreshVendorPayment = async () => {
+    if (!id) return;
+    setVendorPaymentLoading(true);
+    try {
+      const snap = await getDocs(query(collection(db, 'vendorPayments'), where('workOrderId', '==', id)));
+      const vpDoc = snap.docs[0];
+      setVendorPayment(vpDoc ? ({ id: vpDoc.id, ...vpDoc.data() } as VendorPayment) : null);
+    } finally {
+      setVendorPaymentLoading(false);
+    }
+  };
+
+  const formatMoney = (amount: number, currency = 'USD') => {
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount || 0);
+    } catch {
+      return `$${(amount || 0).toFixed(2)}`;
+    }
+  };
+
+  const computeTotals = (baseAmount: number, adjustments: VendorPaymentAdjustment[]) => {
+    const adjustmentTotal = (adjustments || []).reduce((sum, a) => {
+      const signed = a.type === 'decrease' ? -Math.abs(a.amount) : Math.abs(a.amount);
+      return sum + signed;
+    }, 0);
+    const finalAmount = baseAmount + adjustmentTotal;
+    return { adjustmentTotal, finalAmount };
+  };
+
+  const handleCreateVendorPayment = async () => {
+    if (!workOrder) return;
+    if (!canCreateVendorPayment.ok) {
+      toast.error(canCreateVendorPayment.reason);
+      return;
+    }
+    const baseAmount = Number(vendorPaymentBaseAmount);
+    if (!Number.isFinite(baseAmount) || baseAmount < 0) {
+      toast.error('Base amount must be a valid number (0 or more).');
+      return;
+    }
+
+    setCreatingVendorPayment(true);
+    try {
+      const subcontractorId = workOrder.assignedSubcontractor || workOrder.assignedTo;
+      const subcontractorName = workOrder.assignedSubcontractorName || workOrder.assignedToName || 'Subcontractor';
+      const status: VendorPaymentStatus = 'created';
+      const adjustments: VendorPaymentAdjustment[] = [];
+      const { adjustmentTotal, finalAmount } = computeTotals(baseAmount, adjustments);
+
+      // Guard: one per work order
+      const existing = await getDocs(query(collection(db, 'vendorPayments'), where('workOrderId', '==', workOrder.id)));
+      if (existing.docs.length > 0) {
+        toast.error('Vendor payment already exists for this work order.');
+        setShowCreateVendorPaymentModal(false);
+        await refreshVendorPayment();
+        return;
+      }
+
+      const vpRef = await addDoc(collection(db, 'vendorPayments'), {
+        workOrderId: workOrder.id,
+        workOrderNumber: workOrder.workOrderNumber,
+        subcontractorId,
+        subcontractorName,
+        status,
+        currency: 'USD',
+        baseAmount,
+        adjustments,
+        adjustmentTotal,
+        finalAmount,
+        internalNotes: vendorPaymentInternalNotes || '',
+        sourceQuoteId: preferredBaseQuote?.id ?? null,
+        createdAt: serverTimestamp(),
+        createdBy: { uid: auth.currentUser?.uid ?? 'unknown', email: auth.currentUser?.email ?? '' },
+        updatedAt: serverTimestamp(),
+        updatedBy: { uid: auth.currentUser?.uid ?? 'unknown', email: auth.currentUser?.email ?? '' },
+      });
+
+      // Optional: back-reference on work order for convenience
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        vendorPaymentId: vpRef.id,
+        updatedAt: serverTimestamp(),
+      } as any);
+
+      toast.success('Vendor payment created.');
+      setShowCreateVendorPaymentModal(false);
+      await refreshVendorPayment();
+    } catch (err: any) {
+      console.error('Error creating vendor payment:', err);
+      toast.error(err?.message || 'Failed to create vendor payment');
+    } finally {
+      setCreatingVendorPayment(false);
+    }
+  };
+
+  const handleAddAdjustment = async () => {
+    if (!vendorPayment) return;
+    const amt = Number(addAdjustmentAmount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      toast.error('Adjustment amount must be greater than 0.');
+      return;
+    }
+    if (!addAdjustmentReason.trim()) {
+      toast.error('Please enter a reason for this adjustment.');
+      return;
+    }
+
+    const nextAdjustments: VendorPaymentAdjustment[] = [
+      ...(vendorPayment.adjustments || []),
+      {
+        id: (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        type: addAdjustmentType,
+        amount: Math.abs(amt),
+        reason: addAdjustmentReason.trim(),
+        createdAt: serverTimestamp() as any,
+        createdBy: { uid: auth.currentUser?.uid ?? 'unknown', email: auth.currentUser?.email ?? '', role: 'admin' },
+      },
+    ];
+
+    const { adjustmentTotal, finalAmount } = computeTotals(vendorPayment.baseAmount, nextAdjustments);
+    if (finalAmount < 0) {
+      toast.error('Final amount cannot be negative.');
+      return;
+    }
+
+    setAddingAdjustment(true);
+    try {
+      await updateDoc(doc(db, 'vendorPayments', vendorPayment.id), {
+        adjustments: nextAdjustments,
+        adjustmentTotal,
+        finalAmount,
+        updatedAt: serverTimestamp(),
+        updatedBy: { uid: auth.currentUser?.uid ?? 'unknown', email: auth.currentUser?.email ?? '' },
+      } as any);
+      toast.success('Adjustment added.');
+      setAddAdjustmentAmount('');
+      setAddAdjustmentReason('');
+      await refreshVendorPayment();
+    } catch (err: any) {
+      console.error('Error adding adjustment:', err);
+      toast.error(err?.message || 'Failed to add adjustment');
+    } finally {
+      setAddingAdjustment(false);
+    }
+  };
+
+  const handleMarkVendorPaid = async () => {
+    if (!vendorPayment) return;
+    if (vendorPayment.status === 'paid') return;
+    setMarkingVendorPaid(true);
+    try {
+      await updateDoc(doc(db, 'vendorPayments', vendorPayment.id), {
+        status: 'paid',
+        updatedAt: serverTimestamp(),
+        updatedBy: { uid: auth.currentUser?.uid ?? 'unknown', email: auth.currentUser?.email ?? '' },
+      } as any);
+      toast.success('Vendor payment marked as paid.');
+      await refreshVendorPayment();
+    } catch (err: any) {
+      console.error('Error marking vendor payment paid:', err);
+      toast.error(err?.message || 'Failed to mark as paid');
+    } finally {
+      setMarkingVendorPaid(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1103,6 +1311,7 @@ export default function ViewWorkOrder() {
     { key: 'attachments', label: `Attachments${(workOrder.images?.length ?? 0) + (workOrder.completionImages?.length ?? 0) > 0 ? ` (${(workOrder.images?.length ?? 0) + (workOrder.completionImages?.length ?? 0)})` : ''}`, icon: Paperclip },
     { key: 'quotes', label: `Quotes${quotes.length > 0 ? ` (${quotes.length})` : ''}`, icon: FileText },
     { key: 'invoices', label: `Invoices${relatedInvoices.length > 0 ? ` (${relatedInvoices.length})` : ''}`, icon: Receipt },
+    { key: 'vendor_payment', label: `Vendor Payment${vendorPayment ? ' (1)' : ''}`, icon: DollarSign },
   ];
 
   return (
@@ -1533,6 +1742,246 @@ export default function ViewWorkOrder() {
                     </CardContent>
                   </Card>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* VENDOR PAYMENT TAB */}
+          {activeTab === 'vendor_payment' && (
+            <div className="space-y-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-3">
+                  <div>
+                    <CardTitle>Vendor Payment</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Track subcontractor payout for this work order (base + adjustments).
+                    </p>
+                  </div>
+                  {!vendorPayment ? (
+                    <Button
+                      onClick={openCreateVendorPayment}
+                      disabled={!canCreateVendorPayment.ok || creatingVendorPayment}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Vendor Payment
+                    </Button>
+                  ) : (
+                    <Button
+                      variant={vendorPayment.status === 'paid' ? 'outline' : 'default'}
+                      onClick={handleMarkVendorPaid}
+                      disabled={vendorPayment.status === 'paid' || markingVendorPaid}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      {vendorPayment.status === 'paid' ? 'Paid' : (markingVendorPaid ? 'Marking…' : 'Mark as Paid')}
+                    </Button>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {vendorPaymentLoading ? (
+                    <div className="flex items-center justify-center h-24">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                    </div>
+                  ) : !vendorPayment ? (
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-border p-4 bg-muted/30">
+                        <div className="text-sm font-medium text-foreground">No vendor payment yet</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {canCreateVendorPayment.ok
+                            ? 'You can create a vendor payment for this work order now.'
+                            : canCreateVendorPayment.reason}
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Base amount defaults from the accepted quote (if available):{' '}
+                        <span className="font-medium text-foreground">
+                          {preferredBaseQuote ? formatMoney(preferredBaseQuote.totalAmount, 'USD') : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                          vendorPayment.status === 'paid'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-blue-50 text-blue-800 border-blue-200'
+                        }`}>
+                          {vendorPayment.status.toUpperCase()}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          Subcontractor: <span className="text-foreground font-medium">{vendorPayment.subcontractorName}</span>
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="rounded-xl border border-border p-4">
+                          <div className="text-xs text-muted-foreground">Base amount</div>
+                          <div className="text-lg font-bold">{formatMoney(vendorPayment.baseAmount, vendorPayment.currency)}</div>
+                        </div>
+                        <div className="rounded-xl border border-border p-4">
+                          <div className="text-xs text-muted-foreground">Adjustments total</div>
+                          <div className="text-lg font-bold">
+                            {formatMoney(vendorPayment.adjustmentTotal, vendorPayment.currency)}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-border p-4">
+                          <div className="text-xs text-muted-foreground">Final amount</div>
+                          <div className="text-lg font-bold">
+                            {formatMoney(vendorPayment.finalAmount, vendorPayment.currency)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="rounded-xl border border-border p-4">
+                          <div className="font-semibold mb-3">Add adjustment</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                              <Label>Type</Label>
+                              <select
+                                className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                                value={addAdjustmentType}
+                                onChange={(e) => setAddAdjustmentType(e.target.value as any)}
+                              >
+                                <option value="increase">Increase</option>
+                                <option value="decrease">Decrease</option>
+                              </select>
+                            </div>
+                            <div>
+                              <Label>Amount</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={addAdjustmentAmount}
+                                onChange={(e) => setAddAdjustmentAmount(e.target.value)}
+                                onWheel={(e) => e.currentTarget.blur()}
+                                placeholder="e.g. 50"
+                                className="mt-1"
+                              />
+                            </div>
+                            <div className="sm:col-span-3">
+                              <Label>Reason</Label>
+                              <Textarea
+                                value={addAdjustmentReason}
+                                onChange={(e) => setAddAdjustmentReason(e.target.value)}
+                                placeholder="Why are we adjusting the base amount?"
+                                className="mt-1 min-h-[80px]"
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <Button onClick={handleAddAdjustment} disabled={addingAdjustment}>
+                              <Plus className="h-4 w-4 mr-2" />
+                              {addingAdjustment ? 'Adding…' : 'Add adjustment'}
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-border p-4">
+                          <div className="font-semibold mb-3">Adjustments history</div>
+                          {(!vendorPayment.adjustments || vendorPayment.adjustments.length === 0) ? (
+                            <div className="text-sm text-muted-foreground">No adjustments yet.</div>
+                          ) : (
+                            <div className="space-y-2">
+                              {vendorPayment.adjustments.slice().reverse().map((a) => {
+                                const signed = a.type === 'decrease' ? -Math.abs(a.amount) : Math.abs(a.amount);
+                                const badgeClass =
+                                  a.type === 'decrease'
+                                    ? 'bg-red-50 text-red-800 border-red-200'
+                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                                const createdLabel =
+                                  (a as any).createdAt?.toDate?.().toLocaleString?.() || '';
+                                return (
+                                  <div key={a.id} className="rounded-lg border border-border p-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-medium text-foreground truncate">{a.reason}</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">
+                                          {createdLabel}
+                                        </div>
+                                      </div>
+                                      <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
+                                        {signed >= 0 ? '+' : '−'}{formatMoney(Math.abs(signed), vendorPayment.currency)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Create Vendor Payment Modal */}
+          {showCreateVendorPaymentModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-card rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+                <div className="p-6 border-b flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">Create Vendor Payment</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Base amount defaults from the accepted quote (if available). You can override it.
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setShowCreateVendorPaymentModal(false)} disabled={creatingVendorPayment}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label>Work order</Label>
+                      <div className="mt-1 text-sm font-medium">WO #{workOrder.workOrderNumber}</div>
+                    </div>
+                    <div>
+                      <Label>Subcontractor</Label>
+                      <div className="mt-1 text-sm font-medium">
+                        {workOrder.assignedSubcontractorName || workOrder.assignedToName || '—'}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Base amount</Label>
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={vendorPaymentBaseAmount}
+                      onChange={(e) => setVendorPaymentBaseAmount(e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="e.g. 250"
+                    />
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Quote default: {preferredBaseQuote ? formatMoney(preferredBaseQuote.totalAmount, 'USD') : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Internal notes (admin only)</Label>
+                    <Textarea
+                      className="mt-1 min-h-[90px]"
+                      value={vendorPaymentInternalNotes}
+                      onChange={(e) => setVendorPaymentInternalNotes(e.target.value)}
+                      placeholder="Optional internal context for accounting…"
+                    />
+                  </div>
+                </div>
+                <div className="p-6 border-t flex items-center justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowCreateVendorPaymentModal(false)} disabled={creatingVendorPayment}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateVendorPayment} disabled={creatingVendorPayment}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    {creatingVendorPayment ? 'Creating…' : 'Create'}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
