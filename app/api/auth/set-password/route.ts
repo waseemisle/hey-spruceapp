@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
 import { collection, query, where, limit, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 
@@ -33,6 +32,7 @@ export async function POST(request: NextRequest) {
       role?: string;
       fullName?: string;
       phone?: string;
+      tempPassword?: string;
       timestamp?: number;
       type?: string;
     };
@@ -47,9 +47,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, uid, role } = decoded;
+    const { email, uid, role, tempPassword } = decoded;
 
-    if (!email || !uid) {
+    if (!email) {
       return NextResponse.json(
         { error: 'Invalid setup link. Please request a new invitation.' },
         { status: 400 }
@@ -72,30 +72,81 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use Admin SDK to update password directly — no tempPassword sign-in needed
-    try {
-      const adminAuth = getAdminAuth();
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Firebase API key not configured.' },
+        { status: 500 }
+      );
+    }
 
-      // Verify the uid belongs to the expected email
-      const userRecord = await adminAuth.getUser(uid);
-      if (userRecord.email?.toLowerCase() !== email.toLowerCase()) {
+    if (!tempPassword) {
+      return NextResponse.json(
+        { error: 'Invalid setup link (missing credentials). Please request a new invitation.' },
+        { status: 400 }
+      );
+    }
+
+    // Sign in with the temporary password embedded in the token to get an idToken,
+    // then use that idToken to update the user's password — no Admin SDK required.
+    let idToken: string;
+    try {
+      const signInRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: tempPassword, returnSecureToken: true }),
+        }
+      );
+
+      if (!signInRes.ok) {
+        const errData = await signInRes.json();
+        console.error('Sign-in with temp password failed:', errData);
         return NextResponse.json(
-          { error: 'Invalid setup link. Please request a new invitation.' },
+          { error: 'This invitation link has already been used or is invalid. Please request a new invitation.' },
           { status: 400 }
         );
       }
 
-      await adminAuth.updateUser(uid, { password: newPassword });
-    } catch (authErr: any) {
-      console.error('Admin SDK updateUser failed:', authErr);
+      const signInData = await signInRes.json();
+      idToken = signInData.idToken;
+    } catch (err) {
+      console.error('Sign-in request failed:', err);
+      return NextResponse.json(
+        { error: 'Failed to verify invitation. Please request a new invitation.' },
+        { status: 500 }
+      );
+    }
+
+    // Update the password using the idToken
+    try {
+      const updateRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken, password: newPassword, returnSecureToken: true }),
+        }
+      );
+
+      if (!updateRes.ok) {
+        const errData = await updateRes.json();
+        console.error('Password update failed:', errData);
+        return NextResponse.json(
+          { error: 'Failed to update password. Please try again or request a new invitation.' },
+          { status: 500 }
+        );
+      }
+    } catch (err) {
+      console.error('Password update request failed:', err);
       return NextResponse.json(
         { error: 'Failed to update password. Please request a new invitation.' },
         { status: 500 }
       );
     }
 
-    // Update Firestore document via server-side client SDK (getServerDb works in production;
-    // Admin Firestore SDK requires a service account cert which may not be configured).
+    // Update Firestore document via server-side client SDK.
     // Query by email so we find the correct document even if the doc ID has drifted
     // from the Firebase Auth UID (e.g. after account recreation).
     try {
@@ -114,7 +165,7 @@ export async function POST(request: NextRequest) {
           passwordSetAt: new Date(),
           updatedAt: new Date(),
         });
-      } else {
+      } else if (uid) {
         // Fallback: create document keyed by uid
         await setDoc(doc(db, collectionName, uid), {
           email,

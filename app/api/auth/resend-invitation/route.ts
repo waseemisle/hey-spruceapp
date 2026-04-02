@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-import { doc, getDoc, updateDoc, collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
-import { getAdminAuth } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
@@ -19,6 +18,11 @@ export async function POST(request: NextRequest) {
 
     if (!email || !role || !uid) {
       return NextResponse.json({ error: 'email, role, and uid are required' }, { status: 400 });
+    }
+
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Firebase API key not configured.' }, { status: 500 });
     }
 
     const roleTitle =
@@ -41,31 +45,84 @@ export async function POST(request: NextRequest) {
     const userData = userSnap.data();
     const name = fullName || userData?.fullName || 'there';
 
-    // Generate a fresh placeholder temp password for the token payload.
-    const tempPassword =
+    // Generate a fresh temp password for the new invitation token.
+    const newTempPassword =
       Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
-    // Ensure the Firebase Auth user exists with the correct uid via Admin SDK.
-    // If it has been deleted or never properly created, recreate it with the SAME uid
-    // so portal-login (which looks up Firestore by user.uid) keeps working.
-    const adminAuth = getAdminAuth();
-    try {
-      await adminAuth.updateUser(uid, { password: tempPassword, email });
-    } catch (authErr: any) {
-      if (authErr.code === 'auth/user-not-found') {
-        // Recreate with the exact same uid so Firestore doc ID stays in sync
-        await adminAuth.createUser({ uid, email, password: tempPassword });
-      } else {
-        throw authErr;
+    // Update the Firebase Auth user's password to the new tempPassword using REST API.
+    // We try available stored credentials in order: the invitation temp password,
+    // then the user's actual password (if they had previously set one).
+    // If neither works (user may not exist in Auth), we create them fresh.
+    let authUpdated = false;
+
+    const storedTempPw: string = userData?.invitationTempPassword || '';
+    const storedPassword: string = userData?.password || '';
+
+    for (const tryPw of [storedTempPw, storedPassword].filter(Boolean)) {
+      try {
+        const signInRes = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password: tryPw, returnSecureToken: true }),
+          }
+        );
+
+        if (signInRes.ok) {
+          const { idToken } = await signInRes.json();
+          const updateRes = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ idToken, password: newTempPassword }),
+            }
+          );
+          if (updateRes.ok) {
+            authUpdated = true;
+            break;
+          }
+        }
+      } catch {
+        // try next credential
       }
     }
 
-    // Build a fresh token with a new timestamp (gives the user a fresh 24-hour window).
+    if (!authUpdated) {
+      // User doesn't exist in Firebase Auth (or no stored credentials match) — create them.
+      const signUpRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: newTempPassword, returnSecureToken: true }),
+        }
+      );
+
+      const signUpData = await signUpRes.json();
+
+      if (signUpRes.ok) {
+        authUpdated = true;
+      } else if (signUpData.error?.message === 'EMAIL_EXISTS') {
+        // User exists in Auth but none of our stored credentials work.
+        // This can happen if their password was changed outside our system.
+        // Return a clear error so the admin knows to have the user use "forgot password".
+        return NextResponse.json(
+          { error: 'Unable to reset credentials for this user. Please ask them to use the "Forgot Password" flow or contact support.' },
+          { status: 409 }
+        );
+      } else {
+        throw new Error(signUpData.error?.message || 'Failed to create Firebase Auth user');
+      }
+    }
+
+    // Build a fresh token with the new tempPassword and a new timestamp (fresh 24-hour window).
     const freshToken = Buffer.from(
       JSON.stringify({
         email,
         uid,
-        tempPassword,
+        tempPassword: newTempPassword,
         role,
         fullName: name,
         timestamp: Date.now(),
@@ -73,11 +130,11 @@ export async function POST(request: NextRequest) {
       })
     ).toString('base64url');
 
-    // Persist the new token back to Firestore
+    // Persist the new token and tempPassword back to Firestore
     try {
       await updateDoc(doc(db, collectionName, uid), {
         userinviteemailid: freshToken,
-        invitationTempPassword: tempPassword,
+        invitationTempPassword: newTempPassword,
       });
     } catch (updateErr) {
       console.warn('Could not update userinviteemailid in Firestore:', updateErr);
