@@ -189,6 +189,7 @@ export interface SearchableMultiSelectProps {
   className?: string;
   emptyMessage?: string;
   noMoreMessage?: string;
+  allowFreeText?: boolean;
 }
 
 export function SearchableMultiSelect({
@@ -201,6 +202,7 @@ export function SearchableMultiSelect({
   className,
   emptyMessage = 'No results',
   noMoreMessage = 'No more options available',
+  allowFreeText = false,
 }: SearchableMultiSelectProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -288,9 +290,13 @@ export function SearchableMultiSelect({
             if (e.key === 'Escape') {
               setOpen(false);
               inputRef.current?.blur();
-            } else if (e.key === 'Enter' && filtered.length > 0) {
+            } else if (e.key === 'Enter') {
               e.preventDefault();
-              toggle(filtered[0].value);
+              if (filtered.length > 0) {
+                toggle(filtered[0].value);
+              } else if (allowFreeText && searchQuery.trim() && !values.includes(searchQuery.trim())) {
+                toggle(searchQuery.trim());
+              }
             }
           }}
           className="flex-1 min-w-[150px] outline-none text-sm bg-transparent"
@@ -312,24 +318,38 @@ export function SearchableMultiSelect({
       {open && !disabled && (
         <div className={PANEL}>
           <div className="p-1">
-            {filtered.length === 0 ? (
+            {filtered.length === 0 && !(allowFreeText && searchQuery.trim() && !values.includes(searchQuery.trim())) ? (
               <div className="px-3 py-3 text-sm text-muted-foreground text-center">
                 {searchQuery.trim() ? emptyMessage : noMoreMessage}
               </div>
             ) : (
-              filtered.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggle(opt.value);
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded-lg flex items-center justify-between transition-colors"
-                >
-                  {opt.label}
-                </button>
-              ))
+              <>
+                {filtered.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggle(opt.value);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded-lg flex items-center justify-between transition-colors"
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+                {allowFreeText && searchQuery.trim() && !values.includes(searchQuery.trim()) && !filtered.some((o) => o.label.toLowerCase() === searchQuery.trim().toLowerCase()) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggle(searchQuery.trim());
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded-lg flex items-center gap-1 text-blue-600 transition-colors"
+                  >
+                    <span className="font-medium">+ Add</span> &ldquo;{searchQuery.trim()}&rdquo;
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

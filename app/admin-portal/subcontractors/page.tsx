@@ -739,10 +739,11 @@ export default function SubcontractorsManagement() {
                       values={selectedSkills}
                       onValuesChange={setSelectedSkills}
                       options={categories.map((c) => ({ value: c.name, label: c.name }))}
-                      placeholder="Type to search skills..."
+                      placeholder="Type to search or add skills..."
                       addMorePlaceholder="Add more..."
                       emptyMessage="No categories found"
                       noMoreMessage="No more categories available"
+                      allowFreeText
                     />
                   </div>
                 </div>
