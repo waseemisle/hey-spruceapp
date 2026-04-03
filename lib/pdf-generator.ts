@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { SPRUCE_LOGO_BASE64 } from './logo-base64';
 
-interface InvoiceData {
+export interface InvoiceData {
   invoiceNumber: string;
   clientName: string;
   clientEmail: string;

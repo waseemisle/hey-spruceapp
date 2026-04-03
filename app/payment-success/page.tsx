@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, ArrowLeft, Receipt, Download } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import type { InvoiceData } from '@/lib/pdf-generator';
 
 interface PaymentDetails {
   amount: number;
@@ -16,11 +18,69 @@ interface PaymentDetails {
   paidAt: string;
 }
 
+function formatDueDateForPdf(value: unknown): string {
+  if (value == null || value === '') return new Date().toLocaleDateString();
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? new Date().toLocaleDateString() : d.toLocaleDateString();
+}
+
+/** Build PDF payload from Firestore/API invoice fields (used for receipt download). */
+function mapApiInvoiceToPdfData(
+  inv: Record<string, unknown>,
+  stripeSessionId: string | null
+): InvoiceData {
+  const total = Number(inv.totalAmount ?? inv.amount ?? 0) || 0;
+  const rawItems = Array.isArray(inv.lineItems) ? inv.lineItems : [];
+  let lineItems = rawItems.map((li: unknown) => {
+    const row = li as Record<string, unknown>;
+    const qty = Number(row.quantity) || 1;
+    const unit = Number(row.unitPrice ?? row.rate ?? 0) || 0;
+    const amount =
+      Number(row.amount) || (Number.isFinite(qty * unit) ? qty * unit : 0);
+    return {
+      description: String(row.description ?? 'Item'),
+      quantity: qty,
+      unitPrice: unit,
+      amount,
+    };
+  });
+  if (lineItems.length === 0) {
+    const title = inv.workOrderTitle ? String(inv.workOrderTitle) : 'Payment received';
+    lineItems = [{ description: title, quantity: 1, unitPrice: total, amount: total }];
+  }
+  const subtotalFromLines = lineItems.reduce((s, li) => s + li.amount, 0);
+  const subtotal = Number(inv.subtotal) || subtotalFromLines || total;
+  const discountAmount = Number(inv.discountAmount) || 0;
+  const baseNotes = inv.notes != null ? String(inv.notes) : '';
+  const txnNote = stripeSessionId ? `Stripe checkout session: ${stripeSessionId}` : '';
+  const notes = [baseNotes, txnNote].filter(Boolean).join('\n\n') || undefined;
+
+  return {
+    invoiceNumber: String(inv.invoiceNumber ?? 'RECEIPT'),
+    clientName: String(inv.clientName ?? 'Customer'),
+    clientEmail: String(inv.clientEmail ?? ''),
+    workOrderName: inv.workOrderTitle ? String(inv.workOrderTitle) : undefined,
+    vendorName: inv.subcontractorName ? String(inv.subcontractorName) : undefined,
+    serviceDescription: inv.workOrderDescription
+      ? String(inv.workOrderDescription)
+      : undefined,
+    lineItems,
+    subtotal,
+    discountAmount,
+    totalAmount: total,
+    dueDate: formatDueDateForPdf(inv.dueDate),
+    notes,
+    terms: inv.terms != null ? String(inv.terms) : undefined,
+  };
+}
+
 function PaymentSuccessContent() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
+  const [invoiceRecord, setInvoiceRecord] = useState<Record<string, unknown> | null>(null);
+  const [receiptDownloading, setReceiptDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -48,6 +108,7 @@ function PaymentSuccessContent() {
       if (response.ok) {
         const result = await response.json();
         const invoice = result.data ?? result;
+        setInvoiceRecord(invoice as Record<string, unknown>);
         setPaymentDetails({
           amount: Number(invoice.totalAmount ?? invoice.amount ?? 0) || 0,
           currency: 'USD',
@@ -57,6 +118,7 @@ function PaymentSuccessContent() {
           paidAt: invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString() : new Date().toLocaleDateString(),
         });
       } else {
+        setInvoiceRecord(null);
         // Fallback to basic details if API fails
         setPaymentDetails({
           amount: 0,
@@ -69,6 +131,7 @@ function PaymentSuccessContent() {
       }
     } catch (error) {
       console.error('Error fetching payment details:', error);
+      setInvoiceRecord(null);
       setError('Unable to load payment details');
       // Set fallback details
       setPaymentDetails({
@@ -90,9 +153,32 @@ function PaymentSuccessContent() {
     router.push('/');
   };
 
-  const handleDownloadReceipt = () => {
-    // Implement receipt download functionality
-    console.log('Download receipt for session:', sessionId);
+  const handleDownloadReceipt = async () => {
+    if (!invoiceId) {
+      toast.error('Receipt is unavailable without an invoice reference.');
+      return;
+    }
+    setReceiptDownloading(true);
+    try {
+      let inv = invoiceRecord;
+      if (!inv) {
+        const response = await fetch(`/api/invoices/${invoiceId}`);
+        if (!response.ok) throw new Error('Invoice could not be loaded');
+        const result = await response.json();
+        inv = (result.data ?? result) as Record<string, unknown>;
+      }
+      const { generateInvoicePDF } = await import('@/lib/pdf-generator');
+      const payload = mapApiInvoiceToPdfData(inv, sessionId);
+      const doc = generateInvoicePDF(payload);
+      const safeName = String(payload.invoiceNumber).replace(/[^\w.-]+/g, '_');
+      doc.save(`receipt_${safeName}.pdf`);
+      toast.success('Receipt downloaded');
+    } catch (e) {
+      console.error('Receipt download failed:', e);
+      toast.error('Could not download receipt. Use the copy from your email or try again later.');
+    } finally {
+      setReceiptDownloading(false);
+    }
   };
 
   if (loading) {
@@ -108,7 +194,7 @@ function PaymentSuccessContent() {
 
   return (
     <div className="min-h-screen bg-muted flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-green-100 p-3 rounded-full">
@@ -126,9 +212,15 @@ function PaymentSuccessContent() {
             </p>
             
             {sessionId && (
-              <div className="bg-muted p-3 rounded-lg mb-4">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Transaction ID:</strong> {sessionId}
+              <div className="mb-4 rounded-lg border border-border bg-muted/50 p-3 text-left">
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Transaction ID
+                </p>
+                <p
+                  className="select-all break-all font-mono text-[11px] leading-relaxed text-foreground sm:text-xs"
+                  title={sessionId}
+                >
+                  {sessionId}
                 </p>
               </div>
             )}
@@ -179,13 +271,14 @@ function PaymentSuccessContent() {
               Back to Portal
             </Button>
             
-            <Button 
+            <Button
               variant="outline"
               onClick={handleDownloadReceipt}
               className="w-full"
+              disabled={!invoiceId || receiptDownloading}
             >
               <Download className="h-4 w-4 mr-2" />
-              Download Receipt
+              {receiptDownloading ? 'Preparing…' : 'Download Receipt'}
             </Button>
             
             <Link href="/portal-login" className="block">

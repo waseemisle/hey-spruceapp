@@ -75,11 +75,35 @@ describe('PaymentSuccess Page', () => {
     });
   });
 
-  it('displays loading state initially', () => {
-    mockGet.mockReturnValue(null);
+  it('shows processing state while invoice details are loading', async () => {
+    mockGet.mockImplementation((key: string) =>
+      key === 'invoice_id' ? 'invoice_123' : null
+    );
+
+    let releaseJson: (value: unknown) => void;
+    const jsonPromise = new Promise<unknown>((resolve) => {
+      releaseJson = resolve;
+    });
+    (global.fetch as jest.Mock).mockReturnValue(
+      Promise.resolve({
+        ok: true,
+        json: () => jsonPromise,
+      })
+    );
 
     render(<PaymentSuccess />);
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.getByText('Processing your payment...')).toBeInTheDocument();
+
+    releaseJson!({
+      totalAmount: 100.0,
+      invoiceNumber: 'INV-001',
+      clientName: 'Test Client',
+      paidAt: new Date().toISOString(),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Payment Successful!')).toBeInTheDocument();
+    });
   });
 });
