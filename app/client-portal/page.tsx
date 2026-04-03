@@ -77,11 +77,22 @@ export default function ClientDashboard() {
           const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
           const clientData = clientDoc.data();
           const locations = clientData?.assignedLocations || [];
+          const peerCompanyId = clientData?.companyId as string | undefined;
           setAssignedLocations(locations);
 
           // Fetch initial dashboard data using the freshly loaded locations
+          const recalcWorkOrders = () =>
+            calculateWorkOrdersData(
+              'client',
+              currentUser.uid,
+              locations,
+              db,
+              undefined,
+              peerCompanyId
+            );
+
           const [workOrders, proposals, invoices] = await Promise.all([
-            calculateWorkOrdersData('client', currentUser.uid, locations, db),
+            recalcWorkOrders(),
             calculateProposalsData('client', currentUser.uid, db),
             calculateInvoicesData('client', currentUser.uid, db),
           ]);
@@ -89,16 +100,37 @@ export default function ClientDashboard() {
           setProposalsData(proposals);
           setInvoicesData(invoices);
 
-          // Set up real-time listeners — constrained to client's own data to satisfy Firestore rules
-          unsubscribeWorkOrders = onSnapshot(
-            query(collection(db, 'workOrders'), where('clientId', '==', currentUser.uid)),
-            async () => {
-              const updated = await calculateWorkOrdersData('client', currentUser.uid, locations, db);
-              setWorkOrdersData(updated);
-            }, (error) => {
-              console.error('Work orders listener error:', error);
-            }
+          const refreshWorkOrders = async () => {
+            const updated = await recalcWorkOrders();
+            setWorkOrdersData(updated);
+          };
+
+          const workOrderUnsubs: (() => void)[] = [];
+          workOrderUnsubs.push(
+            onSnapshot(
+              query(collection(db, 'workOrders'), where('clientId', '==', currentUser.uid)),
+              () => {
+                void refreshWorkOrders();
+              },
+              (error) => {
+                console.error('Work orders listener error:', error);
+              }
+            )
           );
+          if (peerCompanyId && locations.length > 0) {
+            workOrderUnsubs.push(
+              onSnapshot(
+                query(collection(db, 'workOrders'), where('companyId', '==', peerCompanyId)),
+                () => {
+                  void refreshWorkOrders();
+                },
+                (error) => {
+                  console.error('Work orders (company) listener error:', error);
+                }
+              )
+            );
+          }
+          unsubscribeWorkOrders = () => workOrderUnsubs.forEach((u) => u());
 
           unsubscribeQuotes = onSnapshot(
             query(collection(db, 'quotes'), where('clientId', '==', currentUser.uid)),

@@ -20,6 +20,7 @@ interface WorkOrder {
   id: string;
   workOrderNumber?: string;
   clientId: string;
+  companyId?: string;
   clientName: string;
   locationId: string;
   locationName: string;
@@ -128,6 +129,7 @@ function ClientWorkOrdersContent() {
           const clientDoc = await getDoc(doc(db, 'clients', user.uid));
           const clientData = clientDoc.data();
           const assignedLocations = clientData?.assignedLocations || [];
+          const clientCompanyId = clientData?.companyId as string | undefined;
 
           // Check for Approve/Reject Order permission
           const hasApprovePermission = clientData?.permissions?.approveRejectOrder === true;
@@ -218,6 +220,46 @@ function ClientWorkOrdersContent() {
               }
             );
             unsubscribes.push(clientIdUnsubscribe);
+
+            // Same-company work orders at locations this user can access (created by coworkers or admin).
+            // Firestore rules allow read when clients/{uid}.companyId matches workOrder.companyId.
+            if (clientCompanyId) {
+              const assignedSet = new Set(assignedLocations);
+              const companyWorkOrdersQuery = query(
+                collection(db, 'workOrders'),
+                where('companyId', '==', clientCompanyId),
+                orderBy('createdAt', 'desc')
+              );
+              const companyUnsubscribe = onSnapshot(
+                companyWorkOrdersQuery,
+                (snapshot) => {
+                  const companyWos = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                  })) as WorkOrder[];
+                  const filtered = companyWos.filter(
+                    wo => wo.locationId && assignedSet.has(wo.locationId)
+                  );
+                  setWorkOrders(prev => {
+                    const withoutPeersAtSharedLocs = prev.filter(wo => {
+                      if (wo.clientId === user.uid) return true;
+                      if (!clientCompanyId || wo.companyId !== clientCompanyId) return true;
+                      if (!wo.locationId || !assignedSet.has(wo.locationId)) return true;
+                      return false;
+                    });
+                    return mergeAndSort(withoutPeersAtSharedLocs, filtered);
+                  });
+                  setLoading(false);
+                },
+                (error: any) => {
+                  if (!error?.code?.includes('permission-denied')) {
+                    console.error('Error fetching work orders by companyId:', error);
+                  }
+                  setLoading(false);
+                }
+              );
+              unsubscribes.push(companyUnsubscribe);
+            }
 
             unsubscribeWorkOrders = () => {
               unsubscribes.forEach(unsub => unsub());

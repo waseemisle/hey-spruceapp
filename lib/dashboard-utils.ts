@@ -7,7 +7,9 @@ export async function calculateWorkOrdersData(
   userId?: string,
   assignedLocations?: string[],
   db?: Firestore,
-  companyId?: string
+  companyId?: string,
+  /** When portalType is client: fetch same-company work orders at assigned locations (coworker visibility). */
+  clientPeerCompanyId?: string
 ) {
   const dbInstance = db || defaultDb;
   if (!dbInstance) return getEmptyWorkOrdersData();
@@ -47,6 +49,25 @@ export async function calculateWorkOrdersData(
         );
         const clientIdSnapshot = await getDocs(workOrdersQuery);
         clientIdSnapshot.docs.forEach(d => byId.set(d.id, { id: d.id, ...d.data() }));
+
+        if (clientPeerCompanyId) {
+          try {
+            const peerQuery = query(
+              collection(dbInstance, 'workOrders'),
+              where('companyId', '==', clientPeerCompanyId)
+            );
+            const peerSnap = await getDocs(peerQuery);
+            const assignedSet = new Set(assignedLocations);
+            peerSnap.docs.forEach(d => {
+              const data = d.data();
+              if (data.locationId && assignedSet.has(data.locationId)) {
+                byId.set(d.id, { id: d.id, ...data });
+              }
+            });
+          } catch {
+            // Permission denied or query unsupported — location + clientId paths still apply
+          }
+        }
 
         const allWorkOrders = Array.from(byId.values());
         return processWorkOrdersData(allWorkOrders);

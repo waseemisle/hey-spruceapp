@@ -26,6 +26,7 @@ interface WorkOrder {
   scheduledServiceTime?: string;
   category: string;
   clientId: string;
+  companyId?: string;
 }
 
 interface CalendarEvent {
@@ -69,6 +70,7 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
         const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
         const clientData = clientDoc.data();
         const assignedLocations = clientData?.assignedLocations || [];
+        const clientCompanyId = clientData?.companyId as string | undefined;
 
         if (assignedLocations.length > 0) {
           // Firestore 'in' query limited to 10 items, so we need to batch
@@ -126,6 +128,34 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
             });
 
             unsubscribes.push(unsubscribeWO, unsubscribeRWO);
+          }
+
+          if (clientCompanyId) {
+            const assignedSet = new Set(assignedLocations);
+            const companyWorkOrdersQuery = query(
+              collection(db, 'workOrders'),
+              where('companyId', '==', clientCompanyId)
+            );
+            const unsubscribeCompanyWO = onSnapshot(companyWorkOrdersQuery, (snapshot) => {
+              const companyWos = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+              })) as WorkOrder[];
+              const filtered = companyWos.filter(
+                wo => wo.locationId && assignedSet.has(wo.locationId)
+              );
+              setWorkOrders(prev => {
+                const withoutPeersAtSharedLocs = prev.filter(wo => {
+                  if (wo.clientId === currentUser.uid) return true;
+                  if (!clientCompanyId || wo.companyId !== clientCompanyId) return true;
+                  if (!wo.locationId || !assignedSet.has(wo.locationId)) return true;
+                  return false;
+                });
+                const combined = [...withoutPeersAtSharedLocs, ...filtered];
+                return Array.from(new Map(combined.map(wo => [wo.id, wo])).values());
+              });
+            });
+            unsubscribes.push(unsubscribeCompanyWO);
           }
 
           unsubscribeWorkOrders = () => {
