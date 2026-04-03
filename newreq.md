@@ -12,6 +12,8 @@ This is a comprehensive update to the GroundOps app ? facility maintenance and w
 - **Email**: Resend API
 - **Payment**: Stripe
 
+
+
 ## Current Data Structure
 
 ### Collections in Firebase:
