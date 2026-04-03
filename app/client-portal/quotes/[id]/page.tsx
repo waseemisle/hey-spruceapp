@@ -192,6 +192,26 @@ export default function QuoteDetail() {
               console.error('Failed to send assignment email:', emailError);
             }
 
+            // Notify admins that quote was approved and work order assigned
+            try {
+              await fetch('/api/email/send-quote-approval-admin-notification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  workOrderId: workOrderData.workOrderId,
+                  workOrderNumber: workOrderData.workOrderNumber,
+                  workOrderTitle: quote.workOrderTitle,
+                  clientName: quote.clientName,
+                  subcontractorName: quote.subcontractorName,
+                  quoteAmount: quote.clientAmount || quote.totalAmount,
+                  locationName: workOrderData.locationName,
+                  locationAddress: workOrderData.locationAddress,
+                }),
+              });
+            } catch (adminEmailError) {
+              console.error('Failed to send admin quote approval notification:', adminEmailError);
+            }
+
             toast.success('Quote accepted! Work order automatically assigned to subcontractor.');
             router.push('/client-portal/quotes');
           } catch (error) {
