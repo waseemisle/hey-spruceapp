@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { createTimelineEvent } from '@/lib/timeline';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 import Stripe from 'stripe';
 import { generateInvoicePDF, getInvoicePDFBase64, getWorkOrderPDFBase64 } from '@/lib/pdf-generator';
 
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     try {
       // Generate invoice PDF
       const invoiceData = {
-        invoiceNumber: `${recurringWorkOrder.workOrderNumber}-${executionNumber}`,
+        invoiceNumber: generateInvoiceNumber(),
         clientName: recurringWorkOrder.clientName,
         clientEmail: recurringWorkOrder.clientEmail,
         clientAddress: recurringWorkOrder.clientAddress,

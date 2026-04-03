@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { doc, getDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 
 /**
  * Test endpoint: fires an auto-charge receipt email to the specified client.
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       clientEmail: clientData.email,
       clientName: clientData.fullName || clientData.companyName || 'Test Client',
       amount: clientData.subscriptionAmount || 300,
-      invoiceNumber: `SPRUCE-SUB-TEST-${Date.now().toString().slice(-6)}`,
+      invoiceNumber: generateInvoiceNumber(),
       chargedAt: new Date(),
       cardBrand: defaultCard?.brand || 'visa',
       cardLast4: defaultCard?.last4 || '4242',

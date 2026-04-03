@@ -18,6 +18,7 @@ import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { Quote } from '@/types';
 import { toast } from 'sonner';
 import { notifyClientOfInvoice } from '@/lib/notifications';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 
 interface Invoice {
   id: string;
@@ -184,7 +185,7 @@ function InvoicesManagementInner() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
-      const invoiceNumber = `SPRUCE-${Date.now().toString().slice(-8).toUpperCase()}`;
+      const invoiceNumber = generateInvoiceNumber();
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30); // 30 days from now
 

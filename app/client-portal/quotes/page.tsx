@@ -135,6 +135,9 @@ export default function ClientQuotes() {
                   if (!quote.workOrderId) return true;
                   const workOrder = workOrdersMap.get(quote.workOrderId);
                   if (!workOrder) return true;
+                  // If the work order is directly owned by this client, always include it.
+                  // Location filtering is only for company-member access scoping.
+                  if (workOrder.clientId === user.uid) return true;
                   return clientAssignedLocations.includes(workOrder.locationId);
                 });
 

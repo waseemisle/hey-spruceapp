@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Save, Plus, Trash2, Receipt, ChevronDown, Search, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -290,7 +291,7 @@ function CreateInvoiceContent() {
       const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
       const createdByName = adminDoc.exists() ? (adminDoc.data().fullName ?? 'Admin') : 'Admin';
 
-      const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
+      const invoiceNumber = generateInvoiceNumber();
 
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,

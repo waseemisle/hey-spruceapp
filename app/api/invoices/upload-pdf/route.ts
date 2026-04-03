@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { collection, addDoc, serverTimestamp, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,8 +39,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Generate invoice number
-    const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
+    const invoiceNumber = generateInvoiceNumber();
 
     // Create due date (30 days from now)
     const dueDate = new Date();

@@ -13,6 +13,7 @@ import { Calendar, Play, Trash2, ToggleLeft, ToggleRight, Edit2, Save, X, Search
 import { toast } from 'sonner';
 import { getInvoicePDFBase64 } from '@/lib/pdf-generator';
 import { useViewControls } from '@/contexts/view-controls-context';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 
 interface LineItem {
   description: string;
@@ -211,7 +212,7 @@ export default function ScheduledInvoicesManagement() {
     setExecuting(schedule.id);
     try {
       // Step 1: Create invoice in database
-      const invoiceNumber = `SPRUCE-${Date.now().toString().slice(-8).toUpperCase()}`;
+      const invoiceNumber = generateInvoiceNumber();
       const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       // Use line items if available, otherwise create a single line item from description

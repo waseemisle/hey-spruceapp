@@ -4,6 +4,7 @@ import { collection, doc, addDoc, getDoc, updateDoc, serverTimestamp, Timestamp 
 import { getServerDb } from '@/lib/firebase-server';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -357,7 +358,7 @@ async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
     const clientData = clientDoc.data();
 
     const amount = stripeInvoice.amount_paid / 100; // Stripe amounts are in cents
-    const invoiceNumber = `SPRUCE-SUB-${Date.now().toString().slice(-8).toUpperCase()}`;
+    const invoiceNumber = generateInvoiceNumber();
 
     const stripePaymentIntentId = typeof stripeInvoice.payment_intent === 'string'
       ? stripeInvoice.payment_intent

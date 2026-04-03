@@ -21,6 +21,7 @@ import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 import { notifyBiddingOpportunity, notifyClientOfQuoteSent } from '@/lib/notifications';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { toast } from 'sonner';
 import type { VendorPayment, VendorPaymentAdjustment, VendorPaymentStatus } from '@/types';
 
@@ -950,7 +951,7 @@ export default function ViewWorkOrder() {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30);
 
-      const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
+      const invoiceNumber = generateInvoiceNumber();
 
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,

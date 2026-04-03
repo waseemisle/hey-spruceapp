@@ -18,6 +18,7 @@ import { useViewControls } from '@/contexts/view-controls-context';
 import { createTimelineEvent, createInvoiceTimelineEvent } from '@/lib/timeline';
 import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
+import { generateInvoiceNumber } from '@/lib/invoice-number';
 
 interface WorkOrder {
   id: string;
@@ -556,8 +557,7 @@ const handleLocationSelect = (locationId: string) => {
         return;
       }
 
-      // Generate invoice number
-      const invoiceNumber = `INV-${Date.now().toString().slice(-8).toUpperCase()}`;
+      const invoiceNumber = generateInvoiceNumber();
       const currentUser = auth.currentUser;
       const adminName = currentUser ? (await getDoc(doc(db, 'adminUsers', currentUser.uid))).data()?.fullName : 'Admin';
       const createdEvent = createInvoiceTimelineEvent({
