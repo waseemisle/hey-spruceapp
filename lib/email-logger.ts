@@ -22,6 +22,7 @@ export type EmailType =
   | 'auto-charge-receipt'
   | 'work-order-completion-client'
   | 'work-order-received'
+  | 'quote-approval-admin-notification'
   | 'test';
 
 export interface EmailLogEntry {
