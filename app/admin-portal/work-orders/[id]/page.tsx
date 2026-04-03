@@ -2041,12 +2041,21 @@ export default function ViewWorkOrder() {
                         if (!Number.isFinite(amt) || amt <= 0) { toast.error('Adjustment amount must be greater than 0.'); return; }
                         if (!modalAdjReason.trim()) { toast.error('Please provide a reason for the adjustment.'); return; }
                         const base = Number(vendorPaymentBaseAmount) || 0;
-                        const next: VendorPaymentAdjustment[] = [...modalAdjustments, {
-                          id: (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}`,
-                          type: modalAdjType,
-                          amount: amt,
-                          reason: modalAdjReason.trim(),
-                        }];
+                        const next: VendorPaymentAdjustment[] = [
+                          ...modalAdjustments,
+                          {
+                            id: (globalThis.crypto as any)?.randomUUID?.() ?? `${Date.now()}`,
+                            type: modalAdjType,
+                            amount: amt,
+                            reason: modalAdjReason.trim(),
+                            createdAt: serverTimestamp() as any,
+                            createdBy: {
+                              uid: auth.currentUser?.uid ?? 'unknown',
+                              email: auth.currentUser?.email ?? '',
+                              role: 'admin' as const,
+                            },
+                          },
+                        ];
                         const { finalAmount } = computeTotals(base, next);
                         if (finalAmount < 0) { toast.error('Final amount cannot be negative.'); return; }
                         setModalAdjustments(next);

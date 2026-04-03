@@ -169,6 +169,24 @@
       "collectionGroup": "workOrders",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "locationId", "order": "ASCENDING" },
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "workOrders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationId", "order": "ASCENDING" },
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "workOrders",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "isMaintenanceRequestOrder", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]

@@ -1,7 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc, getDocs } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+  limit,
+  doc,
+  getDoc,
+  getDocs,
+  type QuerySnapshot,
+  type DocumentData,
+} from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
@@ -20,6 +32,9 @@ interface WorkOrder {
   title: string;
   status: string;
   priority?: string;
+  locationId?: string;
+  clientId?: string;
+  createdAt?: { toDate?: () => Date };
 }
 
 interface Location {
@@ -148,17 +163,94 @@ export default function ClientLocations() {
     return styles[status as keyof typeof styles] || 'bg-muted text-foreground border-border';
   };
 
+  const sortWorkOrdersByCreatedDesc = (wos: WorkOrder[]) =>
+    [...wos].sort((a, b) => {
+      const aTime = a.createdAt?.toDate?.()?.getTime() ?? 0;
+      const bTime = b.createdAt?.toDate?.()?.getTime() ?? 0;
+      return bTime - aTime;
+    });
+
   const handleViewDetails = async (location: Location) => {
     setSelectedLocation(location);
     setShowModal(true);
     setLocationWorkOrders([]);
     setLoadingWorkOrders(true);
+    const uid = auth.currentUser?.uid;
+    const companyId = companyInfo?.id;
+
+    const mapDocs = (snap: QuerySnapshot<DocumentData>) =>
+      snap.docs.map((d) => ({ id: d.id, ...d.data() } as WorkOrder));
+
     try {
-      const woSnap = await getDocs(
-        query(collection(db, 'workOrders'), where('locationId', '==', location.id))
+      if (!uid) {
+        return;
+      }
+
+      // Firestore rejects broad `locationId`-only queries if any matching doc is unreadable.
+      // Narrow queries (location + company / location + client) only return allowed docs.
+      const tasks: Promise<WorkOrder[]>[] = [];
+
+      if (companyId) {
+        tasks.push(
+          getDocs(
+            query(
+              collection(db, 'workOrders'),
+              where('locationId', '==', location.id),
+              where('companyId', '==', companyId),
+              orderBy('createdAt', 'desc'),
+              limit(5)
+            )
+          )
+            .then(mapDocs)
+            .catch((e) => {
+              console.error('Error fetching company work orders for location', e);
+              return [];
+            })
+        );
+      }
+
+      tasks.push(
+        getDocs(
+          query(
+            collection(db, 'workOrders'),
+            where('locationId', '==', location.id),
+            where('clientId', '==', uid),
+            orderBy('createdAt', 'desc'),
+            limit(5)
+          )
+        )
+          .then(mapDocs)
+          .catch((e) => {
+            console.error('Error fetching client work orders for location', e);
+            return [];
+          })
       );
-      const wos = woSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder));
-      setLocationWorkOrders(wos.slice(0, 10));
+
+      const batches = await Promise.all(tasks);
+      const byId = new Map<string, WorkOrder>();
+      for (const batch of batches) {
+        for (const wo of batch) {
+          byId.set(wo.id, wo);
+        }
+      }
+      let merged = sortWorkOrdersByCreatedDesc([...byId.values()]).slice(0, 5);
+
+      // Legacy rows: missing companyId on the work order — still tied to this user.
+      if (merged.length === 0) {
+        const fallbackSnap = await getDocs(
+          query(
+            collection(db, 'workOrders'),
+            where('clientId', '==', uid),
+            orderBy('createdAt', 'desc'),
+            limit(100)
+          )
+        );
+        merged = sortWorkOrdersByCreatedDesc(
+          mapDocs(fallbackSnap).filter((wo) => wo.locationId === location.id)
+        ).slice(0, 5);
+      }
+
+      setLocationWorkOrders(merged);
     } catch (e) {
       console.error('Error fetching work orders for location', e);
     } finally {
@@ -420,7 +512,7 @@ export default function ClientLocations() {
                             className="text-sm text-blue-600 hover:underline font-medium truncate flex-1"
                             onClick={() => setShowModal(false)}
                           >
-                            {wo.workOrderNumber ? `${wo.workOrderNumber} — ` : ''}{wo.title}
+                            {wo.workOrderNumber ? `${wo.workOrderNumber} — ` : ''}{wo.title || 'Work order'}
                           </Link>
                           <span className="ml-3 text-xs text-muted-foreground flex-shrink-0 capitalize">{wo.status.replace(/_/g, ' ')}</span>
                         </li>
