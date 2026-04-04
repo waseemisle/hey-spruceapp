@@ -72,6 +72,7 @@ interface WorkOrder {
   assignedToName?: string;
   assignedAt?: any;
   rejectedAt?: any;
+  companyId?: string;
 }
 
 interface Subcontractor {
@@ -429,6 +430,7 @@ export default function ViewClientWorkOrder() {
           workOrderDescription: workOrder.description,
           clientId: workOrder.clientId,
           clientName: workOrder.clientName,
+          companyId: workOrder.companyId || null,
           status: 'pending',
           sharedAt: serverTimestamp(),
           createdAt: serverTimestamp(),

@@ -489,6 +489,7 @@ function ClientWorkOrdersContent() {
           workOrderDescription: workOrderToShare.description,
           clientId: workOrderToShare.clientId,
           clientName: workOrderToShare.clientName,
+          companyId: workOrderToShare.companyId || null,
           status: 'pending',
           sharedAt: serverTimestamp(),
           createdAt: serverTimestamp(),
