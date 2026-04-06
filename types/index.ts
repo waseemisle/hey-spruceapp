@@ -512,7 +512,7 @@ export interface RecurringWorkOrder {
 }
 
 export interface RecurrencePattern {
-  type: 'monthly' | 'weekly'; // Added 'weekly' for BI-WEEKLY
+  type: 'daily' | 'weekly' | 'monthly';
   interval: number; // Every X months or weeks
   dayOfMonth?: number; // 1-31 for monthly
   daysOfWeek?: number[]; // 0=Sun…6=Sat, used for DAILY pattern

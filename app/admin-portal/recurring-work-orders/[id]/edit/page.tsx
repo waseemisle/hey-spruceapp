@@ -65,7 +65,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
   const [showAdvancedInvoice, setShowAdvancedInvoice] = useState(false);
   const [recurringWorkOrder, setRecurringWorkOrder] = useState<RecurringWorkOrder | null>(null);
 
-  const RECURRENCE_PATTERN_OPTIONS = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
+  const RECURRENCE_PATTERN_OPTIONS = ['DAILY', 'WEEKLY', 'BI-WEEKLY', 'BI-MONTHLY', 'MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'] as const;
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -79,7 +79,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     subcontractorId: '',
     nextExecution: '',
     recurrencePatternLabel: 'MONTHLY' as (typeof RECURRENCE_PATTERN_OPTIONS)[number],
-    recurrenceType: 'monthly' as 'monthly' | 'weekly',
+    recurrenceType: 'monthly' as 'daily' | 'weekly' | 'monthly',
     recurrenceInterval: 1,
     recurrenceDaysOfWeek: [] as number[],
     recurrenceDayOfMonth: 1,
@@ -134,7 +134,9 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         if (storedLabel && RECURRENCE_PATTERN_OPTIONS.includes(storedLabel as any)) {
           recurrencePatternLabel = storedLabel as (typeof RECURRENCE_PATTERN_OPTIONS)[number];
         } else if (pattern) {
-          if (pattern.type === 'weekly' && pattern.interval === 2) recurrencePatternLabel = 'BI-WEEKLY';
+          if (pattern.type === 'daily' || (pattern.type === 'weekly' && pattern.interval === 1 && Array.isArray(pattern.daysOfWeek))) recurrencePatternLabel = 'DAILY';
+          else if (pattern.type === 'weekly' && pattern.interval === 1) recurrencePatternLabel = 'WEEKLY';
+          else if (pattern.type === 'weekly' && pattern.interval === 2) recurrencePatternLabel = 'BI-WEEKLY';
           else if (pattern.type === 'monthly' && pattern.interval === 6) recurrencePatternLabel = 'SEMIANNUALLY';
           else if (pattern.type === 'monthly' && pattern.interval === 3) recurrencePatternLabel = 'QUARTERLY';
           else if (pattern.type === 'monthly' && pattern.interval === 2) recurrencePatternLabel = 'BI-MONTHLY';
