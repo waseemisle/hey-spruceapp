@@ -1235,6 +1235,7 @@ export default function ViewClientWorkOrder() {
         quotes={selectedQuotes}
         isOpen={showCompareDialog}
         onClose={() => setShowCompareDialog(false)}
+        viewMode="client"
       />
 
       {/* Share for Bidding Modal */}

@@ -40,18 +40,24 @@ interface CompareQuotesDialogProps {
   quotes: Quote[];
   isOpen: boolean;
   onClose: () => void;
+  /** 'admin' shows original subcontractor prices; 'client' shows only marked-up client prices */
+  viewMode?: 'admin' | 'client';
 }
 
-export default function CompareQuotesDialog({ quotes, isOpen, onClose }: CompareQuotesDialogProps) {
+export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode = 'admin' }: CompareQuotesDialogProps) {
   const [sortBy, setSortBy] = useState<'price' | 'date' | 'subcontractor'>('price');
 
   if (!isOpen) return null;
+
+  const isClient = viewMode === 'client';
+  const getDisplayAmount = (q: Quote) => isClient ? (q.clientAmount ?? q.totalAmount) : q.totalAmount;
+  const markupMultiplier = 1.2; // 20% markup
 
   // Sort quotes
   const sortedQuotes = [...quotes].sort((a, b) => {
     switch (sortBy) {
       case 'price':
-        return a.totalAmount - b.totalAmount;
+        return getDisplayAmount(a) - getDisplayAmount(b);
       case 'date':
         const aDate = a.createdAt?.toDate?.() || new Date(a.createdAt);
         const bDate = b.createdAt?.toDate?.() || new Date(b.createdAt);
@@ -117,7 +123,9 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
                       <User className="h-4 w-4" />
                       {quote.subcontractorName}
                     </CardTitle>
-                    <p className="text-xs text-muted-foreground mt-1">{quote.subcontractorEmail}</p>
+                    {!isClient && (
+                      <p className="text-xs text-muted-foreground mt-1">{quote.subcontractorEmail}</p>
+                    )}
                   </CardHeader>
 
                   <CardContent className="space-y-4">
@@ -125,7 +133,7 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
                     <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200">
                       <p className="text-xs text-muted-foreground mb-1 font-medium">Total Amount</p>
                       <p className="text-3xl font-bold text-blue-600">
-                        ${quote.totalAmount.toLocaleString()}
+                        ${getDisplayAmount(quote).toLocaleString()}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1 capitalize">{quote.status.replace(/_/g, ' ')}</p>
                     </div>
@@ -138,22 +146,30 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
                       </p>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Labor Cost:</span>
-                        <span className="font-semibold">${quote.laborCost.toLocaleString()}</span>
+                        <span className="font-semibold">
+                          ${isClient ? Math.round(quote.laborCost * markupMultiplier).toLocaleString() : quote.laborCost.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Material Cost:</span>
-                        <span className="font-semibold">${quote.materialCost.toLocaleString()}</span>
+                        <span className="font-semibold">
+                          ${isClient ? Math.round(quote.materialCost * markupMultiplier).toLocaleString() : quote.materialCost.toLocaleString()}
+                        </span>
                       </div>
                       {quote.additionalCosts > 0 && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Additional Costs:</span>
-                          <span className="font-semibold">${quote.additionalCosts.toLocaleString()}</span>
+                          <span className="font-semibold">
+                            ${isClient ? Math.round(quote.additionalCosts * markupMultiplier).toLocaleString() : quote.additionalCosts.toLocaleString()}
+                          </span>
                         </div>
                       )}
                       {quote.discountAmount > 0 && (
                         <div className="flex justify-between text-green-600">
                           <span>Discount:</span>
-                          <span className="font-semibold">-${quote.discountAmount.toLocaleString()}</span>
+                          <span className="font-semibold">
+                            -${isClient ? Math.round(quote.discountAmount * markupMultiplier).toLocaleString() : quote.discountAmount.toLocaleString()}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -166,15 +182,19 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose }: Compare
                           Line Items ({quote.lineItems.length})
                         </p>
                         <div className="space-y-1 max-h-40 overflow-y-auto">
-                          {quote.lineItems.map((item, idx) => (
-                            <div key={idx} className="text-xs flex justify-between items-start bg-muted p-2 rounded">
-                              <div className="flex-1">
-                                <p className="font-medium text-foreground">{item.description}</p>
-                                <p className="text-muted-foreground">Qty: {item.quantity} × ${item.unitPrice.toLocaleString()}</p>
+                          {quote.lineItems.map((item, idx) => {
+                            const displayPrice = isClient ? Math.round(item.unitPrice * markupMultiplier * 100) / 100 : item.unitPrice;
+                            const displayAmount = isClient ? Math.round(item.amount * markupMultiplier * 100) / 100 : item.amount;
+                            return (
+                              <div key={idx} className="text-xs flex justify-between items-start bg-muted p-2 rounded">
+                                <div className="flex-1">
+                                  <p className="font-medium text-foreground">{item.description}</p>
+                                  <p className="text-muted-foreground">Qty: {item.quantity} × ${displayPrice.toLocaleString()}</p>
+                                </div>
+                                <span className="font-semibold ml-2">${displayAmount.toLocaleString()}</span>
                               </div>
-                              <span className="font-semibold ml-2">${item.amount.toLocaleString()}</span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
