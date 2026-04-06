@@ -416,13 +416,16 @@ export async function POST(request: Request) {
         console.log(`Found existing location: ${locationName} (${locationId})`);
       } else {
         // Location doesn't exist - create it automatically
+        // Assign to The h.wood Group company for all API-created locations
+        const autoCompanyId = 'yirKMXRWAuV2YaOJ1kfA';
+        const autoCompanyName = 'The h.wood Group';
         const newLocationRef = await addDoc(collection(db, 'locations'), {
           locationName: locationName,
           clientId: '', // No specific client (accessible via assigned locations)
           clientName: 'Auto-Generated',
           clientEmail: '',
-          companyId: '', // Can be set later by admin
-          companyName: '',
+          companyId: autoCompanyId,
+          companyName: autoCompanyName,
           address: {
             street: '',
             city: '',
@@ -444,7 +447,7 @@ export async function POST(request: Request) {
             userId: 'system',
             userName: 'Maintenance Request API',
             timestamp: new Date().toISOString(),
-            details: `Auto-generated from maintenance request. Requestor: ${requestor || 'Unknown'}. Venue: ${locationName}`,
+            details: `Auto-generated from maintenance request. Requestor: ${requestor || 'Unknown'}. Venue: ${locationName}. Company: ${autoCompanyName}.`,
           }],
         });
 
