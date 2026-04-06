@@ -72,10 +72,14 @@ export async function POST(request: NextRequest) {
       executionNumber = existingExecution.executionNumber;
       nextExecution = existingExecution.scheduledDate?.toDate() || new Date();
     } else {
-      // Create new execution record (original behavior)
+      // Create new execution record — count existing executions for proper numbering
+      const existingExecsSnap = await getDocs(
+        query(collection(db, 'recurringWorkOrderExecutions'), where('recurringWorkOrderId', '==', recurringWorkOrderId))
+      );
+      executionNumber = existingExecsSnap.docs.length + 1;
+
       const now = new Date();
       nextExecution = recurringWorkOrder.nextExecution?.toDate() || now;
-      executionNumber = recurringWorkOrder.totalExecutions + 1;
       const executionData = {
         recurringWorkOrderId: recurringWorkOrderId,
         executionNumber,
@@ -291,7 +295,7 @@ export async function POST(request: NextRequest) {
 
       // Calculate next execution date
       const nextExecutionDate = calculateNextExecution(
-        recurringWorkOrder.recurrencePattern,
+        recurringWorkOrder,
         nextExecution
       );
 
@@ -351,31 +355,37 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function calculateNextExecution(recurrencePattern: any, currentExecution: Date): Date {
+function calculateNextExecution(recurringWorkOrder: any, currentExecution: Date): Date {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const next = new Date(currentExecution);
 
+  // Resolve interval from label first (most reliable), then pattern.type
+  const label = (recurringWorkOrder.recurrencePatternLabel || '').toUpperCase();
+  const pattern = recurringWorkOrder.recurrencePattern || {};
+  let mode: 'daily' | 'weekly' | 'monthly' = 'monthly';
+  let interval = 1;
+
+  switch (label) {
+    case 'DAILY':        mode = 'daily'; interval = 1; break;
+    case 'WEEKLY':       mode = 'weekly'; interval = 1; break;
+    case 'BI-WEEKLY':    mode = 'weekly'; interval = 2; break;
+    case 'MONTHLY':      mode = 'monthly'; interval = 1; break;
+    case 'BI-MONTHLY':   mode = 'monthly'; interval = 2; break;
+    case 'QUARTERLY':    mode = 'monthly'; interval = 3; break;
+    case 'SEMIANNUALLY': mode = 'monthly'; interval = 6; break;
+    default:
+      if (pattern.type === 'daily') { mode = 'daily'; interval = pattern.interval || 1; }
+      else if (pattern.type === 'weekly') { mode = 'weekly'; interval = pattern.interval || 2; }
+      else if (pattern.type === 'monthly') { mode = 'monthly'; interval = pattern.interval || 1; }
+  }
+
   // Keep advancing until the next execution is in the future
-  // This handles cases where the cron missed multiple scheduled dates
   let iters = 0;
   do {
-    switch (recurrencePattern.type) {
-      case 'daily':
-        next.setDate(next.getDate() + (recurrencePattern.interval || 1));
-        break;
-      case 'weekly':
-        next.setDate(next.getDate() + (7 * (recurrencePattern.interval || 1)));
-        break;
-      case 'monthly':
-        next.setMonth(next.getMonth() + (recurrencePattern.interval || 1));
-        break;
-      case 'yearly':
-        next.setFullYear(next.getFullYear() + (recurrencePattern.interval || 1));
-        break;
-      default:
-        next.setDate(next.getDate() + 7); // Default to weekly
-    }
+    if (mode === 'daily') next.setDate(next.getDate() + interval);
+    else if (mode === 'weekly') next.setDate(next.getDate() + (7 * interval));
+    else next.setMonth(next.getMonth() + interval);
     iters++;
   } while (next <= now && iters < 100);
 

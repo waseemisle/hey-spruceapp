@@ -1117,17 +1117,29 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               </div>
             ) : (
               <div className="space-y-4">
-                {executions.map((execution) => (
+                {[...executions]
+                  .sort((a, b) => {
+                    const aDate = toSafeDate(a.scheduledDate)?.getTime() || 0;
+                    const bDate = toSafeDate(b.scheduledDate)?.getTime() || 0;
+                    return bDate - aDate; // Most recent first
+                  })
+                  .map((execution, idx, arr) => {
+                  const seqNumber = arr.length - idx; // Sequential: oldest=1, newest=N
+                  const hasWorkOrder = !!(execution as any).workOrderId;
+                  const displayStatus = (execution.status === 'executed' || hasWorkOrder) ? 'executed'
+                    : execution.status === 'failed' ? 'failed'
+                    : 'executed'; // If it's in history at all, treat as executed
+                  return (
                   <div key={execution.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">Execution #{execution.executionNumber}</span>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${getExecutionStatusColor(execution.status)}`}>
-                          {(execution.status || 'unknown').toUpperCase()}
+                        <span className="font-semibold">Execution #{seqNumber}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${getExecutionStatusColor(displayStatus)}`}>
+                          {displayStatus.toUpperCase()}
                         </span>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        Scheduled: {new Date(execution.scheduledDate).toLocaleDateString()}
+                        Scheduled: {toSafeDate(execution.scheduledDate)?.toLocaleDateString() || 'N/A'}
                       </div>
                     </div>
 
@@ -1213,7 +1225,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
