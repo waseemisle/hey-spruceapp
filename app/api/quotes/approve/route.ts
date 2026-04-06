@@ -80,12 +80,26 @@ export async function POST(request: Request) {
       updatedAt: serverTimestamp(),
     });
 
+    // Resolve the subcontractor's auth UID for consistent ID usage
+    // The quote may store the Firestore document ID, but assignedJobs needs the auth UID
+    let resolvedSubId = quoteData.subcontractorId;
+    try {
+      const subDoc = await getDoc(doc(db, 'subcontractors', quoteData.subcontractorId));
+      if (subDoc.exists()) {
+        const subData = subDoc.data();
+        // Use uid field if available, otherwise the doc ID is likely the auth UID
+        resolvedSubId = (subData.uid && String(subData.uid).trim()) || subDoc.id;
+      }
+    } catch (e) {
+      console.warn('Could not resolve subcontractor auth UID, using quote subcontractorId:', e);
+    }
+
     // Update work order with assignment + approved quote pricing
     const existingTimeline = workOrderData.timeline || [];
     const existingSysInfo = workOrderData.systemInformation || {};
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
       status: 'assigned',
-      assignedSubcontractor: quoteData.subcontractorId,
+      assignedSubcontractor: resolvedSubId,
       assignedSubcontractorName: quoteData.subcontractorName,
       assignedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -119,12 +133,19 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create assignedJobs record
+    // Create assignedJobs record using resolved auth UID
     await addDoc(collection(db, 'assignedJobs'), {
       workOrderId: quoteData.workOrderId,
-      subcontractorId: quoteData.subcontractorId,
+      subcontractorId: resolvedSubId,
       assignedAt: serverTimestamp(),
       status: 'pending_acceptance',
+    });
+
+    // Also update assignedTo on the work order for consistency with manual assignment flow
+    await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
+      assignedTo: resolvedSubId,
+      assignedToName: quoteData.subcontractorName,
+      assignedToEmail: quoteData.subcontractorEmail,
     });
 
     return NextResponse.json({
@@ -137,7 +158,7 @@ export async function POST(request: Request) {
         subcontractorEmail: quoteData.subcontractorEmail,
         subcontractorName: quoteData.subcontractorName,
         clientName: quoteData.clientName,
-        subcontractorId: quoteData.subcontractorId,
+        subcontractorId: resolvedSubId,
         workOrderId: quoteData.workOrderId,
       },
     });
