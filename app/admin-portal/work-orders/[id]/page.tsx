@@ -897,6 +897,105 @@ export default function ViewWorkOrder() {
     }
   };
 
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+
+  const handleApproveWorkOrder = async () => {
+    if (!workOrder) return;
+    setApproving(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { toast.error('You must be logged in'); return; }
+
+      const adminSnap = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminSnap.exists() ? (adminSnap.data().fullName || currentUser.email || 'Admin') : (currentUser.email || 'Admin');
+
+      const woRef = doc(db, 'workOrders', workOrder.id);
+      const approveSnap = await getDoc(woRef);
+      const approveData = approveSnap.data();
+
+      await updateDoc(woRef, {
+        status: 'approved',
+        approvedBy: currentUser.uid,
+        approvedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        timeline: [...(approveData?.timeline || []), createTimelineEvent({
+          type: 'approved',
+          userId: currentUser.uid,
+          userName: adminName,
+          userRole: 'admin',
+          details: `Work order approved by ${adminName}`,
+          metadata: { workOrderNumber: workOrder.workOrderNumber },
+        })],
+        systemInformation: {
+          ...(approveData?.systemInformation || {}),
+          approvedBy: { id: currentUser.uid, name: adminName, timestamp: Timestamp.now() },
+        },
+      });
+
+      toast.success('Work order approved');
+      const refreshSnap = await getDoc(woRef);
+      if (refreshSnap.exists()) setWorkOrder({ id: refreshSnap.id, ...refreshSnap.data() } as any);
+    } catch (error) {
+      console.error('Error approving work order:', error);
+      toast.error('Failed to approve work order');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleRejectWorkOrder = async () => {
+    if (!workOrder || !rejectReason.trim()) {
+      toast.error('Please enter a rejection reason');
+      return;
+    }
+    setRejecting(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { toast.error('You must be logged in'); return; }
+
+      const adminSnap = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminSnap.exists() ? (adminSnap.data().fullName || currentUser.email || 'Admin') : (currentUser.email || 'Admin');
+
+      const woRef = doc(db, 'workOrders', workOrder.id);
+      const rejectSnap = await getDoc(woRef);
+      const rejectData = rejectSnap.data();
+
+      await updateDoc(woRef, {
+        status: 'rejected',
+        rejectedBy: currentUser.uid,
+        rejectedAt: serverTimestamp(),
+        rejectionReason: rejectReason,
+        updatedAt: serverTimestamp(),
+        timeline: [...(rejectData?.timeline || []), createTimelineEvent({
+          type: 'rejected',
+          userId: currentUser.uid,
+          userName: adminName,
+          userRole: 'admin',
+          details: `Work order rejected by ${adminName}. Reason: ${rejectReason}`,
+          metadata: { reason: rejectReason },
+        })],
+        systemInformation: {
+          ...(rejectData?.systemInformation || {}),
+          rejectedBy: { id: currentUser.uid, name: adminName, timestamp: Timestamp.now(), reason: rejectReason },
+        },
+      });
+
+      toast.success('Work order rejected');
+      setShowRejectDialog(false);
+      setRejectReason('');
+      const refreshSnap = await getDoc(woRef);
+      if (refreshSnap.exists()) setWorkOrder({ id: refreshSnap.id, ...refreshSnap.data() } as any);
+    } catch (error) {
+      console.error('Error rejecting work order:', error);
+      toast.error('Failed to reject work order');
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const [archiving, setArchiving] = useState(false);
 
   const handleArchiveWorkOrder = async () => {
@@ -1009,9 +1108,7 @@ export default function ViewWorkOrder() {
 
       const invoiceNumber = generateInvoiceNumber();
 
-      // Pull completion details from work order
-      const woSnap = await getDoc(doc(db, 'workOrders', workOrder.id));
-      const woData = woSnap.data();
+      // Pull completion details from work order (reuse woData from above)
 
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
@@ -1451,6 +1548,28 @@ export default function ViewWorkOrder() {
             </p>
           </div>
           <div className="flex gap-2 flex-shrink-0 flex-wrap">
+            {workOrder.status === 'pending' && (
+              <>
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleApproveWorkOrder}
+                  loading={approving} disabled={approving}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
+                  onClick={() => setShowRejectDialog(true)}
+                >
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Reject
+                </Button>
+              </>
+            )}
             {(workOrder.status === 'approved' || workOrder.status === 'bidding') && (
               <Button size="sm" onClick={handleShareForBidding}>
                 <Share2 className="h-4 w-4 mr-2" />
@@ -1529,6 +1648,35 @@ export default function ViewWorkOrder() {
             )}
           </div>
         </div>
+
+        {/* Reject Dialog */}
+        {showRejectDialog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-6">
+              <h3 className="text-lg font-semibold mb-2">Reject Work Order</h3>
+              <p className="text-sm text-muted-foreground mb-4">Please provide a reason for rejecting this work order.</p>
+              <Textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter rejection reason..."
+                className="mb-4"
+                rows={3}
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => { setShowRejectDialog(false); setRejectReason(''); }}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleRejectWorkOrder}
+                  loading={rejecting} disabled={rejecting || !rejectReason.trim()}
+                >
+                  Reject Work Order
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Rating Dialog */}
         {showRatingDialog && (
