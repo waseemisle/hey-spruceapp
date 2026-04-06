@@ -145,6 +145,13 @@ export default function ViewWorkOrder() {
   const [addingNote, setAddingNote] = useState(false);
   const [relatedInvoices, setRelatedInvoices] = useState<any[]>([]);
   const [showRatingDialog, setShowRatingDialog] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceForm, setInvoiceForm] = useState({
+    notes: '',
+    terms: 'Payment due within 30 days of invoice date.',
+    discountAmount: '',
+  });
+  const [invoiceLineItems, setInvoiceLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([]);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -1051,17 +1058,10 @@ export default function ViewWorkOrder() {
     }
   };
 
-  const handleCreateInvoice = async () => {
+  const handleOpenInvoiceModal = async () => {
     if (!workOrder) return;
-    setCreatingInvoice(true);
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) { toast.error('You must be logged in'); return; }
-
-      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
-      const createdByName = adminDoc.exists() ? (adminDoc.data()?.fullName ?? 'Admin') : 'Admin';
-
-      // Find the approved quote — prefer approvedQuoteId stored on work order
+      // Find the approved quote
       let approvedQuote: Quote | null = null;
       const invoiceWoData = (await getDoc(doc(db, 'workOrders', workOrder.id))).data();
       const approvedQuoteId = invoiceWoData?.approvedQuoteId;
@@ -1070,20 +1070,15 @@ export default function ViewWorkOrder() {
         const qDoc = await getDoc(doc(db, 'quotes', approvedQuoteId));
         if (qDoc.exists()) approvedQuote = { id: qDoc.id, ...qDoc.data() } as Quote;
       }
-
-      // Fall back: find first accepted quote for this work order
       if (!approvedQuote) {
         approvedQuote = quotes.find(q => q.status === 'accepted') || quotes[0] || null;
       }
 
-      // Build line items from quote or a single line item from work order amount
+      // Build line items
       let lineItems: Array<{ description: string; quantity: number; unitPrice: number; amount: number }> = [];
-      let totalAmount = 0;
-
       if (approvedQuote) {
         const clientAmount = approvedQuote.clientAmount || approvedQuote.totalAmount || 0;
         if (approvedQuote.lineItems && approvedQuote.lineItems.length > 0) {
-          // Scale line items proportionally to client amount
           const scale = approvedQuote.totalAmount > 0 ? clientAmount / approvedQuote.totalAmount : 1;
           lineItems = approvedQuote.lineItems.map(li => ({
             description: li.description,
@@ -1094,21 +1089,61 @@ export default function ViewWorkOrder() {
         } else {
           lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: clientAmount, amount: clientAmount }];
         }
-        totalAmount = lineItems.reduce((s, li) => s + li.amount, 0);
       } else {
-        // No quote — use budget or 0
         const amt = invoiceWoData?.approvedQuoteAmount || workOrder.estimateBudget || 0;
         lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: amt, amount: amt }];
-        totalAmount = amt;
       }
 
-      // Due date: 30 days from now
+      setInvoiceLineItems(lineItems);
+      setInvoiceForm({
+        notes: '',
+        terms: 'Payment due within 30 days of invoice date.',
+        discountAmount: '',
+      });
+      setShowInvoiceModal(true);
+    } catch (error) {
+      console.error('Error preparing invoice:', error);
+      toast.error('Failed to prepare invoice data');
+    }
+  };
+
+  const updateInvoiceLineItem = (index: number, field: string, value: string) => {
+    setInvoiceLineItems(prev => {
+      const updated = [...prev];
+      const item = { ...updated[index] };
+      if (field === 'description') {
+        item.description = value;
+      } else {
+        const num = parseFloat(value) || 0;
+        if (field === 'quantity') { item.quantity = num; item.amount = parseFloat((num * item.unitPrice).toFixed(2)); }
+        else if (field === 'unitPrice') { item.unitPrice = num; item.amount = parseFloat((item.quantity * num).toFixed(2)); }
+        else if (field === 'amount') { item.amount = num; }
+      }
+      updated[index] = item;
+      return updated;
+    });
+  };
+
+  const handleConfirmCreateInvoice = async () => {
+    if (!workOrder) return;
+    setCreatingInvoice(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { toast.error('You must be logged in'); return; }
+
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const createdByName = adminDoc.exists() ? (adminDoc.data()?.fullName ?? 'Admin') : 'Admin';
+
+      const subtotal = invoiceLineItems.reduce((s, li) => s + (li.amount || 0), 0);
+      const discountAmount = Math.max(0, Number(invoiceForm.discountAmount || 0) || 0);
+      const totalAmount = Math.max(0, subtotal - discountAmount);
+
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30);
 
       const invoiceNumber = generateInvoiceNumber();
 
-      // Pull completion details from work order (reuse woData from above)
+      const invoiceWoData = (await getDoc(doc(db, 'workOrders', workOrder.id))).data();
 
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
@@ -1122,11 +1157,11 @@ export default function ViewWorkOrder() {
         priority: workOrder.priority || '',
         status: 'sent',
         totalAmount,
-        lineItems,
+        lineItems: invoiceLineItems,
+        discountAmount,
         dueDate,
-        notes: '',
-        terms: 'Payment due within 30 days of invoice date.',
-        // Include completion details from work order
+        notes: invoiceForm.notes,
+        terms: invoiceForm.terms,
         ...(invoiceWoData?.completionDetails && { completionDetails: invoiceWoData.completionDetails }),
         ...(invoiceWoData?.completionNotes && { completionNotes: invoiceWoData.completionNotes }),
         ...(invoiceWoData?.completionImages?.length && { completionImages: invoiceWoData.completionImages }),
@@ -1149,6 +1184,8 @@ export default function ViewWorkOrder() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      setShowInvoiceModal(false);
 
       // Try auto-charge for Fixed Auto-Charge Plan clients
       let autoCharged = false;
@@ -1214,7 +1251,7 @@ export default function ViewWorkOrder() {
             workOrderTitle: workOrder.title,
             totalAmount,
             dueDate: dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            lineItems,
+            lineItems: invoiceLineItems,
             stripePaymentLink,
           }),
         });
@@ -1609,7 +1646,7 @@ export default function ViewWorkOrder() {
               <Button
                 size="sm"
                 className="bg-orange-600 hover:bg-orange-700"
-                onClick={handleCreateInvoice}
+                onClick={handleOpenInvoiceModal}
                 disabled={creatingInvoice}
               >
                 <Receipt className="h-4 w-4 mr-2" />
@@ -1648,6 +1685,142 @@ export default function ViewWorkOrder() {
             )}
           </div>
         </div>
+
+        {/* Create Invoice Modal */}
+        {showInvoiceModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center gap-3">
+                <div>
+                  <h2 className="text-xl font-bold">Create Invoice</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Review and adjust the invoice details before creating.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setShowInvoiceModal(false)} disabled={creatingInvoice}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="p-6 space-y-6">
+                {/* Client Info (read-only) */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <Label className="text-muted-foreground">Client</Label>
+                    <p className="font-medium">{workOrder?.clientName}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Work Order</Label>
+                    <p className="font-medium">{workOrder?.title}</p>
+                    <p className="text-xs text-muted-foreground">{workOrder?.workOrderNumber}</p>
+                  </div>
+                </div>
+
+                {/* Line Items */}
+                <div>
+                  <Label className="mb-2 block">Line Items</Label>
+                  <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground uppercase px-1 mb-1">
+                    <div className="col-span-5">Description</div>
+                    <div className="col-span-2 text-right">Qty</div>
+                    <div className="col-span-2 text-right">Unit Price</div>
+                    <div className="col-span-2 text-right">Amount</div>
+                    <div className="col-span-1" />
+                  </div>
+                  {invoiceLineItems.map((li, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-2 items-center mb-2">
+                      <div className="col-span-12 md:col-span-5">
+                        <Input value={li.description} onChange={e => updateInvoiceLineItem(i, 'description', e.target.value)} placeholder="Description" />
+                      </div>
+                      <div className="col-span-4 md:col-span-2">
+                        <Input type="number" min="0" step="0.01" value={li.quantity} onChange={e => updateInvoiceLineItem(i, 'quantity', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                      </div>
+                      <div className="col-span-4 md:col-span-2">
+                        <Input type="number" min="0" step="0.01" value={li.unitPrice} onChange={e => updateInvoiceLineItem(i, 'unitPrice', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                      </div>
+                      <div className="col-span-3 md:col-span-2">
+                        <Input type="number" min="0" step="0.01" value={li.amount} onChange={e => updateInvoiceLineItem(i, 'amount', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                      </div>
+                      <div className="col-span-1 flex justify-center">
+                        {invoiceLineItems.length > 1 && (
+                          <Button type="button" size="sm" variant="ghost" className="text-red-500 hover:text-red-700 p-1 h-auto"
+                            onClick={() => setInvoiceLineItems(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => setInvoiceLineItems(prev => [...prev, { description: '', quantity: 1, unitPrice: 0, amount: 0 }])}>
+                    <Plus className="h-4 w-4 mr-1" /> Add Line Item
+                  </Button>
+                  <div className="flex justify-end mt-3 text-sm">
+                    <span className="text-muted-foreground">
+                      Subtotal: <span className="font-semibold text-foreground">${invoiceLineItems.reduce((s, li) => s + (li.amount || 0), 0).toFixed(2)}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Discount & Total */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label>Discount</Label>
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={invoiceForm.discountAmount}
+                      onChange={(e) => setInvoiceForm(prev => ({ ...prev, discountAmount: e.target.value }))}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="e.g. 20"
+                    />
+                  </div>
+                  <div className="rounded-lg border border-border p-3 bg-muted/30">
+                    <div className="text-xs text-muted-foreground">Invoice Total</div>
+                    <div className="text-lg font-bold">
+                      ${Math.max(0, invoiceLineItems.reduce((s, li) => s + (li.amount || 0), 0) - (Number(invoiceForm.discountAmount || 0) || 0)).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <Label>Notes</Label>
+                  <Textarea
+                    className="mt-1"
+                    value={invoiceForm.notes}
+                    onChange={e => setInvoiceForm(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Additional notes for the client..."
+                    rows={3}
+                  />
+                </div>
+
+                {/* Terms */}
+                <div>
+                  <Label>Terms</Label>
+                  <Textarea
+                    className="mt-1"
+                    value={invoiceForm.terms}
+                    onChange={e => setInvoiceForm(prev => ({ ...prev, terms: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <div className="p-6 border-t flex gap-3">
+                <Button
+                  className="flex-1"
+                  onClick={handleConfirmCreateInvoice}
+                  loading={creatingInvoice} disabled={creatingInvoice}
+                >
+                  <Receipt className="h-4 w-4 mr-2" />
+                  {creatingInvoice ? 'Creating Invoice...' : 'Create Invoice'}
+                </Button>
+                <Button variant="outline" onClick={() => setShowInvoiceModal(false)} disabled={creatingInvoice}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Reject Dialog */}
         {showRejectDialog && (
