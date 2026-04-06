@@ -297,41 +297,35 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     try {
       setSubmitting(true);
 
-      // Find the next pending execution (sorted by execution number ascending to get the next one)
+      // Try to find next pending execution record first
       const pendingExecutions = executions
-        .filter(exec => exec.status === 'pending')
+        .filter(exec => exec.status === 'pending' && !(exec as any).workOrderId)
         .sort((a, b) => a.executionNumber - b.executionNumber);
 
-      if (pendingExecutions.length === 0) {
-        toast.error('No pending executions found. Cannot execute next iteration.');
-        return;
+      const body: any = { recurringWorkOrderId: recurringWorkOrder.id };
+      if (pendingExecutions.length > 0) {
+        body.executionId = pendingExecutions[0].id;
       }
-
-      const nextExecution = pendingExecutions[0];
+      // If no pending execution exists, the execute API will create one
 
       const response = await fetch('/api/recurring-work-orders/execute', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          recurringWorkOrderId: recurringWorkOrder.id,
-          executionId: nextExecution.id,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        toast.success('Next iteration executed successfully! Email sent to client.');
-        fetchRecurringWorkOrder();
-        fetchExecutions();
+        toast.success('Execution completed! Work order created.');
+        await fetchRecurringWorkOrder();
+        await fetchExecutions();
       } else {
-        toast.error(result.error || 'Failed to execute next iteration');
+        toast.error(result.error || 'Failed to execute iteration');
       }
     } catch (error) {
-      console.error('Error executing next iteration:', error);
-      toast.error('Failed to execute next iteration');
+      console.error('Error executing iteration:', error);
+      toast.error('Failed to execute iteration');
     } finally {
       setSubmitting(false);
     }
@@ -610,6 +604,16 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               <Edit2 className="h-4 w-4 mr-2" />
               Edit
             </Button>
+            {recurringWorkOrder.status === 'active' && (
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleExecuteNow}
+                loading={submitting} disabled={submitting}
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Execute Next Iteration
+              </Button>
+            )}
             {recurringWorkOrder.status === 'active' && (
               <Button
                 variant="outline"
