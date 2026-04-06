@@ -37,7 +37,7 @@ interface WorkOrder {
   category: string;
   priority: 'low' | 'medium' | 'high';
   estimateBudget?: number;
-  status: 'pending' | 'approved' | 'rejected' | 'bidding' | 'quotes_received' | 'to_be_started' | 'assigned' | 'pending_invoice' | 'completed' | 'accepted_by_subcontractor' | 'rejected_by_subcontractor';
+  status: 'pending' | 'approved' | 'rejected' | 'bidding' | 'quotes_received' | 'to_be_started' | 'assigned' | 'pending_invoice' | 'completed' | 'accepted_by_subcontractor' | 'rejected_by_subcontractor' | 'archived';
   images: string[];
   assignedTo?: string;
   assignedToName?: string;
@@ -96,7 +96,7 @@ interface Category {
 
 function WorkOrdersContent() {
   const searchParams = useSearchParams();
-  const workOrderType = searchParams?.get('type') || 'all'; // 'all', 'standard', or 'maintenance'
+  const workOrderType = searchParams?.get('type') || 'all'; // 'all', 'standard', 'maintenance', or 'archive'
 
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -1961,10 +1961,15 @@ const handleLocationSelect = (locationId: string) => {
 
   const filteredWorkOrders = workOrders.filter(wo => {
     // Filter by work order type (client-side, avoids requiring a Firestore composite index)
+    // Archive type shows only archived; all other types exclude archived work orders
     const typeMatch =
-      workOrderType === 'all' ||
-      (workOrderType === 'standard' && !wo.isMaintenanceRequestOrder) ||
-      (workOrderType === 'maintenance' && !!wo.isMaintenanceRequestOrder);
+      workOrderType === 'archive'
+        ? wo.status === 'archived'
+        : (wo.status !== 'archived') && (
+            workOrderType === 'all' ||
+            (workOrderType === 'standard' && !wo.isMaintenanceRequestOrder) ||
+            (workOrderType === 'maintenance' && !!wo.isMaintenanceRequestOrder)
+          );
 
     // Filter by status
     const statusMatch = filter === 'all' || wo.status === filter;
@@ -2054,6 +2059,7 @@ const handleLocationSelect = (locationId: string) => {
       case 'completed': return 'text-emerald-600 bg-emerald-50';
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'rejected_by_subcontractor': return 'text-red-600 bg-red-50';
+      case 'archived': return 'text-gray-600 bg-gray-100';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -2071,6 +2077,7 @@ const handleLocationSelect = (locationId: string) => {
       completed: 'Completed',
       accepted_by_subcontractor: 'Accepted by Subcontractor',
       rejected_by_subcontractor: 'Rejected by Subcontractor',
+      archived: 'Archived',
     };
 
     if (labels[status]) {
@@ -2110,11 +2117,13 @@ const filteredLocationsForForm = locations.filter((location) => {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {workOrderType === 'standard' && 'Standard Work Orders'}
               {workOrderType === 'maintenance' && 'Maintenance Requests Work Orders'}
+              {workOrderType === 'archive' && 'Archived Work Orders'}
               {workOrderType === 'all' && 'All Work Orders'}
             </h1>
             <p className="text-muted-foreground mt-2 text-sm sm:text-base">
               {workOrderType === 'standard' && 'Manage standard work orders (excluding maintenance requests)'}
               {workOrderType === 'maintenance' && 'Manage work orders created from maintenance requests'}
+              {workOrderType === 'archive' && 'View work orders that have been archived'}
               {workOrderType === 'all' && 'Manage all work orders and assignments'}
             </p>
           </div>

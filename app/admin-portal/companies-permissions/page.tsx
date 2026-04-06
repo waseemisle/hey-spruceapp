@@ -43,6 +43,7 @@ interface Client {
     createSubcontractors?: boolean;
     createLocation?: boolean;
     createRecurringWorkOrders?: boolean;
+    archiveWorkOrders?: boolean;
   };
 }
 
@@ -61,6 +62,7 @@ const PERMISSION_DEFS: { key: PermKey; label: string; desc: string }[] = [
   { key: 'createSubcontractors', label: 'Create Subcontractors', desc: 'Client can create new subcontractors and send them an invitation to join the platform.' },
   { key: 'createLocation', label: 'Create Location', desc: 'Client can add new property locations to their company.' },
   { key: 'createRecurringWorkOrders', label: 'Create Recurring Work Orders', desc: 'Client can create new recurring work orders for their locations.' },
+  { key: 'archiveWorkOrders', label: 'Archive Work Orders', desc: 'Client can archive work orders. Archived work orders are moved out of the active list.' },
 ];
 
 const AVATAR_COLORS = [

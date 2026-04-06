@@ -130,7 +130,7 @@ export interface WorkOrderTimelineEvent {
   type: 'created' | 'approved' | 'rejected' | 'shared_for_bidding' | 'quote_received' |
         'quote_shared_with_client' | 'quote_approved_by_client' | 'quote_rejected_by_client' |
         'assigned' | 'schedule_set' | 'schedule_shared' | 'started' | 'completed' |
-        'invoice_sent' | 'invoice_paid' | 'payment_received';
+        'invoice_sent' | 'invoice_paid' | 'payment_received' | 'archived';
   userId: string;
   userName: string;
   userRole: 'admin' | 'client' | 'subcontractor' | 'system';
@@ -186,6 +186,7 @@ export interface WorkOrderSystemInformation {
     sentBy: { id: string; name: string };
     paidAt?: Date | any;
   };
+  archivedBy?: { id: string; name: string; role: string; timestamp: Date | any };
 }
 
 export interface WorkOrder {
@@ -202,7 +203,7 @@ export interface WorkOrder {
   category: string;
   categoryId: string;
   priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'approved' | 'rejected' | 'quote_received' | 'quotes_received' | 'assigned' | 'in-progress' | 'completed';
+  status: 'pending' | 'approved' | 'rejected' | 'quote_received' | 'quotes_received' | 'assigned' | 'in-progress' | 'completed' | 'archived';
   images: string[];
   assignedTo?: string;
   assignedToName?: string;

@@ -60,6 +60,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string; dot: str
   accepted_by_subcontractor: { label: 'Scheduled', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
   completed: { label: 'Completed', className: 'bg-muted text-foreground border-border', dot: 'bg-gray-400' },
   rejected: { label: 'Rejected', className: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500' },
+  archived: { label: 'Archived', className: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-400' },
 };
 
 const PRIORITY_CONFIG: Record<string, { className: string; dot: string }> = {

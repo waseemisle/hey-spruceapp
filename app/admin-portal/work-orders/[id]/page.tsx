@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -462,6 +462,7 @@ export default function ViewWorkOrder() {
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
+      case 'archived': return 'text-gray-600 bg-gray-100';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -893,6 +894,61 @@ export default function ViewWorkOrder() {
       toast.error('Failed to share work order for bidding');
     } finally {
       setBiddingSubmitting(false);
+    }
+  };
+
+  const [archiving, setArchiving] = useState(false);
+
+  const handleArchiveWorkOrder = async () => {
+    if (!workOrder) return;
+    setArchiving(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { toast.error('You must be logged in'); return; }
+
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? (adminDoc.data().fullName || currentUser.email || 'Admin') : (currentUser.email || 'Admin');
+
+      const woRef = doc(db, 'workOrders', workOrder.id);
+      const woSnap = await getDoc(woRef);
+      const woData = woSnap.data();
+
+      await updateDoc(woRef, {
+        status: 'archived',
+        previousStatus: workOrder.status, // Store previous status in case of unarchive
+        archivedBy: currentUser.uid,
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        timeline: [...(woData?.timeline || []), createTimelineEvent({
+          type: 'archived',
+          userId: currentUser.uid,
+          userName: adminName,
+          userRole: 'admin',
+          details: `Work order archived by ${adminName}`,
+          metadata: { previousStatus: workOrder.status },
+        })],
+        systemInformation: {
+          ...(woData?.systemInformation || {}),
+          archivedBy: {
+            id: currentUser.uid,
+            name: adminName,
+            role: 'admin',
+            timestamp: Timestamp.now(),
+          },
+        },
+      });
+
+      toast.success('Work order archived successfully');
+      // Refresh
+      const refreshSnap = await getDoc(woRef);
+      if (refreshSnap.exists()) {
+        setWorkOrder({ id: refreshSnap.id, ...refreshSnap.data() } as any);
+      }
+    } catch (error) {
+      console.error('Error archiving work order:', error);
+      toast.error('Failed to archive work order');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -1443,6 +1499,24 @@ export default function ViewWorkOrder() {
               <span className="text-sm text-muted-foreground flex items-center gap-1">
                 <CheckCircle className="h-4 w-4" />
                 Rated: {workOrder.ratingCompleteToSpecs ? 'Complete to specifications' : 'Not to specifications'}
+              </span>
+            )}
+            {workOrder.status !== 'archived' && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-50"
+                onClick={handleArchiveWorkOrder}
+                loading={archiving} disabled={archiving}
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Archive
+              </Button>
+            )}
+            {workOrder.status === 'archived' && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <Archive className="h-4 w-4" />
+                Archived
               </span>
             )}
           </div>

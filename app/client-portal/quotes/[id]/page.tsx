@@ -112,7 +112,10 @@ export default function QuoteDetail() {
           const workOrderDoc = await getDoc(doc(db, 'workOrders', quoteData.workOrderId));
           if (workOrderDoc.exists()) {
             const workOrderData = workOrderDoc.data();
-            if (!clientAssignedLocations.includes(workOrderData.locationId)) {
+            // If the work order is directly owned by this client, always allow access
+            // Location filtering is only for company-member access scoping
+            const isDirectOwner = workOrderData.clientId === user.uid;
+            if (!isDirectOwner && !clientAssignedLocations.includes(workOrderData.locationId)) {
               toast.error('You do not have access to this quote');
               router.push('/client-portal/quotes');
               return;

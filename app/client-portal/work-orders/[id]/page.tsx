@@ -9,7 +9,7 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -138,6 +138,8 @@ export default function ViewClientWorkOrder() {
   const [hasCompareQuotesPermission, setHasCompareQuotesPermission] = useState(false);
   const [hasViewTimelinePermission, setHasViewTimelinePermission] = useState(false);
   const [hasShareForBiddingPermission, setHasShareForBiddingPermission] = useState(false);
+  const [hasArchivePermission, setHasArchivePermission] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -161,6 +163,7 @@ export default function ViewClientWorkOrder() {
           setHasCompareQuotesPermission(clientData?.permissions?.compareQuotes === true);
           setHasViewTimelinePermission(clientData?.permissions?.viewTimeline === true);
           setHasShareForBiddingPermission(clientData?.permissions?.shareForBidding === true);
+          setHasArchivePermission(clientData?.permissions?.archiveWorkOrders === true);
         } catch (error) {
           console.error('Error fetching client permissions:', error);
         }
@@ -234,6 +237,7 @@ export default function ViewClientWorkOrder() {
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
+      case 'archived': return 'text-gray-600 bg-gray-100';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -688,6 +692,59 @@ export default function ViewClientWorkOrder() {
     }
   };
 
+  const handleArchiveWorkOrder = async () => {
+    if (!workOrder) return;
+    setArchiving(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { toast.error('You must be logged in'); return; }
+
+      const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+      const clientName = clientDoc.exists() ? (clientDoc.data().fullName || currentUser.email || 'Client') : (currentUser.email || 'Client');
+
+      const woRef = doc(db, 'workOrders', workOrder.id);
+      const woSnap = await getDoc(woRef);
+      const woData = woSnap.data();
+
+      await updateDoc(woRef, {
+        status: 'archived',
+        previousStatus: workOrder.status,
+        archivedBy: currentUser.uid,
+        archivedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        timeline: [...(woData?.timeline || []), createTimelineEvent({
+          type: 'archived',
+          userId: currentUser.uid,
+          userName: clientName,
+          userRole: 'client',
+          details: `Work order archived by ${clientName} (Client)`,
+          metadata: { previousStatus: workOrder.status },
+        })],
+        systemInformation: {
+          ...(woData?.systemInformation || {}),
+          archivedBy: {
+            id: currentUser.uid,
+            name: clientName,
+            role: 'client',
+            timestamp: Timestamp.now(),
+          },
+        },
+      });
+
+      toast.success('Work order archived successfully');
+      // Refresh
+      const refreshSnap = await getDoc(woRef);
+      if (refreshSnap.exists()) {
+        setWorkOrder({ id: refreshSnap.id, ...refreshSnap.data() } as any);
+      }
+    } catch (error: any) {
+      console.error('Error archiving work order:', error);
+      toast.error(error.message || 'Failed to archive work order');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   if (loading) {
     return (
       <ClientLayout>
@@ -789,6 +846,24 @@ export default function ViewClientWorkOrder() {
                 <Share2 className="h-4 w-4 mr-2" />
                 Share for Bidding
               </Button>
+            )}
+            {hasArchivePermission && workOrder.status !== 'archived' && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-50"
+                onClick={handleArchiveWorkOrder}
+                loading={archiving} disabled={archiving}
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Archive
+              </Button>
+            )}
+            {workOrder.status === 'archived' && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <Archive className="h-4 w-4" />
+                Archived
+              </span>
             )}
             {(workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && workOrder.assignedSubcontractor && (
               <Link href={`/client-portal/messages?workOrderId=${workOrder.id}`}>

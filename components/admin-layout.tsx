@@ -14,7 +14,7 @@ import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw,
   Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail, Headphones,
-  Database, FlaskConical, BookOpen,
+  Database, FlaskConical, BookOpen, Archive,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -58,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
       { name: 'Recurring Work Orders', href: '/admin-portal/recurring-work-orders', icon: RotateCcw },
       { name: 'Maint. Req. Work Orders', href: '/admin-portal/work-orders/maintenance-requests', icon: Wrench },
       { name: 'Rejected Work Orders', href: '/admin-portal/rejected-work-orders', icon: XCircle },
+      { name: 'Archived Work Orders', href: '/admin-portal/work-orders?type=archive', icon: Archive },
     ],
   },
   {
