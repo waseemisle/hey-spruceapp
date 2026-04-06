@@ -99,6 +99,40 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     setLoading(false);
   }, [params.id]);
 
+  // Live countdown to next execution
+  const [countdown, setCountdown] = useState('');
+  const [nextExecDate, setNextExecDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (!recurringWorkOrder || executions === undefined) return;
+    // Compute next execution date
+    const { upcomingExecutions } = buildExecutionTimeline(recurringWorkOrder);
+    const next = upcomingExecutions.length > 0 ? upcomingExecutions[0].scheduledDate : null;
+    setNextExecDate(next);
+  }, [recurringWorkOrder, executions]);
+
+  useEffect(() => {
+    if (!nextExecDate) { setCountdown(''); return; }
+    const update = () => {
+      const now = new Date();
+      const diff = nextExecDate.getTime() - now.getTime();
+      if (diff <= 0) { setCountdown('Now'); return; }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      const parts: string[] = [];
+      if (days > 0) parts.push(`${days}d`);
+      parts.push(`${hours}h`);
+      parts.push(`${minutes}m`);
+      parts.push(`${seconds}s`);
+      setCountdown(parts.join(' '));
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [nextExecDate]);
+
   // Resolve creator display name when not stored on the document
   useEffect(() => {
     if (!recurringWorkOrder?.createdBy) {
@@ -808,6 +842,23 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                           {nextDate ? nextDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Not scheduled'}
                         </span>
                       </div>
+                      {countdown && (
+                        <div>
+                          <span className="font-semibold">Time Left for Next Execution:</span>
+                          <span className={`ml-2 font-mono text-sm px-2 py-0.5 rounded ${
+                            countdown === 'Now'
+                              ? 'bg-green-100 text-green-700 animate-pulse'
+                              : 'bg-blue-50 text-blue-700'
+                          }`}>
+                            {countdown}
+                          </span>
+                          {patternEndDate && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              (ends {patternEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div>
                         <span className="font-semibold">Last Execution:</span>
                         <span className="ml-2">
