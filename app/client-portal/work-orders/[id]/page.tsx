@@ -1103,7 +1103,7 @@ export default function ViewClientWorkOrder() {
                     <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
                   ) : (
                     <div className="space-y-3">
-                      {hasCompareQuotesPermission && quotes.length >= 2 && (
+                      {quotes.length >= 2 && (
                         <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
                           <p className="text-sm text-primary">Select 2 or more quotes to compare them side-by-side</p>
                         </div>
@@ -1111,7 +1111,7 @@ export default function ViewClientWorkOrder() {
                       {quotes.map((quote) => (
                         <div key={quote.id} className={`p-4 border rounded-lg hover:bg-muted/30 transition-colors ${selectedQuoteIds.includes(quote.id) ? 'bg-primary/5 border-primary/30' : ''}`}>
                           <div className="flex items-start gap-3">
-                            {hasCompareQuotesPermission && quotes.length >= 2 && (
+                            {quotes.length >= 2 && (
                               <Checkbox
                                 checked={selectedQuoteIds.includes(quote.id)}
                                 onCheckedChange={(checked) => handleQuoteSelection(quote.id, checked === true)}
@@ -1136,7 +1136,7 @@ export default function ViewClientWorkOrder() {
                           </div>
                         </div>
                       ))}
-                      {hasCompareQuotesPermission && quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
+                      {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
                         <Button onClick={handleCompareQuotes} className="w-full">
                           <GitCompare className="h-4 w-4 mr-2" />
                           Compare {selectedQuoteIds.length} Quotes
