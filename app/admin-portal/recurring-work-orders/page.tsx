@@ -159,21 +159,30 @@ export default function RecurringWorkOrdersManagement() {
     const anchor = startDate ?? firstService ?? (rwo.createdAt ? new Date(rwo.createdAt) : new Date());
     anchor.setHours(9, 0, 0, 0);
 
-    // Build set of completed dates
+    // Build set of completed dates and find the latest completed date
     const rwoExecutions = executionsByRWO[rwo.id] || [];
-    const doneDates = new Set(
-      rwoExecutions.filter(isExecutionDone).map(e => {
-        const d = toSafeDate(e.scheduledDate);
-        return d ? d.toDateString() : '';
-      }).filter(Boolean)
-    );
+    const doneDates = new Set<string>();
+    let latestDoneTime = 0;
+    for (const e of rwoExecutions) {
+      if (!isExecutionDone(e)) continue;
+      const d = toSafeDate(e.scheduledDate);
+      if (d) {
+        doneDates.add(d.toDateString());
+        if (d.getTime() > latestDoneTime) latestDoneTime = d.getTime();
+      }
+    }
+
+    // The next execution must be after both today AND the latest completed date
+    // This handles orphaned executions from old bugs (e.g. Apr 12-16 done but Apr 8-11 not)
+    const minDate = new Date(Math.max(today.getTime(), latestDoneTime));
+    minDate.setHours(0, 0, 0, 0);
 
     const cursor = new Date(anchor);
     if (mode === 'daily') {
       const hasDaysFilter = Array.isArray(daysOfWeek) && daysOfWeek.length > 0;
       for (let i = 0; i < 730; i++) {
         if (endDate && cursor > endDate) break;
-        if (cursor >= today && (!hasDaysFilter || daysOfWeek!.includes(cursor.getDay()))) {
+        if (cursor > minDate && (!hasDaysFilter || daysOfWeek!.includes(cursor.getDay()))) {
           if (!doneDates.has(cursor.toDateString())) return new Date(cursor);
         }
         cursor.setDate(cursor.getDate() + 1);
@@ -181,13 +190,13 @@ export default function RecurringWorkOrdersManagement() {
     } else if (mode === 'weekly') {
       for (let i = 0; i < 200; i++) {
         if (endDate && cursor > endDate) break;
-        if (cursor >= today && !doneDates.has(cursor.toDateString())) return new Date(cursor);
+        if (cursor > minDate && !doneDates.has(cursor.toDateString())) return new Date(cursor);
         cursor.setDate(cursor.getDate() + interval * 7);
       }
     } else {
       for (let i = 0; i < 200; i++) {
         if (endDate && cursor > endDate) break;
-        if (cursor >= today && !doneDates.has(cursor.toDateString())) return new Date(cursor);
+        if (cursor > minDate && !doneDates.has(cursor.toDateString())) return new Date(cursor);
         cursor.setMonth(cursor.getMonth() + interval);
       }
     }

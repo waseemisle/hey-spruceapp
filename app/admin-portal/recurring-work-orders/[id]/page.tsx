@@ -487,7 +487,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
 
   /**
    * Build a full execution timeline: past (completed/failed) + upcoming.
-   * Matches generated schedule dates against actual execution records.
+   * Merges pattern-generated dates with actual execution records to handle
+   * orphaned executions (created for off-pattern dates by old bugs).
    */
   const buildExecutionTimeline = (rwo: RecurringWorkOrder): {
     pastExecutions: ExecutionSlot[];
@@ -497,78 +498,79 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     const today = new Date();
     today.setHours(23, 59, 59, 999);
 
-    // Build a map of executed dates -> execution records
-    const executedDateMap = new Map<string, RecurringWorkOrderExecution>();
+    // Collect ALL completed/done dates from execution records
+    const doneExecDates = new Set<string>();
+    const allExecByDate = new Map<string, RecurringWorkOrderExecution>();
     for (const exec of executions) {
-      const execDate = toSafeDate(exec.scheduledDate);
-      if (execDate) executedDateMap.set(execDate.toDateString(), exec);
+      const d = toSafeDate(exec.scheduledDate);
+      if (!d) continue;
+      const key = d.toDateString();
+      allExecByDate.set(key, exec);
+      const isDone = exec.status === 'executed' || exec.status === 'failed' || !!(exec as any).workOrderId;
+      if (isDone) doneExecDates.add(key);
     }
 
-    // Also map by approximate date match (within 24h) for robustness
-    const getMatchingExecution = (date: Date): RecurringWorkOrderExecution | undefined => {
-      const exact = executedDateMap.get(date.toDateString());
-      if (exact) return exact;
-      // Check within 24h window
-      for (const exec of executions) {
-        const execDate = toSafeDate(exec.scheduledDate);
-        if (execDate && Math.abs(execDate.getTime() - date.getTime()) < 24 * 60 * 60 * 1000) {
-          return exec;
-        }
-      }
-      return undefined;
-    };
+    // Generate pattern dates
+    const patternDates = generateAllScheduledDates(rwo);
 
-    const allDates = generateAllScheduledDates(rwo);
+    // Build a unified set of all relevant dates:
+    // 1) Pattern dates
+    // 2) Execution record dates not in the pattern (orphaned from old bugs)
+    const allDateKeys = new Set<string>();
+    const allDates: Date[] = [];
+    for (const d of patternDates) {
+      const key = d.toDateString();
+      if (!allDateKeys.has(key)) { allDateKeys.add(key); allDates.push(d); }
+    }
+    for (const exec of executions) {
+      const d = toSafeDate(exec.scheduledDate);
+      if (!d) continue;
+      const key = d.toDateString();
+      if (!allDateKeys.has(key)) { allDateKeys.add(key); allDates.push(d); }
+    }
+    // Sort all dates chronologically
+    allDates.sort((a, b) => a.getTime() - b.getTime());
+
     const pastExecutions: ExecutionSlot[] = [];
     const upcomingExecutions: ExecutionSlot[] = [];
     let totalCompleted = 0;
+    let seqNum = 0;
 
-    for (let i = 0; i < allDates.length; i++) {
-      const date = allDates[i];
-      const matchingExec = getMatchingExecution(date);
+    for (const date of allDates) {
+      seqNum++;
+      const key = date.toDateString();
+      const matchingExec = allExecByDate.get(key);
       const isPast = date <= today;
+      const isDone = doneExecDates.has(key);
 
-      if (matchingExec) {
-        // An execution with a workOrderId is effectively completed even if status is still 'pending'
+      if (isDone && matchingExec) {
         const hasWorkOrder = !!(matchingExec as any).workOrderId;
-        const status: ExecutionStatus =
-          (matchingExec.status === 'executed' || hasWorkOrder) ? 'completed'
-          : matchingExec.status === 'failed' ? 'failed'
-          : matchingExec.status === 'pending' ? 'pending'
-          : 'upcoming';
-
-        const slot: ExecutionSlot = {
-          executionNumber: i + 1,
+        const status: ExecutionStatus = matchingExec.status === 'failed' ? 'failed' : 'completed';
+        pastExecutions.push({
+          executionNumber: seqNum,
           scheduledDate: date,
           status,
           execution: matchingExec,
-        };
-
-        if (status === 'completed' || status === 'failed') {
-          pastExecutions.push(slot);
-          if (status === 'completed') totalCompleted++;
-        } else if (isPast) {
-          // Past date with pending execution — treat as missed/pending
-          pastExecutions.push({ ...slot, status: 'pending' });
-        } else {
-          upcomingExecutions.push(slot);
-        }
-      } else if (isPast) {
-        // Past date, no execution record — it was missed or not yet tracked
-        // Only show as missed if it's after the first execution or if there are any executions
-        if (executions.length > 0 || i === 0) {
-          pastExecutions.push({
-            executionNumber: i + 1,
-            scheduledDate: date,
-            status: 'pending',
-          });
-        }
-      } else {
+        });
+        if (status === 'completed') totalCompleted++;
+      } else if (isPast && matchingExec) {
+        // Past date with a non-done execution record
+        pastExecutions.push({
+          executionNumber: seqNum,
+          scheduledDate: date,
+          status: 'completed', // It's in the past with a record — treat as done
+          execution: matchingExec,
+        });
+        totalCompleted++;
+      } else if (!isDone && !isPast) {
+        // Future date, not yet executed
         upcomingExecutions.push({
-          executionNumber: i + 1,
+          executionNumber: seqNum,
           scheduledDate: date,
           status: 'upcoming',
         });
+      } else if (isPast && !matchingExec) {
+        // Past pattern date with no execution — skip (don't clutter with missed dates)
       }
     }
 
@@ -793,46 +795,11 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                     .filter(Boolean)
                     .sort((a, b) => b!.getTime() - a!.getTime())[0];
 
-                  // Next execution: compute from pattern
-                  const { mode, interval, daysOfWeek } = resolveInterval(recurringWorkOrder);
-                  const pattern = recurringWorkOrder.recurrencePattern as any;
-                  const patternStartDate = toSafeDate(pattern?.startDate);
-                  const patternEndDate = toSafeDate(pattern?.endDate);
-                  const firstService = recurringWorkOrder.nextServiceDates?.[0] ? toSafeDate(recurringWorkOrder.nextServiceDates[0]) : null;
-                  const anchor = patternStartDate ?? firstService ?? (recurringWorkOrder.createdAt ? new Date(recurringWorkOrder.createdAt) : new Date());
-                  anchor.setHours(9, 0, 0, 0);
+                  const patternEndDate = toSafeDate((recurringWorkOrder.recurrencePattern as any)?.endDate);
 
-                  const doneDateSet = new Set(doneExecs.map(e => {
-                    const d = toSafeDate(e.scheduledDate);
-                    return d ? d.toDateString() : '';
-                  }).filter(Boolean));
-
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  let nextDate: Date | null = null;
-                  const cursor = new Date(anchor);
-                  if (mode === 'daily') {
-                    const hasDaysFilter = Array.isArray(daysOfWeek) && daysOfWeek.length > 0;
-                    for (let i = 0; i < 730; i++) {
-                      if (patternEndDate && cursor > patternEndDate) break;
-                      if (cursor >= today && (!hasDaysFilter || daysOfWeek!.includes(cursor.getDay())) && !doneDateSet.has(cursor.toDateString())) {
-                        nextDate = new Date(cursor); break;
-                      }
-                      cursor.setDate(cursor.getDate() + 1);
-                    }
-                  } else if (mode === 'weekly') {
-                    for (let i = 0; i < 200; i++) {
-                      if (patternEndDate && cursor > patternEndDate) break;
-                      if (cursor >= today && !doneDateSet.has(cursor.toDateString())) { nextDate = new Date(cursor); break; }
-                      cursor.setDate(cursor.getDate() + interval * 7);
-                    }
-                  } else {
-                    for (let i = 0; i < 200; i++) {
-                      if (patternEndDate && cursor > patternEndDate) break;
-                      if (cursor >= today && !doneDateSet.has(cursor.toDateString())) { nextDate = new Date(cursor); break; }
-                      cursor.setMonth(cursor.getMonth() + interval);
-                    }
-                  }
+                  // Use buildExecutionTimeline for next date (handles orphaned executions)
+                  const { upcomingExecutions: statsUpcoming } = buildExecutionTimeline(recurringWorkOrder);
+                  const nextDate = statsUpcoming.length > 0 ? statsUpcoming[0].scheduledDate : null;
 
                   return (
                     <>
