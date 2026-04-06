@@ -86,8 +86,6 @@ export default function SubcontractorAssignedJobs() {
   const [uploadingFiles, setUploadingFiles] = useState(false);
 
   useEffect(() => {
-    let unsubscribeWorkOrders: (() => void) | null = null;
-
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         const assignedQuery = query(
@@ -104,29 +102,25 @@ export default function SubcontractorAssignedJobs() {
 
           setAssignedJobs(assignedData);
 
-          // Cancel previous work orders listener before creating a new one
-          unsubscribeWorkOrders?.();
-          unsubscribeWorkOrders = null;
-
-          const workOrderIds = [...new Set(assignedData.map(job => job.workOrderId))];
+          const workOrderIds = [...new Set(assignedData.map(job => job.workOrderId).filter(Boolean))];
 
           if (workOrderIds.length > 0) {
-            const workOrdersQuery = query(
-              collection(db, 'workOrders'),
-              where(documentId(), 'in', workOrderIds)
-            );
-
-            unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (woSnapshot) => {
-              const workOrdersMap = new Map<string, WorkOrder>();
-              woSnapshot.docs.forEach(woDoc => {
-                workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
-              });
-              setWorkOrders(workOrdersMap);
-              setLoading(false);
-            }, (error) => {
-              console.error('Work orders listener error:', error);
-              setLoading(false);
+            // Fetch work orders individually to handle permission issues gracefully
+            // and avoid the Firestore 'in' query limit of 10
+            const workOrdersMap = new Map<string, WorkOrder>();
+            const fetchPromises = workOrderIds.map(async (woId) => {
+              try {
+                const woDoc = await getDoc(doc(db, 'workOrders', woId));
+                if (woDoc.exists()) {
+                  workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
+                }
+              } catch (err) {
+                console.warn(`Could not fetch work order ${woId}:`, err);
+              }
             });
+            await Promise.all(fetchPromises);
+            setWorkOrders(workOrdersMap);
+            setLoading(false);
           } else {
             setLoading(false);
           }
@@ -137,8 +131,6 @@ export default function SubcontractorAssignedJobs() {
 
         return () => {
           unsubscribeSnapshot();
-          unsubscribeWorkOrders?.();
-          unsubscribeWorkOrders = null;
         };
       } else {
         setLoading(false);
@@ -147,8 +139,6 @@ export default function SubcontractorAssignedJobs() {
 
     return () => {
       unsubscribeAuth();
-      unsubscribeWorkOrders?.();
-      unsubscribeWorkOrders = null;
     };
   }, [auth, db]);
 
@@ -511,22 +501,23 @@ export default function SubcontractorAssignedJobs() {
 
   const filteredJobs = assignedJobs.filter(job => {
     const workOrder = workOrders.get(job.workOrderId);
-    if (!workOrder) return false;
+    // Show the job even if work order details haven't loaded yet (race condition)
+    // Only filter on work order fields when they're available
 
     // Filter by status
     let statusMatch = true;
     if (filter === 'pending') statusMatch = job.status === 'pending_acceptance';
-    else if (filter === 'in-progress') statusMatch = job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor');
-    else if (filter === 'completed') statusMatch = workOrder.status === 'completed' || workOrder.status === 'pending_invoice';
+    else if (filter === 'in-progress') statusMatch = job.status === 'accepted' && (!workOrder || workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor');
+    else if (filter === 'completed') statusMatch = !!workOrder && (workOrder.status === 'completed' || workOrder.status === 'pending_invoice');
 
-    // Filter by search query
+    // Filter by search query (only when work order data is available)
     const searchLower = searchQuery.toLowerCase();
-    const searchMatch = !searchQuery ||
-      workOrder.title.toLowerCase().includes(searchLower) ||
-      workOrder.description.toLowerCase().includes(searchLower) ||
-      workOrder.clientName.toLowerCase().includes(searchLower) ||
-      workOrder.category.toLowerCase().includes(searchLower) ||
-      workOrder.locationName.toLowerCase().includes(searchLower) ||
+    const searchMatch = !searchQuery || !workOrder ||
+      (workOrder.title || '').toLowerCase().includes(searchLower) ||
+      (workOrder.description || '').toLowerCase().includes(searchLower) ||
+      (workOrder.clientName || '').toLowerCase().includes(searchLower) ||
+      (workOrder.category || '').toLowerCase().includes(searchLower) ||
+      (workOrder.locationName || '').toLowerCase().includes(searchLower) ||
       formatAddress(workOrder.locationAddress).toLowerCase().includes(searchLower);
 
     return statusMatch && searchMatch;
@@ -643,7 +634,17 @@ export default function SubcontractorAssignedJobs() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredJobs.map((job) => {
               const workOrder = workOrders.get(job.workOrderId);
-              if (!workOrder) return null;
+
+              // Show a loading card if work order details haven't loaded yet
+              if (!workOrder) {
+                return (
+                  <div key={job.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 animate-pulse">
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                    <div className="h-8 bg-muted rounded w-full mt-2" />
+                  </div>
+                );
+              }
 
               const effectiveStatus = (workOrder.status === 'completed' || workOrder.status === 'pending_invoice') ? 'completed' : job.status;
               const jobStatusCfg = JOB_STATUS_CONFIG[effectiveStatus] || JOB_STATUS_CONFIG['pending_acceptance'];
