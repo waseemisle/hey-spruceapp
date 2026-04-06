@@ -671,20 +671,21 @@ export default function RecurringWorkOrdersManagement() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {(() => {
-                        const { completed } = getExecutionProgress(recurringWorkOrder);
                         const rwoExecs = executionsByRWO[recurringWorkOrder.id] || [];
+                        const completed = rwoExecs.filter(e => e.status === 'executed').length;
                         const pending = rwoExecs.filter(e => e.status === 'pending').length;
+                        const total = completed + pending;
+                        const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                         return (
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 text-xs">
-                              <span className="text-green-600 font-medium">{completed}</span>
-                              <span className="text-muted-foreground">done</span>
-                              {pending > 0 && (
-                                <>
-                                  <span className="text-yellow-600 font-medium ml-1">{pending}</span>
-                                  <span className="text-muted-foreground">pending</span>
-                                </>
-                              )}
+                          <div className="min-w-[80px] space-y-0.5">
+                            <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-green-500 transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              <span className="text-green-600 font-semibold">{completed}</span> / {total}{pending > 0 && <span className="text-yellow-600 ml-1">({pending} pending)</span>}
                             </div>
                           </div>
                         );
@@ -802,14 +803,23 @@ export default function RecurringWorkOrdersManagement() {
                 </div>
                 {/* Row 2.5: mini progress bar */}
                 {(() => {
-                  const { completed } = getExecutionProgress(recurringWorkOrder);
                   const rwoExecs = executionsByRWO[recurringWorkOrder.id] || [];
+                  const completed = rwoExecs.filter(e => e.status === 'executed').length;
                   const pending = rwoExecs.filter(e => e.status === 'pending').length;
-                  if (completed === 0 && pending === 0) return null;
+                  const total = completed + pending;
+                  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                   return (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-green-600 font-medium">{completed} completed</span>
-                      {pending > 0 && <span className="text-yellow-600 font-medium">{pending} pending</span>}
+                    <div className="space-y-1">
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-300"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span><span className="text-green-600 font-semibold">{completed}</span> done{pending > 0 && <>, <span className="text-yellow-600 font-semibold">{pending}</span> pending</>}</span>
+                        {total > 0 && <span>{pct}%</span>}
+                      </div>
                     </div>
                   );
                 })()}

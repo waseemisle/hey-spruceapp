@@ -357,46 +357,76 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
   };
 
   /**
+   * Convert any date-like value (Firestore Timestamp, Date, string) to a JS Date.
+   */
+  const toSafeDate = (v: any): Date | null => {
+    if (!v) return null;
+    if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+    if (typeof v.toDate === 'function') return v.toDate();
+    if (typeof v.seconds === 'number') return new Date(v.seconds * 1000); // Firestore Timestamp-like
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  /**
+   * Resolve the interval in months/weeks from the label or pattern fields.
+   * Labels: SEMIANNUALLY=6mo, QUARTERLY=3mo, BI-MONTHLY=2mo, MONTHLY=1mo, BI-WEEKLY=2wk, WEEKLY=1wk, DAILY
+   */
+  const resolveInterval = (rwo: RecurringWorkOrder): { mode: 'daily' | 'weekly' | 'monthly'; interval: number; daysOfWeek?: number[] } => {
+    const label = ((rwo as any).recurrencePatternLabel || '').toUpperCase();
+    const pattern = rwo.recurrencePattern as any;
+
+    // Resolve from label first (most reliable)
+    switch (label) {
+      case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6 };
+      case 'QUARTERLY':    return { mode: 'monthly', interval: 3 };
+      case 'BI-MONTHLY':   return { mode: 'monthly', interval: 2 };
+      case 'MONTHLY':      return { mode: 'monthly', interval: 1 };
+      case 'BI-WEEKLY':    return { mode: 'weekly', interval: 2 };
+      case 'WEEKLY':       return { mode: 'weekly', interval: 1 };
+      case 'DAILY':        return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
+    }
+
+    // Fall back to pattern.type + pattern.interval
+    if (pattern?.type === 'weekly') return { mode: 'weekly', interval: pattern.interval || 2 };
+    if (pattern?.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1 };
+    if (pattern?.type === 'daily') return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
+
+    // Ultimate fallback: monthly
+    return { mode: 'monthly', interval: 1 };
+  };
+
+  /**
    * Generate ALL scheduled dates from the recurrence start date forward.
    * Returns dates from the very beginning so we can match against executed records.
    */
   const generateAllScheduledDates = (rwo: RecurringWorkOrder, maxDates: number = 200): Date[] => {
     const pattern = rwo.recurrencePattern as any;
-    const label = (rwo as any).recurrencePatternLabel as string | undefined;
-    if (!pattern) return [];
+    const { mode, interval, daysOfWeek } = resolveInterval(rwo);
 
-    const toDate = (v: any): Date | null => {
-      if (!v) return null;
-      if (v instanceof Date) return v;
-      if (typeof v.toDate === 'function') return v.toDate();
-      const d = new Date(v);
-      return isNaN(d.getTime()) ? null : d;
-    };
+    const startDate = toSafeDate(pattern?.startDate);
+    const endDate = toSafeDate(pattern?.endDate);
 
-    const startDate = toDate(pattern.startDate);
-    const endDate = toDate(pattern.endDate);
-
-    // We need a starting anchor — use the pattern startDate, or fall back to createdAt
-    const anchor = startDate ? new Date(startDate) : (rwo.createdAt ? new Date(rwo.createdAt) : new Date());
+    // Anchor: pattern startDate > nextServiceDates[0] > createdAt > now
+    const firstServiceDate = rwo.nextServiceDates?.[0] ? toSafeDate(rwo.nextServiceDates[0]) : null;
+    const anchor = startDate ?? firstServiceDate ?? (rwo.createdAt ? new Date(rwo.createdAt) : new Date());
     anchor.setHours(9, 0, 0, 0);
 
     const results: Date[] = [];
+    const cursor = new Date(anchor);
 
-    if (label === 'DAILY') {
-      const hasDaysOfWeek = Array.isArray(pattern.daysOfWeek) && pattern.daysOfWeek.length > 0;
-      const cursor = new Date(anchor);
+    if (mode === 'daily') {
+      const hasDaysFilter = Array.isArray(daysOfWeek) && daysOfWeek.length > 0;
       let iters = 0;
       while (results.length < maxDates && iters < 730) {
         if (endDate && cursor > endDate) break;
-        if (!hasDaysOfWeek || pattern.daysOfWeek.includes(cursor.getDay())) {
+        if (!hasDaysFilter || daysOfWeek!.includes(cursor.getDay())) {
           results.push(new Date(cursor));
         }
         cursor.setDate(cursor.getDate() + 1);
         iters++;
       }
-    } else if (pattern.type === 'weekly') {
-      const interval: number = pattern.interval || 2;
-      const cursor = new Date(anchor);
+    } else if (mode === 'weekly') {
       let iters = 0;
       while (results.length < maxDates && iters < 200) {
         if (endDate && cursor > endDate) break;
@@ -404,9 +434,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
         cursor.setDate(cursor.getDate() + interval * 7);
         iters++;
       }
-    } else if (pattern.type === 'monthly') {
-      const interval: number = pattern.interval || 1;
-      const cursor = new Date(anchor);
+    } else {
+      // monthly (covers MONTHLY, BI-MONTHLY, QUARTERLY, SEMIANNUALLY)
       let iters = 0;
       while (results.length < maxDates && iters < 200) {
         if (endDate && cursor > endDate) break;
@@ -443,8 +472,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     // Build a map of executed dates -> execution records
     const executedDateMap = new Map<string, RecurringWorkOrderExecution>();
     for (const exec of executions) {
-      const execDate = exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate);
-      executedDateMap.set(execDate.toDateString(), exec);
+      const execDate = toSafeDate(exec.scheduledDate);
+      if (execDate) executedDateMap.set(execDate.toDateString(), exec);
     }
 
     // Also map by approximate date match (within 24h) for robustness
@@ -453,8 +482,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       if (exact) return exact;
       // Check within 24h window
       for (const exec of executions) {
-        const execDate = exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate);
-        if (Math.abs(execDate.getTime() - date.getTime()) < 24 * 60 * 60 * 1000) {
+        const execDate = toSafeDate(exec.scheduledDate);
+        if (execDate && Math.abs(execDate.getTime() - date.getTime()) < 24 * 60 * 60 * 1000) {
           return exec;
         }
       }
@@ -690,15 +719,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
 
                 {(() => {
                   const p = recurringWorkOrder.recurrencePattern as any;
-                  const toDate = (v: any): Date | null => {
-                    if (!v) return null;
-                    if (v instanceof Date) return v;
-                    if (typeof v.toDate === 'function') return v.toDate();
-                    const d = new Date(v);
-                    return isNaN(d.getTime()) ? null : d;
-                  };
-                  const startDate = toDate(p?.startDate);
-                  const endDate = toDate(p?.endDate);
+                  const startDate = toSafeDate(p?.startDate);
+                  const endDate = toSafeDate(p?.endDate);
                   return (
                     <>
                       {startDate && (
@@ -754,15 +776,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               const totalScheduled = pastExecutions.length + upcomingExecutions.length;
               const progressPercent = totalScheduled > 0 ? Math.round((totalCompleted / totalScheduled) * 100) : 0;
               const pattern = recurringWorkOrder.recurrencePattern as any;
-              const endDate = pattern?.endDate
-                ? (() => {
-                    const v = pattern.endDate;
-                    if (v instanceof Date) return v;
-                    if (typeof v?.toDate === 'function') return v.toDate();
-                    const d = new Date(v);
-                    return isNaN(d.getTime()) ? null : d;
-                  })()
-                : null;
+              const endDate = toSafeDate(pattern?.endDate);
               const next5Upcoming = upcomingExecutions.slice(0, 5);
               const todayStr = new Date().toDateString();
 
@@ -959,27 +973,28 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               );
             })()}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Invoice Schedule
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <span className="font-semibold">Invoice Pattern:</span>
-                  <span className="ml-2">
-                    Every {recurringWorkOrder.invoiceSchedule.interval} {recurringWorkOrder.invoiceSchedule.type}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="font-semibold">Invoice Time:</span>
-                  <span className="ml-2">{recurringWorkOrder.invoiceSchedule.time} {recurringWorkOrder.invoiceSchedule.timezone}</span>
-                </div>
-              </CardContent>
-            </Card>
+            {recurringWorkOrder.invoiceSchedule && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Invoice Schedule
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <span className="font-semibold">Invoice Pattern:</span>
+                    <span className="ml-2">
+                      Every {recurringWorkOrder.invoiceSchedule.interval} {recurringWorkOrder.invoiceSchedule.type}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-semibold">Invoice Time:</span>
+                    <span className="ml-2">{recurringWorkOrder.invoiceSchedule.time} {recurringWorkOrder.invoiceSchedule.timezone}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Timeline – same level of detail as regular work orders */}
