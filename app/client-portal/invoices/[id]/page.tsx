@@ -8,7 +8,7 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
@@ -37,6 +37,9 @@ interface Invoice {
   timeline?: InvoiceTimelineEvent[];
   systemInformation?: InvoiceSystemInformation;
   creationSource?: string;
+  completionDetails?: string;
+  completionNotes?: string;
+  completionImages?: string[];
 }
 
 export default function ClientInvoiceDetail() {
@@ -312,6 +315,55 @@ export default function ClientInvoiceDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Completion Details */}
+        {(invoice.completionDetails || invoice.completionNotes || (invoice.completionImages && invoice.completionImages.length > 0)) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                Completion Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(invoice.completionDetails || invoice.completionNotes) && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  {invoice.completionDetails && (
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{invoice.completionDetails}</p>
+                  )}
+                  {invoice.completionNotes && invoice.completionNotes !== invoice.completionDetails && (
+                    <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{invoice.completionNotes}</p>
+                  )}
+                </div>
+              )}
+              {invoice.completionImages && invoice.completionImages.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-blue-600" />
+                    Completion Images ({invoice.completionImages.length})
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {invoice.completionImages.map((img, idx) => (
+                      <a
+                        key={idx}
+                        href={img}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="aspect-square rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow bg-muted"
+                      >
+                        <img
+                          src={img}
+                          alt={`Completion image ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {canViewTimeline && (
           <InvoiceSystemInfo

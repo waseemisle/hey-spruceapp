@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, ArrowLeft, History, Paperclip, MapPin, FileText, CreditCard, GitBranch, Edit2, Zap, X, Plus, Trash2 } from 'lucide-react';
+import { Receipt, Download, ArrowLeft, History, Paperclip, MapPin, FileText, CreditCard, GitBranch, Edit2, Zap, X, Plus, Trash2, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
@@ -73,9 +73,12 @@ interface Invoice {
   checkInOut?: Array<{ type: 'check_in' | 'check_out'; timestamp: any; location?: string }>;
   attachments?: Array<{ name: string; url: string }>;
   approvalChain?: Array<{ role: string; name?: string; status: 'pending' | 'approved' | 'rejected'; at?: any }>;
+  completionDetails?: string;
+  completionNotes?: string;
+  completionImages?: string[];
 }
 
-type InvoiceTab = 'charges' | 'history' | 'attachments' | 'checkinout' | 'related' | 'approval';
+type InvoiceTab = 'charges' | 'completion' | 'history' | 'attachments' | 'checkinout' | 'related' | 'approval';
 
 interface ClientBilling {
   savedCardLast4?: string;
@@ -502,8 +505,11 @@ export default function AdminInvoiceDetail() {
     return null;
   }
 
+  const hasCompletionData = !!(invoice.completionDetails || invoice.completionNotes || (invoice.completionImages && invoice.completionImages.length > 0));
+
   const tabs: { id: InvoiceTab; label: string; icon: React.ElementType }[] = [
     { id: 'charges', label: 'Charges', icon: Receipt },
+    ...(hasCompletionData ? [{ id: 'completion' as InvoiceTab, label: 'Completion Details', icon: CheckCircle }] : []),
     { id: 'history', label: 'History', icon: History },
     { id: 'attachments', label: 'Attachments', icon: Paperclip },
     { id: 'checkinout', label: 'Check-In/Out', icon: MapPin },
@@ -764,6 +770,53 @@ export default function AdminInvoiceDetail() {
                   {discount > 0 && <p>Discount: -${discount.toLocaleString()}</p>}
                   <p className="font-bold text-lg">Total: ${totalDisplay.toLocaleString()}</p>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'completion' && hasCompletionData && (
+              <div className="space-y-4">
+                {(invoice.completionDetails || invoice.completionNotes) && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Completion Details
+                    </h3>
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      {invoice.completionDetails && (
+                        <p className="text-sm text-foreground whitespace-pre-wrap">{invoice.completionDetails}</p>
+                      )}
+                      {invoice.completionNotes && invoice.completionNotes !== invoice.completionDetails && (
+                        <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{invoice.completionNotes}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {invoice.completionImages && invoice.completionImages.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-blue-600" />
+                      Completion Images ({invoice.completionImages.length})
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {invoice.completionImages.map((img, idx) => (
+                        <a
+                          key={idx}
+                          href={img}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="aspect-square rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow bg-muted"
+                        >
+                          <img
+                            src={img}
+                            alt={`Completion image ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

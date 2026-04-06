@@ -1009,6 +1009,10 @@ export default function ViewWorkOrder() {
 
       const invoiceNumber = generateInvoiceNumber();
 
+      // Pull completion details from work order
+      const woSnap = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const woData = woSnap.data();
+
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
         clientId: workOrder.clientId,
@@ -1025,6 +1029,10 @@ export default function ViewWorkOrder() {
         dueDate,
         notes: '',
         terms: 'Payment due within 30 days of invoice date.',
+        // Include completion details from work order
+        ...(woData?.completionDetails && { completionDetails: woData.completionDetails }),
+        ...(woData?.completionNotes && { completionNotes: woData.completionNotes }),
+        ...(woData?.completionImages?.length && { completionImages: woData.completionImages }),
         createdBy: currentUser.uid,
         createdByName,
         creationSource: 'work_order_quick_create',
