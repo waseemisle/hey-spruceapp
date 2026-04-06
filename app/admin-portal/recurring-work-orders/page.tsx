@@ -114,73 +114,84 @@ export default function RecurringWorkOrdersManagement() {
   };
 
   /** Compute next upcoming execution date from the recurrence pattern, skipping past completed dates */
+  const toSafeDate = (v: any): Date | null => {
+    if (!v) return null;
+    if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+    if (typeof v.toDate === 'function') return v.toDate();
+    if (typeof v.seconds === 'number') return new Date(v.seconds * 1000);
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  /** Resolve recurrence interval from label or pattern */
+  const resolveInterval = (rwo: RecurringWorkOrder): { mode: 'daily' | 'weekly' | 'monthly'; interval: number; daysOfWeek?: number[] } => {
+    const label = ((rwo as any).recurrencePatternLabel || '').toUpperCase();
+    const pattern = rwo.recurrencePattern as any;
+    switch (label) {
+      case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6 };
+      case 'QUARTERLY':    return { mode: 'monthly', interval: 3 };
+      case 'BI-MONTHLY':   return { mode: 'monthly', interval: 2 };
+      case 'MONTHLY':      return { mode: 'monthly', interval: 1 };
+      case 'BI-WEEKLY':    return { mode: 'weekly', interval: 2 };
+      case 'WEEKLY':       return { mode: 'weekly', interval: 1 };
+      case 'DAILY':        return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
+    }
+    if (pattern?.type === 'weekly') return { mode: 'weekly', interval: pattern.interval || 2 };
+    if (pattern?.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1 };
+    if (pattern?.type === 'daily') return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
+    return { mode: 'monthly', interval: 1 };
+  };
+
+  /** Check if an execution is effectively "done" (has work order or status executed) */
+  const isExecutionDone = (e: RecurringWorkOrderExecution) =>
+    e.status === 'executed' || !!(e as any).workOrderId;
+
+  /** Compute next upcoming execution date from the recurrence pattern */
   const computeNextUpcomingDate = (rwo: RecurringWorkOrder): Date | null => {
     const pattern = rwo.recurrencePattern as any;
-    if (!pattern) return null;
-
-    const toDate = (v: any): Date | null => {
-      if (!v) return null;
-      if (v instanceof Date) return v;
-      if (typeof v.toDate === 'function') return v.toDate();
-      const d = new Date(v);
-      return isNaN(d.getTime()) ? null : d;
-    };
+    const { mode, interval, daysOfWeek } = resolveInterval(rwo);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const startDate = toDate(pattern.startDate);
-    const endDate = toDate(pattern.endDate);
-    const anchor = startDate ? new Date(startDate) : (rwo.createdAt ? new Date(rwo.createdAt) : new Date());
+    const startDate = toSafeDate(pattern?.startDate);
+    const endDate = toSafeDate(pattern?.endDate);
+    const firstService = rwo.nextServiceDates?.[0] ? toSafeDate(rwo.nextServiceDates[0]) : null;
+    const anchor = startDate ?? firstService ?? (rwo.createdAt ? new Date(rwo.createdAt) : new Date());
     anchor.setHours(9, 0, 0, 0);
 
-    // Get executed dates for this RWO
+    // Build set of completed dates
     const rwoExecutions = executionsByRWO[rwo.id] || [];
-    const executedDates = new Set(
-      rwoExecutions
-        .filter(e => e.status === 'executed')
-        .map(e => (e.scheduledDate instanceof Date ? e.scheduledDate : new Date(e.scheduledDate)).toDateString())
+    const doneDates = new Set(
+      rwoExecutions.filter(isExecutionDone).map(e => {
+        const d = toSafeDate(e.scheduledDate);
+        return d ? d.toDateString() : '';
+      }).filter(Boolean)
     );
 
-    const label = (rwo as any).recurrencePatternLabel as string | undefined;
-
-    if (label === 'DAILY') {
-      const hasDaysOfWeek = Array.isArray(pattern.daysOfWeek) && pattern.daysOfWeek.length > 0;
-      const cursor = new Date(anchor);
+    const cursor = new Date(anchor);
+    if (mode === 'daily') {
+      const hasDaysFilter = Array.isArray(daysOfWeek) && daysOfWeek.length > 0;
       for (let i = 0; i < 730; i++) {
         if (endDate && cursor > endDate) break;
-        if (cursor >= today && (!hasDaysOfWeek || pattern.daysOfWeek.includes(cursor.getDay()))) {
-          if (!executedDates.has(cursor.toDateString())) return new Date(cursor);
+        if (cursor >= today && (!hasDaysFilter || daysOfWeek!.includes(cursor.getDay()))) {
+          if (!doneDates.has(cursor.toDateString())) return new Date(cursor);
         }
         cursor.setDate(cursor.getDate() + 1);
       }
-    } else if (pattern.type === 'weekly') {
-      const interval: number = pattern.interval || 2;
-      const cursor = new Date(anchor);
+    } else if (mode === 'weekly') {
       for (let i = 0; i < 200; i++) {
         if (endDate && cursor > endDate) break;
-        if (cursor >= today && !executedDates.has(cursor.toDateString())) return new Date(cursor);
+        if (cursor >= today && !doneDates.has(cursor.toDateString())) return new Date(cursor);
         cursor.setDate(cursor.getDate() + interval * 7);
       }
-    } else if (pattern.type === 'monthly') {
-      const interval: number = pattern.interval || 1;
-      const cursor = new Date(anchor);
+    } else {
       for (let i = 0; i < 200; i++) {
         if (endDate && cursor > endDate) break;
-        if (cursor >= today && !executedDates.has(cursor.toDateString())) return new Date(cursor);
+        if (cursor >= today && !doneDates.has(cursor.toDateString())) return new Date(cursor);
         cursor.setMonth(cursor.getMonth() + interval);
       }
     }
     return null;
-  };
-
-  /** Get execution progress for a recurring work order */
-  const getExecutionProgress = (rwo: RecurringWorkOrder): { completed: number; total: number; percent: number } => {
-    const rwoExecutions = executionsByRWO[rwo.id] || [];
-    const completed = rwoExecutions.filter(e => e.status === 'executed').length;
-    const total = rwo.totalExecutions > completed ? rwo.totalExecutions : completed;
-    // If there's an end date, we could compute total, but for now use a reasonable estimate
-    const percent = total > 0 ? Math.round((completed / Math.max(total, 1)) * 100) : 0;
-    return { completed, total, percent };
   };
 
   useEffect(() => {
@@ -440,7 +451,7 @@ export default function RecurringWorkOrdersManagement() {
 
   const formatRecurrencePattern = (rwo: RecurringWorkOrder) => {
     const label = (rwo as any).recurrencePatternLabel;
-    if (label && ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'].includes(label)) {
+    if (label && typeof label === 'string') {
       return label;
     }
     const pattern = rwo.recurrencePattern as { type: string; interval: number; customPattern?: string } | undefined;
@@ -672,7 +683,7 @@ export default function RecurringWorkOrdersManagement() {
                     <td className="px-4 py-3 text-sm">
                       {(() => {
                         const rwoExecs = executionsByRWO[recurringWorkOrder.id] || [];
-                        const completed = rwoExecs.filter(e => e.status === 'executed').length;
+                        const completed = rwoExecs.filter(isExecutionDone).length;
                         const pending = rwoExecs.filter(e => e.status === 'pending').length;
                         const total = completed + pending;
                         const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -804,7 +815,7 @@ export default function RecurringWorkOrdersManagement() {
                 {/* Row 2.5: mini progress bar */}
                 {(() => {
                   const rwoExecs = executionsByRWO[recurringWorkOrder.id] || [];
-                  const completed = rwoExecs.filter(e => e.status === 'executed').length;
+                  const completed = rwoExecs.filter(isExecutionDone).length;
                   const pending = rwoExecs.filter(e => e.status === 'pending').length;
                   const total = completed + pending;
                   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;

@@ -117,6 +117,15 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         
         setRecurringWorkOrder(recurringWorkOrderData);
 
+        // Safely convert any date value to a YYYY-MM-DD string
+        const toDateStr = (v: any): string => {
+          if (!v) return '';
+          try {
+            const d = v?.toDate ? v.toDate() : new Date(v);
+            return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+          } catch { return ''; }
+        };
+
         // Populate form with existing data
         const pattern = recurringWorkOrderData.recurrencePattern;
         const invoice = recurringWorkOrderData.invoiceSchedule;
@@ -142,7 +151,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           priority: recurringWorkOrderData.priority || 'medium',
           estimateBudget: recurringWorkOrderData.estimateBudget?.toString() || '',
           subcontractorId: (recurringWorkOrderData as any).subcontractorId || '',
-          nextExecution: recurringWorkOrderData.nextExecution ? new Date(recurringWorkOrderData.nextExecution).toISOString().split('T')[0] : '',
+          nextExecution: toDateStr(recurringWorkOrderData.nextExecution),
           recurrencePatternLabel,
           recurrenceType: pattern?.type || 'monthly',
           recurrenceInterval: pattern?.interval ?? 1,
@@ -150,8 +159,8 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           recurrenceDayOfMonth: pattern?.dayOfMonth || 1,
           recurrenceMonthOfYear: 1,
           recurrenceCustomPattern: '',
-          recurrenceStartDate: pattern?.startDate ? new Date(pattern.startDate).toISOString().split('T')[0] : '',
-          recurrenceEndDate: pattern?.endDate ? new Date(pattern.endDate).toISOString().split('T')[0] : '',
+          recurrenceStartDate: toDateStr(pattern?.startDate),
+          recurrenceEndDate: toDateStr(pattern?.endDate),
           recurrenceMaxOccurrences: pattern?.maxOccurrences?.toString() || '',
           invoiceScheduleType: invoice?.type || 'monthly',
           invoiceScheduleInterval: invoice?.interval || 1,

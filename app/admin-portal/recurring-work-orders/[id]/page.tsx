@@ -501,7 +501,10 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       const isPast = date <= today;
 
       if (matchingExec) {
-        const status: ExecutionStatus = matchingExec.status === 'executed' ? 'completed'
+        // An execution with a workOrderId is effectively completed even if status is still 'pending'
+        const hasWorkOrder = !!(matchingExec as any).workOrderId;
+        const status: ExecutionStatus =
+          (matchingExec.status === 'executed' || hasWorkOrder) ? 'completed'
           : matchingExec.status === 'failed' ? 'failed'
           : matchingExec.status === 'pending' ? 'pending'
           : 'upcoming';
