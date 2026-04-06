@@ -297,27 +297,27 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     try {
       setSubmitting(true);
 
-      // Try to find next pending execution record first
-      const pendingExecutions = executions
-        .filter(exec => exec.status === 'pending' && !(exec as any).workOrderId)
-        .sort((a, b) => a.executionNumber - b.executionNumber);
-
-      const body: any = { recurringWorkOrderId: recurringWorkOrder.id };
-      if (pendingExecutions.length > 0) {
-        body.executionId = pendingExecutions[0].id;
+      // Compute the actual next upcoming date from the pattern (same as Upcoming Executions display)
+      const { upcomingExecutions: upcoming } = buildExecutionTimeline(recurringWorkOrder);
+      if (upcoming.length === 0) {
+        toast.error('No upcoming executions to execute.');
+        return;
       }
-      // If no pending execution exists, the execute API will create one
+      const nextSlot = upcoming[0];
 
       const response = await fetch('/api/recurring-work-orders/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          recurringWorkOrderId: recurringWorkOrder.id,
+          scheduledDate: nextSlot.scheduledDate.toISOString(),
+        }),
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        toast.success('Execution completed! Work order created.');
+        toast.success(`Execution #${nextSlot.executionNumber} completed! Work order created.`);
         await fetchRecurringWorkOrder();
         await fetchExecutions();
       } else {

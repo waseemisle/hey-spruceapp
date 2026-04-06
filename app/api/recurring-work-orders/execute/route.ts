@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = await getServerDb();
-    const { recurringWorkOrderId, executionId } = await request.json();
+    const { recurringWorkOrderId, executionId, scheduledDate: scheduledDateStr } = await request.json();
 
     if (!recurringWorkOrderId) {
       return NextResponse.json({ error: 'Recurring work order ID is required' }, { status: 400 });
@@ -79,7 +79,10 @@ export async function POST(request: NextRequest) {
       executionNumber = existingExecsSnap.docs.length + 1;
 
       const now = new Date();
-      nextExecution = recurringWorkOrder.nextExecution?.toDate() || now;
+      // Use the explicitly provided scheduledDate if available (from frontend pattern computation)
+      // Fall back to the Firestore nextExecution field, then today
+      nextExecution = scheduledDateStr ? new Date(scheduledDateStr)
+        : recurringWorkOrder.nextExecution?.toDate() || now;
       const executionData = {
         recurringWorkOrderId: recurringWorkOrderId,
         executionNumber,
@@ -293,15 +296,12 @@ export async function POST(request: NextRequest) {
         updatedAt: serverTimestamp(),
       });
 
-      // Calculate next execution date
-      const nextExecutionDate = calculateNextExecution(
-        recurringWorkOrder,
-        nextExecution
-      );
+      // Calculate next execution date — advance exactly one step from the executed date
+      const nextExecutionDate = advanceOneStep(recurringWorkOrder, nextExecution);
 
       // Update recurring work order
       const updateData: any = {
-        lastExecution: serverTimestamp(),
+        lastExecution: Timestamp.fromDate(nextExecution),
         nextExecution: nextExecutionDate,
         updatedAt: serverTimestamp(),
       };
@@ -355,6 +355,35 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/** Advance exactly one interval step from the given date. No skipping. */
+function advanceOneStep(recurringWorkOrder: any, fromDate: Date): Date {
+  const next = new Date(fromDate);
+  const { mode, interval } = resolveMode(recurringWorkOrder);
+  if (mode === 'daily') next.setDate(next.getDate() + interval);
+  else if (mode === 'weekly') next.setDate(next.getDate() + (7 * interval));
+  else next.setMonth(next.getMonth() + interval);
+  return next;
+}
+
+function resolveMode(recurringWorkOrder: any): { mode: 'daily' | 'weekly' | 'monthly'; interval: number } {
+  const label = (recurringWorkOrder.recurrencePatternLabel || '').toUpperCase();
+  const pattern = recurringWorkOrder.recurrencePattern || {};
+  switch (label) {
+    case 'DAILY':        return { mode: 'daily', interval: 1 };
+    case 'WEEKLY':       return { mode: 'weekly', interval: 1 };
+    case 'BI-WEEKLY':    return { mode: 'weekly', interval: 2 };
+    case 'MONTHLY':      return { mode: 'monthly', interval: 1 };
+    case 'BI-MONTHLY':   return { mode: 'monthly', interval: 2 };
+    case 'QUARTERLY':    return { mode: 'monthly', interval: 3 };
+    case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6 };
+  }
+  if (pattern.type === 'daily') return { mode: 'daily', interval: pattern.interval || 1 };
+  if (pattern.type === 'weekly') return { mode: 'weekly', interval: pattern.interval || 2 };
+  if (pattern.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1 };
+  return { mode: 'monthly', interval: 1 };
+}
+
+/** Used by cron: advances and skips past missed dates until future. */
 function calculateNextExecution(recurringWorkOrder: any, currentExecution: Date): Date {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
