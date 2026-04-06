@@ -9,8 +9,10 @@ export type SearchableSelectOption = { value: string; label: string; disabled?: 
 const TRIGGER =
   'min-h-[42px] border border-border rounded-lg px-3 py-2 flex items-center gap-2 bg-background';
 const TRIGGER_FOCUS = 'cursor-text focus-within:ring-2 focus-within:ring-ring focus-within:border-ring';
-const PANEL =
-  'absolute z-50 w-full mt-1 bg-card border border-border rounded-xl shadow-lg max-h-52 overflow-auto';
+const PANEL_BASE =
+  'absolute z-50 w-full bg-card border border-border rounded-xl shadow-lg max-h-52 overflow-auto';
+const PANEL_DOWN = `${PANEL_BASE} mt-1 top-full`;
+const PANEL_UP = `${PANEL_BASE} mb-1 bottom-full`;
 
 export interface SearchableSelectProps {
   value: string;
@@ -44,6 +46,16 @@ export function SearchableSelect({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [openUp, setOpenUp] = React.useState(false);
+
+  // Auto-detect if dropdown should open upward when near bottom of viewport
+  React.useEffect(() => {
+    if (open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUp(spaceBelow < 220); // 220px ≈ max-h-52 + margin
+    }
+  }, [open]);
 
   const selected = React.useMemo(
     () => options.find((o) => o.value === value),
@@ -143,7 +155,7 @@ export function SearchableSelect({
         </button>
       </div>
       {open && (
-        <div id={listboxId} role="listbox" className={PANEL}>
+        <div id={listboxId} role="listbox" className={openUp ? PANEL_UP : PANEL_DOWN}>
           <div className="p-1">
             {filtered.length === 0 ? (
               <div className="px-3 py-3 text-sm text-muted-foreground text-center">{emptyMessage}</div>
@@ -208,6 +220,7 @@ export function SearchableMultiSelect({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [openUp, setOpenUp] = React.useState(false);
 
   const filtered = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -227,6 +240,14 @@ export function SearchableMultiSelect({
     };
     if (open) document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  React.useEffect(() => {
+    if (open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUp(spaceBelow < 220);
+    }
   }, [open]);
 
   const toggle = (v: string) => {
@@ -316,7 +337,7 @@ export function SearchableMultiSelect({
         </button>
       </div>
       {open && !disabled && (
-        <div className={PANEL}>
+        <div className={openUp ? PANEL_UP : PANEL_DOWN}>
           <div className="p-1">
             {filtered.length === 0 && !(allowFreeText && searchQuery.trim() && !values.includes(searchQuery.trim())) ? (
               <div className="px-3 py-3 text-sm text-muted-foreground text-center">
