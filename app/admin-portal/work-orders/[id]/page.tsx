@@ -861,14 +861,14 @@ export default function ViewWorkOrder() {
       const currentUser = auth.currentUser;
       const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;
       const adminName = adminDoc?.exists() ? adminDoc.data().fullName : 'Admin';
-      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
-      const woData = woDoc.data();
+      const biddingDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const biddingData = biddingDoc.data();
       const selectedSubNames = selectedSubcontractors.map(id => subcontractors.find(s => s.id === id)?.fullName || 'Unknown').join(', ');
 
       await updateDoc(doc(db, 'workOrders', workOrder.id), {
         status: 'bidding', workOrderNumber,
         sharedForBiddingAt: serverTimestamp(), updatedAt: serverTimestamp(),
-        timeline: [...(woData?.timeline || []), {
+        timeline: [...(biddingData?.timeline || []), {
           id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           timestamp: Timestamp.now(), type: 'shared_for_bidding',
           userId: currentUser?.uid || 'unknown', userName: adminName, userRole: 'admin',
@@ -876,7 +876,7 @@ export default function ViewWorkOrder() {
           metadata: { subcontractorIds: selectedSubcontractors, subcontractorCount: selectedSubcontractors.length },
         }],
         systemInformation: {
-          ...(woData?.systemInformation || {}),
+          ...(biddingData?.systemInformation || {}),
           sharedForBidding: {
             by: { id: currentUser?.uid || 'unknown', name: adminName },
             timestamp: Timestamp.now(),
@@ -1008,17 +1008,17 @@ export default function ViewWorkOrder() {
       const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
       const adminName = adminDoc.exists() ? (adminDoc.data().fullName || currentUser.email || 'Admin') : (currentUser.email || 'Admin');
 
-      const woRef = doc(db, 'workOrders', workOrder.id);
-      const woSnap = await getDoc(woRef);
-      const woData = woSnap.data();
+      const archiveRef = doc(db, 'workOrders', workOrder.id);
+      const archiveSnap = await getDoc(archiveRef);
+      const archiveData = archiveSnap.data();
 
-      await updateDoc(woRef, {
+      await updateDoc(archiveRef, {
         status: 'archived',
-        previousStatus: workOrder.status, // Store previous status in case of unarchive
+        previousStatus: workOrder.status,
         archivedBy: currentUser.uid,
         archivedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        timeline: [...(woData?.timeline || []), createTimelineEvent({
+        timeline: [...(archiveData?.timeline || []), createTimelineEvent({
           type: 'archived',
           userId: currentUser.uid,
           userName: adminName,
@@ -1027,7 +1027,7 @@ export default function ViewWorkOrder() {
           metadata: { previousStatus: workOrder.status },
         })],
         systemInformation: {
-          ...(woData?.systemInformation || {}),
+          ...(archiveData?.systemInformation || {}),
           archivedBy: {
             id: currentUser.uid,
             name: adminName,
@@ -1039,9 +1039,9 @@ export default function ViewWorkOrder() {
 
       toast.success('Work order archived successfully');
       // Refresh
-      const refreshSnap = await getDoc(woRef);
-      if (refreshSnap.exists()) {
-        setWorkOrder({ id: refreshSnap.id, ...refreshSnap.data() } as any);
+      const archiveRefresh = await getDoc(archiveRef);
+      if (archiveRefresh.exists()) {
+        setWorkOrder({ id: archiveRefresh.id, ...archiveRefresh.data() } as any);
       }
     } catch (error) {
       console.error('Error archiving work order:', error);
@@ -1063,8 +1063,8 @@ export default function ViewWorkOrder() {
 
       // Find the approved quote — prefer approvedQuoteId stored on work order
       let approvedQuote: Quote | null = null;
-      const woData = (await getDoc(doc(db, 'workOrders', workOrder.id))).data();
-      const approvedQuoteId = woData?.approvedQuoteId;
+      const invoiceWoData = (await getDoc(doc(db, 'workOrders', workOrder.id))).data();
+      const approvedQuoteId = invoiceWoData?.approvedQuoteId;
 
       if (approvedQuoteId) {
         const qDoc = await getDoc(doc(db, 'quotes', approvedQuoteId));
@@ -1097,7 +1097,7 @@ export default function ViewWorkOrder() {
         totalAmount = lineItems.reduce((s, li) => s + li.amount, 0);
       } else {
         // No quote — use budget or 0
-        const amt = woData?.approvedQuoteAmount || workOrder.estimateBudget || 0;
+        const amt = invoiceWoData?.approvedQuoteAmount || workOrder.estimateBudget || 0;
         lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: amt, amount: amt }];
         totalAmount = amt;
       }
@@ -1127,9 +1127,9 @@ export default function ViewWorkOrder() {
         notes: '',
         terms: 'Payment due within 30 days of invoice date.',
         // Include completion details from work order
-        ...(woData?.completionDetails && { completionDetails: woData.completionDetails }),
-        ...(woData?.completionNotes && { completionNotes: woData.completionNotes }),
-        ...(woData?.completionImages?.length && { completionImages: woData.completionImages }),
+        ...(invoiceWoData?.completionDetails && { completionDetails: invoiceWoData.completionDetails }),
+        ...(invoiceWoData?.completionNotes && { completionNotes: invoiceWoData.completionNotes }),
+        ...(invoiceWoData?.completionImages?.length && { completionImages: invoiceWoData.completionImages }),
         createdBy: currentUser.uid,
         createdByName,
         creationSource: 'work_order_quick_create',
@@ -1284,9 +1284,9 @@ export default function ViewWorkOrder() {
         },
         updatedAt: serverTimestamp(),
       });
-      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
-      const woData = woDoc.data();
-      const existingTimeline = woData?.timeline || [];
+      const shareWoDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const shareWoData = shareWoDoc.data();
+      const existingTimeline = shareWoData?.timeline || [];
       await updateDoc(doc(db, 'workOrders', workOrder.id), {
         timeline: [...existingTimeline, createTimelineEvent({
           type: 'quote_shared_with_client',
@@ -1358,8 +1358,8 @@ export default function ViewWorkOrder() {
       const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;
       const adminName = adminDoc?.exists() ? adminDoc.data().fullName : 'Admin';
 
-      const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
-      const woData = woDoc.data();
+      const assignWoDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+      const assignWoData = assignWoDoc.data();
 
       const updatePayload: Record<string, any> = {
         status: 'assigned',
@@ -1367,7 +1367,7 @@ export default function ViewWorkOrder() {
         assignedSubcontractorName: sub.fullName,
         assignedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        timeline: [...(woData?.timeline || []), createTimelineEvent({
+        timeline: [...(assignWoData?.timeline || []), createTimelineEvent({
           type: 'assigned',
           userId: currentUser?.uid || 'unknown',
           userName: adminName,
@@ -1376,7 +1376,7 @@ export default function ViewWorkOrder() {
           metadata: { subcontractorId: sub.uid || sub.id, subcontractorName: sub.fullName, source: 'admin_manual_assign' },
         })],
         systemInformation: {
-          ...(woData?.systemInformation || {}),
+          ...(assignWoData?.systemInformation || {}),
           assignment: {
             subcontractorId: sub.uid || sub.id,
             subcontractorName: sub.fullName,
