@@ -22,6 +22,7 @@ import { useViewControls } from '@/contexts/view-controls-context';
 
 export default function RecurringWorkOrdersManagement() {
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
+  const [executionsByRWO, setExecutionsByRWO] = useState<Record<string, RecurringWorkOrderExecution[]>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'paused' | 'cancelled'>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
@@ -86,8 +87,105 @@ export default function RecurringWorkOrdersManagement() {
     }
   };
 
+  const fetchAllExecutions = async () => {
+    try {
+      const executionsQuery = query(collection(db, 'recurringWorkOrderExecutions'));
+      const snapshot = await getDocs(executionsQuery);
+      const grouped: Record<string, RecurringWorkOrderExecution[]> = {};
+      snapshot.docs.forEach(d => {
+        const data = d.data();
+        const exec: RecurringWorkOrderExecution = {
+          id: d.id,
+          ...data,
+          scheduledDate: data.scheduledDate?.toDate(),
+          executedDate: data.executedDate?.toDate(),
+          emailSentAt: data.emailSentAt?.toDate(),
+          createdAt: data.createdAt?.toDate(),
+          updatedAt: data.updatedAt?.toDate(),
+        } as RecurringWorkOrderExecution;
+        const rwoId = data.recurringWorkOrderId;
+        if (!grouped[rwoId]) grouped[rwoId] = [];
+        grouped[rwoId].push(exec);
+      });
+      setExecutionsByRWO(grouped);
+    } catch (error) {
+      console.error('Error fetching executions:', error);
+    }
+  };
+
+  /** Compute next upcoming execution date from the recurrence pattern, skipping past completed dates */
+  const computeNextUpcomingDate = (rwo: RecurringWorkOrder): Date | null => {
+    const pattern = rwo.recurrencePattern as any;
+    if (!pattern) return null;
+
+    const toDate = (v: any): Date | null => {
+      if (!v) return null;
+      if (v instanceof Date) return v;
+      if (typeof v.toDate === 'function') return v.toDate();
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = toDate(pattern.startDate);
+    const endDate = toDate(pattern.endDate);
+    const anchor = startDate ? new Date(startDate) : (rwo.createdAt ? new Date(rwo.createdAt) : new Date());
+    anchor.setHours(9, 0, 0, 0);
+
+    // Get executed dates for this RWO
+    const rwoExecutions = executionsByRWO[rwo.id] || [];
+    const executedDates = new Set(
+      rwoExecutions
+        .filter(e => e.status === 'executed')
+        .map(e => (e.scheduledDate instanceof Date ? e.scheduledDate : new Date(e.scheduledDate)).toDateString())
+    );
+
+    const label = (rwo as any).recurrencePatternLabel as string | undefined;
+
+    if (label === 'DAILY') {
+      const hasDaysOfWeek = Array.isArray(pattern.daysOfWeek) && pattern.daysOfWeek.length > 0;
+      const cursor = new Date(anchor);
+      for (let i = 0; i < 730; i++) {
+        if (endDate && cursor > endDate) break;
+        if (cursor >= today && (!hasDaysOfWeek || pattern.daysOfWeek.includes(cursor.getDay()))) {
+          if (!executedDates.has(cursor.toDateString())) return new Date(cursor);
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    } else if (pattern.type === 'weekly') {
+      const interval: number = pattern.interval || 2;
+      const cursor = new Date(anchor);
+      for (let i = 0; i < 200; i++) {
+        if (endDate && cursor > endDate) break;
+        if (cursor >= today && !executedDates.has(cursor.toDateString())) return new Date(cursor);
+        cursor.setDate(cursor.getDate() + interval * 7);
+      }
+    } else if (pattern.type === 'monthly') {
+      const interval: number = pattern.interval || 1;
+      const cursor = new Date(anchor);
+      for (let i = 0; i < 200; i++) {
+        if (endDate && cursor > endDate) break;
+        if (cursor >= today && !executedDates.has(cursor.toDateString())) return new Date(cursor);
+        cursor.setMonth(cursor.getMonth() + interval);
+      }
+    }
+    return null;
+  };
+
+  /** Get execution progress for a recurring work order */
+  const getExecutionProgress = (rwo: RecurringWorkOrder): { completed: number; total: number; percent: number } => {
+    const rwoExecutions = executionsByRWO[rwo.id] || [];
+    const completed = rwoExecutions.filter(e => e.status === 'executed').length;
+    const total = rwo.totalExecutions > completed ? rwo.totalExecutions : completed;
+    // If there's an end date, we could compute total, but for now use a reasonable estimate
+    const percent = total > 0 ? Math.round((completed / Math.max(total, 1)) * 100) : 0;
+    return { completed, total, percent };
+  };
+
   useEffect(() => {
     fetchRecurringWorkOrders();
+    fetchAllExecutions();
   }, []);
 
   const handleToggleStatus = async (recurringWorkOrder: RecurringWorkOrder) => {
@@ -535,6 +633,7 @@ export default function RecurringWorkOrdersManagement() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Priority</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recurrence</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Progress</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Next Execution</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
@@ -570,8 +669,39 @@ export default function RecurringWorkOrdersManagement() {
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {formatRecurrencePattern(recurringWorkOrder)}
                     </td>
+                    <td className="px-4 py-3 text-sm">
+                      {(() => {
+                        const { completed } = getExecutionProgress(recurringWorkOrder);
+                        const rwoExecs = executionsByRWO[recurringWorkOrder.id] || [];
+                        const pending = rwoExecs.filter(e => e.status === 'pending').length;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 text-xs">
+                              <span className="text-green-600 font-medium">{completed}</span>
+                              <span className="text-muted-foreground">done</span>
+                              {pending > 0 && (
+                                <>
+                                  <span className="text-yellow-600 font-medium ml-1">{pending}</span>
+                                  <span className="text-muted-foreground">pending</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {recurringWorkOrder.nextExecution ? new Date(recurringWorkOrder.nextExecution).toLocaleDateString() : 'Not scheduled'}
+                      {(() => {
+                        const nextDate = computeNextUpcomingDate(recurringWorkOrder);
+                        if (!nextDate) return 'Not scheduled';
+                        const isToday = nextDate.toDateString() === new Date().toDateString();
+                        return (
+                          <span className={isToday ? 'text-blue-600 font-medium' : ''}>
+                            {nextDate.toLocaleDateString()}
+                            {isToday && <span className="ml-1 text-xs">(Today)</span>}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-2">
@@ -658,9 +788,31 @@ export default function RecurringWorkOrdersManagement() {
                 <div className="flex items-center justify-between text-sm gap-2">
                   <span className="text-muted-foreground truncate">{formatRecurrencePattern(recurringWorkOrder)}</span>
                   <span className="text-foreground font-medium shrink-0 text-xs">
-                    {recurringWorkOrder.nextExecution ? new Date(recurringWorkOrder.nextExecution).toLocaleDateString() : 'Not scheduled'}
+                    {(() => {
+                      const nextDate = computeNextUpcomingDate(recurringWorkOrder);
+                      if (!nextDate) return 'Not scheduled';
+                      const isToday = nextDate.toDateString() === new Date().toDateString();
+                      return (
+                        <span className={isToday ? 'text-blue-600' : ''}>
+                          {nextDate.toLocaleDateString()}{isToday && ' (Today)'}
+                        </span>
+                      );
+                    })()}
                   </span>
                 </div>
+                {/* Row 2.5: mini progress bar */}
+                {(() => {
+                  const { completed } = getExecutionProgress(recurringWorkOrder);
+                  const rwoExecs = executionsByRWO[recurringWorkOrder.id] || [];
+                  const pending = rwoExecs.filter(e => e.status === 'pending').length;
+                  if (completed === 0 && pending === 0) return null;
+                  return (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-green-600 font-medium">{completed} completed</span>
+                      {pending > 0 && <span className="text-yellow-600 font-medium">{pending} pending</span>}
+                    </div>
+                  );
+                })()}
                 {/* Row 3: actions */}
                 <div className="flex items-center gap-1.5 pt-1 border-t border-border">
                   <Button

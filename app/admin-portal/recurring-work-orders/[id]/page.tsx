@@ -356,7 +356,11 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
   };
 
-  const computeNextExecutions = (rwo: RecurringWorkOrder, count: number = 5): Date[] => {
+  /**
+   * Generate ALL scheduled dates from the recurrence start date forward.
+   * Returns dates from the very beginning so we can match against executed records.
+   */
+  const generateAllScheduledDates = (rwo: RecurringWorkOrder, maxDates: number = 200): Date[] => {
     const pattern = rwo.recurrencePattern as any;
     const label = (rwo as any).recurrencePatternLabel as string | undefined;
     if (!pattern) return [];
@@ -369,24 +373,21 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       return isNaN(d.getTime()) ? null : d;
     };
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const startDate = toDate(pattern.startDate);
     const endDate = toDate(pattern.endDate);
+
+    // We need a starting anchor — use the pattern startDate, or fall back to createdAt
+    const anchor = startDate ? new Date(startDate) : (rwo.createdAt ? new Date(rwo.createdAt) : new Date());
+    anchor.setHours(9, 0, 0, 0);
 
     const results: Date[] = [];
 
     if (label === 'DAILY') {
       const hasDaysOfWeek = Array.isArray(pattern.daysOfWeek) && pattern.daysOfWeek.length > 0;
-      // Walk day-by-day from today (or startDate if in future)
-      const anchor = startDate && startDate > today ? new Date(startDate) : new Date(today);
-      anchor.setHours(9, 0, 0, 0);
       const cursor = new Date(anchor);
       let iters = 0;
-      while (results.length < count && iters < 365) {
+      while (results.length < maxDates && iters < 730) {
         if (endDate && cursor > endDate) break;
-        // If specific days are configured, filter by them; otherwise every day qualifies
         if (!hasDaysOfWeek || pattern.daysOfWeek.includes(cursor.getDay())) {
           results.push(new Date(cursor));
         }
@@ -395,15 +396,9 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       }
     } else if (pattern.type === 'weekly') {
       const interval: number = pattern.interval || 2;
-      const anchor = startDate ? new Date(startDate) : new Date(today);
-      anchor.setHours(9, 0, 0, 0);
-      // Advance anchor forward in N-week steps until >= today
       const cursor = new Date(anchor);
-      while (cursor < today) {
-        cursor.setDate(cursor.getDate() + interval * 7);
-      }
       let iters = 0;
-      while (results.length < count && iters < 100) {
+      while (results.length < maxDates && iters < 200) {
         if (endDate && cursor > endDate) break;
         results.push(new Date(cursor));
         cursor.setDate(cursor.getDate() + interval * 7);
@@ -411,14 +406,9 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       }
     } else if (pattern.type === 'monthly') {
       const interval: number = pattern.interval || 1;
-      const anchor = startDate ? new Date(startDate) : new Date(today);
-      anchor.setHours(9, 0, 0, 0);
-      // Start from the anchor (which preserves the correct day-of-month from the start date)
-      // and advance by interval until we reach today or the future
       const cursor = new Date(anchor);
-      while (cursor < today) cursor.setMonth(cursor.getMonth() + interval);
       let iters = 0;
-      while (results.length < count && iters < 100) {
+      while (results.length < maxDates && iters < 200) {
         if (endDate && cursor > endDate) break;
         results.push(new Date(cursor));
         cursor.setMonth(cursor.getMonth() + interval);
@@ -427,6 +417,102 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
 
     return results;
+  };
+
+  type ExecutionStatus = 'completed' | 'pending' | 'failed' | 'upcoming';
+
+  interface ExecutionSlot {
+    executionNumber: number;
+    scheduledDate: Date;
+    status: ExecutionStatus;
+    execution?: RecurringWorkOrderExecution; // actual execution record if exists
+  }
+
+  /**
+   * Build a full execution timeline: past (completed/failed) + upcoming.
+   * Matches generated schedule dates against actual execution records.
+   */
+  const buildExecutionTimeline = (rwo: RecurringWorkOrder): {
+    pastExecutions: ExecutionSlot[];
+    upcomingExecutions: ExecutionSlot[];
+    totalCompleted: number;
+  } => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    // Build a map of executed dates -> execution records
+    const executedDateMap = new Map<string, RecurringWorkOrderExecution>();
+    for (const exec of executions) {
+      const execDate = exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate);
+      executedDateMap.set(execDate.toDateString(), exec);
+    }
+
+    // Also map by approximate date match (within 24h) for robustness
+    const getMatchingExecution = (date: Date): RecurringWorkOrderExecution | undefined => {
+      const exact = executedDateMap.get(date.toDateString());
+      if (exact) return exact;
+      // Check within 24h window
+      for (const exec of executions) {
+        const execDate = exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate);
+        if (Math.abs(execDate.getTime() - date.getTime()) < 24 * 60 * 60 * 1000) {
+          return exec;
+        }
+      }
+      return undefined;
+    };
+
+    const allDates = generateAllScheduledDates(rwo);
+    const pastExecutions: ExecutionSlot[] = [];
+    const upcomingExecutions: ExecutionSlot[] = [];
+    let totalCompleted = 0;
+
+    for (let i = 0; i < allDates.length; i++) {
+      const date = allDates[i];
+      const matchingExec = getMatchingExecution(date);
+      const isPast = date <= today;
+
+      if (matchingExec) {
+        const status: ExecutionStatus = matchingExec.status === 'executed' ? 'completed'
+          : matchingExec.status === 'failed' ? 'failed'
+          : matchingExec.status === 'pending' ? 'pending'
+          : 'upcoming';
+
+        const slot: ExecutionSlot = {
+          executionNumber: i + 1,
+          scheduledDate: date,
+          status,
+          execution: matchingExec,
+        };
+
+        if (status === 'completed' || status === 'failed') {
+          pastExecutions.push(slot);
+          if (status === 'completed') totalCompleted++;
+        } else if (isPast) {
+          // Past date with pending execution — treat as missed/pending
+          pastExecutions.push({ ...slot, status: 'pending' });
+        } else {
+          upcomingExecutions.push(slot);
+        }
+      } else if (isPast) {
+        // Past date, no execution record — it was missed or not yet tracked
+        // Only show as missed if it's after the first execution or if there are any executions
+        if (executions.length > 0 || i === 0) {
+          pastExecutions.push({
+            executionNumber: i + 1,
+            scheduledDate: date,
+            status: 'pending',
+          });
+        }
+      } else {
+        upcomingExecutions.push({
+          executionNumber: i + 1,
+          scheduledDate: date,
+          status: 'upcoming',
+        });
+      }
+    }
+
+    return { pastExecutions, upcomingExecutions, totalCompleted };
   };
 
   const formatRecurrencePattern = (rwo: RecurringWorkOrder | null) => {
@@ -662,9 +748,11 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               </CardContent>
             </Card>
 
-            {/* Next Executions (Next 5) */}
+            {/* Execution Progress */}
             {(() => {
-              const nextDates = computeNextExecutions(recurringWorkOrder, 5);
+              const { pastExecutions, upcomingExecutions, totalCompleted } = buildExecutionTimeline(recurringWorkOrder);
+              const totalScheduled = pastExecutions.length + upcomingExecutions.length;
+              const progressPercent = totalScheduled > 0 ? Math.round((totalCompleted / totalScheduled) * 100) : 0;
               const pattern = recurringWorkOrder.recurrencePattern as any;
               const endDate = pattern?.endDate
                 ? (() => {
@@ -675,180 +763,197 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                     return isNaN(d.getTime()) ? null : d;
                   })()
                 : null;
+              const next5Upcoming = upcomingExecutions.slice(0, 5);
+              const todayStr = new Date().toDateString();
+
               return (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Calendar className="h-5 w-5" />
-                      Next Executions (Next 5)
+                      Execution Progress
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    {nextDates.length === 0 ? (
-                      <div className="text-center py-6">
-                        <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                        <p className="text-muted-foreground text-sm">
-                          {endDate && endDate < new Date()
-                            ? 'This recurring work order has passed its end date.'
-                            : 'No upcoming executions could be calculated. Check the recurrence pattern and start date.'}
-                        </p>
+                  <CardContent className="space-y-6">
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-foreground">
+                          {totalCompleted} of {totalScheduled} executions completed
+                        </span>
+                        <span className="text-muted-foreground">{progressPercent}%</span>
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {nextDates.map((date, index) => {
-                          const isToday = date.toDateString() === new Date().toDateString();
-                          return (
-                            <div
-                              key={index}
-                              className={`flex items-center gap-3 p-3 rounded-lg border ${
-                                isToday
-                                  ? 'bg-blue-50 border-blue-300'
-                                  : 'bg-green-50 border-green-200'
-                              }`}
-                            >
-                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isToday ? 'bg-blue-500' : 'bg-green-500'}`} />
-                              <div className="flex-1">
-                                <div className="font-semibold text-sm">
-                                  Execution #{index + 1}{isToday && <span className="ml-2 text-blue-600 text-xs font-normal">(Today)</span>}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {date.toLocaleDateString('en-US', {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {endDate && (
-                          <p className="text-xs text-muted-foreground pt-1">
-                            Recurrence ends on {endDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}.
-                          </p>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-green-500 to-green-400"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Completed ({totalCompleted})
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" /> Pending ({pastExecutions.filter(e => e.status === 'pending').length})
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Upcoming ({upcomingExecutions.length})
+                        </span>
+                        {pastExecutions.filter(e => e.status === 'failed').length > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Failed ({pastExecutions.filter(e => e.status === 'failed').length})
+                          </span>
                         )}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })()}
+                    </div>
 
-            {/* Work Order History Section */}
-            {(() => {
-              // Use nextServiceDates if available, otherwise fall back to execution scheduled dates
-              const serviceDates = recurringWorkOrder.nextServiceDates && recurringWorkOrder.nextServiceDates.length > 0
-                ? recurringWorkOrder.nextServiceDates
-                : executions.length > 0
-                  ? executions
-                      .map(exec => exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate))
-                      .sort((a, b) => a.getTime() - b.getTime())
-                  : [];
-
-              return (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Work Order History
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {serviceDates.length === 0 ? (
-                      <div className="text-center py-8">
-                        <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">No service dates scheduled yet</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {serviceDates
-                          .slice(0, 5) // Show next 5 executions
-                          .map((date, index) => {
-                            const dateObj = date instanceof Date ? date : new Date(date);
-                            const isPast = dateObj < new Date();
-                            const isToday = dateObj.toDateString() === new Date().toDateString();
-
-                            // Find matching execution for this date
-                            const matchingExecution = executions.find(exec => {
-                              const execDate = exec.scheduledDate instanceof Date ? exec.scheduledDate : new Date(exec.scheduledDate);
-                              return execDate.toDateString() === dateObj.toDateString() ||
-                                     Math.abs(execDate.getTime() - dateObj.getTime()) < 24 * 60 * 60 * 1000; // Within 24 hours
-                            });
-
-                            return (
-                              <div
-                                key={index}
-                                className={`flex items-center justify-between p-3 rounded-lg border ${
-                                  isPast
-                                    ? 'bg-muted border-border'
-                                    : isToday
-                                    ? 'bg-blue-50 border-blue-300'
-                                    : 'bg-green-50 border-green-200'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    isPast
-                                      ? 'bg-gray-400'
-                                      : isToday
-                                      ? 'bg-blue-500'
-                                      : 'bg-green-500'
-                                  }`} />
-                                  <div>
-                                    <div className="font-semibold text-sm">
-                                      Execution #{index + 1}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {dateObj.toLocaleDateString('en-US', {
-                                        weekday: 'short',
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric'
-                                      })}
-                                    </div>
-                                  </div>
+                    {/* Past Executions */}
+                    {pastExecutions.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-foreground">Past Executions</h4>
+                        {pastExecutions.map((slot) => (
+                          <div
+                            key={slot.executionNumber}
+                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                              slot.status === 'completed'
+                                ? 'bg-green-50 border-green-200'
+                                : slot.status === 'failed'
+                                ? 'bg-red-50 border-red-200'
+                                : 'bg-yellow-50 border-yellow-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                slot.status === 'completed' ? 'bg-green-500'
+                                : slot.status === 'failed' ? 'bg-red-500'
+                                : 'bg-yellow-500'
+                              }`} />
+                              <div>
+                                <div className="font-semibold text-sm flex items-center gap-2">
+                                  Execution #{slot.executionNumber}
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                                    slot.status === 'completed' ? 'bg-green-100 text-green-700'
+                                    : slot.status === 'failed' ? 'bg-red-100 text-red-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                                  }`}>
+                                    {slot.status}
+                                  </span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  {matchingExecution?.workOrderId ? (
-                                    <Button
-                                      variant="link"
-                                      size="sm"
-                                      onClick={() => window.open(`/admin-portal/work-orders/${matchingExecution.workOrderId}`, '_blank')}
-                                      className="text-xs"
-                                    >
-                                      View Work Order <ExternalLink className="h-3 w-3 ml-1" />
-                                    </Button>
-                                  ) : matchingExecution ? (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleGenerateWorkOrder(matchingExecution.id, matchingExecution.executionNumber)}
-                                      disabled={submitting}
-                                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                                    >
-                                      Generate Work Order
-                                    </Button>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleInitializeExecution(dateObj, index)}
-                                      disabled={submitting}
-                                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                                    >
-                                      Initialize Execution
-                                    </Button>
+                                <div className="text-xs text-muted-foreground">
+                                  {slot.scheduledDate.toLocaleDateString('en-US', {
+                                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                                  })}
+                                  {slot.execution?.executedDate && (
+                                    <span className="ml-1">
+                                      — Executed {new Date(slot.execution.executedDate).toLocaleDateString()}
+                                    </span>
                                   )}
                                 </div>
                               </div>
-                            );
-                          })}
-                        {serviceDates.length > 5 && (
-                          <div className="text-sm text-muted-foreground text-center pt-2">
-                            + {serviceDates.length - 5} more execution(s)
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {slot.execution?.workOrderId ? (
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  onClick={() => window.open(`/admin-portal/work-orders/${slot.execution!.workOrderId}`, '_blank')}
+                                  className="text-xs"
+                                >
+                                  View Work Order <ExternalLink className="h-3 w-3 ml-1" />
+                                </Button>
+                              ) : slot.execution ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleGenerateWorkOrder(slot.execution!.id, slot.execution!.executionNumber)}
+                                  disabled={submitting}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                                >
+                                  Generate Work Order
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleInitializeExecution(slot.scheduledDate, slot.executionNumber - 1)}
+                                  disabled={submitting}
+                                  className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs"
+                                >
+                                  Execute Now
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
                     )}
+
+                    {/* Next 5 Upcoming Executions */}
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-foreground">
+                        Upcoming Executions (Next {Math.min(5, next5Upcoming.length)})
+                      </h4>
+                      {next5Upcoming.length === 0 ? (
+                        <div className="text-center py-4">
+                          <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-muted-foreground text-sm">
+                            {endDate && endDate < new Date()
+                              ? 'This recurring work order has passed its end date.'
+                              : 'No upcoming executions. Check the recurrence pattern and start date.'}
+                          </p>
+                        </div>
+                      ) : (
+                        next5Upcoming.map((slot, idx) => {
+                          const isToday = slot.scheduledDate.toDateString() === todayStr;
+                          const isNext = idx === 0;
+                          return (
+                            <div
+                              key={slot.executionNumber}
+                              className={`flex items-center justify-between p-3 rounded-lg border ${
+                                isToday
+                                  ? 'bg-blue-50 border-blue-300'
+                                  : isNext
+                                  ? 'bg-indigo-50 border-indigo-200'
+                                  : 'bg-gray-50 border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  isToday ? 'bg-blue-500' : isNext ? 'bg-indigo-500' : 'bg-gray-400'
+                                }`} />
+                                <div>
+                                  <div className="font-semibold text-sm">
+                                    Execution #{slot.executionNumber}
+                                    {isToday && <span className="ml-2 text-blue-600 text-xs font-normal">(Today)</span>}
+                                    {isNext && !isToday && <span className="ml-2 text-indigo-600 text-xs font-normal">(Next)</span>}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {slot.scheduledDate.toLocaleDateString('en-US', {
+                                      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                              {slot.execution ? (
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-yellow-100 text-yellow-700`}>
+                                  Pending
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Scheduled</span>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                      {upcomingExecutions.length > 5 && (
+                        <p className="text-xs text-muted-foreground text-center pt-1">
+                          + {upcomingExecutions.length - 5} more upcoming execution(s)
+                        </p>
+                      )}
+                      {endDate && (
+                        <p className="text-xs text-muted-foreground pt-1">
+                          Recurrence ends on {endDate.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}.
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );

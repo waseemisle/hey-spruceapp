@@ -1,24 +1,36 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc, orderBy, arrayUnion } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tag, Plus, Edit2, Save, X, Search, Trash2 } from 'lucide-react';
+import { Tag, Plus, Edit2, Save, X, Search, Trash2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
+interface SystemNote {
+  action: string;
+  userId: string;
+  userName: string;
+  timestamp: string;
+  details: string;
+}
+
 interface Category {
   id: string;
   name: string;
   createdAt?: any;
   updatedAt?: any;
+  createdBy?: string;
+  createdByName?: string;
+  creationSource?: string;
+  systemNotes?: SystemNote[];
 }
 
 export default function CategoriesManagement() {
@@ -95,11 +107,22 @@ export default function CategoriesManagement() {
     setSubmitting(true);
 
     try {
+      const currentUser = auth.currentUser;
+      const userName = currentUser?.displayName || currentUser?.email || 'Admin';
+      const userId = currentUser?.uid || 'unknown';
+
       if (editingId) {
         // Update existing category
         await updateDoc(doc(db, 'categories', editingId), {
           name: formData.name.trim(),
           updatedAt: serverTimestamp(),
+          systemNotes: arrayUnion({
+            action: 'updated',
+            userId,
+            userName,
+            timestamp: new Date().toISOString(),
+            details: `Category name updated to "${formData.name.trim()}" via Admin Portal`,
+          }),
         });
 
         toast.success('Category updated successfully');
@@ -109,6 +132,16 @@ export default function CategoriesManagement() {
           name: formData.name.trim(),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
+          createdBy: userId,
+          createdByName: userName,
+          creationSource: 'admin_portal',
+          systemNotes: [{
+            action: 'created',
+            userId,
+            userName,
+            timestamp: new Date().toISOString(),
+            details: 'Category created via Admin Portal',
+          }],
         });
 
         toast.success('Category created successfully');
@@ -191,6 +224,34 @@ export default function CategoriesManagement() {
                 <div className="flex items-center gap-2 min-w-0">
                   <Tag className="h-4 w-4 text-blue-600 shrink-0" />
                   <p className="text-sm font-semibold text-foreground truncate">{category.name}</p>
+                </div>
+                {/* System info */}
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <div className="flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    <span>
+                      Created by: {category.createdByName || 'Unknown'} via{' '}
+                      <span className={`px-1 py-0.5 rounded text-[10px] font-semibold ${
+                        category.creationSource === 'admin_portal' ? 'bg-blue-100 text-blue-700'
+                        : category.creationSource === 'csv_import' ? 'bg-purple-100 text-purple-700'
+                        : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {category.creationSource === 'admin_portal' ? 'Admin Portal'
+                        : category.creationSource === 'csv_import' ? 'CSV Import'
+                        : 'Unknown'}
+                      </span>
+                    </span>
+                  </div>
+                  {category.createdAt && (
+                    <div>
+                      {(category.createdAt?.toDate ? category.createdAt.toDate() : new Date(category.createdAt)).toLocaleDateString()}
+                    </div>
+                  )}
+                  {category.systemNotes && category.systemNotes.length > 1 && (
+                    <div className="text-[10px] text-muted-foreground">
+                      {category.systemNotes.length} change(s) recorded
+                    </div>
+                  )}
                 </div>
                 {/* Actions */}
                 <div className="flex items-center gap-1.5 pt-1 border-t border-border">

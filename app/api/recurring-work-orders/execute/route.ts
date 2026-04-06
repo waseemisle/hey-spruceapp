@@ -351,26 +351,33 @@ export async function POST(request: NextRequest) {
 }
 
 function calculateNextExecution(recurrencePattern: any, currentExecution: Date): Date {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const next = new Date(currentExecution);
-  
-  switch (recurrencePattern.type) {
-    case 'daily':
-      next.setDate(next.getDate() + recurrencePattern.interval);
-      break;
-    case 'weekly':
-      next.setDate(next.getDate() + (7 * recurrencePattern.interval));
-      break;
-    case 'monthly':
-      next.setMonth(next.getMonth() + recurrencePattern.interval);
-      break;
-    case 'yearly':
-      next.setFullYear(next.getFullYear() + recurrencePattern.interval);
-      break;
-    default:
-      // For custom patterns, you might need more complex logic
-      next.setDate(next.getDate() + 7); // Default to weekly
-  }
-  
+
+  // Keep advancing until the next execution is in the future
+  // This handles cases where the cron missed multiple scheduled dates
+  let iters = 0;
+  do {
+    switch (recurrencePattern.type) {
+      case 'daily':
+        next.setDate(next.getDate() + (recurrencePattern.interval || 1));
+        break;
+      case 'weekly':
+        next.setDate(next.getDate() + (7 * (recurrencePattern.interval || 1)));
+        break;
+      case 'monthly':
+        next.setMonth(next.getMonth() + (recurrencePattern.interval || 1));
+        break;
+      case 'yearly':
+        next.setFullYear(next.getFullYear() + (recurrencePattern.interval || 1));
+        break;
+      default:
+        next.setDate(next.getDate() + 7); // Default to weekly
+    }
+    iters++;
+  } while (next <= now && iters < 100);
+
   return next;
 }
 

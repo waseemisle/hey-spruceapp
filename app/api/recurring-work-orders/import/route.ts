@@ -478,6 +478,16 @@ async function getOrCreateCategory(categoryName: string, db: any): Promise<strin
       name: categoryName,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      createdBy: 'system',
+      createdByName: 'CSV Import',
+      creationSource: 'csv_import',
+      systemNotes: [{
+        action: 'created',
+        userId: 'system',
+        userName: 'CSV Import',
+        timestamp: new Date().toISOString(),
+        details: `Category auto-created during recurring work orders CSV import`,
+      }],
     });
 
     return newCategoryRef.id;

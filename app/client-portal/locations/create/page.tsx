@@ -190,9 +190,10 @@ export default function CreateLocation() {
       }
 
       // Create location with consistent structure for admin compatibility
+      const clientName = clientData.fullName || clientData.companyName || '';
       const locationRef = await addDoc(collection(db, 'locations'), {
         clientId: currentUser.uid,
-        clientName: clientData.fullName || clientData.companyName || '',
+        clientName,
         clientEmail: clientData.email || '',
         companyId: formData.companyId,
         companyName: selectedCompany?.name || '',
@@ -216,6 +217,16 @@ export default function CreateLocation() {
         images: imageUrls,
         status: 'pending',
         createdAt: serverTimestamp(),
+        createdBy: currentUser.uid,
+        createdByName: clientName,
+        creationSource: 'client_portal',
+        systemNotes: [{
+          action: 'created',
+          userId: currentUser.uid,
+          userName: clientName,
+          timestamp: new Date().toISOString(),
+          details: `Location submitted via Client Portal by ${clientName}. Status: pending approval.`,
+        }],
       });
 
       // Notify all admins

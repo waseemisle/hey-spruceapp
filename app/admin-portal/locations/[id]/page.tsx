@@ -7,20 +7,35 @@ import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Building2, ClipboardList, Clock, AlertCircle, FileCheck, Receipt, BarChart2, Calendar } from 'lucide-react';
+import { ArrowLeft, Building2, ClipboardList, Clock, AlertCircle, FileCheck, Receipt, BarChart2, Calendar, Info, User, History } from 'lucide-react';
 import Link from 'next/link';
 import { formatAddress } from '@/lib/utils';
 import AdminCalendar from '@/components/calendar/admin-calendar';
+
+interface SystemNote {
+  action: string;
+  userId: string;
+  userName: string;
+  timestamp: string;
+  details: string;
+}
 
 interface Location {
   id: string;
   clientId: string;
   clientName?: string;
   companyId?: string;
+  companyName?: string;
   locationName: string;
   address?: { street?: string; city?: string; state?: string; zip?: string; country?: string };
   imageUrl?: string;
   status?: string;
+  createdAt?: any;
+  updatedAt?: any;
+  createdBy?: string;
+  createdByName?: string;
+  creationSource?: string;
+  systemNotes?: SystemNote[];
 }
 
 interface WorkOrder {
@@ -255,6 +270,107 @@ export default function LocationLandingPage() {
                 </Button>
               </Link>
             )}
+          </CardContent>
+        </Card>
+
+        {/* System Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              System Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Creation info */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <User className="h-4 w-4" /> Creation Details
+              </h4>
+              <div className="bg-muted rounded-lg p-3 space-y-1 text-sm">
+                <div>
+                  <span className="font-medium">Created By:</span>{' '}
+                  <span className="text-muted-foreground">
+                    {location.createdByName || location.clientName || 'Unknown'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Source:</span>{' '}
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
+                    location.creationSource === 'admin_portal' ? 'bg-blue-100 text-blue-700'
+                    : location.creationSource === 'client_portal' ? 'bg-green-100 text-green-700'
+                    : location.creationSource === 'maintenance_request_api' ? 'bg-yellow-100 text-yellow-700'
+                    : location.creationSource === 'csv_import' ? 'bg-purple-100 text-purple-700'
+                    : location.clientName === 'Auto-Generated' ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {location.creationSource === 'admin_portal' ? 'Admin Portal'
+                    : location.creationSource === 'client_portal' ? 'Client Portal'
+                    : location.creationSource === 'maintenance_request_api' ? 'Auto-Generated (Maintenance Request API)'
+                    : location.creationSource === 'csv_import' ? 'CSV Import'
+                    : location.clientName === 'Auto-Generated' ? 'Auto-Generated (Maintenance Request API)'
+                    : 'Unknown'}
+                  </span>
+                </div>
+                {location.createdAt && (
+                  <div>
+                    <span className="font-medium">Created At:</span>{' '}
+                    <span className="text-muted-foreground">
+                      {(location.createdAt?.toDate ? location.createdAt.toDate() : new Date(location.createdAt)).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                {location.updatedAt && (
+                  <div>
+                    <span className="font-medium">Last Updated:</span>{' '}
+                    <span className="text-muted-foreground">
+                      {(location.updatedAt?.toDate ? location.updatedAt.toDate() : new Date(location.updatedAt)).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Audit Trail */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <History className="h-4 w-4" /> Audit Trail
+              </h4>
+              {(!location.systemNotes || location.systemNotes.length === 0) ? (
+                <p className="text-sm text-muted-foreground italic">
+                  No audit trail available for this location. Future changes will be tracked here.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {[...location.systemNotes].reverse().map((note, idx) => (
+                    <div key={idx} className="flex gap-3 p-3 rounded-lg border bg-card">
+                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+                        note.action === 'created' ? 'bg-green-500'
+                        : note.action === 'updated' ? 'bg-blue-500'
+                        : note.action === 'deleted' ? 'bg-red-500'
+                        : 'bg-gray-400'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-medium text-foreground">{note.userName}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                            note.action === 'created' ? 'bg-green-100 text-green-700'
+                            : note.action === 'updated' ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {note.action}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{note.details}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {new Date(note.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

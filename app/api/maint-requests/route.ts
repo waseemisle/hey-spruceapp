@@ -436,6 +436,16 @@ export async function POST(request: Request) {
           status: 'approved', // Auto-approve for API-generated locations
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
+          createdBy: 'system',
+          createdByName: 'Maintenance Request API',
+          creationSource: 'maintenance_request_api',
+          systemNotes: [{
+            action: 'created',
+            userId: 'system',
+            userName: 'Maintenance Request API',
+            timestamp: new Date().toISOString(),
+            details: `Auto-generated from maintenance request. Requestor: ${requestor || 'Unknown'}. Venue: ${locationName}`,
+          }],
         });
 
         locationId = newLocationRef.id;

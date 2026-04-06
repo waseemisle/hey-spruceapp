@@ -22,14 +22,14 @@ export async function GET(request: NextRequest) {
     // to check for recurring work orders that need to be executed
 
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-    // Find all active recurring work orders that should be executed today
+    // Find all active recurring work orders whose nextExecution is today or in the past
+    // (catches missed executions too — if cron didn't fire on the exact day)
+    // Using a single range filter to avoid composite index issues
     const recurringWorkOrdersQuery = query(
       collection(db, 'recurringWorkOrders'),
       where('status', '==', 'active'),
-      where('nextExecution', '>=', startOfDay),
       where('nextExecution', '<=', endOfDay)
     );
 

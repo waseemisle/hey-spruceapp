@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
@@ -136,11 +136,19 @@ export default function LocationsManagement() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      const userName = currentUser.displayName || currentUser.email || 'Admin';
       await updateDoc(doc(db, 'locations', locationId), {
         status: 'approved',
         approvedBy: currentUser.uid,
         approvedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        systemNotes: arrayUnion({
+          action: 'approved',
+          userId: currentUser.uid,
+          userName,
+          timestamp: new Date().toISOString(),
+          details: `Location approved by ${userName}`,
+        }),
       });
 
       toast.success('Location approved successfully');
@@ -169,12 +177,20 @@ export default function LocationsManagement() {
       const currentUser = auth.currentUser;
       if (!currentUser) return;
 
+      const userName = currentUser.displayName || currentUser.email || 'Admin';
       await updateDoc(doc(db, 'locations', rejectingLocationId), {
         status: 'rejected',
         rejectedBy: currentUser.uid,
         rejectedAt: serverTimestamp(),
         rejectionReason: rejectionReason,
         updatedAt: serverTimestamp(),
+        systemNotes: arrayUnion({
+          action: 'rejected',
+          userId: currentUser.uid,
+          userName,
+          timestamp: new Date().toISOString(),
+          details: `Location rejected by ${userName}. Reason: ${rejectionReason}`,
+        }),
       });
 
       toast.success('Location rejected');
@@ -269,15 +285,38 @@ export default function LocationsManagement() {
         updatedAt: serverTimestamp(),
       };
 
+      const currentUser = auth.currentUser;
+      const userName = currentUser?.displayName || currentUser?.email || 'Admin';
+      const userId = currentUser?.uid || 'unknown';
+
       if (editingId) {
         // Update existing location
-        await updateDoc(doc(db, 'locations', editingId), locationData);
+        await updateDoc(doc(db, 'locations', editingId), {
+          ...locationData,
+          systemNotes: arrayUnion({
+            action: 'updated',
+            userId,
+            userName,
+            timestamp: new Date().toISOString(),
+            details: 'Location updated via Admin Portal',
+          }),
+        });
         toast.success('Location updated successfully');
       } else {
         // Create new location
         await addDoc(collection(db, 'locations'), {
           ...locationData,
           createdAt: serverTimestamp(),
+          createdBy: userId,
+          createdByName: userName,
+          creationSource: 'admin_portal',
+          systemNotes: [{
+            action: 'created',
+            userId,
+            userName,
+            timestamp: new Date().toISOString(),
+            details: 'Location created via Admin Portal',
+          }],
         });
         toast.success('Location created successfully');
       }
