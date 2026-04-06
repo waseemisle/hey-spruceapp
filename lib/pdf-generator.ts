@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { SPRUCE_LOGO_BASE64 } from './logo-base64';
+import { GROUNDOPS_LOGO_BASE64 } from './logo-base64';
 
 export interface InvoiceData {
   invoiceNumber: string;
@@ -51,7 +51,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
 
   // Logo - Embedded as base64
   try {
-    doc.addImage(SPRUCE_LOGO_BASE64, 'PNG', 20, 12, 55, 16);
+    doc.addImage(GROUNDOPS_LOGO_BASE64, 'PNG', 20, 12, 55, 16);
   } catch (error) {
     // Fallback to styled text if logo fails
     doc.setFontSize(18);
@@ -468,7 +468,7 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
 
   // Logo - Embedded as base64
   try {
-    doc.addImage(SPRUCE_LOGO_BASE64, 'PNG', 20, 12, 55, 16);
+    doc.addImage(GROUNDOPS_LOGO_BASE64, 'PNG', 20, 12, 55, 16);
   } catch (error) {
     // Fallback to styled text if logo fails
     doc.setFontSize(18);
