@@ -898,7 +898,14 @@ function ClientWorkOrdersContent() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{workOrder.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{workOrder.locationName || 'No location'}</p>
+                      {workOrder.workOrderNumber && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{workOrder.workOrderNumber}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground">
+                        {workOrder.createdAt?.toDate?.()
+                          ? workOrder.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : workOrder.locationName || 'No location'}
+                      </p>
                     </div>
                     <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${statusCfg.className}`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${statusCfg.dot}`} />

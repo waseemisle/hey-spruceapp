@@ -2244,6 +2244,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Priority</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Budget</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date Created</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -2275,6 +2276,11 @@ const filteredLocationsForForm = locations.filter((location) => {
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {workOrder.estimateBudget ? `$${workOrder.estimateBudget.toLocaleString()}` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {workOrder.createdAt?.toDate?.()
+                        ? workOrder.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : '-'}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-2">
@@ -2321,6 +2327,11 @@ const filteredLocationsForForm = locations.filter((location) => {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{workOrder.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">{workOrder.workOrderNumber}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {workOrder.createdAt?.toDate?.()
+                          ? workOrder.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : ''}
+                      </p>
                     </div>
                     <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(workOrder.status)}`}>
                       {getStatusLabel(workOrder.status)}
