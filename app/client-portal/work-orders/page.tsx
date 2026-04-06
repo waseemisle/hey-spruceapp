@@ -9,7 +9,7 @@ import { notifyBiddingOpportunity } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye, CheckCircle, XCircle, Share2, X, ClipboardCheck, Clock, BarChart3 } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye, CheckCircle, XCircle, Share2, X, ClipboardCheck, Clock, BarChart3, Archive } from 'lucide-react';
 import Link from 'next/link';
 import ViewControls from '@/components/view-controls';
 import { useViewControls } from '@/contexts/view-controls-context';
@@ -73,7 +73,7 @@ function ClientWorkOrdersContent() {
   const { auth, db } = useFirebaseInstance();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const workOrderType = searchParams?.get('type') || 'all'; // 'all' or 'maintenance'
+  const workOrderType = searchParams?.get('type') || 'all'; // 'all', 'maintenance', or 'archive'
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -81,6 +81,7 @@ function ClientWorkOrdersContent() {
   const { viewMode } = useViewControls();
   const [hasApproveRejectPermission, setHasApproveRejectPermission] = useState(false);
   const [hasShareForBiddingPermission, setHasShareForBiddingPermission] = useState(false);
+  const [hasArchivePermission, setHasArchivePermission] = useState(false);
   const [processingWorkOrder, setProcessingWorkOrder] = useState<string | null>(null);
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -139,6 +140,15 @@ function ClientWorkOrdersContent() {
           // Check for Share for Bidding permission
           const hasSharePermission = clientData?.permissions?.shareForBidding === true;
           setHasShareForBiddingPermission(hasSharePermission);
+
+          // Check for Archive Work Orders permission
+          setHasArchivePermission(clientData?.permissions?.archiveWorkOrders === true);
+
+          // If viewing archive, require permission
+          if (workOrderType === 'archive' && !clientData?.permissions?.archiveWorkOrders) {
+            router.replace('/client-portal/work-orders');
+            return;
+          }
 
           // If viewing maintenance requests work orders, require permission
           if (workOrderType === 'maintenance' && !clientData?.permissions?.viewMaintenanceRequestsWorkOrders) {
@@ -619,10 +629,12 @@ function ClientWorkOrdersContent() {
     }
   };
 
-  // Show all work orders; when type=maintenance only show maintenance request ones
-  const workOrdersToShow = workOrderType === 'maintenance'
-    ? workOrders.filter(wo => wo.isMaintenanceRequestOrder === true)
-    : workOrders;
+  // Show work orders based on type filter; archived WOs are excluded unless type=archive
+  const workOrdersToShow = workOrderType === 'archive'
+    ? workOrders.filter(wo => wo.status === 'archived')
+    : workOrderType === 'maintenance'
+    ? workOrders.filter(wo => wo.isMaintenanceRequestOrder === true && wo.status !== 'archived')
+    : workOrders.filter(wo => wo.status !== 'archived');
 
   const filteredWorkOrders = workOrdersToShow.filter(wo => {
     const statusMatch = filter === 'all' || normalizeStatus(wo.status) === filter;
@@ -676,21 +688,39 @@ function ClientWorkOrdersContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <ClipboardList className="h-7 w-7 text-blue-600" />
-              {workOrderType === 'maintenance' ? 'Maintenance Requests Work Orders' : 'Work Orders'}
+              {workOrderType === 'archive' ? <Archive className="h-7 w-7 text-gray-600" /> : <ClipboardList className="h-7 w-7 text-blue-600" />}
+              {workOrderType === 'maintenance' ? 'Maintenance Requests Work Orders' : workOrderType === 'archive' ? 'Archived Work Orders' : 'Work Orders'}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {workOrderType === 'maintenance' ? 'Work orders created from maintenance requests' : 'Manage your maintenance requests'}
+              {workOrderType === 'maintenance' ? 'Work orders created from maintenance requests' : workOrderType === 'archive' ? 'Work orders that have been archived' : 'Manage your maintenance requests'}
             </p>
           </div>
-          {workOrderType !== 'maintenance' && (
-            <Link href="/client-portal/work-orders/create">
-              <Button className="gap-2 self-start sm:self-auto">
-                <Plus className="h-4 w-4" />
-                Create Work Order
-              </Button>
-            </Link>
-          )}
+          <div className="flex gap-2 flex-wrap">
+            {hasArchivePermission && workOrderType !== 'archive' && (
+              <Link href="/client-portal/work-orders?type=archive">
+                <Button variant="outline" className="gap-2 self-start sm:self-auto">
+                  <Archive className="h-4 w-4" />
+                  Archived Work Orders
+                </Button>
+              </Link>
+            )}
+            {workOrderType === 'archive' && (
+              <Link href="/client-portal/work-orders">
+                <Button variant="outline" className="gap-2 self-start sm:self-auto">
+                  <ClipboardList className="h-4 w-4" />
+                  Back to Work Orders
+                </Button>
+              </Link>
+            )}
+            {workOrderType !== 'maintenance' && workOrderType !== 'archive' && (
+              <Link href="/client-portal/work-orders/create">
+                <Button className="gap-2 self-start sm:self-auto">
+                  <Plus className="h-4 w-4" />
+                  Create Work Order
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Stats */}

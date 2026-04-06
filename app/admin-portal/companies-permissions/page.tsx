@@ -117,20 +117,12 @@ export default function CompaniesPermissions() {
 
       const permissionsMap: Record<string, Client['permissions']> = {};
       cls.forEach((client) => {
-        permissionsMap[client.id] = {
-          shareForBidding: client.permissions?.shareForBidding || false,
-          viewMaintenanceRequests: client.permissions?.viewMaintenanceRequests || false,
-          viewMaintenanceRequestsWorkOrders: client.permissions?.viewMaintenanceRequestsWorkOrders || false,
-          approveRejectOrder: client.permissions?.approveRejectOrder || false,
-          rejectedWorkOrders: client.permissions?.rejectedWorkOrders || false,
-          viewSubcontractors: client.permissions?.viewSubcontractors || false,
-          compareQuotes: client.permissions?.compareQuotes || false,
-          viewRecurringWorkOrders: client.permissions?.viewRecurringWorkOrders || false,
-          viewTimeline: client.permissions?.viewTimeline || false,
-          createSubcontractors: client.permissions?.createSubcontractors || false,
-          createLocation: client.permissions?.createLocation || false,
-          createRecurringWorkOrders: client.permissions?.createRecurringWorkOrders || false,
-        };
+        // Build permissions map dynamically from PERMISSION_DEFS to avoid missing new permissions
+        const perms: Record<string, boolean> = {};
+        PERMISSION_DEFS.forEach((def) => {
+          perms[def.key] = client.permissions?.[def.key] || false;
+        });
+        permissionsMap[client.id] = perms;
       });
       setClientPermissions(permissionsMap);
     } catch (e) {
