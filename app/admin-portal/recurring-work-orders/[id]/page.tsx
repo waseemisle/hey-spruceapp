@@ -654,13 +654,13 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <div>
                     <span className="font-semibold">Status:</span>
                     <span className={`ml-2 px-2 py-1 rounded text-xs font-semibold ${getStatusColor(recurringWorkOrder.status)}`}>
-                      {recurringWorkOrder.status.toUpperCase()}
+                      {(recurringWorkOrder.status || 'unknown').toUpperCase()}
                     </span>
                   </div>
                   <div>
                     <span className="font-semibold">Priority:</span>
                     <span className="ml-2 px-2 py-1 rounded text-xs font-semibold bg-orange-50 text-orange-600">
-                      {recurringWorkOrder.priority.toUpperCase()}
+                      {(recurringWorkOrder.priority || 'medium').toUpperCase()}
                     </span>
                   </div>
                 </div>
@@ -1024,8 +1024,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                 <div>
                   <span className="font-semibold">Success Rate:</span>
                   <div className="text-sm text-muted-foreground mt-1">
-                    {recurringWorkOrder.totalExecutions > 0 
-                      ? Math.round((recurringWorkOrder.successfulExecutions / recurringWorkOrder.totalExecutions) * 100)
+                    {(recurringWorkOrder.totalExecutions || 0) > 0
+                      ? Math.round(((recurringWorkOrder.successfulExecutions || 0) / recurringWorkOrder.totalExecutions) * 100)
                       : 0}%
                   </div>
                 </div>
@@ -1056,7 +1056,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">Execution #{execution.executionNumber}</span>
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${getExecutionStatusColor(execution.status)}`}>
-                          {execution.status.toUpperCase()}
+                          {(execution.status || 'unknown').toUpperCase()}
                         </span>
                       </div>
                       <div className="text-sm text-muted-foreground">
