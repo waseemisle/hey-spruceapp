@@ -746,34 +746,89 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   );
                 })()}
 
-                <div>
-                  <span className="font-semibold">Next Execution:</span>
-                  <span className="ml-2">
-                    {recurringWorkOrder.nextExecution ? new Date(recurringWorkOrder.nextExecution).toLocaleDateString() : 'Not scheduled'}
-                  </span>
-                </div>
+                {/* Compute stats from actual execution records */}
+                {(() => {
+                  const doneExecs = executions.filter(e => e.status === 'executed' || !!(e as any).workOrderId);
+                  const failedExecs = executions.filter(e => e.status === 'failed');
+                  const totalDone = doneExecs.length;
+                  const totalFailed = failedExecs.length;
 
-                <div>
-                  <span className="font-semibold">Last Execution:</span>
-                  <span className="ml-2">
-                    {recurringWorkOrder.lastExecution ? new Date(recurringWorkOrder.lastExecution).toLocaleDateString() : 'Never'}
-                  </span>
-                </div>
+                  // Last execution: most recent completed execution by scheduled date
+                  const lastDone = doneExecs
+                    .map(e => toSafeDate(e.scheduledDate) || toSafeDate(e.executedDate))
+                    .filter(Boolean)
+                    .sort((a, b) => b!.getTime() - a!.getTime())[0];
 
-                <div>
-                  <span className="font-semibold">Total Executions:</span>
-                  <span className="ml-2">{recurringWorkOrder.totalExecutions}</span>
-                </div>
+                  // Next execution: compute from pattern
+                  const { mode, interval, daysOfWeek } = resolveInterval(recurringWorkOrder);
+                  const pattern = recurringWorkOrder.recurrencePattern as any;
+                  const patternStartDate = toSafeDate(pattern?.startDate);
+                  const patternEndDate = toSafeDate(pattern?.endDate);
+                  const firstService = recurringWorkOrder.nextServiceDates?.[0] ? toSafeDate(recurringWorkOrder.nextServiceDates[0]) : null;
+                  const anchor = patternStartDate ?? firstService ?? (recurringWorkOrder.createdAt ? new Date(recurringWorkOrder.createdAt) : new Date());
+                  anchor.setHours(9, 0, 0, 0);
 
-                <div>
-                  <span className="font-semibold">Successful Executions:</span>
-                  <span className="ml-2 text-green-600">{recurringWorkOrder.successfulExecutions}</span>
-                </div>
+                  const doneDateSet = new Set(doneExecs.map(e => {
+                    const d = toSafeDate(e.scheduledDate);
+                    return d ? d.toDateString() : '';
+                  }).filter(Boolean));
 
-                <div>
-                  <span className="font-semibold">Failed Executions:</span>
-                  <span className="ml-2 text-red-600">{recurringWorkOrder.failedExecutions}</span>
-                </div>
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  let nextDate: Date | null = null;
+                  const cursor = new Date(anchor);
+                  if (mode === 'daily') {
+                    const hasDaysFilter = Array.isArray(daysOfWeek) && daysOfWeek.length > 0;
+                    for (let i = 0; i < 730; i++) {
+                      if (patternEndDate && cursor > patternEndDate) break;
+                      if (cursor >= today && (!hasDaysFilter || daysOfWeek!.includes(cursor.getDay())) && !doneDateSet.has(cursor.toDateString())) {
+                        nextDate = new Date(cursor); break;
+                      }
+                      cursor.setDate(cursor.getDate() + 1);
+                    }
+                  } else if (mode === 'weekly') {
+                    for (let i = 0; i < 200; i++) {
+                      if (patternEndDate && cursor > patternEndDate) break;
+                      if (cursor >= today && !doneDateSet.has(cursor.toDateString())) { nextDate = new Date(cursor); break; }
+                      cursor.setDate(cursor.getDate() + interval * 7);
+                    }
+                  } else {
+                    for (let i = 0; i < 200; i++) {
+                      if (patternEndDate && cursor > patternEndDate) break;
+                      if (cursor >= today && !doneDateSet.has(cursor.toDateString())) { nextDate = new Date(cursor); break; }
+                      cursor.setMonth(cursor.getMonth() + interval);
+                    }
+                  }
+
+                  return (
+                    <>
+                      <div>
+                        <span className="font-semibold">Next Execution:</span>
+                        <span className="ml-2">
+                          {nextDate ? nextDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Not scheduled'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Last Execution:</span>
+                        <span className="ml-2">
+                          {lastDone ? lastDone.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Never'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Total Executions:</span>
+                        <span className="ml-2">{totalDone + totalFailed}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Successful Executions:</span>
+                        <span className="ml-2 text-green-600">{totalDone}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Failed Executions:</span>
+                        <span className="ml-2 text-red-600">{totalFailed}</span>
+                      </div>
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -1028,14 +1083,19 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   </div>
                 </div>
 
-                <div>
-                  <span className="font-semibold">Success Rate:</span>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {(recurringWorkOrder.totalExecutions || 0) > 0
-                      ? Math.round(((recurringWorkOrder.successfulExecutions || 0) / recurringWorkOrder.totalExecutions) * 100)
-                      : 0}%
-                  </div>
-                </div>
+                {(() => {
+                  const done = executions.filter(e => e.status === 'executed' || !!(e as any).workOrderId).length;
+                  const failed = executions.filter(e => e.status === 'failed').length;
+                  const total = done + failed;
+                  return (
+                    <div>
+                      <span className="font-semibold">Success Rate:</span>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {total > 0 ? Math.round((done / total) * 100) : 0}%
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>

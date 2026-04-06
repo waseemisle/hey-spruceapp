@@ -10,11 +10,12 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
-  // Verify CRON_SECRET bearer token
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
+  // Verify CRON_SECRET bearer token (only when Authorization header is present)
+  // Admin portal calls don't send auth headers — they're same-origin internal calls
+  const authHeader = request.headers.get('authorization');
+  if (authHeader) {
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
