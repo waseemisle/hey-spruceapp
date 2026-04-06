@@ -379,14 +379,7 @@ export default function ClientQuotes() {
                 <FileText className="h-4 w-4 mr-2" />
                 List View
               </Button>
-              <Button
-                variant={viewMode === 'comparison' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('comparison')}
-              >
-                <GitCompare className="h-4 w-4 mr-2" />
-                Compare Quotes
-              </Button>
+              {/* Compare Quotes is available on individual work order pages */}
             </div>
           )}
         </div>
@@ -420,37 +413,6 @@ export default function ClientQuotes() {
               </p>
             </CardContent>
           </Card>
-        ) : viewMode === 'comparison' ? (
-          <div className="space-y-6">
-            {/* Group quotes by work order */}
-            {(() => {
-              const quotesByWorkOrder = filteredQuotes.reduce((acc, quote) => {
-                const woId = quote.workOrderId || 'unknown';
-                if (!acc[woId]) acc[woId] = [];
-                acc[woId].push(quote);
-                return acc;
-              }, {} as Record<string, Quote[]>);
-
-              return Object.entries(quotesByWorkOrder).map(([workOrderId, workOrderQuotes]) => (
-                <Card key={workOrderId}>
-                  <CardHeader>
-                    <CardTitle>{workOrderQuotes[0].workOrderTitle}</CardTitle>
-                    {workOrderQuotes[0].workOrderNumber && (
-                      <p className="text-sm text-muted-foreground mt-1">WO: {workOrderQuotes[0].workOrderNumber}</p>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <QuoteComparison
-                      quotes={workOrderQuotes}
-                      workOrderId={workOrderId}
-                      onAcceptQuote={handleApprove}
-                      onRejectQuote={handleReject}
-                    />
-                  </CardContent>
-                </Card>
-              ));
-            })()}
-          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredQuotes.map((quote) => (

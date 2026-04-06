@@ -51,7 +51,13 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
 
   const isClient = viewMode === 'client';
   const getDisplayAmount = (q: Quote) => isClient ? (q.clientAmount ?? q.totalAmount) : q.totalAmount;
-  const markupMultiplier = 1.2; // 20% markup
+  /** Per-quote markup multiplier derived from clientAmount / totalAmount */
+  const getMarkup = (q: Quote) => {
+    if (q.clientAmount && q.totalAmount && q.totalAmount > 0) {
+      return q.clientAmount / q.totalAmount;
+    }
+    return q.markupPercentage ? (1 + q.markupPercentage / 100) : 1;
+  };
 
   // Sort quotes
   const sortedQuotes = [...quotes].sort((a, b) => {
@@ -147,20 +153,20 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Labor Cost:</span>
                         <span className="font-semibold">
-                          ${isClient ? Math.round(quote.laborCost * markupMultiplier).toLocaleString() : quote.laborCost.toLocaleString()}
+                          ${isClient ? Math.round(quote.laborCost * getMarkup(quote)).toLocaleString() : quote.laborCost.toLocaleString()}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Material Cost:</span>
                         <span className="font-semibold">
-                          ${isClient ? Math.round(quote.materialCost * markupMultiplier).toLocaleString() : quote.materialCost.toLocaleString()}
+                          ${isClient ? Math.round(quote.materialCost * getMarkup(quote)).toLocaleString() : quote.materialCost.toLocaleString()}
                         </span>
                       </div>
                       {quote.additionalCosts > 0 && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Additional Costs:</span>
                           <span className="font-semibold">
-                            ${isClient ? Math.round(quote.additionalCosts * markupMultiplier).toLocaleString() : quote.additionalCosts.toLocaleString()}
+                            ${isClient ? Math.round(quote.additionalCosts * getMarkup(quote)).toLocaleString() : quote.additionalCosts.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -168,7 +174,7 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                         <div className="flex justify-between text-green-600">
                           <span>Discount:</span>
                           <span className="font-semibold">
-                            -${isClient ? Math.round(quote.discountAmount * markupMultiplier).toLocaleString() : quote.discountAmount.toLocaleString()}
+                            -${isClient ? Math.round(quote.discountAmount * getMarkup(quote)).toLocaleString() : quote.discountAmount.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -183,8 +189,9 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                         </p>
                         <div className="space-y-1 max-h-40 overflow-y-auto">
                           {quote.lineItems.map((item, idx) => {
-                            const displayPrice = isClient ? Math.round(item.unitPrice * markupMultiplier * 100) / 100 : item.unitPrice;
-                            const displayAmount = isClient ? Math.round(item.amount * markupMultiplier * 100) / 100 : item.amount;
+                            const m = getMarkup(quote);
+                            const displayPrice = isClient ? Math.round(item.unitPrice * m * 100) / 100 : item.unitPrice;
+                            const displayAmount = isClient ? Math.round(item.amount * m * 100) / 100 : item.amount;
                             return (
                               <div key={idx} className="text-xs flex justify-between items-start bg-muted p-2 rounded">
                                 <div className="flex-1">
