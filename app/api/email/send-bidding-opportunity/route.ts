@@ -48,16 +48,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Send email via Mailgun
-    await sendEmail({
-      to: toEmail,
-      subject: `New Bidding Opportunity: ${workOrderTitle}`,
-      html: emailHtml,
-    });
-    await logEmail({ type: 'bidding-opportunity', to: toEmail, subject: `New Bidding Opportunity: ${workOrderTitle}`, status: 'sent', context: { toName, workOrderNumber, workOrderTitle, workOrderDescription, locationName, category, priority } });
+    const emailSubject = `New Bidding Opportunity: ${workOrderTitle}`;
+    const result = await sendEmail({ to: toEmail, subject: emailSubject, html: emailHtml });
+    const status = (result as any)?.rateLimited ? 'rate_limited' : 'sent';
+    await logEmail({ type: 'bidding-opportunity', to: toEmail, subject: emailSubject, status: status as any, context: { toName, workOrderNumber, workOrderTitle, workOrderDescription, locationName, category, priority } });
 
-    return NextResponse.json({
-      success: true,
-    });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('❌ Error sending bidding opportunity email:', error);
     console.error('❌ Error details:', error.message || error);

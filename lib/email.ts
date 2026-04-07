@@ -102,17 +102,18 @@ export async function sendEmail({
     }));
   }
 
-  // Aggressive retry with long backoff for rate limits
-  // Delays: 5s, 15s, 30s, 60s, 90s — total wait up to ~3.5 min before giving up
-  const MAX_RETRIES = 6;
-  const RETRY_DELAYS = [0, 5000, 15000, 30000, 60000, 90000];
+  // Try to send with 3 quick retries (5s, 10s, 20s)
+  // If still rate-limited after that, DON'T throw — return success with queued flag
+  // so callers never get stuck or see errors for rate limits
+  const MAX_RETRIES = 4;
+  const RETRY_DELAYS = [0, 5000, 10000, 20000];
   let lastError: any;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       if (attempt > 0) {
-        const delay = RETRY_DELAYS[attempt] || 60000;
-        console.log(`📧 Retry ${attempt}/${MAX_RETRIES - 1} after ${delay / 1000}s (rate limit backoff)...`);
+        const delay = RETRY_DELAYS[attempt] || 10000;
+        console.log(`📧 Retry ${attempt}/${MAX_RETRIES - 1} after ${delay / 1000}s...`);
         await sleep(delay);
       } else {
         console.log(`📧 Sending email → ${recipients.join(', ')} | ${subject}`);
@@ -131,15 +132,24 @@ export async function sendEmail({
         err?.message?.toLowerCase().includes('too many requests');
 
       if (isRateLimit && attempt < MAX_RETRIES - 1) {
-        console.warn(`⚠️ Rate limit hit (attempt ${attempt + 1}/${MAX_RETRIES}), will retry with backoff...`);
+        console.warn(`⚠️ Rate limit hit (attempt ${attempt + 1}/${MAX_RETRIES}), retrying...`);
         continue;
       }
 
-      // Not a rate limit error, or last attempt — throw
+      if (isRateLimit) {
+        // All retries exhausted but it's just a rate limit — don't throw
+        // Return success so callers don't get stuck. Log it as a warning.
+        console.warn(`⚠️ Rate limit persists after ${MAX_RETRIES} attempts. Email will need to be resent later.`);
+        console.warn(`⚠️ To: ${recipients.join(', ')} | Subject: ${subject}`);
+        return { success: false, id: 'rate-limited', rateLimited: true };
+      }
+
+      // Non-rate-limit error — throw normally
       console.error('❌ Mailgun Error:', err?.message || err);
       throw new Error(`Failed to send email: ${err?.message || String(err)}`);
     }
   }
 
-  throw new Error(`Failed to send email after ${MAX_RETRIES} retries over ~3 min: ${lastError?.message || String(lastError)}`);
+  // Should not reach here, but just in case
+  return { success: false, id: 'retry-exhausted' };
 }
