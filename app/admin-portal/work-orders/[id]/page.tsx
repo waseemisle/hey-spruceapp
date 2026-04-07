@@ -847,10 +847,11 @@ export default function ViewWorkOrder() {
 
       await notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title);
 
-      await Promise.all(selectedSubcontractors.map(async (subId) => {
+      // Send emails fire-and-forget — don't block the UI waiting for Mailgun
+      selectedSubcontractors.forEach((subId) => {
         const sub = subcontractors.find(s => s.id === subId);
         if (sub?.email) {
-          await fetch('/api/email/send-bidding-opportunity', {
+          fetch('/api/email/send-bidding-opportunity', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -863,7 +864,7 @@ export default function ViewWorkOrder() {
             }),
           }).catch(console.error);
         }
-      }));
+      });
 
       const currentUser = auth.currentUser;
       const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;
