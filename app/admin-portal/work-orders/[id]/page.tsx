@@ -813,6 +813,11 @@ export default function ViewWorkOrder() {
       return;
     }
     setBiddingSubmitting(true);
+    // Safety timeout — reset button after 30s no matter what
+    const safetyTimeout = setTimeout(() => {
+      setBiddingSubmitting(false);
+      toast.error('Operation timed out. The work order may have been shared — please check.');
+    }, 30000);
     try {
       const workOrderNumber = workOrder.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
 
@@ -845,7 +850,7 @@ export default function ViewWorkOrder() {
         updatedAt: serverTimestamp(),
       });
 
-      await notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title);
+      notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title).catch(console.error);
 
       // Send emails fire-and-forget — don't block the UI waiting for Mailgun
       selectedSubcontractors.forEach((subId) => {
@@ -901,6 +906,7 @@ export default function ViewWorkOrder() {
       console.error(err);
       toast.error('Failed to share work order for bidding');
     } finally {
+      clearTimeout(safetyTimeout);
       setBiddingSubmitting(false);
     }
   };
