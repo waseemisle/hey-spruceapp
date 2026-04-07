@@ -58,6 +58,31 @@ export default function CronJobsPage() {
   const [scheduleLoading, setScheduleLoading] = useState(true);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [lastCronRunAt, setLastCronRunAt] = useState<Date | null>(null);
+  const [now, setNow] = useState(new Date());
+
+  // Tick every second for live countdown
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Compute next run and time left
+  const nextRunAt = lastCronRunAt
+    ? new Date(lastCronRunAt.getTime() + scheduleInterval * 60000)
+    : null;
+  const timeLeftMs = nextRunAt ? Math.max(0, nextRunAt.getTime() - now.getTime()) : 0;
+  const isOverdue = nextRunAt ? now > nextRunAt : false;
+
+  const fmtCountdown = (ms: number) => {
+    if (ms <= 0) return 'Now';
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
 
   useEffect(() => {
     if (!auth) { setLoading(false); return; }
@@ -114,7 +139,13 @@ export default function CronJobsPage() {
       limit(50),
     );
     const unsub = onSnapshot(q, (snap) => {
-      setCronRuns(snap.docs.map(d => ({ id: d.id, ...d.data() } as CronRun)));
+      const runs = snap.docs.map(d => ({ id: d.id, ...d.data() } as CronRun));
+      setCronRuns(runs);
+      // Keep lastCronRunAt in sync with the most recent actual run
+      if (runs.length > 0) {
+        const latest = runs[0].completedAt?.toDate?.() || runs[0].startedAt?.toDate?.();
+        if (latest) setLastCronRunAt(latest);
+      }
     }, (err) => {
       console.error('Cron runs listener error:', err);
     });
@@ -269,7 +300,7 @@ export default function CronJobsPage() {
         </div>
 
         {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -328,6 +359,38 @@ export default function CronJobsPage() {
                   <p className="text-xs text-muted-foreground">Schedule</p>
                   <p className="font-bold text-foreground">
                     {scheduleLoading ? '...' : scheduleInterval < 60 ? `Every ${scheduleInterval} min` : scheduleInterval === 60 ? 'Every hour' : `Every ${scheduleInterval / 60}h`}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Next Run</p>
+                  <p className="font-bold text-foreground text-sm">
+                    {!nextRunAt ? 'Pending' : isOverdue ? 'Overdue' : nextRunAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={isOverdue && nextRunAt ? 'border-orange-300' : ''}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isOverdue ? 'bg-orange-50' : 'bg-teal-50'}`}>
+                  <Clock className={`h-5 w-5 ${isOverdue ? 'text-orange-600' : 'text-teal-600'}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Time Left</p>
+                  <p className={`font-bold text-lg tabular-nums ${isOverdue ? 'text-orange-600' : 'text-teal-700'}`}>
+                    {!nextRunAt ? '—' : isOverdue ? 'Now' : fmtCountdown(timeLeftMs)}
                   </p>
                 </div>
               </div>
