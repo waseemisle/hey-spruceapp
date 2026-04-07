@@ -496,26 +496,6 @@ export default function CreateWorkOrder() {
                     <p className="text-xs text-muted-foreground mt-1">Estimated budget for this work order in USD</p>
                   </div>
 
-                  <div className="md:col-span-2 flex items-start gap-3 rounded-lg border border-border bg-muted/80 p-4">
-                    <input
-                      type="checkbox"
-                      id="isMaintenanceRequestOrder"
-                      checked={formData.isMaintenanceRequestOrder}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, isMaintenanceRequestOrder: e.target.checked }))
-                      }
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <div>
-                      <Label htmlFor="isMaintenanceRequestOrder" className="text-foreground cursor-pointer">
-                        Maintenance Request Work Order
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Check this if this request should appear under maintenance-request work orders for your team.
-                      </p>
-                    </div>
-                  </div>
-
                   <div className="md:col-span-2">
                     <Label htmlFor="images">Images *</Label>
                     <div className="mt-2">
