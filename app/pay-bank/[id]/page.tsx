@@ -1,11 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useParams, useSearchParams } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Building2, CheckCircle, AlertCircle, Loader2, ArrowLeft, Shield, BanknoteIcon,
 } from 'lucide-react';
@@ -22,19 +20,14 @@ interface InvoiceInfo {
 
 export default function PayBankPage() {
   const params = useParams();
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const invoiceId = params.id as string;
+  const cancelled = searchParams.get('cancelled');
 
   const [invoice, setInvoice] = useState<InvoiceInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
-
-  const [holderName, setHolderName] = useState('');
-  const [holderType, setHolderType] = useState<'individual' | 'company'>('individual');
-  const [accountType, setAccountType] = useState<'checking' | 'savings'>('checking');
-  const [routingNumber, setRoutingNumber] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchInvoice() {
@@ -50,7 +43,6 @@ export default function PayBankPage() {
           clientEmail: data.clientEmail || '',
           status: data.status || '',
         });
-        setHolderName(data.clientName || '');
       } catch {
         setInvoice(null);
       } finally {
@@ -60,49 +52,35 @@ export default function PayBankPage() {
     if (invoiceId) fetchInvoice();
   }, [invoiceId]);
 
-  const handleSubmit = async () => {
-    if (!routingNumber || routingNumber.length !== 9) {
-      setResult({ success: false, message: 'Please enter a valid 9-digit routing number' });
-      return;
-    }
-    if (!accountNumber || accountNumber.length < 4) {
-      setResult({ success: false, message: 'Please enter a valid account number' });
-      return;
-    }
-    if (!holderName.trim()) {
-      setResult({ success: false, message: 'Please enter the account holder name' });
-      return;
-    }
-
+  const handlePayFromBank = async () => {
     setSubmitting(true);
-    setResult(null);
+    setError(null);
     try {
       const res = await fetch('/api/stripe/charge-bank-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoiceId,
-          routingNumber,
-          accountNumber,
-          accountHolderType: holderType,
-          accountType,
-          holderName: holderName.trim(),
-        }),
+        body: JSON.stringify({ invoiceId }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setResult({ success: false, message: data.error || 'Payment failed' });
+        setError(data.error || 'Failed to start bank payment');
         return;
       }
-      setResult({ success: true, message: data.message });
-    } catch (error: any) {
-      setResult({ success: false, message: error.message || 'Payment failed' });
+      // Redirect to Stripe Checkout (ACH flow)
+      if (data.sessionUrl) {
+        window.location.href = data.sessionUrl;
+      } else {
+        setError('No checkout URL returned');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to start bank payment');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const fmtMoney = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+  const fmtMoney = (n: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 
   if (loading) {
     return (
@@ -153,8 +131,8 @@ export default function PayBankPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-lg mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 py-12 px-4">
+      <div className="max-w-md mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
           <Logo />
@@ -164,7 +142,7 @@ export default function PayBankPage() {
 
         {/* Invoice Summary */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Invoice</p>
@@ -181,160 +159,60 @@ export default function PayBankPage() {
           </CardContent>
         </Card>
 
-        {/* Result */}
-        {result && (
-          <Card className={result.success ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}>
-            <CardContent className="p-6 text-center space-y-3">
-              {result.success ? (
-                <CheckCircle className="h-10 w-10 text-green-500 mx-auto" />
+        {/* Cancelled notice */}
+        {cancelled && (
+          <Card className="border-yellow-300 bg-yellow-50">
+            <CardContent className="p-4 text-center">
+              <p className="text-sm text-yellow-800">Payment was cancelled. You can try again below.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error */}
+        {error && (
+          <Card className="border-red-300 bg-red-50">
+            <CardContent className="p-4 text-center space-y-2">
+              <AlertCircle className="h-8 w-8 text-red-500 mx-auto" />
+              <p className="text-sm text-red-700 font-medium">{error}</p>
+              <Button variant="outline" size="sm" onClick={() => setError(null)}>Dismiss</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pay Button */}
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Bank Account Payment</p>
+                <p className="text-xs text-muted-foreground">Securely connect your bank via Stripe</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg text-xs text-blue-800">
+              <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>
+                You&apos;ll be redirected to Stripe&apos;s secure checkout to connect your bank account.
+                ACH payments typically take 1-4 business days to process. No card processing fees.
+              </span>
+            </div>
+
+            <Button
+              onClick={handlePayFromBank}
+              disabled={submitting}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2 h-12 text-base"
+            >
+              {submitting ? (
+                <><Loader2 className="h-5 w-5 animate-spin" /> Redirecting to Stripe...</>
               ) : (
-                <AlertCircle className="h-10 w-10 text-red-500 mx-auto" />
+                <><BanknoteIcon className="h-5 w-5" /> Pay {fmtMoney(invoice.totalAmount)} from Bank</>
               )}
-              <p className={`font-semibold ${result.success ? 'text-green-900' : 'text-red-900'}`}>
-                {result.success ? 'Payment Submitted!' : 'Payment Failed'}
-              </p>
-              <p className={`text-sm ${result.success ? 'text-green-700' : 'text-red-700'}`}>
-                {result.message}
-              </p>
-              {result.success && (
-                <div className="pt-2 space-y-2">
-                  <Link href="/portal-login">
-                    <Button className="w-full">Back to Portal</Button>
-                  </Link>
-                </div>
-              )}
-              {!result.success && (
-                <Button variant="outline" onClick={() => setResult(null)} className="mt-2">
-                  Try Again
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Bank Account Form */}
-        {!result?.success && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Building2 className="h-5 w-5" />
-                Add Bank Account
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">ACH Direct Debit via Stripe</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Account Holder Name */}
-              <div>
-                <Label>Account Holder Name</Label>
-                <Input
-                  value={holderName}
-                  onChange={(e) => setHolderName(e.target.value)}
-                  placeholder="Full name on account"
-                  className="mt-1"
-                />
-              </div>
-
-              {/* Holder Type */}
-              <div>
-                <Label>Holder Type</Label>
-                <div className="flex gap-2 mt-1">
-                  <Button
-                    type="button"
-                    variant={holderType === 'individual' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setHolderType('individual')}
-                    className="flex-1"
-                  >
-                    Individual
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={holderType === 'company' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setHolderType('company')}
-                    className="flex-1"
-                  >
-                    Business
-                  </Button>
-                </div>
-              </div>
-
-              {/* Account Type */}
-              <div>
-                <Label>Account Type</Label>
-                <div className="flex gap-2 mt-1">
-                  <Button
-                    type="button"
-                    variant={accountType === 'checking' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setAccountType('checking')}
-                    className="flex-1"
-                  >
-                    Checking
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={accountType === 'savings' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setAccountType('savings')}
-                    className="flex-1"
-                  >
-                    Savings
-                  </Button>
-                </div>
-              </div>
-
-              {/* Routing Number */}
-              <div>
-                <Label>Routing Number</Label>
-                <Input
-                  value={routingNumber}
-                  onChange={(e) => setRoutingNumber(e.target.value.replace(/\D/g, '').slice(0, 9))}
-                  placeholder="9-digit routing number"
-                  maxLength={9}
-                  className="mt-1 font-mono"
-                />
-                {routingNumber && routingNumber.length !== 9 && (
-                  <p className="text-xs text-yellow-600 mt-1">Must be exactly 9 digits</p>
-                )}
-              </div>
-
-              {/* Account Number */}
-              <div>
-                <Label>Account Number</Label>
-                <Input
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Account number"
-                  className="mt-1 font-mono"
-                  type="password"
-                />
-              </div>
-
-              {/* Security note */}
-              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg text-xs text-blue-800">
-                <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                <span>
-                  Your bank details are transmitted securely to Stripe and never stored on our servers.
-                  ACH payments typically take 1-4 business days to process.
-                </span>
-              </div>
-
-              {/* Submit */}
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting || !routingNumber || routingNumber.length !== 9 || !accountNumber || !holderName.trim()}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 gap-2 h-12 text-base"
-              >
-                {submitting ? (
-                  <><Loader2 className="h-5 w-5 animate-spin" /> Processing...</>
-                ) : (
-                  <><BanknoteIcon className="h-5 w-5" /> Pay {fmtMoney(invoice.totalAmount)}</>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Footer */}
         <p className="text-center text-xs text-muted-foreground">
