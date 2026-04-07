@@ -46,6 +46,7 @@ export default function CronJobsPage() {
   const [lastCronRunAt, setLastCronRunAt] = useState<Date | null>(null);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [overdueRWOs, setOverdueRWOs] = useState<Array<{ id: string; title: string; nextExecution: string; clientName: string; locationName: string }>>([]);
   const [now, setNow] = useState(new Date());
 
   // Tick every second for live countdown
@@ -71,6 +72,7 @@ export default function CronJobsPage() {
       if (!res.ok) return;
       const data = await res.json();
       setCronRuns(data.runs || []);
+      setOverdueRWOs(data.overdue || []);
       setScheduleInterval(data.schedule?.intervalMinutes || 60);
       if (data.schedule?.lastRunAt) {
         setLastCronRunAt(new Date(data.schedule.lastRunAt));
@@ -243,6 +245,15 @@ export default function CronJobsPage() {
             </CardContent>
           </Card>
 
+          <Card className={overdueRWOs.length > 0 ? 'border-orange-300' : ''}>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground mb-1">Eligible Now</p>
+              <p className={`font-bold text-sm ${overdueRWOs.length > 0 ? 'text-orange-600' : ''}`}>
+                {dataLoading ? '...' : `${overdueRWOs.length} RWOs`}
+              </p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-1">Schedule</p>
@@ -270,6 +281,33 @@ export default function CronJobsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Eligible / Overdue RWOs */}
+        {overdueRWOs.length > 0 && (
+          <Card className="border-orange-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-orange-700 text-base">
+                <AlertTriangle className="h-5 w-5" />
+                Eligible for Next Execution ({overdueRWOs.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {overdueRWOs.map(rwo => (
+                  <div key={rwo.id} className="flex items-center justify-between p-2.5 rounded-lg bg-orange-50 border border-orange-100 text-sm">
+                    <div className="min-w-0">
+                      <div className="font-medium text-foreground truncate">{rwo.title}</div>
+                      <div className="text-xs text-muted-foreground">{rwo.clientName} — {rwo.locationName}</div>
+                    </div>
+                    <div className="text-xs text-orange-700 font-medium shrink-0 ml-2">
+                      Due: {new Date(rwo.nextExecution).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Schedule Settings */}
         <Card>

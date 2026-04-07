@@ -54,7 +54,31 @@ export async function GET() {
       }
     } catch {}
 
-    return NextResponse.json({ runs, schedule });
+    // Fetch overdue/eligible RWOs
+    let overdue: any[] = [];
+    try {
+      const now = new Date();
+      const rwoSnap = await getDocs(query(
+        collection(db, 'recurringWorkOrders'),
+        where('status', '==', 'active'),
+      ));
+      rwoSnap.docs.forEach(d => {
+        const data = d.data();
+        const next = data.nextExecution?.toDate?.();
+        if (next && next <= now) {
+          overdue.push({
+            id: d.id,
+            title: data.title || 'Untitled',
+            nextExecution: next.toISOString(),
+            clientName: data.clientName || '',
+            locationName: data.locationName || '',
+          });
+        }
+      });
+      overdue.sort((a, b) => new Date(a.nextExecution).getTime() - new Date(b.nextExecution).getTime());
+    } catch {}
+
+    return NextResponse.json({ runs, schedule, overdue });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
