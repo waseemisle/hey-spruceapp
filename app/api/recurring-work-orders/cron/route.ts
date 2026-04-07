@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     // based on the admin-configured interval. Manual triggers always run.
     if (triggeredBy === 'vercel_cron') {
       try {
-        const settingsSnap = await getDoc(doc(db, 'systemSettings', 'cronSchedule'));
+        const settingsSnap = await getDoc(doc(db, 'cronJobRuns', '_schedule'));
         if (settingsSnap.exists()) {
           const settings = settingsSnap.data();
           const intervalMinutes = settings.intervalMinutes || 60;
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
       });
       // Update lastRunAt so the schedule check knows when we last ran
       try {
-        const settingsRef = doc(db, 'systemSettings', 'cronSchedule');
+        const settingsRef = doc(db, 'cronJobRuns', '_schedule');
         const settingsSnap = await getDoc(settingsRef);
         if (settingsSnap.exists()) {
           await updateDoc(settingsRef, { lastRunAt: serverTimestamp() });

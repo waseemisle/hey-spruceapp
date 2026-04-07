@@ -20,7 +20,7 @@ export async function GET() {
         orderBy('createdAt', 'desc'),
         limit(50),
       ));
-      runs = snap.docs.map(d => {
+      runs = snap.docs.filter(d => d.id !== '_schedule').map(d => {
         const data = d.data();
         return {
           id: d.id,
@@ -44,7 +44,7 @@ export async function GET() {
     // Fetch schedule settings
     let schedule = { intervalMinutes: 60, lastRunAt: null as string | null };
     try {
-      const settingsSnap = await getDoc(doc(db, 'systemSettings', 'cronSchedule'));
+      const settingsSnap = await getDoc(doc(db, 'cronJobRuns', '_schedule'));
       if (settingsSnap.exists()) {
         const data = settingsSnap.data();
         schedule.intervalMinutes = data.intervalMinutes || 60;
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid interval' }, { status: 400 });
     }
 
-    await setDoc(doc(db, 'systemSettings', 'cronSchedule'), {
+    await setDoc(doc(db, 'cronJobRuns', '_schedule'), {
       intervalMinutes,
       updatedAt: serverTimestamp(),
     }, { merge: true });
@@ -145,7 +145,7 @@ export async function PUT(request: NextRequest) {
 
     // Update lastRunAt
     try {
-      await setDoc(doc(db, 'systemSettings', 'cronSchedule'), { lastRunAt: serverTimestamp() }, { merge: true });
+      await setDoc(doc(db, 'cronJobRuns', '_schedule'), { lastRunAt: serverTimestamp() }, { merge: true });
     } catch {}
 
     return NextResponse.json({
