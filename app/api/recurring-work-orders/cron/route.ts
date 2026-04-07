@@ -110,8 +110,8 @@ export async function GET(request: NextRequest) {
 
     for (let i = 0; i < recurringWorkOrders.length; i++) {
       const rwo = recurringWorkOrders[i];
-      // Delay between executions to avoid Mailgun rate limits (each execution sends 2-3 emails)
-      if (i > 0) await new Promise(r => setTimeout(r, 2000));
+      // 5s delay between executions to avoid Mailgun rate limits (each execution sends 2-3 emails)
+      if (i > 0) await new Promise(r => setTimeout(r, 5000));
       try {
         const executeResponse = await fetch(`${baseUrl}/api/recurring-work-orders/execute`, {
           method: 'POST',

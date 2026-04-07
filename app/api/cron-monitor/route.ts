@@ -136,7 +136,9 @@ export async function PUT(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
 
-    for (const rwo of recurringWorkOrders) {
+    for (let i = 0; i < recurringWorkOrders.length; i++) {
+      const rwo = recurringWorkOrders[i];
+      if (i > 0) await new Promise(r => setTimeout(r, 5000)); // 5s gap to avoid rate limits
       try {
         const res = await fetch(`${baseUrl}/api/recurring-work-orders/execute`, {
           method: 'POST',

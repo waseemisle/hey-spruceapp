@@ -102,42 +102,44 @@ export async function sendEmail({
     }));
   }
 
-  const MAX_RETRIES = 4;
+  // Aggressive retry with long backoff for rate limits
+  // Delays: 5s, 15s, 30s, 60s, 90s — total wait up to ~3.5 min before giving up
+  const MAX_RETRIES = 6;
+  const RETRY_DELAYS = [0, 5000, 15000, 30000, 60000, 90000];
   let lastError: any;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       if (attempt > 0) {
-        const delay = 600 * Math.pow(2, attempt - 1);
-        console.log(`📧 Retry attempt ${attempt}/${MAX_RETRIES - 1} after ${delay}ms...`);
+        const delay = RETRY_DELAYS[attempt] || 60000;
+        console.log(`📧 Retry ${attempt}/${MAX_RETRIES - 1} after ${delay / 1000}s (rate limit backoff)...`);
         await sleep(delay);
       } else {
-        console.log('📧 Sending email via Mailgun...');
-        console.log('📧 To:', recipients.join(', '));
-        console.log('📧 Subject:', subject);
+        console.log(`📧 Sending email → ${recipients.join(', ')} | ${subject}`);
       }
 
       const mg = getMailgunClient();
       const data = await mg.messages.create(domain, messageData);
 
-      console.log('✅ Email sent successfully via Mailgun. ID:', data?.id);
+      console.log('✅ Email sent. ID:', data?.id);
       return { success: true, id: data?.id };
     } catch (err: any) {
+      lastError = err;
       const isRateLimit =
         err?.status === 429 ||
         err?.message?.toLowerCase().includes('rate limit') ||
         err?.message?.toLowerCase().includes('too many requests');
 
       if (isRateLimit && attempt < MAX_RETRIES - 1) {
-        console.warn(`⚠️ Mailgun rate limit hit (attempt ${attempt + 1}), will retry...`);
-        lastError = err;
+        console.warn(`⚠️ Rate limit hit (attempt ${attempt + 1}/${MAX_RETRIES}), will retry with backoff...`);
         continue;
       }
 
-      console.error('❌ Mailgun Error:', err);
+      // Not a rate limit error, or last attempt — throw
+      console.error('❌ Mailgun Error:', err?.message || err);
       throw new Error(`Failed to send email: ${err?.message || String(err)}`);
     }
   }
 
-  throw new Error(`Failed to send email after ${MAX_RETRIES} attempts: ${lastError?.message || String(lastError)}`);
+  throw new Error(`Failed to send email after ${MAX_RETRIES} retries over ~3 min: ${lastError?.message || String(lastError)}`);
 }
