@@ -515,6 +515,7 @@ export interface RecurrencePattern {
   type: 'daily' | 'weekly' | 'monthly';
   interval: number; // Every X months or weeks
   dayOfMonth?: number; // 1-31 for monthly
+  daysOfMonth?: number[]; // Array of days (1-31) for BI-MONTHLY (twice a month) and specific day selection
   daysOfWeek?: number[]; // 0=Sun…6=Sat, used for DAILY pattern
   startDate?: Date; // Starting date for DAILY patterns
   endDate?: Date; // Optional end date for the recurrence

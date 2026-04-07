@@ -125,7 +125,7 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
   } else if (upper === 'BI-MONTHLY') {
     return { type: 'monthly', interval: 2 };
   } else if (upper === 'BI-WEEKLY') {
-    return { type: 'weekly', interval: 2 };
+    return { type: 'weekly', interval: 1 }; // twice a week — daysOfWeek set separately
   } else if (upper === 'WEEKLY') {
     return { type: 'weekly', interval: 1 };
   } else {

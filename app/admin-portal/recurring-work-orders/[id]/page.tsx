@@ -398,26 +398,27 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
 
   /**
    * Resolve the interval in months/weeks from the label or pattern fields.
-   * Labels: SEMIANNUALLY=6mo, QUARTERLY=3mo, BI-MONTHLY=2mo, MONTHLY=1mo, BI-WEEKLY=2wk, WEEKLY=1wk, DAILY
+   * Labels: SEMIANNUALLY=6mo, QUARTERLY=3mo, BI-MONTHLY=twice/mo, MONTHLY=1mo, BI-WEEKLY=twice/wk, WEEKLY=1wk, DAILY
    */
-  const resolveInterval = (rwo: RecurringWorkOrder): { mode: 'daily' | 'weekly' | 'monthly'; interval: number; daysOfWeek?: number[] } => {
+  const resolveInterval = (rwo: RecurringWorkOrder): { mode: 'daily' | 'weekly' | 'monthly'; interval: number; daysOfWeek?: number[]; daysOfMonth?: number[] } => {
     const label = ((rwo as any).recurrencePatternLabel || '').toUpperCase();
     const pattern = rwo.recurrencePattern as any;
+    const daysOfMonth = Array.isArray(pattern?.daysOfMonth) ? pattern.daysOfMonth : (pattern?.dayOfMonth ? [pattern.dayOfMonth] : undefined);
 
     // Resolve from label first (most reliable)
     switch (label) {
-      case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6 };
-      case 'QUARTERLY':    return { mode: 'monthly', interval: 3 };
-      case 'BI-MONTHLY':   return { mode: 'monthly', interval: 2 };
-      case 'MONTHLY':      return { mode: 'monthly', interval: 1 };
-      case 'BI-WEEKLY':    return { mode: 'weekly', interval: 2 };
+      case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6, daysOfMonth };
+      case 'QUARTERLY':    return { mode: 'monthly', interval: 3, daysOfMonth };
+      case 'BI-MONTHLY':   return { mode: 'monthly', interval: 1, daysOfMonth }; // twice a month
+      case 'MONTHLY':      return { mode: 'monthly', interval: 1, daysOfMonth };
+      case 'BI-WEEKLY':    return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
       case 'WEEKLY':       return { mode: 'weekly', interval: 1 };
       case 'DAILY':        return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
     }
 
     // Fall back to pattern.type + pattern.interval
     if (pattern?.type === 'weekly') return { mode: 'weekly', interval: pattern.interval || 2 };
-    if (pattern?.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1 };
+    if (pattern?.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1, daysOfMonth };
     if (pattern?.type === 'daily') return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
 
     // Ultimate fallback: monthly
@@ -430,7 +431,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
    */
   const generateAllScheduledDates = (rwo: RecurringWorkOrder, maxDates: number = 200): Date[] => {
     const pattern = rwo.recurrencePattern as any;
-    const { mode, interval, daysOfWeek } = resolveInterval(rwo);
+    const { mode, interval, daysOfWeek, daysOfMonth } = resolveInterval(rwo);
 
     const startDate = toSafeDate(pattern?.startDate);
     const endDate = toSafeDate(pattern?.endDate);
@@ -464,11 +465,21 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       }
     } else {
       // monthly (covers MONTHLY, BI-MONTHLY, QUARTERLY, SEMIANNUALLY)
+      const hasDaysOfMonth = Array.isArray(daysOfMonth) && daysOfMonth.length > 0;
+      const sortedDays = hasDaysOfMonth ? [...daysOfMonth].sort((a, b) => a - b) : [cursor.getDate()];
       let iters = 0;
+      // Start from the anchor month
+      const monthCursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 9, 0, 0);
       while (results.length < maxDates && iters < 200) {
-        if (endDate && cursor > endDate) break;
-        results.push(new Date(cursor));
-        cursor.setMonth(cursor.getMonth() + interval);
+        for (const dom of sortedDays) {
+          const lastDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate();
+          const actualDay = Math.min(dom, lastDay);
+          const dt = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), actualDay, 9, 0, 0);
+          if (dt < anchor) continue; // skip dates before anchor
+          if (endDate && dt > endDate) break;
+          if (results.length < maxDates) results.push(dt);
+        }
+        monthCursor.setMonth(monthCursor.getMonth() + interval);
         iters++;
       }
     }
@@ -496,7 +507,9 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     totalCompleted: number;
   } => {
     const today = new Date();
-    today.setHours(23, 59, 59, 999);
+    today.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);
 
     // Collect ALL completed/done dates from execution records
     const doneExecDates = new Set<string>();
@@ -537,14 +550,13 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     let seqNum = 0;
 
     for (const date of allDates) {
-      seqNum++;
       const key = date.toDateString();
       const matchingExec = allExecByDate.get(key);
-      const isPast = date <= today;
+      const isBeforeToday = date < today; // strictly before today (not including today)
       const isDone = doneExecDates.has(key);
 
       if (isDone && matchingExec) {
-        const hasWorkOrder = !!(matchingExec as any).workOrderId;
+        seqNum++;
         const status: ExecutionStatus = matchingExec.status === 'failed' ? 'failed' : 'completed';
         pastExecutions.push({
           executionNumber: seqNum,
@@ -553,7 +565,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
           execution: matchingExec,
         });
         if (status === 'completed') totalCompleted++;
-      } else if (isPast && matchingExec) {
+      } else if (isBeforeToday && matchingExec) {
+        seqNum++;
         // Past date with a non-done execution record
         pastExecutions.push({
           executionNumber: seqNum,
@@ -562,16 +575,17 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
           execution: matchingExec,
         });
         totalCompleted++;
-      } else if (!isDone && !isPast) {
-        // Future date, not yet executed
+      } else if (!isDone && !isBeforeToday) {
+        seqNum++;
+        // Today or future date, not yet executed — show as upcoming
         upcomingExecutions.push({
           executionNumber: seqNum,
           scheduledDate: date,
           status: 'upcoming',
+          ...(matchingExec ? { execution: matchingExec } : {}),
         });
-      } else if (isPast && !matchingExec) {
-        // Past pattern date with no execution — skip (don't clutter with missed dates)
       }
+      // Past pattern date with no execution — skip entirely (no seqNum increment)
     }
 
     return { pastExecutions, upcomingExecutions, totalCompleted };
@@ -857,7 +871,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               const progressPercent = totalScheduled > 0 ? Math.round((totalCompleted / totalScheduled) * 100) : 0;
               const pattern = recurringWorkOrder.recurrencePattern as any;
               const endDate = toSafeDate(pattern?.endDate);
-              const next5Upcoming = upcomingExecutions.slice(0, 5);
+              const next5Upcoming = upcomingExecutions.slice(0, 10);
               const todayStr = new Date().toDateString();
 
               return (
@@ -983,7 +997,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                     {/* Next 5 Upcoming Executions */}
                     <div className="space-y-2">
                       <h4 className="text-sm font-semibold text-foreground">
-                        Upcoming Executions (Next {Math.min(5, next5Upcoming.length)})
+                        Upcoming Executions (Next {Math.min(10, next5Upcoming.length)})
                       </h4>
                       {next5Upcoming.length === 0 ? (
                         <div className="text-center py-4">
@@ -1037,9 +1051,9 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                           );
                         })
                       )}
-                      {upcomingExecutions.length > 5 && (
+                      {upcomingExecutions.length > 10 && (
                         <p className="text-xs text-muted-foreground text-center pt-1">
-                          + {upcomingExecutions.length - 5} more upcoming execution(s)
+                          + {upcomingExecutions.length - 10} more upcoming execution(s)
                         </p>
                       )}
                       {endDate && (

@@ -124,20 +124,21 @@ export default function RecurringWorkOrdersManagement() {
   };
 
   /** Resolve recurrence interval from label or pattern */
-  const resolveInterval = (rwo: RecurringWorkOrder): { mode: 'daily' | 'weekly' | 'monthly'; interval: number; daysOfWeek?: number[] } => {
+  const resolveInterval = (rwo: RecurringWorkOrder): { mode: 'daily' | 'weekly' | 'monthly'; interval: number; daysOfWeek?: number[]; daysOfMonth?: number[] } => {
     const label = ((rwo as any).recurrencePatternLabel || '').toUpperCase();
     const pattern = rwo.recurrencePattern as any;
+    const daysOfMonth = Array.isArray(pattern?.daysOfMonth) ? pattern.daysOfMonth : (pattern?.dayOfMonth ? [pattern.dayOfMonth] : undefined);
     switch (label) {
-      case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6 };
-      case 'QUARTERLY':    return { mode: 'monthly', interval: 3 };
-      case 'BI-MONTHLY':   return { mode: 'monthly', interval: 2 };
-      case 'MONTHLY':      return { mode: 'monthly', interval: 1 };
-      case 'BI-WEEKLY':    return { mode: 'weekly', interval: 2 };
+      case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6, daysOfMonth };
+      case 'QUARTERLY':    return { mode: 'monthly', interval: 3, daysOfMonth };
+      case 'BI-MONTHLY':   return { mode: 'monthly', interval: 1, daysOfMonth }; // twice a month
+      case 'MONTHLY':      return { mode: 'monthly', interval: 1, daysOfMonth };
+      case 'BI-WEEKLY':    return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
       case 'WEEKLY':       return { mode: 'weekly', interval: 1 };
       case 'DAILY':        return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
     }
     if (pattern?.type === 'weekly') return { mode: 'weekly', interval: pattern.interval || 2 };
-    if (pattern?.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1 };
+    if (pattern?.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1, daysOfMonth };
     if (pattern?.type === 'daily') return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
     return { mode: 'monthly', interval: 1 };
   };
@@ -149,7 +150,7 @@ export default function RecurringWorkOrdersManagement() {
   /** Compute next upcoming execution date from the recurrence pattern */
   const computeNextUpcomingDate = (rwo: RecurringWorkOrder): Date | null => {
     const pattern = rwo.recurrencePattern as any;
-    const { mode, interval, daysOfWeek } = resolveInterval(rwo);
+    const { mode, interval, daysOfWeek, daysOfMonth } = resolveInterval(rwo);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -173,7 +174,6 @@ export default function RecurringWorkOrdersManagement() {
     }
 
     // The next execution must be after both today AND the latest completed date
-    // This handles orphaned executions from old bugs (e.g. Apr 12-16 done but Apr 8-11 not)
     const minDate = new Date(Math.max(today.getTime(), latestDoneTime));
     minDate.setHours(0, 0, 0, 0);
 
@@ -182,7 +182,7 @@ export default function RecurringWorkOrdersManagement() {
       const hasDaysFilter = Array.isArray(daysOfWeek) && daysOfWeek.length > 0;
       for (let i = 0; i < 730; i++) {
         if (endDate && cursor > endDate) break;
-        if (cursor > minDate && (!hasDaysFilter || daysOfWeek!.includes(cursor.getDay()))) {
+        if (cursor >= minDate && (!hasDaysFilter || daysOfWeek!.includes(cursor.getDay()))) {
           if (!doneDates.has(cursor.toDateString())) return new Date(cursor);
         }
         cursor.setDate(cursor.getDate() + 1);
@@ -190,14 +190,24 @@ export default function RecurringWorkOrdersManagement() {
     } else if (mode === 'weekly') {
       for (let i = 0; i < 200; i++) {
         if (endDate && cursor > endDate) break;
-        if (cursor > minDate && !doneDates.has(cursor.toDateString())) return new Date(cursor);
+        if (cursor >= minDate && !doneDates.has(cursor.toDateString())) return new Date(cursor);
         cursor.setDate(cursor.getDate() + interval * 7);
       }
     } else {
+      // monthly — iterate month by month, checking each daysOfMonth entry
+      const hasDaysOfMonth = Array.isArray(daysOfMonth) && daysOfMonth.length > 0;
+      const sortedDays = hasDaysOfMonth ? [...daysOfMonth].sort((a, b) => a - b) : [anchor.getDate()];
+      const monthCursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 9, 0, 0);
       for (let i = 0; i < 200; i++) {
-        if (endDate && cursor > endDate) break;
-        if (cursor > minDate && !doneDates.has(cursor.toDateString())) return new Date(cursor);
-        cursor.setMonth(cursor.getMonth() + interval);
+        for (const dom of sortedDays) {
+          const lastDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate();
+          const actualDay = Math.min(dom, lastDay);
+          const dt = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), actualDay, 9, 0, 0);
+          if (dt < anchor) continue;
+          if (endDate && dt > endDate) return null;
+          if (dt >= minDate && !doneDates.has(dt.toDateString())) return dt;
+        }
+        monthCursor.setMonth(monthCursor.getMonth() + interval);
       }
     }
     return null;

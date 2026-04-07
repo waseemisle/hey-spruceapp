@@ -365,21 +365,22 @@ function advanceOneStep(recurringWorkOrder: any, fromDate: Date): Date {
   return next;
 }
 
-function resolveMode(recurringWorkOrder: any): { mode: 'daily' | 'weekly' | 'monthly'; interval: number } {
+function resolveMode(recurringWorkOrder: any): { mode: 'daily' | 'weekly' | 'monthly'; interval: number; daysOfWeek?: number[]; daysOfMonth?: number[] } {
   const label = (recurringWorkOrder.recurrencePatternLabel || '').toUpperCase();
   const pattern = recurringWorkOrder.recurrencePattern || {};
+  const daysOfMonth = Array.isArray(pattern.daysOfMonth) ? pattern.daysOfMonth : (pattern.dayOfMonth ? [pattern.dayOfMonth] : undefined);
   switch (label) {
-    case 'DAILY':        return { mode: 'daily', interval: 1 };
+    case 'DAILY':        return { mode: 'daily', interval: 1, daysOfWeek: pattern.daysOfWeek };
     case 'WEEKLY':       return { mode: 'weekly', interval: 1 };
-    case 'BI-WEEKLY':    return { mode: 'weekly', interval: 2 };
-    case 'MONTHLY':      return { mode: 'monthly', interval: 1 };
-    case 'BI-MONTHLY':   return { mode: 'monthly', interval: 2 };
-    case 'QUARTERLY':    return { mode: 'monthly', interval: 3 };
-    case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6 };
+    case 'BI-WEEKLY':    return { mode: 'daily', interval: 1, daysOfWeek: pattern.daysOfWeek };
+    case 'MONTHLY':      return { mode: 'monthly', interval: 1, daysOfMonth };
+    case 'BI-MONTHLY':   return { mode: 'monthly', interval: 1, daysOfMonth }; // twice a month
+    case 'QUARTERLY':    return { mode: 'monthly', interval: 3, daysOfMonth };
+    case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6, daysOfMonth };
   }
-  if (pattern.type === 'daily') return { mode: 'daily', interval: pattern.interval || 1 };
+  if (pattern.type === 'daily') return { mode: 'daily', interval: pattern.interval || 1, daysOfWeek: pattern.daysOfWeek };
   if (pattern.type === 'weekly') return { mode: 'weekly', interval: pattern.interval || 2 };
-  if (pattern.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1 };
+  if (pattern.type === 'monthly') return { mode: 'monthly', interval: pattern.interval || 1, daysOfMonth };
   return { mode: 'monthly', interval: 1 };
 }
 
@@ -395,12 +396,15 @@ function calculateNextExecution(recurringWorkOrder: any, currentExecution: Date)
   let mode: 'daily' | 'weekly' | 'monthly' = 'monthly';
   let interval = 1;
 
+  const daysOfWeek: number[] = Array.isArray(pattern.daysOfWeek) ? pattern.daysOfWeek : [];
+  const daysOfMonth: number[] = Array.isArray(pattern.daysOfMonth) ? pattern.daysOfMonth : [];
+
   switch (label) {
     case 'DAILY':        mode = 'daily'; interval = 1; break;
     case 'WEEKLY':       mode = 'weekly'; interval = 1; break;
-    case 'BI-WEEKLY':    mode = 'weekly'; interval = 2; break;
+    case 'BI-WEEKLY':    mode = 'daily'; interval = 1; break; // twice a week — uses daysOfWeek
     case 'MONTHLY':      mode = 'monthly'; interval = 1; break;
-    case 'BI-MONTHLY':   mode = 'monthly'; interval = 2; break;
+    case 'BI-MONTHLY':   mode = 'monthly'; interval = 1; break; // twice a month — uses daysOfMonth
     case 'QUARTERLY':    mode = 'monthly'; interval = 3; break;
     case 'SEMIANNUALLY': mode = 'monthly'; interval = 6; break;
     default:
@@ -409,10 +413,44 @@ function calculateNextExecution(recurringWorkOrder: any, currentExecution: Date)
       else if (pattern.type === 'monthly') { mode = 'monthly'; interval = pattern.interval || 1; }
   }
 
+  const hasDaysFilter = (label === 'DAILY' || label === 'BI-WEEKLY') && daysOfWeek.length > 0;
+  const hasDaysOfMonth = daysOfMonth.length > 0 && mode === 'monthly';
+
   // Keep advancing until the next execution is in the future
   let iters = 0;
+
+  if (hasDaysOfMonth) {
+    // For monthly patterns with specific days (BI-MONTHLY, MONTHLY with daysOfMonth)
+    const sortedDays = [...daysOfMonth].sort((a, b) => a - b);
+    // Find the next day in the current or future months
+    let cursor = new Date(next);
+    cursor.setDate(cursor.getDate() + 1); // advance past current execution date
+    while (iters < 200) {
+      for (const dom of sortedDays) {
+        const lastDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+        const actualDay = Math.min(dom, lastDay);
+        const candidate = new Date(cursor.getFullYear(), cursor.getMonth(), actualDay, next.getHours(), next.getMinutes(), 0, 0);
+        if (candidate > next && candidate > now) return candidate;
+      }
+      // Move to next month (using interval for QUARTERLY/SEMIANNUALLY)
+      cursor.setMonth(cursor.getMonth() + interval);
+      cursor.setDate(1);
+      iters++;
+    }
+    return next; // fallback
+  }
+
   do {
-    if (mode === 'daily') next.setDate(next.getDate() + interval);
+    if (mode === 'daily') {
+      next.setDate(next.getDate() + 1);
+      // Skip days not in the daysOfWeek filter
+      if (hasDaysFilter) {
+        while (!daysOfWeek.includes(next.getDay()) && iters < 100) {
+          next.setDate(next.getDate() + 1);
+          iters++;
+        }
+      }
+    }
     else if (mode === 'weekly') next.setDate(next.getDate() + (7 * interval));
     else next.setMonth(next.getMonth() + interval);
     iters++;

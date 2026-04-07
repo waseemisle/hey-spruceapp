@@ -55,6 +55,7 @@ export default function ClientCreateRecurringWorkOrder() {
     recurrenceType: 'monthly' as 'monthly' | 'weekly',
     recurrenceInterval: 1,
     recurrenceDaysOfWeek: [] as number[],
+    recurrenceDaysOfMonth: [] as number[],
     recurrenceStartDate: '',
     invoiceScheduleType: 'monthly' as 'monthly' | 'bi-monthly' | 'quarterly' | 'semiannually',
     invoiceScheduleDayOfMonth: 1,
@@ -129,14 +130,15 @@ export default function ClientCreateRecurringWorkOrder() {
     else if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; invoiceScheduleType = 'semiannually'; }
     else if (label === 'QUARTERLY') { type = 'monthly'; interval = 3; invoiceScheduleType = 'quarterly'; }
     else if (label === 'MONTHLY') { type = 'monthly'; interval = 1; invoiceScheduleType = 'monthly'; }
-    else if (label === 'BI-MONTHLY') { type = 'monthly'; interval = 2; }
-    else if (label === 'BI-WEEKLY') { type = 'weekly'; interval = 2; }
+    else if (label === 'BI-MONTHLY') { type = 'monthly'; interval = 1; }
+    else if (label === 'BI-WEEKLY') { type = 'weekly'; interval = 1; }
     setFormData(prev => ({
       ...prev,
       recurrencePatternLabel: label,
       recurrenceType: type,
       recurrenceInterval: interval,
-      recurrenceDaysOfWeek: label === 'DAILY' ? prev.recurrenceDaysOfWeek : [],
+      recurrenceDaysOfWeek: (label === 'DAILY' || label === 'BI-WEEKLY') ? prev.recurrenceDaysOfWeek : [],
+      recurrenceDaysOfMonth: ['MONTHLY', 'BI-MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(label) ? prev.recurrenceDaysOfMonth : [],
       invoiceScheduleType,
     }));
   };
@@ -151,6 +153,19 @@ export default function ClientCreateRecurringWorkOrder() {
     }));
   };
 
+  const toggleDayOfMonth = (day: number) => {
+    const days = formData.recurrenceDaysOfMonth;
+    setFormData(prev => ({
+      ...prev,
+      recurrenceDaysOfMonth: days.includes(day)
+        ? days.filter(d => d !== day)
+        : [...days, day].sort((a, b) => a - b),
+    }));
+  };
+
+  const needsDayOfMonthPicker = ['MONTHLY', 'BI-MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(formData.recurrencePatternLabel);
+  const isBiMonthly = formData.recurrencePatternLabel === 'BI-MONTHLY';
+
   const handleSubmit = async () => {
     if (!formData.locationId || !formData.title || !formData.description || !formData.category) {
       toast.error('Please fill in all required fields');
@@ -158,6 +173,18 @@ export default function ClientCreateRecurringWorkOrder() {
     }
     if (formData.recurrencePatternLabel === 'DAILY' && formData.recurrenceDaysOfWeek.length === 0) {
       toast.error('Please select at least one day for the daily recurrence');
+      return;
+    }
+    if (formData.recurrencePatternLabel === 'BI-WEEKLY' && formData.recurrenceDaysOfWeek.length !== 2) {
+      toast.error('Please select exactly 2 days for the bi-weekly (twice a week) recurrence');
+      return;
+    }
+    if (formData.recurrencePatternLabel === 'BI-MONTHLY' && formData.recurrenceDaysOfMonth.length !== 2) {
+      toast.error('Please select exactly 2 days of the month for the bi-monthly (twice a month) recurrence');
+      return;
+    }
+    if (['MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(formData.recurrencePatternLabel) && formData.recurrenceDaysOfMonth.length !== 1) {
+      toast.error('Please select a day of the month for the recurrence');
       return;
     }
     if (!formData.recurrenceStartDate) {
@@ -180,7 +207,7 @@ export default function ClientCreateRecurringWorkOrder() {
       startDate.setHours(9, 0, 0, 0);
 
       let nextExecution: Date = startDate;
-      if (formData.recurrencePatternLabel === 'DAILY' && formData.recurrenceDaysOfWeek.length > 0) {
+      if ((formData.recurrencePatternLabel === 'DAILY' || formData.recurrencePatternLabel === 'BI-WEEKLY') && formData.recurrenceDaysOfWeek.length > 0) {
         let candidate = new Date(startDate);
         for (let i = 0; i < 7; i++) {
           if (formData.recurrenceDaysOfWeek.includes(candidate.getDay())) {
@@ -190,16 +217,37 @@ export default function ClientCreateRecurringWorkOrder() {
           candidate = new Date(candidate);
           candidate.setDate(candidate.getDate() + 1);
         }
+      } else if (needsDayOfMonthPicker && formData.recurrenceDaysOfMonth.length > 0) {
+        const sorted = [...formData.recurrenceDaysOfMonth].sort((a, b) => a - b);
+        let found = false;
+        for (const dom of sorted) {
+          const lastDay = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate();
+          const actualDay = Math.min(dom, lastDay);
+          if (actualDay >= startDate.getDate()) {
+            nextExecution = new Date(startDate.getFullYear(), startDate.getMonth(), actualDay, 9, 0, 0);
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          const monthInterval = formData.recurrencePatternLabel === 'QUARTERLY' ? 3
+            : formData.recurrencePatternLabel === 'SEMIANNUALLY' ? 6 : 1;
+          const nextMonth = new Date(startDate);
+          nextMonth.setMonth(nextMonth.getMonth() + monthInterval);
+          const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+          nextExecution = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), Math.min(sorted[0], lastDay), 9, 0, 0);
+        }
       }
 
       const recurrencePattern: RecurrencePattern = {
         type: formData.recurrenceType,
         interval: formData.recurrenceInterval,
-        ...(formData.recurrencePatternLabel === 'DAILY' && { daysOfWeek: formData.recurrenceDaysOfWeek }),
-        startDate,
-        ...(formData.recurrenceType === 'monthly' && {
-          dayOfMonth: startDate.getDate(),
+        ...((formData.recurrencePatternLabel === 'DAILY' || formData.recurrencePatternLabel === 'BI-WEEKLY') && { daysOfWeek: formData.recurrenceDaysOfWeek }),
+        ...(needsDayOfMonthPicker && formData.recurrenceDaysOfMonth.length > 0 && {
+          daysOfMonth: formData.recurrenceDaysOfMonth,
+          dayOfMonth: formData.recurrenceDaysOfMonth[0],
         }),
+        startDate,
       } as RecurrencePattern;
 
       const invoiceSchedule: InvoiceSchedule = {
@@ -437,25 +485,72 @@ export default function ClientCreateRecurringWorkOrder() {
                 </div>
               </div>
 
-              {formData.recurrencePatternLabel === 'DAILY' && (
+              {/* Day-of-month picker for MONTHLY, BI-MONTHLY, QUARTERLY, SEMIANNUALLY */}
+              {needsDayOfMonthPicker && (
                 <div>
-                  <Label>Days of Week <span className="text-red-500">*</span></Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {daysOfWeek.map((day, idx) => (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => toggleDayOfWeek(idx)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                          formData.recurrenceDaysOfWeek.includes(idx)
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-card text-foreground border-border hover:bg-muted'
-                        }`}
-                      >
-                        {day.slice(0, 3)}
-                      </button>
-                    ))}
+                  <Label>{isBiMonthly ? 'Select 2 Days of the Month' : 'Select Day of the Month'} <span className="text-red-500">*</span></Label>
+                  <div className="grid grid-cols-7 gap-1 mt-2">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                      const isSelected = formData.recurrenceDaysOfMonth.includes(day);
+                      const isDisabled = !isBiMonthly && !isSelected && formData.recurrenceDaysOfMonth.length >= 1
+                        || isBiMonthly && !isSelected && formData.recurrenceDaysOfMonth.length >= 2;
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => !isDisabled && toggleDayOfMonth(day)}
+                          disabled={isDisabled}
+                          className={`h-8 rounded-md text-xs font-medium border transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : isDisabled
+                              ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed opacity-40'
+                              : 'border-border hover:bg-muted text-foreground'
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
                   </div>
+                  {isBiMonthly && formData.recurrenceDaysOfMonth.length !== 2 && (
+                    <p className="text-xs text-yellow-600 mt-1">Select exactly 2 days of the month.</p>
+                  )}
+                  {!isBiMonthly && formData.recurrenceDaysOfMonth.length === 0 && (
+                    <p className="text-xs text-yellow-600 mt-1">Select a day of the month.</p>
+                  )}
+                </div>
+              )}
+
+              {(formData.recurrencePatternLabel === 'DAILY' || formData.recurrencePatternLabel === 'BI-WEEKLY') && (
+                <div>
+                  <Label>{formData.recurrencePatternLabel === 'BI-WEEKLY' ? 'Select 2 Days Per Week' : 'Days of Week'} <span className="text-red-500">*</span></Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {daysOfWeek.map((day, idx) => {
+                      const isSelected = formData.recurrenceDaysOfWeek.includes(idx);
+                      const isDisabled = formData.recurrencePatternLabel === 'BI-WEEKLY' && !isSelected && formData.recurrenceDaysOfWeek.length >= 2;
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => !isDisabled && toggleDayOfWeek(idx)}
+                          disabled={isDisabled}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : isDisabled
+                              ? 'bg-muted/50 text-muted-foreground border-border cursor-not-allowed opacity-50'
+                              : 'bg-card text-foreground border-border hover:bg-muted'
+                          }`}
+                        >
+                          {day.slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {formData.recurrencePatternLabel === 'BI-WEEKLY' && formData.recurrenceDaysOfWeek.length !== 2 && (
+                    <p className="text-xs text-yellow-600 mt-1">Select exactly 2 days per week.</p>
+                  )}
                 </div>
               )}
 
