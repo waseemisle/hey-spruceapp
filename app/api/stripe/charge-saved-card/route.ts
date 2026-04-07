@@ -64,28 +64,40 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
 
-    // Create off-session PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create(
-      {
-        amount: amountCents,
-        currency: 'usd',
-        customer: clientData.stripeCustomerId,
-        payment_method: clientData.defaultPaymentMethodId,
-        off_session: true,
-        confirm: true,
-        // return_url required by Stripe even for off-session payments
-        // in case the card requires 3DS re-authentication
-        return_url: `${baseUrl}/payment-success?invoice_id=${invoiceId}`,
-        description: `Invoice ${invoiceData.invoiceNumber} — ${invoiceData.clientName}`,
-        metadata: {
-          invoiceId,
-          invoiceNumber: invoiceData.invoiceNumber,
-          clientId,
-        },
+    // Detect if payment method is a bank account (ACH) or card
+    const pmId = clientData.defaultPaymentMethodId;
+    let isBankAccount = false;
+    try {
+      const pm = await stripe.paymentMethods.retrieve(pmId);
+      isBankAccount = pm.type === 'us_bank_account';
+    } catch { /* treat as card if lookup fails */ }
+
+    // Build PaymentIntent params — bank accounts need mandate_data, cards use off_session
+    const piParams: any = {
+      amount: amountCents,
+      currency: 'usd',
+      customer: clientData.stripeCustomerId,
+      payment_method: pmId,
+      confirm: true,
+      return_url: `${baseUrl}/payment-success?invoice_id=${invoiceId}`,
+      description: `Invoice ${invoiceData.invoiceNumber} — ${invoiceData.clientName}`,
+      metadata: {
+        invoiceId,
+        invoiceNumber: invoiceData.invoiceNumber,
+        clientId,
       },
-      {
-        idempotencyKey: `charge-invoice-${invoiceId}`,
-      }
+    };
+
+    if (isBankAccount) {
+      piParams.payment_method_types = ['us_bank_account'];
+      piParams.mandate_data = { customer_acceptance: { type: 'offline' } };
+    } else {
+      piParams.off_session = true;
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(
+      piParams,
+      { idempotencyKey: `charge-invoice-${invoiceId}-${Date.now()}` },
     );
 
     // Mark invoice as auto-charge attempted

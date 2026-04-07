@@ -86,6 +86,7 @@ interface ClientBilling {
   savedCardExpMonth?: number;
   savedCardExpYear?: number;
   defaultPaymentMethodId?: string;
+  defaultMethodLabel?: string; // e.g. "Visa ••1234" or "Bank ••5678"
   stripeSubscriptionId?: string;
   subscriptionStatus?: string;
   subscriptionAmount?: number;
@@ -140,12 +141,32 @@ export default function AdminInvoiceDetail() {
           const clientSnap = await getDoc(doc(db, 'clients', data.clientId));
           if (clientSnap.exists()) {
             const cd = clientSnap.data();
+            // Build a display label for the default payment method
+            let defaultMethodLabel = '';
+            const pmId = cd.defaultPaymentMethodId;
+            if (pmId && Array.isArray(cd.paymentMethods)) {
+              const pm = cd.paymentMethods.find((m: any) => m.id === pmId);
+              if (pm) {
+                if (pm.type === 'us_bank_account') {
+                  defaultMethodLabel = `${pm.bankName || 'Bank'} ••${pm.last4 || ''}`;
+                } else {
+                  const brand = pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card';
+                  defaultMethodLabel = `${brand} ••${pm.last4 || ''}`;
+                }
+              }
+            }
+            if (!defaultMethodLabel && cd.savedCardLast4) {
+              const brand = cd.savedCardBrand ? cd.savedCardBrand.charAt(0).toUpperCase() + cd.savedCardBrand.slice(1) : 'Card';
+              defaultMethodLabel = `${brand} ••${cd.savedCardLast4}`;
+            }
+
             setClientBilling({
               savedCardLast4: cd.savedCardLast4,
               savedCardBrand: cd.savedCardBrand,
               savedCardExpMonth: cd.savedCardExpMonth,
               savedCardExpYear: cd.savedCardExpYear,
               defaultPaymentMethodId: cd.defaultPaymentMethodId,
+              defaultMethodLabel,
               stripeSubscriptionId: cd.stripeSubscriptionId,
               subscriptionStatus: cd.subscriptionStatus,
               subscriptionAmount: cd.subscriptionAmount,
@@ -404,7 +425,6 @@ export default function AdminInvoiceDetail() {
 
   const handleAutoCharge = async () => {
     if (!invoice || !clientBilling) return;
-    if (!confirm(`Auto-charge $${invoice.totalAmount.toLocaleString()} from ${invoice.clientName}'s saved ${clientBilling.savedCardBrand || 'card'} ending in ${clientBilling.savedCardLast4}?`)) return;
     setCharging(true);
     try {
       const res = await fetch('/api/stripe/charge-saved-card', {
@@ -588,7 +608,7 @@ export default function AdminInvoiceDetail() {
                 disabled={charging}
               >
                 <Zap className="h-4 w-4 mr-2" />
-                {charging ? 'Charging…' : 'Auto-Charge Saved Card'}
+                {charging ? 'Charging…' : `Auto-Charge${clientBilling?.defaultMethodLabel ? ` ${clientBilling.defaultMethodLabel}` : ''}`}
               </Button>
             )}
             {invoice.status !== 'paid' && invoice.stripePaymentLink && (
@@ -642,12 +662,10 @@ export default function AdminInvoiceDetail() {
               {/* Client billing info */}
               {clientBilling && (clientBilling.defaultPaymentMethodId || clientBilling.stripeSubscriptionId) && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {clientBilling.defaultPaymentMethodId && clientBilling.savedCardLast4 && (
+                  {clientBilling.defaultPaymentMethodId && clientBilling.defaultMethodLabel && (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                       <CreditCard className="h-3 w-3" />
-                      Client has saved {clientBilling.savedCardBrand
-                        ? clientBilling.savedCardBrand.charAt(0).toUpperCase() + clientBilling.savedCardBrand.slice(1)
-                        : 'card'} ending in {clientBilling.savedCardLast4}
+                      Saved payment: {clientBilling.defaultMethodLabel}
                     </span>
                   )}
                   {clientBilling.stripeSubscriptionId && clientBilling.subscriptionStatus === 'active' && (
