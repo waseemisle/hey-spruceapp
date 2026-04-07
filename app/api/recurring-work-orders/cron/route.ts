@@ -101,9 +101,12 @@ export async function GET(request: NextRequest) {
     let totalSucceeded = 0;
     let totalFailed = 0;
 
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://groundopscos.vercel.app');
+    console.log(`[CRON] Using base URL: ${baseUrl}`);
+
     for (const rwo of recurringWorkOrders) {
       try {
-        const executeResponse = await fetch(`${request.nextUrl.origin}/api/recurring-work-orders/execute`, {
+        const executeResponse = await fetch(`${baseUrl}/api/recurring-work-orders/execute`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -112,7 +115,21 @@ export async function GET(request: NextRequest) {
           }),
         });
 
-        const executeResult = await executeResponse.json();
+        const responseText = await executeResponse.text();
+        let executeResult: any;
+        try {
+          executeResult = JSON.parse(responseText);
+        } catch {
+          // Response is not JSON (likely HTML error page)
+          totalFailed++;
+          results.push({
+            rwoId: rwo.id,
+            rwoTitle: (rwo as any).title || rwo.id,
+            status: 'error',
+            message: `HTTP ${executeResponse.status}: ${responseText.substring(0, 100)}`,
+          });
+          continue;
+        }
 
         if (executeResponse.ok) {
           totalSucceeded++;
