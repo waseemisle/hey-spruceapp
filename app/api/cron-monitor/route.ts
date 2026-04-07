@@ -16,11 +16,12 @@ export async function GET() {
     let runs: any[] = [];
     try {
       const snap = await getDocs(query(
-        collection(db, 'cronJobRuns'),
+        collection(db, 'emailLogs'),
+        where('type', '==', 'cron_run'),
         orderBy('createdAt', 'desc'),
         limit(50),
       ));
-      runs = snap.docs.filter(d => d.id !== '_schedule').map(d => {
+      runs = snap.docs.map(d => {
         const data = d.data();
         return {
           id: d.id,
@@ -38,13 +39,13 @@ export async function GET() {
       });
     } catch (e: any) {
       // Collection might not exist yet
-      console.log('cronJobRuns query error:', e.message);
+      console.log('emailLogs query error:', e.message);
     }
 
     // Fetch schedule settings
     let schedule = { intervalMinutes: 60, lastRunAt: null as string | null };
     try {
-      const settingsSnap = await getDoc(doc(db, 'cronJobRuns', '_schedule'));
+      const settingsSnap = await getDoc(doc(db, 'emailLogs', '_schedule'));
       if (settingsSnap.exists()) {
         const data = settingsSnap.data();
         schedule.intervalMinutes = data.intervalMinutes || 60;
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid interval' }, { status: 400 });
     }
 
-    await setDoc(doc(db, 'cronJobRuns', '_schedule'), {
+    await setDoc(doc(db, 'emailLogs', '_schedule'), {
       intervalMinutes,
       updatedAt: serverTimestamp(),
     }, { merge: true });
@@ -136,7 +137,8 @@ export async function PUT(request: NextRequest) {
     const runStatus = totalFailed === 0 ? 'completed' : totalSucceeded === 0 ? 'failed' : 'partial';
 
     // Log to Firestore
-    await addDoc(collection(db, 'cronJobRuns'), {
+    await addDoc(collection(db, 'emailLogs'), {
+      type: 'cron_run',
       startedAt, completedAt, durationMs,
       totalEligible, totalSucceeded, totalFailed,
       status: runStatus, triggeredBy: 'manual_api',
@@ -145,7 +147,7 @@ export async function PUT(request: NextRequest) {
 
     // Update lastRunAt
     try {
-      await setDoc(doc(db, 'cronJobRuns', '_schedule'), { lastRunAt: serverTimestamp() }, { merge: true });
+      await setDoc(doc(db, 'emailLogs', '_schedule'), { lastRunAt: serverTimestamp() }, { merge: true });
     } catch {}
 
     return NextResponse.json({
@@ -155,7 +157,8 @@ export async function PUT(request: NextRequest) {
   } catch (error: any) {
     // Log failure
     try {
-      await addDoc(collection(db, 'cronJobRuns'), {
+      await addDoc(collection(db, 'emailLogs'), {
+        type: 'cron_run',
         startedAt, completedAt: new Date(), durationMs: Date.now() - startedAt.getTime(),
         totalEligible: 0, totalSucceeded: 0, totalFailed: 0,
         status: 'error', triggeredBy: 'manual_api',
