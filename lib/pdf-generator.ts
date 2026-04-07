@@ -30,14 +30,22 @@ export interface InvoiceData {
 
 // Brand colors matching groundops.co
 const COLORS = {
-  primary: [100, 116, 139] as [number, number, number], // Green #16a34a
-  secondary: [8, 145, 178] as [number, number, number], // Teal #0891b2
-  dark: [30, 41, 59] as [number, number, number], // Slate #1e293b
-  gray: [100, 116, 139] as [number, number, number], // Gray #64748b
-  lightGray: [226, 232, 240] as [number, number, number], // Light gray #e2e8f0
+  primary: [13, 21, 32] as [number, number, number],     // Navy #0D1520
+  accent: [37, 99, 235] as [number, number, number],     // Blue #2563EB
+  accentHover: [29, 78, 216] as [number, number, number],// Blue hover #1D4ED8
+  amber: [217, 119, 6] as [number, number, number],      // Amber #D97706
+  dark: [8, 15, 23] as [number, number, number],         // Navy 950 #080F17
+  navy: [18, 30, 45] as [number, number, number],        // Navy 800 #121E2D
+  gray: [90, 108, 122] as [number, number, number],      // Concrete #5A6C7A
+  lightGray: [237, 231, 220] as [number, number, number],// Off-white 2 #EDE7DC
+  warmBg: [253, 250, 245] as [number, number, number],   // Warm white #FDFAF5
   white: [255, 255, 255] as [number, number, number],
-  text: [51, 65, 85] as [number, number, number], // Slate #334155
+  text: [26, 38, 53] as [number, number, number],        // Charcoal #1A2635
 };
+
+// Logo dimensions: 774x322 original → aspect ratio 2.4:1
+const LOGO_W = 42;
+const LOGO_H = LOGO_W / 2.4; // ~17.5mm
 
 export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   const doc = new jsPDF({
@@ -49,91 +57,81 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Logo - Embedded as base64
-  try {
-    doc.addImage(GROUNDOPS_LOGO_BASE64, 'PNG', 20, 12, 55, 16);
-  } catch (error) {
-    // Fallback to styled text if logo fails
-    doc.setFontSize(18);
-    doc.setTextColor(...COLORS.primary);
-    doc.setFont('helvetica', 'bold');
-    doc.text('GROUND', 20, 22);
-    doc.setTextColor(...COLORS.secondary);
-    doc.text('OPS', 42, 22);
+  // Header bar
+  doc.setFillColor(...COLORS.primary);
+  doc.rect(0, 0, pageWidth, 38, 'F');
 
-    // Decorative underline for brand
-    doc.setDrawColor(...COLORS.primary);
-    doc.setLineWidth(0.8);
-    doc.line(20, 24, 60, 24);
+  // Logo on dark background
+  try {
+    doc.addImage(GROUNDOPS_LOGO_BASE64, 'PNG', 20, 8, LOGO_W, LOGO_H);
+  } catch {
+    doc.setFontSize(20);
+    doc.setTextColor(...COLORS.white);
+    doc.setFont('helvetica', 'bold');
+    doc.text('GroundOps', 20, 24);
   }
 
-  // Company Info
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...COLORS.gray);
-  doc.text('GroundOps — Facility Maintenance', 20, 35);
-  doc.text('Los Angeles, CA', 20, 39);
-  doc.text('info@groundops.com | (323) 555-1234', 20, 43);
-
-  // Invoice Title - Right aligned
+  // Invoice Title - Right aligned on header
   doc.setFontSize(28);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...COLORS.dark);
-  doc.text('INVOICE', pageWidth - 20, 22, { align: 'right' });
+  doc.setTextColor(...COLORS.white);
+  doc.text('INVOICE', pageWidth - 20, 18, { align: 'right' });
 
-  // Invoice Details - Right aligned box with background
+  // Company info on header
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(200, 210, 220);
+  doc.text('info@groundops.co | groundops.co', pageWidth - 20, 26, { align: 'right' });
+  doc.text('Los Angeles, CA', pageWidth - 20, 31, { align: 'right' });
+
+  // Invoice Details box below header
   const detailsBoxX = pageWidth - 75;
-  doc.setFillColor(...COLORS.lightGray);
-  doc.roundedRect(detailsBoxX, 28, 55, 22, 2, 2, 'F');
+  doc.setFillColor(...COLORS.warmBg);
+  doc.roundedRect(detailsBoxX, 42, 55, 22, 2, 2, 'F');
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...COLORS.dark);
-  doc.text('Invoice Number:', detailsBoxX + 3, 33);
+  doc.text('Invoice Number:', detailsBoxX + 3, 47);
   doc.setFont('helvetica', 'normal');
-  doc.text(invoice.invoiceNumber, detailsBoxX + 3, 38);
+  doc.text(invoice.invoiceNumber, detailsBoxX + 3, 52);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Issue Date:', detailsBoxX + 3, 43);
+  doc.text('Issue Date:', detailsBoxX + 3, 57);
   doc.setFont('helvetica', 'normal');
-  doc.text(new Date().toLocaleDateString(), detailsBoxX + 3, 48);
-
-  // Decorative line
-  doc.setDrawColor(...COLORS.primary);
-  doc.setLineWidth(0.5);
-  doc.line(20, 55, pageWidth - 20, 55);
+  doc.text(new Date().toLocaleDateString(), detailsBoxX + 3, 62);
 
   // Bill To Section
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...COLORS.primary);
-  doc.text('BILL TO:', 20, 63);
+  doc.setTextColor(...COLORS.accent);
+  doc.text('BILL TO:', 20, 50);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...COLORS.dark);
-  doc.text(invoice.clientName, 20, 70);
+  doc.text(invoice.clientName, 20, 57);
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...COLORS.text);
   if (invoice.clientAddress) {
-    doc.text(invoice.clientAddress.street, 20, 75);
-    doc.text(`${invoice.clientAddress.city}, ${invoice.clientAddress.state} ${invoice.clientAddress.zip}`, 20, 80);
+    doc.text(invoice.clientAddress.street, 20, 62);
+    doc.text(`${invoice.clientAddress.city}, ${invoice.clientAddress.state} ${invoice.clientAddress.zip}`, 20, 67);
   }
-  doc.text(invoice.clientEmail, 20, 85);
+  doc.text(invoice.clientEmail, 20, 72);
 
   // Due Date Box - Right side
-  doc.setFillColor(...COLORS.primary);
-  doc.roundedRect(pageWidth - 65, 60, 45, 15, 2, 2, 'F');
+  doc.setFillColor(...COLORS.accent);
+  doc.roundedRect(pageWidth - 65, 68, 45, 15, 2, 2, 'F');
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...COLORS.white);
-  doc.text('DUE DATE:', pageWidth - 62, 66);
+  doc.text('DUE DATE:', pageWidth - 62, 74);
   doc.setFontSize(11);
-  doc.text(invoice.dueDate, pageWidth - 62, 72);
+  doc.text(invoice.dueDate, pageWidth - 62, 80);
 
-  // Service Information Section - Added after Bill To section
-  let yPosition = 95;
+  // Service Information Section
+  let yPosition = 88;
   if (invoice.workOrderName || invoice.vendorName || invoice.serviceDescription) {
     const startY = yPosition;
     
@@ -158,7 +156,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
     // Draw content
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.primary);
+    doc.setTextColor(...COLORS.accent);
     doc.text('SERVICE INFORMATION', 25, yPosition + 3);
     
     yPosition += 8;
@@ -206,8 +204,8 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   const tableTop = yPosition;
   yPosition = tableTop;
 
-  // Modern Table Header with gradient effect
-  doc.setFillColor(...COLORS.primary);
+  // Modern Table Header
+  doc.setFillColor(...COLORS.navy);
   doc.roundedRect(20, yPosition, pageWidth - 40, 10, 2, 2, 'F');
 
   doc.setTextColor(...COLORS.white);
@@ -239,7 +237,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
       
 
       // Redraw header on new page
-      doc.setFillColor(...COLORS.primary);
+      doc.setFillColor(...COLORS.navy);
       doc.roundedRect(20, yPosition, pageWidth - 40, 10, 2, 2, 'F');
       doc.setTextColor(...COLORS.white);
       doc.setFontSize(10);
@@ -256,7 +254,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
 
     // Alternating row colors with dynamic height
     if (rowIndex % 2 === 0) {
-      doc.setFillColor(248, 250, 252); // Very light gray
+      doc.setFillColor(...COLORS.warmBg);
       doc.rect(20, yPosition - 4, pageWidth - 40, rowHeight, 'F');
     }
 
@@ -282,7 +280,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   const totalsX = pageWidth - 90;
 
   // Totals box background
-  doc.setFillColor(...COLORS.lightGray);
+  doc.setFillColor(...COLORS.warmBg);
   doc.roundedRect(totalsX - 5, yPosition - 5, 75, 40, 2, 2, 'F');
 
   doc.setFontSize(9);
@@ -294,7 +292,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   yPosition += 6;
 
   if (invoice.discountAmount > 0) {
-    doc.setTextColor(...COLORS.secondary);
+    doc.setTextColor(...COLORS.accent);
     doc.text('Discount:', totalsX, yPosition);
     doc.text(`-$${invoice.discountAmount.toFixed(2)}`, pageWidth - 25, yPosition, { align: 'right' });
     yPosition += 6;
@@ -308,7 +306,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   yPosition += 5;
 
   // Total Amount (highlighted)
-  doc.setFillColor(...COLORS.primary);
+  doc.setFillColor(...COLORS.accent);
   doc.roundedRect(totalsX - 5, yPosition - 4, 75, 12, 2, 2, 'F');
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(12);
@@ -325,8 +323,8 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
     yPosition = 20;
   }
 
-  // Payment box with icon-style design
-  doc.setFillColor(...COLORS.lightGray);
+  // Payment box
+  doc.setFillColor(...COLORS.warmBg);
   doc.roundedRect(20, yPosition - 3, pageWidth - 40, 28, 2, 2, 'F');
 
   doc.setFontSize(11);
@@ -350,13 +348,13 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
       yPosition = 20;
     }
 
-    doc.setFillColor(248, 250, 252);
+    doc.setFillColor(...COLORS.warmBg);
     const notesHeight = 20;
     doc.roundedRect(20, yPosition - 3, pageWidth - 40, notesHeight, 2, 2, 'F');
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.primary);
+    doc.setTextColor(...COLORS.accent);
     doc.text('NOTES', 25, yPosition + 3);
 
     doc.setFontSize(9);
@@ -392,32 +390,16 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
 
-    // Footer line
-    doc.setDrawColor(...COLORS.lightGray);
-    doc.setLineWidth(0.5);
-    doc.line(20, pageHeight - 15, pageWidth - 20, pageHeight - 15);
+    // Footer bar
+    doc.setFillColor(...COLORS.primary);
+    doc.rect(0, pageHeight - 14, pageWidth, 14, 'F');
 
-    // Footer text
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.gray);
-    doc.text(
-      `Page ${i} of ${pageCount}`,
-      20,
-      pageHeight - 10
-    );
-    doc.text(
-      `© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.`,
-      pageWidth / 2,
-      pageHeight - 10,
-      { align: 'center' }
-    );
-    doc.text(
-      'info@groundops.com | (323) 555-1234',
-      pageWidth - 20,
-      pageHeight - 10,
-      { align: 'right' }
-    );
+    doc.setTextColor(200, 210, 220);
+    doc.text(`Page ${i} of ${pageCount}`, 20, pageHeight - 6);
+    doc.text(`© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+    doc.text('info@groundops.co', pageWidth - 20, pageHeight - 6, { align: 'right' });
   }
 
   return doc;
@@ -466,37 +448,32 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Logo - Embedded as base64
-  try {
-    doc.addImage(GROUNDOPS_LOGO_BASE64, 'PNG', 20, 12, 55, 16);
-  } catch (error) {
-    // Fallback to styled text if logo fails
-    doc.setFontSize(18);
-    doc.setTextColor(...COLORS.primary);
-    doc.setFont('helvetica', 'bold');
-    doc.text('GROUND', 20, 22);
-    doc.setTextColor(...COLORS.secondary);
-    doc.text('OPS', 42, 22);
+  // Header bar
+  doc.setFillColor(...COLORS.primary);
+  doc.rect(0, 0, pageWidth, 38, 'F');
 
-    // Decorative underline for brand
-    doc.setDrawColor(...COLORS.primary);
-    doc.setLineWidth(0.8);
-    doc.line(20, 24, 60, 24);
+  // Logo on dark background
+  try {
+    doc.addImage(GROUNDOPS_LOGO_BASE64, 'PNG', 20, 8, LOGO_W, LOGO_H);
+  } catch {
+    doc.setFontSize(20);
+    doc.setTextColor(...COLORS.white);
+    doc.setFont('helvetica', 'bold');
+    doc.text('GroundOps', 20, 24);
   }
 
-  // Company Info
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...COLORS.gray);
-  doc.text('GroundOps — Facility Maintenance', 20, 35);
-  doc.text('Los Angeles, CA', 20, 39);
-  doc.text('info@groundops.com | (323) 555-1234', 20, 43);
-
-  // Work Order Title - Right aligned
-  doc.setFontSize(28);
+  // Work Order Title - Right aligned on header
+  doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...COLORS.dark);
-  doc.text('WORK ORDER', pageWidth - 20, 22, { align: 'right' });
+  doc.setTextColor(...COLORS.white);
+  doc.text('WORK ORDER', pageWidth - 20, 18, { align: 'right' });
+
+  // Company info on header
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(200, 210, 220);
+  doc.text('info@groundops.co | groundops.co', pageWidth - 20, 26, { align: 'right' });
+  doc.text('Los Angeles, CA', pageWidth - 20, 31, { align: 'right' });
 
   // Work Order Details - Right aligned box with background
   const detailsBoxX = pageWidth - 75;
@@ -631,13 +608,13 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
       yPosition = 20;
     }
 
-    doc.setFillColor(248, 250, 252);
+    doc.setFillColor(...COLORS.warmBg);
     const notesHeight = 20;
     doc.roundedRect(20, yPosition - 3, pageWidth - 40, notesHeight, 2, 2, 'F');
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.primary);
+    doc.setTextColor(...COLORS.accent);
     doc.text('NOTES', 25, yPosition + 3);
 
     doc.setFontSize(9);
@@ -673,32 +650,16 @@ export function generateWorkOrderPDF(workOrder: WorkOrderData): jsPDF {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
 
-    // Footer line
-    doc.setDrawColor(...COLORS.lightGray);
-    doc.setLineWidth(0.5);
-    doc.line(20, pageHeight - 15, pageWidth - 20, pageHeight - 15);
+    // Footer bar
+    doc.setFillColor(...COLORS.primary);
+    doc.rect(0, pageHeight - 14, pageWidth, 14, 'F');
 
-    // Footer text
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.gray);
-    doc.text(
-      `Page ${i} of ${pageCount}`,
-      20,
-      pageHeight - 10
-    );
-    doc.text(
-      `© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.`,
-      pageWidth / 2,
-      pageHeight - 10,
-      { align: 'center' }
-    );
-    doc.text(
-      'info@groundops.com | (323) 555-1234',
-      pageWidth - 20,
-      pageHeight - 10,
-      { align: 'right' }
-    );
+    doc.setTextColor(200, 210, 220);
+    doc.text(`Page ${i} of ${pageCount}`, 20, pageHeight - 6);
+    doc.text(`© ${new Date().getFullYear()} GroundOps LLC. All rights reserved.`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+    doc.text('info@groundops.co', pageWidth - 20, pageHeight - 6, { align: 'right' });
   }
 
   return doc;
