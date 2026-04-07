@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const eligibleAdmins = adminsSnapshot.docs
       .map((d) => ({ uid: d.id, ...d.data() } as Record<string, unknown> & { uid: string; email?: string; fullName?: string }))
-      .filter((admin) => admin.email && admin.supportTicketEmailNotifications !== false);
+      .filter((admin) => admin.email && admin.supportTicketEmailNotifications === true);
 
     if (eligibleAdmins.length === 0) {
       return NextResponse.json({ success: true, message: 'No admins with support ticket email notifications enabled' });

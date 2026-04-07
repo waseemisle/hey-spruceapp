@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         const adminEmails: { email: string; name: string }[] = [];
         adminsSnap.docs.forEach(d => {
           const data = d.data();
-          if (data.email && data.receiveWOEmails !== false) {
+          if (data.email && data.workOrderEmailNotifications === true) {
             adminEmails.push({ email: data.email, name: data.fullName || 'Admin' });
           }
         });
