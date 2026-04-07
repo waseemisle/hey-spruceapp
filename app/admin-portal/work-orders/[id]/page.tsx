@@ -2245,88 +2245,38 @@ export default function ViewWorkOrder() {
                         </div>
                       </div>
 
-                      <div className={`grid grid-cols-1 ${vendorPayment.status !== 'paid' ? 'lg:grid-cols-2' : ''} gap-6`}>
-                        {vendorPayment.status !== 'paid' && (
-                        <div className="rounded-xl border border-border p-4">
-                          <div className="font-semibold mb-3">Add adjustment</div>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div>
-                              <Label>Type</Label>
-                              <select
-                                className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                                value={addAdjustmentType}
-                                onChange={(e) => setAddAdjustmentType(e.target.value as any)}
-                              >
-                                <option value="increase">Increase</option>
-                                <option value="decrease">Decrease</option>
-                              </select>
-                            </div>
-                            <div>
-                              <Label>Amount</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={addAdjustmentAmount}
-                                onChange={(e) => setAddAdjustmentAmount(e.target.value)}
-                                onWheel={(e) => e.currentTarget.blur()}
-                                placeholder="e.g. 50"
-                                className="mt-1"
-                              />
-                            </div>
-                            <div className="sm:col-span-3">
-                              <Label>Reason</Label>
-                              <Textarea
-                                value={addAdjustmentReason}
-                                onChange={(e) => setAddAdjustmentReason(e.target.value)}
-                                placeholder="Why are we adjusting the base amount?"
-                                className="mt-1 min-h-[80px]"
-                              />
-                            </div>
-                          </div>
-                          <div className="mt-3">
-                            <Button onClick={handleAddAdjustment} disabled={addingAdjustment}>
-                              <Plus className="h-4 w-4 mr-2" />
-                              {addingAdjustment ? 'Adding…' : 'Add adjustment'}
-                            </Button>
-                          </div>
-                        </div>
-                        )}
-
-                        <div className="rounded-xl border border-border p-4">
-                          <div className="font-semibold mb-3">Adjustments history</div>
-                          {(!vendorPayment.adjustments || vendorPayment.adjustments.length === 0) ? (
-                            <div className="text-sm text-muted-foreground">No adjustments yet.</div>
-                          ) : (
-                            <div className="space-y-2">
-                              {vendorPayment.adjustments.slice().reverse().map((a) => {
-                                const signed = a.type === 'decrease' ? -Math.abs(a.amount) : Math.abs(a.amount);
-                                const badgeClass =
-                                  a.type === 'decrease'
-                                    ? 'bg-red-50 text-red-800 border-red-200'
-                                    : 'bg-emerald-50 text-emerald-800 border-emerald-200';
-                                const createdLabel =
-                                  (a as any).createdAt?.toDate?.().toLocaleString?.() || '';
-                                return (
-                                  <div key={a.id} className="rounded-lg border border-border p-3">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <div className="min-w-0">
-                                        <div className="text-sm font-medium text-foreground truncate">{a.reason}</div>
-                                        <div className="text-xs text-muted-foreground mt-0.5">
-                                          {createdLabel}
-                                        </div>
+                      {/* Show adjustments only if there are any */}
+                      {vendorPayment.adjustments && vendorPayment.adjustments.length > 0 && (
+                        <div className="rounded-xl border border-border p-4 mt-4">
+                          <div className="font-semibold mb-3">Adjustments</div>
+                          <div className="space-y-2">
+                            {vendorPayment.adjustments.slice().reverse().map((a) => {
+                              const signed = a.type === "decrease" ? -Math.abs(a.amount) : Math.abs(a.amount);
+                              const badgeClass =
+                                a.type === "decrease"
+                                  ? "bg-red-50 text-red-800 border-red-200"
+                                  : "bg-emerald-50 text-emerald-800 border-emerald-200";
+                              const createdLabel =
+                                (a as any).createdAt?.toDate?.().toLocaleString?.() || "";
+                              return (
+                                <div key={a.id} className="rounded-lg border border-border p-3">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-medium text-foreground truncate">{a.reason}</div>
+                                      <div className="text-xs text-muted-foreground mt-0.5">
+                                        {createdLabel}
                                       </div>
-                                      <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
-                                        {signed >= 0 ? '+' : '−'}{formatMoney(Math.abs(signed), vendorPayment.currency)}
-                                      </span>
                                     </div>
+                                    <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
+                                      {signed >= 0 ? "+" : "−"}{formatMoney(Math.abs(signed), vendorPayment.currency)}
+                                    </span>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
