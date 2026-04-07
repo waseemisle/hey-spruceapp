@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,11 +32,14 @@ export default function PortalLogin() {
       // Check admin
       const adminDoc = await getDoc(doc(db, 'adminUsers', user.uid));
       if (adminDoc.exists()) {
+        const ad = adminDoc.data();
         updateDoc(doc(db, 'adminUsers', user.uid), { lastLogin: serverTimestamp() }).catch(() => {});
-        toast({
-          title: 'Login Successful',
-          description: 'Welcome to Admin Portal',
-        });
+        addDoc(collection(db, 'emailLogs'), {
+          type: 'user_login', userId: user.uid, userName: ad.fullName || ad.name || 'Admin',
+          userEmail: ad.email || email, userRole: 'admin', loginAt: serverTimestamp(),
+          logoutAt: null, sessionDuration: null, createdAt: serverTimestamp(),
+        }).catch(() => {});
+        toast({ title: 'Login Successful', description: 'Welcome to Admin Portal' });
         router.push('/admin-portal');
         return;
       }
@@ -47,16 +50,17 @@ export default function PortalLogin() {
         const clientData = clientDoc.data();
         if (clientData.status === 'approved') {
           updateDoc(doc(db, 'clients', user.uid), { lastLogin: serverTimestamp() }).catch(() => {});
-          // Sync password to Firestore (fire-and-forget)
+          addDoc(collection(db, 'emailLogs'), {
+            type: 'user_login', userId: user.uid, userName: clientData.fullName || 'Client',
+            userEmail: clientData.email || email, userRole: 'client', loginAt: serverTimestamp(),
+            logoutAt: null, sessionDuration: null, companyName: clientData.companyName || '',
+            createdAt: serverTimestamp(),
+          }).catch(() => {});
           fetch('/api/auth/sync-reset-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, newPassword: password }),
           }).catch(() => {});
-          toast({
-            title: 'Login Successful',
-            description: 'Welcome to Client Portal',
-          });
+          toast({ title: 'Login Successful', description: 'Welcome to Client Portal' });
           router.push('/client-portal');
           return;
         } else {
@@ -77,16 +81,17 @@ export default function PortalLogin() {
         const subData = subDoc.data();
         if (subData.status === 'approved') {
           updateDoc(doc(db, 'subcontractors', user.uid), { lastLogin: serverTimestamp() }).catch(() => {});
-          // Sync password to Firestore (fire-and-forget)
+          addDoc(collection(db, 'emailLogs'), {
+            type: 'user_login', userId: user.uid, userName: subData.fullName || 'Subcontractor',
+            userEmail: subData.email || email, userRole: 'subcontractor', loginAt: serverTimestamp(),
+            logoutAt: null, sessionDuration: null, companyName: subData.companyName || '',
+            createdAt: serverTimestamp(),
+          }).catch(() => {});
           fetch('/api/auth/sync-reset-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, newPassword: password }),
           }).catch(() => {});
-          toast({
-            title: 'Login Successful',
-            description: 'Welcome to Subcontractor Portal',
-          });
+          toast({ title: 'Login Successful', description: 'Welcome to Subcontractor Portal' });
           router.push('/subcontractor-portal');
           return;
         } else {

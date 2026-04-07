@@ -226,6 +226,19 @@ export default function AdminLayout({ children, headerExtra }: { children: React
   }, [router]);
 
   const handleLogout = async () => {
+    // Update the most recent login log with logout time
+    if (auth.currentUser) {
+      try {
+        const { collection: col, query: q, where, orderBy, limit: lim, getDocs, updateDoc: upDoc, serverTimestamp: srvTs } = await import('firebase/firestore');
+        const snap = await getDocs(q(col(db, 'emailLogs'), where('type', '==', 'user_login'), where('userId', '==', auth.currentUser.uid), where('logoutAt', '==', null), orderBy('createdAt', 'desc'), lim(1)));
+        if (snap.docs.length > 0) {
+          const loginDoc = snap.docs[0];
+          const loginAt = loginDoc.data().loginAt?.toDate?.();
+          const duration = loginAt ? Math.round((Date.now() - loginAt.getTime()) / 60000) : null;
+          await upDoc(loginDoc.ref, { logoutAt: srvTs(), sessionDuration: duration });
+        }
+      } catch {}
+    }
     await auth.signOut();
     router.push('/');
   };

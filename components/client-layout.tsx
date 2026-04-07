@@ -212,8 +212,20 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }, [router]);
 
   const handleLogout = async () => {
-    // Get the correct auth instance (impersonation or regular)
     let authInstance = firebaseInstances.authInstance || auth;
+    const dbInstance = firebaseInstances.dbInstance || db;
+    // Update login log with logout time
+    if (authInstance.currentUser && dbInstance) {
+      try {
+        const { getDocs, query: q, collection: col, where: w, orderBy, limit: lim, updateDoc, serverTimestamp } = await import('firebase/firestore');
+        const snap = await getDocs(q(col(dbInstance, 'emailLogs'), w('type', '==', 'user_login'), w('userId', '==', authInstance.currentUser.uid), w('logoutAt', '==', null), orderBy('createdAt', 'desc'), lim(1)));
+        if (snap.docs.length > 0) {
+          const loginAt = snap.docs[0].data().loginAt?.toDate?.();
+          const duration = loginAt ? Math.round((Date.now() - loginAt.getTime()) / 60000) : null;
+          await updateDoc(snap.docs[0].ref, { logoutAt: serverTimestamp(), sessionDuration: duration });
+        }
+      } catch {}
+    }
     await authInstance.signOut();
     localStorage.removeItem('impersonationState');
     router.push('/');
