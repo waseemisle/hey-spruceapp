@@ -95,6 +95,14 @@ function PaymentSuccessContent() {
     
     if (invoiceIdParam) {
       setInvoiceId(invoiceIdParam);
+      // Confirm payment status (fallback in case webhook was delayed)
+      if (sessionIdParam) {
+        fetch('/api/stripe/confirm-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: sessionIdParam, invoiceId: invoiceIdParam }),
+        }).catch(() => {}); // fire-and-forget
+      }
       fetchPaymentDetails(invoiceIdParam);
     } else {
       setLoading(false);
