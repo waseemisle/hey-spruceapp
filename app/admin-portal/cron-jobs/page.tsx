@@ -150,7 +150,7 @@ export default function CronJobsPage() {
   const handleTriggerCron = async () => {
     setTriggering(true);
     try {
-      const res = await fetch('/api/recurring-work-orders/cron', { method: 'POST' });
+      const res = await fetch('/api/cron-monitor', { method: 'PUT' });
       const data = await res.json();
       if (res.ok) {
         toast.success(`Cron executed: ${data.totalSucceeded}/${data.totalEligible} succeeded`);
