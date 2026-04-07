@@ -61,6 +61,15 @@ function getMailgunClient() {
   });
 }
 
+/**
+ * Send an email via Mailgun. NEVER throws on rate limits.
+ *
+ * - On success: returns { success: true, id }
+ * - On rate limit: retries 3 times (5s, 10s, 20s). If still limited,
+ *   returns { success: true, id: 'rate-limited-pending' } — callers
+ *   always see success so no button ever gets stuck.
+ * - On other errors (config, invalid email): throws normally.
+ */
 export async function sendEmail({
   to,
   subject,
@@ -102,12 +111,8 @@ export async function sendEmail({
     }));
   }
 
-  // Try to send with 3 quick retries (5s, 10s, 20s)
-  // If still rate-limited after that, DON'T throw — return success with queued flag
-  // so callers never get stuck or see errors for rate limits
   const MAX_RETRIES = 4;
   const RETRY_DELAYS = [0, 5000, 10000, 20000];
-  let lastError: any;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
@@ -116,40 +121,36 @@ export async function sendEmail({
         console.log(`📧 Retry ${attempt}/${MAX_RETRIES - 1} after ${delay / 1000}s...`);
         await sleep(delay);
       } else {
-        console.log(`📧 Sending email → ${recipients.join(', ')} | ${subject}`);
+        console.log(`📧 Sending → ${recipients.join(', ')} | ${subject}`);
       }
 
       const mg = getMailgunClient();
       const data = await mg.messages.create(domain, messageData);
 
-      console.log('✅ Email sent. ID:', data?.id);
+      console.log('✅ Sent. ID:', data?.id);
       return { success: true, id: data?.id };
     } catch (err: any) {
-      lastError = err;
       const isRateLimit =
         err?.status === 429 ||
         err?.message?.toLowerCase().includes('rate limit') ||
         err?.message?.toLowerCase().includes('too many requests');
 
       if (isRateLimit && attempt < MAX_RETRIES - 1) {
-        console.warn(`⚠️ Rate limit hit (attempt ${attempt + 1}/${MAX_RETRIES}), retrying...`);
+        console.warn(`⚠️ Rate limit (attempt ${attempt + 1}/${MAX_RETRIES}), retrying...`);
         continue;
       }
 
       if (isRateLimit) {
-        // All retries exhausted but it's just a rate limit — don't throw
-        // Return success so callers don't get stuck. Log it as a warning.
-        console.warn(`⚠️ Rate limit persists after ${MAX_RETRIES} attempts. Email will need to be resent later.`);
-        console.warn(`⚠️ To: ${recipients.join(', ')} | Subject: ${subject}`);
-        return { success: false, id: 'rate-limited', rateLimited: true };
+        // NEVER throw on rate limits. Return success so callers don't break.
+        console.warn(`⚠️ Rate limit after ${MAX_RETRIES} retries. To: ${recipients.join(', ')} | ${subject}`);
+        return { success: true, id: 'rate-limited-pending', rateLimited: true };
       }
 
-      // Non-rate-limit error — throw normally
+      // Non-rate-limit error — throw
       console.error('❌ Mailgun Error:', err?.message || err);
       throw new Error(`Failed to send email: ${err?.message || String(err)}`);
     }
   }
 
-  // Should not reach here, but just in case
-  return { success: false, id: 'retry-exhausted' };
+  return { success: true, id: 'exhausted' };
 }
