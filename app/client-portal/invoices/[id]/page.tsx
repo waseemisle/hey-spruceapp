@@ -8,7 +8,7 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft, Image as ImageIcon, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
@@ -310,6 +310,14 @@ export default function ClientInvoiceDetail() {
                 <Button onClick={handlePayNow} className="flex-1 bg-green-600 hover:bg-green-700">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Pay Now
+                </Button>
+              )}
+              {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+                <Button asChild variant="outline" className="flex-1">
+                  <a href={`/pay-bank/${invoice.id}`}>
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Pay from Bank
+                  </a>
                 </Button>
               )}
             </div>

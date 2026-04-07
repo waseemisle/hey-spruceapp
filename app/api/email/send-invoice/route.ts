@@ -19,6 +19,7 @@ export async function POST(request: Request) {
       lineItems,
       notes,
       stripePaymentLink,
+      invoiceId,
       pdfBase64,
       workOrderPdfBase64
     } = body;
@@ -158,7 +159,8 @@ export async function POST(request: Request) {
           { label: 'Subtotal', amount: `$${subtotalWithPaymentFee.toFixed(2)}`, variant: 'muted' },
           { label: 'Amount Due', amount: `$${finalTotal.toFixed(2)}`, variant: 'emphasis' },
         ])}
-        ${stripePaymentLink ? ctaButton('Pay Now', stripePaymentLink) : ''}
+        ${stripePaymentLink ? ctaButton('Pay Now (Card)', stripePaymentLink) : ''}
+        ${invoiceId ? ctaButton('Pay from Bank (ACH)', `${process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app'}/pay-bank/${invoiceId}`) : ''}
       `,
     });
 

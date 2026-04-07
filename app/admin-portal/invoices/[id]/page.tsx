@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, ArrowLeft, History, Paperclip, MapPin, FileText, CreditCard, GitBranch, Edit2, Zap, X, Plus, Trash2, CheckCircle, Image as ImageIcon } from 'lucide-react';
+import { Receipt, Download, ArrowLeft, History, Paperclip, MapPin, FileText, CreditCard, GitBranch, Edit2, Zap, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
@@ -331,6 +331,7 @@ export default function AdminInvoiceDetail() {
         lineItems: inv.lineItems || [],
         notes: inv.notes || '',
         stripePaymentLink: stripeData.paymentLink,
+        invoiceId: invoice?.id || params.id,
       }),
     });
     const emailData = await emailRes.json();
@@ -595,6 +596,14 @@ export default function AdminInvoiceDetail() {
                 <a href={invoice.stripePaymentLink} target="_blank" rel="noopener noreferrer">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Pay via Stripe
+                </a>
+              </Button>
+            )}
+            {invoice.status !== 'paid' && (
+              <Button size="sm" variant="outline" asChild>
+                <a href={`/pay-bank/${invoice.id}`} target="_blank" rel="noopener noreferrer">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Pay from Bank
                 </a>
               </Button>
             )}
