@@ -268,6 +268,7 @@ export default function ClientDetailPage() {
   // Charge Now modal
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [chargeCardId, setChargeCardId] = useState('');
+  const [chargeInvoiceId, setChargeInvoiceId] = useState('');
   const [chargeAmount, setChargeAmount] = useState('');
   const [chargeDesc, setChargeDesc] = useState('');
   const [chargingNow, setChargingNow] = useState(false);
@@ -706,6 +707,7 @@ export default function ClientDetailPage() {
           paymentMethodId: chargeCardId,
           amount: amt,
           description: chargeDesc.trim() || undefined,
+          invoiceId: chargeInvoiceId || undefined,
         }),
       });
       const data = await res.json();
@@ -714,9 +716,23 @@ export default function ClientDetailPage() {
         return;
       }
       if (data.success) {
+        // Mark linked invoice as paid
+        if (chargeInvoiceId) {
+          try {
+            await updateDoc(doc(db, 'invoices', chargeInvoiceId), {
+              status: 'paid',
+              paidAt: serverTimestamp(),
+              autoChargeStatus: 'succeeded',
+              stripePaymentIntentId: data.paymentIntentId,
+            });
+          } catch (e) {
+            console.error('Failed to update invoice status:', e);
+          }
+        }
+        const invLabel = chargeInvoiceId ? ` (Invoice marked as paid)` : '';
         setChargeResult({
           success: true,
-          message: `${fmtMoney(amt)} charged successfully. ID: ${data.paymentIntentId}`,
+          message: `${fmtMoney(amt)} charged successfully.${invLabel} ID: ${data.paymentIntentId}`,
         });
       } else {
         setChargeResult({ success: false, message: data.message || 'Charge requires additional authentication' });
@@ -1288,6 +1304,7 @@ export default function ClientDetailPage() {
                           variant="outline"
                           onClick={() => {
                             setChargeCardId(pm.id);
+                            setChargeInvoiceId('');
                             setChargeAmount(String(client.subscriptionAmount || ''));
                             setChargeDesc('');
                             setChargeResult(null);
@@ -2176,6 +2193,40 @@ export default function ClientDetailPage() {
                     }))}
                     placeholder="Select card"
                     aria-label="Card for charge"
+                  />
+                </div>
+
+                {/* Invoice selector */}
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Link to Invoice (optional)</label>
+                  <SearchableSelect
+                    className="mt-1 w-full"
+                    value={chargeInvoiceId}
+                    onValueChange={(val) => {
+                      setChargeInvoiceId(val);
+                      if (val) {
+                        const inv = invoices.find(i => i.id === val);
+                        if (inv) {
+                          setChargeAmount(String(inv.totalAmount || ''));
+                          setChargeDesc(`Payment for Invoice ${inv.invoiceNumber || inv.id}`);
+                        }
+                      } else {
+                        setChargeAmount('');
+                        setChargeDesc('');
+                      }
+                    }}
+                    options={[
+                      { value: '', label: '— No invoice (manual amount) —' },
+                      ...invoices
+                        .filter(inv => inv.status !== 'paid')
+                        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+                        .map(inv => ({
+                          value: inv.id,
+                          label: `${inv.invoiceNumber || 'INV-' + inv.id.slice(-6)} — ${fmtMoney(inv.totalAmount || 0)} — ${inv.status?.charAt(0).toUpperCase() + inv.status?.slice(1)}`,
+                        })),
+                    ]}
+                    placeholder="Select an invoice..."
+                    aria-label="Invoice to charge"
                   />
                 </div>
 
