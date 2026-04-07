@@ -7,7 +7,7 @@
     "crons": [
       {
         "path": "/api/recurring-work-orders/cron",
-        "schedule": "0 * * * *"
+        "schedule": "*/5 * * * *"
       },
       {
         "path": "/api/sync/firebase-to-supabase",
