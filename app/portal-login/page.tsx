@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,7 @@ export default function PortalLogin() {
       // Check admin
       const adminDoc = await getDoc(doc(db, 'adminUsers', user.uid));
       if (adminDoc.exists()) {
+        updateDoc(doc(db, 'adminUsers', user.uid), { lastLogin: serverTimestamp() }).catch(() => {});
         toast({
           title: 'Login Successful',
           description: 'Welcome to Admin Portal',
@@ -45,6 +46,7 @@ export default function PortalLogin() {
       if (clientDoc.exists()) {
         const clientData = clientDoc.data();
         if (clientData.status === 'approved') {
+          updateDoc(doc(db, 'clients', user.uid), { lastLogin: serverTimestamp() }).catch(() => {});
           // Sync password to Firestore (fire-and-forget)
           fetch('/api/auth/sync-reset-password', {
             method: 'POST',
@@ -74,6 +76,7 @@ export default function PortalLogin() {
       if (subDoc.exists()) {
         const subData = subDoc.data();
         if (subData.status === 'approved') {
+          updateDoc(doc(db, 'subcontractors', user.uid), { lastLogin: serverTimestamp() }).catch(() => {});
           // Sync password to Firestore (fire-and-forget)
           fetch('/api/auth/sync-reset-password', {
             method: 'POST',

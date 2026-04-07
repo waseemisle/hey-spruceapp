@@ -123,9 +123,32 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { name: 'Sandbox Refresh', href: '/admin-portal/sandbox-refresh', icon: FlaskConical },
       { name: 'Cron Jobs', href: '/admin-portal/cron-jobs', icon: Clock },
+      { name: 'User Activity', href: '/admin-portal/user-activity', icon: Users },
     ],
   },
 ];
+
+function EstClock() {
+  const [time, setTime] = useState('');
+  useEffect(() => {
+    const tick = () => {
+      setTime(new Date().toLocaleString('en-US', {
+        timeZone: 'America/New_York',
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: true,
+      }) + ' EST');
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="hidden lg:inline text-xs text-muted-foreground tabular-nums font-mono whitespace-nowrap">
+      {time}
+    </span>
+  );
+}
 
 export default function AdminLayout({ children, headerExtra }: { children: React.ReactNode; headerExtra?: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -292,6 +315,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <EstClock />
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
