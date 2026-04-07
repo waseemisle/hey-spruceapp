@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         invoiceNumber: generateInvoiceNumber(),
         clientName: recurringWorkOrder.clientName,
         clientEmail: recurringWorkOrder.clientEmail,
-        clientAddress: recurringWorkOrder.clientAddress,
+        clientAddress: recurringWorkOrder.clientAddress || '',
         workOrderName: recurringWorkOrder.title,
         serviceDescription: recurringWorkOrder.description,
         lineItems: [{
@@ -126,14 +126,14 @@ export async function POST(request: NextRequest) {
         workOrderNumber: recurringWorkOrder.workOrderNumber,
         clientName: recurringWorkOrder.clientName,
         clientEmail: recurringWorkOrder.clientEmail,
-        clientAddress: recurringWorkOrder.clientAddress,
+        clientAddress: recurringWorkOrder.clientAddress || '',
         locationName: recurringWorkOrder.locationName,
         locationAddress: recurringWorkOrder.locationAddress,
         title: recurringWorkOrder.title,
         description: recurringWorkOrder.description,
         category: recurringWorkOrder.category,
         priority: recurringWorkOrder.priority,
-        estimateBudget: recurringWorkOrder.estimateBudget,
+        estimateBudget: recurringWorkOrder.estimateBudget ?? null,
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 7 days from now
         notes: recurringWorkOrder.description,
         terms: 'Work order must be completed within the specified timeframe. Contact us for any questions or concerns.',
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
         category: recurringWorkOrder.category,
         categoryId: recurringWorkOrder.categoryId || '',
         priority: recurringWorkOrder.priority,
-        estimateBudget: recurringWorkOrder.estimateBudget,
+        estimateBudget: recurringWorkOrder.estimateBudget ?? null,
         status: 'approved', // Start as approved since it's from a recurring work order
         images: [],
         scheduledServiceDate: nextExecution,
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
           description: recurringWorkOrder.description,
           category: recurringWorkOrder.category,
           priority: recurringWorkOrder.priority,
-          estimateBudget: recurringWorkOrder.estimateBudget,
+          estimateBudget: recurringWorkOrder.estimateBudget ?? null,
         },
       });
 
