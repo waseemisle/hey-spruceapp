@@ -2245,7 +2245,8 @@ export default function ViewWorkOrder() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className={`grid grid-cols-1 ${vendorPayment.status !== 'paid' ? 'lg:grid-cols-2' : ''} gap-6`}>
+                        {vendorPayment.status !== 'paid' && (
                         <div className="rounded-xl border border-border p-4">
                           <div className="font-semibold mb-3">Add adjustment</div>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2290,6 +2291,7 @@ export default function ViewWorkOrder() {
                             </Button>
                           </div>
                         </div>
+                        )}
 
                         <div className="rounded-xl border border-border p-4">
                           <div className="font-semibold mb-3">Adjustments history</div>
