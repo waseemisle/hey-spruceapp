@@ -486,6 +486,16 @@ export default function SubcontractorAssignedJobs() {
         }),
       }).catch(err => console.error('Failed to send completion notification emails:', err));
 
+      // Update local work order state so the UI reflects the change immediately
+      setWorkOrders(prev => {
+        const updated = new Map(prev);
+        const wo = updated.get(completingWorkOrderId);
+        if (wo) {
+          updated.set(completingWorkOrderId, { ...wo, status: 'completed', completedAt: new Date() });
+        }
+        return updated;
+      });
+
       toast.success('Job marked as complete! The admin will review and process the invoice.');
       setShowCompletionModal(false);
       setCompletingWorkOrderId(null);
