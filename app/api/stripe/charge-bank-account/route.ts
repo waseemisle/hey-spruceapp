@@ -98,22 +98,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ── Attach via SetupIntent with offline mandate ──
-    const setupIntent = await stripe.setupIntents.create({
-      customer: stripeCustomerId,
-      payment_method: pm.id,
-      payment_method_types: ['us_bank_account'],
-    });
+    // ── Attach PaymentMethod to Customer ──
+    await stripe.paymentMethods.attach(pm.id, { customer: stripeCustomerId });
 
-    await (stripe.setupIntents.confirm as any)(setupIntent.id, {
-      mandate_data: {
-        customer_acceptance: {
-          type: 'offline',
-        },
-      },
-    });
-
-    // ── Create PaymentIntent to charge ──
+    // ── Create and confirm PaymentIntent with mandate ──
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
