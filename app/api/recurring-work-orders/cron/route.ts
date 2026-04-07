@@ -6,14 +6,27 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
-  // Verify CRON_SECRET bearer token
+  // Verify cron authorization
+  // Vercel Cron sends Authorization: Bearer <CRON_SECRET>
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    const authHeader = request.headers.get('authorization') || '';
+    const isAuthorized =
+      authHeader === `Bearer ${cronSecret}` ||
+      authHeader === cronSecret;
+    if (!isAuthorized) {
+      // Log for debugging — this helps diagnose why cron isn't running
+      console.error('[CRON AUTH FAILED]', {
+        hasAuthHeader: !!authHeader,
+        headerPrefix: authHeader.substring(0, 30),
+        secretLength: cronSecret.length,
+        url: request.url,
+        userAgent: request.headers.get('user-agent')?.substring(0, 50),
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
+  console.log('[CRON] Executing recurring work orders check...');
 
   try {
     const db = await getServerDb();

@@ -7,7 +7,7 @@
     "crons": [
       {
         "path": "/api/recurring-work-orders/cron",
-        "schedule": "0 9 * * *"
+        "schedule": "0 * * * *"
       },
       {
         "path": "/api/sync/firebase-to-supabase",
@@ -15,6 +15,14 @@
       }
     ],
     "functions": {
+      "app/api/recurring-work-orders/cron/route.ts": {
+        "maxDuration": 300,
+        "memory": 1024
+      },
+      "app/api/recurring-work-orders/execute/route.ts": {
+        "maxDuration": 120,
+        "memory": 1024
+      },
       "app/api/maint-requests/route.ts": {
         "maxDuration": 60,
         "memory": 1024
