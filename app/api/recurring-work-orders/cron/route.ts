@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, query, where, getDocs, getDoc, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, addDoc, setDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 
 export const dynamic = 'force-dynamic';
@@ -66,9 +66,13 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (e) {
-        // If settings don't exist, proceed with default behavior
         console.log('[CRON] No schedule settings found, running anyway');
       }
+
+      // Lock: update lastRunAt NOW to prevent duplicate runs
+      try {
+        await setDoc(doc(db, 'emailLogs', '_schedule'), { lastRunAt: serverTimestamp() }, { merge: true });
+      } catch {}
     }
 
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -104,7 +108,10 @@ export async function GET(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://groundopscos.vercel.app');
     console.log(`[CRON] Using base URL: ${baseUrl}`);
 
-    for (const rwo of recurringWorkOrders) {
+    for (let i = 0; i < recurringWorkOrders.length; i++) {
+      const rwo = recurringWorkOrders[i];
+      // Delay between executions to avoid Mailgun rate limits (each execution sends 2-3 emails)
+      if (i > 0) await new Promise(r => setTimeout(r, 2000));
       try {
         const executeResponse = await fetch(`${baseUrl}/api/recurring-work-orders/execute`, {
           method: 'POST',
