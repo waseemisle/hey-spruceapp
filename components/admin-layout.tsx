@@ -14,7 +14,7 @@ import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw,
   Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail, Headphones,
-  Database, FlaskConical, BookOpen, Archive,
+  Database, FlaskConical, BookOpen, Archive, Clock,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -122,6 +122,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: Database,
     children: [
       { name: 'Sandbox Refresh', href: '/admin-portal/sandbox-refresh', icon: FlaskConical },
+      { name: 'Cron Jobs', href: '/admin-portal/cron-jobs', icon: Clock },
     ],
   },
 ];

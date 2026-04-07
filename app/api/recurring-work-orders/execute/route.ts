@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = await getServerDb();
-    const { recurringWorkOrderId, executionId, scheduledDate: scheduledDateStr } = await request.json();
+    const { recurringWorkOrderId, executionId, scheduledDate: scheduledDateStr, triggeredBy: triggeredByParam } = await request.json();
+    const triggeredBy = triggeredByParam || 'manual_api';
 
     if (!recurringWorkOrderId) {
       return NextResponse.json({ error: 'Recurring work order ID is required' }, { status: 400 });
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
         scheduledDate: nextExecution,
         status: 'pending',
         emailSent: false,
+        triggeredBy,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };

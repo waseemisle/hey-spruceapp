@@ -946,6 +946,15 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                   }`}>
                                     {slot.status}
                                   </span>
+                                  {(slot.execution as any)?.triggeredBy && (
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                      (slot.execution as any).triggeredBy === 'cron'
+                                        ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                                        : 'bg-purple-50 text-purple-600 border border-purple-200'
+                                    }`}>
+                                      {(slot.execution as any).triggeredBy === 'cron' ? 'Cron' : 'Manual'}
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {slot.scheduledDate.toLocaleDateString('en-US', {
