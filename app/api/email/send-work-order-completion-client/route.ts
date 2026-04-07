@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Error sending work order completion email to client:', error);
+    await logEmail({ type: 'work-order-completion-client', to: '', subject: '', status: 'failed', context: {}, error: error.message || String(error) }).catch(() => {});
     return NextResponse.json(
       { error: 'Failed to send completion email', details: error.message },
       { status: 500 }

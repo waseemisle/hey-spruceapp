@@ -46,6 +46,7 @@ export async function POST(request: Request) {
 
     const errorMessage = error.message || String(error);
     const isConfigError = errorMessage.includes('not configured') || errorMessage.includes('RESEND');
+    await logEmail({ type: 'review-request', to: '', subject: '', status: 'failed', context: {}, error: error.message || String(error) }).catch(() => {});
 
     return NextResponse.json(
       {
