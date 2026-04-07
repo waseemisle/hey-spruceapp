@@ -6,11 +6,11 @@ import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db, auth } from '@/lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot, where, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where, getDocs, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   Clock, CheckCircle, XCircle, AlertTriangle, Loader2, Play, ChevronDown, ChevronUp,
-  Zap, Timer, Hash, Activity,
+  Zap, Timer, Hash, Activity, Settings, Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -54,6 +54,10 @@ export default function CronJobsPage() {
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
   const [overdueLoading, setOverdueLoading] = useState(true);
+  const [scheduleInterval, setScheduleInterval] = useState(60); // minutes
+  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [lastCronRunAt, setLastCronRunAt] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!auth) { setLoading(false); return; }
@@ -63,6 +67,43 @@ export default function CronJobsPage() {
     });
     return () => unsub();
   }, [router]);
+
+  // Load schedule settings
+  useEffect(() => {
+    if (!db || loading) return;
+    async function loadSettings() {
+      try {
+        const snap = await getDoc(doc(db, 'systemSettings', 'cronSchedule'));
+        if (snap.exists()) {
+          const data = snap.data();
+          setScheduleInterval(data.intervalMinutes || 60);
+          setLastCronRunAt(data.lastRunAt?.toDate?.() || null);
+        }
+      } catch (e) {
+        console.error('Error loading schedule settings:', e);
+      } finally {
+        setScheduleLoading(false);
+      }
+    }
+    loadSettings();
+  }, [loading]);
+
+  const handleSaveSchedule = async (newInterval: number) => {
+    setSavingSchedule(true);
+    try {
+      await setDoc(doc(db, 'systemSettings', 'cronSchedule'), {
+        intervalMinutes: newInterval,
+        lastRunAt: lastCronRunAt || null,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setScheduleInterval(newInterval);
+      toast.success(`Schedule updated to every ${newInterval < 60 ? newInterval + ' minutes' : (newInterval / 60) + ' hour(s)'}`);
+    } catch (e: any) {
+      toast.error('Failed to save schedule');
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
 
   // Real-time listener for cron runs
   useEffect(() => {
@@ -285,12 +326,55 @@ export default function CronJobsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Schedule</p>
-                  <p className="font-bold text-foreground">Every hour</p>
+                  <p className="font-bold text-foreground">
+                    {scheduleLoading ? '...' : scheduleInterval < 60 ? `Every ${scheduleInterval} min` : scheduleInterval === 60 ? 'Every hour' : `Every ${scheduleInterval / 60}h`}
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Schedule Settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Settings className="h-5 w-5" />
+              Cron Schedule Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm text-muted-foreground">Run cron every:</span>
+              {[
+                { label: '5 min', value: 5 },
+                { label: '15 min', value: 15 },
+                { label: '30 min', value: 30 },
+                { label: '1 hour', value: 60 },
+                { label: '2 hours', value: 120 },
+                { label: '6 hours', value: 360 },
+                { label: '12 hours', value: 720 },
+                { label: '24 hours', value: 1440 },
+              ].map(opt => (
+                <Button
+                  key={opt.value}
+                  size="sm"
+                  variant={scheduleInterval === opt.value ? 'default' : 'outline'}
+                  disabled={savingSchedule}
+                  onClick={() => handleSaveSchedule(opt.value)}
+                  className={scheduleInterval === opt.value ? 'bg-purple-600 hover:bg-purple-700' : ''}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
+            {lastCronRunAt && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Last cron execution: {fmtTime(lastCronRunAt)}
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Overdue RWOs */}
         {overdueRWOs.length > 0 && (

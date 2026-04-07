@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +42,35 @@ export async function GET(request: NextRequest) {
 
   try {
     const now = new Date();
+
+    // ── Check user-configured schedule ──
+    // Vercel fires every 5 min, but we only proceed if enough time has passed
+    // based on the admin-configured interval. Manual triggers always run.
+    if (triggeredBy === 'vercel_cron') {
+      try {
+        const settingsSnap = await getDoc(doc(db, 'systemSettings', 'cronSchedule'));
+        if (settingsSnap.exists()) {
+          const settings = settingsSnap.data();
+          const intervalMinutes = settings.intervalMinutes || 60;
+          const lastRunAt = settings.lastRunAt?.toDate?.();
+          if (lastRunAt) {
+            const minutesSinceLastRun = (now.getTime() - lastRunAt.getTime()) / 60000;
+            if (minutesSinceLastRun < intervalMinutes - 1) {
+              // Not time yet — skip this run silently
+              return NextResponse.json({
+                message: 'Skipped — not due yet',
+                nextRunIn: `${Math.ceil(intervalMinutes - minutesSinceLastRun)} minutes`,
+                intervalMinutes,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        // If settings don't exist, proceed with default behavior
+        console.log('[CRON] No schedule settings found, running anyway');
+      }
+    }
+
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
     // Find all active recurring work orders whose nextExecution is today or past
@@ -139,6 +168,14 @@ export async function GET(request: NextRequest) {
         results,
         createdAt: serverTimestamp(),
       });
+      // Update lastRunAt so the schedule check knows when we last ran
+      try {
+        const settingsRef = doc(db, 'systemSettings', 'cronSchedule');
+        const settingsSnap = await getDoc(settingsRef);
+        if (settingsSnap.exists()) {
+          await updateDoc(settingsRef, { lastRunAt: serverTimestamp() });
+        }
+      } catch {}
       console.log(`[CRON] Logged run: ${runStatus} | ${totalSucceeded}/${totalEligible} succeeded | ${durationMs}ms`);
     } catch (logError) {
       console.error('[CRON] Failed to log run to Firestore:', logError);
