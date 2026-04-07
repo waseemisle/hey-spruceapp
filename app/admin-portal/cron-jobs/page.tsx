@@ -327,7 +327,7 @@ export default function CronJobsPage() {
               <div className="text-center py-8 text-muted-foreground">
                 <Clock className="h-12 w-12 mx-auto mb-3 opacity-30" />
                 <p>No cron runs recorded yet.</p>
-                <p className="text-sm mt-1">The cron fires every 5 minutes via Vercel. Click &ldquo;Run Cron Now&rdquo; to trigger manually.</p>
+                <p className="text-sm mt-1">Click &ldquo;Run Cron Now&rdquo; to trigger manually, or wait for the next scheduled run.</p>
               </div>
             ) : (
               <div className="space-y-2">

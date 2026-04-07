@@ -15,11 +15,10 @@ export async function GET() {
     // Fetch last 50 cron runs
     let runs: any[] = [];
     try {
+      // Fetch all cron_run docs then sort client-side (avoids composite index requirement)
       const snap = await getDocs(query(
         collection(db, 'emailLogs'),
         where('type', '==', 'cron_run'),
-        orderBy('createdAt', 'desc'),
-        limit(50),
       ));
       runs = snap.docs.map(d => {
         const data = d.data();
@@ -37,9 +36,11 @@ export async function GET() {
           error: data.error,
         };
       });
+      // Sort by startedAt descending and limit
+      runs.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+      runs = runs.slice(0, 50);
     } catch (e: any) {
-      // Collection might not exist yet
-      console.log('emailLogs query error:', e.message);
+      console.log('emailLogs cron query error:', e.message);
     }
 
     // Fetch schedule settings
