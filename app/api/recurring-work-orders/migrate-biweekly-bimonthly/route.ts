@@ -1,112 +1,101 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * One-time migration: updates existing BI-WEEKLY and BI-MONTHLY recurring work orders
- * to use the corrected interval values.
+ * One-time migration (v3): fixes existing BI-WEEKLY and BI-MONTHLY recurring work orders.
  *
- * BI-WEEKLY: was interval=1, mode=daily (twice a week) → now interval=2, mode=weekly (every 2 weeks)
- * BI-MONTHLY: was interval=1, mode=monthly (twice a month) → now interval=2, mode=monthly (every 2 months)
- *
- * Also recalculates nextExecution based on the new interval.
+ * 1. Reads execution history to determine the correct target day (most reliable source).
+ * 2. Updates recurrencePattern on the parent document (interval, type, daysOfMonth/daysOfWeek).
+ * 3. Deletes future non-executed execution records generated on the old wrong schedule.
+ * 4. Recalculates nextExecution on the parent document.
  */
 export async function POST(request: NextRequest) {
   try {
     const db = await getServerDb();
-    const snapshot = await getDocs(collection(db, 'recurringWorkOrders'));
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
 
-    const updates: { id: string; label: string; changes: Record<string, any> }[] = [];
+    // Step 1: Find all BI-WEEKLY and BI-MONTHLY recurring work orders
+    const rwoSnapshot = await getDocs(collection(db, 'recurringWorkOrders'));
+    const results: any[] = [];
 
-    for (const docSnap of snapshot.docs) {
+    for (const docSnap of rwoSnapshot.docs) {
       const data = docSnap.data();
       const label = (data.recurrencePatternLabel || '').toUpperCase();
+
+      if (label !== 'BI-WEEKLY' && label !== 'BI-MONTHLY') continue;
+
       const pattern = data.recurrencePattern || {};
 
-      if (label === 'BI-WEEKLY') {
-        // Fix: interval 1 → 2, type daily → weekly
-        const newPattern = {
-          ...pattern,
-          type: 'weekly',
-          interval: 2,
-        };
+      // Read execution history to determine the correct target day
+      const execQuery = query(
+        collection(db, 'recurringWorkOrderExecutions'),
+        where('recurringWorkOrderId', '==', docSnap.id)
+      );
+      const execSnapshot = await getDocs(execQuery);
 
-        // Recalculate nextExecution: from the last execution or start date, advance 2 weeks
-        let nextExecution: Date | null = null;
-        const lastExec = data.lastExecution?.toDate?.() || data.nextExecution?.toDate?.();
-        const startDate = pattern.startDate?.toDate?.() || pattern.startDate;
-        const anchor = lastExec || (startDate ? new Date(startDate) : new Date());
+      // Find executed records to determine the actual pattern day
+      const executedDates: Date[] = [];
+      const futureNonExecutedIds: string[] = [];
 
-        if (pattern.daysOfWeek && pattern.daysOfWeek.length > 0) {
-          // Use the first (and now only) day of week
-          const targetDay = pattern.daysOfWeek[0];
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-          let candidate = new Date(anchor);
-          candidate.setDate(candidate.getDate() + 1); // advance past current
-          // Find the next occurrence of targetDay
-          while (candidate.getDay() !== targetDay) {
-            candidate.setDate(candidate.getDate() + 1);
+      for (const execDoc of execSnapshot.docs) {
+        const execData = execDoc.data();
+        const scheduledDate = execData.scheduledDate?.toDate?.();
+        const status = execData.status;
+        const hasWorkOrder = !!(execData as any).workOrderId;
+        const isDone = status === 'executed' || status === 'failed' || hasWorkOrder;
+
+        if (scheduledDate && isDone) {
+          executedDates.push(scheduledDate);
+        } else if (scheduledDate && scheduledDate >= now && !isDone) {
+          futureNonExecutedIds.push(execDoc.id);
+        }
+      }
+
+      // Sort executed dates descending
+      executedDates.sort((a, b) => b.getTime() - a.getTime());
+
+      if (label === 'BI-MONTHLY') {
+        // Determine target day of month from execution history or existing pattern
+        let targetDay: number;
+        if (executedDates.length > 0) {
+          // Use the most common day-of-month from executed records
+          const dayCounts = new Map<number, number>();
+          for (const d of executedDates) {
+            const dom = d.getDate();
+            dayCounts.set(dom, (dayCounts.get(dom) || 0) + 1);
           }
-          // If that's in the past, keep advancing by 2 weeks until future
-          while (candidate <= now) {
-            candidate.setDate(candidate.getDate() + 14);
-          }
-          nextExecution = candidate;
-          // Keep only the first day in daysOfWeek
-          newPattern.daysOfWeek = [targetDay];
+          targetDay = [...dayCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+        } else if (Array.isArray(pattern.daysOfMonth) && pattern.daysOfMonth.length > 0) {
+          targetDay = pattern.daysOfMonth[0];
+        } else if (pattern.dayOfMonth) {
+          targetDay = pattern.dayOfMonth;
         } else {
-          // No daysOfWeek — just advance 2 weeks from anchor
-          const candidate = new Date(anchor);
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-          candidate.setDate(candidate.getDate() + 14);
-          while (candidate <= now) {
-            candidate.setDate(candidate.getDate() + 14);
-          }
-          nextExecution = candidate;
+          targetDay = 1;
         }
 
-        const changes: Record<string, any> = {
-          recurrencePattern: newPattern,
-          updatedAt: serverTimestamp(),
-        };
-        if (nextExecution) {
-          changes.nextExecution = nextExecution;
-        }
-
-        updates.push({ id: docSnap.id, label, changes });
-      } else if (label === 'BI-MONTHLY') {
-        // Fix: interval 1 → 2, keep type monthly
         const newPattern = {
           ...pattern,
           type: 'monthly',
           interval: 2,
+          daysOfMonth: [targetDay],
+          dayOfMonth: targetDay,
         };
 
-        // If daysOfMonth had 2 entries (old "twice a month"), keep only the first
-        if (Array.isArray(pattern.daysOfMonth) && pattern.daysOfMonth.length > 1) {
-          newPattern.daysOfMonth = [pattern.daysOfMonth[0]];
-          newPattern.dayOfMonth = pattern.daysOfMonth[0];
-        }
-
-        // Recalculate nextExecution: from anchor, find next occurrence on the target day of month, every 2 months
+        // Calculate nextExecution: find next occurrence of targetDay, every 2 months from last execution
         let nextExecution: Date | null = null;
-        const lastExec = data.lastExecution?.toDate?.() || data.nextExecution?.toDate?.();
-        const startDate = pattern.startDate?.toDate?.() || pattern.startDate;
-        const anchor = lastExec || (startDate ? new Date(startDate) : new Date());
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
+        const lastExecDate = executedDates.length > 0 ? executedDates[0] : null;
+        const startDate = pattern.startDate?.toDate?.() || (pattern.startDate ? new Date(pattern.startDate) : null);
+        const anchor = lastExecDate || startDate || new Date();
 
-        const targetDays = newPattern.daysOfMonth || (newPattern.dayOfMonth ? [newPattern.dayOfMonth] : [1]);
-        const targetDay = targetDays[0];
-
-        // Start from anchor month, find next valid date every 2 months
-        let cursor = new Date(anchor);
-        cursor.setDate(1); // start of month
+        // Start from anchor month, advance by 2 months until we find a future date
+        let cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1, 9, 0, 0);
+        // Move to next interval from anchor
+        cursor.setMonth(cursor.getMonth() + 2);
         let iters = 0;
         while (iters < 24) {
           const lastDayOfMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
@@ -116,38 +105,119 @@ export async function POST(request: NextRequest) {
             nextExecution = candidate;
             break;
           }
-          cursor.setMonth(cursor.getMonth() + 2); // advance 2 months
+          cursor.setMonth(cursor.getMonth() + 2);
           iters++;
+        }
+
+        // Delete future non-executed records (generated on old monthly schedule)
+        for (const execId of futureNonExecutedIds) {
+          await deleteDoc(doc(db, 'recurringWorkOrderExecutions', execId));
         }
 
         const changes: Record<string, any> = {
           recurrencePattern: newPattern,
           updatedAt: serverTimestamp(),
         };
-        if (nextExecution) {
-          changes.nextExecution = nextExecution;
+        if (nextExecution) changes.nextExecution = nextExecution;
+
+        await updateDoc(doc(db, 'recurringWorkOrders', docSnap.id), changes);
+
+        results.push({
+          id: docSnap.id,
+          label,
+          targetDay,
+          executedCount: executedDates.length,
+          deletedFutureExecs: futureNonExecutedIds.length,
+          nextExecution: nextExecution?.toISOString() || 'unchanged',
+          previousDaysOfMonth: pattern.daysOfMonth,
+          previousDayOfMonth: pattern.dayOfMonth,
+        });
+
+      } else if (label === 'BI-WEEKLY') {
+        // Determine target day of week from execution history or existing pattern
+        let targetDayOfWeek: number;
+        if (executedDates.length > 0) {
+          // Use the most common day-of-week from executed records
+          const dayCounts = new Map<number, number>();
+          for (const d of executedDates) {
+            const dow = d.getDay();
+            dayCounts.set(dow, (dayCounts.get(dow) || 0) + 1);
+          }
+          targetDayOfWeek = [...dayCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+        } else if (Array.isArray(pattern.daysOfWeek) && pattern.daysOfWeek.length > 0) {
+          targetDayOfWeek = pattern.daysOfWeek[0];
+        } else {
+          targetDayOfWeek = 1; // default to Monday
         }
 
-        updates.push({ id: docSnap.id, label, changes });
-      }
-    }
+        const newPattern = {
+          ...pattern,
+          type: 'weekly',
+          interval: 2,
+          daysOfWeek: [targetDayOfWeek],
+        };
 
-    // Apply all updates
-    for (const update of updates) {
-      await updateDoc(doc(db, 'recurringWorkOrders', update.id), update.changes);
+        // Calculate nextExecution
+        let nextExecution: Date | null = null;
+        const lastExecDate = executedDates.length > 0 ? executedDates[0] : null;
+        const startDate = pattern.startDate?.toDate?.() || (pattern.startDate ? new Date(pattern.startDate) : null);
+        const anchor = lastExecDate || startDate || new Date();
+
+        let candidate = new Date(anchor);
+        candidate.setHours(9, 0, 0, 0);
+        candidate.setDate(candidate.getDate() + 1); // advance past current
+        // Find next occurrence of target day
+        while (candidate.getDay() !== targetDayOfWeek) {
+          candidate.setDate(candidate.getDate() + 1);
+        }
+        // If within 7 days of last execution, skip ahead to 2 weeks from last
+        if (lastExecDate) {
+          const twoWeeksAfterLast = new Date(lastExecDate);
+          twoWeeksAfterLast.setDate(twoWeeksAfterLast.getDate() + 14);
+          twoWeeksAfterLast.setHours(0, 0, 0, 0);
+          while (candidate < twoWeeksAfterLast) {
+            candidate.setDate(candidate.getDate() + 14);
+          }
+        }
+        // Make sure it's in the future
+        while (candidate <= now) {
+          candidate.setDate(candidate.getDate() + 14);
+        }
+        nextExecution = candidate;
+
+        // Delete future non-executed records
+        for (const execId of futureNonExecutedIds) {
+          await deleteDoc(doc(db, 'recurringWorkOrderExecutions', execId));
+        }
+
+        const changes: Record<string, any> = {
+          recurrencePattern: newPattern,
+          updatedAt: serverTimestamp(),
+        };
+        if (nextExecution) changes.nextExecution = nextExecution;
+
+        await updateDoc(doc(db, 'recurringWorkOrders', docSnap.id), changes);
+
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        results.push({
+          id: docSnap.id,
+          label,
+          targetDayOfWeek: dayNames[targetDayOfWeek],
+          executedCount: executedDates.length,
+          deletedFutureExecs: futureNonExecutedIds.length,
+          nextExecution: nextExecution?.toISOString() || 'unchanged',
+          previousDaysOfWeek: pattern.daysOfWeek,
+        });
+      }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Updated ${updates.length} recurring work orders`,
-      details: updates.map(u => ({
-        id: u.id,
-        label: u.label,
-        nextExecution: u.changes.nextExecution?.toISOString?.() || u.changes.nextExecution || 'unchanged',
-      })),
+      message: `Migrated ${results.length} recurring work orders`,
+      results,
     });
   } catch (error: any) {
-    console.error('Migration error:', error);
+    console.error('Migration v3 error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
