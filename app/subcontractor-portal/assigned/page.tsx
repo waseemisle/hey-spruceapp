@@ -10,7 +10,7 @@ import { createNotification } from '@/lib/notifications';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ClipboardList, CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock, Upload, Image as ImageIcon } from 'lucide-react';
+import { ClipboardList, CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { formatAddress } from '@/lib/utils';
@@ -72,6 +72,7 @@ export default function SubcontractorAssignedJobs() {
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [acceptSubmitting, setAcceptSubmitting] = useState(false);
   const [acceptingJobId, setAcceptingJobId] = useState<string | null>(null);
   const [acceptingWorkOrderId, setAcceptingWorkOrderId] = useState<string | null>(null);
   const [serviceDate, setServiceDate] = useState('');
@@ -160,138 +161,108 @@ export default function SubcontractorAssignedJobs() {
       toast.error('Please select service date and arrival time');
       return;
     }
-
     if (serviceTimeEnd && serviceTimeEnd <= serviceTimeStart) {
       toast.error('End time must be after start time');
       return;
     }
-
     if (!acceptingJobId || !acceptingWorkOrderId) return;
 
+    setAcceptSubmitting(true);
+    const jobId = acceptingJobId;
+    const woId = acceptingWorkOrderId;
+    const currentUser = auth.currentUser;
+
     try {
-      // Update assigned job status with scheduled service date/time
-      await updateDoc(doc(db, 'assignedJobs', acceptingJobId), {
-        status: 'accepted',
-        acceptedAt: serverTimestamp(),
+      // Critical writes only — update job + work order status
+      await updateDoc(doc(db, 'assignedJobs', jobId), {
+        status: 'accepted', acceptedAt: serverTimestamp(),
         scheduledServiceDate: new Date(serviceDate + 'T' + serviceTimeStart),
         scheduledServiceTime: serviceTimeStart,
         scheduledServiceTimeEnd: serviceTimeEnd || null,
       });
 
-      // Get work order data for notifications and timeline
-      const workOrderDoc = await getDoc(doc(db, 'workOrders', acceptingWorkOrderId));
-      const workOrderData = workOrderDoc.data();
-      const existingTimeline = workOrderData?.timeline || [];
-      const existingSysInfo = workOrderData?.systemInformation || {};
-
-      // Get subcontractor name
-      const currentUser = auth.currentUser;
-      let subName = workOrderData?.assignedToName || 'Subcontractor';
-      if (currentUser) {
-        const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
-        if (subDoc.exists()) subName = subDoc.data().fullName || subName;
-      }
-
-      const timelineEvent = createTimelineEvent({
-        type: 'schedule_set',
-        userId: currentUser?.uid || 'unknown',
-        userName: subName,
-        userRole: 'subcontractor',
-        details: `Assignment accepted by ${subName}. Scheduled for ${serviceDate} at ${serviceTimeStart}${serviceTimeEnd ? ` - ${serviceTimeEnd}` : ''}`,
-        metadata: { serviceDate, serviceTimeStart, serviceTimeEnd: serviceTimeEnd || null },
-      });
-
-      // Update work order status
-      await updateDoc(doc(db, 'workOrders', acceptingWorkOrderId), {
+      await updateDoc(doc(db, 'workOrders', woId), {
         status: 'accepted_by_subcontractor',
         scheduledServiceDate: new Date(serviceDate + 'T' + serviceTimeStart),
         scheduledServiceTime: serviceTimeStart,
         scheduledServiceTimeEnd: serviceTimeEnd || null,
         updatedAt: serverTimestamp(),
-        timeline: [...existingTimeline, timelineEvent],
-        systemInformation: {
-          ...existingSysInfo,
-          scheduledService: {
-            date: new Date(serviceDate + 'T' + serviceTimeStart),
-            time: serviceTimeStart,
-            setBy: { id: currentUser?.uid || 'unknown', name: subName },
-          },
-        },
       });
 
-      // Notify client of scheduling (in-app notification)
-      if (workOrderData?.clientId) {
-        const scheduledDateTime = new Date(serviceDate + 'T' + serviceTimeStart);
-        const timeRange = serviceTimeEnd
-          ? `${serviceTimeStart} - ${serviceTimeEnd}`
-          : serviceTimeStart;
-        await notifyScheduledService(
-          workOrderData.clientId,
-          acceptingWorkOrderId,
-          workOrderData.title || workOrderData.workOrderNumber || 'Work Order',
-          scheduledDateTime.toLocaleDateString(),
-          timeRange
-        );
-      }
-
-      // Send email to client
-      if (workOrderData?.clientEmail && workOrderData?.clientName) {
-        try {
-          const emailResponse = await fetch('/api/email/send-scheduled-service', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              toEmail: workOrderData.clientEmail,
-              toName: workOrderData.clientName,
-              workOrderNumber: workOrderData.workOrderNumber || acceptingWorkOrderId,
-              workOrderTitle: workOrderData.title || 'Work Order',
-              scheduledDate: serviceDate,
-              scheduledTimeStart: serviceTimeStart,
-              scheduledTimeEnd: serviceTimeEnd || null,
-              locationName: workOrderData.locationName || '',
-              locationAddress: workOrderData.locationAddress || workOrderData.location?.address || '',
-            }),
-          });
-
-          if (!emailResponse.ok) {
-            console.error('Failed to send scheduled service email');
-            // Don't fail the whole operation if email fails
-          }
-        } catch (emailError) {
-          console.error('Error sending scheduled service email:', emailError);
-          // Don't fail the whole operation if email fails
-        }
-      }
-
-      // Notify all admins
-      const adminIds = await getAllAdminUserIds();
-      if (adminIds.length > 0) {
-        const scheduledDateTime = new Date(serviceDate + 'T' + serviceTimeStart);
-        const timeRange = serviceTimeEnd
-          ? `${serviceTimeStart} - ${serviceTimeEnd}`
-          : serviceTimeStart;
-        await createNotification({
-          recipientIds: adminIds,
-          userRole: 'admin',
-          type: 'schedule',
-          title: 'Work Order Scheduled',
-          message: `Work Order ${workOrderData?.workOrderNumber || acceptingWorkOrderId} scheduled for ${scheduledDateTime.toLocaleDateString()} ${timeRange}`,
-          link: `/admin-portal/work-orders/${acceptingWorkOrderId}`,
-          referenceId: acceptingWorkOrderId,
-          referenceType: 'workOrder',
-        });
-      }
-
-      toast.success('Assignment accepted successfully with scheduled service date!');
+      // DONE — close modal immediately
+      toast.success('Assignment accepted successfully!');
       setShowAcceptModal(false);
       setAcceptingJobId(null);
       setAcceptingWorkOrderId(null);
       setServiceDate('');
       setServiceTimeStart('09:00');
       setServiceTimeEnd('17:00');
+      setAcceptSubmitting(false);
+
+      // ── Background: timeline, notifications, emails ──
+      (async () => {
+        try {
+          const woSnap = await getDoc(doc(db, 'workOrders', woId));
+          const woData = woSnap.data();
+          let subName = woData?.assignedToName || 'Subcontractor';
+          if (currentUser) {
+            const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+            if (subDoc.exists()) subName = subDoc.data().fullName || subName;
+          }
+
+          // Timeline update
+          const timelineEvent = createTimelineEvent({
+            type: 'schedule_set', userId: currentUser?.uid || 'unknown', userName: subName, userRole: 'subcontractor',
+            details: `Assignment accepted by ${subName}. Scheduled for ${serviceDate} at ${serviceTimeStart}${serviceTimeEnd ? ` - ${serviceTimeEnd}` : ''}`,
+            metadata: { serviceDate, serviceTimeStart, serviceTimeEnd: serviceTimeEnd || null },
+          });
+          await updateDoc(doc(db, 'workOrders', woId), {
+            timeline: [...(woData?.timeline || []), timelineEvent],
+            systemInformation: {
+              ...(woData?.systemInformation || {}),
+              scheduledService: {
+                date: new Date(serviceDate + 'T' + serviceTimeStart), time: serviceTimeStart,
+                setBy: { id: currentUser?.uid || 'unknown', name: subName },
+              },
+            },
+          });
+
+          // Notify client
+          if (woData?.clientId) {
+            const timeRange = serviceTimeEnd ? `${serviceTimeStart} - ${serviceTimeEnd}` : serviceTimeStart;
+            notifyScheduledService(woData.clientId, woId, woData.title || woData.workOrderNumber || 'Work Order', new Date(serviceDate + 'T' + serviceTimeStart).toLocaleDateString(), timeRange).catch(console.error);
+          }
+
+          // Email client
+          if (woData?.clientEmail && woData?.clientName) {
+            fetch('/api/email/send-scheduled-service', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toEmail: woData.clientEmail, toName: woData.clientName,
+                workOrderNumber: woData.workOrderNumber || woId, workOrderTitle: woData.title || 'Work Order',
+                scheduledDate: serviceDate, scheduledTimeStart: serviceTimeStart, scheduledTimeEnd: serviceTimeEnd || null,
+                locationName: woData.locationName || '', locationAddress: woData.locationAddress || '',
+              }),
+            }).catch(console.error);
+          }
+
+          // Notify admins
+          const adminIds = await getAllAdminUserIds();
+          if (adminIds.length > 0) {
+            const timeRange = serviceTimeEnd ? `${serviceTimeStart} - ${serviceTimeEnd}` : serviceTimeStart;
+            createNotification({
+              recipientIds: adminIds, userRole: 'admin', type: 'schedule', title: 'Work Order Scheduled',
+              message: `Work Order ${woData?.workOrderNumber || woId} scheduled for ${new Date(serviceDate + 'T' + serviceTimeStart).toLocaleDateString()} ${timeRange}`,
+              link: `/admin-portal/work-orders/${woId}`, referenceId: woId, referenceType: 'workOrder',
+            }).catch(console.error);
+          }
+        } catch (e) { console.error('Background accept tasks failed:', e); }
+      })();
+
     } catch (error) {
       console.error('Error accepting assignment:', error);
       toast.error('Failed to accept assignment');
+      setAcceptSubmitting(false);
     }
   };
 
@@ -794,9 +765,13 @@ export default function SubcontractorAssignedJobs() {
                   <Button
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                     onClick={handleConfirmAccept}
+                    disabled={acceptSubmitting}
                   >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve Work Order
+                    {acceptSubmitting ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                    ) : (
+                      <><CheckCircle className="h-4 w-4 mr-2" />Approve Work Order</>
+                    )}
                   </Button>
                   <Button
                     variant="outline"
