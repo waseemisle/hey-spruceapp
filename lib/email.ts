@@ -1,25 +1,7 @@
 import FormData from 'form-data';
 import Mailgun from 'mailgun.js';
-import { getServerDb } from '@/lib/firebase-server';
-import { doc, getDoc } from 'firebase/firestore';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/**
- * Check if emails are globally enabled. Returns true if emails should be sent.
- * Reads from Firestore appSettings/email document.
- */
-async function isEmailEnabled(): Promise<boolean> {
-  try {
-    const db = await getServerDb();
-    const settingsDoc = await getDoc(doc(db, 'appSettings', 'email'));
-    if (!settingsDoc.exists()) return true; // Default: enabled
-    return settingsDoc.data().enabled !== false;
-  } catch (error) {
-    console.warn('⚠️ Could not check email settings, defaulting to enabled:', error);
-    return true; // Fail-open: send emails if we can't check settings
-  }
-}
 
 /**
  * Send multiple emails sequentially with a delay between each to avoid
@@ -81,14 +63,6 @@ export async function sendEmail({
   html: string;
   attachments?: AttachmentInput[];
 }) {
-  // Check global email kill switch
-  const emailEnabled = await isEmailEnabled();
-  if (!emailEnabled) {
-    const recipients = Array.isArray(to) ? to : [to];
-    console.log('🚫 Emails are globally disabled. Skipping email to:', recipients.join(', '), 'Subject:', subject);
-    return { success: true, id: 'emails-disabled' };
-  }
-
   const domain = process.env.MAILGUN_DOMAIN;
   const fromEmail = process.env.FROM_EMAIL || 'info@groundops.co';
 
