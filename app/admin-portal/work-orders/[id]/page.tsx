@@ -798,6 +798,7 @@ export default function ViewWorkOrder() {
         else toast.success(`${matchingCount} subcontractor(s) match "${workOrder.category}".`);
       }
 
+      subsData.sort((a, b) => (b.matchesCategory ? 1 : 0) - (a.matchesCategory ? 1 : 0));
       setSubcontractors(subsData);
       setSelectedSubcontractors([]);
       setShowBiddingModal(true);
