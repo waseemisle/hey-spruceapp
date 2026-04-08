@@ -299,8 +299,11 @@ export default function CronJobsPage() {
                       <div className="font-medium text-foreground truncate">{rwo.title}</div>
                       <div className="text-xs text-muted-foreground">{rwo.clientName} — {rwo.locationName}</div>
                     </div>
-                    <div className="text-xs text-orange-700 font-medium shrink-0 ml-2">
-                      Due: {new Date(rwo.nextExecution).toLocaleDateString()}
+                    <div className="text-xs text-orange-700 font-medium shrink-0 ml-2 tabular-nums">
+                      {(() => {
+                        const ms = Math.max(0, new Date(rwo.nextExecution).getTime() - now.getTime());
+                        return ms <= 0 ? 'Now' : fmtCountdown(ms);
+                      })()}
                     </div>
                   </div>
                 ))}
