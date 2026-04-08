@@ -193,7 +193,7 @@ export async function POST(request: Request) {
         emailError = err.message || String(err);
         console.error('❌ Error sending invitation email:', err);
         console.error('❌ Error details:', err.message || err);
-        await logEmail({ type: 'invitation', to: email, subject: `Welcome to GroundOps - Set Up Your Account`, status: 'failed', context: { fullName: userData.fullName, role }, error: emailError }).catch(() => {});
+        await logEmail({ type: 'invitation', to: email, subject: `Welcome to GroundOps - Set Up Your Account`, status: 'failed', context: { fullName: userData.fullName, role }, error: emailError || undefined }).catch(() => {});
         // Don't fail the user creation if email fails, but log the error
         // The user can still be created and manually sent an invitation later
       }
