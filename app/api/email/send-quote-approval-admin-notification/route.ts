@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     const eligibleAdmins = adminsSnapshot.docs
       .map(doc => ({ uid: doc.id, ...doc.data() } as any))
-      .filter(admin => admin.email && admin.workOrderEmailNotifications === true);
+      .filter(admin => admin.email && admin.workOrderEmailNotifications !== false);
 
     if (eligibleAdmins.length === 0) {
       return NextResponse.json({ success: true, message: 'No admins with email notifications enabled' });
