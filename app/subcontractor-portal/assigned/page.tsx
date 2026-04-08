@@ -79,6 +79,7 @@ export default function SubcontractorAssignedJobs() {
   const [serviceTimeStart, setServiceTimeStart] = useState('09:00');
   const [serviceTimeEnd, setServiceTimeEnd] = useState('17:00');
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionSubmitting, setCompletionSubmitting] = useState(false);
   const [completingWorkOrderId, setCompletingWorkOrderId] = useState<string | null>(null);
   const [completionDetails, setCompletionDetails] = useState('');
   const [completionNotes, setCompletionNotes] = useState('');
@@ -358,125 +359,93 @@ export default function SubcontractorAssignedJobs() {
       toast.error('Please provide details about the work completed');
       return;
     }
-
     if (!completionFiles || completionFiles.length === 0) {
       toast.error('Please upload at least one completion image or file');
       return;
     }
-
     if (!completingWorkOrderId) return;
 
+    setCompletionSubmitting(true);
+    const woId = completingWorkOrderId;
+    const details = completionDetails;
+    const notes = completionNotes;
+    const currentUser = auth.currentUser;
+
     try {
-      // Upload completion images if any
+      // Step 1: Upload images (must wait — needed for API call)
       let completionImageUrls: string[] = [];
-      if (completionFiles && completionFiles.length > 0) {
-        setUploadingFiles(true);
-        try {
-          completionImageUrls = await uploadMultipleToCloudinary(completionFiles);
-        } catch (error) {
-          console.error('Error uploading completion images:', error);
-          toast.error('Failed to upload images. Please try again.');
-          setUploadingFiles(false);
-          return;
-        }
+      setUploadingFiles(true);
+      try {
+        completionImageUrls = await uploadMultipleToCloudinary(completionFiles);
+      } catch (error) {
+        toast.error('Failed to upload images. Please try again.');
         setUploadingFiles(false);
+        setCompletionSubmitting(false);
+        return;
       }
+      setUploadingFiles(false);
 
-      // Get work order data for notifications and timeline
-      const workOrderDoc = await getDoc(doc(db, 'workOrders', completingWorkOrderId));
-      const workOrderData = workOrderDoc.data();
-      const existingTimeline = workOrderData?.timeline || [];
-      const existingSysInfo = workOrderData?.systemInformation || {};
-
-      const currentUser = auth.currentUser;
-      let subName = workOrderData?.assignedToName || 'Subcontractor';
+      // Step 2: Get sub name + call complete API (critical path)
+      let subName = 'Subcontractor';
       if (currentUser) {
-        const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
-        if (subDoc.exists()) subName = subDoc.data().fullName || subName;
+        try {
+          const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+          if (subDoc.exists()) subName = subDoc.data().fullName || subName;
+        } catch {}
       }
 
-      // Update work order via API route (server-side) to bypass Firestore client rules
       const idToken = await currentUser?.getIdToken();
       const completeRes = await fetch('/api/work-orders/complete', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
-        },
-        body: JSON.stringify({
-          workOrderId: completingWorkOrderId,
-          completionDetails,
-          completionNotes,
-          completionImageUrls,
-          subName,
-        }),
+        headers: { 'Content-Type': 'application/json', ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}) },
+        body: JSON.stringify({ workOrderId: woId, completionDetails: details, completionNotes: notes, completionImageUrls, subName }),
       });
       if (!completeRes.ok) {
         const err = await completeRes.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to mark work order complete');
       }
 
-      // Notify client and admin of completion
-      if (workOrderData?.clientId) {
-        await notifyWorkOrderCompletion(
-          workOrderData.clientId,
-          completingWorkOrderId,
-          workOrderData.workOrderNumber || completingWorkOrderId
-        );
-      }
-
-      // Send work order completion notification email to client
-      if (workOrderData?.clientEmail && workOrderData?.clientName) {
-        fetch('/api/email/send-work-order-completion-client', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toEmail: workOrderData.clientEmail,
-            toName: workOrderData.clientName,
-            workOrderNumber: workOrderData.workOrderNumber || completingWorkOrderId,
-            workOrderTitle: workOrderData.title || 'Work Order',
-            completedBy: subName,
-            locationName: workOrderData.locationName || '',
-          }),
-        }).catch(err => console.error('Failed to send client completion email:', err));
-      }
-
-      // Send completion email notification to admins
-      fetch('/api/email/send-work-order-completed-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workOrderId: completingWorkOrderId,
-          workOrderNumber: workOrderData?.workOrderNumber || completingWorkOrderId,
-          title: workOrderData?.title || 'Work Order',
-          clientName: workOrderData?.clientName || '',
-          locationName: workOrderData?.locationName || '',
-          priority: workOrderData?.priority || 'medium',
-          completedBy: subName,
-          completionDetails: completionDetails,
-        }),
-      }).catch(err => console.error('Failed to send completion notification emails:', err));
-
-      // Update local work order state so the UI reflects the change immediately
+      // DONE — close modal immediately
       setWorkOrders(prev => {
         const updated = new Map(prev);
-        const wo = updated.get(completingWorkOrderId);
-        if (wo) {
-          updated.set(completingWorkOrderId, { ...wo, status: 'completed', completedAt: new Date() });
-        }
+        const wo = updated.get(woId);
+        if (wo) updated.set(woId, { ...wo, status: 'completed', completedAt: new Date() });
         return updated;
       });
-
-      toast.success('Job marked as complete! The admin will review and process the invoice.');
+      toast.success('Job marked as complete!');
       setShowCompletionModal(false);
       setCompletingWorkOrderId(null);
       setCompletionDetails('');
       setCompletionNotes('');
       setCompletionFiles(null);
       setCompletionPreviewUrls([]);
+      setCompletionSubmitting(false);
+
+      // ── Background: notifications + emails ──
+      (async () => {
+        try {
+          const woSnap = await getDoc(doc(db, 'workOrders', woId));
+          const woData = woSnap.data();
+          if (woData?.clientId) {
+            notifyWorkOrderCompletion(woData.clientId, woId, woData.workOrderNumber || woId).catch(console.error);
+          }
+          if (woData?.clientEmail && woData?.clientName) {
+            fetch('/api/email/send-work-order-completion-client', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ toEmail: woData.clientEmail, toName: woData.clientName, workOrderNumber: woData.workOrderNumber || woId, workOrderTitle: woData.title || 'Work Order', completedBy: subName, locationName: woData.locationName || '' }),
+            }).catch(console.error);
+          }
+          fetch('/api/email/send-work-order-completed-notification', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workOrderId: woId, workOrderNumber: woData?.workOrderNumber || woId, title: woData?.title || 'Work Order', clientName: woData?.clientName || '', locationName: woData?.locationName || '', priority: woData?.priority || 'medium', completedBy: subName, completionDetails: details }),
+          }).catch(console.error);
+        } catch (e) { console.error('Background complete tasks failed:', e); }
+      })();
+
     } catch (error) {
       console.error('Error marking job complete:', error);
       toast.error('Failed to mark job as complete');
+      setCompletionSubmitting(false);
     }
   };
 
@@ -894,10 +863,13 @@ export default function SubcontractorAssignedJobs() {
                   <Button
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                     onClick={handleConfirmComplete}
-                    loading={uploadingFiles} disabled={uploadingFiles}
+                    disabled={completionSubmitting || uploadingFiles}
                   >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    {uploadingFiles ? 'Uploading Files...' : 'Mark as Complete'}
+                    {completionSubmitting || uploadingFiles ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{uploadingFiles ? 'Uploading Files...' : 'Saving...'}</>
+                    ) : (
+                      <><CheckCircle className="h-4 w-4 mr-2" />Mark as Complete</>
+                    )}
                   </Button>
                   <Button
                     variant="outline"
