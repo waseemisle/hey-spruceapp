@@ -32,6 +32,7 @@ interface BiddingWorkOrder {
   locationName: string;
   locationAddress: string;
   images?: string[];
+  estimateBudget?: number;
   status: string;
   sharedAt: any;
 }
@@ -399,6 +400,81 @@ export default function SubcontractorBidding() {
             }
           />
 
+          {/* Work Order Details */}
+          <Card className="rounded-xl border border-border shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Work Order Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedBidding.workOrderTitle && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Title</p>
+                    <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderTitle}</p>
+                  </div>
+                )}
+                {selectedBidding.workOrderNumber && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                    <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderNumber}</p>
+                  </div>
+                )}
+                {selectedBidding.category && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Category</p>
+                    <p className="text-sm text-foreground">{selectedBidding.category}</p>
+                  </div>
+                )}
+                {selectedBidding.priority && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Priority</p>
+                    <p className="text-sm text-foreground capitalize">{selectedBidding.priority}</p>
+                  </div>
+                )}
+                {(selectedBidding as any).estimateBudget != null && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
+                    <p className="text-sm text-foreground">${Number((selectedBidding as any).estimateBudget).toLocaleString()}</p>
+                  </div>
+                )}
+                {selectedBidding.locationName && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Location</p>
+                    <p className="text-sm text-foreground">{selectedBidding.locationName}</p>
+                  </div>
+                )}
+                {selectedBidding.locationAddress && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Address</p>
+                    <p className="text-sm text-foreground">{selectedBidding.locationAddress}</p>
+                  </div>
+                )}
+              </div>
+              {selectedBidding.workOrderDescription && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selectedBidding.workOrderDescription}</p>
+                </div>
+              )}
+              {selectedBidding.images && selectedBidding.images.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedBidding.images.length})</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {selectedBidding.images.map((img, i) => (
+                      <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors">
+                        <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quote Form */}
           <Card className="rounded-xl border border-border shadow-sm">
             <CardHeader>
               <CardTitle>Quote Details</CardTitle>

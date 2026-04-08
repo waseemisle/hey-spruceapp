@@ -850,6 +850,7 @@ export default function ViewWorkOrder() {
           priority: workOrder.priority || '', category: workOrder.category || '',
           locationName: workOrder.locationName || '', locationAddress: workOrder.locationAddress || '',
           images: workOrder.images || [],
+          estimateBudget: workOrder.estimateBudget ?? null,
           status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
         });
       })).catch(console.error);
