@@ -645,16 +645,8 @@ export default function SubcontractorAssignedJobs() {
             {filteredJobs.map((job) => {
               const workOrder = workOrders.get(job.workOrderId);
 
-              // Show a loading card if work order details haven't loaded yet
-              if (!workOrder) {
-                return (
-                  <div key={job.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 animate-pulse">
-                    <div className="h-4 bg-muted rounded w-3/4" />
-                    <div className="h-3 bg-muted rounded w-1/2" />
-                    <div className="h-8 bg-muted rounded w-full mt-2" />
-                  </div>
-                );
-              }
+              // Skip jobs where work order couldn't be loaded (permission denied or deleted)
+              if (!workOrder) return null;
 
               const effectiveStatus = (workOrder.status === 'completed' || workOrder.status === 'pending_invoice') ? 'completed' : job.status;
               const jobStatusCfg = JOB_STATUS_CONFIG[effectiveStatus] || JOB_STATUS_CONFIG['pending_acceptance'];
