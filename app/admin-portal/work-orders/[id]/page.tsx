@@ -1443,6 +1443,23 @@ export default function ViewWorkOrder() {
         status: 'pending_acceptance',
       });
 
+      // Send assignment email to subcontractor (fire-and-forget)
+      if (sub.email) {
+        fetch('/api/email/send-assignment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: sub.email,
+            toName: sub.fullName,
+            workOrderNumber: workOrder.workOrderNumber,
+            workOrderTitle: workOrder.title,
+            clientName: workOrder.clientName,
+            locationName: workOrder.locationName,
+            locationAddress: workOrder.locationAddress,
+          }),
+        }).catch(err => console.error('Failed to send assignment email:', err));
+      }
+
       setWorkOrder(prev => prev ? { ...prev, ...updatePayload, status: 'assigned', assignedSubcontractorName: sub.fullName } : prev);
       setShowAssignModal(false);
       setAssignFromQuote(null);

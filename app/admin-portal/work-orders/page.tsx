@@ -337,6 +337,23 @@ const fetchCategories = async () => {
         workOrderData.workOrderNumber || workOrderId
       );
 
+      // Send approval email to client (fire-and-forget)
+      if (workOrderData.clientEmail) {
+        fetch('/api/email/send-work-order-approved', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workOrderId,
+            workOrderNumber: workOrderData.workOrderNumber || workOrderId,
+            title: workOrderData.title,
+            clientName: workOrderData.clientName,
+            clientEmail: workOrderData.clientEmail,
+            locationName: workOrderData.locationName,
+            priority: workOrderData.priority,
+          }),
+        }).catch(err => console.error('Failed to send approval email:', err));
+      }
+
       // Send WhatsApp notification to client
       try {
         const clientDoc = await getDoc(doc(db, 'clients', workOrderData.clientId));
@@ -1524,7 +1541,7 @@ const handleLocationSelect = (locationId: string) => {
         });
 
         const workOrderNumber = `WO-${Date.now().toString().slice(-8).toUpperCase()}`;
-        await addDoc(collection(db, 'workOrders'), {
+        const docRef = await addDoc(collection(db, 'workOrders'), {
           ...workOrderData,
           workOrderNumber,
           images: [],
@@ -1539,6 +1556,41 @@ const handleLocationSelect = (locationId: string) => {
             },
           },
         });
+
+        // Send email notifications to admins with work order emails enabled (fire-and-forget)
+        fetch('/api/email/send-work-order-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workOrderId: docRef.id,
+            workOrderNumber,
+            title: formData.title,
+            clientName: client.fullName,
+            locationName: location.locationName,
+            priority: formData.priority,
+            workOrderType: formData.isMaintenanceRequestOrder ? 'maintenance' : 'standard',
+            description: formData.description,
+          }),
+        }).catch(err => console.error('Failed to send work order notification emails:', err));
+
+        // Send confirmation email to the client (fire-and-forget)
+        if (client.email) {
+          fetch('/api/email/send-work-order-received', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              workOrderId: docRef.id,
+              workOrderNumber,
+              title: formData.title,
+              clientName: client.fullName,
+              clientEmail: client.email,
+              locationName: location.locationName,
+              priority: formData.priority,
+              description: formData.description,
+            }),
+          }).catch(err => console.error('Failed to send work order received email:', err));
+        }
+
         toast.success('Work order created successfully');
       }
 

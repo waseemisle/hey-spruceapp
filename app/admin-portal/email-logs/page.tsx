@@ -61,6 +61,7 @@ const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
   'work-order-completion-client': 'WO Completed (Client)',
   'work-order-received': 'Work Order Received (Client)',
   'quote-approval-admin-notification': 'Quote Approval (Admin)',
+  'work-order-approved': 'Work Order Approved',
   test: 'Test Email',
 };
 
@@ -86,6 +87,7 @@ const EMAIL_TYPE_COLORS: Record<EmailType, string> = {
   'work-order-completion-client': 'bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-300',
   'work-order-received': 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-300',
   'quote-approval-admin-notification': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+  'work-order-approved': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   test: 'bg-muted text-foreground dark:bg-gray-700 dark:text-gray-300',
 };
 

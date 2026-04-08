@@ -23,6 +23,7 @@ export type EmailType =
   | 'work-order-completion-client'
   | 'work-order-received'
   | 'quote-approval-admin-notification'
+  | 'work-order-approved'
   | 'test';
 
 export interface EmailLogEntry {
