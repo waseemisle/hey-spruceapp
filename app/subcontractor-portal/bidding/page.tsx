@@ -749,6 +749,17 @@ export default function SubcontractorBidding() {
                 {/* Actions row */}
                 <div className="border-t border-border pt-1 flex gap-2 mt-auto">
                   <Button
+                    variant="outline"
+                    className="flex-1 h-8 text-xs gap-1"
+                    onClick={() => {
+                      setSelectedBidding(bidding);
+                      setShowQuoteForm(true);
+                    }}
+                  >
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    View Work Order
+                  </Button>
+                  <Button
                     className="flex-1 h-8 text-xs gap-1"
                     onClick={() => {
                       setSelectedBidding(bidding);
