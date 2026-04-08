@@ -1,28 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail, sendEmailsSequentially } from '@/lib/email';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, inMemoryPersistence, setPersistence } from 'firebase/auth';
+import { collection, getDocs } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, infoCard, infoRow, ctaButton, alertBox, priorityBadge } from '@/lib/email-template';
 import {
   SUPPORT_CATEGORY_LABELS,
   SUPPORT_TYPE_LABELS,
 } from '@/lib/support-ticket-helpers';
-
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,13 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const app = getFirebaseApp();
-    const auth = getAuth(app);
-    if (!auth.currentUser && process.env.FIREBASE_SYNC_EMAIL && process.env.FIREBASE_SYNC_PASSWORD) {
-      await setPersistence(auth, inMemoryPersistence);
-      await signInWithEmailAndPassword(auth, process.env.FIREBASE_SYNC_EMAIL, process.env.FIREBASE_SYNC_PASSWORD);
-    }
-    const db = getFirestore(app);
+    const db = await getServerDb();
     const adminsSnapshot = await getDocs(collection(db, 'adminUsers'));
 
     const eligibleAdmins = adminsSnapshot.docs

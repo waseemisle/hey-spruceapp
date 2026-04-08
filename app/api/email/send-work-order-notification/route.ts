@@ -1,24 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail, sendEmailsSequentially } from '@/lib/email';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, inMemoryPersistence, setPersistence } from 'firebase/auth';
+import { collection, getDocs } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, infoCard, infoRow, ctaButton, alertBox, priorityBadge } from '@/lib/email-template';
-
-const getFirebaseApp = () => {
-  if (getApps().length === 0) {
-    return initializeApp({
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    });
-  }
-  return getApp();
-};
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +14,7 @@ export async function POST(request: NextRequest) {
       clientName,
       locationName,
       priority,
-      workOrderType, // 'standard' | 'recurring' | 'maintenance'
+      workOrderType,
       description,
     } = await request.json();
 
@@ -37,14 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Fetch admin users from Firestore — must sign in first since rules require auth
-    const app = getFirebaseApp();
-    const auth = getAuth(app);
-    if (!auth.currentUser && process.env.FIREBASE_SYNC_EMAIL && process.env.FIREBASE_SYNC_PASSWORD) {
-      await setPersistence(auth, inMemoryPersistence);
-      await signInWithEmailAndPassword(auth, process.env.FIREBASE_SYNC_EMAIL, process.env.FIREBASE_SYNC_PASSWORD);
-    }
-    const db = getFirestore(app);
+    const db = await getServerDb();
     const adminsSnapshot = await getDocs(collection(db, 'adminUsers'));
 
     const eligibleAdmins = adminsSnapshot.docs
@@ -110,6 +88,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, sent: sentCount, failed: failedCount });
   } catch (error: any) {
     console.error('Error sending work order notification emails:', error);
+    await logEmail({ type: 'work-order-notification', to: '', subject: '', status: 'failed', context: {}, error: error.message || String(error) }).catch(() => {});
     return NextResponse.json(
       { error: 'Failed to send work order notification emails', details: error.message },
       { status: 500 }
