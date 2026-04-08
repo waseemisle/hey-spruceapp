@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,7 +116,10 @@ export default function MaintRequestsPage() {
 
   const fetchApiTokens = async () => {
     try {
-      const response = await fetch('/api/api-tokens');
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      const response = await fetch('/api/api-tokens', {
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+      });
       const result = await response.json();
       if (result.success) {
         setApiTokens(result.data);
@@ -133,9 +136,13 @@ export default function MaintRequestsPage() {
     }
 
     try {
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
       const response = await fetch('/api/api-tokens', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({ name: newTokenName }),
       });
 
@@ -162,8 +169,10 @@ export default function MaintRequestsPage() {
         label: 'Delete',
         onClick: async () => {
           try {
+            const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
             const response = await fetch(`/api/api-tokens?id=${tokenId}`, {
               method: 'DELETE',
+              headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
             });
 
             const result = await response.json();

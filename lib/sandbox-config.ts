@@ -1,7 +1,6 @@
 // All Firestore collections to copy from production → staging
 export const SYNC_COLLECTIONS = [
   'adminUsers',
-  'api_tokens',
   'assignedJobs',
   'biddingWorkOrders',
   'categories',
