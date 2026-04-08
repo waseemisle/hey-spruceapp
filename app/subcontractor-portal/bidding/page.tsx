@@ -51,6 +51,7 @@ export default function SubcontractorBidding() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBidding, setSelectedBidding] = useState<BiddingWorkOrder | null>(null);
   const [showQuoteForm, setShowQuoteForm] = useState(false);
+  const [viewWorkOrder, setViewWorkOrder] = useState<BiddingWorkOrder | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [quoteForm, setQuoteForm] = useState({
@@ -377,6 +378,122 @@ export default function SubcontractorBidding() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
+      </SubcontractorLayout>
+    );
+  }
+
+  if (viewWorkOrder) {
+    return (
+      <SubcontractorLayout>
+        <PageContainer>
+          <PageHeader
+            title="Work Order Details"
+            subtitle={viewWorkOrder.workOrderNumber ? `Work Order: ${viewWorkOrder.workOrderNumber}` : viewWorkOrder.workOrderTitle}
+            icon={ClipboardList}
+            iconClassName="text-blue-600"
+            action={
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setViewWorkOrder(null)}>
+                  Back
+                </Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    setSelectedBidding(viewWorkOrder);
+                    setShowQuoteForm(true);
+                    setViewWorkOrder(null);
+                  }}
+                >
+                  <DollarSign className="h-4 w-4 mr-1" />
+                  Submit Quote
+                </Button>
+              </div>
+            }
+          />
+
+          <Card className="rounded-xl border border-border shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Work Order Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {viewWorkOrder.workOrderTitle && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Title</p>
+                    <p className="text-sm font-semibold text-foreground">{viewWorkOrder.workOrderTitle}</p>
+                  </div>
+                )}
+                {viewWorkOrder.workOrderNumber && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                    <p className="text-sm font-semibold text-foreground">{viewWorkOrder.workOrderNumber}</p>
+                  </div>
+                )}
+                {viewWorkOrder.category && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Category</p>
+                    <p className="text-sm text-foreground">{viewWorkOrder.category}</p>
+                  </div>
+                )}
+                {viewWorkOrder.priority && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Priority</p>
+                    <p className="text-sm text-foreground capitalize">{viewWorkOrder.priority}</p>
+                  </div>
+                )}
+                {viewWorkOrder.estimateBudget != null && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
+                    <p className="text-sm text-foreground">${Number(viewWorkOrder.estimateBudget).toLocaleString()}</p>
+                  </div>
+                )}
+                {viewWorkOrder.locationName && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Location Name</p>
+                    <p className="text-sm text-foreground">{viewWorkOrder.locationName}</p>
+                  </div>
+                )}
+                {viewWorkOrder.locationAddress && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Address</p>
+                    <p className="text-sm text-foreground">{formatAddress(viewWorkOrder.locationAddress)}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Client</p>
+                  <p className="text-sm text-foreground">{viewWorkOrder.clientName}</p>
+                </div>
+                {viewWorkOrder.sharedAt && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Shared Date</p>
+                    <p className="text-sm text-foreground">{viewWorkOrder.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
+                  </div>
+                )}
+              </div>
+              {viewWorkOrder.workOrderDescription && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{viewWorkOrder.workOrderDescription}</p>
+                </div>
+              )}
+              {viewWorkOrder.images && viewWorkOrder.images.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({viewWorkOrder.images.length})</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {viewWorkOrder.images.map((img, i) => (
+                      <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors">
+                        <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </PageContainer>
       </SubcontractorLayout>
     );
   }
@@ -751,10 +868,7 @@ export default function SubcontractorBidding() {
                   <Button
                     variant="outline"
                     className="flex-1 h-8 text-xs gap-1"
-                    onClick={() => {
-                      setSelectedBidding(bidding);
-                      setShowQuoteForm(true);
-                    }}
+                    onClick={() => setViewWorkOrder(bidding)}
                   >
                     <ClipboardList className="h-3.5 w-3.5" />
                     View Work Order

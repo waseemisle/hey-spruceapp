@@ -131,9 +131,9 @@ export default function RecurringWorkOrdersManagement() {
     switch (label) {
       case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6, daysOfMonth };
       case 'QUARTERLY':    return { mode: 'monthly', interval: 3, daysOfMonth };
-      case 'BI-MONTHLY':   return { mode: 'monthly', interval: 1, daysOfMonth }; // twice a month
+      case 'BI-MONTHLY':   return { mode: 'monthly', interval: 2, daysOfMonth }; // every 2 months
       case 'MONTHLY':      return { mode: 'monthly', interval: 1, daysOfMonth };
-      case 'BI-WEEKLY':    return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
+      case 'BI-WEEKLY':    return { mode: 'weekly', interval: 2, daysOfWeek: pattern?.daysOfWeek }; // every 2 weeks
       case 'WEEKLY':       return { mode: 'weekly', interval: 1 };
       case 'DAILY':        return { mode: 'daily', interval: 1, daysOfWeek: pattern?.daysOfWeek };
     }

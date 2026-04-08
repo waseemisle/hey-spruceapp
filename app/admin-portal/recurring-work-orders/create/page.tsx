@@ -264,13 +264,13 @@ export default function CreateRecurringWorkOrder() {
       return;
     }
 
-    if (formData.recurrencePatternLabel === 'BI-WEEKLY' && formData.recurrenceDaysOfWeek.length !== 2) {
-      toast.error('Please select exactly 2 days for the bi-weekly (twice a week) recurrence');
+    if (formData.recurrencePatternLabel === 'BI-WEEKLY' && formData.recurrenceDaysOfWeek.length !== 1) {
+      toast.error('Please select exactly 1 day of the week for the bi-weekly (every 2 weeks) recurrence');
       return;
     }
 
-    if (formData.recurrencePatternLabel === 'BI-MONTHLY' && formData.recurrenceDaysOfMonth.length !== 2) {
-      toast.error('Please select exactly 2 days of the month for the bi-monthly (twice a month) recurrence');
+    if (formData.recurrencePatternLabel === 'BI-MONTHLY' && formData.recurrenceDaysOfMonth.length !== 1) {
+      toast.error('Please select exactly 1 day of the month for the bi-monthly (every 2 months) recurrence');
       return;
     }
 
@@ -342,7 +342,8 @@ export default function CreateRecurringWorkOrder() {
         if (!found) {
           // Move to next month interval
           const monthInterval = formData.recurrencePatternLabel === 'QUARTERLY' ? 3
-            : formData.recurrencePatternLabel === 'SEMIANNUALLY' ? 6 : 1;
+            : formData.recurrencePatternLabel === 'SEMIANNUALLY' ? 6
+            : formData.recurrencePatternLabel === 'BI-MONTHLY' ? 2 : 1;
           const nextMonth = new Date(startDate);
           nextMonth.setMonth(nextMonth.getMonth() + monthInterval);
           const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
@@ -384,11 +385,8 @@ export default function CreateRecurringWorkOrder() {
 
       const invoiceSchedule: InvoiceSchedule = {
         type: formData.invoiceScheduleType,
-        interval: formData.invoiceScheduleType === 'bi-monthly' ? 1 : formData.invoiceScheduleType === 'quarterly' ? 3 : formData.invoiceScheduleType === 'semiannually' ? 6 : formData.invoiceScheduleInterval,
+        interval: formData.invoiceScheduleType === 'bi-monthly' ? 2 : formData.invoiceScheduleType === 'quarterly' ? 3 : formData.invoiceScheduleType === 'semiannually' ? 6 : formData.invoiceScheduleInterval,
         dayOfMonth: formData.invoiceScheduleDayOfMonth,
-        ...(formData.invoiceScheduleType === 'bi-monthly' && {
-          secondDayOfMonth: formData.invoiceScheduleSecondDayOfMonth,
-        }),
         time: formData.invoiceTime,
         timezone: formData.timezone,
       } as InvoiceSchedule;
@@ -514,8 +512,8 @@ export default function CreateRecurringWorkOrder() {
     else if (label === 'SEMIANNUALLY') { type = 'monthly'; interval = 6; invoiceScheduleType = 'semiannually'; }
     else if (label === 'QUARTERLY') { type = 'monthly'; interval = 3; invoiceScheduleType = 'quarterly'; }
     else if (label === 'MONTHLY') { type = 'monthly'; interval = 1; invoiceScheduleType = 'monthly'; }
-    else if (label === 'BI-MONTHLY') { type = 'monthly'; interval = 1; }
-    else if (label === 'BI-WEEKLY') { type = 'weekly'; interval = 1; }
+    else if (label === 'BI-MONTHLY') { type = 'monthly'; interval = 2; invoiceScheduleType = 'monthly'; }
+    else if (label === 'BI-WEEKLY') { type = 'weekly'; interval = 2; }
     setFormData({
       ...formData,
       recurrencePatternLabel: label,
@@ -555,7 +553,7 @@ export default function CreateRecurringWorkOrder() {
 
   // Whether this pattern needs a day-of-month picker
   const needsDayOfMonthPicker = ['MONTHLY', 'BI-MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(formData.recurrencePatternLabel);
-  const isBiMonthly = formData.recurrencePatternLabel === 'BI-MONTHLY';
+  const isBiMonthly = false; // BI-MONTHLY now means every 2 months (single day pick, like MONTHLY)
 
   // SearchableSelect option arrays
   const clientOptions: SearchableSelectOption[] = clients.map(c => ({
@@ -621,7 +619,7 @@ export default function CreateRecurringWorkOrder() {
 
   const invoiceScheduleTypeOptions: SearchableSelectOption[] = [
     { value: 'monthly', label: 'Monthly' },
-    { value: 'bi-monthly', label: 'Bi-Monthly (twice per month)' },
+    { value: 'bi-monthly', label: 'Bi-Monthly (every 2 months)' },
     { value: 'quarterly', label: 'Quarterly (every 3 months)' },
     { value: 'semiannually', label: 'Semi-Annually (every 6 months)' },
   ];
@@ -789,8 +787,8 @@ export default function CreateRecurringWorkOrder() {
                 <p className="text-xs text-muted-foreground mt-1">
                   This work order will repeat{' '}
                   <strong>
-                    {formData.recurrencePatternLabel === 'BI-WEEKLY' ? 'TWICE A WEEK'
-                      : formData.recurrencePatternLabel === 'BI-MONTHLY' ? 'TWICE A MONTH'
+                    {formData.recurrencePatternLabel === 'BI-WEEKLY' ? 'EVERY 2 WEEKS'
+                      : formData.recurrencePatternLabel === 'BI-MONTHLY' ? 'EVERY 2 MONTHS'
                       : formData.recurrencePatternLabel === 'MONTHLY' ? 'MONTHLY'
                       : formData.recurrencePatternLabel === 'QUARTERLY' ? 'QUARTERLY (every 3 months)'
                       : formData.recurrencePatternLabel === 'SEMIANNUALLY' ? 'SEMIANNUALLY (every 6 months)'
@@ -845,11 +843,11 @@ export default function CreateRecurringWorkOrder() {
               {/* DAILY / BI-WEEKLY: day-of-week checkboxes */}
               {(formData.recurrencePatternLabel === 'DAILY' || formData.recurrencePatternLabel === 'BI-WEEKLY') && (
                 <div>
-                  <Label>{formData.recurrencePatternLabel === 'BI-WEEKLY' ? 'Select 2 Days Per Week *' : 'Select Days *'}</Label>
+                  <Label>{formData.recurrencePatternLabel === 'BI-WEEKLY' ? 'Select Day of the Week *' : 'Select Days *'}</Label>
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     {daysOfWeek.map((day, index) => {
                       const isSelected = formData.recurrenceDaysOfWeek.includes(index);
-                      const isDisabled = formData.recurrencePatternLabel === 'BI-WEEKLY' && !isSelected && formData.recurrenceDaysOfWeek.length >= 2;
+                      const isDisabled = formData.recurrencePatternLabel === 'BI-WEEKLY' && !isSelected && formData.recurrenceDaysOfWeek.length >= 1;
                       return (
                         <label
                           key={day}
@@ -873,8 +871,8 @@ export default function CreateRecurringWorkOrder() {
                       );
                     })}
                   </div>
-                  {formData.recurrencePatternLabel === 'BI-WEEKLY' && formData.recurrenceDaysOfWeek.length !== 2 && (
-                    <p className="text-xs text-yellow-600 mt-1">Select exactly 2 days per week.</p>
+                  {formData.recurrencePatternLabel === 'BI-WEEKLY' && formData.recurrenceDaysOfWeek.length !== 1 && (
+                    <p className="text-xs text-yellow-600 mt-1">Select exactly 1 day of the week.</p>
                   )}
                   {formData.recurrencePatternLabel === 'DAILY' && formData.recurrenceDaysOfWeek.length === 0 && (
                     <p className="text-xs text-yellow-600 mt-1">Select at least one day.</p>
@@ -899,12 +897,26 @@ export default function CreateRecurringWorkOrder() {
                   const upcoming: string[] = [];
                   let d = new Date(start);
                   let count = 0;
-                  while (upcoming.length < 5 && count < 14) {
-                    if (formData.recurrenceDaysOfWeek.includes(d.getDay())) {
-                      upcoming.push(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+                  if (formData.recurrencePatternLabel === 'BI-WEEKLY') {
+                    // Every 2 weeks on the selected day
+                    while (upcoming.length < 5 && count < 365) {
+                      if (formData.recurrenceDaysOfWeek.includes(d.getDay())) {
+                        upcoming.push(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+                        d.setDate(d.getDate() + 14); // skip 2 weeks
+                        count += 14;
+                        continue;
+                      }
+                      d.setDate(d.getDate() + 1);
+                      count++;
                     }
-                    d.setDate(d.getDate() + 1);
-                    count++;
+                  } else {
+                    while (upcoming.length < 5 && count < 14) {
+                      if (formData.recurrenceDaysOfWeek.includes(d.getDay())) {
+                        upcoming.push(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+                      }
+                      d.setDate(d.getDate() + 1);
+                      count++;
+                    }
                   }
                   return upcoming.length > 0 ? (
                     <div className="mt-2 p-2 bg-blue-50 rounded-md">
@@ -921,7 +933,8 @@ export default function CreateRecurringWorkOrder() {
                   const upcoming: string[] = [];
                   const cursor = new Date(start);
                   const monthInterval = formData.recurrencePatternLabel === 'QUARTERLY' ? 3
-                    : formData.recurrencePatternLabel === 'SEMIANNUALLY' ? 6 : 1;
+                    : formData.recurrencePatternLabel === 'SEMIANNUALLY' ? 6
+                    : formData.recurrencePatternLabel === 'BI-MONTHLY' ? 2 : 1;
                   let iters = 0;
                   while (upcoming.length < 5 && iters < 24) {
                     for (const dom of formData.recurrenceDaysOfMonth) {
@@ -1032,33 +1045,20 @@ export default function CreateRecurringWorkOrder() {
 
               {formData.invoiceScheduleType === 'bi-monthly' && (
                 <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">Two invoices will be sent each month — one on the 1st date and one on the 2nd date.</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>1st Invoice Day</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={formData.invoiceScheduleDayOfMonth}
-                        onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">e.g., 1 = 1st of month</p>
-                    </div>
-                    <div>
-                      <Label>2nd Invoice Day</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={formData.invoiceScheduleSecondDayOfMonth}
-                        onChange={(e) => setFormData({ ...formData, invoiceScheduleSecondDayOfMonth: parseInt(e.target.value) || 15 })}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">e.g., 15 = 15th of month</p>
-                    </div>
+                  <p className="text-xs text-muted-foreground">An invoice will be sent every 2 months on the selected day.</p>
+                  <div>
+                    <Label>Invoice Day of Month</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={formData.invoiceScheduleDayOfMonth}
+                      onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">e.g., 1 = 1st of month</p>
                   </div>
                   <div className="p-3 bg-blue-50 rounded-md text-sm text-blue-700">
-                    Invoices will be sent on the <strong>{formData.invoiceScheduleDayOfMonth}{getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}</strong> and <strong>{formData.invoiceScheduleSecondDayOfMonth}{getOrdinalSuffix(formData.invoiceScheduleSecondDayOfMonth)}</strong> of each month.
+                    Invoices will be sent on the <strong>{formData.invoiceScheduleDayOfMonth}{getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}</strong> of every 2nd month.
                   </div>
                 </div>
               )}
@@ -1104,9 +1104,9 @@ export default function CreateRecurringWorkOrder() {
                 {formData.recurrencePatternLabel === 'DAILY'
                   ? `Daily — ${formData.recurrenceDaysOfWeek.length > 0 ? formData.recurrenceDaysOfWeek.map(d => daysOfWeek[d]).join(', ') : 'No days selected'}${formData.recurrenceStartDate ? ` from ${new Date(formData.recurrenceStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}`
                   : formData.recurrencePatternLabel === 'BI-WEEKLY'
-                  ? `Twice a week — ${formData.recurrenceDaysOfWeek.length > 0 ? formData.recurrenceDaysOfWeek.map(d => daysOfWeek[d]).join(' & ') : 'No days selected'}${formData.recurrenceStartDate ? ` from ${new Date(formData.recurrenceStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}`
+                  ? `Every 2 weeks — ${formData.recurrenceDaysOfWeek.length > 0 ? daysOfWeek[formData.recurrenceDaysOfWeek[0]] : 'No day selected'}${formData.recurrenceStartDate ? ` from ${new Date(formData.recurrenceStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}`
                   : formData.recurrencePatternLabel === 'BI-MONTHLY'
-                  ? `Twice a month — on the ${formData.recurrenceDaysOfMonth.length > 0 ? formData.recurrenceDaysOfMonth.map(d => getOrdinalSuffixShort(d)).join(' & ') : 'No days selected'}`
+                  ? `Every 2 months — on the ${formData.recurrenceDaysOfMonth.length > 0 ? getOrdinalSuffixShort(formData.recurrenceDaysOfMonth[0]) : 'No day selected'}`
                   : needsDayOfMonthPicker
                   ? `${formData.recurrencePatternLabel} — on the ${formData.recurrenceDaysOfMonth.length > 0 ? getOrdinalSuffixShort(formData.recurrenceDaysOfMonth[0]) : 'No day selected'}`
                   : `Every ${formData.recurrenceInterval} ${formData.recurrenceType}`}
@@ -1114,7 +1114,7 @@ export default function CreateRecurringWorkOrder() {
               <div className="text-sm">
                 <span className="font-semibold">Invoice Schedule:</span>{' '}
                 {formData.invoiceScheduleType === 'bi-monthly'
-                  ? `Bi-Monthly — ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)} & ${formData.invoiceScheduleSecondDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleSecondDayOfMonth)} of each month`
+                  ? `Bi-Monthly (every 2 months) on the ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}`
                   : formData.invoiceScheduleType === 'quarterly'
                   ? `Quarterly (every 3 months) on the ${formData.invoiceScheduleDayOfMonth}${getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}`
                   : formData.invoiceScheduleType === 'semiannually'

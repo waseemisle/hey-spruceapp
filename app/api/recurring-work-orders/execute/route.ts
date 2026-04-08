@@ -374,9 +374,9 @@ function resolveMode(recurringWorkOrder: any): { mode: 'daily' | 'weekly' | 'mon
   switch (label) {
     case 'DAILY':        return { mode: 'daily', interval: 1, daysOfWeek: pattern.daysOfWeek };
     case 'WEEKLY':       return { mode: 'weekly', interval: 1 };
-    case 'BI-WEEKLY':    return { mode: 'daily', interval: 1, daysOfWeek: pattern.daysOfWeek };
+    case 'BI-WEEKLY':    return { mode: 'weekly', interval: 2, daysOfWeek: pattern.daysOfWeek };
     case 'MONTHLY':      return { mode: 'monthly', interval: 1, daysOfMonth };
-    case 'BI-MONTHLY':   return { mode: 'monthly', interval: 1, daysOfMonth }; // twice a month
+    case 'BI-MONTHLY':   return { mode: 'monthly', interval: 2, daysOfMonth }; // every 2 months
     case 'QUARTERLY':    return { mode: 'monthly', interval: 3, daysOfMonth };
     case 'SEMIANNUALLY': return { mode: 'monthly', interval: 6, daysOfMonth };
   }
@@ -404,9 +404,9 @@ function calculateNextExecution(recurringWorkOrder: any, currentExecution: Date)
   switch (label) {
     case 'DAILY':        mode = 'daily'; interval = 1; break;
     case 'WEEKLY':       mode = 'weekly'; interval = 1; break;
-    case 'BI-WEEKLY':    mode = 'daily'; interval = 1; break; // twice a week — uses daysOfWeek
+    case 'BI-WEEKLY':    mode = 'weekly'; interval = 2; break; // every 2 weeks — uses daysOfWeek
     case 'MONTHLY':      mode = 'monthly'; interval = 1; break;
-    case 'BI-MONTHLY':   mode = 'monthly'; interval = 1; break; // twice a month — uses daysOfMonth
+    case 'BI-MONTHLY':   mode = 'monthly'; interval = 2; break; // every 2 months — uses daysOfMonth
     case 'QUARTERLY':    mode = 'monthly'; interval = 3; break;
     case 'SEMIANNUALLY': mode = 'monthly'; interval = 6; break;
     default:
@@ -415,7 +415,7 @@ function calculateNextExecution(recurringWorkOrder: any, currentExecution: Date)
       else if (pattern.type === 'monthly') { mode = 'monthly'; interval = pattern.interval || 1; }
   }
 
-  const hasDaysFilter = (label === 'DAILY' || label === 'BI-WEEKLY') && daysOfWeek.length > 0;
+  const hasDaysFilter = label === 'DAILY' && daysOfWeek.length > 0;
   const hasDaysOfMonth = daysOfMonth.length > 0 && mode === 'monthly';
 
   // Keep advancing until the next execution is in the future
