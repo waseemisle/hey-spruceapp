@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw, CheckCircle2, XCircle, Trash2, Power } from 'lucide-react';
+import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmailType } from '@/lib/email-logger';
 
@@ -316,58 +316,6 @@ export default function EmailLogsPage() {
   const [page, setPage] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
-  const [emailsEnabled, setEmailsEnabled] = useState(true);
-  const [togglingEmails, setTogglingEmails] = useState(false);
-
-  // Fetch global email enabled status
-  async function fetchEmailStatus() {
-    try {
-      const res = await fetch('/api/email/toggle');
-      const data = await res.json();
-      setEmailsEnabled(data.enabled);
-    } catch (error) {
-      console.error('Failed to fetch email status:', error);
-    }
-  }
-
-  async function handleToggleEmails() {
-    const newEnabled = !emailsEnabled;
-    const action = newEnabled ? 'enable' : 'disable';
-
-    if (!newEnabled) {
-      const confirmed = window.confirm(
-        'Are you sure you want to DISABLE all outgoing emails?\n\n' +
-        'No emails will be sent from the system until you turn them back on.'
-      );
-      if (!confirmed) return;
-    }
-
-    setTogglingEmails(true);
-    try {
-      const currentUser = auth.currentUser;
-      const res = await fetch('/api/email/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          enabled: newEnabled,
-          userId: currentUser?.uid || 'unknown',
-          userName: currentUser?.displayName || currentUser?.email || 'Admin',
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setEmailsEnabled(data.enabled);
-        toast.success(`All emails ${newEnabled ? 'enabled' : 'disabled'}`);
-      } else {
-        toast.error(`Failed to ${action} emails`);
-      }
-    } catch (error) {
-      console.error(`Failed to ${action} emails:`, error);
-      toast.error(`Failed to ${action} emails`);
-    } finally {
-      setTogglingEmails(false);
-    }
-  }
 
   async function loadAll() {
     setLoading(true);
@@ -384,7 +332,7 @@ export default function EmailLogsPage() {
     }
   }
 
-  useEffect(() => { loadAll(); fetchEmailStatus(); }, []);
+  useEffect(() => { loadAll(); }, []);
 
   async function handleRefresh() {
     setSyncing(true);
@@ -468,29 +416,7 @@ export default function EmailLogsPage() {
             </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            {/* Email Kill Switch */}
-            <Button
-              size="sm"
-              variant={emailsEnabled ? 'outline' : 'destructive'}
-              onClick={handleToggleEmails}
-              disabled={togglingEmails}
-              className={emailsEnabled
-                ? 'border-green-300 text-green-700 hover:bg-green-50'
-                : 'animate-pulse'
-              }
-            >
-              <Power className="h-4 w-4 mr-2" />
-              {togglingEmails
-                ? 'Updating...'
-                : emailsEnabled
-                ? 'Emails: ON'
-                : 'Emails: OFF'}
-            </Button>
-            {!emailsEnabled && (
-              <span className="text-xs text-red-600 font-medium bg-red-50 px-2 py-1 rounded">
-                All outgoing emails are disabled
-              </span>
-            )}
+            {/* Emails always on — no kill switch */}
             <span className="bg-muted px-3 py-1 rounded-full text-sm font-medium">
               {allLoaded ? `${filtered.length} of ${allLogs.length} emails` : 'Loading...'}
             </span>
