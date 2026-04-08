@@ -238,6 +238,7 @@ export default function GuidedWorkOrderCreate() {
       fetch('/api/email/send-work-order-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
         body: JSON.stringify({
           workOrderId: docRef.id,
           workOrderNumber,
@@ -254,6 +255,7 @@ export default function GuidedWorkOrderCreate() {
       fetch('/api/email/send-work-order-received', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
         body: JSON.stringify({
           workOrderId: docRef.id,
           workOrderNumber,

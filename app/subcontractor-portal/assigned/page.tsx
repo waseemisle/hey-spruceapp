@@ -237,7 +237,7 @@ export default function SubcontractorAssignedJobs() {
           // Email client
           if (woData?.clientEmail && woData?.clientName) {
             fetch('/api/email/send-scheduled-service', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
               body: JSON.stringify({
                 toEmail: woData.clientEmail, toName: woData.clientName,
                 workOrderNumber: woData.workOrderNumber || woId, workOrderTitle: woData.title || 'Work Order',
@@ -431,12 +431,12 @@ export default function SubcontractorAssignedJobs() {
           }
           if (woData?.clientEmail && woData?.clientName) {
             fetch('/api/email/send-work-order-completion-client', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
               body: JSON.stringify({ toEmail: woData.clientEmail, toName: woData.clientName, workOrderNumber: woData.workOrderNumber || woId, workOrderTitle: woData.title || 'Work Order', completedBy: subName, locationName: woData.locationName || '' }),
             }).catch(console.error);
           }
           fetch('/api/email/send-work-order-completed-notification', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
             body: JSON.stringify({ workOrderId: woId, workOrderNumber: woData?.workOrderNumber || woId, title: woData?.title || 'Work Order', clientName: woData?.clientName || '', locationName: woData?.locationName || '', priority: woData?.priority || 'medium', completedBy: subName, completionDetails: details }),
           }).catch(console.error);
         } catch (e) { console.error('Background complete tasks failed:', e); }

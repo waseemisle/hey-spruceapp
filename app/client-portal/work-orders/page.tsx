@@ -525,7 +525,7 @@ function ClientWorkOrdersContent() {
         const sub = subcontractors.find(s => s.id === subId);
         if (sub?.email) {
           fetch('/api/email/send-bidding-opportunity', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
             body: JSON.stringify({ toEmail: sub.email, toName: sub.fullName, workOrderNumber, workOrderTitle: wo.title, workOrderDescription: wo.description, locationName: wo.locationName, category: wo.category, priority: wo.priority, portalLink: `${window.location.origin}/subcontractor-portal/bidding` }),
           }).catch(console.error);
         }

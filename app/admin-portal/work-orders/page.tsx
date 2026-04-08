@@ -342,6 +342,7 @@ const fetchCategories = async () => {
         fetch('/api/email/send-work-order-approved', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
           body: JSON.stringify({
             workOrderId,
             workOrderNumber: workOrderData.workOrderNumber || workOrderId,
@@ -1561,6 +1562,7 @@ const handleLocationSelect = (locationId: string) => {
         fetch('/api/email/send-work-order-notification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
           body: JSON.stringify({
             workOrderId: docRef.id,
             workOrderNumber,
@@ -1578,6 +1580,7 @@ const handleLocationSelect = (locationId: string) => {
           fetch('/api/email/send-work-order-received', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
             body: JSON.stringify({
               workOrderId: docRef.id,
               workOrderNumber,

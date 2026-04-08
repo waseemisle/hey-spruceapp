@@ -244,6 +244,7 @@ export default function SubcontractorBidding() {
         fetch('/api/email/send-quote-notification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
           body: JSON.stringify({
             notifyAdmins: true,
             workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,

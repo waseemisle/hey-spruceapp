@@ -862,6 +862,7 @@ export default function ViewWorkOrder() {
         if (sub?.email) {
           fetch('/api/email/send-bidding-opportunity', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
             body: JSON.stringify({
               toEmail: sub.email, toName: sub.fullName, workOrderNumber,
               workOrderTitle: workOrder.title, workOrderDescription: workOrder.description,
@@ -1448,6 +1449,7 @@ export default function ViewWorkOrder() {
         fetch('/api/email/send-assignment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
           body: JSON.stringify({
             toEmail: sub.email,
             toName: sub.fullName,

@@ -314,6 +314,7 @@ export default function CreateWorkOrder() {
       fetch('/api/email/send-work-order-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
         body: JSON.stringify({
           workOrderId: workOrderRef.id,
           workOrderNumber,
@@ -330,6 +331,7 @@ export default function CreateWorkOrder() {
       fetch('/api/email/send-work-order-received', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
         body: JSON.stringify({
           workOrderId: workOrderRef.id,
           workOrderNumber,
