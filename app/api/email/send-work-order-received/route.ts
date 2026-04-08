@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
     } = await request.json();
 
     if (!clientEmail || !workOrderNumber || !title) {
+      await logEmail({ type: 'work-order-received', to: clientEmail || '(no client email)', subject: `Work Order ${workOrderNumber || '?'} — ${title || '?'}`, status: 'skipped', context: { workOrderId, workOrderNumber, title, clientName, reason: !clientEmail ? 'Client has no email address' : 'Missing required fields' } }).catch(() => {});
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 

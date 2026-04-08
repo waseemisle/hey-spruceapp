@@ -33,7 +33,7 @@ interface EmailLog {
   type: EmailType;
   to: string | string[];
   subject: string;
-  status: 'sent' | 'failed';
+  status: 'sent' | 'failed' | 'skipped';
   context: Record<string, any>;
   error?: string;
   sentAt: Timestamp | null;
@@ -590,6 +590,10 @@ export default function EmailLogsPage() {
                           {log.status === 'sent' ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
                               <CheckCircle2 className="h-3 w-3" /> Sent
+                            </span>
+                          ) : log.status === 'skipped' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                              <XCircle className="h-3 w-3" /> Skipped
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">

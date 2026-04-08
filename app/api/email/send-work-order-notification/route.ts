@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
       .filter(admin => admin.email && admin.workOrderEmailNotifications === true);
 
     if (eligibleAdmins.length === 0) {
+      await logEmail({ type: 'work-order-notification', to: '(no eligible admins)', subject: `New Work Order: ${workOrderNumber} — ${title}`, status: 'skipped', context: { workOrderId, workOrderNumber, title, clientName, locationName, priority, workOrderType, reason: 'No admins have workOrderEmailNotifications enabled' } }).catch(() => {});
       return NextResponse.json({ success: true, message: 'No admins with email notifications enabled' });
     }
 

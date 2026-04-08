@@ -29,7 +29,7 @@ export interface EmailLogEntry {
   type: EmailType;
   to: string | string[];
   subject: string;
-  status: 'sent' | 'failed';
+  status: 'sent' | 'failed' | 'skipped';
   context: Record<string, any>;
   error?: string;
   sentAt: any; // Firestore serverTimestamp
