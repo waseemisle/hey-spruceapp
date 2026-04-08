@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
+import { logEmail } from '@/lib/email-logger';
 
 export async function POST(request: Request) {
   try {
@@ -178,18 +179,21 @@ export async function POST(request: Request) {
         `;
 
         // Send email via Mailgun
+        const invSubject = `Welcome to GroundOps - Set Up Your ${roleTitle} Account`;
         await sendEmail({
           to: email,
-          subject: `Welcome to GroundOps - Set Up Your ${roleTitle} Account`,
+          subject: invSubject,
           html: emailHtml,
         });
 
         emailSent = true;
         console.log('✅ Invitation email sent successfully via Mailgun to:', email);
+        await logEmail({ type: 'invitation', to: email, subject: invSubject, status: 'sent', context: { fullName: userData.fullName, role, portalName } }).catch(() => {});
       } catch (err: any) {
         emailError = err.message || String(err);
         console.error('❌ Error sending invitation email:', err);
         console.error('❌ Error details:', err.message || err);
+        await logEmail({ type: 'invitation', to: email, subject: `Welcome to GroundOps - Set Up Your Account`, status: 'failed', context: { fullName: userData.fullName, role }, error: emailError }).catch(() => {});
         // Don't fail the user creation if email fails, but log the error
         // The user can still be created and manually sent an invitation later
       }
