@@ -467,148 +467,92 @@ function ClientWorkOrdersContent() {
 
   const handleSubmitBidding = async () => {
     if (!workOrderToShare) return;
-
     if (selectedSubcontractors.length === 0) {
       toast.error('Please select at least one subcontractor');
       return;
     }
 
     setSubmitting(true);
+    const wo = workOrderToShare;
+    const subs = [...selectedSubcontractors];
+    const currentUser = auth.currentUser;
 
     try {
-      // Ensure workOrderNumber exists, generate if missing
-      const workOrderNumber = workOrderToShare.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
-
-      // Create bidding work order for each selected subcontractor
-      const subAuthIds = selectedSubcontractors.map((subId) => {
+      const workOrderNumber = wo.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
+      const subAuthIds = subs.map((subId) => {
         const sub = subcontractors.find((s) => s.id === subId);
         return sub ? subcontractorAuthId(sub) : subId;
       });
 
-      const promises = selectedSubcontractors.map(async (subId) => {
-        const sub = subcontractors.find(s => s.id === subId);
-        if (!sub) return;
-        const authId = subcontractorAuthId(sub);
-
-        await addDoc(collection(db, 'biddingWorkOrders'), {
-          workOrderId: workOrderToShare.id,
-          workOrderNumber: workOrderNumber,
-          subcontractorId: authId,
-          subcontractorName: sub.fullName,
-          subcontractorEmail: sub.email,
-          workOrderTitle: workOrderToShare.title,
-          workOrderDescription: workOrderToShare.description,
-          clientId: workOrderToShare.clientId,
-          clientName: workOrderToShare.clientName,
-          companyId: workOrderToShare.companyId || null,
-          status: 'pending',
-          sharedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-        });
-      });
-
-      await Promise.all(promises);
-
-      // Notify all selected subcontractors about bidding opportunity
-      await notifyBiddingOpportunity(
-        subAuthIds,
-        workOrderToShare.id,
-        workOrderNumber,
-        workOrderToShare.title
-      );
-
-      // Send email notifications to all selected subcontractors
-      try {
-        for (const subId of selectedSubcontractors) {
-          const sub = subcontractors.find(s => s.id === subId);
-          if (sub && sub.email) {
-            await fetch('/api/email/send-bidding-opportunity', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                toEmail: sub.email,
-                toName: sub.fullName,
-                workOrderNumber: workOrderNumber,
-                workOrderTitle: workOrderToShare.title,
-                workOrderDescription: workOrderToShare.description,
-                locationName: workOrderToShare.locationName,
-                category: workOrderToShare.category,
-                priority: workOrderToShare.priority,
-                portalLink: `${window.location.origin}/subcontractor-portal/bidding`,
-              }),
-            });
-          }
-        }
-      } catch (emailError) {
-        console.error('Failed to send bidding opportunity emails:', emailError);
-        // Don't fail the whole operation if emails fail
-      }
-
-      // Get current user data for timeline
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
-      const clientName = clientDoc.exists() ? clientDoc.data().fullName : 'Client';
-
-      // Get current work order data for timeline
-      const workOrderDoc = await getDoc(doc(db, 'workOrders', workOrderToShare.id));
-      const workOrderData = workOrderDoc.data();
-      const existingTimeline = workOrderData?.timeline || [];
-      const existingSysInfo = workOrderData?.systemInformation || {};
-
-      // Get subcontractor names for timeline
-      const selectedSubNames = selectedSubcontractors.map(subId => {
-        const sub = subcontractors.find(s => s.id === subId);
-        return sub ? sub.fullName : 'Unknown';
-      }).join(', ');
-
-      // Create timeline event
-      const timelineEvent = {
-        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        timestamp: Timestamp.now(),
-        type: 'shared_for_bidding',
-        userId: currentUser.uid,
-        userName: clientName,
-        userRole: 'client',
-        details: `Shared for bidding with ${selectedSubcontractors.length} subcontractor(s): ${selectedSubNames}`,
-        metadata: {
-          subcontractorIds: selectedSubcontractors,
-          subcontractorCount: selectedSubcontractors.length,
-        }
-      };
-
-      // Update system information
-      const updatedSysInfo = {
-        ...existingSysInfo,
-        sharedForBidding: {
-          by: { id: currentUser.uid, name: clientName },
-          timestamp: Timestamp.now(),
-          subcontractors: selectedSubcontractors.map(subId => {
-            const sub = subcontractors.find(s => s.id === subId);
-            return { id: subId, name: sub ? sub.fullName : 'Unknown' };
-          })
-        }
-      };
-
-      // Update work order status and ensure workOrderNumber exists; biddingSubcontractors must be auth uids (Firestore rules)
-      await updateDoc(doc(db, 'workOrders', workOrderToShare.id), {
+      // ONE critical write — update work order status
+      await updateDoc(doc(db, 'workOrders', wo.id), {
         status: 'bidding',
-        workOrderNumber: workOrderNumber,
+        workOrderNumber,
         sharedForBiddingAt: serverTimestamp(),
         biddingSubcontractors: arrayUnion(...subAuthIds),
         updatedAt: serverTimestamp(),
-        timeline: [...existingTimeline, timelineEvent],
-        systemInformation: updatedSysInfo,
       });
 
-      toast.success(`Work order shared with ${selectedSubcontractors.length} subcontractor(s)`);
+      // DONE — close modal in <1 second
+      toast.success(`Shared with ${subs.length} subcontractor(s) for bidding`);
       setShowBiddingModal(false);
       setSelectedSubcontractors([]);
       setWorkOrderToShare(null);
+      setSubmitting(false);
+
+      // ── Everything below runs in background ──
+      // Bidding docs
+      Promise.all(subs.map(async (subId) => {
+        const sub = subcontractors.find(s => s.id === subId);
+        if (!sub) return;
+        const authId = subcontractorAuthId(sub);
+        await addDoc(collection(db, 'biddingWorkOrders'), {
+          workOrderId: wo.id, workOrderNumber, subcontractorId: authId,
+          subcontractorName: sub.fullName, subcontractorEmail: sub.email,
+          workOrderTitle: wo.title, workOrderDescription: wo.description,
+          clientId: wo.clientId, clientName: wo.clientName,
+          companyId: wo.companyId || null, images: wo.images || [],
+          estimateBudget: (wo as any).estimateBudget ?? null,
+          priority: wo.priority || '', category: wo.category || '',
+          locationName: wo.locationName || '', locationAddress: (wo as any).locationAddress || '',
+          status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
+        });
+      })).catch(console.error);
+
+      // Notifications + emails (fire-and-forget)
+      notifyBiddingOpportunity(subAuthIds, wo.id, workOrderNumber, wo.title).catch(console.error);
+      subs.forEach((subId) => {
+        const sub = subcontractors.find(s => s.id === subId);
+        if (sub?.email) {
+          fetch('/api/email/send-bidding-opportunity', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ toEmail: sub.email, toName: sub.fullName, workOrderNumber, workOrderTitle: wo.title, workOrderDescription: wo.description, locationName: wo.locationName, category: wo.category, priority: wo.priority, portalLink: `${window.location.origin}/subcontractor-portal/bidding` }),
+          }).catch(console.error);
+        }
+      });
+
+      // Timeline (background)
+      (async () => {
+        try {
+          const clientName = currentUser ? ((await getDoc(doc(db, 'clients', currentUser.uid))).data()?.fullName || 'Client') : 'Client';
+          const woSnap = await getDoc(doc(db, 'workOrders', wo.id));
+          const woData = woSnap.data();
+          const selectedSubNames = subs.map(id => subcontractors.find(s => s.id === id)?.fullName || 'Unknown').join(', ');
+          await updateDoc(doc(db, 'workOrders', wo.id), {
+            timeline: [...(woData?.timeline || []), {
+              id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, timestamp: Timestamp.now(), type: 'shared_for_bidding',
+              userId: currentUser?.uid || 'unknown', userName: clientName, userRole: 'client',
+              details: `Shared for bidding with ${subs.length} subcontractor(s): ${selectedSubNames}`,
+              metadata: { subcontractorIds: subs, subcontractorCount: subs.length },
+            }],
+            systemInformation: { ...(woData?.systemInformation || {}), sharedForBidding: { by: { id: currentUser?.uid || 'unknown', name: clientName }, timestamp: Timestamp.now(), subcontractors: subs.map(id => ({ id, name: subcontractors.find(s => s.id === id)?.fullName || 'Unknown' })) } },
+          });
+        } catch (e) { console.error('Timeline update failed:', e); }
+      })();
+
     } catch (error: any) {
       console.error('Error sharing work order:', error);
       toast.error(error.message || 'Failed to share work order');
-    } finally {
       setSubmitting(false);
     }
   };
