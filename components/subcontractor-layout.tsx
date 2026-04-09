@@ -16,6 +16,7 @@ import { Home, ClipboardList, FileText, CheckSquare, ClipboardCheck, MessageSqua
 import { ThemeToggle } from '@/components/theme-toggle';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
+import SubcontractorGlobalSearchDialog from '@/components/subcontractor-global-search-dialog';
 
 export default function SubcontractorLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -235,6 +236,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
             <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Subcontractor Portal</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            {user?.uid && <SubcontractorGlobalSearchDialog dbInstance={firebaseInstances.dbInstance} userId={user.uid} />}
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>

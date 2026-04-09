@@ -16,6 +16,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
+import ClientGlobalSearchDialog from '@/components/client-global-search-dialog';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -269,6 +270,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Client Portal</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            {user?.uid && <ClientGlobalSearchDialog dbInstance={firebaseInstances.dbInstance} userId={user.uid} />}
             <ThemeToggle />
             <NotificationBell />
             <div className="hidden md:flex flex-col items-end">
