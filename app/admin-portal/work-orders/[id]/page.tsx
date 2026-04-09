@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -195,6 +195,12 @@ export default function ViewWorkOrder() {
   const [addingAdjustment, setAddingAdjustment] = useState(false);
   const [markingVendorPaid, setMarkingVendorPaid] = useState(false);
 
+  // Subcontractor bank account (for vendor payment)
+  const [subBankAccount, setSubBankAccount] = useState<{
+    bankName: string; accountHolderName: string; accountType: string;
+    routingNumber: string; accountNumberLast4: string;
+  } | null>(null);
+
   // Inline edit mode
   const [editMode, setEditMode] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -264,6 +270,34 @@ export default function ViewWorkOrder() {
 
     fetchWorkOrder();
   }, [id]);
+
+  // Fetch subcontractor bank account when work order loads
+  useEffect(() => {
+    if (!workOrder) { setSubBankAccount(null); return; }
+    const subId = workOrder.assignedSubcontractor || workOrder.assignedTo;
+    if (!subId) { setSubBankAccount(null); return; }
+    const fetchBank = async () => {
+      try {
+        const subDoc = await getDoc(doc(db, 'subcontractors', subId));
+        if (subDoc.exists() && subDoc.data().bankAccount) {
+          const ba = subDoc.data().bankAccount;
+          setSubBankAccount({
+            bankName: ba.bankName || '',
+            accountHolderName: ba.accountHolderName || '',
+            accountType: ba.accountType || '',
+            routingNumber: ba.routingNumber || '',
+            accountNumberLast4: ba.accountNumberLast4 || '',
+          });
+        } else {
+          setSubBankAccount(null);
+        }
+      } catch (err) {
+        console.error('Error fetching subcontractor bank account:', err);
+        setSubBankAccount(null);
+      }
+    };
+    fetchBank();
+  }, [workOrder?.assignedSubcontractor, workOrder?.assignedTo]);
 
   const canCreateVendorPayment = useMemo(() => {
     if (!workOrder) return { ok: false, reason: 'Work order not loaded' };
@@ -2233,6 +2267,27 @@ export default function ViewWorkOrder() {
                           {preferredBaseQuote ? formatMoney(preferredBaseQuote.totalAmount, 'USD') : '—'}
                         </span>
                       </div>
+                      {/* Subcontractor Bank Account Info */}
+                      {subBankAccount ? (
+                        <div className="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Landmark className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-semibold text-foreground">Subcontractor ACH Details on File</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                            <div><span className="text-muted-foreground">Bank:</span> <span className="font-medium">{subBankAccount.bankName}</span></div>
+                            <div><span className="text-muted-foreground">Holder:</span> <span className="font-medium">{subBankAccount.accountHolderName}</span></div>
+                            <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{subBankAccount.accountType}</span></div>
+                            <div><span className="text-muted-foreground">Routing:</span> <span className="font-medium">{subBankAccount.routingNumber}</span></div>
+                            <div><span className="text-muted-foreground">Account:</span> <span className="font-medium">••••{subBankAccount.accountNumberLast4}</span></div>
+                          </div>
+                        </div>
+                      ) : (workOrder.assignedSubcontractor || workOrder.assignedTo) ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3 flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          Subcontractor has not added bank account details yet.
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="space-y-5">
@@ -2248,6 +2303,28 @@ export default function ViewWorkOrder() {
                           Subcontractor: <span className="text-foreground font-medium">{vendorPayment.subcontractorName}</span>
                         </span>
                       </div>
+
+                      {/* Subcontractor Bank Account Info */}
+                      {subBankAccount ? (
+                        <div className="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Landmark className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-semibold text-foreground">Pay To — ACH Details</span>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                            <div><span className="text-muted-foreground">Bank:</span> <span className="font-medium">{subBankAccount.bankName}</span></div>
+                            <div><span className="text-muted-foreground">Holder:</span> <span className="font-medium">{subBankAccount.accountHolderName}</span></div>
+                            <div><span className="text-muted-foreground">Type:</span> <span className="font-medium capitalize">{subBankAccount.accountType}</span></div>
+                            <div><span className="text-muted-foreground">Routing:</span> <span className="font-medium">{subBankAccount.routingNumber}</span></div>
+                            <div><span className="text-muted-foreground">Account:</span> <span className="font-medium">••••{subBankAccount.accountNumberLast4}</span></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3 flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          Subcontractor has not added bank account details. Contact them to add ACH information.
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="rounded-xl border border-border p-4">
@@ -2335,6 +2412,28 @@ export default function ViewWorkOrder() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Subcontractor Bank Account in Modal */}
+                  {subBankAccount ? (
+                    <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-3">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Landmark className="h-3.5 w-3.5 text-green-600" />
+                        <span className="text-xs font-semibold text-green-800 dark:text-green-300">ACH Details on File</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 text-xs">
+                        <div><span className="text-muted-foreground">Bank:</span> <span className="font-medium">{subBankAccount.bankName}</span></div>
+                        <div><span className="text-muted-foreground">Holder:</span> <span className="font-medium">{subBankAccount.accountHolderName}</span></div>
+                        <div><span className="text-muted-foreground">Routing:</span> <span className="font-medium">{subBankAccount.routingNumber}</span></div>
+                        <div><span className="text-muted-foreground">Account:</span> <span className="font-medium">••••{subBankAccount.accountNumberLast4}</span></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-2.5 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                      Subcontractor has no bank account on file. Payment will need to be arranged manually.
+                    </div>
+                  )}
+
                   <div>
                     <Label>Base amount</Label>
                     <Input

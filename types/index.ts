@@ -42,6 +42,17 @@ export interface Client {
   autoChargeThreshold?: number; // auto-charge when consolidated invoice exceeds this
 }
 
+export interface SubcontractorBankAccount {
+  bankName: string;
+  accountHolderName: string;
+  accountType: 'checking' | 'savings';
+  routingNumber: string;        // 9-digit ABA routing number
+  accountNumberLast4: string;   // only last 4 digits stored in plain text
+  accountNumberEncrypted: string; // full account number (base64-encoded for basic obfuscation)
+  addedAt: Date | any;
+  updatedAt: Date | any;
+}
+
 export interface Subcontractor {
   uid: string;
   email: string;
@@ -55,6 +66,7 @@ export interface Subcontractor {
   status: 'pending' | 'approved' | 'rejected';
   approvedBy?: string;
   approvedAt?: Date;
+  bankAccount?: SubcontractorBankAccount;
   createdAt: Date;
   updatedAt: Date;
 }

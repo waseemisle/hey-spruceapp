@@ -6,7 +6,7 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ExternalLink, Mail, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Mail, Loader2, Landmark, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -21,6 +21,16 @@ interface Subcontractor {
   licenseNumber?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
+  bankAccount?: {
+    bankName: string;
+    accountHolderName: string;
+    accountType: 'checking' | 'savings';
+    routingNumber: string;
+    accountNumberLast4: string;
+    accountNumberEncrypted: string;
+    addedAt: any;
+    updatedAt: any;
+  };
 }
 
 interface WorkOrder {
@@ -358,6 +368,43 @@ export default function SubcontractorDetailPage() {
               {sub.status.toUpperCase()}
             </span>
           </div>
+        </div>
+
+        {/* Bank Account Information */}
+        <div className="bg-card rounded-xl border border-border shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Landmark className="h-4 w-4 text-blue-600" />
+            <h3 className="font-semibold text-foreground text-sm">ACH Payment Information</h3>
+          </div>
+          {sub.bankAccount ? (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+              <div>
+                <div className="text-xs text-muted-foreground">Bank Name</div>
+                <div className="font-medium text-foreground mt-0.5">{sub.bankAccount.bankName}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Account Holder</div>
+                <div className="font-medium text-foreground mt-0.5">{sub.bankAccount.accountHolderName}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Account Type</div>
+                <div className="font-medium text-foreground mt-0.5 capitalize">{sub.bankAccount.accountType}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Routing Number</div>
+                <div className="font-medium text-foreground mt-0.5">{sub.bankAccount.routingNumber}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Account Number</div>
+                <div className="font-medium text-foreground mt-0.5">••••••••{sub.bankAccount.accountNumberLast4}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>Subcontractor has not added bank account details yet.</span>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}

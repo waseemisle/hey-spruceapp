@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { User, Mail, Phone, Briefcase, CreditCard, Lock, Camera, Save, ArrowLeft } from 'lucide-react';
+import { User, Mail, Phone, Briefcase, CreditCard, Lock, Camera, Save, ArrowLeft, Landmark, Building2, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function SubcontractorAccountSettings() {
   const router = useRouter();
@@ -40,6 +40,23 @@ export default function SubcontractorAccountSettings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Bank account state
+  const [bankName, setBankName] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
+  const [accountType, setAccountType] = useState<'checking' | 'savings'>('checking');
+  const [routingNumber, setRoutingNumber] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
+  const [hasSavedBank, setHasSavedBank] = useState(false);
+  const [savedBankLast4, setSavedBankLast4] = useState('');
+  const [savedBankName, setSavedBankName] = useState('');
+  const [savedAccountHolderName, setSavedAccountHolderName] = useState('');
+  const [savedAccountType, setSavedAccountType] = useState('');
+  const [savedRoutingNumber, setSavedRoutingNumber] = useState('');
+  const [savingBank, setSavingBank] = useState(false);
+  const [editingBank, setEditingBank] = useState(false);
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
+
   useEffect(() => {
     if (!auth || !db) return;
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -55,6 +72,15 @@ export default function SubcontractorAccountSettings() {
           setBusinessName(data.businessName || '');
           setLicenseNumber(data.licenseNumber || '');
           setPhotoPreview(data.profileImageUrl || firebaseUser.photoURL || null);
+          // Load bank account info
+          if (data.bankAccount) {
+            setHasSavedBank(true);
+            setSavedBankLast4(data.bankAccount.accountNumberLast4 || '');
+            setSavedBankName(data.bankAccount.bankName || '');
+            setSavedAccountHolderName(data.bankAccount.accountHolderName || '');
+            setSavedAccountType(data.bankAccount.accountType || '');
+            setSavedRoutingNumber(data.bankAccount.routingNumber || '');
+          }
         } else {
           setFullName(firebaseUser.displayName || '');
           setPhotoPreview(firebaseUser.photoURL || null);
@@ -125,6 +151,84 @@ export default function SubcontractorAccountSettings() {
       toast.error(err?.message || 'Could not update password. Check your current password.');
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleSaveBankAccount = async () => {
+    if (!db || !uid) return;
+    if (!bankName.trim()) { toast.error('Please enter your bank name'); return; }
+    if (!accountHolderName.trim()) { toast.error('Please enter the account holder name'); return; }
+    if (!routingNumber.trim() || !/^\d{9}$/.test(routingNumber.trim())) {
+      toast.error('Routing number must be exactly 9 digits'); return;
+    }
+    if (!accountNumber.trim() || !/^\d{4,17}$/.test(accountNumber.trim())) {
+      toast.error('Please enter a valid account number (4-17 digits)'); return;
+    }
+    if (accountNumber !== confirmAccountNumber) {
+      toast.error('Account numbers do not match'); return;
+    }
+
+    setSavingBank(true);
+    try {
+      const last4 = accountNumber.trim().slice(-4);
+      const encoded = btoa(accountNumber.trim()); // basic obfuscation
+
+      await setDoc(doc(db, 'subcontractors', uid), {
+        bankAccount: {
+          bankName: bankName.trim(),
+          accountHolderName: accountHolderName.trim(),
+          accountType,
+          routingNumber: routingNumber.trim(),
+          accountNumberLast4: last4,
+          accountNumberEncrypted: encoded,
+          addedAt: hasSavedBank ? undefined : serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+
+      setHasSavedBank(true);
+      setSavedBankLast4(last4);
+      setSavedBankName(bankName.trim());
+      setSavedAccountHolderName(accountHolderName.trim());
+      setSavedAccountType(accountType);
+      setSavedRoutingNumber(routingNumber.trim());
+      setEditingBank(false);
+      setBankName('');
+      setAccountHolderName('');
+      setRoutingNumber('');
+      setAccountNumber('');
+      setConfirmAccountNumber('');
+      toast.success('Bank account saved successfully');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save bank account');
+    } finally {
+      setSavingBank(false);
+    }
+  };
+
+  const handleRemoveBankAccount = async () => {
+    if (!db || !uid) return;
+    if (!confirm('Are you sure you want to remove your bank account information?')) return;
+    setSavingBank(true);
+    try {
+      const { deleteField } = await import('firebase/firestore');
+      await setDoc(doc(db, 'subcontractors', uid), {
+        bankAccount: deleteField(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setHasSavedBank(false);
+      setSavedBankLast4('');
+      setSavedBankName('');
+      setSavedAccountHolderName('');
+      setSavedAccountType('');
+      setSavedRoutingNumber('');
+      setEditingBank(false);
+      toast.success('Bank account removed');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to remove bank account');
+    } finally {
+      setSavingBank(false);
     }
   };
 
@@ -213,6 +317,206 @@ export default function SubcontractorAccountSettings() {
                 <Save className="h-4 w-4" />
                 {savingProfile ? 'Saving...' : 'Save Changes'}
               </Button>
+            </div>
+
+            <Separator />
+
+            {/* ACH Bank Account Information */}
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Landmark className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">Payment Information (ACH)</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">Add your bank account details so you can receive payments for completed work orders</p>
+                  </div>
+                </div>
+              </div>
+
+              {hasSavedBank && !editingBank ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-5">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-foreground">Bank Account on File</div>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Bank Name:</span>
+                            <span className="ml-2 font-medium text-foreground">{savedBankName}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Account Holder:</span>
+                            <span className="ml-2 font-medium text-foreground">{savedAccountHolderName}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Account Type:</span>
+                            <span className="ml-2 font-medium text-foreground capitalize">{savedAccountType}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Routing Number:</span>
+                            <span className="ml-2 font-medium text-foreground">
+                              {showAccountNumber ? savedRoutingNumber : '•••••' + savedRoutingNumber.slice(-4)}
+                            </span>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <span className="text-muted-foreground">Account Number:</span>
+                            <span className="ml-2 font-medium text-foreground">••••••••{savedBankLast4}</span>
+                            <button
+                              onClick={() => setShowAccountNumber(!showAccountNumber)}
+                              className="ml-2 text-muted-foreground hover:text-foreground inline-flex items-center"
+                              title={showAccountNumber ? 'Hide details' : 'Show routing number'}
+                            >
+                              {showAccountNumber ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingBank(true);
+                        setBankName(savedBankName);
+                        setAccountHolderName(savedAccountHolderName);
+                        setAccountType(savedAccountType as 'checking' | 'savings');
+                        setRoutingNumber(savedRoutingNumber);
+                        setAccountNumber('');
+                        setConfirmAccountNumber('');
+                      }}
+                    >
+                      Update Bank Account
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleRemoveBankAccount} disabled={savingBank}>
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {!hasSavedBank && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-amber-800 dark:text-amber-200">
+                        <span className="font-semibold">No bank account on file.</span> Add your ACH bank account details to receive vendor payments for completed work orders.
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bankName">Bank Name</Label>
+                      <div className="relative">
+                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="bankName"
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          placeholder="e.g. Chase, Bank of America"
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="accountHolderName">Account Holder Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="accountHolderName"
+                          value={accountHolderName}
+                          onChange={(e) => setAccountHolderName(e.target.value)}
+                          placeholder="Name on the account"
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="accountType">Account Type</Label>
+                      <select
+                        id="accountType"
+                        value={accountType}
+                        onChange={(e) => setAccountType(e.target.value as 'checking' | 'savings')}
+                        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="checking">Checking</option>
+                        <option value="savings">Savings</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="routingNumber">Routing Number (9 digits)</Label>
+                      <div className="relative">
+                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="routingNumber"
+                          value={routingNumber}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, '').slice(0, 9);
+                            setRoutingNumber(v);
+                          }}
+                          placeholder="9-digit routing number"
+                          className="pl-9"
+                          maxLength={9}
+                          inputMode="numeric"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="accountNumber">Account Number</Label>
+                      <div className="relative">
+                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="accountNumber"
+                          value={accountNumber}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, '').slice(0, 17);
+                            setAccountNumber(v);
+                          }}
+                          placeholder="Account number"
+                          className="pl-9"
+                          maxLength={17}
+                          inputMode="numeric"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="confirmAccountNumber">Confirm Account Number</Label>
+                      <div className="relative">
+                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="confirmAccountNumber"
+                          value={confirmAccountNumber}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, '').slice(0, 17);
+                            setConfirmAccountNumber(v);
+                          }}
+                          placeholder="Re-enter account number"
+                          className="pl-9"
+                          maxLength={17}
+                          inputMode="numeric"
+                        />
+                      </div>
+                      {confirmAccountNumber && accountNumber !== confirmAccountNumber && (
+                        <p className="text-xs text-red-500">Account numbers do not match</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 justify-end pt-2">
+                    {editingBank && (
+                      <Button variant="outline" onClick={() => { setEditingBank(false); setBankName(''); setAccountHolderName(''); setRoutingNumber(''); setAccountNumber(''); setConfirmAccountNumber(''); }}>
+                        Cancel
+                      </Button>
+                    )}
+                    <Button onClick={handleSaveBankAccount} disabled={savingBank} className="gap-2">
+                      <Save className="h-4 w-4" />
+                      {savingBank ? 'Saving...' : hasSavedBank ? 'Update Bank Account' : 'Save Bank Account'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Separator />
