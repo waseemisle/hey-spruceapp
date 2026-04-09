@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, query, where, getDocs, getDoc, addDoc, setDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, addDoc, setDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 
 export const dynamic = 'force-dynamic';
@@ -195,11 +195,7 @@ export async function GET(request: NextRequest) {
       });
       // Update lastRunAt so the schedule check knows when we last ran
       try {
-        const settingsRef = doc(db, 'emailLogs', '_schedule');
-        const settingsSnap = await getDoc(settingsRef);
-        if (settingsSnap.exists()) {
-          await updateDoc(settingsRef, { lastRunAt: serverTimestamp() });
-        }
+        await setDoc(doc(db, 'emailLogs', '_schedule'), { lastRunAt: serverTimestamp() }, { merge: true });
       } catch {}
       console.log(`[CRON] Logged run: ${runStatus} | ${totalSucceeded}/${totalEligible} succeeded | ${durationMs}ms`);
     } catch (logError) {

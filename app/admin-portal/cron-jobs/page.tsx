@@ -109,6 +109,21 @@ export default function CronJobsPage() {
     return `${s}s`;
   };
 
+  // How long overdue (positive = past due)
+  const overdueMs = nextRunAt ? Math.max(0, now.getTime() - nextRunAt.getTime()) : 0;
+  const fmtOverdue = (ms: number) => {
+    if (ms <= 0) return '';
+    const totalMin = Math.floor(ms / 60000);
+    if (totalMin < 1) return 'just now';
+    if (totalMin < 60) return `${totalMin}m overdue`;
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h < 24) return m > 0 ? `${h}h ${m}m overdue` : `${h}h overdue`;
+    const d = Math.floor(h / 24);
+    const rh = h % 24;
+    return rh > 0 ? `${d}d ${rh}h overdue` : `${d}d overdue`;
+  };
+
   const fmtTime = (v: string | Date | null) => {
     if (!v) return 'N/A';
     const d = typeof v === 'string' ? new Date(v) : v;
@@ -272,11 +287,11 @@ export default function CronJobsPage() {
             </CardContent>
           </Card>
 
-          <Card className={isOverdue && nextRunAt ? 'border-orange-300 bg-orange-50/30' : ''}>
+          <Card className={isOverdue && nextRunAt ? 'border-red-300 bg-red-50/30' : ''}>
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-1">Time Left</p>
-              <p className={`font-bold text-lg tabular-nums ${isOverdue ? 'text-orange-600' : 'text-teal-700'}`}>
-                {!nextRunAt ? '—' : isOverdue ? 'Now' : fmtCountdown(timeLeftMs)}
+              <p className={`font-bold tabular-nums ${isOverdue ? 'text-red-600 text-sm' : 'text-teal-700 text-lg'}`}>
+                {!nextRunAt ? '—' : isOverdue ? fmtOverdue(overdueMs) : fmtCountdown(timeLeftMs)}
               </p>
             </CardContent>
           </Card>
