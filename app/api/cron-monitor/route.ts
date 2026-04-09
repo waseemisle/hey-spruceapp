@@ -172,10 +172,10 @@ export async function PUT(request: NextRequest) {
       results, createdAt: serverTimestamp(),
     });
 
-    // Update lastRunAt
-    try {
-      await setDoc(doc(db, 'emailLogs', '_schedule'), { lastRunAt: serverTimestamp() }, { merge: true });
-    } catch {}
+    // NOTE: Do NOT update _schedule.lastRunAt here.
+    // Only the Vercel cron route updates lastRunAt.
+    // If we update it here, the next Vercel cron trigger will see
+    // "ran recently" and skip, pushing execution out another full day.
 
     return NextResponse.json({
       message: `Processed ${totalEligible} recurring work orders`,

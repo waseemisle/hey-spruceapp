@@ -124,10 +124,12 @@ export default function CronJobsPage() {
     return rh > 0 ? `${d}d ${rh}h overdue` : `${d}d overdue`;
   };
 
+  const EST_TZ = 'America/New_York';
+
   const fmtTime = (v: string | Date | null) => {
     if (!v) return 'N/A';
     const d = typeof v === 'string' ? new Date(v) : v;
-    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString('en-US', { timeZone: EST_TZ, month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' EST';
   };
 
   const fmtDuration = (ms: number) => {
@@ -282,7 +284,7 @@ export default function CronJobsPage() {
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-1">Next Run</p>
               <p className="font-bold text-sm">
-                {!nextRunAt ? 'Pending' : isOverdue ? 'Overdue' : nextRunAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                {!nextRunAt ? 'Pending' : isOverdue ? 'Overdue' : nextRunAt.toLocaleTimeString('en-US', { timeZone: EST_TZ, hour: '2-digit', minute: '2-digit' }) + ' EST'}
               </p>
             </CardContent>
           </Card>

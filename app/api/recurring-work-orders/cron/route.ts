@@ -43,24 +43,26 @@ export async function GET(request: NextRequest) {
   try {
     const now = new Date();
 
-    // ── Check user-configured schedule ──
-    // Vercel fires every 5 min, but we only proceed if enough time has passed
-    // based on the admin-configured interval. Manual triggers always run.
+    // ── Duplicate-run guard ──
+    // Vercel cron fires once daily. This guard prevents accidental double-runs
+    // (e.g. if the endpoint is hit manually via URL while Vercel also triggers).
+    // We require at least 23 hours since the last CRON run before allowing another.
+    // Manual triggers via "Run Cron Now" button do NOT update lastRunAt,
+    // so they never interfere with the daily schedule.
     if (triggeredBy === 'vercel_cron') {
       try {
         const settingsSnap = await getDoc(doc(db, 'emailLogs', '_schedule'));
         if (settingsSnap.exists()) {
           const settings = settingsSnap.data();
-          const intervalMinutes = settings.intervalMinutes || 60;
           const lastRunAt = settings.lastRunAt?.toDate?.();
           if (lastRunAt) {
-            const minutesSinceLastRun = (now.getTime() - lastRunAt.getTime()) / 60000;
-            if (minutesSinceLastRun < intervalMinutes - 1) {
-              // Not time yet — skip this run silently
+            const hoursSinceLastRun = (now.getTime() - lastRunAt.getTime()) / 3600000;
+            if (hoursSinceLastRun < 23) {
+              // Already ran today — skip
               return NextResponse.json({
-                message: 'Skipped — not due yet',
-                nextRunIn: `${Math.ceil(intervalMinutes - minutesSinceLastRun)} minutes`,
-                intervalMinutes,
+                message: 'Skipped — already ran today',
+                lastRunAt: lastRunAt.toISOString(),
+                hoursSinceLastRun: Math.round(hoursSinceLastRun * 10) / 10,
               });
             }
           }
