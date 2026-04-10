@@ -357,7 +357,7 @@ export default function ClientInvoiceDetail() {
                     {invoice.completionImages.map((img, idx) => (
                       <button
                         key={idx}
-                        onClick={() => { setLightboxImages(invoice.completionImages); setLightboxIndex(idx); }}
+                        onClick={() => { setLightboxImages(invoice.completionImages || []); setLightboxIndex(idx); }}
                         className="aspect-square rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow bg-muted cursor-pointer"
                       >
                         <img

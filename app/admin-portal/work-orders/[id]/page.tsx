@@ -2696,7 +2696,7 @@ export default function ViewWorkOrder() {
                       {workOrder.completionImages.map((image, idx) => (
                         <img key={idx} src={image} alt={`Completion ${idx + 1}`}
                           className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
-                          onClick={() => { setLightboxImages(workOrder.completionImages); setLightboxIndex(idx); }} />
+                          onClick={() => { setLightboxImages(workOrder.completionImages || []); setLightboxIndex(idx); }} />
                       ))}
                     </div>
                   </CardContent>
