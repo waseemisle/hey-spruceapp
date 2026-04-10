@@ -52,6 +52,7 @@ export default function SubcontractorBidding() {
   const [selectedBidding, setSelectedBidding] = useState<BiddingWorkOrder | null>(null);
   const [showQuoteForm, setShowQuoteForm] = useState(false);
   const [viewWorkOrder, setViewWorkOrder] = useState<BiddingWorkOrder | null>(null);
+  const [workOrderImages, setWorkOrderImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const [quoteForm, setQuoteForm] = useState({
@@ -100,6 +101,31 @@ export default function SubcontractorBidding() {
 
     return () => unsubscribeAuth();
   }, [auth, db]);
+
+  // Fetch images from original work order if bidding doc doesn't have them
+  useEffect(() => {
+    if (!viewWorkOrder) {
+      setWorkOrderImages([]);
+      return;
+    }
+    if (viewWorkOrder.images && viewWorkOrder.images.length > 0) {
+      setWorkOrderImages(viewWorkOrder.images);
+      return;
+    }
+    // Fetch from original work order
+    const fetchImages = async () => {
+      try {
+        const woDoc = await getDoc(doc(db, 'workOrders', viewWorkOrder.workOrderId));
+        if (woDoc.exists()) {
+          const imgs = woDoc.data()?.images || [];
+          setWorkOrderImages(imgs);
+        }
+      } catch (err) {
+        console.error('Could not fetch work order images:', err);
+      }
+    };
+    fetchImages();
+  }, [viewWorkOrder, db]);
 
   const handleQuoteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setQuoteForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -480,11 +506,11 @@ export default function SubcontractorBidding() {
                   <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{viewWorkOrder.workOrderDescription}</p>
                 </div>
               )}
-              {viewWorkOrder.images && viewWorkOrder.images.length > 0 && (
+              {workOrderImages.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({viewWorkOrder.images.length})</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({workOrderImages.length})</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {viewWorkOrder.images.map((img, i) => (
+                    {workOrderImages.map((img, i) => (
                       <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors">
                         <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
                       </a>
