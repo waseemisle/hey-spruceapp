@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import type { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
 
 interface Invoice {
@@ -48,6 +49,8 @@ export default function ClientInvoiceDetail() {
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [canViewTimeline, setCanViewTimeline] = useState(false);
 
@@ -352,19 +355,17 @@ export default function ClientInvoiceDetail() {
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {invoice.completionImages.map((img, idx) => (
-                      <a
+                      <button
                         key={idx}
-                        href={img}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="aspect-square rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow bg-muted"
+                        onClick={() => { setLightboxImages(invoice.completionImages); setLightboxIndex(idx); }}
+                        className="aspect-square rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow bg-muted cursor-pointer"
                       >
                         <img
                           src={img}
                           alt={`Completion image ${idx + 1}`}
                           className="w-full h-full object-cover"
                         />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -381,6 +382,14 @@ export default function ClientInvoiceDetail() {
           />
         )}
       </div>
+
+      {lightboxImages.length > 0 && (
+        <ImageLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxImages([])}
+        />
+      )}
     </ClientLayout>
   );
 }

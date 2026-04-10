@@ -17,6 +17,7 @@ import InvoiceSystemInfo from '@/components/invoice-system-info';
 import { toast } from 'sonner';
 import type { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 interface LaborLine {
   description?: string;
@@ -98,6 +99,8 @@ export default function AdminInvoiceDetail() {
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<InvoiceTab>('charges');
   const [relatedInvoices, setRelatedInvoices] = useState<Invoice[]>([]);
   const [clientBilling, setClientBilling] = useState<ClientBilling | null>(null);
@@ -827,19 +830,17 @@ export default function AdminInvoiceDetail() {
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {invoice.completionImages.map((img, idx) => (
-                        <a
+                        <button
                           key={idx}
-                          href={img}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="aspect-square rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow bg-muted"
+                          onClick={() => { setLightboxImages(invoice.completionImages); setLightboxIndex(idx); }}
+                          className="aspect-square rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow bg-muted cursor-pointer"
                         >
                           <img
                             src={img}
                             alt={`Completion image ${idx + 1}`}
                             className="w-full h-full object-cover"
                           />
-                        </a>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -1125,6 +1126,14 @@ export default function AdminInvoiceDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {lightboxImages.length > 0 && (
+        <ImageLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxImages([])}
+        />
       )}
     </AdminLayout>
   );

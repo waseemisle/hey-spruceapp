@@ -18,6 +18,7 @@ import { notifyBiddingOpportunity } from '@/lib/notifications';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 interface WorkOrder {
   id: string;
@@ -145,6 +146,8 @@ export default function ViewClientWorkOrder() {
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
@@ -1066,7 +1069,7 @@ export default function ViewClientWorkOrder() {
                       {workOrder.images.map((image, idx) => (
                         <img key={idx} src={image} alt={`Image ${idx + 1}`}
                           className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
-                          onClick={() => window.open(image, '_blank')} />
+                          onClick={() => { setLightboxImages(workOrder.images); setLightboxIndex(idx); }} />
                       ))}
                     </div>
                   </CardContent>
@@ -1080,7 +1083,7 @@ export default function ViewClientWorkOrder() {
                       {workOrder.completionImages.map((image, idx) => (
                         <img key={idx} src={image} alt={`Completion ${idx + 1}`}
                           className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
-                          onClick={() => window.open(image, '_blank')} />
+                          onClick={() => { setLightboxImages(workOrder.completionImages); setLightboxIndex(idx); }} />
                       ))}
                     </div>
                   </CardContent>
@@ -1327,6 +1330,14 @@ export default function ViewClientWorkOrder() {
             </div>
           </div>
         </div>
+      )}
+
+      {lightboxImages.length > 0 && (
+        <ImageLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxImages([])}
+        />
       )}
     </ClientLayout>
   );

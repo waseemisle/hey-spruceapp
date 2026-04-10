@@ -23,6 +23,7 @@ import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { toast } from 'sonner';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import type { VendorPayment, VendorPaymentAdjustment, VendorPaymentStatus } from '@/types';
 
 const WORK_ORDER_EDIT_STATUS_OPTIONS = [
@@ -157,6 +158,8 @@ export default function ViewWorkOrder() {
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
   const [biddingSubmitting, setBiddingSubmitting] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // Manual assign modal
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -2679,7 +2682,7 @@ export default function ViewWorkOrder() {
                       {workOrder.images.map((image, idx) => (
                         <img key={idx} src={image} alt={`Image ${idx + 1}`}
                           className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
-                          onClick={() => window.open(image, '_blank')} />
+                          onClick={() => { setLightboxImages(workOrder.images); setLightboxIndex(idx); }} />
                       ))}
                     </div>
                   </CardContent>
@@ -2693,7 +2696,7 @@ export default function ViewWorkOrder() {
                       {workOrder.completionImages.map((image, idx) => (
                         <img key={idx} src={image} alt={`Completion ${idx + 1}`}
                           className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
-                          onClick={() => window.open(image, '_blank')} />
+                          onClick={() => { setLightboxImages(workOrder.completionImages); setLightboxIndex(idx); }} />
                       ))}
                     </div>
                   </CardContent>
@@ -3143,6 +3146,14 @@ export default function ViewWorkOrder() {
             </div>
           </div>
         </div>
+      )}
+
+      {lightboxImages.length > 0 && (
+        <ImageLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxImages([])}
+        />
       )}
     </AdminLayout>
   );

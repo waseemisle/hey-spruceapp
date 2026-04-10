@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 interface BiddingWorkOrder {
   id: string;
@@ -54,6 +55,8 @@ export default function SubcontractorBidding() {
   const [viewWorkOrder, setViewWorkOrder] = useState<BiddingWorkOrder | null>(null);
   const [workOrderImages, setWorkOrderImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [quoteForm, setQuoteForm] = useState({
     estimatedDuration: '',
@@ -511,9 +514,9 @@ export default function SubcontractorBidding() {
                   <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({workOrderImages.length})</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {workOrderImages.map((img, i) => (
-                      <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors">
+                      <button key={i} onClick={() => { setLightboxImages(workOrderImages); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
                         <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -608,9 +611,9 @@ export default function SubcontractorBidding() {
                   <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedBidding.images.length})</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {selectedBidding.images.map((img, i) => (
-                      <a key={i} href={img} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors">
+                      <button key={i} onClick={() => { setLightboxImages(selectedBidding.images!); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
                         <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -884,7 +887,8 @@ export default function SubcontractorBidding() {
                         key={idx}
                         src={image}
                         alt={`Work order ${idx + 1}`}
-                        className="h-12 w-12 object-cover rounded flex-shrink-0"
+                        className="h-12 w-12 object-cover rounded flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => { setLightboxImages(bidding.images!); setLightboxIndex(idx); }}
                       />
                     ))}
                   </div>
@@ -916,6 +920,14 @@ export default function SubcontractorBidding() {
           </div>
         )}
       </PageContainer>
+
+      {lightboxImages.length > 0 && (
+        <ImageLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxImages([])}
+        />
+      )}
     </SubcontractorLayout>
   );
 }
