@@ -395,6 +395,7 @@ export default function ViewClientWorkOrder() {
         }
       }
 
+      subsData.sort((a, b) => (b.matchesCategory ? 1 : 0) - (a.matchesCategory ? 1 : 0));
       setSubcontractors(subsData);
       setSelectedSubcontractors([]);
       setShowBiddingModal(true);

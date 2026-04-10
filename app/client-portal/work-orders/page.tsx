@@ -455,6 +455,7 @@ function ClientWorkOrdersContent() {
         }
       }
 
+      subsData.sort((a, b) => (b.matchesCategory ? 1 : 0) - (a.matchesCategory ? 1 : 0));
       setSubcontractors(subsData);
       setWorkOrderToShare(workOrder);
       setSelectedSubcontractors([]);
