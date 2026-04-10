@@ -2682,7 +2682,7 @@ export default function ViewWorkOrder() {
                       {workOrder.images.map((image, idx) => (
                         <img key={idx} src={image} alt={`Image ${idx + 1}`}
                           className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
-                          onClick={() => { setLightboxImages(workOrder.images); setLightboxIndex(idx); }} />
+                          onClick={() => { setLightboxImages(workOrder.images || []); setLightboxIndex(idx); }} />
                       ))}
                     </div>
                   </CardContent>
