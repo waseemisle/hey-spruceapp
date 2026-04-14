@@ -224,103 +224,98 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Check content-length header for logging
-    const contentLength = request.headers.get('content-length');
-    if (contentLength) {
-      const sizeInMB = parseInt(contentLength) / 1024 / 1024;
-      console.log(`Request size: ${sizeInMB.toFixed(2)} MB`);
-      
-      // Note: Vercel has a 4.5MB hard limit at platform level
-      // If the request exceeds this significantly, Vercel will reject it BEFORE it reaches this code
-      // However, if the request made it here, we'll try to process it with compression
-      if (parseInt(contentLength) > 10 * 1024 * 1024) {
-        return NextResponse.json(
-          { 
-            error: 'Request payload too large. Maximum size is 10MB.',
-            size: `${sizeInMB.toFixed(2)} MB`,
-            suggestion: 'The image will be automatically compressed and uploaded to Cloudinary. Please ensure your payload is reasonable.'
-          },
-          { status: 413 }
-        );
-      }
-    }
+    const contentType = request.headers.get('content-type') || '';
+    let venue: string | undefined;
+    let requestor: string | undefined;
+    let date: string | undefined;
+    let title: string | undefined;
+    let description: string | undefined;
+    let priority: string | undefined;
+    let imageUrl: string | null = null;
 
-    // Use streaming to read the request body in chunks
-    // This allows us to process large payloads that might exceed Vercel's limit
-    // by reading the body stream directly instead of using request.json()
-    const reader = request.body?.getReader();
-    if (!reader) {
-      return NextResponse.json(
-        { error: 'Request body is required' },
-        { status: 400 }
-      );
-    }
-    
-    console.log('Reading request body stream...');
+    if (contentType.includes('multipart/form-data')) {
+      // ---- MULTIPART/FORM-DATA (supports large images) ----
+      const formData = await request.formData();
+      venue = formData.get('venue') as string;
+      requestor = formData.get('requestor') as string;
+      date = formData.get('date') as string;
+      title = formData.get('title') as string;
+      description = formData.get('description') as string;
+      priority = formData.get('priority') as string;
 
-    // Read the body stream in chunks
-    const chunks: Uint8Array[] = [];
-    let totalSize = 0;
-    const MAX_SIZE = 100 * 1024 * 1024; // 100MB limit for safety
+      const imageField = formData.get('image');
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        totalSize += value.length;
-        if (totalSize > MAX_SIZE) {
-          return NextResponse.json(
-            { error: 'Request payload too large. Maximum size is 100MB.' },
-            { status: 413 }
-          );
+      if (imageField instanceof File && imageField.size > 0) {
+        // Binary file upload — compress with sharp then upload to Cloudinary
+        console.log(`Image file received: ${imageField.name}, size: ${(imageField.size / 1024 / 1024).toFixed(2)} MB`);
+        const arrayBuffer = await imageField.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        let compressedBuffer: Buffer;
+        try {
+          const metadata = await sharp(buffer).metadata();
+          const width = metadata.width || 1920;
+          const height = metadata.height || 1080;
+          const maxDim = 1920;
+          let targetWidth = width;
+          let targetHeight = height;
+          if (width > maxDim || height > maxDim) {
+            const ratio = Math.min(maxDim / width, maxDim / height);
+            targetWidth = Math.round(width * ratio);
+            targetHeight = Math.round(height * ratio);
+          }
+          console.log(`Resizing from ${width}x${height} to ${targetWidth}x${targetHeight}`);
+
+          compressedBuffer = await sharp(buffer)
+            .resize(targetWidth, targetHeight, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 80, mozjpeg: true })
+            .toBuffer();
+
+          console.log(`Compressed image size: ${(compressedBuffer.length / 1024 / 1024).toFixed(2)} MB`);
+        } catch (sharpError: any) {
+          console.error('Sharp compression error, using original:', sharpError.message);
+          compressedBuffer = buffer;
         }
-        
-        chunks.push(value);
+
+        // Convert to base64 data URI for Cloudinary upload
+        const base64Image = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
+        console.log('Uploading image to Cloudinary...');
+        imageUrl = await uploadImageToCloudinary(base64Image);
+        console.log('Cloudinary upload successful:', imageUrl);
+      } else if (typeof imageField === 'string' && imageField.length > 0) {
+        // String value — could be a URL or base64
+        if (imageField.startsWith('data:')) {
+          console.log('Compressing base64 image from form field...');
+          const compressedImage = await compressBase64Image(imageField, 3.5);
+          imageUrl = await uploadImageToCloudinary(compressedImage);
+          console.log('Cloudinary upload successful:', imageUrl);
+        } else {
+          imageUrl = imageField;
+          console.log('Image is already a URL, using directly:', imageUrl);
+        }
       }
-    } finally {
-      reader.releaseLock();
-    }
+    } else {
+      // ---- JSON BODY (for smaller payloads / URL-only images) ----
+      const data = await request.json();
+      venue = data.venue;
+      requestor = data.requestor;
+      date = data.date;
+      title = data.title;
+      description = data.description;
+      priority = data.priority;
+      const image = data.image;
 
-    // Combine chunks into a single buffer
-    const allChunks = new Uint8Array(totalSize);
-    let position = 0;
-    for (const chunk of chunks) {
-      allChunks.set(chunk, position);
-      position += chunk.length;
-    }
-
-    // Parse JSON from the combined buffer
-    const text = new TextDecoder().decode(allChunks);
-    console.log(`Successfully read ${(totalSize / 1024 / 1024).toFixed(2)} MB from request body`);
-    
-    let data: any;
-    
-    try {
-      data = JSON.parse(text);
-      console.log('JSON parsed successfully');
-    } catch (jsonError: any) {
-      // Handle JSON parsing errors
-      if (jsonError.message?.includes('too large') || 
-          jsonError.message?.includes('FUNCTION_PAYLOAD_TOO_LARGE') ||
-          jsonError.code === 'FUNCTION_PAYLOAD_TOO_LARGE' ||
-          jsonError.message?.includes('413')) {
-        return NextResponse.json(
-          { 
-            error: 'Request payload too large. Vercel has a 4.5MB platform limit.',
-            suggestion: 'The image will be uploaded to Cloudinary automatically. Please ensure your payload is under 4.5MB or compress the image before sending.'
-          },
-          { status: 413 }
-        );
+      if (image && typeof image === 'string' && image.startsWith('data:')) {
+        console.log('Compressing base64 image...');
+        const compressedImage = await compressBase64Image(image, 3.5);
+        console.log('Uploading to Cloudinary...');
+        imageUrl = await uploadImageToCloudinary(compressedImage);
+        console.log('Cloudinary upload successful:', imageUrl);
+      } else if (image && typeof image === 'string') {
+        imageUrl = image;
+        console.log('Image is already a URL, using directly:', imageUrl);
       }
-      
-      return NextResponse.json(
-        { error: 'Invalid JSON payload', details: jsonError.message },
-        { status: 400 }
-      );
     }
-
-    const { venue, requestor, date, title, description, image, priority } = data;
 
     // Validate required fields
     if (!venue || !requestor || !date || !title || !description || !priority) {
@@ -328,44 +323,6 @@ export async function POST(request: Request) {
         { error: 'Missing required fields: venue, requestor, date, title, description, and priority are required' },
         { status: 400 }
       );
-    }
-
-    // Upload image to Cloudinary if provided
-    // This bypasses Vercel's 4.5MB limit by storing only the URL instead of base64
-    let imageUrl: string | null = null;
-    if (image && typeof image === 'string' && image.startsWith('data:')) {
-      try {
-        const originalImageSize = image.length;
-        const originalSizeMB = (originalImageSize / 1024 / 1024).toFixed(2);
-        console.log(`Original image size (base64): ${originalSizeMB} MB`);
-        
-        // Compress the image first to reduce size
-        // This helps with requests that are just over the limit
-        console.log('Compressing image...');
-        const compressedImage = await compressBase64Image(image, 3.5); // Compress to under 3.5MB
-        
-        const compressedSize = compressedImage.length;
-        const compressedSizeMB = (compressedSize / 1024 / 1024).toFixed(2);
-        console.log(`Compressed image size (base64): ${compressedSizeMB} MB`);
-        
-        // Upload compressed image to Cloudinary
-        console.log('Uploading compressed image to Cloudinary...');
-        imageUrl = await uploadImageToCloudinary(compressedImage);
-        console.log('Cloudinary upload successful:', imageUrl);
-      } catch (uploadError: any) {
-        console.error('Error uploading image to Cloudinary:', uploadError);
-        return NextResponse.json(
-          { 
-            error: 'Failed to upload image to Cloudinary',
-            details: uploadError.message 
-          },
-          { status: 500 }
-        );
-      }
-    } else if (image && typeof image === 'string') {
-      // If it's already a URL, use it directly
-      imageUrl = image;
-      console.log('Image is already a URL, using directly:', imageUrl);
     }
 
     const db = await getServerDb();
@@ -624,21 +581,16 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error creating maintenance request:', error);
     
-    // Handle specific error types
-    if (error.message?.includes('JSON')) {
-      return NextResponse.json(
-        { error: 'Invalid JSON payload' },
-        { status: 400 }
-      );
-    }
-    
     if (error.message?.includes('too large') || error.code === 'FUNCTION_PAYLOAD_TOO_LARGE') {
       return NextResponse.json(
-        { error: 'Request payload too large. Please reduce image size or use multipart/form-data format.' },
+        {
+          error: 'Request payload too large. Vercel has a 4.5MB limit for JSON bodies.',
+          suggestion: 'Send as multipart/form-data with the image as a file field instead of base64 in JSON.',
+        },
         { status: 413 }
       );
     }
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to create maintenance request' },
       { status: 500 }

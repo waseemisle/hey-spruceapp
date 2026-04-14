@@ -2,6 +2,14 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/api/maint-requests',
+        destination: 'https://us-central1-groundopss.cloudfunctions.net/maintRequests',
+      },
+    ];
+  },
   async redirects() {
     return [
       {
