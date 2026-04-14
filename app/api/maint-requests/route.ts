@@ -523,7 +523,7 @@ export async function POST(request: Request) {
           let dateForEmail: string | undefined;
           if (date) {
             try {
-              const dateObj = date instanceof Date ? date : new Date(date);
+              const dateObj = new Date(date);
               if (!isNaN(dateObj.getTime())) {
                 dateForEmail = dateObj.toISOString();
               } else {
