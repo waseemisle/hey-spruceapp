@@ -23,10 +23,6 @@
         "maxDuration": 120,
         "memory": 1024
       },
-      "app/api/maint-requests/route.ts": {
-        "maxDuration": 60,
-        "memory": 1024
-      },
       "app/api/sync/firebase-to-supabase/route.ts": {
         "maxDuration": 300,
         "memory": 1024
