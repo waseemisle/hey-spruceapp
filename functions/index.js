@@ -1,4 +1,5 @@
 const functions = require('firebase-functions');
+const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin (automatically uses ADC when deployed)
@@ -11,8 +12,8 @@ const APPY_CLIENT_EMAIL = 'jolimon@hwoodgroup.com';
 
 // ── Cloudinary upload helper ──
 async function uploadImageToCloudinary(base64Image) {
-  const cloudName = functions.config().cloudinary?.cloud_name || 'duo4kzgx4';
-  const uploadPreset = functions.config().cloudinary?.upload_preset || 'WebAppUpload';
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'duo4kzgx4';
+  const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || 'WebAppUpload';
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -67,11 +68,13 @@ async function verifyBearerToken(authHeader) {
   }
 }
 
-// ── Maintenance Requests HTTP function ──
+// ── Maintenance Requests HTTP function (Gen 2 — allows public access) ──
 // Handles GET (list) and POST (create) — proxied from Vercel to bypass 4.5MB body limit
-exports.maintRequests = functions
-  .runWith({ timeoutSeconds: 120, memory: '512MB' })
-  .https.onRequest(async (req, res) => {
+exports.maintRequests = onRequest({
+  timeoutSeconds: 120,
+  memory: '512MiB',
+  invoker: 'public',
+}, async (req, res) => {
     // CORS headers
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');

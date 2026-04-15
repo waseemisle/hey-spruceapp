@@ -366,13 +366,45 @@ export default function ViewClientWorkOrder() {
         return;
       }
 
-      const allSubsData = subsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        fullName: doc.data().fullName,
-        email: doc.data().email,
-        businessName: doc.data().businessName,
-        skills: doc.data().skills || [],
-      })) as (Subcontractor & { skills: string[] })[];
+      // Company-level subcontractor-state permission. Empty/missing array = ALL allowed.
+      let allowedStates: string[] = [];
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+          const companyId = clientDoc.data()?.companyId;
+          if (companyId) {
+            const companySnap = await getDoc(doc(db, 'companies', companyId));
+            const list = companySnap.data()?.allowedSubcontractorStates;
+            if (Array.isArray(list)) allowedStates = list;
+          }
+        }
+      } catch (err) {
+        // If lookup fails, fall through to "all allowed" — never block sharing on this.
+        console.warn('[shareForBidding] state-permission lookup failed', err);
+      }
+      const { isSubcontractorAllowedByStates } = await import('@/lib/us-states');
+
+      const allSubsData = subsSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          fullName: doc.data().fullName,
+          email: doc.data().email,
+          businessName: doc.data().businessName,
+          skills: doc.data().skills || [],
+          state: doc.data().state || '',
+          city: doc.data().city || '',
+        }))
+        .filter((sub) => isSubcontractorAllowedByStates(sub.state, allowedStates)) as (Subcontractor & { skills: string[]; state: string; city: string })[];
+
+      if (allSubsData.length === 0) {
+        toast.error(
+          allowedStates.length > 0
+            ? `No approved subcontractors found in your company's allowed states (${allowedStates.join(', ')})`
+            : 'No approved subcontractors found',
+        );
+        return;
+      }
 
       let matchingCount = 0;
       const subsData = allSubsData.map(sub => {

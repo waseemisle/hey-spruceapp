@@ -10,10 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Building2, Search, Users, CheckCircle2, XCircle, Save, Shield,
-  Mail, Phone, ChevronDown, ChevronUp, Eye,
+  Mail, Phone, ChevronDown, ChevronUp, Eye, MapPin,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { US_STATES } from '@/lib/us-states';
 
 interface Company {
   id: string;
@@ -22,6 +23,8 @@ interface Company {
   phone?: string;
   clientId: string;
   logoUrl?: string;
+  /** Empty / missing = ALL states allowed (backward-compatible default). */
+  allowedSubcontractorStates?: string[];
 }
 
 interface Client {
@@ -98,6 +101,12 @@ export default function CompaniesPermissions() {
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
   const [clientPermissions, setClientPermissions] = useState<Record<string, Client['permissions']>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  /**
+   * Local edit state for company-level "Subcontractor States" permission.
+   * companyId → array of state codes (empty array = ALL).
+   */
+  const [companyAllowedStates, setCompanyAllowedStates] = useState<Record<string, string[]>>({});
+  const [companyStateSaving, setCompanyStateSaving] = useState<string | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -114,6 +123,14 @@ export default function CompaniesPermissions() {
 
       setCompanies(comps);
       setClients(cls);
+
+      const allowedStatesMap: Record<string, string[]> = {};
+      comps.forEach((c) => {
+        allowedStatesMap[c.id] = Array.isArray(c.allowedSubcontractorStates)
+          ? c.allowedSubcontractorStates
+          : [];
+      });
+      setCompanyAllowedStates(allowedStatesMap);
 
       const permissionsMap: Record<string, Client['permissions']> = {};
       cls.forEach((client) => {
@@ -134,6 +151,49 @@ export default function CompaniesPermissions() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  // --- Company-level subcontractor-state permissions -----------------------
+  const toggleCompanyState = (companyId: string, code: string) => {
+    setCompanyAllowedStates((prev) => {
+      const cur = prev[companyId] || [];
+      const exists = cur.includes(code);
+      return { ...prev, [companyId]: exists ? cur.filter((s) => s !== code) : [...cur, code] };
+    });
+  };
+
+  const setCompanyStatesAll = (companyId: string) => {
+    setCompanyAllowedStates((prev) => ({ ...prev, [companyId]: [] })); // [] = ALL
+  };
+
+  const setCompanyStatesNone = (companyId: string) => {
+    // Clear selection — semantically same as ALL since [] = ALL by design.
+    // We expose the explicit "Select all" button which is user-friendlier.
+    setCompanyAllowedStates((prev) => ({ ...prev, [companyId]: [] }));
+  };
+
+  const handleSaveCompanyStates = async (companyId: string) => {
+    setCompanyStateSaving(companyId);
+    try {
+      const states = companyAllowedStates[companyId] || [];
+      await updateDoc(doc(db, 'companies', companyId), {
+        allowedSubcontractorStates: states,
+        updatedAt: serverTimestamp(),
+      });
+      toast.success(
+        states.length === 0
+          ? 'All states allowed for this company'
+          : `${states.length} state(s) allowed for this company`,
+      );
+      // Reflect locally without a full refetch
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === companyId ? { ...c, allowedSubcontractorStates: states } : c)),
+      );
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save state permissions');
+    } finally {
+      setCompanyStateSaving(null);
+    }
+  };
 
   const handlePermissionChange = (clientId: string, permission: PermKey, value: boolean) => {
     setClientPermissions((prev) => ({
@@ -302,9 +362,103 @@ export default function CompaniesPermissions() {
                     </div>
                   </div>
 
-                  {/* Expanded: Clients */}
+                  {/* Expanded: Subcontractor State Access + Clients */}
                   {isExpanded && (
                     <div className="border-t border-border bg-muted/40">
+
+                      {/* Company-level: subcontractor state visibility */}
+                      {(() => {
+                        const allowed = companyAllowedStates[company.id] || [];
+                        const allSelected = allowed.length === 0;
+                        const isStateSaving = companyStateSaving === company.id;
+                        const persisted = company.allowedSubcontractorStates || [];
+                        const dirty = JSON.stringify([...persisted].sort()) !== JSON.stringify([...allowed].sort());
+                        return (
+                          <div className="border-b border-border bg-card p-4">
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex items-start gap-2 min-w-0">
+                                <MapPin className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-foreground">
+                                    Subcontractor State Access
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                                    Restricts which subcontractors this company's clients can see when sharing
+                                    work orders for bidding. Pick states or "Select all" for no restriction.
+                                  </p>
+                                </div>
+                              </div>
+                              <span
+                                className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                  allSelected
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                }`}
+                              >
+                                {allSelected ? 'All states' : `${allowed.length} state${allowed.length === 1 ? '' : 's'}`}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 mb-3">
+                              <Button
+                                size="sm"
+                                variant={allSelected ? 'default' : 'outline'}
+                                className="h-7 text-xs"
+                                onClick={() => setCompanyStatesAll(company.id)}
+                              >
+                                {allSelected ? '✓ All states selected' : 'Select all states'}
+                              </Button>
+                              {!allSelected && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                                  onClick={() => setCompanyStatesNone(company.id)}
+                                >
+                                  Clear
+                                </Button>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-2 mb-4">
+                              {US_STATES.map((s) => {
+                                const checked = allowed.includes(s.code);
+                                return (
+                                  <label
+                                    key={s.code}
+                                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded border cursor-pointer text-xs transition-colors ${
+                                      checked
+                                        ? 'bg-blue-50 border-blue-300 text-blue-900'
+                                        : 'bg-card border-border text-foreground hover:bg-muted/60'
+                                    }`}
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={() => toggleCompanyState(company.id, s.code)}
+                                      className="h-3.5 w-3.5"
+                                    />
+                                    <span className="font-mono font-semibold">{s.code}</span>
+                                    <span className="hidden sm:inline truncate">{s.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveCompanyStates(company.id)}
+                                disabled={isStateSaving || !dirty}
+                                className="gap-1.5"
+                              >
+                                <Save className="h-3.5 w-3.5" />
+                                {isStateSaving ? 'Saving…' : dirty ? 'Save State Access' : 'Saved'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {companyClients.length === 0 ? (
                         <div className="py-10 text-center">
                           <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />

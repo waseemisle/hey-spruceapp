@@ -35,6 +35,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.claude/
 .claude/settings.local.json
 artifacts/full-payment-cycles-report.json
 artifacts/work-order-full-matrix-report.json

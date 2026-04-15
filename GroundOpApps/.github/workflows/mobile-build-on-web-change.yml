@@ -1,0 +1,88 @@
+name: Mobile Build on Web Change
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'types/**'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'functions/**'
+      - 'vercel.json'
+      - 'next.config.js'
+      - 'GroundOpApps/**'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'ota | build'
+        required: false
+        default: 'ota'
+
+jobs:
+  classify-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Install CLIs
+        run: npm i -g eas-cli vercel
+
+      - name: Install mobile deps
+        working-directory: GroundOpApps/mobile
+        run: npm ci --legacy-peer-deps
+
+      - name: Sync verbatim files from web
+        run: node GroundOpApps/scripts/sync-from-web.js
+
+      - name: Classify — OTA vs full native build
+        id: classify
+        run: |
+          MODE="${{ github.event.inputs.mode }}"
+          if [ -z "$MODE" ]; then
+            CHANGED=$(git diff --name-only HEAD~1 HEAD || true)
+            if echo "$CHANGED" | grep -qE 'GroundOpApps/mobile/(app\.config|package(-lock)?\.json|ios/|android/|plugins|app\.config\.ts)'; then
+              MODE="build"
+            elif echo "$CHANGED" | grep -q '^native:'; then
+              MODE="build"
+            else
+              MODE="ota"
+            fi
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "→ mode=$MODE"
+
+      - name: OTA update — both platforms
+        if: steps.classify.outputs.mode == 'ota'
+        working-directory: GroundOpApps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas update --branch production --message "${{ github.event.head_commit.message }}" --non-interactive
+
+      - name: Full production build + auto-submit
+        if: steps.classify.outputs.mode == 'build'
+        working-directory: GroundOpApps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --platform all --profile production --non-interactive --auto-submit
+
+  sync-env:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm i -g eas-cli vercel
+      - name: Sync Vercel env → EAS secrets (allow-listed)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        working-directory: GroundOpApps
+        run: ./scripts/pull-vercel-env.sh
