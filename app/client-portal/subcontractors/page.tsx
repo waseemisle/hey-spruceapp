@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, where, doc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc, getDoc, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { SearchableMultiSelect } from '@/components/ui/searchable-select';
 import { User, Mail, Phone, Building, Award, Search, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/ui/page-header';
@@ -61,9 +62,24 @@ export default function ClientSubcontractorsView() {
   const [createForm, setCreateForm] = useState({
     email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '',
   });
-  const [skillInput, setSkillInput] = useState('');
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<{ value: string; label: string }[]>([]);
   const router = useRouter();
+
+  // Categories drive the Skills picker (same source as admin portal).
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'categories'), orderBy('name', 'asc')));
+        setCategoryOptions(
+          snap.docs.map((d) => ({ value: (d.data() as any).name, label: (d.data() as any).name })),
+        );
+      } catch (err) {
+        console.error('Error fetching categories', err);
+      }
+    };
+    fetchCategories();
+  }, [db]);
 
   useEffect(() => {
     const checkPermissionAndFetchData = async () => {
@@ -135,7 +151,6 @@ export default function ClientSubcontractorsView() {
       setShowCreateModal(false);
       setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
       setSelectedSkills([]);
-      setSkillInput('');
       await fetchSubcontractors();
     } catch (error: any) {
       toast.error(error.message || 'Failed to create subcontractor');
@@ -144,13 +159,6 @@ export default function ClientSubcontractorsView() {
     }
   };
 
-  const addSkill = () => {
-    const trimmed = skillInput.trim();
-    if (trimmed && !selectedSkills.includes(trimmed)) {
-      setSelectedSkills(prev => [...prev, trimmed]);
-    }
-    setSkillInput('');
-  };
 
   const fetchSubcontractors = async () => {
     try {
@@ -325,7 +333,6 @@ export default function ClientSubcontractorsView() {
                     setShowCreateModal(false);
                     setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
                     setSelectedSkills([]);
-                    setSkillInput('');
                   }}>
                     <X className="h-4 w-4" />
                   </Button>
@@ -400,27 +407,16 @@ export default function ClientSubcontractorsView() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Skills</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add a skill and press Enter"
-                      value={skillInput}
-                      onChange={(e) => setSkillInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }}
-                    />
-                    <Button type="button" variant="outline" onClick={addSkill}>Add</Button>
-                  </div>
-                  {selectedSkills.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {selectedSkills.map((skill) => (
-                        <span key={skill} className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
-                          {skill}
-                          <button onClick={() => setSelectedSkills(prev => prev.filter(s => s !== skill))} className="hover:text-blue-900">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <SearchableMultiSelect
+                    values={selectedSkills}
+                    onValuesChange={setSelectedSkills}
+                    options={categoryOptions}
+                    placeholder="Type to search or add skills..."
+                    addMorePlaceholder="Add more..."
+                    emptyMessage="No categories found"
+                    noMoreMessage="No more categories available"
+                    allowFreeText
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground">An invitation email will be sent to the subcontractor to set up their account. They will be in <strong>pending</strong> status until approved by an admin.</p>
                 <div className="flex justify-end gap-2 pt-2">
@@ -428,7 +424,6 @@ export default function ClientSubcontractorsView() {
                     setShowCreateModal(false);
                     setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
                     setSelectedSkills([]);
-                    setSkillInput('');
                   }}>Cancel</Button>
                   <Button onClick={handleCreateSubcontractor} disabled={submitting}>
                     {submitting ? 'Creating...' : 'Create & Send Invite'}
