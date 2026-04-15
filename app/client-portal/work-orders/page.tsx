@@ -407,14 +407,45 @@ function ClientWorkOrdersContent() {
         return;
       }
 
-      // Map subcontractors data and mark matching ones
-      const allSubsData = subsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        fullName: doc.data().fullName,
-        email: doc.data().email,
-        businessName: doc.data().businessName,
-        skills: doc.data().skills || [],
-      })) as (Subcontractor & { skills: string[] })[];
+      // Company-level subcontractor-state permission. Empty/missing array = ALL allowed.
+      let allowedStates: string[] = [];
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const clientSnap = await getDoc(doc(db, 'clients', currentUser.uid));
+          const companyId = clientSnap.data()?.companyId;
+          if (companyId) {
+            const compSnap = await getDoc(doc(db, 'companies', companyId));
+            const list = compSnap.data()?.allowedSubcontractorStates;
+            if (Array.isArray(list)) allowedStates = list;
+          }
+        }
+      } catch (err) {
+        console.warn('[client WO list shareForBidding] state-permission lookup failed', err);
+      }
+      const { isSubcontractorAllowedByStates } = await import('@/lib/us-states');
+
+      // Map subcontractors data and mark matching ones (filter by allowed states first).
+      const allSubsData = subsSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          fullName: doc.data().fullName,
+          email: doc.data().email,
+          businessName: doc.data().businessName,
+          skills: doc.data().skills || [],
+          state: doc.data().state || '',
+          city: doc.data().city || '',
+        }))
+        .filter((s) => isSubcontractorAllowedByStates(s.state, allowedStates)) as (Subcontractor & { skills: string[]; state: string; city: string })[];
+
+      if (allSubsData.length === 0) {
+        toast.error(
+          allowedStates.length > 0
+            ? `No approved subcontractors in your company's allowed states (${allowedStates.join(', ')})`
+            : 'No approved subcontractors found',
+        );
+        return;
+      }
 
       // Mark subcontractors that match the work order category
       let matchingCount = 0;

@@ -159,10 +159,32 @@ export default function ClientSubcontractorsView() {
         where('status', '==', 'approved')
       );
       const snapshot = await getDocs(subsQuery);
-      const subsData = snapshot.docs.map(doc => {
+      const allSubs = snapshot.docs.map(doc => {
         const data = doc.data();
         return { ...data, uid: doc.id };
       }) as Subcontractor[];
+
+      // Apply company-level "Subcontractor State Access". Empty/missing array
+      // = ALL allowed (backward compatible). Lookup failure never blocks the page.
+      let allowedStates: string[] = [];
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const clientSnap = await getDoc(doc(db, 'clients', currentUser.uid));
+          const companyId = clientSnap.data()?.companyId;
+          if (companyId) {
+            const compSnap = await getDoc(doc(db, 'companies', companyId));
+            const list = compSnap.data()?.allowedSubcontractorStates;
+            if (Array.isArray(list)) allowedStates = list;
+          }
+        }
+      } catch (err) {
+        console.warn('[client subs page] state-permission lookup failed', err);
+      }
+      const { isSubcontractorAllowedByStates } = await import('@/lib/us-states');
+      const subsData = allSubs.filter((s: any) =>
+        isSubcontractorAllowedByStates(s.state, allowedStates)
+      );
       setSubcontractors(subsData);
     } catch (error) {
       console.error('Error fetching subcontractors:', error);
