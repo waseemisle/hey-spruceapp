@@ -165,7 +165,8 @@ service cloud.firestore {
       allow write: if isSignedIn() && isAdmin();
     }
 
-    // Recurring Work Orders - admins full; clients read their own or by assigned location
+    // Recurring Work Orders - admins full; clients read their own or by assigned location;
+    // clients with the createRecurringWorkOrders permission can create + update + delete their own.
     match /recurringWorkOrders/{workOrderId} {
       allow read: if isSignedIn() && (
         isAdmin() ||
@@ -174,7 +175,17 @@ service cloud.firestore {
          exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
          resource.data.locationId in get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.assignedLocations)
       );
-      allow write: if isSignedIn() && isAdmin();
+      // Client may create a recurring WO that they own. The clientId on the new doc must
+      // equal their auth uid — they can't create one on behalf of another client.
+      allow create: if isSignedIn() && (
+        isAdmin() ||
+        request.resource.data.clientId == request.auth.uid
+      );
+      // Client may update / delete only the recurring WOs they own. Admin retains full access.
+      allow update, delete: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.clientId == request.auth.uid
+      );
     }
 
     // Recurring Work Order Executions - admins full; clients read their own
