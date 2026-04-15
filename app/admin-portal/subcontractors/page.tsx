@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect, SearchableMultiSelect } from '@/components/ui/searchable-select';
 import {
   CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X,
-  Search, Trash2, Lock, Send, Eye,
+  Search, Trash2, Lock, Send, Eye, MapPin,
   Users, Clock, BadgeCheck, Wrench,
 } from 'lucide-react';
 import { useViewControls } from '@/contexts/view-controls-context';
@@ -501,6 +501,18 @@ export default function SubcontractorsManagement() {
                       </span>
                     )}
                   </div>
+                  {/* Row 2.5: location (city, state) */}
+                  {(sub.city || sub.state) && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                      {sub.city && <span>{sub.city}</span>}
+                      {sub.state && (
+                        <span className="font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded">
+                          {sub.state}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {/* Row 3: skills badges */}
                   {sub.skills && sub.skills.length > 0 && (
                     <div className="flex items-center gap-1 flex-wrap">
@@ -549,6 +561,7 @@ export default function SubcontractorsManagement() {
                 <tr className="border-b border-border bg-muted">
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Subcontractor</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Contact</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Location</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Skills</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                   <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
@@ -574,6 +587,20 @@ export default function SubcontractorsManagement() {
                       <td className="px-4 py-3.5 hidden sm:table-cell">
                         <p className="text-foreground">{sub.email}</p>
                         <p className="text-xs text-muted-foreground">{sub.phone}</p>
+                      </td>
+                      <td className="px-4 py-3.5 hidden lg:table-cell">
+                        {sub.city || sub.state ? (
+                          <div className="flex flex-col gap-0.5">
+                            {sub.city && <p className="text-foreground text-sm">{sub.city}</p>}
+                            {sub.state && (
+                              <span className="inline-flex items-center self-start text-xs font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded">
+                                {sub.state}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5 hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
