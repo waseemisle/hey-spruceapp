@@ -67,9 +67,9 @@ async function verifyBearerToken(authHeader) {
   }
 }
 
-// ── Maintenance Requests HTTP function ──
-// Handles GET (list) and POST (create) — proxied from Vercel to bypass 4.5MB body limit.
-// Uses v1 syntax so HTTP functions are automatically public (no IAM policy needed).
+// ── Maintenance Requests HTTP function (Gen 1) ──
+// Gen1 so Firebase Hosting rewrite bypasses IAM (no allUsers needed).
+// Served via groundopss.web.app/api/maint-requests — supports up to 32MB body.
 exports.maintRequests = functions
   .runWith({ timeoutSeconds: 120, memory: '512MB' })
   .https.onRequest(async (req, res) => {

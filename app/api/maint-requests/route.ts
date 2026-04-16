@@ -305,15 +305,24 @@ export async function POST(request: Request) {
       priority = data.priority;
       const image = data.image;
 
-      if (image && typeof image === 'string' && image.startsWith('data:')) {
-        console.log('Compressing base64 image...');
-        const compressedImage = await compressBase64Image(image, 3.5);
-        console.log('Uploading to Cloudinary...');
-        imageUrl = await uploadImageToCloudinary(compressedImage);
-        console.log('Cloudinary upload successful:', imageUrl);
-      } else if (image && typeof image === 'string') {
-        imageUrl = image;
-        console.log('Image is already a URL, using directly:', imageUrl);
+      if (image && typeof image === 'string') {
+        if (image.startsWith('http://') || image.startsWith('https://')) {
+          // Already a Cloudinary / external URL — use directly
+          imageUrl = image;
+          console.log('Image is a URL, using directly:', imageUrl);
+        } else {
+          // Base64 image — may or may not have the data URI prefix.
+          // APPY sends raw base64 (no prefix); browsers may send with prefix.
+          let base64WithPrefix = image;
+          if (!image.startsWith('data:')) {
+            base64WithPrefix = `data:image/jpeg;base64,${image}`;
+          }
+          console.log(`Compressing base64 image (${(image.length / 1024 / 1024).toFixed(1)} MB)...`);
+          const compressedImage = await compressBase64Image(base64WithPrefix, 3.5);
+          console.log('Uploading to Cloudinary...');
+          imageUrl = await uploadImageToCloudinary(compressedImage);
+          console.log('Cloudinary upload successful:', imageUrl);
+        }
       }
     }
 
