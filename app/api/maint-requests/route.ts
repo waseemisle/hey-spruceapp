@@ -32,7 +32,7 @@ async function compressBase64Image(base64Image: string, maxSizeMB: number = 3.5)
     
     try {
       // Get image metadata
-      const metadata = await sharp(originalBuffer).metadata();
+      const metadata = await sharp(originalBuffer, { failOnError: false }).metadata();
       const width = metadata.width || 1920;
       const height = metadata.height || 1080;
       
@@ -51,12 +51,12 @@ async function compressBase64Image(base64Image: string, maxSizeMB: number = 3.5)
       console.log(`Resizing from ${width}x${height} to ${targetWidth}x${targetHeight}`);
 
       // Compress: resize if needed, convert to JPEG with quality 80
-      compressedBuffer = await sharp(originalBuffer)
+      compressedBuffer = await sharp(originalBuffer, { failOnError: false })
         .resize(targetWidth, targetHeight, {
           fit: 'inside',
           withoutEnlargement: true,
         })
-        .jpeg({ 
+        .jpeg({
           quality: 80,
           mozjpeg: true, // Better compression
         })
@@ -70,8 +70,8 @@ async function compressBase64Image(base64Image: string, maxSizeMB: number = 3.5)
       // If still too large, compress more aggressively
       if (compressedSizeMB > maxSizeMB) {
         console.log('Still too large, applying more aggressive compression...');
-        compressedBuffer = await sharp(compressedBuffer)
-          .jpeg({ 
+        compressedBuffer = await sharp(compressedBuffer, { failOnError: false })
+          .jpeg({
             quality: 60,
             mozjpeg: true,
           })
