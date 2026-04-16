@@ -470,7 +470,7 @@ export default function ViewClientWorkOrder() {
           workOrderDescription: workOrder.description,
           clientId: workOrder.clientId,
           clientName: workOrder.clientName,
-          clientEmail: workOrder.clientEmail || '',
+          clientEmail: (workOrder as any).clientEmail || '',
           companyId: workOrder.companyId || null,
           images: workOrder.images || [],
           estimateBudget: (workOrder as any).estimateBudget ?? null,
