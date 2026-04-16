@@ -16,7 +16,6 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { notifyClientOfQuoteSent } from '@/lib/notifications';
 import { useViewControls } from '@/contexts/view-controls-context';
-import ProposalDecisionEngine from '@/components/proposal-decision-engine';
 
 interface LineItem {
   description: string;
@@ -745,13 +744,6 @@ function QuotesContent() {
                     </div>
                   </div>
                 )}
-
-                {/* AI Decision Engine */}
-                <ProposalDecisionEngine
-                  quote={quote}
-                  allQuotes={quotes}
-                  onApprove={(quote.status === 'pending' || quote.status === 'sent_to_client') ? () => { setSelectedQuote(quote); setMarkupPercent(String(quote.markupPercentage || 20)); } : undefined}
-                />
 
                 {/* Actions row */}
                 <div className="flex items-center gap-1.5 pt-1 border-t border-border">
