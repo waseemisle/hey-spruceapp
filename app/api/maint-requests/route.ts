@@ -313,12 +313,27 @@ export async function POST(request: Request) {
         } else {
           // Base64 image — may or may not have the data URI prefix.
           // APPY sends raw base64 (no prefix); browsers may send with prefix.
-          let base64WithPrefix = image;
-          if (!image.startsWith('data:')) {
-            base64WithPrefix = `data:image/jpeg;base64,${image}`;
+          // Sanitize: strip whitespace + fix padding (callers may send unpadded base64).
+          let rawB64 = image;
+          let prefix = '';
+          if (rawB64.startsWith('data:')) {
+            // Extract the prefix and the base64 body separately
+            const commaIdx = rawB64.indexOf(',');
+            if (commaIdx !== -1) {
+              prefix = rawB64.substring(0, commaIdx + 1); // e.g. "data:image/jpeg;base64,"
+              rawB64 = rawB64.substring(commaIdx + 1);
+            }
           }
-          console.log(`Compressing base64 image (${(image.length / 1024 / 1024).toFixed(1)} MB)...`);
-          const compressedImage = await compressBase64Image(base64WithPrefix, 3.5);
+          // Strip whitespace and fix base64 padding
+          rawB64 = rawB64.replace(/[\s\r\n]+/g, '');
+          const padNeeded = (4 - (rawB64.length % 4)) % 4;
+          if (padNeeded > 0) rawB64 += '='.repeat(padNeeded);
+
+          const base64WithPrefix = prefix || 'data:image/jpeg;base64,';
+          const sanitizedImage = `${base64WithPrefix}${rawB64}`;
+
+          console.log(`Compressing base64 image (${(rawB64.length / 1024 / 1024).toFixed(1)} MB, padded ${padNeeded} chars)...`);
+          const compressedImage = await compressBase64Image(sanitizedImage, 3.5);
           console.log('Uploading to Cloudinary...');
           imageUrl = await uploadImageToCloudinary(compressedImage);
           console.log('Cloudinary upload successful:', imageUrl);
