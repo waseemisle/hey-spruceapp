@@ -22,6 +22,7 @@ interface WorkOrder {
   clientId: string;
   companyId?: string;
   clientName: string;
+  clientEmail?: string;
   locationId: string;
   locationName: string;
   title: string;
