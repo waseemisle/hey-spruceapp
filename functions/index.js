@@ -1,5 +1,4 @@
 const functions = require('firebase-functions');
-const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin (automatically uses ADC when deployed)
@@ -68,13 +67,12 @@ async function verifyBearerToken(authHeader) {
   }
 }
 
-// ── Maintenance Requests HTTP function (Gen 2 — allows public access) ──
-// Handles GET (list) and POST (create) — proxied from Vercel to bypass 4.5MB body limit
-exports.maintRequests = onRequest({
-  timeoutSeconds: 120,
-  memory: '512MiB',
-  invoker: 'public',
-}, async (req, res) => {
+// ── Maintenance Requests HTTP function ──
+// Handles GET (list) and POST (create) — proxied from Vercel to bypass 4.5MB body limit.
+// Uses v1 syntax so HTTP functions are automatically public (no IAM policy needed).
+exports.maintRequests = functions
+  .runWith({ timeoutSeconds: 120, memory: '512MB' })
+  .https.onRequest(async (req, res) => {
     // CORS headers
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -436,3 +434,4 @@ exports.generateImpersonationToken = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError('internal', error.message || 'Failed to generate impersonation token');
   }
 });
+

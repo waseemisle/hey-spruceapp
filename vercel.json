@@ -30,6 +30,10 @@
       "app/api/sandbox-refresh/route.ts": {
         "maxDuration": 300,
         "memory": 1024
+      },
+      "app/api/maint-requests/route.ts": {
+        "maxDuration": 120,
+        "memory": 1024
       }
     }
   }

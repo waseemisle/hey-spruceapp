@@ -2,16 +2,9 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async rewrites() {
-    return {
-      beforeFiles: [
-        {
-          source: '/api/maint-requests',
-          destination: 'https://us-central1-groundopss.cloudfunctions.net/maintRequests',
-        },
-      ],
-    };
-  },
+  // Rewrite to Firebase CF removed — GCP org policy (iam.allowedPolicyMemberDomains)
+  // blocks allUsers on Cloud Functions. Requests now go to the local Vercel route at
+  // app/api/maint-requests/route.ts which handles the same logic (compress + Cloudinary + Firestore).
   async redirects() {
     return [
       {
