@@ -917,7 +917,7 @@ export default function ViewWorkOrder() {
           workOrderId: workOrder.id, workOrderNumber,
           subcontractorId: authId, subcontractorName: sub.fullName, subcontractorEmail: sub.email,
           workOrderTitle: workOrder.title, workOrderDescription: workOrder.description,
-          clientId: workOrder.clientId, clientName: workOrder.clientName,
+          clientId: workOrder.clientId, clientName: workOrder.clientName, clientEmail: workOrder.clientEmail || '',
           priority: workOrder.priority || '', category: workOrder.category || '',
           locationName: workOrder.locationName || '', locationAddress: workOrder.locationAddress || '',
           images: workOrder.images || [],

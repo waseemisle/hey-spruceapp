@@ -542,7 +542,7 @@ function ClientWorkOrdersContent() {
           workOrderId: wo.id, workOrderNumber, subcontractorId: authId,
           subcontractorName: sub.fullName, subcontractorEmail: sub.email,
           workOrderTitle: wo.title, workOrderDescription: wo.description,
-          clientId: wo.clientId, clientName: wo.clientName,
+          clientId: wo.clientId, clientName: wo.clientName, clientEmail: wo.clientEmail || '',
           companyId: wo.companyId || null, images: wo.images || [],
           estimateBudget: (wo as any).estimateBudget ?? null,
           priority: wo.priority || '', category: wo.category || '',
