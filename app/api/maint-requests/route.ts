@@ -25,13 +25,9 @@ async function compressBase64Image(base64Image: string, maxSizeMB: number = 3.5)
 
     console.log(`Original image size: ${originalSizeMB.toFixed(2)} MB`);
 
-    // If image is already small enough, return as-is
-    if (originalSizeMB <= maxSizeMB) {
-      console.log('Image is already small enough, skipping compression');
-      return base64Image;
-    }
-
-    // Compress the image using sharp
+    // Always run through Sharp to produce a clean, valid JPEG.
+    // Even small images may have corrupt/truncated base64 from callers (e.g. APPY)
+    // that Cloudinary would reject. Sharp sanitizes the output.
     let compressedBuffer: Buffer;
     
     try {
