@@ -12,8 +12,8 @@ export async function POST(request: Request) {
       workOrderNumber,
     } = body;
 
-    // Google Maps Review Link
-    const googleReviewLink = 'https://www.google.com/maps/place/Spruce+Cleaning+%26+Maintenance/@34.0204789,-118.4117326,10z/data=!3m1!4b1!4m6!3m5!1s0x20a5e683df0722d:0x409439675ca2c8b!8m2!3d34.020479!4d-118.4117326!16s%2Fg%2F11xw24xtqb?entry=ttu&g_ep=EgoyMDI1MTExNy4wIKXMDSoASAFQAw%3D%3D';
+    // Google Maps Review Link — GroundOps business listing
+    const googleReviewLink = 'https://www.google.com/maps/place/GroundOps/@39.7816313,-84.3525318,54392m/data=!3m1!1e3!4m6!3m5!1s0xcf3cf46f3c896d:0x703abfeed5a9061f!8m2!3d33.894974!4d-96.6078334!16s%2Fg%2F11n4p2d3c8?entry=ttu&g_ep=EgoyMDI2MDQxNS4wIKXMDSoASAFQAw%3D%3D';
 
     const emailHtml = emailLayout({
       title: 'How Was Your Service?',
