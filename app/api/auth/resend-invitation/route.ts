@@ -45,13 +45,20 @@ export async function POST(request: NextRequest) {
     const userData = userSnap.data();
     const name = fullName || userData?.fullName || 'there';
 
+    // If the caller-supplied email differs from the email stored on the user doc,
+    // this is an email-change request: sign in with the OLD email + stored creds,
+    // then update Auth to the NEW email + new temp password in a single update.
+    const currentEmail: string = (userData?.email || email).trim();
+    const targetEmail: string = email.trim();
+    const emailChanged = currentEmail.toLowerCase() !== targetEmail.toLowerCase();
+
     // Generate a fresh temp password for the new invitation token.
     const newTempPassword =
       Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
-    // Update the Firebase Auth user's password to the new tempPassword using REST API.
-    // We try available stored credentials in order: the invitation temp password,
-    // then the user's actual password (if they had previously set one).
+    // Update the Firebase Auth user's password (and email, if changed) to the new
+    // tempPassword using the REST API. We try available stored credentials in order:
+    // the invitation temp password, then the user's actual password (if set).
     // If neither works (user may not exist in Auth), we create them fresh.
     let authUpdated = false;
 
@@ -65,23 +72,45 @@ export async function POST(request: NextRequest) {
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password: tryPw, returnSecureToken: true }),
+            body: JSON.stringify({ email: currentEmail, password: tryPw, returnSecureToken: true }),
           }
         );
 
         if (signInRes.ok) {
           const { idToken } = await signInRes.json();
+          const updatePayload: Record<string, any> = { idToken, password: newTempPassword };
+          if (emailChanged) updatePayload.email = targetEmail;
           const updateRes = await fetch(
             `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ idToken, password: newTempPassword }),
+              body: JSON.stringify(updatePayload),
             }
           );
           if (updateRes.ok) {
             authUpdated = true;
             break;
+          } else if (emailChanged) {
+            // Surface email-update errors (e.g. EMAIL_EXISTS) so the admin sees them.
+            const errBody = await updateRes.json().catch(() => ({}));
+            const msg = errBody?.error?.message || '';
+            if (msg === 'EMAIL_EXISTS') {
+              return NextResponse.json(
+                { error: 'That email address is already in use by another account.' },
+                { status: 409 }
+              );
+            }
+            if (msg === 'INVALID_EMAIL') {
+              return NextResponse.json(
+                { error: 'The new email address is not valid.' },
+                { status: 400 }
+              );
+            }
+            return NextResponse.json(
+              { error: `Failed to update email: ${msg || 'unknown error'}` },
+              { status: 500 }
+            );
           }
         }
       } catch {
@@ -96,7 +125,7 @@ export async function POST(request: NextRequest) {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password: newTempPassword, returnSecureToken: true }),
+          body: JSON.stringify({ email: targetEmail, password: newTempPassword, returnSecureToken: true }),
         }
       );
 
@@ -120,7 +149,7 @@ export async function POST(request: NextRequest) {
     // Build a fresh token with the new tempPassword and a new timestamp (fresh 24-hour window).
     const freshToken = Buffer.from(
       JSON.stringify({
-        email,
+        email: targetEmail,
         uid,
         tempPassword: newTempPassword,
         role,
@@ -130,12 +159,15 @@ export async function POST(request: NextRequest) {
       })
     ).toString('base64url');
 
-    // Persist the new token and tempPassword back to Firestore
+    // Persist the new token and tempPassword back to Firestore.
+    // If the email was changed, persist the new email on the user doc too.
     try {
-      await updateDoc(doc(db, collectionName, uid), {
+      const firestoreUpdate: Record<string, any> = {
         userinviteemailid: freshToken,
         invitationTempPassword: newTempPassword,
-      });
+      };
+      if (emailChanged) firestoreUpdate.email = targetEmail;
+      await updateDoc(doc(db, collectionName, uid), firestoreUpdate);
     } catch (updateErr) {
       console.warn('Could not update userinviteemailid in Firestore:', updateErr);
     }
@@ -156,27 +188,34 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      await sendEmail({ to: email, subject, html: emailHtml });
+      await sendEmail({ to: targetEmail, subject, html: emailHtml });
       await logEmail({
         type: 'invitation',
-        to: email,
+        to: targetEmail,
         subject,
         status: 'sent',
-        context: { name, role, roleTitle, uid },
+        context: { name, role, roleTitle, uid, emailChanged, previousEmail: emailChanged ? currentEmail : undefined },
       });
     } catch (err: any) {
       await logEmail({
         type: 'invitation',
-        to: email,
+        to: targetEmail,
         subject,
         status: 'failed',
-        context: { name, role, roleTitle, uid },
+        context: { name, role, roleTitle, uid, emailChanged, previousEmail: emailChanged ? currentEmail : undefined },
         error: err.message,
       });
       throw err;
     }
 
-    return NextResponse.json({ success: true, message: 'Invitation email resent successfully' });
+    return NextResponse.json({
+      success: true,
+      message: emailChanged
+        ? 'Email updated and invitation sent to the new address'
+        : 'Invitation email resent successfully',
+      emailChanged,
+      email: targetEmail,
+    });
   } catch (error: any) {
     console.error('Error resending invitation:', error);
     return NextResponse.json(

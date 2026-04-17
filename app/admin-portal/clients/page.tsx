@@ -84,6 +84,7 @@ export default function ClientsManagement() {
   const { viewMode } = useViewControls();
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [originalEmail, setOriginalEmail] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
@@ -193,6 +194,7 @@ export default function ClientsManagement() {
 
   const resetForm = () => {
     setFormData({ email: '', fullName: '', companyId: '', phone: '', assignedLocations: [], password: '', status: 'approved', paymentTermsDays: '', autoChargeThreshold: '' });
+    setOriginalEmail('');
     setEditingId(null);
     setShowModal(false);
   };
@@ -207,6 +209,7 @@ export default function ClientsManagement() {
       paymentTermsDays: client.paymentTermsDays ? String(client.paymentTermsDays) : '',
       autoChargeThreshold: client.autoChargeThreshold ? String(client.autoChargeThreshold) : '',
     });
+    setOriginalEmail(client.email);
     setEditingId(client.uid);
     setShowModal(true);
   };
@@ -225,13 +228,43 @@ export default function ClientsManagement() {
       const autoChargeThreshold = formData.autoChargeThreshold ? parseFloat(formData.autoChargeThreshold) : null;
 
       if (editingId) {
+        const emailChanged =
+          !!originalEmail &&
+          formData.email.trim().toLowerCase() !== originalEmail.trim().toLowerCase();
+
+        // If the admin changed the email, the resend-invitation endpoint is the
+        // source of truth: it updates Firebase Auth + Firestore email atomically
+        // and sends a fresh invitation to the new address. Run that FIRST so we
+        // only persist other fields once the auth change succeeds.
+        if (emailChanged) {
+          const res = await fetch('/api/auth/resend-invitation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: formData.email.trim(),
+              fullName: formData.fullName,
+              role: 'client',
+              uid: editingId,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Failed to update email and send invitation');
+          }
+        }
+
         await updateDoc(doc(db, 'clients', editingId), {
           fullName: formData.fullName, companyId: formData.companyId || null,
           companyName, phone: formData.phone,
           assignedLocations: formData.assignedLocations, status: formData.status, updatedAt: serverTimestamp(),
           paymentTermsDays, autoChargeThreshold,
         });
-        toast.success('Client updated successfully');
+
+        toast.success(
+          emailChanged
+            ? `Client updated. Invitation email sent to ${formData.email}.`
+            : 'Client updated successfully'
+        );
       } else {
         const response = await fetch('/api/auth/create-user', {
           method: 'POST',
@@ -655,10 +688,14 @@ export default function ClientsManagement() {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="xyz@gmail.com"
-                      disabled={!!editingId}
                       className="mt-1"
                     />
                     {!editingId && <p className="text-xs text-emerald-600 mt-1">An invitation email will be sent to set up password</p>}
+                    {editingId && formData.email !== originalEmail && formData.email && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Email will be changed from <strong>{originalEmail}</strong> — a fresh invitation email will be sent to <strong>{formData.email}</strong> on Update.
+                      </p>
+                    )}
                   </div>
 
                   <div>
