@@ -77,13 +77,29 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
 
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    // Lead-time window: fire leadTimeDays BEFORE the scheduled iteration date so
+    // admins have time to assign the resulting work order to a subcontractor.
+    // Configurable from /admin-portal/cron-jobs; defaults to 7 days.
+    let leadTimeDays = 7;
+    try {
+      const settingsSnap = await getDoc(doc(db, 'emailLogs', '_schedule'));
+      if (settingsSnap.exists()) {
+        const data = settingsSnap.data();
+        if (typeof data.leadTimeDays === 'number' && data.leadTimeDays >= 0) {
+          leadTimeDays = Math.floor(data.leadTimeDays);
+        }
+      }
+    } catch {}
 
-    // Find all active recurring work orders whose nextExecution is today or past
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    cutoff.setDate(cutoff.getDate() + leadTimeDays);
+    console.log(`[CRON] leadTimeDays=${leadTimeDays}, cutoff=${cutoff.toISOString()}`);
+
+    // Find all active recurring work orders whose nextExecution is within the lead-time window
     const recurringWorkOrdersQuery = query(
       collection(db, 'recurringWorkOrders'),
       where('status', '==', 'active'),
-      where('nextExecution', '<=', endOfDay)
+      where('nextExecution', '<=', cutoff)
     );
 
     const snapshot = await getDocs(recurringWorkOrdersQuery);

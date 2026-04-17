@@ -99,9 +99,25 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     setLoading(false);
   }, [params.id]);
 
-  // Live countdown to next execution
+  // Live countdown to next execution (counts down to the lead-time date — the day the
+  // cron will actually fire — which is leadTimeDays before the scheduled iteration date).
   const [countdown, setCountdown] = useState('');
   const [nextExecDate, setNextExecDate] = useState<Date | null>(null);
+  const [leadTimeDays, setLeadTimeDays] = useState(7);
+
+  // Fetch global leadTimeDays setting from cron-monitor
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/cron-monitor')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data) return;
+        const lt = typeof data.schedule?.leadTimeDays === 'number' ? data.schedule.leadTimeDays : 7;
+        setLeadTimeDays(lt);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!recurringWorkOrder || executions === undefined) return;
@@ -111,11 +127,20 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     setNextExecDate(next);
   }, [recurringWorkOrder, executions]);
 
+  // Lead-time date = nextExecDate - leadTimeDays (when the cron will actually execute)
+  const nextLeadDate = (() => {
+    if (!nextExecDate) return null;
+    const d = new Date(nextExecDate);
+    d.setDate(d.getDate() - leadTimeDays);
+    return d;
+  })();
+
   useEffect(() => {
-    if (!nextExecDate) { setCountdown(''); return; }
+    if (!nextLeadDate) { setCountdown(''); return; }
+    const target = nextLeadDate.getTime();
     const update = () => {
       const now = new Date();
-      const diff = nextExecDate.getTime() - now.getTime();
+      const diff = target - now.getTime();
       if (diff <= 0) { setCountdown('Now'); return; }
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -131,7 +156,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     update();
     const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
-  }, [nextExecDate]);
+  }, [nextLeadDate?.getTime()]);
 
   // Resolve creator display name when not stored on the document
   useEffect(() => {
@@ -815,12 +840,28 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   const { upcomingExecutions: statsUpcoming } = buildExecutionTimeline(recurringWorkOrder);
                   const nextDate = statsUpcoming.length > 0 ? statsUpcoming[0].scheduledDate : null;
 
+                  const leadDate = (() => {
+                    if (!nextDate) return null;
+                    const d = new Date(nextDate);
+                    d.setDate(d.getDate() - leadTimeDays);
+                    return d;
+                  })();
+
                   return (
                     <>
                       <div>
                         <span className="font-semibold">Next Execution:</span>
                         <span className="ml-2">
                           {nextDate ? nextDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Not scheduled'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Next Execution Before ({leadTimeDays} Day{leadTimeDays === 1 ? '' : 's'}):</span>
+                        <span className="ml-2">
+                          {leadDate ? leadDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (cron fires on this date)
                         </span>
                       </div>
                       {countdown && (

@@ -44,20 +44,27 @@ export async function GET() {
     }
 
     // Fetch schedule settings
-    let schedule = { intervalMinutes: 60, lastRunAt: null as string | null };
+    let schedule = { intervalMinutes: 60, lastRunAt: null as string | null, leadTimeDays: 7 };
     try {
       const settingsSnap = await getDoc(doc(db, 'emailLogs', '_schedule'));
       if (settingsSnap.exists()) {
         const data = settingsSnap.data();
         schedule.intervalMinutes = data.intervalMinutes || 60;
         schedule.lastRunAt = data.lastRunAt?.toDate?.()?.toISOString() || null;
+        if (typeof data.leadTimeDays === 'number' && data.leadTimeDays >= 0) {
+          schedule.leadTimeDays = data.leadTimeDays;
+        }
       }
     } catch {}
 
-    // Fetch overdue/eligible RWOs
+    // Eligible = RWOs whose nextExecution falls within the lead-time window from today.
+    // The cron fires leadTimeDays BEFORE the scheduled iteration date so admins have
+    // time to assign the resulting work order to a subcontractor before the service date.
     let overdue: any[] = [];
     try {
       const now = new Date();
+      const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      cutoff.setDate(cutoff.getDate() + schedule.leadTimeDays);
       const rwoSnap = await getDocs(query(
         collection(db, 'recurringWorkOrders'),
         where('status', '==', 'active'),
@@ -65,7 +72,7 @@ export async function GET() {
       rwoSnap.docs.forEach(d => {
         const data = d.data();
         const next = data.nextExecution?.toDate?.();
-        if (next && next <= now) {
+        if (next && next <= cutoff) {
           overdue.push({
             id: d.id,
             title: data.title || 'Untitled',
@@ -87,18 +94,32 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const db = await getServerDb();
-    const { intervalMinutes } = await request.json();
+    const body = await request.json();
+    const { intervalMinutes, leadTimeDays } = body || {};
 
-    if (!intervalMinutes || typeof intervalMinutes !== 'number' || intervalMinutes < 5) {
-      return NextResponse.json({ error: 'Invalid interval' }, { status: 400 });
+    const update: Record<string, any> = { updatedAt: serverTimestamp() };
+
+    if (intervalMinutes !== undefined) {
+      if (typeof intervalMinutes !== 'number' || intervalMinutes < 5) {
+        return NextResponse.json({ error: 'Invalid interval' }, { status: 400 });
+      }
+      update.intervalMinutes = intervalMinutes;
     }
 
-    await setDoc(doc(db, 'emailLogs', '_schedule'), {
-      intervalMinutes,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+    if (leadTimeDays !== undefined) {
+      if (typeof leadTimeDays !== 'number' || !Number.isFinite(leadTimeDays) || leadTimeDays < 0 || leadTimeDays > 60) {
+        return NextResponse.json({ error: 'Invalid leadTimeDays (must be 0–60)' }, { status: 400 });
+      }
+      update.leadTimeDays = Math.floor(leadTimeDays);
+    }
 
-    return NextResponse.json({ success: true, intervalMinutes });
+    if (Object.keys(update).length === 1) {
+      return NextResponse.json({ error: 'No settings provided' }, { status: 400 });
+    }
+
+    await setDoc(doc(db, 'emailLogs', '_schedule'), update, { merge: true });
+
+    return NextResponse.json({ success: true, ...update, updatedAt: undefined });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -119,12 +140,25 @@ export async function PUT(request: NextRequest) {
 
   try {
     const now = new Date();
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    // Honor leadTimeDays so manual "Run Cron Now" matches the scheduled cron's cutoff.
+    let leadTimeDays = 7;
+    try {
+      const settingsSnap = await getDoc(doc(db, 'emailLogs', '_schedule'));
+      if (settingsSnap.exists()) {
+        const data = settingsSnap.data();
+        if (typeof data.leadTimeDays === 'number' && data.leadTimeDays >= 0) {
+          leadTimeDays = Math.floor(data.leadTimeDays);
+        }
+      }
+    } catch {}
+
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    cutoff.setDate(cutoff.getDate() + leadTimeDays);
 
     const snapshot = await getDocs(query(
       collection(db, 'recurringWorkOrders'),
       where('status', '==', 'active'),
-      where('nextExecution', '<=', endOfDay),
+      where('nextExecution', '<=', cutoff),
     ));
 
     const recurringWorkOrders = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));

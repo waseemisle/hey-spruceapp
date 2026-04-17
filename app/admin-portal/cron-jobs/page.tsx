@@ -9,8 +9,9 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   Clock, CheckCircle, XCircle, AlertTriangle, Loader2, Play, ChevronDown, ChevronUp,
-  Zap, Timer, Hash, Activity, Settings, RefreshCw,
+  Zap, Timer, Hash, Activity, Settings, RefreshCw, CalendarClock,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 interface CronRunResult {
@@ -43,8 +44,11 @@ export default function CronJobsPage() {
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);
   const [scheduleInterval, setScheduleInterval] = useState(60);
+  const [leadTimeDays, setLeadTimeDays] = useState(7);
+  const [leadTimeInput, setLeadTimeInput] = useState('7');
   const [lastCronRunAt, setLastCronRunAt] = useState<Date | null>(null);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [savingLeadTime, setSavingLeadTime] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [overdueRWOs, setOverdueRWOs] = useState<Array<{ id: string; title: string; nextExecution: string; clientName: string; locationName: string }>>([]);
   const [now, setNow] = useState(new Date());
@@ -74,6 +78,9 @@ export default function CronJobsPage() {
       setCronRuns(data.runs || []);
       setOverdueRWOs(data.overdue || []);
       setScheduleInterval(data.schedule?.intervalMinutes || 60);
+      const lt = typeof data.schedule?.leadTimeDays === 'number' ? data.schedule.leadTimeDays : 7;
+      setLeadTimeDays(lt);
+      setLeadTimeInput(String(lt));
       if (data.schedule?.lastRunAt) {
         setLastCronRunAt(new Date(data.schedule.lastRunAt));
       } else if (data.runs?.length > 0) {
@@ -181,6 +188,35 @@ export default function CronJobsPage() {
       toast.error(err.message || 'Failed');
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const handleSaveLeadTime = async (newLeadTime: number) => {
+    if (!Number.isFinite(newLeadTime) || newLeadTime < 0 || newLeadTime > 60) {
+      toast.error('Lead time must be between 0 and 60 days');
+      return;
+    }
+    const days = Math.floor(newLeadTime);
+    setSavingLeadTime(true);
+    try {
+      const res = await fetch('/api/cron-monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadTimeDays: days }),
+      });
+      if (res.ok) {
+        setLeadTimeDays(days);
+        setLeadTimeInput(String(days));
+        toast.success(`Executions will now fire ${days} day${days === 1 ? '' : 's'} before the scheduled date`);
+        await fetchData();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || 'Failed to save');
+      }
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setSavingLeadTime(false);
     }
   };
 
@@ -328,6 +364,61 @@ export default function CronJobsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Lead Time Settings */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarClock className="h-5 w-5" />
+              Next Execution Before (x) Days
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              Fire recurring work-order executions this many days before their scheduled iteration date.
+              This gives admins time to assign the generated work order to a subcontractor before the
+              service is due. Applies to every recurring work order.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground mr-1">Lead time:</span>
+              {[0, 3, 5, 7, 10, 14].map(days => (
+                <Button
+                  key={days}
+                  size="sm"
+                  variant={leadTimeDays === days ? 'default' : 'outline'}
+                  disabled={savingLeadTime}
+                  onClick={() => handleSaveLeadTime(days)}
+                  className={`h-8 text-xs ${leadTimeDays === days ? 'bg-teal-600 hover:bg-teal-700' : ''}`}
+                >
+                  {days}d
+                </Button>
+              ))}
+              <div className="flex items-center gap-2 ml-2">
+                <Input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={leadTimeInput}
+                  onChange={(e) => setLeadTimeInput(e.target.value)}
+                  className="h-8 w-20 text-sm"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={savingLeadTime || leadTimeInput === String(leadTimeDays)}
+                  onClick={() => handleSaveLeadTime(Number(leadTimeInput))}
+                  className="h-8 text-xs"
+                >
+                  {savingLeadTime ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Currently firing <span className="font-semibold text-foreground">{leadTimeDays} day{leadTimeDays === 1 ? '' : 's'}</span> before the scheduled iteration date.
+              {leadTimeDays === 0 && ' Executions will run on the iteration date itself.'}
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Schedule Settings */}
         <Card>
