@@ -1328,6 +1328,7 @@ export default function ViewWorkOrder() {
             dueDate: dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             lineItems: invoiceLineItems,
             stripePaymentLink,
+            subcontractorId: (workOrder as any).assignedTo || (workOrder as any).subcontractorId || undefined,
           }),
         });
       } catch (emailErr) {

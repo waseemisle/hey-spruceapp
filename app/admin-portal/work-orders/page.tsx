@@ -793,6 +793,7 @@ const handleLocationSelect = (locationId: string) => {
           notes: invoiceData.notes,
           stripePaymentLink,
           pdfBase64,
+          subcontractorId: (workOrder as any).assignedTo || (workOrder as any).subcontractorId || undefined,
         }),
       });
 

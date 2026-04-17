@@ -283,6 +283,7 @@ export async function POST(request: NextRequest) {
           stripePaymentLink,
           pdfBase64: invoicePdfBase64,
           workOrderPdfBase64: workOrderPdfBase64,
+          subcontractorId: recurringWorkOrder.subcontractorId || undefined,
         }),
       });
 

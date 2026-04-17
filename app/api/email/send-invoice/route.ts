@@ -1,7 +1,43 @@
 import { NextResponse } from 'next/server';
+import { doc, getDoc } from 'firebase/firestore';
+import { getServerDb } from '@/lib/firebase-server';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, infoCard, infoRow, ctaButton, emailTotalsSummaryCard } from '@/lib/email-template';
+
+/**
+ * Resolve the subcontractor's BUSINESS name for display on invoice emails.
+ * Priority: direct param → subcontractorId lookup → invoiceId → subcontractorId lookup.
+ * Never returns the subcontractor's email or phone — business name only, per policy.
+ */
+async function resolveSubcontractorBusinessName(input: {
+  subcontractorBusinessName?: string;
+  subcontractorId?: string;
+  invoiceId?: string;
+}): Promise<string | null> {
+  const direct = (input.subcontractorBusinessName || '').trim();
+  if (direct) return direct;
+
+  try {
+    const db = await getServerDb();
+
+    let subId = (input.subcontractorId || '').trim();
+    if (!subId && input.invoiceId) {
+      const invSnap = await getDoc(doc(db, 'invoices', input.invoiceId));
+      if (invSnap.exists()) {
+        subId = (invSnap.data().subcontractorId || '').trim();
+      }
+    }
+    if (!subId) return null;
+
+    const subSnap = await getDoc(doc(db, 'subcontractors', subId));
+    if (!subSnap.exists()) return null;
+    const bn = (subSnap.data().businessName || '').trim();
+    return bn || null;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: Request) {
   let toEmail: string = '', toName: string = '', invoiceNumber: string = '', workOrderTitle: string = '', totalAmount: number = 0;
@@ -21,8 +57,16 @@ export async function POST(request: Request) {
       stripePaymentLink,
       invoiceId,
       pdfBase64,
-      workOrderPdfBase64
+      workOrderPdfBase64,
+      subcontractorBusinessName,
+      subcontractorId,
     } = body;
+
+    const businessName = await resolveSubcontractorBusinessName({
+      subcontractorBusinessName,
+      subcontractorId,
+      invoiceId,
+    });
 
     // Calculate subtotals and separate line items
     let materialsSubtotal = 0;
@@ -127,6 +171,7 @@ export async function POST(request: Request) {
           ${infoRow('Invoice #', invoiceNumber)}
           ${infoRow('Work Order', workOrderTitle)}
           ${infoRow('Customer', toName)}
+          ${businessName ? infoRow('Service Provider', businessName) : ''}
           ${infoRow('Due Date', dueDate || 'Net 10')}
           ${notes ? infoRow('Notes', notes) : ''}
         `)}
