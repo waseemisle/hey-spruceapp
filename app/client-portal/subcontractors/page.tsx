@@ -206,8 +206,6 @@ export default function ClientSubcontractorsView() {
     return !searchQuery ||
       sub.fullName.toLowerCase().includes(searchLower) ||
       sub.businessName.toLowerCase().includes(searchLower) ||
-      sub.email.toLowerCase().includes(searchLower) ||
-      sub.phone.toLowerCase().includes(searchLower) ||
       (sub.licenseNumber && sub.licenseNumber.toLowerCase().includes(searchLower)) ||
       (sub.skills && sub.skills.some(skill => skill.toLowerCase().includes(searchLower)));
   });
@@ -263,7 +261,7 @@ export default function ClientSubcontractorsView() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, business, email, phone, license, or skills..."
+              placeholder="Search by name, business, license, or skills..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -291,20 +289,15 @@ export default function ClientSubcontractorsView() {
                           {getInitials(sub.fullName)}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{sub.fullName}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub.businessName}</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{sub.businessName}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub.fullName}</p>
                         </div>
                       </div>
                       <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
                         Approved
                       </span>
                     </div>
-                    {/* Row 2: email */}
-                    <div className="flex items-center justify-between text-sm gap-2">
-                      <span className="text-muted-foreground truncate">{sub.email}</span>
-                      <span className="text-foreground font-medium shrink-0 text-xs">{sub.phone}</span>
-                    </div>
-                    {/* Row 3: skills */}
+                    {/* Row 2: skills */}
                     {sub.skills && sub.skills.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {sub.skills.slice(0, 3).map((skill, i) => (
@@ -350,21 +343,21 @@ export default function ClientSubcontractorsView() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="sub-fullName">Full Name <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="sub-fullName"
-                    placeholder="John Doe"
-                    value={createForm.fullName}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, fullName: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
                   <Label htmlFor="sub-businessName">Business Name <span className="text-red-500">*</span></Label>
                   <Input
                     id="sub-businessName"
                     placeholder="Doe Contracting LLC"
                     value={createForm.businessName}
                     onChange={(e) => setCreateForm(prev => ({ ...prev, businessName: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="sub-fullName">Full Name <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="sub-fullName"
+                    placeholder="John Doe"
+                    value={createForm.fullName}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, fullName: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-1.5">

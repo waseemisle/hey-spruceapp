@@ -487,8 +487,8 @@ export default function SubcontractorsManagement() {
                   {/* Row 1: name + status badge */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{sub.fullName}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub.businessName}</p>
+                      <p className="text-sm font-semibold text-foreground truncate">{sub.businessName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub.fullName}</p>
                     </div>
                     <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${status.className}`}>{status.label}</span>
                   </div>
@@ -579,8 +579,8 @@ export default function SubcontractorsManagement() {
                             {getInitials(sub.fullName)}
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">{sub.fullName}</p>
-                            <p className="text-xs text-muted-foreground">{sub.businessName}</p>
+                            <p className="font-medium text-foreground">{sub.businessName}</p>
+                            <p className="text-xs text-muted-foreground">{sub.fullName}</p>
                           </div>
                         </div>
                       </td>
@@ -695,13 +695,13 @@ export default function SubcontractorsManagement() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-foreground">Full Name *</Label>
-                    <Input value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder="John Doe" className="mt-1" />
+                    <Label className="text-sm font-medium text-foreground">Business Name *</Label>
+                    <Input value={formData.businessName} onChange={(e) => setFormData({ ...formData, businessName: e.target.value })} placeholder="ABC Services" className="mt-1" />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-foreground">Business Name *</Label>
-                    <Input value={formData.businessName} onChange={(e) => setFormData({ ...formData, businessName: e.target.value })} placeholder="ABC Services" className="mt-1" />
+                    <Label className="text-sm font-medium text-foreground">Full Name *</Label>
+                    <Input value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder="John Doe" className="mt-1" />
                   </div>
 
                   <div>

@@ -85,7 +85,6 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
             <div className="flex justify-between items-start">
               <div>
                 <p className="font-semibold text-lg">{quote.subcontractorName}</p>
-                <p className="text-sm text-muted-foreground">{quote.subcontractorEmail}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Submitted {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                 </p>
@@ -216,7 +215,6 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                       <User className="h-4 w-4" />
                       {quote.subcontractorName}
                     </CardTitle>
-                    <p className="text-xs text-muted-foreground mt-1">{quote.subcontractorEmail}</p>
                   </div>
                 </div>
               </CardHeader>

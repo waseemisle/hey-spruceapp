@@ -1036,7 +1036,6 @@ function ClientWorkOrdersContent() {
                         {sub.businessName && (
                           <p className="text-sm text-muted-foreground">{sub.businessName}</p>
                         )}
-                        <p className="text-sm text-muted-foreground">{sub.email}</p>
                         {(sub.city || sub.state) && (
                           <p className="text-sm text-muted-foreground">{[sub.city, sub.state].filter(Boolean).join(', ')}</p>
                         )}
