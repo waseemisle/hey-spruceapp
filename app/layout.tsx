@@ -4,7 +4,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ViewControlsProvider } from "@/contexts/view-controls-context";
-import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 
 export const metadata: Metadata = {
   title: "GroundOps — Facility Maintenance Infrastructure",
@@ -57,7 +56,6 @@ export default function RootLayout({
         >
           <ViewControlsProvider>
             {children}
-            <PWAInstallPrompt />
             <Toaster />
             <SonnerToaster position="top-right" richColors />
           </ViewControlsProvider>
