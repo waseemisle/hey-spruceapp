@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
       Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
     // Update the Firebase Auth user's password (and email, if changed) to the new
-    // tempPassword. Prefer the Admin SDK because it bypasses the "verify before
-    // email change" restriction that the REST API enforces when the project has
-    // email-verification-required enabled. Fall back to the REST sign-in flow if
-    // Admin SDK isn't configured or the user isn't yet in Auth.
+    // tempPassword. Admin SDK is REQUIRED for email changes because the REST
+    // accounts:update endpoint enforces "verify before update email" when the
+    // project has email-verification-required enabled. REST is only used as a
+    // fallback for same-email resends (password rotation).
     let authUpdated = false;
 
     try {
@@ -78,8 +78,9 @@ export async function POST(request: NextRequest) {
       await adminAuth.updateUser(uid, updatePayload);
       authUpdated = true;
     } catch (adminErr: any) {
-      const code = adminErr?.errorInfo?.code || adminErr?.code || '';
-      // Surface clear, user-friendly errors; fall through for recoverable cases.
+      const code: string = adminErr?.errorInfo?.code || adminErr?.code || '';
+      const message: string = adminErr?.errorInfo?.message || adminErr?.message || '';
+
       if (code === 'auth/email-already-exists') {
         return NextResponse.json(
           { error: 'That email address is already in use by another account.' },
@@ -92,9 +93,27 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      // For user-not-found or any other failure (e.g. Admin SDK unconfigured),
-      // fall through to the REST-based sign-in + update path below.
-      console.warn('Admin SDK updateUser failed, falling back to REST flow:', code || adminErr?.message);
+      if (code === 'auth/user-not-found') {
+        // Firestore has the doc but Auth doesn't — will create via signUp below.
+        console.log('[resend-invitation] Auth user not found for uid', uid, '— will create via signUp');
+      } else if (emailChanged) {
+        // Email change REQUIRES Admin SDK. If it failed for any other reason,
+        // the REST fallback will also fail (OPERATION_NOT_ALLOWED: verify before
+        // update email), so surface the real root cause instead.
+        console.error('[resend-invitation] Admin SDK updateUser failed during email change:', code, message);
+        return NextResponse.json(
+          {
+            error:
+              `Email change failed via Admin SDK: ${message || code || 'unknown error'}. ` +
+              'Check that FIREBASE_OAUTH_CLIENT_ID, FIREBASE_OAUTH_CLIENT_SECRET, and ' +
+              'FIREBASE_REFRESH_TOKEN are set in the server environment (Vercel).',
+          },
+          { status: 500 }
+        );
+      } else {
+        // Pure resend (no email change) — fall through to REST sign-in + password rotation.
+        console.warn('[resend-invitation] Admin SDK updateUser failed, falling back to REST:', code || message);
+      }
     }
 
     const storedTempPw: string = userData?.invitationTempPassword || '';
@@ -113,8 +132,11 @@ export async function POST(request: NextRequest) {
 
         if (signInRes.ok) {
           const { idToken } = await signInRes.json();
+          // REST fallback intentionally does NOT send `email` in the payload.
+          // Email changes must go through Admin SDK above; including `email`
+          // here would trigger OPERATION_NOT_ALLOWED when email-verification
+          // is enforced on the project.
           const updatePayload: Record<string, any> = { idToken, password: newTempPassword };
-          if (emailChanged) updatePayload.email = targetEmail;
           const updateRes = await fetch(
             `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${apiKey}`,
             {
@@ -126,26 +148,6 @@ export async function POST(request: NextRequest) {
           if (updateRes.ok) {
             authUpdated = true;
             break;
-          } else if (emailChanged) {
-            // Surface email-update errors (e.g. EMAIL_EXISTS) so the admin sees them.
-            const errBody = await updateRes.json().catch(() => ({}));
-            const msg = errBody?.error?.message || '';
-            if (msg === 'EMAIL_EXISTS') {
-              return NextResponse.json(
-                { error: 'That email address is already in use by another account.' },
-                { status: 409 }
-              );
-            }
-            if (msg === 'INVALID_EMAIL') {
-              return NextResponse.json(
-                { error: 'The new email address is not valid.' },
-                { status: 400 }
-              );
-            }
-            return NextResponse.json(
-              { error: `Failed to update email: ${msg || 'unknown error'}` },
-              { status: 500 }
-            );
           }
         }
       } catch {
