@@ -110,6 +110,8 @@ export default function SubcontractorCalendar() {
       .map(job => {
         const workOrder = workOrders.get(job.workOrderId);
         if (!workOrder) return null;
+        // Exclude archived work orders from the calendar
+        if (workOrder.status === 'archived') return null;
 
         const scheduledDate = job.scheduledServiceDate instanceof Timestamp
           ? job.scheduledServiceDate.toDate()

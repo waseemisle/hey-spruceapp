@@ -214,15 +214,15 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
   }, []);
 
   useEffect(() => {
-    // Filter work orders by selected locations
-    let filteredWorkOrders = workOrders;
+    // Exclude archived work orders from the calendar
+    let filteredWorkOrders = workOrders.filter(wo => wo.status !== 'archived');
     let filteredRecurring = recurringWorkOrders;
-    
+
     if (selectedLocations && selectedLocations.length > 0) {
-      filteredWorkOrders = workOrders.filter(wo => 
+      filteredWorkOrders = filteredWorkOrders.filter(wo =>
         selectedLocations.includes(wo.locationName)
       );
-      filteredRecurring = recurringWorkOrders.filter(rwo => 
+      filteredRecurring = recurringWorkOrders.filter(rwo =>
         selectedLocations.includes(rwo.locationName || '')
       );
     }

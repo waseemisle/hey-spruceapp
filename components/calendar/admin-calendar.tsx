@@ -100,8 +100,8 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
   }, []);
 
   useEffect(() => {
-    // Filter work orders
-    let filteredWorkOrders = workOrders;
+    // Exclude archived work orders from the calendar
+    let filteredWorkOrders = workOrders.filter(wo => wo.status !== 'archived');
 
     // Apply company filter
     if (companyId) {
