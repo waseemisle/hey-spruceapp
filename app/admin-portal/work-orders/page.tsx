@@ -2024,7 +2024,7 @@ const handleLocationSelect = (locationId: string) => {
         ? wo.status === 'archived'
         : (wo.status !== 'archived') && (
             workOrderType === 'all' ||
-            (workOrderType === 'standard' && !wo.isMaintenanceRequestOrder) ||
+            workOrderType === 'standard' ||
             (workOrderType === 'maintenance' && !!wo.isMaintenanceRequestOrder)
           );
 
@@ -2178,7 +2178,7 @@ const filteredLocationsForForm = locations.filter((location) => {
               {workOrderType === 'all' && 'All Work Orders'}
             </h1>
             <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-              {workOrderType === 'standard' && 'Manage standard work orders (excluding maintenance requests)'}
+              {workOrderType === 'standard' && 'Manage standard work orders'}
               {workOrderType === 'maintenance' && 'Manage work orders created from maintenance requests'}
               {workOrderType === 'archive' && 'View work orders that have been archived'}
               {workOrderType === 'all' && 'Manage all work orders and assignments'}
