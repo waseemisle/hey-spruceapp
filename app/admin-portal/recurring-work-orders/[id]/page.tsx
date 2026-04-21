@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, Edit2, Play, Pause, XCircle, Trash2, 
   Calendar, Clock, RotateCcw, CheckCircle, XCircle as XCircleIcon, 
-  AlertCircle, Download, Mail, ExternalLink, RefreshCw, Zap
+  AlertCircle, Download, Mail, ExternalLink, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution, WorkOrderTimelineEvent, WorkOrderSystemInformation } from '@/types';
@@ -350,46 +350,6 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
     }
   };
 
-  const handleExecuteNow = async () => {
-    if (!recurringWorkOrder) return;
-
-    try {
-      setSubmitting(true);
-
-      // Compute the actual next upcoming date from the pattern (same as Upcoming Executions display)
-      const { upcomingExecutions: upcoming } = buildExecutionTimeline(recurringWorkOrder);
-      if (upcoming.length === 0) {
-        toast.error('No upcoming executions to execute.');
-        return;
-      }
-      const nextSlot = upcoming[0];
-
-      const response = await fetch('/api/recurring-work-orders/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recurringWorkOrderId: recurringWorkOrder.id,
-          scheduledDate: nextSlot.scheduledDate.toISOString(),
-        }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        toast.success(`Execution #${nextSlot.executionNumber} completed! Work order created.`);
-        await fetchRecurringWorkOrder();
-        await fetchExecutions();
-      } else {
-        toast.error(result.error || 'Failed to execute iteration');
-      }
-    } catch (error) {
-      console.error('Error executing iteration:', error);
-      toast.error('Failed to execute iteration');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'text-green-600 bg-green-50';
@@ -679,16 +639,6 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               <Edit2 className="h-4 w-4 mr-2" />
               Edit
             </Button>
-            {recurringWorkOrder.status === 'active' && (
-              <Button
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={handleExecuteNow}
-                loading={submitting} disabled={submitting}
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Execute Next Iteration
-              </Button>
-            )}
             {recurringWorkOrder.status === 'active' && (
               <Button
                 variant="outline"
