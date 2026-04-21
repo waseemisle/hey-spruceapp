@@ -291,27 +291,6 @@ export default function CreateLocation() {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="propertyType">Property Type *</Label>
-                  <SearchableSelect
-                    id="propertyType"
-                    className="mt-1 w-full"
-                    value={formData.propertyType}
-                    onValueChange={(v) => setFormData((prev) => ({ ...prev, propertyType: v }))}
-                    options={[
-                      { value: 'Commercial', label: 'Commercial' },
-                      { value: 'Residential', label: 'Residential' },
-                      { value: 'Industrial', label: 'Industrial' },
-                      { value: 'Retail', label: 'Retail' },
-                      { value: 'Office', label: 'Office' },
-                      { value: 'Warehouse', label: 'Warehouse' },
-                      { value: 'Other', label: 'Other' },
-                    ]}
-                    placeholder="Property type"
-                    aria-label="Property type"
-                  />
-                </div>
-
                 <div className="md:col-span-2">
                   <Label htmlFor="address">Street Address *</Label>
                   <Input

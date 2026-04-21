@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2 } from 'lucide-react';
+import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -160,6 +161,7 @@ export default function ViewWorkOrder() {
   const [biddingSubmitting, setBiddingSubmitting] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
 
   // Manual assign modal
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -728,6 +730,25 @@ export default function ViewWorkOrder() {
       toast.error('Failed to add note');
     } finally {
       setAddingNote(false);
+    }
+  };
+
+  const handleUploadAttachmentImages = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !workOrder) return;
+    setUploadingAttachments(true);
+    try {
+      const urls = await uploadMultipleToCloudinary(files);
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        images: arrayUnion(...urls),
+        updatedAt: serverTimestamp(),
+      });
+      setWorkOrder(prev => prev ? { ...prev, images: [...(prev.images || []), ...urls] } : prev);
+      toast.success(`Uploaded ${urls.length} image${urls.length === 1 ? '' : 's'}`);
+    } catch (error: any) {
+      console.error('Error uploading work order images:', error);
+      toast.error(error?.message || 'Failed to upload images');
+    } finally {
+      setUploadingAttachments(false);
     }
   };
 
@@ -2708,6 +2729,37 @@ export default function ViewWorkOrder() {
           {/* ATTACHMENTS TAB */}
           {activeTab === 'attachments' && (
             <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" />Add Images</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <label
+                    htmlFor="wo-image-upload-admin"
+                    className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg ${uploadingAttachments ? 'cursor-not-allowed border-gray-200 bg-gray-50' : 'cursor-pointer border-gray-300 hover:border-primary'}`}
+                  >
+                    <span className="flex items-center gap-2 text-sm text-gray-600">
+                      {uploadingAttachments ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />Uploading images…</>
+                      ) : (
+                        <><Upload className="h-4 w-4" />Click to upload images</>
+                      )}
+                    </span>
+                    <input
+                      id="wo-image-upload-admin"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={uploadingAttachments}
+                      onChange={(e) => {
+                        handleUploadAttachmentImages(e.target.files);
+                        e.currentTarget.value = '';
+                      }}
+                    />
+                  </label>
+                </CardContent>
+              </Card>
               {workOrder.images && workOrder.images.length > 0 && (
                 <Card>
                   <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Work Order Images ({workOrder.images.length})</CardTitle></CardHeader>
@@ -2737,9 +2789,9 @@ export default function ViewWorkOrder() {
                 </Card>
               )}
               {(!workOrder.images || workOrder.images.length === 0) && (!workOrder.completionImages || workOrder.completionImages.length === 0) && (
-                <div className="text-center py-16">
-                  <Paperclip className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No attachments uploaded.</p>
+                <div className="text-center py-8">
+                  <Paperclip className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No attachments uploaded yet. Use the upload card above to add images.</p>
                 </div>
               )}
             </div>

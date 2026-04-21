@@ -60,7 +60,7 @@ export default function ClientSubcontractorsView() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createForm, setCreateForm] = useState({
-    email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '',
+    email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '',
   });
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<{ value: string; label: string }[]>([]);
@@ -116,7 +116,7 @@ export default function ClientSubcontractorsView() {
   }, [auth, db, router]);
 
   const handleCreateSubcontractor = async () => {
-    if (!createForm.email || !createForm.fullName || !createForm.businessName || !createForm.phone) {
+    if (!createForm.email || !createForm.businessName || !createForm.phone) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -130,7 +130,7 @@ export default function ClientSubcontractorsView() {
           role: 'subcontractor',
           sendInvitation: true,
           userData: {
-            fullName: createForm.fullName,
+            fullName: createForm.businessName,
             businessName: createForm.businessName,
             phone: createForm.phone,
             city: createForm.city,
@@ -149,7 +149,7 @@ export default function ClientSubcontractorsView() {
         toast.success('Subcontractor created! An invitation email has been sent.');
       }
       setShowCreateModal(false);
-      setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
+      setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
       setSelectedSkills([]);
       await fetchSubcontractors();
     } catch (error: any) {
@@ -204,7 +204,6 @@ export default function ClientSubcontractorsView() {
   const filteredSubcontractors = subcontractors.filter(sub => {
     const searchLower = searchQuery.toLowerCase();
     return !searchQuery ||
-      sub.fullName.toLowerCase().includes(searchLower) ||
       sub.businessName.toLowerCase().includes(searchLower) ||
       (sub.licenseNumber && sub.licenseNumber.toLowerCase().includes(searchLower)) ||
       (sub.skills && sub.skills.some(skill => skill.toLowerCase().includes(searchLower)));
@@ -261,7 +260,7 @@ export default function ClientSubcontractorsView() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, business, license, or skills..."
+              placeholder="Search by business, license, or skills..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -286,11 +285,10 @@ export default function ClientSubcontractorsView() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className={`h-9 w-9 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>
-                          {getInitials(sub.fullName)}
+                          {getInitials(sub.businessName)}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{sub.businessName}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub.fullName}</p>
                         </div>
                       </div>
                       <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
@@ -324,7 +322,7 @@ export default function ClientSubcontractorsView() {
                   <h2 className="text-xl font-bold">Add Subcontractor</h2>
                   <Button variant="outline" size="sm" onClick={() => {
                     setShowCreateModal(false);
-                    setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
+                    setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
                     setSelectedSkills([]);
                   }}>
                     <X className="h-4 w-4" />
@@ -349,15 +347,6 @@ export default function ClientSubcontractorsView() {
                     placeholder="Doe Contracting LLC"
                     value={createForm.businessName}
                     onChange={(e) => setCreateForm(prev => ({ ...prev, businessName: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="sub-fullName">Full Name <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="sub-fullName"
-                    placeholder="John Doe"
-                    value={createForm.fullName}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, fullName: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -415,7 +404,7 @@ export default function ClientSubcontractorsView() {
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => {
                     setShowCreateModal(false);
-                    setCreateForm({ email: '', fullName: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
+                    setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
                     setSelectedSkills([]);
                   }}>Cancel</Button>
                   <Button onClick={handleCreateSubcontractor} disabled={submitting}>

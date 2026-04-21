@@ -9,7 +9,8 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive, Upload, Loader2 } from 'lucide-react';
+import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
@@ -148,6 +149,7 @@ export default function ViewClientWorkOrder() {
   const [submitting, setSubmitting] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
@@ -348,6 +350,25 @@ export default function ViewClientWorkOrder() {
       });
     }
     return events;
+  };
+
+  const handleUploadAttachmentImages = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !workOrder) return;
+    setUploadingAttachments(true);
+    try {
+      const urls = await uploadMultipleToCloudinary(files);
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        images: arrayUnion(...urls),
+        updatedAt: serverTimestamp(),
+      });
+      setWorkOrder(prev => prev ? { ...prev, images: [...(prev.images || []), ...urls] } : prev);
+      toast.success(`Uploaded ${urls.length} image${urls.length === 1 ? '' : 's'}`);
+    } catch (error: any) {
+      console.error('Error uploading work order images:', error);
+      toast.error(error?.message || 'Failed to upload images');
+    } finally {
+      setUploadingAttachments(false);
+    }
   };
 
   const handleShareForBidding = async () => {
@@ -1094,6 +1115,37 @@ export default function ViewClientWorkOrder() {
           {/* ATTACHMENTS TAB */}
           {activeTab === 'attachments' && (
             <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" />Add Images</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <label
+                    htmlFor="wo-image-upload-client"
+                    className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg ${uploadingAttachments ? 'cursor-not-allowed border-gray-200 bg-gray-50' : 'cursor-pointer border-gray-300 hover:border-primary'}`}
+                  >
+                    <span className="flex items-center gap-2 text-sm text-gray-600">
+                      {uploadingAttachments ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" />Uploading images…</>
+                      ) : (
+                        <><Upload className="h-4 w-4" />Click to upload images</>
+                      )}
+                    </span>
+                    <input
+                      id="wo-image-upload-client"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={uploadingAttachments}
+                      onChange={(e) => {
+                        handleUploadAttachmentImages(e.target.files);
+                        e.currentTarget.value = '';
+                      }}
+                    />
+                  </label>
+                </CardContent>
+              </Card>
               {workOrder.images && workOrder.images.length > 0 && (
                 <Card>
                   <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Work Order Images ({workOrder.images.length})</CardTitle></CardHeader>
@@ -1123,9 +1175,9 @@ export default function ViewClientWorkOrder() {
                 </Card>
               )}
               {totalImages === 0 && (
-                <div className="text-center py-16">
-                  <Paperclip className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No attachments uploaded.</p>
+                <div className="text-center py-8">
+                  <Paperclip className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No attachments uploaded yet. Use the upload card above to add images.</p>
                 </div>
               )}
             </div>

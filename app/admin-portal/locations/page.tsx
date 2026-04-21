@@ -756,55 +756,6 @@ export default function LocationsManagement() {
                   </div>
 
                   <div>
-                    <Label>Country</Label>
-                    <Input
-                      value={formData.country}
-                      onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                      placeholder="USA"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Property Type</Label>
-                    <SearchableSelect
-                      className="mt-1 w-full"
-                      value={formData.propertyType}
-                      onValueChange={(v) => setFormData({ ...formData, propertyType: v })}
-                      options={[
-                        { value: '', label: 'Select type...' },
-                        { value: 'Restaurant', label: 'Restaurant' },
-                        { value: 'Bar', label: 'Bar' },
-                        { value: 'Hotel', label: 'Hotel' },
-                        { value: 'Office', label: 'Office' },
-                        { value: 'Retail', label: 'Retail' },
-                        { value: 'Warehouse', label: 'Warehouse' },
-                        { value: 'Other', label: 'Other' },
-                      ]}
-                      placeholder="Select type..."
-                      aria-label="Property type"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Contact Person</Label>
-                    <Input
-                      value={formData.contactPerson}
-                      onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Contact Phone</Label>
-                    <Input
-                      type="tel"
-                      value={formData.contactPhone}
-                      onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                      placeholder="(555) 123-4567"
-                    />
-                  </div>
-
-                  <div>
                     <Label>Status *</Label>
                     <SearchableSelect
                       className="mt-1 w-full"
