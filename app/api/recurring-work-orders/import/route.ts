@@ -234,11 +234,32 @@ async function findLocationByName(locationName: string, db: any): Promise<{ id: 
   try {
     const searchNormalized = normalizeLocationName(locationName);
     const searchParsed = parseLocationName(locationName);
-    
+
     console.log(`[findLocationByName] Searching for: "${locationName}"`);
     console.log(`[findLocationByName] Normalized: "${searchNormalized}"`);
     console.log(`[findLocationByName] Parsed: base="${searchParsed.base}", location="${searchParsed.location}"`);
-    
+
+    // 0. Check saved locationMappings (from the Location Map admin page) first.
+    // Exact match takes precedence; if not found, fall through to heuristic matching.
+    try {
+      const savedSnap = await getDocs(collection(db, 'locationMappings'));
+      for (const mapDoc of savedSnap.docs) {
+        const mapData = mapDoc.data();
+        const savedCsvName = mapData.csvLocationName;
+        const savedSystemLocationId = mapData.systemLocationId;
+        if (!savedCsvName || !savedSystemLocationId) continue;
+        if (normalizeLocationName(savedCsvName) === searchNormalized) {
+          const locDoc = await getDoc(doc(db, 'locations', savedSystemLocationId));
+          if (locDoc.exists()) {
+            console.log(`[findLocationByName] Matched via saved locationMappings: "${savedCsvName}" → ${savedSystemLocationId}`);
+            return { id: locDoc.id, data: locDoc.data() };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[findLocationByName] locationMappings lookup failed:', err);
+    }
+
     // First try exact match (case-sensitive)
     let q = query(
       collection(db, 'locations'),
@@ -1017,6 +1038,25 @@ export async function POST(request: NextRequest) {
               updatePayload.notes = row.notes.trim();
             }
 
+            // Update pre-assigned subcontractor if provided in the re-import
+            if (row.subcontractorId) {
+              try {
+                const subcontractorDoc = await getDoc(doc(db, 'subcontractors', row.subcontractorId));
+                if (subcontractorDoc.exists()) {
+                  const subData = subcontractorDoc.data();
+                  const subAuthId = (subData.uid && String(subData.uid).trim()) || row.subcontractorId;
+                  updatePayload.subcontractorId = row.subcontractorId;
+                  updatePayload.subcontractorName = subData.fullName || '';
+                  updatePayload.preAssignedSubcontractorId = subAuthId;
+                  updatePayload.preAssignedSubcontractorName = subData.fullName || '';
+                  updatePayload.preAssignedSubcontractorEmail = subData.email || '';
+                  updatePayload.preAssignedFromImport = true;
+                }
+              } catch (err) {
+                console.warn(`Row ${i + 1}: Could not update subcontractor on existing RWO`, err);
+              }
+            }
+
             // Add timeline event for the update
             const updateTimelineEvent = {
               id: `updated_import_${Date.now()}_${i}`,
@@ -1131,23 +1171,27 @@ export async function POST(request: NextRequest) {
                     standardWorkOrderData.companyName = companyData.name || '';
                   }
 
+                  let preAssignedSubAuthId: string | null = null;
+                  let preAssignedSubData: any = null;
                   if (row.subcontractorId) {
                     try {
                       const subcontractorDoc = await getDoc(doc(db, 'subcontractors', row.subcontractorId));
                       if (subcontractorDoc.exists()) {
-                        const subcontractorData = subcontractorDoc.data();
-                        standardWorkOrderData.assignedTo = row.subcontractorId;
-                        standardWorkOrderData.assignedToName = subcontractorData.fullName || '';
-                        standardWorkOrderData.assignedToEmail = subcontractorData.email || '';
-                        standardWorkOrderData.assignedAt = serverTimestamp();
-                        standardWorkOrderData.status = 'assigned';
+                        preAssignedSubData = subcontractorDoc.data();
+                        preAssignedSubAuthId = (preAssignedSubData.uid && String(preAssignedSubData.uid).trim()) || row.subcontractorId;
+                        standardWorkOrderData.status = 'bidding';
+                        standardWorkOrderData.biddingSubcontractors = [preAssignedSubAuthId];
+                        standardWorkOrderData.sharedForBiddingAt = serverTimestamp();
+                        standardWorkOrderData.preAssignedSubcontractorId = preAssignedSubAuthId;
+                        standardWorkOrderData.preAssignedSubcontractorName = preAssignedSubData.fullName || '';
+                        standardWorkOrderData.preAssignedFromRecurring = true;
                       }
                     } catch (error) {
                       console.warn(`Row ${i + 1}: Could not find subcontractor for execution #${executionNumber}`, error);
                     }
                   }
 
-                  standardWorkOrderData.timeline = [createTimelineEvent({
+                  const timelineEvents: any[] = [createTimelineEvent({
                     type: 'created',
                     userId: 'system',
                     userName: 'Recurring Work Order System',
@@ -1155,11 +1199,56 @@ export async function POST(request: NextRequest) {
                     details: `Work order created from Recurring Work Order ${existingWorkOrderNumber}, Execution #${executionNumber} (CSV import update)`,
                     metadata: { source: 'recurring_work_order_import_update', recurringWorkOrderId: existingRWO.id, executionNumber },
                   })];
+                  if (preAssignedSubAuthId && preAssignedSubData) {
+                    timelineEvents.push(createTimelineEvent({
+                      type: 'shared_for_bidding',
+                      userId: 'system',
+                      userName: 'Recurring Work Order System',
+                      userRole: 'system',
+                      details: `Auto-shared for bidding with pre-assigned subcontractor: ${preAssignedSubData.fullName || 'Unknown'}`,
+                      metadata: {
+                        source: 'recurring_work_order_import_update',
+                        subcontractorIds: [preAssignedSubAuthId],
+                        subcontractorCount: 1,
+                        preAssigned: true,
+                      },
+                    }));
+                  }
+                  standardWorkOrderData.timeline = timelineEvents;
                   standardWorkOrderData.systemInformation = {
                     createdBy: { id: 'system', name: 'Recurring Work Order System', role: 'system', timestamp: Timestamp.now() },
                   };
 
                   const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);
+
+                  if (preAssignedSubAuthId && preAssignedSubData) {
+                    try {
+                      await addDoc(collection(db, 'biddingWorkOrders'), {
+                        workOrderId: standardWorkOrderRef.id,
+                        workOrderNumber: standardWorkOrderNumber,
+                        subcontractorId: preAssignedSubAuthId,
+                        subcontractorName: preAssignedSubData.fullName || '',
+                        subcontractorEmail: preAssignedSubData.email || '',
+                        workOrderTitle: standardWorkOrderData.title,
+                        workOrderDescription: standardWorkOrderData.description,
+                        clientId: standardWorkOrderData.clientId,
+                        clientName: standardWorkOrderData.clientName || '',
+                        priority: standardWorkOrderData.priority || '',
+                        category: standardWorkOrderData.category || '',
+                        locationName: standardWorkOrderData.locationName || '',
+                        locationAddress: standardWorkOrderData.locationAddress || '',
+                        images: standardWorkOrderData.images || [],
+                        status: 'pending',
+                        sharedAt: serverTimestamp(),
+                        createdAt: serverTimestamp(),
+                        preAssigned: true,
+                        recurringWorkOrderId: existingRWO.id,
+                        recurringWorkOrderNumber: existingWorkOrderNumber,
+                      });
+                    } catch (bidErr) {
+                      console.warn(`Row ${i + 1}: Failed to create biddingWorkOrders doc for execution #${executionNumber}`, bidErr);
+                    }
+                  }
 
                   await updateDoc(executionRef, {
                     workOrderId: standardWorkOrderRef.id,
@@ -1286,14 +1375,20 @@ export async function POST(request: NextRequest) {
           recurringWorkOrderData.companyName = companyData.name || '';
         }
 
-        // Add subcontractor info if provided
+        // Add pre-assigned subcontractor info if provided.
+        // Executions of this RWO will auto-share-for-bidding with this subcontractor.
         if (row.subcontractorId) {
           try {
             const subcontractorDoc = await getDoc(doc(db, 'subcontractors', row.subcontractorId));
             if (subcontractorDoc.exists()) {
               const subcontractorData = subcontractorDoc.data();
+              const subAuthId = (subcontractorData.uid && String(subcontractorData.uid).trim()) || row.subcontractorId;
               recurringWorkOrderData.subcontractorId = row.subcontractorId;
               recurringWorkOrderData.subcontractorName = subcontractorData.fullName || '';
+              recurringWorkOrderData.preAssignedSubcontractorId = subAuthId;
+              recurringWorkOrderData.preAssignedSubcontractorName = subcontractorData.fullName || '';
+              recurringWorkOrderData.preAssignedSubcontractorEmail = subcontractorData.email || '';
+              recurringWorkOrderData.preAssignedFromImport = true;
             }
           } catch (error) {
             console.warn(`Row ${i + 1}: Could not find subcontractor with ID ${row.subcontractorId}`, error);
@@ -1369,17 +1464,22 @@ export async function POST(request: NextRequest) {
                 standardWorkOrderData.companyName = companyData.name || '';
               }
 
-              // Add subcontractor if pre-assigned
+              // If a subcontractor was pre-assigned in the CSV import, auto-share the execution
+              // work order for bidding with that subcontractor. No manual share-for-bidding needed.
+              let preAssignedSubAuthId: string | null = null;
+              let preAssignedSubData: any = null;
               if (row.subcontractorId) {
                 try {
                   const subcontractorDoc = await getDoc(doc(db, 'subcontractors', row.subcontractorId));
                   if (subcontractorDoc.exists()) {
-                    const subcontractorData = subcontractorDoc.data();
-                    standardWorkOrderData.assignedTo = row.subcontractorId;
-                    standardWorkOrderData.assignedToName = subcontractorData.fullName || '';
-                    standardWorkOrderData.assignedToEmail = subcontractorData.email || '';
-                    standardWorkOrderData.assignedAt = serverTimestamp();
-                    standardWorkOrderData.status = 'assigned';
+                    preAssignedSubData = subcontractorDoc.data();
+                    preAssignedSubAuthId = (preAssignedSubData.uid && String(preAssignedSubData.uid).trim()) || row.subcontractorId;
+                    standardWorkOrderData.status = 'bidding';
+                    standardWorkOrderData.biddingSubcontractors = [preAssignedSubAuthId];
+                    standardWorkOrderData.sharedForBiddingAt = serverTimestamp();
+                    standardWorkOrderData.preAssignedSubcontractorId = preAssignedSubAuthId;
+                    standardWorkOrderData.preAssignedSubcontractorName = preAssignedSubData.fullName || '';
+                    standardWorkOrderData.preAssignedFromRecurring = true;
                   }
                 } catch (error) {
                   console.warn(`Row ${i + 1}: Could not find subcontractor for execution #${executionNumber}`, error);
@@ -1387,7 +1487,7 @@ export async function POST(request: NextRequest) {
               }
 
               // Add timeline event
-              standardWorkOrderData.timeline = [createTimelineEvent({
+              const timelineEvents: any[] = [createTimelineEvent({
                 type: 'created',
                 userId: 'system',
                 userName: 'Recurring Work Order System',
@@ -1395,6 +1495,22 @@ export async function POST(request: NextRequest) {
                 details: `Work order created from Recurring Work Order ${workOrderNumber}, Execution #${executionNumber} (CSV import)`,
                 metadata: { source: 'recurring_work_order_import', recurringWorkOrderId: docRef.id, executionNumber },
               })];
+              if (preAssignedSubAuthId && preAssignedSubData) {
+                timelineEvents.push(createTimelineEvent({
+                  type: 'shared_for_bidding',
+                  userId: 'system',
+                  userName: 'Recurring Work Order System',
+                  userRole: 'system',
+                  details: `Auto-shared for bidding with pre-assigned subcontractor: ${preAssignedSubData.fullName || 'Unknown'}`,
+                  metadata: {
+                    source: 'recurring_work_order_import',
+                    subcontractorIds: [preAssignedSubAuthId],
+                    subcontractorCount: 1,
+                    preAssigned: true,
+                  },
+                }));
+              }
+              standardWorkOrderData.timeline = timelineEvents;
               standardWorkOrderData.systemInformation = {
                 createdBy: { id: 'system', name: 'Recurring Work Order System', role: 'system', timestamp: Timestamp.now() },
               };
@@ -1402,6 +1518,36 @@ export async function POST(request: NextRequest) {
               // Create the Standard Work Order
               const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);
               console.log(`Row ${i + 1}: Created Standard Work Order ${standardWorkOrderNumber} (ID: ${standardWorkOrderRef.id}) for Execution #${executionNumber}`);
+
+              // If pre-assigned, create the biddingWorkOrders doc so the subcontractor sees it in their portal
+              if (preAssignedSubAuthId && preAssignedSubData) {
+                try {
+                  await addDoc(collection(db, 'biddingWorkOrders'), {
+                    workOrderId: standardWorkOrderRef.id,
+                    workOrderNumber: standardWorkOrderNumber,
+                    subcontractorId: preAssignedSubAuthId,
+                    subcontractorName: preAssignedSubData.fullName || '',
+                    subcontractorEmail: preAssignedSubData.email || '',
+                    workOrderTitle: standardWorkOrderData.title,
+                    workOrderDescription: standardWorkOrderData.description,
+                    clientId: standardWorkOrderData.clientId,
+                    clientName: standardWorkOrderData.clientName || '',
+                    priority: standardWorkOrderData.priority || '',
+                    category: standardWorkOrderData.category || '',
+                    locationName: standardWorkOrderData.locationName || '',
+                    locationAddress: standardWorkOrderData.locationAddress || '',
+                    images: standardWorkOrderData.images || [],
+                    status: 'pending',
+                    sharedAt: serverTimestamp(),
+                    createdAt: serverTimestamp(),
+                    preAssigned: true,
+                    recurringWorkOrderId: docRef.id,
+                    recurringWorkOrderNumber: workOrderNumber,
+                  });
+                } catch (bidErr) {
+                  console.warn(`Row ${i + 1}: Failed to create biddingWorkOrders doc for execution #${executionNumber}`, bidErr);
+                }
+              }
               
               // Update execution with work order reference
               await updateDoc(executionRef, {

@@ -81,6 +81,7 @@ export default function RecurringWorkOrdersImportModal({
   const [clients, setClients] = useState<Client[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [locationMap, setLocationMap] = useState<Record<string, string>>({}); // restaurant name -> locationId
+  const [savedLocationMappings, setSavedLocationMappings] = useState<Record<string, string>>({}); // normalized csv name -> locationId (from locationMappings collection)
   const [unmappedRestaurants, setUnmappedRestaurants] = useState<string[]>([]);
   const [globalClientId, setGlobalClientId] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -98,6 +99,7 @@ export default function RecurringWorkOrdersImportModal({
       fetchSubcontractors();
       fetchClients();
       fetchLocations();
+      fetchSavedLocationMappings();
     }
   }, [isOpen]);
 
@@ -145,6 +147,26 @@ export default function RecurringWorkOrdersImportModal({
       setLocations(locationsData);
     } catch (error) {
       console.error('Error fetching locations:', error);
+    }
+  };
+
+  // Saved CSV→system location mappings (from the Location Map admin page).
+  // Keyed by the normalized CSV name for robust lookup regardless of case/whitespace.
+  const fetchSavedLocationMappings = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, 'locationMappings'));
+      const map: Record<string, string> = {};
+      snapshot.docs.forEach((d) => {
+        const data = d.data();
+        const csvName = data.csvLocationName;
+        const systemLocationId = data.systemLocationId;
+        if (csvName && systemLocationId) {
+          map[csvName.toLowerCase().trim().replace(/\s+/g, ' ')] = systemLocationId;
+        }
+      });
+      setSavedLocationMappings(map);
+    } catch (error) {
+      console.error('Error fetching saved location mappings:', error);
     }
   };
 
@@ -315,12 +337,25 @@ export default function RecurringWorkOrdersImportModal({
     return null;
   };
 
-  const runAutoMatch = (rows: ParsedRow[], dbLocations: Location[]) => {
+  const runAutoMatch = (
+    rows: ParsedRow[],
+    dbLocations: Location[],
+    savedMappings: Record<string, string> = savedLocationMappings,
+  ) => {
     const uniqueRestaurants = [...new Set(rows.filter(r => r.errors.length === 0).map(r => r.restaurant))];
     const newLocationMap: Record<string, string> = {};
     const newUnmapped: string[] = [];
+    const validLocationIds = new Set(dbLocations.map((l) => l.id));
 
     for (const restaurant of uniqueRestaurants) {
+      // 1. Prefer a saved mapping from the Location Map admin page if present and still valid.
+      const saved = savedMappings[normalizeLocationName(restaurant)];
+      if (saved && validLocationIds.has(saved)) {
+        newLocationMap[restaurant] = saved;
+        continue;
+      }
+
+      // 2. Fall back to heuristic auto-match against system locations.
       const matchedId = autoMatchLocation(restaurant, dbLocations);
       if (matchedId) {
         newLocationMap[restaurant] = matchedId;
@@ -409,9 +444,9 @@ export default function RecurringWorkOrdersImportModal({
         : rows;
       setParsedData(rowsWithGlobalClient);
 
-      // Run auto-match for location mapping
+      // Run auto-match for location mapping (saved mappings take precedence)
       if (locations.length > 0) {
-        runAutoMatch(rowsWithGlobalClient, locations);
+        runAutoMatch(rowsWithGlobalClient, locations, savedLocationMappings);
       }
 
       const validRows = rowsWithGlobalClient.filter(r => r.errors.length === 0);
@@ -1043,6 +1078,7 @@ export default function RecurringWorkOrdersImportModal({
     setClients([]);
     setLocations([]);
     setLocationMap({});
+    setSavedLocationMappings({});
     setUnmappedRestaurants([]);
     setGlobalClientId('');
     setImportMode('update_or_create');
@@ -1076,12 +1112,12 @@ export default function RecurringWorkOrdersImportModal({
     }
   }, [parsedData.length]);
 
-  // Re-run auto-match when locations finish loading after file was already parsed
+  // Re-run auto-match when locations or saved mappings finish loading after file was already parsed
   useEffect(() => {
     if (locations.length > 0 && parsedData.length > 0) {
-      runAutoMatch(parsedData, locations);
+      runAutoMatch(parsedData, locations, savedLocationMappings);
     }
-  }, [locations.length]);
+  }, [locations.length, savedLocationMappings]);
 
   // Trigger match check when mode changes to update_or_create with data already parsed
   useEffect(() => {

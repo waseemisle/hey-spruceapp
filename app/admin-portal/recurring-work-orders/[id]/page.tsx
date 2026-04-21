@@ -765,7 +765,15 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <span className="ml-2">{recurringWorkOrder.category}</span>
                 </div>
 
-                {(recurringWorkOrder as any).subcontractorName && (
+                {(recurringWorkOrder as any).preAssignedSubcontractorName ? (
+                  <div>
+                    <span className="font-semibold">Pre-assigned Subcontractor:</span>
+                    <span className="ml-2">{(recurringWorkOrder as any).preAssignedSubcontractorName}</span>
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      Auto-shared for bidding on every execution
+                    </span>
+                  </div>
+                ) : (recurringWorkOrder as any).subcontractorName && (
                   <div>
                     <span className="font-semibold">Assigned Subcontractor:</span>
                     <span className="ml-2">{(recurringWorkOrder as any).subcontractorName}</span>
