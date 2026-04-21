@@ -232,28 +232,36 @@ export default function ClientsManagement() {
           !!originalEmail &&
           formData.email.trim().toLowerCase() !== originalEmail.trim().toLowerCase();
 
-        // If the admin changed the email, the resend-invitation endpoint is the
-        // source of truth: it updates Firebase Auth + Firestore email atomically
-        // and sends a fresh invitation to the new address. Run that FIRST so we
-        // only persist other fields once the auth change succeeds.
+        // Email change: Firebase Auth's accounts:update REST endpoint rejects
+        // email changes when the project has email-verification-required
+        // enabled (OPERATION_NOT_ALLOWED). Instead we delete the old Auth user,
+        // create a new one with the new email, copy the client's Firestore
+        // data to the new uid, and migrate every collection that references
+        // the old uid via clientId (workOrders, invoices, quotes, etc.) so
+        // none of the client's data is lost.
+        let targetClientId = editingId;
         if (emailChanged) {
-          const res = await fetch('/api/auth/resend-invitation', {
+          const res = await fetch('/api/auth/migrate-client-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              email: formData.email.trim(),
-              fullName: formData.fullName,
-              role: 'client',
               uid: editingId,
+              newEmail: formData.email.trim(),
+              fullName: formData.fullName,
             }),
           });
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Failed to update email and send invitation');
+            throw new Error(err.error || 'Failed to migrate client to new email');
           }
+          const result = await res.json();
+          if (!result.newUid) {
+            throw new Error('Migration response missing newUid');
+          }
+          targetClientId = result.newUid;
         }
 
-        await updateDoc(doc(db, 'clients', editingId), {
+        await updateDoc(doc(db, 'clients', targetClientId), {
           fullName: formData.fullName, companyId: formData.companyId || null,
           companyName, phone: formData.phone,
           assignedLocations: formData.assignedLocations, status: formData.status, updatedAt: serverTimestamp(),
@@ -262,7 +270,7 @@ export default function ClientsManagement() {
 
         toast.success(
           emailChanged
-            ? `Client updated. Invitation email sent to ${formData.email}.`
+            ? `Client migrated to ${formData.email}. Invitation email sent.`
             : 'Client updated successfully'
         );
       } else {
@@ -693,7 +701,7 @@ export default function ClientsManagement() {
                     {!editingId && <p className="text-xs text-emerald-600 mt-1">An invitation email will be sent to set up password</p>}
                     {editingId && formData.email !== originalEmail && formData.email && (
                       <p className="text-xs text-amber-600 mt-1">
-                        Email will be changed from <strong>{originalEmail}</strong> — a fresh invitation email will be sent to <strong>{formData.email}</strong> on Update.
+                        Email will be changed from <strong>{originalEmail}</strong> to <strong>{formData.email}</strong>. The existing sign-in account will be replaced with a new one and a fresh invitation email will be sent on Update. All of the client's work orders, invoices, quotes and locations are kept.
                       </p>
                     )}
                   </div>
