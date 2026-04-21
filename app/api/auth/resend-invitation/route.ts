@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
-import { getAdminAuth } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, ctaButton, alertBox } from '@/lib/email-template';
@@ -58,49 +57,15 @@ export async function POST(request: NextRequest) {
       Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
 
     // Update the Firebase Auth user's password (and email, if changed) to the new
-    // tempPassword. Prefer the Admin SDK because it bypasses the "verify before
-    // email change" restriction that the REST API enforces when the project has
-    // email-verification-required enabled. Fall back to the REST sign-in flow if
-    // Admin SDK isn't configured or the user isn't yet in Auth.
+    // tempPassword using the REST API. We try available stored credentials in order:
+    // the invitation temp password, then the user's actual password (if set).
+    // If neither works (user may not exist in Auth), we create them fresh.
     let authUpdated = false;
-
-    try {
-      const adminAuth = getAdminAuth();
-      const updatePayload: {
-        email?: string;
-        emailVerified?: boolean;
-        password: string;
-      } = { password: newTempPassword };
-      if (emailChanged) {
-        updatePayload.email = targetEmail;
-        updatePayload.emailVerified = false;
-      }
-      await adminAuth.updateUser(uid, updatePayload);
-      authUpdated = true;
-    } catch (adminErr: any) {
-      const code = adminErr?.errorInfo?.code || adminErr?.code || '';
-      // Surface clear, user-friendly errors; fall through for recoverable cases.
-      if (code === 'auth/email-already-exists') {
-        return NextResponse.json(
-          { error: 'That email address is already in use by another account.' },
-          { status: 409 }
-        );
-      }
-      if (code === 'auth/invalid-email') {
-        return NextResponse.json(
-          { error: 'The new email address is not valid.' },
-          { status: 400 }
-        );
-      }
-      // For user-not-found or any other failure (e.g. Admin SDK unconfigured),
-      // fall through to the REST-based sign-in + update path below.
-      console.warn('Admin SDK updateUser failed, falling back to REST flow:', code || adminErr?.message);
-    }
 
     const storedTempPw: string = userData?.invitationTempPassword || '';
     const storedPassword: string = userData?.password || '';
 
-    for (const tryPw of authUpdated ? [] as string[] : [storedTempPw, storedPassword].filter(Boolean)) {
+    for (const tryPw of [storedTempPw, storedPassword].filter(Boolean)) {
       try {
         const signInRes = await fetch(
           `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
