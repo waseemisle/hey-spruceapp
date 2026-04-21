@@ -38,6 +38,7 @@ interface ParsedRow {
 interface Subcontractor {
   id: string;
   fullName: string;
+  businessName?: string;
   email: string;
 }
 
@@ -113,6 +114,7 @@ export default function RecurringWorkOrdersImportModal({
       const subsData = snapshot.docs.map(doc => ({
         id: doc.id,
         fullName: doc.data().fullName,
+        businessName: doc.data().businessName,
         email: doc.data().email,
       })) as Subcontractor[];
       setSubcontractors(subsData);
@@ -1530,7 +1532,7 @@ export default function RecurringWorkOrdersImportModal({
                                         onValueChange={(v) => handleSubcontractorChange(row.rowNumber, v)}
                                         options={[
                                           { value: '', label: 'Select subcontractor...' },
-                                          ...subcontractors.map((sub) => ({ value: sub.id, label: sub.fullName })),
+                                          ...subcontractors.map((sub) => ({ value: sub.id, label: sub.businessName || sub.fullName })),
                                         ]}
                                         placeholder="Select subcontractor..."
                                         aria-label="Subcontractor for row"
@@ -1632,7 +1634,7 @@ export default function RecurringWorkOrdersImportModal({
                                       onValueChange={(v) => handleSubcontractorChange(row.rowNumber, v)}
                                       options={[
                                         { value: '', label: 'Select subcontractor...' },
-                                        ...subcontractors.map((sub) => ({ value: sub.id, label: sub.fullName })),
+                                        ...subcontractors.map((sub) => ({ value: sub.id, label: sub.businessName || sub.fullName })),
                                       ]}
                                       placeholder="Select subcontractor..."
                                       aria-label="Subcontractor for row"
@@ -1775,7 +1777,7 @@ export default function RecurringWorkOrdersImportModal({
                                 onValueChange={(v) => handleSubcontractorChange(row.rowNumber, v)}
                                 options={[
                                   { value: '', label: 'Select subcontractor...' },
-                                  ...subcontractors.map((sub) => ({ value: sub.id, label: sub.fullName })),
+                                  ...subcontractors.map((sub) => ({ value: sub.id, label: sub.businessName || sub.fullName })),
                                 ]}
                                 placeholder="Select subcontractor..."
                                 aria-label="Subcontractor for row"
