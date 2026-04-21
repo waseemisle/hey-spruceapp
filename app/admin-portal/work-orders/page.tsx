@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, FileText, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { CheckCircle, XCircle, Share2, UserPlus, ClipboardList, FileText, Image as ImageIcon, Plus, Edit2, Save, X, Search, Trash2, Eye, Receipt, Upload, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Archive } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { createTimelineEvent, createInvoiceTimelineEvent } from '@/lib/timeline';
@@ -2185,23 +2186,44 @@ const filteredLocationsForForm = locations.filter((location) => {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button
-              onClick={() => setShowImportModal(true)}
-              variant="outline"
-              className="w-full sm:w-auto"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Import Work Orders</span>
-              <span className="sm:hidden">Import</span>
-            </Button>
-            <Button
-              onClick={handleOpenCreate}
-              className="w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Create Work Order</span>
-              <span className="sm:hidden">Create</span>
-            </Button>
+            {workOrderType === 'archive' ? (
+              <Link href="/admin-portal/work-orders" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Back to Work Orders</span>
+                  <span className="sm:hidden">Back</span>
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/admin-portal/work-orders?type=archive" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <Archive className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Archived Work Orders</span>
+                  <span className="sm:hidden">Archived</span>
+                </Button>
+              </Link>
+            )}
+            {workOrderType !== 'archive' && (
+              <>
+                <Button
+                  onClick={() => setShowImportModal(true)}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Import Work Orders</span>
+                  <span className="sm:hidden">Import</span>
+                </Button>
+                <Button
+                  onClick={handleOpenCreate}
+                  className="w-full sm:w-auto"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Create Work Order</span>
+                  <span className="sm:hidden">Create</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
