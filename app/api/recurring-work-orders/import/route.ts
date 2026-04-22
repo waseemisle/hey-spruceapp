@@ -112,11 +112,31 @@ function parseDate(dateValue: string | number): Date | null {
   return null;
 }
 
+// Advance a date by one recurrence step. Mirrors advanceOneStep in
+// app/api/recurring-work-orders/execute/route.ts so the cron and the importer
+// agree on what "one step forward" means for every supported frequency.
+function advanceOneStepByLabel(label: string, fromDate: Date): Date {
+  const next = new Date(fromDate);
+  const upper = (label || '').toUpperCase();
+  switch (upper) {
+    case 'DAILY':        next.setDate(next.getDate() + 1); return next;
+    case 'WEEKLY':       next.setDate(next.getDate() + 7); return next;
+    case 'BI-WEEKLY':    next.setDate(next.getDate() + 14); return next;
+    case 'MONTHLY':      next.setMonth(next.getMonth() + 1); return next;
+    case 'BI-MONTHLY':   next.setMonth(next.getMonth() + 2); return next;
+    case 'QUARTERLY':    next.setMonth(next.getMonth() + 3); return next;
+    case 'SEMIANNUALLY': next.setMonth(next.getMonth() + 6); return next;
+    default:             next.setMonth(next.getMonth() + 1); return next;
+  }
+}
+
 // Helper function to map frequency label to recurrence pattern
-function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'monthly' | 'weekly'; interval: number } {
+function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'monthly' | 'weekly' | 'daily'; interval: number } {
   const upper = frequencyLabel.toUpperCase();
-  
-  if (upper === 'SEMIANNUALLY') {
+
+  if (upper === 'DAILY') {
+    return { type: 'daily', interval: 1 };
+  } else if (upper === 'SEMIANNUALLY') {
     return { type: 'monthly', interval: 6 };
   } else if (upper === 'QUARTERLY') {
     return { type: 'monthly', interval: 3 };
@@ -125,7 +145,7 @@ function mapFrequencyToRecurrencePattern(frequencyLabel: string): { type: 'month
   } else if (upper === 'BI-MONTHLY') {
     return { type: 'monthly', interval: 2 };
   } else if (upper === 'BI-WEEKLY') {
-    return { type: 'weekly', interval: 1 }; // twice a week — daysOfWeek set separately
+    return { type: 'weekly', interval: 2 }; // every 2 weeks
   } else if (upper === 'WEEKLY') {
     return { type: 'weekly', interval: 1 };
   } else {
@@ -643,7 +663,7 @@ export async function PUT(request: NextRequest) {
       const locationName = locationResult?.data?.locationName || row.restaurant;
 
       const frequencyLabel = (row.frequencyLabel || 'QUARTERLY').toUpperCase().trim();
-      const validLabels = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
+      const validLabels = ['DAILY', 'SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
       const recurrencePatternLabel = validLabels.includes(frequencyLabel as any)
         ? (frequencyLabel as (typeof validLabels)[number])
         : 'QUARTERLY';
@@ -976,24 +996,33 @@ export async function POST(request: NextRequest) {
 
         // Map frequency to recurrence pattern (use default if missing)
         const frequencyLabel = (row.frequencyLabel || 'QUARTERLY').toUpperCase().trim();
-        const validLabels = ['SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
+        const validLabels = ['DAILY', 'SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
         const recurrencePatternLabel = validLabels.includes(frequencyLabel as any) ? (frequencyLabel as (typeof validLabels)[number]) : 'QUARTERLY';
         const recurrenceConfig = mapFrequencyToRecurrencePattern(recurrencePatternLabel);
         
-        // Use the first next service date as nextExecution, or calculate from recurrence pattern if no dates provided
+        // The importer pre-creates a Standard Work Order for every imported
+        // date, so from the scheduler's perspective each of those iterations
+        // is already fulfilled. They are stored as 'executed' executions below
+        // and nextExecution must advance past the LATEST imported date (then
+        // step forward until it lands in the future) — otherwise the cron
+        // would re-fire an already-created iteration and produce duplicates.
+        const nowForImport = new Date();
+
         let nextExecution: Date;
         if (nextServiceDates.length > 0) {
-          // Use the earliest date from the nextServiceDates array
-          nextExecution = nextServiceDates[0];
-        } else {
-          // Fallback: Calculate next execution date from recurrence pattern
-          const now = new Date();
-          nextExecution = new Date(now);
-          if (recurrenceConfig.type === 'monthly') {
-            nextExecution.setMonth(now.getMonth() + recurrenceConfig.interval);
-          } else if (recurrenceConfig.type === 'weekly') {
-            nextExecution.setDate(now.getDate() + (recurrenceConfig.interval * 7));
+          const latestImported = nextServiceDates[nextServiceDates.length - 1];
+          nextExecution = advanceOneStepByLabel(recurrencePatternLabel, latestImported);
+          let steps = 0;
+          while (nextExecution <= nowForImport && steps < 500) {
+            nextExecution = advanceOneStepByLabel(recurrencePatternLabel, nextExecution);
+            steps++;
           }
+        } else {
+          // No dates at all — first iteration is one pattern step from today.
+          // advanceOneStepByLabel covers all supported frequencies (DAILY,
+          // BI-WEEKLY, MONTHLY, BI-MONTHLY, QUARTERLY, SEMIANNUALLY, WEEKLY),
+          // whereas recurrenceConfig only distinguishes monthly/weekly/daily.
+          nextExecution = advanceOneStepByLabel(recurrencePatternLabel, nowForImport);
         }
 
         // Convert dates to Firestore Timestamps for storage
@@ -1027,6 +1056,22 @@ export async function POST(request: NextRequest) {
               updatePayload.nextServiceDates = nextServiceDatesTimestamps;
             }
             updatePayload.nextExecution = nextExecutionTimestamp;
+
+            // All imported dates count as already-serviced (the loop below
+            // pre-creates each iteration's Standard Work Order). Bump the
+            // RWO's counters and advance lastExecution so the stored state
+            // stays consistent with the 'executed' execution docs below.
+            if (nextServiceDates.length > 0) {
+              const existingTotal = existingRWO.data.totalExecutions ?? 0;
+              const existingSuccessful = existingRWO.data.successfulExecutions ?? 0;
+              updatePayload.totalExecutions = existingTotal + nextServiceDates.length;
+              updatePayload.successfulExecutions = existingSuccessful + nextServiceDates.length;
+              const latestImported = nextServiceDates[nextServiceDates.length - 1];
+              const existingLast = existingRWO.data.lastExecution?.toDate?.();
+              if (!existingLast || latestImported > existingLast) {
+                updatePayload.lastExecution = Timestamp.fromDate(latestImported);
+              }
+            }
 
             // Update scheduling if provided
             if (row.scheduling && row.scheduling.trim() !== '') {
@@ -1124,7 +1169,8 @@ export async function POST(request: NextRequest) {
                     recurringWorkOrderId: existingRWO.id,
                     executionNumber,
                     scheduledDate: Timestamp.fromDate(executionDate),
-                    status: 'pending',
+                    executedDate: Timestamp.fromDate(executionDate),
+                    status: 'executed' as const,
                     emailSent: false,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
@@ -1346,8 +1392,8 @@ export async function POST(request: NextRequest) {
           recurrencePatternLabel,
           invoiceSchedule,
           nextExecution: nextExecutionTimestamp,
-          totalExecutions: 0,
-          successfulExecutions: 0,
+          totalExecutions: nextServiceDates.length,
+          successfulExecutions: nextServiceDates.length,
           failedExecutions: 0,
           createdBy: adminUid,
           createdByName: createdByNameImport,
@@ -1361,6 +1407,9 @@ export async function POST(request: NextRequest) {
         // Only add optional fields if they have values (Firestore doesn't accept undefined)
         if (lastServicedTimestamp) {
           recurringWorkOrderData.lastServiced = lastServicedTimestamp;
+        }
+        if (nextServiceDates.length > 0) {
+          recurringWorkOrderData.lastExecution = Timestamp.fromDate(nextServiceDates[nextServiceDates.length - 1]);
         }
         if (nextServiceDatesTimestamps && nextServiceDatesTimestamps.length > 0) {
           recurringWorkOrderData.nextServiceDates = nextServiceDatesTimestamps;
@@ -1407,19 +1456,23 @@ export async function POST(request: NextRequest) {
           for (let execIndex = 0; execIndex < nextServiceDates.length; execIndex++) {
             const executionDate = nextServiceDates[execIndex];
             const executionNumber = execIndex + 1;
-            
+
             try {
-              // Create execution record
+              // Stored as 'executed' because the import creates the Standard
+              // Work Order below — the iteration's setup work is done, so
+              // the cron must not re-fire it. executedDate is the scheduled
+              // date since that's when the iteration actually runs.
               const executionData = {
                 recurringWorkOrderId: docRef.id,
                 executionNumber: executionNumber,
                 scheduledDate: Timestamp.fromDate(executionDate),
-                status: 'pending',
+                executedDate: Timestamp.fromDate(executionDate),
+                status: 'executed' as const,
                 emailSent: false,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
               };
-              
+
               const executionRef = await addDoc(collection(db, 'recurringWorkOrderExecutions'), executionData);
               console.log(`Row ${i + 1}: Created execution #${executionNumber} (ID: ${executionRef.id}) for date ${executionDate.toLocaleDateString()}`);
               
