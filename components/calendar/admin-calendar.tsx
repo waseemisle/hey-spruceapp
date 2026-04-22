@@ -458,11 +458,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
           }}
           height="auto"
           eventDisplay="block"
-          eventTimeFormat={{
-            hour: 'numeric',
-            minute: '2-digit',
-            meridiem: 'short',
-          }}
+          displayEventTime={false}
         />
         {/* Legend */}
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">

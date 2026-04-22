@@ -267,11 +267,7 @@ export default function SubcontractorCalendar() {
           }}
           height="auto"
           eventDisplay="block"
-          eventTimeFormat={{
-            hour: 'numeric',
-            minute: '2-digit',
-            meridiem: 'short',
-          }}
+          displayEventTime={false}
         />
       </CardContent>
     </Card>
