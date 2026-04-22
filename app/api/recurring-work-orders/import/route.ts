@@ -1194,7 +1194,7 @@ export async function POST(request: NextRequest) {
                     locationAddress: locationData.address && typeof locationData.address === 'object'
                       ? `${locationData.address.street || ''}, ${locationData.address.city || ''}, ${locationData.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
                       : (locationData.address || 'N/A'),
-                    title: `${row.serviceType} - ${locationData.locationName || row.restaurant} - Execution #${executionNumber}`,
+                    title: `${row.serviceType} - ${locationData.locationName || row.restaurant} - ${executionDate.toLocaleDateString('en-US')} - #${executionNumber}`,
                     description: `${row.notes || `${row.serviceType} recurring service`}\n\nThis work order was created from Recurring Work Order ${existingWorkOrderNumber}, Execution #${executionNumber} (updated via CSV import). Scheduled Date: ${executionDate.toLocaleDateString()}.`,
                     category: row.serviceType,
                     categoryId,
@@ -1492,7 +1492,7 @@ export async function POST(request: NextRequest) {
                 locationAddress: locationData.address && typeof locationData.address === 'object'
                   ? `${locationData.address.street || ''}, ${locationData.address.city || ''}, ${locationData.address.state || ''}`.replace(/^,\s*|,\s*$/g, '').trim()
                   : (locationData.address || 'N/A'),
-                title: `${row.serviceType} - ${locationData.locationName || row.restaurant} - Execution #${executionNumber}`,
+                title: `${row.serviceType} - ${locationData.locationName || row.restaurant} - ${executionDate.toLocaleDateString('en-US')} - #${executionNumber}`,
                 description: `${row.notes || `${row.serviceType} recurring service`}\n\nThis work order was created from Recurring Work Order ${workOrderNumber}, Execution #${executionNumber}. Scheduled Date: ${executionDate.toLocaleDateString()}.`,
                 category: row.serviceType,
                 categoryId: categoryId,

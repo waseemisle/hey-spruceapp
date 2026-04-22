@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       },
       locationName: recurringWorkOrder.locationName,
       locationAddress: recurringWorkOrder.locationAddress,
-      title: `${recurringWorkOrder.title} - Execution #${executionNumber}`,
+      title: `${recurringWorkOrder.title} - ${scheduledDate.toLocaleDateString('en-US')} - #${executionNumber}`,
       description: `${recurringWorkOrder.description || recurringWorkOrder.title}\n\nThis work order was created from Recurring Work Order ${recurringWorkOrder.workOrderNumber}, Execution #${executionNumber}. Scheduled Date: ${scheduledDate.toLocaleDateString()}.`,
       category: recurringWorkOrder.category,
       categoryId: recurringWorkOrder.categoryId || '',
