@@ -21,6 +21,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
   const router = useRouter();
   const [recurringWorkOrder, setRecurringWorkOrder] = useState<RecurringWorkOrder | null>(null);
   const [executions, setExecutions] = useState<RecurringWorkOrderExecution[]>([]);
+  const [workOrderStatuses, setWorkOrderStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
@@ -87,6 +88,26 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       // Sort by execution number descending (most recent first)
       executionsData.sort((a, b) => b.executionNumber - a.executionNumber);
       setExecutions(executionsData);
+
+      // Fetch linked work order statuses so executions can display the actual WO status
+      const workOrderIds = executionsData
+        .map(e => e.workOrderId)
+        .filter((id): id is string => !!id);
+      if (workOrderIds.length > 0) {
+        const statusEntries = await Promise.all(
+          workOrderIds.map(async (woId) => {
+            try {
+              const woSnap = await getDoc(doc(db, 'workOrders', woId));
+              return [woId, woSnap.exists() ? (woSnap.data().status as string) : ''] as const;
+            } catch {
+              return [woId, ''] as const;
+            }
+          })
+        );
+        setWorkOrderStatuses(Object.fromEntries(statusEntries.filter(([, s]) => !!s)));
+      } else {
+        setWorkOrderStatuses({});
+      }
     } catch (error) {
       console.error('Error fetching executions:', error);
       toast.error('Failed to load executions');
@@ -367,6 +388,42 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       case 'skipped': return 'text-muted-foreground bg-muted';
       default: return 'text-muted-foreground bg-muted';
     }
+  };
+
+  const getWorkOrderStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'text-yellow-600 bg-yellow-50';
+      case 'approved': return 'text-green-600 bg-green-50';
+      case 'rejected': return 'text-red-600 bg-red-50';
+      case 'bidding': return 'text-blue-600 bg-blue-50';
+      case 'quotes_received': return 'text-blue-600 bg-blue-50';
+      case 'to_be_started': return 'text-orange-600 bg-orange-50';
+      case 'assigned': return 'text-indigo-600 bg-indigo-50';
+      case 'pending_invoice': return 'text-orange-600 bg-orange-50';
+      case 'completed': return 'text-emerald-600 bg-emerald-50';
+      case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
+      case 'rejected_by_subcontractor': return 'text-red-600 bg-red-50';
+      case 'archived': return 'text-gray-600 bg-gray-100';
+      default: return 'text-muted-foreground bg-muted';
+    }
+  };
+
+  const getWorkOrderStatusLabel = (status: string): string => {
+    const labels: Record<string, string> = {
+      pending: 'Pending',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      bidding: 'Bidding',
+      quotes_received: 'Quote Received',
+      to_be_started: 'To Be Started',
+      assigned: 'Assigned',
+      pending_invoice: 'Pending Invoice',
+      completed: 'Completed',
+      accepted_by_subcontractor: 'Accepted by Subcontractor',
+      rejected_by_subcontractor: 'Rejected by Subcontractor',
+      archived: 'Archived',
+    };
+    return labels[status] || status.replace(/_/g, ' ');
   };
 
   /**
@@ -938,13 +995,26 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                               <div>
                                 <div className="font-semibold text-sm flex items-center gap-2">
                                   Execution #{slot.executionNumber}
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                                    slot.status === 'completed' ? 'bg-green-100 text-green-700'
-                                    : slot.status === 'failed' ? 'bg-red-100 text-red-700'
-                                    : 'bg-yellow-100 text-yellow-700'
-                                  }`}>
-                                    {slot.status}
-                                  </span>
+                                  {(() => {
+                                    const woId = slot.execution?.workOrderId;
+                                    const woStatus = woId ? workOrderStatuses[woId] : undefined;
+                                    if (woStatus) {
+                                      return (
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${getWorkOrderStatusColor(woStatus)}`}>
+                                          {getWorkOrderStatusLabel(woStatus)}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                                        slot.status === 'completed' ? 'bg-green-100 text-green-700'
+                                        : slot.status === 'failed' ? 'bg-red-100 text-red-700'
+                                        : 'bg-yellow-100 text-yellow-700'
+                                      }`}>
+                                        {slot.status}
+                                      </span>
+                                    );
+                                  })()}
                                   {(slot.execution as any)?.triggeredBy && (
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                       (slot.execution as any).triggeredBy === 'cron'
@@ -1169,14 +1239,21 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   const displayStatus = (execution.status === 'executed' || hasWorkOrder) ? 'executed'
                     : execution.status === 'failed' ? 'failed'
                     : 'executed'; // If it's in history at all, treat as executed
+                  const woStatus = execution.workOrderId ? workOrderStatuses[execution.workOrderId] : undefined;
                   return (
                   <div key={execution.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">Execution #{seqNumber}</span>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${getExecutionStatusColor(displayStatus)}`}>
-                          {displayStatus.toUpperCase()}
-                        </span>
+                        {woStatus ? (
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${getWorkOrderStatusColor(woStatus)}`}>
+                            {getWorkOrderStatusLabel(woStatus).toUpperCase()}
+                          </span>
+                        ) : (
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${getExecutionStatusColor(displayStatus)}`}>
+                            {displayStatus.toUpperCase()}
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         Scheduled: {toSafeDate(execution.scheduledDate)?.toLocaleDateString() || 'N/A'}
