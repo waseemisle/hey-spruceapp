@@ -6,12 +6,13 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { RecurringWorkOrder } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatAddress } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface WorkOrder {
   id: string;
@@ -34,6 +35,8 @@ interface CalendarEvent {
   backgroundColor: string;
   borderColor: string;
   textColor: string;
+  editable?: boolean;
+  url?: string;
   extendedProps: {
     workOrderId: string;
     workOrderNumber: string;
@@ -43,6 +46,7 @@ interface CalendarEvent {
     status: string;
     category: string;
     isRecurring?: boolean;
+    isRecurringTemplate?: boolean;
   };
 }
 
@@ -157,6 +161,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             backgroundColor: colors.bg,
             borderColor: colors.border,
             textColor: colors.text,
+            url: `/admin-portal/work-orders/${wo.id}`,
             extendedProps: {
               workOrderId: wo.id,
               workOrderNumber: wo.workOrderNumber || wo.id.slice(-8).toUpperCase(),
@@ -189,6 +194,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
           backgroundColor: colors.bg,
           borderColor: colors.border,
           textColor: colors.text,
+          url: `/admin-portal/work-orders/${wo.id}`,
           extendedProps: {
             workOrderId: wo.id,
             workOrderNumber: wo.workOrderNumber || wo.id.slice(-8).toUpperCase(),
@@ -248,6 +254,8 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
               backgroundColor: '#7c3aed',
               borderColor: '#6d28d9',
               textColor: '#ffffff',
+              editable: false,
+              url: `/admin-portal/recurring-work-orders/${rwo.id}`,
               extendedProps: {
                 workOrderId: rwo.id,
                 workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
@@ -257,6 +265,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
                 status: 'recurring',
                 category: rwo.category,
                 isRecurring: true,
+                isRecurringTemplate: true,
               },
             });
             occurrenceIdx++;
@@ -288,6 +297,8 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             backgroundColor: '#7c3aed',
             borderColor: '#6d28d9',
             textColor: '#ffffff',
+            editable: false,
+            url: `/admin-portal/recurring-work-orders/${rwo.id}`,
             extendedProps: {
               workOrderId: rwo.id,
               workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
@@ -297,6 +308,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
               status: 'recurring',
               category: rwo.category,
               isRecurring: true,
+              isRecurringTemplate: true,
             },
           };
         };
@@ -340,6 +352,8 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             backgroundColor: '#7c3aed',
             borderColor: '#6d28d9',
             textColor: '#ffffff',
+            editable: false,
+            url: `/admin-portal/recurring-work-orders/${rwo.id}`,
             extendedProps: {
               workOrderId: rwo.id,
               workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
@@ -349,6 +363,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
               status: 'recurring',
               category: rwo.category,
               isRecurring: true,
+              isRecurringTemplate: true,
             },
           });
         }
@@ -381,17 +396,54 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
     }
   };
 
+  // FullCalendar renders each event as an <a> when `url` is set, so Ctrl/Cmd+Click
+  // and middle-click open in a new tab natively. We only intercept the click when a
+  // custom onEventClick handler is provided (e.g. to trigger an in-app drawer).
   const handleEventClick = (clickInfo: any) => {
-    const { workOrderId } = clickInfo.event.extendedProps;
-    const isRecurringTemplateEvent = String(clickInfo.event.id || '').startsWith('recurring-');
     if (onEventClick) {
+      clickInfo.jsEvent.preventDefault();
+      const { workOrderId } = clickInfo.event.extendedProps;
       onEventClick(workOrderId);
-    } else {
-      if (isRecurringTemplateEvent) {
-        window.location.href = `/admin-portal/recurring-work-orders/${workOrderId}`;
-      } else {
-        window.location.href = `/admin-portal/work-orders/${workOrderId}`;
-      }
+    }
+  };
+
+  // Persist a drag-reschedule back to Firestore. Recurring template events are marked
+  // editable:false per-event, so this handler only fires for real workOrders docs
+  // (including executions of recurring WOs, which are themselves standard work orders).
+  const handleEventDrop = async (dropInfo: any) => {
+    const eventId = String(dropInfo.event.id || '');
+    const isRecurringTemplateEvent = eventId.startsWith('recurring-') || dropInfo.event.extendedProps?.isRecurringTemplate;
+
+    if (isRecurringTemplateEvent) {
+      dropInfo.revert();
+      toast.error('Recurring work orders cannot be rescheduled from the calendar. Edit the recurrence pattern instead.');
+      return;
+    }
+
+    const newStart: Date | null = dropInfo.event.start;
+    if (!newStart) {
+      dropInfo.revert();
+      return;
+    }
+
+    // Also sync scheduledServiceTime (HH:mm) so the calendar's render logic — which
+    // prefers the time string over the timestamp's hours — stays aligned when a
+    // week/day view drag also changes the time.
+    const hh = String(newStart.getHours()).padStart(2, '0');
+    const mm = String(newStart.getMinutes()).padStart(2, '0');
+    const newTimeStr = `${hh}:${mm}`;
+
+    try {
+      await updateDoc(doc(db, 'workOrders', eventId), {
+        scheduledServiceDate: newStart,
+        scheduledServiceTime: newTimeStr,
+        updatedAt: serverTimestamp(),
+      });
+      toast.success(`Rescheduled to ${newStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
+    } catch (error) {
+      console.error('Failed to reschedule work order:', error);
+      dropInfo.revert();
+      toast.error('Failed to reschedule work order');
     }
   };
 
@@ -451,6 +503,10 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
           initialView="dayGridMonth"
           events={events}
           eventClick={handleEventClick}
+          eventDrop={handleEventDrop}
+          editable={true}
+          eventStartEditable={true}
+          eventDurationEditable={false}
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',
