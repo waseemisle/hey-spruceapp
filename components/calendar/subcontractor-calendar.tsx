@@ -268,7 +268,37 @@ export default function SubcontractorCalendar() {
           height="auto"
           eventDisplay="block"
           displayEventTime={false}
+          eventContent={(arg) => (
+            <div className="px-1 py-0.5 text-xs leading-tight whitespace-normal break-words">
+              {arg.event.title}
+            </div>
+          )}
         />
+        <style jsx global>{`
+          /* Let event titles wrap onto multiple lines instead of truncating */
+          .fc .fc-event,
+          .fc .fc-daygrid-event,
+          .fc .fc-daygrid-block-event,
+          .fc .fc-daygrid-block-event .fc-event-main,
+          .fc .fc-timegrid-event,
+          .fc .fc-timegrid-event .fc-event-main,
+          .fc .fc-event-main,
+          .fc .fc-event-main-frame,
+          .fc .fc-event-title,
+          .fc .fc-event-title-container {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+          }
+          .fc .fc-daygrid-event-harness,
+          .fc .fc-daygrid-day-events,
+          .fc .fc-daygrid-day-frame {
+            overflow: visible !important;
+          }
+          .fc .fc-daygrid-day-frame {
+            min-height: unset !important;
+          }
+        `}</style>
       </CardContent>
     </Card>
   );
