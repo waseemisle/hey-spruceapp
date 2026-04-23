@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { collection, query, getDocs, doc, getDoc, updateDoc, serverTimestamp, orderBy, where } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc, updateDoc, serverTimestamp, orderBy, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,6 +48,7 @@ interface Category {
 
 interface Subcontractor {
   id: string;
+  uid?: string;
   fullName: string;
   email: string;
 }
@@ -75,6 +76,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
     description: '',
     category: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
+    status: 'active' as 'active' | 'paused' | 'cancelled',
     estimateBudget: '',
     subcontractorId: '',
     nextExecution: '',
@@ -144,6 +146,20 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           else if (pattern.type === 'monthly' && pattern.interval === 1) recurrencePatternLabel = 'MONTHLY';
         }
 
+        // Normalize type/interval from the authoritative label so mismatched CSV-imported
+        // patterns (e.g. label=SEMIANNUALLY but interval=1) don't round-trip bad data.
+        const normalizedFromLabel = ((): { type: 'daily' | 'weekly' | 'monthly'; interval: number } => {
+          switch (recurrencePatternLabel) {
+            case 'DAILY':        return { type: 'weekly', interval: 1 };
+            case 'WEEKLY':       return { type: 'weekly', interval: 1 };
+            case 'BI-WEEKLY':    return { type: 'weekly', interval: 2 };
+            case 'MONTHLY':      return { type: 'monthly', interval: 1 };
+            case 'BI-MONTHLY':   return { type: 'monthly', interval: 2 };
+            case 'QUARTERLY':    return { type: 'monthly', interval: 3 };
+            case 'SEMIANNUALLY': return { type: 'monthly', interval: 6 };
+          }
+        })();
+
         setFormData({
           clientId: recurringWorkOrderData.clientId || '',
           companyId: (recurringWorkOrderData as any).companyId || '',
@@ -152,12 +168,13 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           description: recurringWorkOrderData.description || '',
           category: recurringWorkOrderData.category || '',
           priority: recurringWorkOrderData.priority || 'medium',
+          status: (recurringWorkOrderData.status as any) || 'active',
           estimateBudget: recurringWorkOrderData.estimateBudget?.toString() || '',
           subcontractorId: (recurringWorkOrderData as any).subcontractorId || '',
           nextExecution: toDateStr(recurringWorkOrderData.nextExecution),
           recurrencePatternLabel,
-          recurrenceType: pattern?.type || 'monthly',
-          recurrenceInterval: pattern?.interval ?? 1,
+          recurrenceType: normalizedFromLabel.type,
+          recurrenceInterval: normalizedFromLabel.interval,
           recurrenceDaysOfWeek: Array.isArray(pattern?.daysOfWeek) ? pattern.daysOfWeek : [],
           recurrenceDaysOfMonth: Array.isArray(pattern?.daysOfMonth) ? pattern.daysOfMonth : (pattern?.dayOfMonth ? [pattern.dayOfMonth] : []),
           recurrenceDayOfMonth: pattern?.dayOfMonth || 1,
@@ -255,6 +272,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
       const snapshot = await getDocs(subsQuery);
       const subsData = snapshot.docs.map(doc => ({
         id: doc.id,
+        uid: doc.data().uid,
         fullName: doc.data().fullName,
         email: doc.data().email,
       })) as Subcontractor[];
@@ -328,12 +346,56 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         return;
       }
 
-      // Use the nextExecution from form if provided, otherwise calculate it
+      // Recompute the next execution date so calendar + cron stay aligned with the new pattern.
+      // Priority:
+      //   1) Explicit "Next Execution Date" from the form (always wins)
+      //   2) Derive from the recurrence pattern + starting date
+      //   3) Fallback: advance one interval from today
+      const now = new Date();
       let nextExecution: Date;
       if (formData.nextExecution) {
         nextExecution = new Date(formData.nextExecution);
+        nextExecution.setHours(9, 0, 0, 0);
+      } else if (
+        (formData.recurrencePatternLabel === 'DAILY' || formData.recurrencePatternLabel === 'BI-WEEKLY') &&
+        formData.recurrenceStartDate &&
+        formData.recurrenceDaysOfWeek.length > 0
+      ) {
+        const startDate = new Date(formData.recurrenceStartDate);
+        startDate.setHours(9, 0, 0, 0);
+        let candidate = new Date(startDate);
+        for (let i = 0; i < 7; i++) {
+          if (formData.recurrenceDaysOfWeek.includes(candidate.getDay())) break;
+          candidate.setDate(candidate.getDate() + 1);
+        }
+        nextExecution = candidate;
+      } else if (needsDayOfMonthPicker && formData.recurrenceDaysOfMonth.length > 0 && formData.recurrenceStartDate) {
+        const startDate = new Date(formData.recurrenceStartDate);
+        startDate.setHours(9, 0, 0, 0);
+        const sorted = [...formData.recurrenceDaysOfMonth].sort((a, b) => a - b);
+        let found: Date | null = null;
+        for (const dom of sorted) {
+          const lastDay = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate();
+          const actualDay = Math.min(dom, lastDay);
+          if (actualDay >= startDate.getDate()) {
+            found = new Date(startDate.getFullYear(), startDate.getMonth(), actualDay, 9, 0, 0);
+            break;
+          }
+        }
+        if (!found) {
+          const monthInterval = formData.recurrencePatternLabel === 'QUARTERLY' ? 3
+            : formData.recurrencePatternLabel === 'SEMIANNUALLY' ? 6
+            : formData.recurrencePatternLabel === 'BI-MONTHLY' ? 2 : 1;
+          const nextMonth = new Date(startDate);
+          nextMonth.setMonth(nextMonth.getMonth() + monthInterval);
+          const lastDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+          found = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), Math.min(sorted[0], lastDay), 9, 0, 0);
+        }
+        nextExecution = found;
+      } else if (formData.recurrenceStartDate) {
+        nextExecution = new Date(formData.recurrenceStartDate);
+        nextExecution.setHours(9, 0, 0, 0);
       } else {
-        const now = new Date();
         nextExecution = new Date(now);
         if (formData.recurrenceType === 'weekly') {
           nextExecution.setDate(now.getDate() + formData.recurrenceInterval * 7);
@@ -363,9 +425,15 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         }),
       } as RecurrencePattern;
 
+      // Preserve the stored invoice schedule type — the edit form only exposes the
+      // monthly interval controls, but we shouldn't silently downgrade a quarterly /
+      // bi-monthly / semiannually schedule by hardcoding 'monthly'.
       const invoiceSchedule: InvoiceSchedule = {
-        type: 'monthly',
-        interval: formData.invoiceScheduleInterval,
+        type: formData.invoiceScheduleType,
+        interval: formData.invoiceScheduleType === 'bi-monthly' ? 2
+          : formData.invoiceScheduleType === 'quarterly' ? 3
+          : formData.invoiceScheduleType === 'semiannually' ? 6
+          : formData.invoiceScheduleInterval,
         dayOfMonth: formData.invoiceScheduleDayOfMonth,
         time: formData.invoiceTime,
         timezone: formData.timezone,
@@ -386,6 +454,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         description: formData.description,
         category: formData.category,
         priority: formData.priority,
+        status: formData.status,
         estimateBudget: formData.estimateBudget ? parseFloat(formData.estimateBudget) : null,
         recurrencePattern,
         recurrencePatternLabel: formData.recurrencePatternLabel,
@@ -394,20 +463,58 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
         updatedAt: serverTimestamp(),
       };
 
-      // Add subcontractor info if selected
+      // Keep both legacy (subcontractorId/Name) and pre-assigned (preAssignedSubcontractor*)
+      // fields in sync — the detail page prefers preAssignedSubcontractorName when present,
+      // and execution creation uses preAssignedSubcontractorId (auth uid) for auto-share-for-bidding.
       if (formData.subcontractorId) {
         const subcontractor = subcontractors.find(s => s.id === formData.subcontractorId);
         if (subcontractor) {
+          const subAuthId = (subcontractor.uid && String(subcontractor.uid).trim()) || subcontractor.id;
           updateData.subcontractorId = formData.subcontractorId;
           updateData.subcontractorName = subcontractor.fullName;
+          updateData.subcontractorEmail = subcontractor.email || '';
+          updateData.preAssignedSubcontractorId = subAuthId;
+          updateData.preAssignedSubcontractorName = subcontractor.fullName;
+          updateData.preAssignedSubcontractorEmail = subcontractor.email || '';
         }
       } else {
-        // Remove subcontractor if deselected
         updateData.subcontractorId = null;
         updateData.subcontractorName = null;
+        updateData.subcontractorEmail = null;
+        updateData.preAssignedSubcontractorId = null;
+        updateData.preAssignedSubcontractorName = null;
+        updateData.preAssignedSubcontractorEmail = null;
       }
 
       await updateDoc(doc(db, 'recurringWorkOrders', params.id), updateData);
+
+      // If the recurrence pattern changed, drop any pending (non-executed, no-work-order)
+      // execution records so they don't fire on the old schedule via cron.
+      const originalLabel = (recurringWorkOrder as any)?.recurrencePatternLabel;
+      const originalPattern = recurringWorkOrder?.recurrencePattern as any;
+      const patternChanged =
+        originalLabel !== formData.recurrencePatternLabel ||
+        JSON.stringify(originalPattern?.daysOfWeek || []) !== JSON.stringify(recurrencePattern.daysOfWeek || []) ||
+        JSON.stringify(originalPattern?.daysOfMonth || []) !== JSON.stringify(recurrencePattern.daysOfMonth || []) ||
+        (originalPattern?.startDate ? new Date(originalPattern.startDate?.toDate?.() ?? originalPattern.startDate).toDateString() : '') !==
+          (formData.recurrenceStartDate ? new Date(formData.recurrenceStartDate).toDateString() : '');
+
+      if (patternChanged) {
+        try {
+          const execsSnap = await getDocs(
+            query(collection(db, 'recurringWorkOrderExecutions'), where('recurringWorkOrderId', '==', params.id))
+          );
+          const stale = execsSnap.docs.filter((d) => {
+            const data = d.data() as any;
+            const hasWo = !!data.workOrderId;
+            const isDone = data.status === 'executed' || data.status === 'failed';
+            return !hasWo && !isDone;
+          });
+          await Promise.all(stale.map((d) => deleteDoc(doc(db, 'recurringWorkOrderExecutions', d.id))));
+        } catch (cleanupError) {
+          console.error('Failed to clean up stale executions after pattern change:', cleanupError);
+        }
+      }
 
       toast.success('Recurring work order updated successfully');
       router.push(`/admin-portal/recurring-work-orders/${params.id}`);
@@ -455,6 +562,8 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
       recurrenceInterval: interval,
       recurrenceDaysOfWeek: (label === 'DAILY' || label === 'BI-WEEKLY') ? formData.recurrenceDaysOfWeek : [],
       recurrenceDaysOfMonth: ['MONTHLY', 'BI-MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(label) ? formData.recurrenceDaysOfMonth : [],
+      // Clear any stale nextExecution override — it'll be recomputed from the new pattern on save.
+      nextExecution: '',
     });
   };
 
@@ -465,18 +574,18 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
   const toggleDayOfWeek = (day: number) => {
     const days = formData.recurrenceDaysOfWeek;
     if (days.includes(day)) {
-      setFormData({ ...formData, recurrenceDaysOfWeek: days.filter(d => d !== day) });
+      setFormData({ ...formData, recurrenceDaysOfWeek: days.filter(d => d !== day), nextExecution: '' });
     } else {
-      setFormData({ ...formData, recurrenceDaysOfWeek: [...days, day] });
+      setFormData({ ...formData, recurrenceDaysOfWeek: [...days, day], nextExecution: '' });
     }
   };
 
   const toggleDayOfMonth = (day: number) => {
     const days = formData.recurrenceDaysOfMonth;
     if (days.includes(day)) {
-      setFormData({ ...formData, recurrenceDaysOfMonth: days.filter(d => d !== day) });
+      setFormData({ ...formData, recurrenceDaysOfMonth: days.filter(d => d !== day), nextExecution: '' });
     } else {
-      setFormData({ ...formData, recurrenceDaysOfMonth: [...days, day].sort((a, b) => a - b) });
+      setFormData({ ...formData, recurrenceDaysOfMonth: [...days, day].sort((a, b) => a - b), nextExecution: '' });
     }
   };
 
@@ -671,6 +780,25 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
               </div>
 
               <div>
+                <Label>Status *</Label>
+                <SearchableSelect
+                  className="mt-1 w-full"
+                  value={formData.status}
+                  onValueChange={(v) => setFormData({ ...formData, status: v as typeof formData.status })}
+                  options={[
+                    { value: 'active', label: 'Active' },
+                    { value: 'paused', label: 'Paused' },
+                    { value: 'cancelled', label: 'Cancelled' },
+                  ]}
+                  placeholder="Status"
+                  aria-label="Status"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Paused/Cancelled recurring work orders won&apos;t be picked up by the daily cron.
+                </p>
+              </div>
+
+              <div>
                 <Label>Estimate Budget (Optional)</Label>
                 <Input
                   type="number"
@@ -686,7 +814,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
               </div>
 
               <div>
-                <Label>Assigned Subcontractor</Label>
+                <Label>Pre-assigned Subcontractor</Label>
                 <SearchableSelect
                   className="mt-1 w-full"
                   value={formData.subcontractorId}
@@ -699,9 +827,11 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                     })),
                   ]}
                   placeholder="Select subcontractor..."
-                  aria-label="Assigned subcontractor"
+                  aria-label="Pre-assigned subcontractor"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Pre-select a subcontractor for this recurring work order</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-shared for bidding on every execution generated from this recurring work order.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -830,9 +960,74 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
                 <Input
                   type="date"
                   value={formData.recurrenceStartDate}
-                  onChange={(e) => setFormData({ ...formData, recurrenceStartDate: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, recurrenceStartDate: e.target.value, nextExecution: '' })}
                 />
                 <p className="text-xs text-muted-foreground mt-1">The first date occurrences will begin. Events will appear on the calendar from this date onward.</p>
+
+                {(formData.recurrencePatternLabel === 'DAILY' || formData.recurrencePatternLabel === 'BI-WEEKLY') && formData.recurrenceDaysOfWeek.length > 0 && formData.recurrenceStartDate && (() => {
+                  const start = new Date(formData.recurrenceStartDate);
+                  const upcoming: string[] = [];
+                  let d = new Date(start);
+                  let count = 0;
+                  if (formData.recurrencePatternLabel === 'BI-WEEKLY') {
+                    while (upcoming.length < 5 && count < 365) {
+                      if (formData.recurrenceDaysOfWeek.includes(d.getDay())) {
+                        upcoming.push(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+                        d.setDate(d.getDate() + 14);
+                        count += 14;
+                        continue;
+                      }
+                      d.setDate(d.getDate() + 1);
+                      count++;
+                    }
+                  } else {
+                    while (upcoming.length < 5 && count < 14) {
+                      if (formData.recurrenceDaysOfWeek.includes(d.getDay())) {
+                        upcoming.push(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+                      }
+                      d.setDate(d.getDate() + 1);
+                      count++;
+                    }
+                  }
+                  return upcoming.length > 0 ? (
+                    <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                      <p className="text-xs font-semibold text-blue-700 mb-1">First 5 upcoming occurrences:</p>
+                      <ul className="text-xs text-blue-600 space-y-0.5">
+                        {upcoming.map((d, i) => <li key={i}>• {d}</li>)}
+                      </ul>
+                    </div>
+                  ) : null;
+                })()}
+                {needsDayOfMonthPicker && formData.recurrenceDaysOfMonth.length > 0 && formData.recurrenceStartDate && (() => {
+                  const start = new Date(formData.recurrenceStartDate);
+                  start.setHours(9, 0, 0, 0);
+                  const upcoming: string[] = [];
+                  const cursor = new Date(start);
+                  const monthInterval = formData.recurrencePatternLabel === 'QUARTERLY' ? 3
+                    : formData.recurrencePatternLabel === 'SEMIANNUALLY' ? 6
+                    : formData.recurrencePatternLabel === 'BI-MONTHLY' ? 2 : 1;
+                  let iters = 0;
+                  while (upcoming.length < 5 && iters < 24) {
+                    for (const dom of formData.recurrenceDaysOfMonth) {
+                      const lastDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+                      const actualDay = Math.min(dom, lastDay);
+                      const dt = new Date(cursor.getFullYear(), cursor.getMonth(), actualDay, 9, 0, 0);
+                      if (dt >= start && upcoming.length < 5) {
+                        upcoming.push(dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }));
+                      }
+                    }
+                    cursor.setMonth(cursor.getMonth() + monthInterval);
+                    iters++;
+                  }
+                  return upcoming.length > 0 ? (
+                    <div className="mt-2 p-2 bg-blue-50 rounded-md">
+                      <p className="text-xs font-semibold text-blue-700 mb-1">First {upcoming.length} upcoming occurrences:</p>
+                      <ul className="text-xs text-blue-600 space-y-0.5">
+                        {upcoming.map((d, i) => <li key={i}>• {d}</li>)}
+                      </ul>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               <div>
@@ -846,13 +1041,15 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
               </div>
 
               <div>
-                <Label>Next Execution Date</Label>
+                <Label>Next Execution Date (optional override)</Label>
                 <Input
                   type="date"
                   value={formData.nextExecution}
                   onChange={(e) => setFormData({ ...formData, nextExecution: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground mt-1">Date when the next work order will be created</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave blank to recompute automatically from the pattern and starting date. Set a date only to manually override when the next work order will be created.
+                </p>
               </div>
 
               <div className="pt-4 border-t">
@@ -967,6 +1164,9 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
               </div>
               <div className="text-sm">
                 <span className="font-semibold">Client:</span> {clients.find(c => c.id === formData.clientId)?.fullName || 'Not selected'}
+              </div>
+              <div className="text-sm">
+                <span className="font-semibold">Status:</span> {formData.status.toUpperCase()}
               </div>
               <div className="text-sm">
                 <span className="font-semibold">Recurrence:</span> {formData.recurrencePatternLabel}
