@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution, WorkOrderTimelineEvent, WorkOrderSystemInformation } from '@/types';
 import { formatAddress } from '@/lib/utils';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
+import RecurringWorkOrderEditForm from '@/components/recurring-work-order-edit-form';
 
 export default function RecurringWorkOrderDetails({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
 
   const fetchRecurringWorkOrder = async () => {
     try {
@@ -688,46 +690,60 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               <p className="text-muted-foreground mt-2">{recurringWorkOrder.workOrderNumber}</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`)}
-            >
-              <Edit2 className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-            {recurringWorkOrder.status === 'active' && (
+          {!editMode && (
+            <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={handleToggleStatus}
-                loading={submitting} disabled={submitting}
+                onClick={() => setEditMode(true)}
               >
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit
               </Button>
-            )}
-            {recurringWorkOrder.status === 'paused' && (
-              <Button
-                onClick={handleToggleStatus}
-                loading={submitting} disabled={submitting}
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Resume
-              </Button>
-            )}
-            {recurringWorkOrder.status !== 'cancelled' && (
-              <Button
-                variant="destructive"
-                onClick={handleCancel}
-                loading={submitting} disabled={submitting}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-            )}
-          </div>
+              {recurringWorkOrder.status === 'active' && (
+                <Button
+                  variant="outline"
+                  onClick={handleToggleStatus}
+                  loading={submitting} disabled={submitting}
+                >
+                  <Pause className="h-4 w-4 mr-2" />
+                  Pause
+                </Button>
+              )}
+              {recurringWorkOrder.status === 'paused' && (
+                <Button
+                  onClick={handleToggleStatus}
+                  loading={submitting} disabled={submitting}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Resume
+                </Button>
+              )}
+              {recurringWorkOrder.status !== 'cancelled' && (
+                <Button
+                  variant="destructive"
+                  onClick={handleCancel}
+                  loading={submitting} disabled={submitting}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
+        {editMode ? (
+          <RecurringWorkOrderEditForm
+            id={params.id}
+            onSaved={() => {
+              setEditMode(false);
+              fetchRecurringWorkOrder();
+              fetchExecutions();
+            }}
+            onCancel={() => setEditMode(false)}
+          />
+        ) : (
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Basic Information */}
           <div className="lg:col-span-2 space-y-6">
@@ -1348,6 +1364,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
             )}
           </CardContent>
         </Card>
+        </>
+        )}
       </div>
     </AdminLayout>
   );
