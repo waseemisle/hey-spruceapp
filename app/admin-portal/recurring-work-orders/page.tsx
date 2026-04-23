@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -492,14 +493,12 @@ export default function RecurringWorkOrdersManagement() {
             <p className="text-muted-foreground mt-2 text-sm sm:text-base">Manage recurring work orders and their schedules</p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              onClick={() => window.location.href = '/admin-portal/recurring-work-orders/location-map'}
-              variant="outline"
-              className="w-full sm:w-auto"
-            >
-              <MapPin className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Location Map</span>
-              <span className="sm:hidden">Map</span>
+            <Button variant="outline" className="w-full sm:w-auto" asChild>
+              <Link href="/admin-portal/recurring-work-orders/location-map">
+                <MapPin className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Location Map</span>
+                <span className="sm:hidden">Map</span>
+              </Link>
             </Button>
             <Button 
               onClick={() => setShowImportModal(true)}
@@ -510,13 +509,12 @@ export default function RecurringWorkOrdersManagement() {
               <span className="hidden sm:inline">Import from CSV/Excel</span>
               <span className="sm:hidden">Import</span>
             </Button>
-            <Button 
-              onClick={() => window.location.href = '/admin-portal/recurring-work-orders/create'}
-              className="w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Create Recurring Work Order</span>
-              <span className="sm:hidden">Create</span>
+            <Button className="w-full sm:w-auto" asChild>
+              <Link href="/admin-portal/recurring-work-orders/create">
+                <Plus className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Create Recurring Work Order</span>
+                <span className="sm:hidden">Create</span>
+              </Link>
             </Button>
           </div>
         </div>
@@ -736,19 +734,15 @@ export default function RecurringWorkOrdersManagement() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}`}
-                        >
-                          <Eye className="h-4 w-4" />
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/admin-portal/recurring-work-orders/${recurringWorkOrder.id}`}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}
-                        >
-                          <Edit2 className="h-4 w-4" />
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}>
+                            <Edit2 className="h-4 w-4" />
+                          </Link>
                         </Button>
                         {recurringWorkOrder.status === 'active' && (
                           <Button
@@ -855,23 +849,16 @@ export default function RecurringWorkOrdersManagement() {
                 })()}
                 {/* Row 3: actions */}
                 <div className="flex items-center gap-1.5 pt-1 border-t border-border">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-8 text-xs gap-1"
-                    onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}`}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    View
+                  <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" asChild>
+                    <Link href={`/admin-portal/recurring-work-orders/${recurringWorkOrder.id}`}>
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </Link>
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 px-2"
-                    title="Edit"
-                    onClick={() => window.location.href = `/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}
-                  >
-                    <Edit2 className="h-3.5 w-3.5" />
+                  <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" asChild>
+                    <Link href={`/admin-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Link>
                   </Button>
                   {recurringWorkOrder.status === 'active' && (
                     <Button

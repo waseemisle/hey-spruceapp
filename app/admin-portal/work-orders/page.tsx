@@ -2363,12 +2363,10 @@ const filteredLocationsForForm = locations.filter((location) => {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}
-                        >
-                          <Eye className="h-4 w-4" />
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/admin-portal/work-orders/${workOrder.id}`}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
                         </Button>
                         <Button
                           size="sm"
@@ -2454,9 +2452,10 @@ const filteredLocationsForForm = locations.filter((location) => {
 
                 {/* Actions row */}
                 <div className="flex items-center gap-1.5 pt-1 border-t border-border">
-                  <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1"
-                    onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}>
-                    <Eye className="h-3.5 w-3.5" /> View
+                  <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" asChild>
+                    <Link href={`/admin-portal/work-orders/${workOrder.id}`}>
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </Link>
                   </Button>
                   <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(workOrder)}>
                     <Edit2 className="h-3.5 w-3.5" />
@@ -2477,9 +2476,10 @@ const filteredLocationsForForm = locations.filter((location) => {
                     </Button>
                   )}
                   {workOrder.status === 'quotes_received' && (
-                    <Button size="sm" variant="outline" className="h-8 px-2" title="View Quotes"
-                      onClick={() => window.location.href = `/admin-portal/quotes?workOrderId=${workOrder.id}`}>
-                      <FileText className="h-3.5 w-3.5" />
+                    <Button size="sm" variant="outline" className="h-8 px-2" title="View Quotes" asChild>
+                      <Link href={`/admin-portal/quotes?workOrderId=${workOrder.id}`}>
+                        <FileText className="h-3.5 w-3.5" />
+                      </Link>
                     </Button>
                   )}
                   {(workOrder.status === 'to_be_started' || workOrder.status === 'rejected_by_subcontractor') && (
