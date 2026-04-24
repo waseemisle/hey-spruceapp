@@ -22,6 +22,33 @@ import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 const DEFAULT_DIAGNOSTIC_FEE = 30;
 
+// Predefined service time slots the subcontractor picks from. The chosen
+// label is stored verbatim on the quote and shown to client + admin
+// (e.g. "Proposed Date Apr 25 at 8:00 AM - 10:00 AM").
+// Diagnostic visits use 1-hour slots; full repair quotes use wider 2-hour windows.
+const DIAGNOSTIC_TIME_SLOTS = [
+  '8:00 AM - 9:00 AM',
+  '9:00 AM - 10:00 AM',
+  '10:00 AM - 11:00 AM',
+  '11:00 AM - 12:00 PM',
+  '12:00 PM - 1:00 PM',
+  '1:00 PM - 2:00 PM',
+  '2:00 PM - 3:00 PM',
+  '3:00 PM - 4:00 PM',
+  '4:00 PM - 5:00 PM',
+  '5:00 PM - 6:00 PM',
+  '6:00 PM - 7:00 PM',
+  '7:00 PM - 8:00 PM',
+] as const;
+const SERVICE_TIME_SLOTS = [
+  '8:00 AM - 10:00 AM',
+  '10:00 AM - 12:00 PM',
+  '12:00 PM - 2:00 PM',
+  '2:00 PM - 4:00 PM',
+  '4:00 PM - 6:00 PM',
+  '6:00 PM - 8:00 PM',
+] as const;
+
 interface BiddingWorkOrder {
   id: string;
   workOrderId: string;
@@ -832,13 +859,18 @@ export default function SubcontractorBidding() {
                   </div>
                   <div>
                     <Label htmlFor="directServiceTime">Proposed Service Time *</Label>
-                    <Input
+                    <select
                       id="directServiceTime"
-                      type="time"
                       value={directQuoteServiceTime}
                       onChange={(e) => setDirectQuoteServiceTime(e.target.value)}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                       required
-                    />
+                    >
+                      <option value="">Select a time slot…</option>
+                      {SERVICE_TIME_SLOTS.map((slot) => (
+                        <option key={slot} value={slot}>{slot}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -1101,15 +1133,20 @@ export default function SubcontractorBidding() {
 
                   <div>
                     <Label htmlFor="proposedServiceTime">Proposed Service Time *</Label>
-                    <Input
+                    <select
                       id="proposedServiceTime"
                       name="proposedServiceTime"
-                      type="time"
                       value={quoteForm.proposedServiceTime}
-                      onChange={handleQuoteFormChange}
+                      onChange={(e) => setQuoteForm(prev => ({ ...prev, proposedServiceTime: e.target.value }))}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                       required
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Time you can perform the diagnostic</p>
+                    >
+                      <option value="">Select a time slot…</option>
+                      {DIAGNOSTIC_TIME_SLOTS.map((slot) => (
+                        <option key={slot} value={slot}>{slot}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1">1-hour slot you can perform the diagnostic</p>
                   </div>
 
                   <div className="md:col-span-2">
