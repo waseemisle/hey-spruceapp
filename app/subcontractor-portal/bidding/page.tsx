@@ -20,7 +20,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
-const DEFAULT_DIAGNOSTIC_FEE = 69;
+const DEFAULT_DIAGNOSTIC_FEE = 30;
 
 interface BiddingWorkOrder {
   id: string;
@@ -1024,7 +1024,7 @@ export default function SubcontractorBidding() {
                       value={diagnosticFee}
                       onChange={(e) => setDiagnosticFee(e.target.value)}
                       onWheel={(e) => e.currentTarget.blur()}
-                      placeholder="69.00"
+                      placeholder="30.00"
                       required
                     />
                     <p className="text-xs text-muted-foreground mt-1">

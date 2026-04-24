@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { formatAddress } from '@/lib/utils';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 
-const DEFAULT_DIAGNOSTIC_FEE = 69;
+const DEFAULT_DIAGNOSTIC_FEE = 30;
 
 interface AssignedJob {
   id: string;
