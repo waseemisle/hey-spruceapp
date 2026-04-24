@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, DollarSign, Search, Stethoscope, AlertCircle } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, DollarSign, Search, Stethoscope, AlertCircle, FileText, X, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
@@ -62,6 +62,21 @@ export default function SubcontractorBidding() {
 
   /** Diagnostic fee for the initial visit — subcontractor bids this amount. Default $69. */
   const [diagnosticFee, setDiagnosticFee] = useState<string>(DEFAULT_DIAGNOSTIC_FEE.toFixed(2));
+
+  // ─── Direct Submit Quote (no diagnostic) ───
+  const [showDirectQuoteForm, setShowDirectQuoteForm] = useState(false);
+  const [directQuoteLineItems, setDirectQuoteLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([
+    { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+    { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
+  ]);
+  const [directQuoteNotes, setDirectQuoteNotes] = useState('');
+  const [directQuoteDuration, setDirectQuoteDuration] = useState('');
+  const [directQuoteServiceDate, setDirectQuoteServiceDate] = useState('');
+  const [directQuoteServiceTime, setDirectQuoteServiceTime] = useState('');
+  const [directQuoteSubmitting, setDirectQuoteSubmitting] = useState(false);
+
+  // ─── Reject Quote Request ───
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -125,6 +140,200 @@ export default function SubcontractorBidding() {
 
   const handleQuoteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setQuoteForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  // ─── Direct Submit Quote helpers ───
+  const updateDirectLineItem = (idx: number, field: 'description' | 'quantity' | 'unitPrice' | 'amount', value: string) => {
+    setDirectQuoteLineItems(prev => {
+      const next = [...prev];
+      const item = { ...next[idx] };
+      if (field === 'description') item.description = value;
+      else {
+        const num = parseFloat(value) || 0;
+        if (field === 'quantity') { item.quantity = num; item.amount = parseFloat((num * item.unitPrice).toFixed(2)); }
+        else if (field === 'unitPrice') { item.unitPrice = num; item.amount = parseFloat((item.quantity * num).toFixed(2)); }
+        else if (field === 'amount') { item.amount = num; }
+      }
+      next[idx] = item;
+      return next;
+    });
+  };
+  const addDirectLineItem = () => setDirectQuoteLineItems(prev => [...prev, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+  const removeDirectLineItem = (idx: number) => setDirectQuoteLineItems(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
+  const directQuoteTotal = directQuoteLineItems.reduce((s, li) => s + (Number(li.amount) || 0), 0);
+
+  const handleSubmitDirectQuote = async () => {
+    if (!selectedBidding) return;
+    const validItems = directQuoteLineItems.filter(li => li.description.trim() && Number(li.amount) > 0);
+    if (validItems.length === 0) {
+      toast.error('Please add at least one line item with description and amount');
+      return;
+    }
+    if (!directQuoteDuration || !directQuoteServiceDate || !directQuoteServiceTime) {
+      toast.error('Please fill in estimated duration and proposed service date/time');
+      return;
+    }
+    setDirectQuoteSubmitting(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+      if (!subDoc.exists()) return;
+      const subData = subDoc.data();
+
+      const labor = validItems.filter(li => li.description.toLowerCase().includes('labor')).reduce((s, li) => s + Number(li.amount), 0);
+      const material = validItems.filter(li => li.description.toLowerCase().includes('material')).reduce((s, li) => s + Number(li.amount), 0);
+      const total = validItems.reduce((s, li) => s + Number(li.amount), 0);
+
+      const createdByName = subData.fullName || subData.businessName || 'Subcontractor';
+      const timelineEvent = createQuoteTimelineEvent({
+        type: 'created',
+        userId: currentUser.uid,
+        userName: createdByName,
+        userRole: 'subcontractor',
+        details: `Quote submitted — total $${total.toFixed(2)}`,
+        metadata: { source: 'subcontractor_bidding_direct', workOrderNumber: selectedBidding.workOrderNumber },
+      });
+
+      const quoteRef = await addDoc(collection(db, 'quotes'), {
+        workOrderId: selectedBidding.workOrderId,
+        workOrderNumber: selectedBidding.workOrderNumber,
+        workOrderTitle: selectedBidding.workOrderTitle,
+        subcontractorId: currentUser.uid,
+        subcontractorName: subData.fullName || subData.businessName,
+        subcontractorEmail: subData.email,
+        clientId: selectedBidding.clientId,
+        clientName: selectedBidding.clientName,
+        clientEmail: (selectedBidding as any).clientEmail || '',
+        laborCost: labor,
+        materialCost: material,
+        additionalCosts: 0,
+        discountAmount: 0,
+        totalAmount: total,
+        originalAmount: total,
+        estimatedDuration: directQuoteDuration,
+        proposedServiceDate: new Date(directQuoteServiceDate),
+        proposedServiceTime: directQuoteServiceTime,
+        lineItems: validItems,
+        notes: directQuoteNotes,
+        status: 'pending',
+        isDiagnosticQuote: false,
+        createdBy: currentUser.uid,
+        creationSource: 'subcontractor_bidding_direct',
+        timeline: [timelineEvent],
+        systemInformation: {
+          createdBy: { id: currentUser.uid, name: createdByName, role: 'subcontractor', timestamp: Timestamp.now() },
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await notifyQuoteSubmission(
+        selectedBidding.clientId,
+        selectedBidding.workOrderId,
+        selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+        subData.fullName || subData.businessName,
+        total,
+      );
+
+      // Fire-and-forget admin email
+      fetch('/api/email/send-quote-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          notifyAdmins: true,
+          workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+          workOrderTitle: selectedBidding.workOrderTitle,
+          subcontractorName: subData.fullName || subData.businessName,
+          quoteAmount: total,
+          category: selectedBidding.category || '',
+          locationName: selectedBidding.locationName || '',
+          priority: selectedBidding.priority || '',
+          description: selectedBidding.workOrderDescription || '',
+        }),
+      }).catch(console.error);
+
+      // Update work order status + quotesReceived (best effort)
+      try {
+        const workOrderRef = doc(db, 'workOrders', selectedBidding.workOrderId);
+        const workOrderSnapshot = await getDoc(workOrderRef);
+        if (workOrderSnapshot.exists()) {
+          const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
+          const statusesEligibleForQuote = ['pending', 'approved', 'bidding'];
+          const woData = workOrderSnapshot.data();
+          const existingTimeline = woData?.timeline || [];
+          const existingSysInfo = woData?.systemInformation || {};
+          const woTimelineEvent = {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: Timestamp.now(),
+            type: 'quote_received',
+            userId: currentUser.uid,
+            userName: subData.fullName || subData.businessName,
+            userRole: 'subcontractor',
+            details: `Quote received from ${subData.fullName || subData.businessName} - $${total.toLocaleString()}`,
+            metadata: { quoteId: quoteRef.id, amount: total },
+          };
+          const updatedSysInfo = {
+            ...existingSysInfo,
+            quotesReceived: [
+              ...(existingSysInfo.quotesReceived || []),
+              { quoteId: quoteRef.id, subcontractorId: currentUser.uid, subcontractorName: subData.fullName || subData.businessName, amount: total, timestamp: Timestamp.now() },
+            ],
+          };
+          if (currentStatus === 'quotes_received') {
+            await updateDoc(workOrderRef, { updatedAt: serverTimestamp(), timeline: [...existingTimeline, woTimelineEvent], systemInformation: updatedSysInfo });
+          } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
+            await updateDoc(workOrderRef, { status: 'quotes_received', quoteReceivedAt: serverTimestamp(), updatedAt: serverTimestamp(), timeline: [...existingTimeline, woTimelineEvent], systemInformation: updatedSysInfo });
+          }
+        }
+      } catch (e) { console.error('Quote submitted, but failed to update work order:', e); }
+
+      try {
+        await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
+          status: 'quoted',
+          quotedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (e) { console.error('Quote submitted, but failed to update biddingWorkOrder:', e); }
+
+      toast.success('Quote submitted successfully!');
+      setShowDirectQuoteForm(false);
+      setSelectedBidding(null);
+      setDirectQuoteLineItems([
+        { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+        { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
+      ]);
+      setDirectQuoteNotes('');
+      setDirectQuoteDuration('');
+      setDirectQuoteServiceDate('');
+      setDirectQuoteServiceTime('');
+    } catch (error) {
+      console.error('Error submitting direct quote:', error);
+      toast.error('Failed to submit quote');
+    } finally {
+      setDirectQuoteSubmitting(false);
+    }
+  };
+
+  const handleRejectBidding = async (bidding: BiddingWorkOrder) => {
+    if (!confirm(`Reject this quote request for "${bidding.workOrderTitle}"? This will remove it from your bidding list.`)) return;
+    setRejectingId(bidding.id);
+    try {
+      const currentUser = auth.currentUser;
+      await updateDoc(doc(db, 'biddingWorkOrders', bidding.id), {
+        status: 'rejected',
+        rejectedAt: serverTimestamp(),
+        rejectedBy: currentUser?.uid || null,
+        updatedAt: serverTimestamp(),
+      });
+      toast.success('Quote request rejected');
+    } catch (error) {
+      console.error('Error rejecting bidding:', error);
+      toast.error('Failed to reject quote request');
+    } finally {
+      setRejectingId(null);
+    }
   };
 
   const handleSubmitQuote = async () => {
@@ -503,6 +712,216 @@ export default function SubcontractorBidding() {
     );
   }
 
+  if (showDirectQuoteForm && selectedBidding) {
+    return (
+      <SubcontractorLayout>
+        <PageContainer>
+          <PageHeader
+            title="Submit Quote"
+            subtitle={selectedBidding.workOrderNumber ? `Work Order: ${selectedBidding.workOrderNumber}` : selectedBidding.workOrderTitle}
+            icon={FileText}
+            iconClassName="text-emerald-600"
+            action={
+              <Button variant="outline" onClick={() => {
+                setShowDirectQuoteForm(false);
+                setSelectedBidding(null);
+              }}>
+                Cancel
+              </Button>
+            }
+          />
+
+          <Card className="rounded-xl border border-border shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Work Order Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedBidding.workOrderTitle && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Title</p>
+                    <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderTitle}</p>
+                  </div>
+                )}
+                {selectedBidding.workOrderNumber && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                    <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderNumber}</p>
+                  </div>
+                )}
+                {selectedBidding.locationName && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Location</p>
+                    <p className="text-sm text-foreground">{selectedBidding.locationName}</p>
+                  </div>
+                )}
+                {selectedBidding.locationAddress && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Address</p>
+                    <p className="text-sm text-foreground">{formatAddress(selectedBidding.locationAddress)}</p>
+                  </div>
+                )}
+              </div>
+              {selectedBidding.workOrderDescription && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selectedBidding.workOrderDescription}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-xl border border-emerald-200 shadow-sm bg-emerald-50/30 dark:bg-emerald-950/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
+                <FileText className="h-5 w-5" />
+                Quote Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-lg bg-white dark:bg-emerald-950/30 border border-emerald-200 p-3 text-sm text-emerald-900 dark:text-emerald-200 flex items-start gap-2 mb-6">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  Submit your complete quote for this job (labor + materials). Admin will review,
+                  apply markup, and send it to the client for approval. If approved, the work order
+                  will be assigned to you.
+                </span>
+              </div>
+
+              <form className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="directDuration">Estimated Duration *</Label>
+                    <Input
+                      id="directDuration"
+                      value={directQuoteDuration}
+                      onChange={(e) => setDirectQuoteDuration(e.target.value)}
+                      placeholder="e.g., 2-3 hours"
+                      required
+                    />
+                  </div>
+                  <div />
+                  <div>
+                    <Label htmlFor="directServiceDate">Proposed Service Date *</Label>
+                    <Input
+                      id="directServiceDate"
+                      type="date"
+                      value={directQuoteServiceDate}
+                      onChange={(e) => setDirectQuoteServiceDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="directServiceTime">Proposed Service Time *</Label>
+                    <Input
+                      id="directServiceTime"
+                      type="time"
+                      value={directQuoteServiceTime}
+                      onChange={(e) => setDirectQuoteServiceTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>Line Items *</Label>
+                    <Button type="button" size="sm" variant="outline" onClick={addDirectLineItem} className="h-7 text-xs gap-1">
+                      <Plus className="h-3.5 w-3.5" /> Add Item
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {directQuoteLineItems.map((item, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-5">
+                          <Input
+                            placeholder="Description"
+                            value={item.description}
+                            onChange={(e) => updateDirectLineItem(idx, 'description', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Input
+                            type="number" min="0" step="0.01"
+                            placeholder="Qty"
+                            value={item.quantity}
+                            onChange={(e) => updateDirectLineItem(idx, 'quantity', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Input
+                            type="number" min="0" step="0.01"
+                            placeholder="Unit $"
+                            value={item.unitPrice}
+                            onChange={(e) => updateDirectLineItem(idx, 'unitPrice', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-2 text-right text-sm font-semibold">
+                          ${item.amount.toFixed(2)}
+                        </div>
+                        <div className="col-span-1">
+                          {directQuoteLineItems.length > 1 && (
+                            <Button type="button" size="icon" variant="ghost" onClick={() => removeDirectLineItem(idx)} className="h-8 w-8 text-red-600">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="directNotes">Additional Notes (Optional)</Label>
+                  <textarea
+                    id="directNotes"
+                    value={directQuoteNotes}
+                    onChange={(e) => setDirectQuoteNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Any additional information..."
+                  />
+                </div>
+
+                <div className="border-t pt-6">
+                  <div className="bg-muted p-6 rounded-lg">
+                    <h3 className="font-semibold text-lg mb-4">Quote Summary</h3>
+                    <div className="flex justify-between text-xl font-bold">
+                      <span>Total:</span>
+                      <span className="text-emerald-700">${directQuoteTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-4">
+                  <Button type="button" variant="outline" onClick={() => {
+                    setShowDirectQuoteForm(false);
+                    setSelectedBidding(null);
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSubmitDirectQuote}
+                    loading={directQuoteSubmitting} disabled={directQuoteSubmitting}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    {directQuoteSubmitting ? 'Submitting...' : 'Submit Quote'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </PageContainer>
+      </SubcontractorLayout>
+    );
+  }
+
   if (showQuoteForm && selectedBidding) {
     return (
       <SubcontractorLayout>
@@ -608,10 +1027,10 @@ export default function SubcontractorBidding() {
               <div className="rounded-lg bg-white dark:bg-indigo-950/30 border border-indigo-200 p-3 text-sm text-indigo-900 dark:text-indigo-200 flex items-start gap-2 mb-6">
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <span>
-                  Bid the <strong>diagnostic fee</strong> for the initial service visit. If the
-                  client later approves a repair, you'll submit a separate repair quote and the
-                  diagnostic fee will be <strong>waived</strong>. If the client declines the
-                  repair, only the diagnostic fee will be billed.
+                  Bid the <strong>diagnostic fee</strong> for the initial service visit. After the
+                  client approves this diagnostic fee, you'll be able to <strong>submit a repair quote</strong>.
+                  If the client approves the repair, the final invoice will include <strong>both the diagnostic fee
+                  and the repair amount</strong>. If the client declines the repair, only the diagnostic fee will be billed.
                 </span>
               </div>
 
@@ -828,25 +1247,44 @@ export default function SubcontractorBidding() {
                   </div>
                 )}
 
-                {/* Actions row */}
-                <div className="border-t border-border pt-1 flex gap-2 mt-auto">
+                {/* Actions row — 4 buttons in a 2x2 grid */}
+                <div className="border-t border-border pt-1 grid grid-cols-2 gap-2 mt-auto">
                   <Button
                     variant="outline"
-                    className="flex-1 h-8 text-xs gap-1"
+                    className="h-8 text-xs gap-1"
                     onClick={() => setViewWorkOrder(bidding)}
                   >
                     <ClipboardList className="h-3.5 w-3.5" />
                     View Work Order
                   </Button>
                   <Button
-                    className="flex-1 h-8 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700"
+                    className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => {
+                      setSelectedBidding(bidding);
+                      setShowDirectQuoteForm(true);
+                    }}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Submit Quote
+                  </Button>
+                  <Button
+                    className="h-8 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700"
                     onClick={() => {
                       setSelectedBidding(bidding);
                       setShowQuoteForm(true);
                     }}
                   >
                     <Stethoscope className="h-3.5 w-3.5" />
-                    Submit Diagnostic Bid
+                    Submit Diagnostic Request
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 text-xs gap-1 text-red-600 border-red-300 hover:bg-red-50"
+                    disabled={rejectingId === bidding.id}
+                    onClick={() => handleRejectBidding(bidding)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    {rejectingId === bidding.id ? 'Rejecting…' : 'Reject Quote Request'}
                   </Button>
                 </div>
               </div>

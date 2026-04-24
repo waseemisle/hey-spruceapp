@@ -1254,6 +1254,17 @@ export default function ViewWorkOrder() {
           const amt = invoiceWoData?.approvedQuoteAmount || workOrder.estimateBudget || 0;
           lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: amt, amount: amt }];
         }
+
+        // If this work order went through the diagnostic → repair flow, the
+        // client-approved diagnostic fee was pinned on the work order. Bill it
+        // alongside the repair amount per the two-phase agreement.
+        const diagFee = Number(invoiceWoData?.diagnosticFee ?? workOrder.diagnosticFee ?? 0);
+        if (diagFee > 0) {
+          lineItems = [
+            { description: 'Diagnostic Visit', quantity: 1, unitPrice: diagFee, amount: diagFee },
+            ...lineItems,
+          ];
+        }
       }
 
       setInvoiceLineItems(lineItems);

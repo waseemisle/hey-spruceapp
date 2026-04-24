@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones } from 'lucide-react';
+import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones, Stethoscope } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 import ClientGlobalSearchDialog from '@/components/client-global-search-dialog';
@@ -25,6 +25,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState({
     quotes: 0,
+    diagnosticRequests: 0,
     invoices: 0,
     messages: 0,
     supportTickets: 0,
@@ -129,14 +130,25 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               setHasRecurringWorkOrdersPermission(permissions.viewRecurringWorkOrders || false);
               setLoading(false);
 
-              // Listen to quotes count (pending/sent_to_client)
+              // Listen to quotes count (pending/sent_to_client) — split into
+              // regular quotes vs diagnostic requests client-side.
               const quotesQuery = query(
                 collection(instances.dbInstance, 'quotes'),
                 where('clientId', '==', firebaseUser.uid),
                 where('status', 'in', ['pending', 'sent_to_client'])
               );
               unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
-                setBadgeCounts(prev => ({ ...prev, quotes: snapshot.size }));
+                let regular = 0;
+                let diagnostic = 0;
+                snapshot.forEach(d => {
+                  const data = d.data() as any;
+                  // Only 'sent_to_client' quotes are visible to the client and
+                  // count against their badge — 'pending' hasn't reached them yet.
+                  if (data.status !== 'sent_to_client') return;
+                  if (data.isDiagnosticQuote === true) diagnostic += 1;
+                  else regular += 1;
+                });
+                setBadgeCounts(prev => ({ ...prev, quotes: regular, diagnosticRequests: diagnostic }));
               }, (error) => {
                 console.error('Quotes badge listener error:', error);
               });
@@ -246,6 +258,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: null },
     { name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
     ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
+    { name: 'Diagnostic Requests', href: '/client-portal/diagnostic-requests', icon: Stethoscope, badgeKey: 'diagnosticRequests' },
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
     { name: 'Invoices', href: '/client-portal/invoices', icon: Receipt, badgeKey: 'invoices' },
     { name: 'Payment Methods', href: '/client-portal/payment-methods', icon: CreditCard, badgeKey: null },

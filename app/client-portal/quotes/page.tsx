@@ -99,9 +99,11 @@ export default function ClientQuotes() {
                 id: doc.id,
                 ...doc.data(),
               })) as Quote[];
-              // Filter and sort client-side to avoid composite index requirement
+              // Filter and sort client-side to avoid composite index requirement.
+              // Diagnostic-only quotes belong on the Diagnostic Requests page — exclude here.
               const quotesData = allQuotes
                 .filter(q => ['sent_to_client', 'accepted', 'rejected'].includes(q.status))
+                .filter(q => (q as any).isDiagnosticQuote !== true)
                 .sort((a, b) => {
                   const aTime = a.createdAt?.toMillis?.() ?? 0;
                   const bTime = b.createdAt?.toMillis?.() ?? 0;
