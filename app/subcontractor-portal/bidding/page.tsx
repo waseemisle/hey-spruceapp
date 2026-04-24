@@ -813,25 +813,25 @@ export default function SubcontractorBidding() {
             iconClassName="text-blue-600"
             action={
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setViewWorkOrder(null)}>
+                <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => setViewWorkOrder(null)}>
                   Back
                 </Button>
                 <Button
-                  className="bg-indigo-600 hover:bg-indigo-700"
+                  className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
                   onClick={() => {
                     setSelectedBidding(viewWorkOrder);
                     setShowQuoteForm(true);
                     setViewWorkOrder(null);
                   }}
                 >
-                  <Stethoscope className="h-4 w-4 mr-1" />
+                  <Stethoscope className="h-4 w-4" />
                   Submit Diagnostic Bid
                 </Button>
               </div>
             }
           />
 
-          <Card className="rounded-xl border border-border shadow-sm">
+          <Card className="rounded-2xl border border-border shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" />
@@ -928,7 +928,7 @@ export default function SubcontractorBidding() {
             icon={FileText}
             iconClassName="text-emerald-600"
             action={
-              <Button variant="outline" onClick={() => {
+              <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => {
                 setShowDirectQuoteForm(false);
                 setSelectedBidding(null);
               }}>
@@ -937,7 +937,7 @@ export default function SubcontractorBidding() {
             }
           />
 
-          <Card className="rounded-xl border border-border shadow-sm">
+          <Card className="rounded-2xl border border-border shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" />
@@ -980,7 +980,7 @@ export default function SubcontractorBidding() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl border border-emerald-200 shadow-sm bg-emerald-50/30 dark:bg-emerald-950/10">
+          <Card className="rounded-2xl border border-emerald-200/60 shadow-sm bg-emerald-50/40 dark:bg-emerald-950/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
                 <FileText className="h-5 w-5" />
@@ -988,8 +988,8 @@ export default function SubcontractorBidding() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-lg bg-white dark:bg-emerald-950/30 border border-emerald-200 p-3 text-sm text-emerald-900 dark:text-emerald-200 flex items-start gap-2 mb-6">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div className="rounded-2xl bg-white/70 border border-emerald-200/60 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200 flex items-start gap-2.5 mb-6">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600" />
                 <span>
                   Submit your complete quote for this job (labor + materials). Once the client
                   approves it, the work order will be assigned to you.
@@ -1020,10 +1020,10 @@ export default function SubcontractorBidding() {
                   durationLabel="2-hour window"
                 />
 
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label>Line Items *</Label>
-                    <Button type="button" size="sm" variant="outline" onClick={addDirectLineItem} className="h-7 text-xs gap-1">
+                <div className="rounded-2xl bg-white/70 border border-emerald-200/60 p-4 sm:p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-foreground">Line Items *</p>
+                    <Button type="button" size="sm" variant="outline" onClick={addDirectLineItem} className="h-8 rounded-lg text-xs font-semibold gap-1.5">
                       <Plus className="h-3.5 w-3.5" /> Add Item
                     </Button>
                   </div>
@@ -1053,12 +1053,12 @@ export default function SubcontractorBidding() {
                             onChange={(e) => updateDirectLineItem(idx, 'unitPrice', e.target.value)}
                           />
                         </div>
-                        <div className="col-span-2 text-right text-sm font-semibold">
+                        <div className="col-span-2 text-right text-sm font-semibold tabular-nums">
                           ${item.amount.toFixed(2)}
                         </div>
                         <div className="col-span-1">
                           {directQuoteLineItems.length > 1 && (
-                            <Button type="button" size="icon" variant="ghost" onClick={() => removeDirectLineItem(idx)} className="h-8 w-8 text-red-600">
+                            <Button type="button" size="icon" variant="ghost" onClick={() => removeDirectLineItem(idx)} className="h-9 w-9 rounded-lg text-rose-600 hover:bg-rose-50">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
@@ -1075,23 +1075,23 @@ export default function SubcontractorBidding() {
                     value={directQuoteNotes}
                     onChange={(e) => setDirectQuoteNotes(e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3.5 py-2.5 border border-input bg-background rounded-xl text-sm placeholder:text-muted-foreground hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                     placeholder="Any additional information..."
                   />
                 </div>
 
-                <div className="border-t pt-6">
-                  <div className="bg-muted p-6 rounded-lg">
-                    <h3 className="font-semibold text-lg mb-4">Quote Summary</h3>
-                    <div className="flex justify-between text-xl font-bold">
-                      <span>Total:</span>
-                      <span className="text-emerald-700">${directQuoteTotal.toFixed(2)}</span>
+                <div className="rounded-2xl bg-white/70 border border-emerald-200/60 px-5 py-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Quote Total</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Submitted to client for approval</p>
                     </div>
+                    <p className="text-2xl font-bold text-emerald-700 tabular-nums">${directQuoteTotal.toFixed(2)}</p>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-4">
-                  <Button type="button" variant="outline" onClick={() => {
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button type="button" variant="outline" className="h-10 rounded-xl px-5 font-semibold" onClick={() => {
                     setShowDirectQuoteForm(false);
                     setSelectedBidding(null);
                   }}>
@@ -1101,9 +1101,9 @@ export default function SubcontractorBidding() {
                     type="button"
                     onClick={handleSubmitDirectQuote}
                     loading={directQuoteSubmitting} disabled={directQuoteSubmitting}
-                    className="bg-emerald-600 hover:bg-emerald-700"
+                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25"
                   >
-                    <FileText className="h-4 w-4 mr-2" />
+                    <FileText className="h-4 w-4" />
                     {directQuoteSubmitting ? 'Submitting...' : 'Submit Quote'}
                   </Button>
                 </div>
@@ -1125,7 +1125,7 @@ export default function SubcontractorBidding() {
             icon={Stethoscope}
             iconClassName="text-indigo-600"
             action={
-              <Button variant="outline" onClick={() => {
+              <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => {
                 setShowQuoteForm(false);
                 setSelectedBidding(null);
               }}>
@@ -1135,7 +1135,7 @@ export default function SubcontractorBidding() {
           />
 
           {/* Work Order Details */}
-          <Card className="rounded-xl border border-border shadow-sm">
+          <Card className="rounded-2xl border border-border shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" />
@@ -1209,7 +1209,7 @@ export default function SubcontractorBidding() {
           </Card>
 
           {/* Diagnostic Bid Form */}
-          <Card className="rounded-xl border border-indigo-200 shadow-sm bg-indigo-50/30 dark:bg-indigo-950/10">
+          <Card className="rounded-2xl border border-indigo-200/60 shadow-sm bg-indigo-50/40 dark:bg-indigo-950/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
                 <Stethoscope className="h-5 w-5" />
@@ -1217,8 +1217,8 @@ export default function SubcontractorBidding() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-lg bg-white dark:bg-indigo-950/30 border border-indigo-200 p-3 text-sm text-indigo-900 dark:text-indigo-200 flex items-start gap-2 mb-6">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div className="rounded-2xl bg-white/70 border border-indigo-200/60 px-4 py-3 text-sm text-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200 flex items-start gap-2.5 mb-6">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-indigo-600" />
                 <span>
                   Bid the <strong>diagnostic fee</strong> for the initial service visit. After the
                   client approves this diagnostic fee, you'll be able to <strong>submit a repair quote</strong>.
@@ -1284,32 +1284,31 @@ export default function SubcontractorBidding() {
                       value={quoteForm.notes}
                       onChange={handleQuoteFormChange}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3.5 py-2.5 border border-input bg-background rounded-xl text-sm placeholder:text-muted-foreground hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                       placeholder="Any additional information..."
                     />
                   </div>
                 </div>
 
-                <div className="border-t pt-6">
-                  <div className="bg-muted p-6 rounded-lg">
-                    <h3 className="font-semibold text-lg mb-4">Bid Summary</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-foreground">Diagnostic Visit</span>
-                        <span className="font-semibold">${(Number(diagnosticFee) || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2">
-                        <span>Total Bid:</span>
-                        <span className="text-indigo-700">${(Number(diagnosticFee) || 0).toFixed(2)}</span>
-                      </div>
+                <div className="rounded-2xl bg-white/70 border border-indigo-200/60 px-5 py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-3">Bid Summary</p>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Diagnostic Visit</span>
+                      <span className="font-semibold tabular-nums">${(Number(diagnosticFee) || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-indigo-200/60 pt-3">
+                      <span className="text-sm font-semibold text-foreground">Total Bid</span>
+                      <span className="text-2xl font-bold text-indigo-700 tabular-nums">${(Number(diagnosticFee) || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-4">
+                <div className="flex justify-end gap-3 pt-2">
                   <Button
                     type="button"
                     variant="outline"
+                    className="h-10 rounded-xl px-5 font-semibold"
                     onClick={() => {
                       setShowQuoteForm(false);
                       setSelectedBidding(null);
@@ -1321,9 +1320,9 @@ export default function SubcontractorBidding() {
                     type="button"
                     onClick={handleSubmitQuote}
                     loading={submitting} disabled={submitting}
-                    className="bg-indigo-600 hover:bg-indigo-700"
+                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
                   >
-                    <Stethoscope className="h-4 w-4 mr-2" />
+                    <Stethoscope className="h-4 w-4" />
                     {submitting ? 'Submitting...' : 'Submit Diagnostic Bid'}
                   </Button>
                 </div>
@@ -1352,12 +1351,12 @@ export default function SubcontractorBidding() {
         />
 
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by title, description, client, category, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-11 rounded-xl"
           />
         </div>
 
@@ -1372,37 +1371,36 @@ export default function SubcontractorBidding() {
             {filteredBiddingWorkOrders.map((bidding) => (
               <div
                 key={bidding.id}
-                className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+                className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3.5 shadow-sm hover:shadow-md hover:border-foreground/10 transition-all"
               >
                 {/* Row 1: title + priority badge */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-foreground text-sm truncate">{bidding.workOrderTitle}</p>
                     {bidding.workOrderNumber && (
-                      <p className="text-xs text-muted-foreground">WO: {bidding.workOrderNumber}</p>
+                      <p className="text-[11px] font-medium text-muted-foreground tracking-wide mt-0.5">WO: {bidding.workOrderNumber}</p>
                     )}
                   </div>
                   {bidding.priority && (
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${getPriorityBadge(bidding.priority)}`}>
+                    <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${getPriorityBadge(bidding.priority)}`}>
                       {bidding.priority}
                     </span>
                   )}
                 </div>
 
                 {/* Row 2: secondary info */}
-                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                  <span className="truncate">Client: {bidding.clientName}</span>
+                <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1.5 truncate"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">Client</span> <span className="text-foreground/80 truncate">{bidding.clientName}</span></span>
                   {bidding.locationName && (
-                    <span className="flex items-center gap-1 truncate">
+                    <span className="flex items-center gap-1.5 truncate">
                       <MapPin className="h-3.5 w-3.5 shrink-0" />
-                      {bidding.locationName}
-                      {bidding.locationAddress && ` · ${formatAddress(bidding.locationAddress)}`}
+                      <span className="truncate">{bidding.locationName}{bidding.locationAddress && ` · ${formatAddress(bidding.locationAddress)}`}</span>
                     </span>
                   )}
                   {bidding.category && (
-                    <span className="truncate">Category: {bidding.category}</span>
+                    <span className="flex items-center gap-1.5 truncate"><span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">Category</span> <span className="text-foreground/80 truncate">{bidding.category}</span></span>
                   )}
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5 shrink-0" />
                     Shared {bidding.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}
                   </span>
@@ -1419,7 +1417,7 @@ export default function SubcontractorBidding() {
                         key={idx}
                         src={image}
                         alt={`Work order ${idx + 1}`}
-                        className="h-12 w-12 object-cover rounded flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                        className="h-12 w-12 object-cover rounded-lg flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                         onClick={() => { setLightboxImages(bidding.images!); setLightboxIndex(idx); }}
                       />
                     ))}
@@ -1428,14 +1426,14 @@ export default function SubcontractorBidding() {
 
                 {/* Status banner for post-submission states */}
                 {bidding.status === 'diagnostic_requested' && (
-                  <div className="rounded-md bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs text-indigo-900 flex items-start gap-2">
-                    <Stethoscope className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="rounded-xl bg-indigo-50 border border-indigo-200/60 px-3 py-2.5 text-xs text-indigo-900 flex items-start gap-2">
+                    <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-indigo-600" />
                     <span><strong>Diagnostic Request submitted.</strong> Awaiting client approval.</span>
                   </div>
                 )}
                 {bidding.status === 'diagnostic_accepted' && (
-                  <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-900 flex items-start gap-2">
-                    <Stethoscope className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200/60 px-3 py-2.5 text-xs text-emerald-900 flex items-start gap-2">
+                    <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
                     <span>
                       <strong>Diagnostic accepted by the client{bidding.diagnosticFee ? ` — $${Number(bidding.diagnosticFee).toFixed(2)}` : ''}.</strong>
                       {' '}You can now submit your quote.
@@ -1443,8 +1441,8 @@ export default function SubcontractorBidding() {
                   </div>
                 )}
                 {bidding.status === 'diagnostic_rejected' && (
-                  <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-800 flex items-start gap-2">
-                    <X className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="rounded-xl bg-rose-50 border border-rose-200/60 px-3 py-2.5 text-xs text-rose-900 flex items-start gap-2">
+                    <X className="h-4 w-4 mt-0.5 shrink-0 text-rose-600" />
                     <span>
                       <strong>Diagnostic Request rejected by the client.</strong>
                       {bidding.rejectionReason ? ` Reason: ${bidding.rejectionReason}` : ''}
@@ -1453,10 +1451,10 @@ export default function SubcontractorBidding() {
                 )}
 
                 {/* Actions — vary by state */}
-                <div className="border-t border-border pt-1 grid grid-cols-2 gap-2 mt-auto">
+                <div className="border-t border-border pt-3 mt-auto grid grid-cols-2 gap-2">
                   <Button
                     variant="outline"
-                    className="h-8 text-xs gap-1"
+                    className="h-9 rounded-xl text-xs font-semibold gap-1.5"
                     onClick={() => setViewWorkOrder(bidding)}
                   >
                     <ClipboardList className="h-3.5 w-3.5" />
@@ -1466,14 +1464,14 @@ export default function SubcontractorBidding() {
                   {bidding.status === 'pending' && (
                     <>
                       <Button
-                        className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                        className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
                         onClick={() => openDirectQuoteForm(bidding)}
                       >
                         <FileText className="h-3.5 w-3.5" />
                         Submit Quote
                       </Button>
                       <Button
-                        className="h-8 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700"
+                        className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/20 col-span-2"
                         onClick={() => {
                           setSelectedBidding(bidding);
                           setShowQuoteForm(true);
@@ -1484,7 +1482,7 @@ export default function SubcontractorBidding() {
                       </Button>
                       <Button
                         variant="outline"
-                        className="h-8 text-xs gap-1 text-red-600 border-red-300 hover:bg-red-50"
+                        className="h-9 rounded-xl text-xs font-semibold gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 col-span-2"
                         disabled={rejectingId === bidding.id}
                         onClick={() => handleRejectBidding(bidding)}
                       >
@@ -1496,7 +1494,7 @@ export default function SubcontractorBidding() {
 
                   {bidding.status === 'diagnostic_accepted' && (
                     <Button
-                      className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 col-span-1"
+                      className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
                       onClick={() => openDirectQuoteForm(bidding)}
                     >
                       <FileText className="h-3.5 w-3.5" />
