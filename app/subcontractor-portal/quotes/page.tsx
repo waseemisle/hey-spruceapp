@@ -220,10 +220,9 @@ export default function SubcontractorQuotes() {
                     <span>Materials: <span className="font-semibold text-foreground">${(quote.materialCost || 0).toFixed(2)}</span></span>
                   </div>
 
-                  {quote.forwardedToClient && quote.clientAmount && quote.markupPercent && (
+                  {quote.forwardedToClient && (
                     <div className="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                      Client amount: <span className="font-bold">${(quote.clientAmount || 0).toFixed(2)}</span>
-                      <span className="ml-1 text-blue-600">({(quote.markupPercent || 0).toFixed(1)}% markup)</span>
+                      Sent to client for approval
                     </div>
                   )}
 

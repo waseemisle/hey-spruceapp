@@ -760,9 +760,8 @@ export default function SubcontractorBidding() {
               <div className="rounded-lg bg-white dark:bg-emerald-950/30 border border-emerald-200 p-3 text-sm text-emerald-900 dark:text-emerald-200 flex items-start gap-2 mb-6">
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <span>
-                  Submit your complete quote for this job (labor + materials). Admin will review,
-                  apply markup, and send it to the client for approval. If approved, the work order
-                  will be assigned to you.
+                  Submit your complete quote for this job (labor + materials). Once the client
+                  approves it, the work order will be assigned to you.
                 </span>
               </div>
 
