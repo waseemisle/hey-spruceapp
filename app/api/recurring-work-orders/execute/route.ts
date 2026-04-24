@@ -182,17 +182,46 @@ export async function POST(request: NextRequest) {
         standardWorkOrderData.companyName = recurringWorkOrder.companyName;
       }
 
-      // Add subcontractor if pre-assigned
+      // If a subcontractor is pre-assigned on the RWO, auto-share the execution
+      // work order for bidding with that subcontractor (mirrors the CSV import flow).
+      // Falls back to resolving the auth UID from the subcontractor doc for legacy
+      // RWOs that predate the preAssignedSubcontractorId field.
+      let preAssignedSubAuthId: string | null = null;
+      let preAssignedSubEmail = '';
+      let preAssignedSubName = '';
       if (recurringWorkOrder.subcontractorId) {
-        standardWorkOrderData.assignedTo = recurringWorkOrder.subcontractorId;
-        standardWorkOrderData.assignedToName = recurringWorkOrder.subcontractorName;
-        standardWorkOrderData.assignedToEmail = recurringWorkOrder.subcontractorEmail;
-        standardWorkOrderData.assignedAt = serverTimestamp();
-        standardWorkOrderData.status = 'assigned';
+        preAssignedSubAuthId = (recurringWorkOrder.preAssignedSubcontractorId as string) || null;
+        preAssignedSubName = recurringWorkOrder.preAssignedSubcontractorName
+          || recurringWorkOrder.subcontractorName || '';
+        preAssignedSubEmail = recurringWorkOrder.preAssignedSubcontractorEmail
+          || recurringWorkOrder.subcontractorEmail || '';
+        if (!preAssignedSubAuthId || !preAssignedSubEmail || !preAssignedSubName) {
+          try {
+            const subDoc = await getDoc(doc(db, 'subcontractors', recurringWorkOrder.subcontractorId));
+            if (subDoc.exists()) {
+              const subData = subDoc.data();
+              preAssignedSubAuthId = preAssignedSubAuthId
+                || (subData.uid && String(subData.uid).trim())
+                || recurringWorkOrder.subcontractorId;
+              preAssignedSubName = preAssignedSubName || subData.fullName || '';
+              preAssignedSubEmail = preAssignedSubEmail || subData.email || '';
+            }
+          } catch (err) {
+            console.warn('Could not resolve pre-assigned subcontractor for RWO execution', err);
+          }
+        }
+        if (preAssignedSubAuthId) {
+          standardWorkOrderData.status = 'bidding';
+          standardWorkOrderData.biddingSubcontractors = [preAssignedSubAuthId];
+          standardWorkOrderData.sharedForBiddingAt = serverTimestamp();
+          standardWorkOrderData.preAssignedSubcontractorId = preAssignedSubAuthId;
+          standardWorkOrderData.preAssignedSubcontractorName = preAssignedSubName;
+          standardWorkOrderData.preAssignedFromRecurring = true;
+        }
       }
 
-      // Add timeline event
-      standardWorkOrderData.timeline = [createTimelineEvent({
+      // Add timeline event(s)
+      const timelineEvents: any[] = [createTimelineEvent({
         type: 'created',
         userId: 'system',
         userName: 'Recurring Work Order System',
@@ -200,6 +229,22 @@ export async function POST(request: NextRequest) {
         details: `Work order created from Recurring Work Order ${recurringWorkOrder.workOrderNumber}, Execution #${executionNumber}`,
         metadata: { source: 'recurring_work_order', recurringWorkOrderId, executionNumber },
       })];
+      if (preAssignedSubAuthId) {
+        timelineEvents.push(createTimelineEvent({
+          type: 'shared_for_bidding',
+          userId: 'system',
+          userName: 'Recurring Work Order System',
+          userRole: 'system',
+          details: `Auto-shared for bidding with pre-assigned subcontractor: ${preAssignedSubName || 'Unknown'}`,
+          metadata: {
+            source: 'recurring_work_order',
+            subcontractorIds: [preAssignedSubAuthId],
+            subcontractorCount: 1,
+            preAssigned: true,
+          },
+        }));
+      }
+      standardWorkOrderData.timeline = timelineEvents;
       standardWorkOrderData.systemInformation = {
         createdBy: { id: 'system', name: 'Recurring Work Order System', role: 'system', timestamp: Timestamp.now() },
       };
@@ -207,6 +252,60 @@ export async function POST(request: NextRequest) {
       // Create the Standard Work Order
       const standardWorkOrderRef = await addDoc(collection(db, 'workOrders'), standardWorkOrderData);
       console.log(`Created Standard Work Order ${standardWorkOrderNumber} (ID: ${standardWorkOrderRef.id}) for Execution #${executionNumber}`);
+
+      // If pre-assigned, create the biddingWorkOrders doc and email the subcontractor
+      // (same pattern as the "Share for Bidding" button and CSV import).
+      if (preAssignedSubAuthId) {
+        try {
+          await addDoc(collection(db, 'biddingWorkOrders'), {
+            workOrderId: standardWorkOrderRef.id,
+            workOrderNumber: standardWorkOrderNumber,
+            subcontractorId: preAssignedSubAuthId,
+            subcontractorName: preAssignedSubName,
+            subcontractorEmail: preAssignedSubEmail,
+            workOrderTitle: standardWorkOrderData.title,
+            workOrderDescription: standardWorkOrderData.description,
+            clientId: standardWorkOrderData.clientId,
+            clientName: standardWorkOrderData.clientName || '',
+            priority: standardWorkOrderData.priority || '',
+            category: standardWorkOrderData.category || '',
+            locationName: standardWorkOrderData.locationName || '',
+            locationAddress: standardWorkOrderData.locationAddress || '',
+            images: standardWorkOrderData.images || [],
+            status: 'pending',
+            sharedAt: serverTimestamp(),
+            createdAt: serverTimestamp(),
+            preAssigned: true,
+            recurringWorkOrderId,
+            recurringWorkOrderNumber: recurringWorkOrder.workOrderNumber,
+          });
+        } catch (bidErr) {
+          console.warn('Failed to create biddingWorkOrders doc for cron execution', bidErr);
+        }
+
+        if (preAssignedSubEmail) {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+            || process.env.NEXT_PUBLIC_BASE_URL
+            || 'http://localhost:3000';
+          fetch(`${baseUrl}/api/email/send-bidding-opportunity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toEmail: preAssignedSubEmail,
+              toName: preAssignedSubName,
+              workOrderNumber: standardWorkOrderNumber,
+              workOrderTitle: standardWorkOrderData.title,
+              workOrderDescription: standardWorkOrderData.description,
+              locationName: standardWorkOrderData.locationName,
+              category: standardWorkOrderData.category,
+              priority: standardWorkOrderData.priority,
+              portalLink: `${baseUrl}/subcontractor-portal/bidding`,
+            }),
+          }).catch(err =>
+            console.error('Failed to send bidding opportunity email (cron execution):', err),
+          );
+        }
+      }
 
       // Send email notifications to admins with work order emails enabled
       fetch(`${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/email/send-work-order-notification`, {

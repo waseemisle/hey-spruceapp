@@ -8,6 +8,36 @@ import { getServerDb } from '@/lib/firebase-server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Fire the "New Bidding Opportunity" email to a pre-assigned subcontractor
+// when an execution work order is auto-shared for bidding from CSV import.
+// Fire-and-forget: the import must never fail because of email delivery.
+function sendBiddingOpportunityEmail(params: {
+  toEmail: string;
+  toName: string;
+  workOrderNumber: string;
+  workOrderTitle: string;
+  workOrderDescription?: string;
+  locationName?: string;
+  category?: string;
+  priority?: string;
+}): void {
+  if (!params.toEmail) return;
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    'http://localhost:3000';
+  fetch(`${baseUrl}/api/email/send-bidding-opportunity`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...params,
+      portalLink: `${baseUrl}/subcontractor-portal/bidding`,
+    }),
+  }).catch((err) =>
+    console.error('Failed to send bidding opportunity email (CSV import):', err),
+  );
+}
+
 // Helper function to verify admin token (same as view-as route)
 async function verifyAdminToken(idToken: string): Promise<string | null> {
   try {
@@ -1294,6 +1324,17 @@ export async function POST(request: NextRequest) {
                     } catch (bidErr) {
                       console.warn(`Row ${i + 1}: Failed to create biddingWorkOrders doc for execution #${executionNumber}`, bidErr);
                     }
+
+                    sendBiddingOpportunityEmail({
+                      toEmail: preAssignedSubData.email || '',
+                      toName: preAssignedSubData.fullName || '',
+                      workOrderNumber: standardWorkOrderNumber,
+                      workOrderTitle: standardWorkOrderData.title,
+                      workOrderDescription: standardWorkOrderData.description,
+                      locationName: standardWorkOrderData.locationName,
+                      category: standardWorkOrderData.category,
+                      priority: standardWorkOrderData.priority,
+                    });
                   }
 
                   await updateDoc(executionRef, {
@@ -1600,6 +1641,17 @@ export async function POST(request: NextRequest) {
                 } catch (bidErr) {
                   console.warn(`Row ${i + 1}: Failed to create biddingWorkOrders doc for execution #${executionNumber}`, bidErr);
                 }
+
+                sendBiddingOpportunityEmail({
+                  toEmail: preAssignedSubData.email || '',
+                  toName: preAssignedSubData.fullName || '',
+                  workOrderNumber: standardWorkOrderNumber,
+                  workOrderTitle: standardWorkOrderData.title,
+                  workOrderDescription: standardWorkOrderData.description,
+                  locationName: standardWorkOrderData.locationName,
+                  category: standardWorkOrderData.category,
+                  priority: standardWorkOrderData.priority,
+                });
               }
               
               // Update execution with work order reference
