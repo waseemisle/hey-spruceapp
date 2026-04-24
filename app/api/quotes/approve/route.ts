@@ -97,6 +97,12 @@ export async function POST(request: Request) {
     // Update work order with assignment + approved quote pricing
     const existingTimeline = workOrderData.timeline || [];
     const existingSysInfo = workOrderData.systemInformation || {};
+    // If the accepted quote is a diagnostic bid, pin the diagnostic fee onto the
+    // work order so the sub doesn't re-enter it at diagnostic submission time.
+    const quoteIsDiagnostic = quoteData.isDiagnosticQuote === true;
+    const carryDiagnosticFee = quoteIsDiagnostic
+      ? Number(quoteData.diagnosticFee ?? quoteData.totalAmount ?? 0)
+      : undefined;
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
       status: 'assigned',
       assignedSubcontractor: resolvedSubId,
@@ -108,6 +114,7 @@ export async function POST(request: Request) {
       approvedQuoteLaborCost: quoteData.laborCost,
       approvedQuoteMaterialCost: quoteData.materialCost,
       approvedQuoteLineItems: quoteData.lineItems || [],
+      ...(carryDiagnosticFee !== undefined ? { diagnosticFee: carryDiagnosticFee } : {}),
       timeline: [
         ...existingTimeline,
         createTimelineEvent({

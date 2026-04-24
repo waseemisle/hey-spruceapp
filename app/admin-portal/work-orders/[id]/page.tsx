@@ -2381,11 +2381,22 @@ export default function ViewWorkOrder() {
                             <div className="flex justify-between items-start">
                               <div>
                                 <p className="font-medium text-sm">{q.subcontractorName}</p>
-                                <p className={`text-xs font-medium ${qStatusColors[q.status] || 'text-muted-foreground'}`}>{qStatusLabels[q.status] || q.status}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className={`text-xs font-medium ${qStatusColors[q.status] || 'text-muted-foreground'}`}>{qStatusLabels[q.status] || q.status}</p>
+                                  {(q as any).isDiagnosticQuote && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                      <Stethoscope className="h-2.5 w-2.5" />
+                                      Diagnostic Bid
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <div className="text-right">
                                 <p className="font-bold text-primary">${qDisplayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                                {q.clientAmount && q.markupPercentage != null && (
+                                {(q as any).isDiagnosticQuote && (q as any).diagnosticFee != null && (
+                                  <p className="text-xs text-indigo-700">Diagnostic fee</p>
+                                )}
+                                {q.clientAmount && q.markupPercentage != null && !(q as any).isDiagnosticQuote && (
                                   <p className="text-xs text-muted-foreground">{q.markupPercentage}% markup</p>
                                 )}
                               </div>
@@ -3036,15 +3047,25 @@ export default function ViewWorkOrder() {
                             )}
                             <div className="flex-1 flex justify-between items-start">
                               <div>
-                                <p className="font-semibold">{quote.subcontractorName}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold">{quote.subcontractorName}</p>
+                                  {(quote as any).isDiagnosticQuote && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                      <Stethoscope className="h-3 w-3" />
+                                      Diagnostic Bid
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-sm text-muted-foreground">{quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
                                 {quote.notes && <p className="text-sm text-muted-foreground mt-1">{quote.notes}</p>}
                               </div>
                               <div className="text-right">
                                 <p className="text-2xl font-bold text-primary">${displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                                {quote.clientAmount && quote.markupPercentage != null && (
+                                {(quote as any).isDiagnosticQuote ? (
+                                  <p className="text-xs text-indigo-700">Diagnostic fee (visit-only)</p>
+                                ) : quote.clientAmount && quote.markupPercentage != null ? (
                                   <p className="text-xs text-muted-foreground">incl. {quote.markupPercentage}% markup</p>
-                                )}
+                                ) : null}
                                 <p className={`text-xs font-medium capitalize ${statusColors[quote.status] || 'text-muted-foreground'}`}>{statusLabels[quote.status] || quote.status}</p>
                               </div>
                             </div>
