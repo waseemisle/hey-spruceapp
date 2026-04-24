@@ -32,12 +32,11 @@ const WORK_ORDER_EDIT_STATUS_OPTIONS = [
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'bidding', label: 'Bidding' },
+  { value: 'diagnostic_accepted', label: 'Diagnostic Accepted' },
+  { value: 'diagnostic_rejected', label: 'Diagnostic Rejected' },
   { value: 'quotes_received', label: 'Quotes Received' },
   { value: 'assigned', label: 'Assigned' },
-  { value: 'accepted_by_subcontractor', label: 'Accepted by Sub' },
-  { value: 'diagnostic_submitted', label: 'Diagnostic Submitted' },
-  { value: 'repair_approved', label: 'Repair Approved' },
-  { value: 'repair_declined', label: 'Repair Declined' },
+  { value: 'accepted_by_subcontractor', label: 'In Progress' },
   { value: 'pending_invoice', label: 'Pending Invoice' },
   { value: 'completed', label: 'Completed' },
 ];
@@ -513,6 +512,8 @@ export default function ViewWorkOrder() {
       case 'approved': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
       case 'bidding': return 'text-blue-600 bg-blue-50';
+      case 'diagnostic_accepted': return 'text-indigo-600 bg-indigo-50';
+      case 'diagnostic_rejected': return 'text-red-600 bg-red-50';
       case 'quotes_received': return 'text-blue-600 bg-blue-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
@@ -1672,24 +1673,27 @@ export default function ViewWorkOrder() {
     }
   };
 
-  // ServiceChannel status pipeline
+  // Work order status pipeline. Diagnostic-accepted is the single intermediate
+  // stage added for the Diagnostic Request flow; the rest is the normal flow.
   const STATUS_PIPELINE = [
     { key: 'pending', label: 'Pending' },
     { key: 'approved', label: 'Approved' },
     { key: 'bidding', label: 'Bidding' },
+    { key: 'diagnostic_accepted', label: 'Diagnostic Accepted' },
     { key: 'quotes_received', label: 'Quotes Received' },
     { key: 'assigned', label: 'Assigned' },
     { key: 'accepted_by_subcontractor', label: 'In Progress' },
-    { key: 'diagnostic_submitted', label: 'Diagnostic' },
-    { key: 'repair_approved', label: 'Repair' },
     { key: 'pending_invoice', label: 'Pending Invoice' },
     { key: 'completed', label: 'Completed' },
   ];
   const currentStepIdx = workOrder
-    ? workOrder.status === 'repair_declined'
-      // Treat a declined repair as the "Repair" step visually, so the pipeline still shows progress.
-      ? STATUS_PIPELINE.findIndex(s => s.key === 'repair_approved')
-      : STATUS_PIPELINE.findIndex(s => s.key === workOrder.status)
+    ? workOrder.status === 'diagnostic_rejected'
+      // Treat a rejected diagnostic as still at "Bidding" visually.
+      ? STATUS_PIPELINE.findIndex(s => s.key === 'bidding')
+      : workOrder.status === 'diagnostic_submitted' || workOrder.status === 'repair_approved' || workOrder.status === 'repair_declined'
+        // Legacy two-phase statuses map onto the nearest current stage.
+        ? STATUS_PIPELINE.findIndex(s => s.key === 'accepted_by_subcontractor')
+        : STATUS_PIPELINE.findIndex(s => s.key === workOrder.status)
     : -1;
 
   if (loading) {

@@ -143,6 +143,7 @@ export interface WorkOrderTimelineEvent {
         'quote_shared_with_client' | 'quote_approved_by_client' | 'quote_rejected_by_client' |
         'assigned' | 'schedule_set' | 'schedule_shared' | 'started' | 'completed' |
         'invoice_sent' | 'invoice_paid' | 'payment_received' | 'archived' |
+        'diagnostic_request_received' | 'diagnostic_accepted' | 'diagnostic_rejected' |
         'diagnostic_submitted' | 'repair_approved' | 'repair_declined';
   userId: string;
   userName: string;
@@ -220,8 +221,11 @@ export interface WorkOrder {
     | 'pending'
     | 'approved'
     | 'rejected'
+    | 'bidding'
     | 'quote_received'
     | 'quotes_received'
+    | 'diagnostic_accepted'
+    | 'diagnostic_rejected'
     | 'assigned'
     | 'accepted_by_subcontractor'
     | 'diagnostic_submitted'

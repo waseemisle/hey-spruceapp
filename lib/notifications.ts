@@ -8,6 +8,7 @@ export interface CreateNotificationParams {
   type:
     | 'work_order'
     | 'quote'
+    | 'diagnostic_request'
     | 'invoice'
     | 'assignment'
     | 'completion'

@@ -2070,6 +2070,7 @@ const handleLocationSelect = (locationId: string) => {
     { value: 'approved', label: 'Approved' },
     { value: 'rejected', label: 'Rejected' },
     { value: 'bidding', label: 'Bidding' },
+    { value: 'diagnostic_accepted', label: 'Diagnostic Accepted' },
     { value: 'quotes_received', label: 'Quotes Received' },
     { value: 'assigned', label: 'Assigned' },
     { value: 'completed', label: 'Completed' },

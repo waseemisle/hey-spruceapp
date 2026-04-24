@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
@@ -54,7 +54,9 @@ export async function POST(request: Request) {
     }
     const workOrderData = workOrderDoc.data();
 
-    // Update quote status
+    const quoteIsDiagnostic = quoteData.isDiagnosticQuote === true;
+
+    // Mark the quote accepted (shared between both paths)
     const existingQuoteTimeline = quoteData.timeline || [];
     const existingQuoteSysInfo = quoteData.systemInformation || {};
     const acceptedEvent = createQuoteTimelineEvent({
@@ -62,7 +64,9 @@ export async function POST(request: Request) {
       userId: uid,
       userName: clientName,
       userRole: 'client',
-      details: `Quote approved by ${clientName}. Work order assigned to ${quoteData.subcontractorName}.`,
+      details: quoteIsDiagnostic
+        ? `Diagnostic Request from ${quoteData.subcontractorName} accepted by ${clientName}.`
+        : `Quote approved by ${clientName}. Work order assigned to ${quoteData.subcontractorName}.`,
       metadata: quoteData.workOrderNumber ? { workOrderNumber: quoteData.workOrderNumber } : undefined,
     });
     await updateDoc(doc(db, 'quotes', quoteId), {
@@ -81,34 +85,95 @@ export async function POST(request: Request) {
     });
 
     // Resolve the subcontractor's auth UID for consistent ID usage
-    // The quote may store the Firestore document ID, but assignedJobs needs the auth UID
     let resolvedSubId = quoteData.subcontractorId;
     try {
       const subDoc = await getDoc(doc(db, 'subcontractors', quoteData.subcontractorId));
       if (subDoc.exists()) {
         const subData = subDoc.data();
-        // Use uid field if available, otherwise the doc ID is likely the auth UID
         resolvedSubId = (subData.uid && String(subData.uid).trim()) || subDoc.id;
       }
     } catch (e) {
       console.warn('Could not resolve subcontractor auth UID, using quote subcontractorId:', e);
     }
 
-    // Update work order with assignment + approved quote pricing
     const existingTimeline = workOrderData.timeline || [];
     const existingSysInfo = workOrderData.systemInformation || {};
-    // If the accepted quote is a diagnostic bid, pin the diagnostic fee onto the
-    // work order so the sub doesn't re-enter it at diagnostic submission time.
-    const quoteIsDiagnostic = quoteData.isDiagnosticQuote === true;
-    const carryDiagnosticFee = quoteIsDiagnostic
-      ? Number(quoteData.diagnosticFee ?? quoteData.totalAmount ?? 0)
-      : undefined;
-    // Don't move the work order backward through the pipeline. When a client
-    // approves a repair quote AFTER the WO is already past 'assigned' (e.g.
-    // 'repair_approved' during a two-phase diagnostic → repair flow), keep the
-    // existing status. Only flip to 'assigned' on the initial quote approval.
+
+    // ───────────────────────── DIAGNOSTIC FLOW ─────────────────────────
+    // Client accepted a Diagnostic Request. No assignment yet — the sub now
+    // submits a regular repair quote from /bidding. Just pin the fee and
+    // move the WO to 'diagnostic_accepted'.
+    if (quoteIsDiagnostic) {
+      const diagFee = Number(quoteData.diagnosticFee ?? quoteData.totalAmount ?? 0);
+      await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
+        status: 'diagnostic_accepted',
+        diagnosticFee: diagFee,
+        diagnosticAcceptedAt: serverTimestamp(),
+        approvedDiagnosticQuoteId: quoteId,
+        updatedAt: serverTimestamp(),
+        timeline: [
+          ...existingTimeline,
+          createTimelineEvent({
+            type: 'diagnostic_accepted',
+            userId: uid,
+            userName: clientName,
+            userRole: 'client',
+            details: `Diagnostic Request from ${quoteData.subcontractorName} accepted by ${clientName}.`,
+            metadata: { quoteId, subcontractorName: quoteData.subcontractorName, diagnosticFee: diagFee },
+          }),
+        ],
+        systemInformation: {
+          ...existingSysInfo,
+          diagnosticAcceptedBy: {
+            quoteId,
+            acceptedBy: { id: uid, name: clientName },
+            timestamp: Timestamp.now(),
+          },
+        },
+      });
+
+      // Flip the sub's bidding card to diagnostic_accepted state so the
+      // Submit Quote path on /subcontractor-portal/bidding opens up.
+      try {
+        const bwoSnap = await getDocs(query(
+          collection(db, 'biddingWorkOrders'),
+          where('workOrderId', '==', quoteData.workOrderId),
+          where('subcontractorId', '==', resolvedSubId),
+        ));
+        for (const d of bwoSnap.docs) {
+          await updateDoc(d.ref, {
+            status: 'diagnostic_accepted',
+            diagnosticAcceptedAt: serverTimestamp(),
+            diagnosticFee: diagFee,
+            updatedAt: serverTimestamp(),
+          });
+        }
+      } catch (e) {
+        console.warn('Could not sync biddingWorkOrders to diagnostic_accepted:', e);
+      }
+
+      return NextResponse.json({
+        success: true,
+        diagnostic: true,
+        workOrderData: {
+          workOrderNumber: workOrderData.workOrderNumber || quoteData.workOrderId,
+          locationName: workOrderData.locationName,
+          locationAddress: workOrderData.locationAddress,
+          workOrderTitle: quoteData.workOrderTitle,
+          subcontractorEmail: quoteData.subcontractorEmail,
+          subcontractorName: quoteData.subcontractorName,
+          clientName: quoteData.clientName,
+          subcontractorId: resolvedSubId,
+          workOrderId: quoteData.workOrderId,
+          diagnosticFee: diagFee,
+        },
+      });
+    }
+
+    // ───────────────────────── REGULAR QUOTE FLOW ──────────────────────
+    // Don't move the work order backward through the pipeline on repeat approvals.
     const currentWoStatus = (workOrderData.status as string | undefined) || '';
-    const EARLY_STAGES = new Set(['pending', 'approved', 'bidding', 'quotes_received']);
+    const EARLY_STAGES = new Set(['pending', 'approved', 'bidding', 'quotes_received', 'diagnostic_accepted']);
     const shouldSetAssigned = EARLY_STAGES.has(currentWoStatus);
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
       ...(shouldSetAssigned ? { status: 'assigned' } : {}),
@@ -121,7 +186,6 @@ export async function POST(request: Request) {
       approvedQuoteLaborCost: quoteData.laborCost,
       approvedQuoteMaterialCost: quoteData.materialCost,
       approvedQuoteLineItems: quoteData.lineItems || [],
-      ...(carryDiagnosticFee !== undefined ? { diagnosticFee: carryDiagnosticFee } : {}),
       timeline: [
         ...existingTimeline,
         createTimelineEvent({
@@ -164,6 +228,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      diagnostic: false,
       workOrderData: {
         workOrderNumber: workOrderData.workOrderNumber || quoteData.workOrderId,
         locationName: workOrderData.locationName,

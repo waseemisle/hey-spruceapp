@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, addDoc, serverTimestamp, getDocs, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc, Timestamp } from 'firebase/firestore';
 import { createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifyQuoteSubmission } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -36,7 +36,18 @@ interface BiddingWorkOrder {
   locationAddress: string;
   images?: string[];
   estimateBudget?: number;
+  /**
+   * Bidding lifecycle:
+   *  - 'pending'              → nothing submitted yet; all 4 actions visible
+   *  - 'diagnostic_requested' → diagnostic request submitted, awaiting client
+   *  - 'diagnostic_accepted'  → client approved the diagnostic; sub can now Submit Quote
+   *  - 'diagnostic_rejected'  → client rejected the diagnostic
+   *  - 'quoted'               → full quote submitted (direct path or post-diagnostic)
+   *  - 'rejected'             → sub rejected the opportunity
+   */
   status: string;
+  diagnosticFee?: number;
+  rejectionReason?: string;
   sharedAt: any;
 }
 
@@ -81,21 +92,24 @@ export default function SubcontractorBidding() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // Fetch all active bidding rows for this sub; filter client-side so we
+        // can show in-progress/accepted/rejected states without a composite
+        // index on (subcontractorId, status, sharedAt).
         const biddingQuery = query(
           collection(db, 'biddingWorkOrders'),
           where('subcontractorId', '==', user.uid),
-          where('status', '==', 'pending'),
-          orderBy('sharedAt', 'desc')
         );
 
         const unsubscribeSnapshot = onSnapshot(
           biddingQuery,
           (snapshot) => {
-            const biddingData = snapshot.docs.map(d => ({
-              id: d.id,
-              ...d.data(),
-            })) as BiddingWorkOrder[];
-            setBiddingWorkOrders(biddingData);
+            const biddingData = snapshot.docs
+              .map(d => ({ id: d.id, ...d.data() })) as BiddingWorkOrder[];
+            // Show everything except hard-terminal states (sub rejected, fully quoted)
+            const visible = biddingData
+              .filter(b => !['rejected', 'quoted'].includes(b.status))
+              .sort((a, b) => (b.sharedAt?.toMillis?.() ?? 0) - (a.sharedAt?.toMillis?.() ?? 0));
+            setBiddingWorkOrders(visible);
             setLoading(false);
           },
           (error) => {
@@ -143,6 +157,30 @@ export default function SubcontractorBidding() {
   };
 
   // ─── Direct Submit Quote helpers ───
+  const openDirectQuoteForm = (bidding: BiddingWorkOrder) => {
+    setSelectedBidding(bidding);
+    // If the client has already approved the diagnostic fee for this WO, the
+    // sub's repair quote should include it as a pre-filled line item.
+    const pinnedDiagFee = Number(bidding.diagnosticFee ?? 0);
+    if (bidding.status === 'diagnostic_accepted' && pinnedDiagFee > 0) {
+      setDirectQuoteLineItems([
+        { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+        { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
+        { description: 'Diagnostic Request', quantity: 1, unitPrice: pinnedDiagFee, amount: pinnedDiagFee },
+      ]);
+    } else {
+      setDirectQuoteLineItems([
+        { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+        { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
+      ]);
+    }
+    setDirectQuoteNotes('');
+    setDirectQuoteDuration('');
+    setDirectQuoteServiceDate('');
+    setDirectQuoteServiceTime('');
+    setShowDirectQuoteForm(true);
+  };
+
   const updateDirectLineItem = (idx: number, field: 'description' | 'quantity' | 'unitPrice' | 'amount', value: string) => {
     setDirectQuoteLineItems(prev => {
       const next = [...prev];
@@ -1221,7 +1259,33 @@ export default function SubcontractorBidding() {
                   </div>
                 )}
 
-                {/* Actions row — 4 buttons in a 2x2 grid */}
+                {/* Status banner for post-submission states */}
+                {bidding.status === 'diagnostic_requested' && (
+                  <div className="rounded-md bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs text-indigo-900 flex items-start gap-2">
+                    <Stethoscope className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span><strong>Diagnostic Request submitted.</strong> Awaiting client approval.</span>
+                  </div>
+                )}
+                {bidding.status === 'diagnostic_accepted' && (
+                  <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-900 flex items-start gap-2">
+                    <Stethoscope className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      <strong>Diagnostic accepted by the client{bidding.diagnosticFee ? ` — $${Number(bidding.diagnosticFee).toFixed(2)}` : ''}.</strong>
+                      {' '}You can now submit your quote.
+                    </span>
+                  </div>
+                )}
+                {bidding.status === 'diagnostic_rejected' && (
+                  <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-800 flex items-start gap-2">
+                    <X className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      <strong>Diagnostic Request rejected by the client.</strong>
+                      {bidding.rejectionReason ? ` Reason: ${bidding.rejectionReason}` : ''}
+                    </span>
+                  </div>
+                )}
+
+                {/* Actions — vary by state */}
                 <div className="border-t border-border pt-1 grid grid-cols-2 gap-2 mt-auto">
                   <Button
                     variant="outline"
@@ -1231,35 +1295,49 @@ export default function SubcontractorBidding() {
                     <ClipboardList className="h-3.5 w-3.5" />
                     View Work Order
                   </Button>
-                  <Button
-                    className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => {
-                      setSelectedBidding(bidding);
-                      setShowDirectQuoteForm(true);
-                    }}
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Submit Quote
-                  </Button>
-                  <Button
-                    className="h-8 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700"
-                    onClick={() => {
-                      setSelectedBidding(bidding);
-                      setShowQuoteForm(true);
-                    }}
-                  >
-                    <Stethoscope className="h-3.5 w-3.5" />
-                    Submit Diagnostic Request
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-8 text-xs gap-1 text-red-600 border-red-300 hover:bg-red-50"
-                    disabled={rejectingId === bidding.id}
-                    onClick={() => handleRejectBidding(bidding)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    {rejectingId === bidding.id ? 'Rejecting…' : 'Reject Quote Request'}
-                  </Button>
+
+                  {bidding.status === 'pending' && (
+                    <>
+                      <Button
+                        className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => openDirectQuoteForm(bidding)}
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        Submit Quote
+                      </Button>
+                      <Button
+                        className="h-8 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700"
+                        onClick={() => {
+                          setSelectedBidding(bidding);
+                          setShowQuoteForm(true);
+                        }}
+                      >
+                        <Stethoscope className="h-3.5 w-3.5" />
+                        Submit Diagnostic Request
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 text-xs gap-1 text-red-600 border-red-300 hover:bg-red-50"
+                        disabled={rejectingId === bidding.id}
+                        onClick={() => handleRejectBidding(bidding)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        {rejectingId === bidding.id ? 'Rejecting…' : 'Reject Quote Request'}
+                      </Button>
+                    </>
+                  )}
+
+                  {bidding.status === 'diagnostic_accepted' && (
+                    <Button
+                      className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 col-span-1"
+                      onClick={() => openDirectQuoteForm(bidding)}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Submit Quote
+                    </Button>
+                  )}
+
+                  {/* diagnostic_requested and diagnostic_rejected: only "View Work Order" remains */}
                 </div>
               </div>
             ))}

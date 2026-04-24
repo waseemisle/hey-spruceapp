@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, updateDoc, doc, serverTimestamp, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import type { QuoteTimelineEvent } from '@/types';
-import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import { notifySubcontractorAssignment } from '@/lib/notifications';
+import { createNotification } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -114,32 +113,20 @@ export default function ClientDiagnosticRequests() {
             const result = await res.json();
             const workOrderData = result.workOrderData;
 
+            // Diagnostic accepted — notify sub (not a full assignment).
             try {
-              await notifySubcontractorAssignment(
-                quote.subcontractorId,
-                workOrderData.workOrderId,
-                workOrderData.workOrderNumber || workOrderData.workOrderId,
-              );
-            } catch (e) {
-              console.error('Failed to notify subcontractor:', e);
-            }
-
-            try {
-              await fetch('/api/email/send-assignment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  toEmail: workOrderData.subcontractorEmail,
-                  toName: workOrderData.subcontractorName,
-                  workOrderNumber: workOrderData.workOrderNumber,
-                  workOrderTitle: workOrderData.workOrderTitle,
-                  clientName: workOrderData.clientName,
-                  locationName: workOrderData.locationName,
-                  locationAddress: workOrderData.locationAddress,
-                }),
+              await createNotification({
+                userId: quote.subcontractorId,
+                userRole: 'subcontractor',
+                type: 'diagnostic_request',
+                title: 'Diagnostic Request Accepted',
+                message: `Your Diagnostic Request for WO ${workOrderData.workOrderNumber} was accepted. You can now submit a quote from the Bidding page.`,
+                link: `/subcontractor-portal/bidding`,
+                referenceId: workOrderData.workOrderId,
+                referenceType: 'workOrder',
               });
             } catch (e) {
-              console.error('Failed to send assignment email:', e);
+              console.error('Failed to notify subcontractor:', e);
             }
 
             toast.success('Diagnostic fee approved. Subcontractor has been notified.');
@@ -164,62 +151,39 @@ export default function ClientDiagnosticRequests() {
           const reason = prompt('Please provide a reason for rejection (optional):');
           if (reason === null) return;
           try {
-            const user = auth.currentUser;
-            let clientName = quote.clientName || 'Client';
-            if (user) {
-              const clientDoc = await getDoc(doc(db, 'clients', user.uid));
-              if (clientDoc.exists()) clientName = clientDoc.data().fullName || clientName;
-            }
-            const existingTimeline = (quote.timeline || []) as QuoteTimelineEvent[];
-            const existingSys = quote.systemInformation || {};
-            const rejectedEvent = createQuoteTimelineEvent({
-              type: 'rejected',
-              userId: user?.uid || 'unknown',
-              userName: clientName,
-              userRole: 'client',
-              details: `Diagnostic request from ${quote.subcontractorName} rejected by ${clientName}${reason ? `. Reason: ${reason}` : ''}`,
-              metadata: { reason: reason || '' },
-            });
-            await updateDoc(doc(db, 'quotes', quoteId), {
-              status: 'rejected',
-              rejectedAt: serverTimestamp(),
-              rejectionReason: reason || 'No reason provided',
-              timeline: [...existingTimeline, rejectedEvent],
-              systemInformation: {
-                ...existingSys,
-                rejectedBy: {
-                  id: user?.uid || 'unknown',
-                  name: clientName,
-                  timestamp: Timestamp.now(),
-                  reason: reason || undefined,
-                },
+            const idToken = await auth.currentUser?.getIdToken();
+            const res = await fetch('/api/quotes/reject', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
               },
-              updatedAt: serverTimestamp(),
+              body: JSON.stringify({ quoteId, reason: reason || '' }),
             });
-
-            if (quote.workOrderId) {
-              try {
-                const woDoc = await getDoc(doc(db, 'workOrders', quote.workOrderId));
-                const existingWoTimeline = woDoc.data()?.timeline || [];
-                await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
-                  timeline: [...existingWoTimeline, createTimelineEvent({
-                    type: 'quote_rejected_by_client',
-                    userId: user?.uid || 'unknown',
-                    userName: clientName,
-                    userRole: 'client',
-                    details: `Diagnostic request from ${quote.subcontractorName} rejected by ${clientName}${reason ? `. Reason: ${reason}` : ''}`,
-                    metadata: { quoteId, subcontractorName: quote.subcontractorName, reason: reason || '', isDiagnosticQuote: true },
-                  })],
-                  updatedAt: serverTimestamp(),
-                });
-              } catch (e) {
-                console.error('Failed to update work order timeline:', e);
-              }
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err.error || 'Failed to reject diagnostic request');
             }
+
+            try {
+              await createNotification({
+                userId: quote.subcontractorId,
+                userRole: 'subcontractor',
+                type: 'diagnostic_request',
+                title: 'Diagnostic Request Rejected',
+                message: `Your Diagnostic Request for WO ${quote.workOrderNumber || ''} was rejected by the client${reason ? `. Reason: ${reason}` : ''}.`,
+                link: `/subcontractor-portal/bidding`,
+                referenceId: quote.workOrderId || '',
+                referenceType: 'workOrder',
+              });
+            } catch (e) {
+              console.error('Failed to notify subcontractor of rejection:', e);
+            }
+
             toast.success('Diagnostic request rejected');
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error rejecting diagnostic request:', error);
-            toast.error('Failed to reject diagnostic request');
+            toast.error(error.message || 'Failed to reject diagnostic request');
           }
         },
       },
@@ -343,7 +307,7 @@ export default function ClientDiagnosticRequests() {
                   </div>
 
                   <div className="border-t border-border pt-1 mt-auto flex items-center gap-1">
-                    <Link href={`/client-portal/quotes/${quote.id}`} className="flex-1">
+                    <Link href={`/client-portal/diagnostic-requests/${quote.id}`} className="flex-1">
                       <Button variant="outline" className="w-full h-8 text-xs gap-1">
                         <Eye className="h-3.5 w-3.5" />
                         View Details
