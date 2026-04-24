@@ -372,7 +372,10 @@ export default function SubcontractorAssignedJobs() {
 
   const openDiagnosticModal = (workOrderId: string) => {
     setDiagnosticWorkOrderId(workOrderId);
-    setDiagnosticFee(String(DEFAULT_DIAGNOSTIC_FEE.toFixed(2)));
+    // Pre-populate the fee from the work order (set from the sub's accepted bid).
+    const wo = workOrders.get(workOrderId);
+    const prefillFee = Number(wo?.diagnosticFee ?? DEFAULT_DIAGNOSTIC_FEE);
+    setDiagnosticFee(prefillFee.toFixed(2));
     setDiagnosticTimeSpent('');
     setDiagnosticNotes('');
     setShowDiagnosticModal(true);
@@ -382,7 +385,7 @@ export default function SubcontractorAssignedJobs() {
     if (!diagnosticWorkOrderId) return;
     const feeNum = Number(diagnosticFee);
     if (!Number.isFinite(feeNum) || feeNum < 0) {
-      toast.error('Please enter a valid diagnostic fee');
+      toast.error('Diagnostic fee is missing or invalid');
       return;
     }
     if (!diagnosticNotes.trim()) {
@@ -1177,10 +1180,11 @@ export default function SubcontractorAssignedJobs() {
                   the diagnostic fee will be billed.
                 </div>
 
+                {/* Diagnostic fee was set when the subcontractor's bid was accepted — shown read-only here. */}
                 <div>
                   <Label htmlFor="diagnostic-fee" className="flex items-center gap-2 mb-2">
                     <DollarSign className="h-4 w-4" />
-                    Diagnostic Fee *
+                    Diagnostic Fee (from your accepted bid)
                   </Label>
                   <Input
                     id="diagnostic-fee"
@@ -1188,11 +1192,12 @@ export default function SubcontractorAssignedJobs() {
                     min="0"
                     step="0.01"
                     value={diagnosticFee}
-                    onChange={(e) => setDiagnosticFee(e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    required
+                    readOnly
+                    className="bg-muted"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Default is ${DEFAULT_DIAGNOSTIC_FEE.toFixed(2)}. Override if different.</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This fee was set when your bid was accepted. It cannot be changed here.
+                  </p>
                 </div>
 
                 <div>

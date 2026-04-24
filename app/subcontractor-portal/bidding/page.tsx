@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, DollarSign, Plus, X, Search } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, DollarSign, Search, Stethoscope, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
@@ -19,6 +19,8 @@ import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
+
+const DEFAULT_DIAGNOSTIC_FEE = 69;
 
 interface BiddingWorkOrder {
   id: string;
@@ -36,13 +38,6 @@ interface BiddingWorkOrder {
   estimateBudget?: number;
   status: string;
   sharedAt: any;
-}
-
-interface LineItem {
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
 }
 
 export default function SubcontractorBidding() {
@@ -65,10 +60,8 @@ export default function SubcontractorBidding() {
     notes: '',
   });
 
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: 'Labor Cost', quantity: 1, unitPrice: 0, amount: 0 },
-    { description: 'Material Cost', quantity: 1, unitPrice: 0, amount: 0 },
-  ]);
+  /** Diagnostic fee for the initial visit — subcontractor bids this amount. Default $69. */
+  const [diagnosticFee, setDiagnosticFee] = useState<string>(DEFAULT_DIAGNOSTIC_FEE.toFixed(2));
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -134,31 +127,6 @@ export default function SubcontractorBidding() {
     setQuoteForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleLineItemChange = (index: number, field: keyof LineItem, value: string | number) => {
-    const newLineItems = [...lineItems];
-    newLineItems[index] = { ...newLineItems[index], [field]: value };
-
-    if (field === 'quantity' || field === 'unitPrice') {
-      newLineItems[index].amount = newLineItems[index].quantity * newLineItems[index].unitPrice;
-    }
-
-    setLineItems(newLineItems);
-  };
-
-  const addLineItem = () => {
-    setLineItems([...lineItems, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
-  };
-
-  const removeLineItem = (index: number) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter((_, i) => i !== index));
-    }
-  };
-
-  const calculateTotal = () => {
-    return lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-  };
-
   const handleSubmitQuote = async () => {
     if (!selectedBidding) return;
 
@@ -167,9 +135,9 @@ export default function SubcontractorBidding() {
       return;
     }
 
-    const validLineItems = lineItems.filter(item => item.description && item.amount > 0);
-    if (validLineItems.length === 0) {
-      toast.error('Please add at least one line item with a description and amount');
+    const feeNum = Number(diagnosticFee);
+    if (!Number.isFinite(feeNum) || feeNum < 0) {
+      toast.error('Please enter a valid diagnostic fee');
       return;
     }
 
@@ -184,13 +152,15 @@ export default function SubcontractorBidding() {
 
       const subData = subDoc.data();
 
-      const total = calculateTotal();
-      const labor = lineItems
-        .filter(item => item.description.toLowerCase().includes('labor'))
-        .reduce((sum, item) => sum + item.amount, 0);
-      const material = lineItems
-        .filter(item => item.description.toLowerCase().includes('material'))
-        .reduce((sum, item) => sum + item.amount, 0);
+      // The bid is a diagnostic quote — the only amount is the diagnostic fee.
+      // If the client later approves a repair, the subcontractor submits a separate repair quote.
+      const total = feeNum;
+      const diagnosticLineItem = [{
+        description: 'Diagnostic Visit',
+        quantity: 1,
+        unitPrice: feeNum,
+        amount: feeNum,
+      }];
 
       // Do not read client profile from subcontractor context (rules may block this).
       // Prefer any email already embedded on the bidding doc; otherwise skip client email notification.
@@ -202,8 +172,13 @@ export default function SubcontractorBidding() {
         userId: currentUser.uid,
         userName: createdByName,
         userRole: 'subcontractor',
-        details: 'Quote submitted via bidding portal',
-        metadata: { source: 'subcontractor_bidding', workOrderNumber: selectedBidding.workOrderNumber },
+        details: `Diagnostic bid submitted — fee $${feeNum.toFixed(2)}`,
+        metadata: {
+          source: 'subcontractor_bidding',
+          workOrderNumber: selectedBidding.workOrderNumber,
+          isDiagnosticQuote: true,
+          diagnosticFee: feeNum,
+        },
       });
       const quoteRef = await addDoc(collection(db, 'quotes'), {
         workOrderId: selectedBidding.workOrderId,
@@ -215,8 +190,8 @@ export default function SubcontractorBidding() {
         clientId: selectedBidding.clientId,
         clientName: selectedBidding.clientName,
         clientEmail: clientEmail,
-        laborCost: labor,
-        materialCost: material,
+        laborCost: 0,
+        materialCost: 0,
         additionalCosts: 0,
         discountAmount: 0,
         totalAmount: total,
@@ -224,9 +199,12 @@ export default function SubcontractorBidding() {
         estimatedDuration: quoteForm.estimatedDuration,
         proposedServiceDate: new Date(quoteForm.proposedServiceDate),
         proposedServiceTime: quoteForm.proposedServiceTime,
-        lineItems: lineItems.filter(item => item.description && item.amount > 0),
+        lineItems: diagnosticLineItem,
         notes: quoteForm.notes,
         status: 'pending',
+        // Diagnostic → Repair workflow
+        isDiagnosticQuote: true,
+        diagnosticFee: feeNum,
         createdBy: currentUser.uid,
         creationSource: 'subcontractor_bidding',
         timeline: [timelineEvent],
@@ -361,7 +339,7 @@ export default function SubcontractorBidding() {
         console.error('Quote submitted, but failed to update biddingWorkOrder:', biddingUpdateError);
       }
 
-      toast.success('Quote submitted successfully!');
+      toast.success('Diagnostic bid submitted successfully!');
       setShowQuoteForm(false);
       setSelectedBidding(null);
       setQuoteForm({
@@ -370,13 +348,10 @@ export default function SubcontractorBidding() {
         proposedServiceTime: '',
         notes: '',
       });
-      setLineItems([
-        { description: 'Labor Cost', quantity: 1, unitPrice: 0, amount: 0 },
-        { description: 'Material Cost', quantity: 1, unitPrice: 0, amount: 0 },
-      ]);
+      setDiagnosticFee(DEFAULT_DIAGNOSTIC_FEE.toFixed(2));
     } catch (error) {
-      console.error('Error submitting quote:', error);
-      toast.error('Failed to submit quote');
+      console.error('Error submitting diagnostic bid:', error);
+      toast.error('Failed to submit diagnostic bid');
     } finally {
       setSubmitting(false);
     }
@@ -427,15 +402,15 @@ export default function SubcontractorBidding() {
                   Back
                 </Button>
                 <Button
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-indigo-600 hover:bg-indigo-700"
                   onClick={() => {
                     setSelectedBidding(viewWorkOrder);
                     setShowQuoteForm(true);
                     setViewWorkOrder(null);
                   }}
                 >
-                  <DollarSign className="h-4 w-4 mr-1" />
-                  Submit Quote
+                  <Stethoscope className="h-4 w-4 mr-1" />
+                  Submit Diagnostic Bid
                 </Button>
               </div>
             }
@@ -533,10 +508,10 @@ export default function SubcontractorBidding() {
       <SubcontractorLayout>
         <PageContainer>
           <PageHeader
-            title="Submit Quote"
+            title="Submit Diagnostic Bid"
             subtitle={selectedBidding.workOrderNumber ? `Work Order: ${selectedBidding.workOrderNumber}` : selectedBidding.workOrderTitle}
-            icon={DollarSign}
-            iconClassName="text-blue-600"
+            icon={Stethoscope}
+            iconClassName="text-indigo-600"
             action={
               <Button variant="outline" onClick={() => {
                 setShowQuoteForm(false);
@@ -621,14 +596,49 @@ export default function SubcontractorBidding() {
             </CardContent>
           </Card>
 
-          {/* Quote Form */}
-          <Card className="rounded-xl border border-border shadow-sm">
+          {/* Diagnostic Bid Form */}
+          <Card className="rounded-xl border border-indigo-200 shadow-sm bg-indigo-50/30 dark:bg-indigo-950/10">
             <CardHeader>
-              <CardTitle>Quote Details</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
+                <Stethoscope className="h-5 w-5" />
+                Diagnostic Bid
+              </CardTitle>
             </CardHeader>
             <CardContent>
+              <div className="rounded-lg bg-white dark:bg-indigo-950/30 border border-indigo-200 p-3 text-sm text-indigo-900 dark:text-indigo-200 flex items-start gap-2 mb-6">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  Bid the <strong>diagnostic fee</strong> for the initial service visit. If the
+                  client later approves a repair, you'll submit a separate repair quote and the
+                  diagnostic fee will be <strong>waived</strong>. If the client declines the
+                  repair, only the diagnostic fee will be billed.
+                </span>
+              </div>
+
               <form className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label htmlFor="diagnosticFee" className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Diagnostic Fee *
+                    </Label>
+                    <Input
+                      id="diagnosticFee"
+                      name="diagnosticFee"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={diagnosticFee}
+                      onChange={(e) => setDiagnosticFee(e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="69.00"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Default is ${DEFAULT_DIAGNOSTIC_FEE.toFixed(2)}. Override if your rate differs.
+                    </p>
+                  </div>
+
                   <div>
                     <Label htmlFor="estimatedDuration">Estimated Duration *</Label>
                     <Input
@@ -636,7 +646,7 @@ export default function SubcontractorBidding() {
                       name="estimatedDuration"
                       value={quoteForm.estimatedDuration}
                       onChange={handleQuoteFormChange}
-                      placeholder="e.g., 2-3 days"
+                      placeholder="e.g., 1-2 hours"
                       required
                     />
                   </div>
@@ -652,7 +662,7 @@ export default function SubcontractorBidding() {
                       required
                       min={new Date().toISOString().split('T')[0]}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Date you can perform the work</p>
+                    <p className="text-xs text-muted-foreground mt-1">Date you can perform the diagnostic</p>
                   </div>
 
                   <div>
@@ -665,7 +675,7 @@ export default function SubcontractorBidding() {
                       onChange={handleQuoteFormChange}
                       required
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Time you can perform the work</p>
+                    <p className="text-xs text-muted-foreground mt-1">Time you can perform the diagnostic</p>
                   </div>
 
                   <div className="md:col-span-2">
@@ -676,100 +686,23 @@ export default function SubcontractorBidding() {
                       value={quoteForm.notes}
                       onChange={handleQuoteFormChange}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       placeholder="Any additional information..."
                     />
                   </div>
                 </div>
 
                 <div className="border-t pt-6">
-                  <div className="flex justify-between items-center mb-2">
-                    <Label>Line Items *</Label>
-                    <Button type="button" onClick={addLineItem} size="sm" variant="outline">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Item
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-4">At least one line item with a description and amount is required</p>
-
-                  <div className="space-y-3">
-                    {/* Column headers */}
-                    <div className="grid grid-cols-12 gap-3 px-1">
-                      <div className="col-span-5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Description</div>
-                      <div className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Qty</div>
-                      <div className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Unit Price</div>
-                      <div className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</div>
-                      <div className="col-span-1"></div>
-                    </div>
-                    {lineItems.map((item, index) => (
-                      <div key={index} className="grid grid-cols-12 gap-3 items-center">
-                        <div className="col-span-5">
-                          <Input
-                            placeholder="e.g. Labor Cost"
-                            value={item.description}
-                            onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Input
-                            type="number"
-                            placeholder="Qty *"
-                            value={item.quantity || ''}
-                            onChange={(e) => handleLineItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                            required
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Unit Price *"
-                            value={item.unitPrice || ''}
-                            onChange={(e) => handleLineItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                            required
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Input
-                            value={`$${item.amount.toFixed(2)}`}
-                            readOnly
-                            className="bg-muted"
-                          />
-                        </div>
-                        <div className="col-span-1">
-                          {lineItems.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => removeLineItem(index)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t pt-6">
                   <div className="bg-muted p-6 rounded-lg">
-                    <h3 className="font-semibold text-lg mb-4">Quote Summary</h3>
+                    <h3 className="font-semibold text-lg mb-4">Bid Summary</h3>
                     <div className="space-y-2">
-                      {lineItems.filter(item => item.description && item.amount > 0).map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span className="text-foreground">{item.description} {item.quantity > 1 ? `(×${item.quantity})` : ''}</span>
-                          <span className="font-semibold">${item.amount.toFixed(2)}</span>
-                        </div>
-                      ))}
-                      {lineItems.filter(item => item.description && item.amount > 0).length === 0 && (
-                        <p className="text-sm text-muted-foreground">Add line items above to see the summary</p>
-                      )}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-foreground">Diagnostic Visit</span>
+                        <span className="font-semibold">${(Number(diagnosticFee) || 0).toFixed(2)}</span>
+                      </div>
                       <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2">
-                        <span>Total:</span>
-                        <span className="text-green-600">${calculateTotal().toFixed(2)}</span>
+                        <span>Total Bid:</span>
+                        <span className="text-indigo-700">${(Number(diagnosticFee) || 0).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -790,9 +723,10 @@ export default function SubcontractorBidding() {
                     type="button"
                     onClick={handleSubmitQuote}
                     loading={submitting} disabled={submitting}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-indigo-600 hover:bg-indigo-700"
                   >
-                    {submitting ? 'Submitting...' : 'Submit Quote'}
+                    <Stethoscope className="h-4 w-4 mr-2" />
+                    {submitting ? 'Submitting...' : 'Submit Diagnostic Bid'}
                   </Button>
                 </div>
               </form>
@@ -905,14 +839,14 @@ export default function SubcontractorBidding() {
                     View Work Order
                   </Button>
                   <Button
-                    className="flex-1 h-8 text-xs gap-1"
+                    className="flex-1 h-8 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700"
                     onClick={() => {
                       setSelectedBidding(bidding);
                       setShowQuoteForm(true);
                     }}
                   >
-                    <DollarSign className="h-3.5 w-3.5" />
-                    Submit Quote
+                    <Stethoscope className="h-3.5 w-3.5" />
+                    Submit Diagnostic Bid
                   </Button>
                 </div>
               </div>

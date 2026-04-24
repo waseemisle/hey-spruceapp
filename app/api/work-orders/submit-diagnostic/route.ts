@@ -21,10 +21,6 @@ export async function POST(request: Request) {
     if (!workOrderId) {
       return NextResponse.json({ error: 'Missing workOrderId' }, { status: 400 });
     }
-    const feeNum = Number(diagnosticFee);
-    if (!Number.isFinite(feeNum) || feeNum < 0) {
-      return NextResponse.json({ error: 'Invalid diagnostic fee' }, { status: 400 });
-    }
 
     const db = await getServerDb();
     const woRef = doc(db, 'workOrders', workOrderId);
@@ -33,6 +29,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
     }
     const woData = woSnap.data();
+
+    // Fee is typically already set on the WO from the accepted diagnostic bid.
+    // Accept an override from the request body, otherwise fall back to WO.diagnosticFee.
+    const rawFee = diagnosticFee !== undefined && diagnosticFee !== null && diagnosticFee !== ''
+      ? diagnosticFee
+      : woData.diagnosticFee;
+    const feeNum = Number(rawFee);
+    if (!Number.isFinite(feeNum) || feeNum < 0) {
+      return NextResponse.json(
+        { error: 'Diagnostic fee missing on work order and not provided in request' },
+        { status: 400 },
+      );
+    }
 
     // Authorization: the caller must be the assigned subcontractor
     const assignedSub = woData.assignedSubcontractor || woData.assignedTo;

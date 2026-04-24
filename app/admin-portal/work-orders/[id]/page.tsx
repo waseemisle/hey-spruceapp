@@ -1594,6 +1594,13 @@ export default function ViewWorkOrder() {
         updatePayload.approvedQuoteLaborCost = assignFromQuote.laborCost;
         updatePayload.approvedQuoteMaterialCost = assignFromQuote.materialCost;
         updatePayload.approvedQuoteLineItems = assignFromQuote.lineItems || [];
+        // Diagnostic → Repair workflow: if the accepted quote is a diagnostic bid,
+        // pin the diagnostic fee onto the work order so the sub doesn't re-enter it.
+        const quoteIsDiagnostic = (assignFromQuote as any).isDiagnosticQuote === true;
+        const quoteDiagFee = (assignFromQuote as any).diagnosticFee;
+        if (quoteIsDiagnostic) {
+          updatePayload.diagnosticFee = Number(quoteDiagFee ?? assignFromQuote.totalAmount ?? 0);
+        }
       }
 
       await updateDoc(doc(db, 'workOrders', workOrder.id), updatePayload);
