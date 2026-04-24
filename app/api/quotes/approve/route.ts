@@ -103,8 +103,15 @@ export async function POST(request: Request) {
     const carryDiagnosticFee = quoteIsDiagnostic
       ? Number(quoteData.diagnosticFee ?? quoteData.totalAmount ?? 0)
       : undefined;
+    // Don't move the work order backward through the pipeline. When a client
+    // approves a repair quote AFTER the WO is already past 'assigned' (e.g.
+    // 'repair_approved' during a two-phase diagnostic → repair flow), keep the
+    // existing status. Only flip to 'assigned' on the initial quote approval.
+    const currentWoStatus = (workOrderData.status as string | undefined) || '';
+    const EARLY_STAGES = new Set(['pending', 'approved', 'bidding', 'quotes_received']);
+    const shouldSetAssigned = EARLY_STAGES.has(currentWoStatus);
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
-      status: 'assigned',
+      ...(shouldSetAssigned ? { status: 'assigned' } : {}),
       assignedSubcontractor: resolvedSubId,
       assignedSubcontractorName: quoteData.subcontractorName,
       assignedAt: serverTimestamp(),

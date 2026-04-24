@@ -377,11 +377,11 @@ export default function SubcontractorBidding() {
 
       const createdByName = subData.fullName || subData.businessName || 'Subcontractor';
       const timelineEvent = createQuoteTimelineEvent({
-        type: 'created',
+        type: 'sent_to_client',
         userId: currentUser.uid,
         userName: createdByName,
         userRole: 'subcontractor',
-        details: `Diagnostic bid submitted — fee $${feeNum.toFixed(2)}`,
+        details: `Diagnostic request submitted to client — fee $${feeNum.toFixed(2)}`,
         metadata: {
           source: 'subcontractor_bidding',
           workOrderNumber: selectedBidding.workOrderNumber,
@@ -389,6 +389,7 @@ export default function SubcontractorBidding() {
           diagnosticFee: feeNum,
         },
       });
+      // Diagnostic Requests skip admin markup — send directly to the client.
       const quoteRef = await addDoc(collection(db, 'quotes'), {
         workOrderId: selectedBidding.workOrderId,
         workOrderNumber: selectedBidding.workOrderNumber,
@@ -405,12 +406,15 @@ export default function SubcontractorBidding() {
         discountAmount: 0,
         totalAmount: total,
         originalAmount: total,
+        clientAmount: total,
+        markupPercentage: 0,
         estimatedDuration: quoteForm.estimatedDuration,
         proposedServiceDate: new Date(quoteForm.proposedServiceDate),
         proposedServiceTime: quoteForm.proposedServiceTime,
         lineItems: diagnosticLineItem,
         notes: quoteForm.notes,
-        status: 'pending',
+        status: 'sent_to_client',
+        sentToClientAt: serverTimestamp(),
         // Diagnostic → Repair workflow
         isDiagnosticQuote: true,
         diagnosticFee: feeNum,
@@ -424,67 +428,46 @@ export default function SubcontractorBidding() {
             role: 'subcontractor',
             timestamp: Timestamp.now(),
           },
+          sentToClientBy: {
+            id: currentUser.uid,
+            name: createdByName,
+            role: 'subcontractor',
+            timestamp: Timestamp.now(),
+            autoForwarded: true,
+          },
         },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      await notifyQuoteSubmission(
-        selectedBidding.clientId,
-        selectedBidding.workOrderId,
-        selectedBidding.workOrderNumber || selectedBidding.workOrderId,
-        subData.fullName || subData.businessName,
-        total
-      );
-
-      try {
-        if (clientEmail) {
-          await fetch('/api/email/send-quote-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              toEmail: clientEmail,
-              toName: selectedBidding.clientName,
-              workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
-              workOrderTitle: selectedBidding.workOrderTitle,
-              subcontractorName: subData.fullName || subData.businessName,
-              quoteAmount: total,
-              proposedServiceDate: quoteForm.proposedServiceDate,
-              proposedServiceTime: quoteForm.proposedServiceTime,
-              portalLink: `${window.location.origin}/client-portal/quotes`,
-            }),
-          });
-        }
-
-        // Notify admins server-side (subcontractors can't read adminUsers collection)
-        fetch('/api/email/send-quote-notification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          keepalive: true,
-          body: JSON.stringify({
-            notifyAdmins: true,
-            workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
-            workOrderTitle: selectedBidding.workOrderTitle,
-            subcontractorName: subData.fullName || subData.businessName,
-            quoteAmount: total,
-            category: selectedBidding.category || '',
-            locationName: selectedBidding.locationName || '',
-            priority: selectedBidding.priority || '',
-            description: selectedBidding.workOrderDescription || '',
-          }),
-        }).catch(console.error);
-      } catch (emailError) {
-        console.error('Failed to send quote notification emails:', emailError);
-      }
+      // Notify admins + client that a Diagnostic Request arrived
+      // (admin is informed but approval is not required — it went straight to client).
+      fetch('/api/notifications/diagnostic-request-submitted', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          clientId: selectedBidding.clientId,
+          clientEmail,
+          clientName: selectedBidding.clientName,
+          workOrderId: selectedBidding.workOrderId,
+          workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+          workOrderTitle: selectedBidding.workOrderTitle,
+          subcontractorName: subData.fullName || subData.businessName,
+          diagnosticFee: feeNum,
+          proposedServiceDate: quoteForm.proposedServiceDate,
+          proposedServiceTime: quoteForm.proposedServiceTime,
+        }),
+      }).catch(console.error);
 
       // Best-effort downstream updates; quote creation above is the critical path.
       try {
-        // Update parent work order status
+        // Record the diagnostic request on the parent work order timeline, but
+        // DO NOT flip the work order to 'quotes_received' — diagnostic requests
+        // are a distinct flow that does not require admin markup.
         const workOrderRef = doc(db, 'workOrders', selectedBidding.workOrderId);
         const workOrderSnapshot = await getDoc(workOrderRef);
         if (workOrderSnapshot.exists()) {
-          const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
-          const statusesEligibleForQuote = ['pending', 'approved', 'bidding'];
           const workOrderData = workOrderSnapshot.data();
           const existingTimeline = workOrderData?.timeline || [];
           const existingSysInfo = workOrderData?.systemInformation || {};
@@ -492,63 +475,55 @@ export default function SubcontractorBidding() {
           const woTimelineEvent = {
             id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             timestamp: Timestamp.now(),
-            type: 'quote_received',
+            type: 'diagnostic_request_received',
             userId: currentUser.uid,
             userName: subData.fullName || subData.businessName,
             userRole: 'subcontractor',
-            details: `Quote received from ${subData.fullName || subData.businessName} - $${total.toLocaleString()}`,
+            details: `Diagnostic Request received from ${subData.fullName || subData.businessName} - $${total.toLocaleString()} (sent directly to client)`,
             metadata: {
               quoteId: quoteRef.id,
               amount: total,
+              diagnosticFee: feeNum,
               proposedServiceDate: quoteForm.proposedServiceDate,
               proposedServiceTime: quoteForm.proposedServiceTime,
-            }
+              isDiagnosticQuote: true,
+            },
           };
 
-          const existingQuotes = existingSysInfo.quotesReceived || [];
+          const existingDiag = existingSysInfo.diagnosticRequests || [];
           const updatedSysInfo = {
             ...existingSysInfo,
-            quotesReceived: [...existingQuotes, {
+            diagnosticRequests: [...existingDiag, {
               quoteId: quoteRef.id,
               subcontractorId: currentUser.uid,
               subcontractorName: subData.fullName || subData.businessName,
-              amount: total,
+              diagnosticFee: feeNum,
               timestamp: Timestamp.now(),
-            }]
+            }],
           };
 
-          if (currentStatus === 'quotes_received') {
-            await updateDoc(workOrderRef, {
-              updatedAt: serverTimestamp(),
-              timeline: [...existingTimeline, woTimelineEvent],
-              systemInformation: updatedSysInfo,
-            });
-          } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
-            await updateDoc(workOrderRef, {
-              status: 'quotes_received',
-              quoteReceivedAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-              timeline: [...existingTimeline, woTimelineEvent],
-              systemInformation: updatedSysInfo,
-            });
-          }
+          await updateDoc(workOrderRef, {
+            updatedAt: serverTimestamp(),
+            timeline: [...existingTimeline, woTimelineEvent],
+            systemInformation: updatedSysInfo,
+          });
         }
       } catch (workOrderUpdateError) {
-        console.error('Quote submitted, but failed to update work order:', workOrderUpdateError);
+        console.error('Diagnostic request submitted, but failed to update work order:', workOrderUpdateError);
       }
 
       try {
-        // Mark biddingWorkOrder as quoted
+        // Remove the bidding card from the sub's list (they've submitted their diagnostic)
         await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
-          status: 'quoted',
+          status: 'diagnostic_requested',
           quotedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
       } catch (biddingUpdateError) {
-        console.error('Quote submitted, but failed to update biddingWorkOrder:', biddingUpdateError);
+        console.error('Diagnostic request submitted, but failed to update biddingWorkOrder:', biddingUpdateError);
       }
 
-      toast.success('Diagnostic bid submitted successfully!');
+      toast.success('Diagnostic Request sent to client!');
       setShowQuoteForm(false);
       setSelectedBidding(null);
       setQuoteForm({

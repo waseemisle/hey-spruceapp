@@ -151,7 +151,7 @@ export default function ViewWorkOrder() {
   const [loading, setLoading] = useState(true);
   const [selectedQuoteIds, setSelectedQuoteIds] = useState<string[]>([]);
   const [showCompareDialog, setShowCompareDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'history' | 'attachments' | 'quotes' | 'invoices' | 'vendor_payment'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'history' | 'attachments' | 'diagnostic_requests' | 'quotes' | 'invoices' | 'vendor_payment'>('overview');
   const [notes, setNotes] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
@@ -1718,12 +1718,16 @@ export default function ViewWorkOrder() {
     );
   }
 
+  const diagnosticRequests = quotes.filter(q => (q as any).isDiagnosticQuote === true);
+  const regularQuotes = quotes.filter(q => (q as any).isDiagnosticQuote !== true);
+
   const TABS = [
     { key: 'overview', label: 'Overview', icon: FileText },
     { key: 'notes', label: `Notes${notes.length > 0 ? ` (${notes.length})` : ''}`, icon: StickyNote },
     { key: 'history', label: 'History', icon: History },
     { key: 'attachments', label: `Attachments${(workOrder.images?.length ?? 0) + (workOrder.completionImages?.length ?? 0) > 0 ? ` (${(workOrder.images?.length ?? 0) + (workOrder.completionImages?.length ?? 0)})` : ''}`, icon: Paperclip },
-    { key: 'quotes', label: `Quotes${quotes.length > 0 ? ` (${quotes.length})` : ''}`, icon: FileText },
+    { key: 'diagnostic_requests', label: `Diagnostic Requests${diagnosticRequests.length > 0 ? ` (${diagnosticRequests.length})` : ''}`, icon: Stethoscope },
+    { key: 'quotes', label: `Quotes${regularQuotes.length > 0 ? ` (${regularQuotes.length})` : ''}`, icon: FileText },
     { key: 'invoices', label: `Invoices${relatedInvoices.length > 0 ? ` (${relatedInvoices.length})` : ''}`, icon: Receipt },
     { key: 'vendor_payment', label: `Vendor Payment${vendorPayment ? ' (1)' : ''}`, icon: DollarSign },
   ];
@@ -2371,8 +2375,44 @@ export default function ViewWorkOrder() {
                   </Card>
                 )}
 
+                {/* Quick diagnostic requests preview */}
+                {diagnosticRequests.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <span className="flex items-center gap-2"><Stethoscope className="h-5 w-5" />Diagnostic Requests</span>
+                        <Button size="sm" variant="ghost" onClick={() => setActiveTab('diagnostic_requests')}>View all <ChevronRight className="h-4 w-4 ml-1" /></Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {diagnosticRequests.slice(0, 2).map(q => {
+                          const amt = (q as any).diagnosticFee ?? q.totalAmount ?? 0;
+                          const statusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-blue-600', accepted: 'text-green-600', rejected: 'text-red-600' };
+                          const statusLabels: Record<string, string> = { pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' };
+                          return (
+                            <div key={q.id} className="p-3 rounded-lg bg-indigo-50/60 border border-indigo-200">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-sm">{q.subcontractorName}</p>
+                                  <p className={`text-xs font-medium ${statusColors[q.status] || 'text-muted-foreground'}`}>{statusLabels[q.status] || q.status}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-bold text-indigo-700">${Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                  <p className="text-xs text-indigo-700">Diagnostic fee</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {diagnosticRequests.length > 2 && <p className="text-xs text-muted-foreground text-center">+{diagnosticRequests.length - 2} more</p>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Quick quotes preview */}
-                {quotes.length > 0 && (
+                {regularQuotes.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
@@ -2382,7 +2422,7 @@ export default function ViewWorkOrder() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {quotes.slice(0, 2).map(q => {
+                        {regularQuotes.slice(0, 2).map(q => {
                           const qDisplayAmount = q.clientAmount || q.totalAmount || 0;
                           const qStatusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-blue-600', accepted: 'text-green-600', rejected: 'text-red-600' };
                           const qStatusLabels: Record<string, string> = { pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' };
@@ -2392,22 +2432,11 @@ export default function ViewWorkOrder() {
                             <div className="flex justify-between items-start">
                               <div>
                                 <p className="font-medium text-sm">{q.subcontractorName}</p>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className={`text-xs font-medium ${qStatusColors[q.status] || 'text-muted-foreground'}`}>{qStatusLabels[q.status] || q.status}</p>
-                                  {(q as any).isDiagnosticQuote && (
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                                      <Stethoscope className="h-2.5 w-2.5" />
-                                      Diagnostic Bid
-                                    </span>
-                                  )}
-                                </div>
+                                <p className={`text-xs font-medium ${qStatusColors[q.status] || 'text-muted-foreground'}`}>{qStatusLabels[q.status] || q.status}</p>
                               </div>
                               <div className="text-right">
                                 <p className="font-bold text-primary">${qDisplayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-                                {(q as any).isDiagnosticQuote && (q as any).diagnosticFee != null && (
-                                  <p className="text-xs text-indigo-700">Diagnostic fee</p>
-                                )}
-                                {q.clientAmount && q.markupPercentage != null && !(q as any).isDiagnosticQuote && (
+                                {q.clientAmount && q.markupPercentage != null && (
                                   <p className="text-xs text-muted-foreground">{q.markupPercentage}% markup</p>
                                 )}
                               </div>
@@ -2421,7 +2450,7 @@ export default function ViewWorkOrder() {
                           </div>
                           );
                         })}
-                        {quotes.length > 2 && <p className="text-xs text-muted-foreground text-center">+{quotes.length - 2} more quotes</p>}
+                        {regularQuotes.length > 2 && <p className="text-xs text-muted-foreground text-center">+{regularQuotes.length - 2} more quotes</p>}
                       </div>
                     </CardContent>
                   </Card>
@@ -3024,26 +3053,98 @@ export default function ViewWorkOrder() {
             </div>
           )}
 
+          {/* DIAGNOSTIC REQUESTS TAB */}
+          {activeTab === 'diagnostic_requests' && (
+            <div className="max-w-3xl">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Stethoscope className="h-5 w-5" />
+                    Diagnostic Requests ({diagnosticRequests.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {diagnosticRequests.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No diagnostic requests received yet</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-900">
+                        Diagnostic Requests are forwarded directly to the client for approval — no admin markup is required.
+                      </div>
+                      {diagnosticRequests.map(quote => {
+                        const amount = (quote as any).diagnosticFee ?? quote.totalAmount ?? 0;
+                        const statusLabels: Record<string, string> = {
+                          pending: 'Pending',
+                          sent_to_client: 'Sent to Client',
+                          accepted: 'Accepted by Client',
+                          rejected: 'Rejected by Client',
+                        };
+                        const statusColors: Record<string, string> = {
+                          pending: 'text-yellow-600',
+                          sent_to_client: 'text-blue-600',
+                          accepted: 'text-green-600',
+                          rejected: 'text-red-600',
+                        };
+                        return (
+                          <div key={quote.id} className="p-4 border rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="flex justify-between items-start gap-3">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold">{quote.subcontractorName}</p>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                    <Stethoscope className="h-3 w-3" />
+                                    Diagnostic Request
+                                  </span>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                                </p>
+                                {quote.notes && <p className="text-sm text-muted-foreground mt-1">{quote.notes}</p>}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold text-indigo-700">${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                <p className="text-xs text-indigo-700">Diagnostic fee</p>
+                                <p className={`text-xs font-medium capitalize ${statusColors[quote.status] || 'text-muted-foreground'}`}>
+                                  {statusLabels[quote.status] || quote.status}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="mt-3 pt-3 border-t">
+                              <Button size="sm" variant="outline" className="w-full" onClick={() => setViewQuoteDetail(quote)}>
+                                <Eye className="h-3.5 w-3.5 mr-2" />
+                                View Full Request
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* QUOTES TAB */}
           {activeTab === 'quotes' && (
             <div className="max-w-3xl">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2"><FileText className="h-5 w-5" />Quotes ({quotes.length})</span>
+                    <span className="flex items-center gap-2"><FileText className="h-5 w-5" />Quotes ({regularQuotes.length})</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {quotes.length === 0 ? (
+                  {regularQuotes.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
                   ) : (
                     <div className="space-y-3">
-                      {quotes.length >= 2 && (
+                      {regularQuotes.length >= 2 && (
                         <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
                           <p className="text-sm text-primary">Select 2+ quotes to compare them side-by-side</p>
                         </div>
                       )}
-                      {quotes.map(quote => {
+                      {regularQuotes.map(quote => {
                         const displayAmount = quote.clientAmount || quote.totalAmount || 0;
                         const isAccepted = quote.status === 'accepted';
                         const canAssign = !['assigned', 'accepted_by_subcontractor', 'pending_invoice', 'completed'].includes(workOrder.status);

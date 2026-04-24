@@ -12,6 +12,7 @@ export type EmailType =
   | 'maint-request-notification'
   | 'scheduled-service'
   | 'quote-notification'
+  | 'diagnostic-request-notification'
   | 'review-request'
   | 'work-order-notification'
   | 'work-order-completed-notification'

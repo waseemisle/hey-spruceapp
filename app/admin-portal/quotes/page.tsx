@@ -102,7 +102,10 @@ function QuotesContent() {
         id: doc.id,
         ...doc.data(),
       })) as Quote[];
-      setQuotes(quotesData);
+      // Diagnostic Requests live on the work order's Diagnostic Requests tab
+      // (and go directly to the client) — exclude them from the admin quotes list.
+      const nonDiagnostic = quotesData.filter(q => (q as any).isDiagnosticQuote !== true);
+      setQuotes(nonDiagnostic);
     } catch (error) {
       console.error('Error fetching quotes:', error);
       toast.error('Failed to load quotes');
