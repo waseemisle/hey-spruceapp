@@ -142,7 +142,8 @@ export interface WorkOrderTimelineEvent {
   type: 'created' | 'approved' | 'rejected' | 'shared_for_bidding' | 'quote_received' |
         'quote_shared_with_client' | 'quote_approved_by_client' | 'quote_rejected_by_client' |
         'assigned' | 'schedule_set' | 'schedule_shared' | 'started' | 'completed' |
-        'invoice_sent' | 'invoice_paid' | 'payment_received' | 'archived';
+        'invoice_sent' | 'invoice_paid' | 'payment_received' | 'archived' |
+        'diagnostic_submitted' | 'repair_approved' | 'repair_declined';
   userId: string;
   userName: string;
   userRole: 'admin' | 'client' | 'subcontractor' | 'system';
@@ -215,7 +216,21 @@ export interface WorkOrder {
   category: string;
   categoryId: string;
   priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'approved' | 'rejected' | 'quote_received' | 'quotes_received' | 'assigned' | 'in-progress' | 'completed' | 'archived';
+  status:
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'quote_received'
+    | 'quotes_received'
+    | 'assigned'
+    | 'accepted_by_subcontractor'
+    | 'diagnostic_submitted'
+    | 'repair_approved'
+    | 'repair_declined'
+    | 'in-progress'
+    | 'pending_invoice'
+    | 'completed'
+    | 'archived';
   images: string[];
   assignedTo?: string;
   assignedToName?: string;
@@ -230,6 +245,14 @@ export interface WorkOrder {
   approvedBy?: string;
   approvedAt?: Date;
   rejectionReason?: string;
+  // Diagnostic → Repair workflow
+  diagnosticFee?: number;
+  diagnosticNotes?: string;
+  diagnosticSubmittedAt?: Date;
+  repairApprovedAt?: Date;
+  repairDeclinedAt?: Date;
+  /** Which fee the invoice should bill: 'diagnostic' (client declined repair) or 'repair' (client approved repair). */
+  billingPhase?: 'diagnostic' | 'repair';
   timeline?: WorkOrderTimelineEvent[];
   systemInformation?: WorkOrderSystemInformation;
   createdAt: Date;
@@ -317,7 +340,14 @@ export interface Quote {
   timeline?: QuoteTimelineEvent[];
   systemInformation?: QuoteSystemInformation;
   /** How this quote was created (e.g. subcontractor_bidding, admin_portal) */
-  creationSource?: 'subcontractor_bidding' | 'admin_portal';
+  creationSource?: 'subcontractor_bidding' | 'admin_portal' | 'diagnostic_submission' | 'repair_quote';
+  // Diagnostic → Repair workflow
+  /** True when this quote represents the diagnostic visit only (not a repair). */
+  isDiagnosticQuote?: boolean;
+  /** Diagnostic fee captured on this quote (mirrors workOrder.diagnosticFee). */
+  diagnosticFee?: number;
+  /** Links the follow-up repair quote back to the original diagnostic quote. */
+  repairQuoteId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2, Stethoscope, Wrench, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -35,6 +35,9 @@ const WORK_ORDER_EDIT_STATUS_OPTIONS = [
   { value: 'quotes_received', label: 'Quotes Received' },
   { value: 'assigned', label: 'Assigned' },
   { value: 'accepted_by_subcontractor', label: 'Accepted by Sub' },
+  { value: 'diagnostic_submitted', label: 'Diagnostic Submitted' },
+  { value: 'repair_approved', label: 'Repair Approved' },
+  { value: 'repair_declined', label: 'Repair Declined' },
   { value: 'pending_invoice', label: 'Pending Invoice' },
   { value: 'completed', label: 'Completed' },
 ];
@@ -88,6 +91,13 @@ interface WorkOrder {
   ratingCompleteToSpecs?: boolean;
   ratedAt?: any;
   ratedBy?: string;
+  // Diagnostic → Repair workflow
+  diagnosticFee?: number;
+  diagnosticNotes?: string;
+  diagnosticSubmittedAt?: any;
+  repairApprovedAt?: any;
+  repairDeclinedAt?: any;
+  billingPhase?: 'diagnostic' | 'repair';
 }
 
 interface Subcontractor {
@@ -506,6 +516,9 @@ export default function ViewWorkOrder() {
       case 'quotes_received': return 'text-blue-600 bg-blue-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
+      case 'diagnostic_submitted': return 'text-indigo-600 bg-indigo-50';
+      case 'repair_approved': return 'text-emerald-600 bg-emerald-50';
+      case 'repair_declined': return 'text-orange-600 bg-orange-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
       case 'archived': return 'text-gray-600 bg-gray-100';
@@ -1004,6 +1017,40 @@ export default function ViewWorkOrder() {
   const [rejecting, setRejecting] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [repairDecisionSubmitting, setRepairDecisionSubmitting] = useState<'approve' | 'decline' | null>(null);
+
+  const handleRepairDecision = async (decision: 'approve' | 'decline') => {
+    if (!workOrder) return;
+    setRepairDecisionSubmitting(decision);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { toast.error('You must be logged in'); return; }
+
+      const adminSnap = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminSnap.exists() ? (adminSnap.data().fullName || currentUser.email || 'Admin') : (currentUser.email || 'Admin');
+
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch('/api/work-orders/repair-decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ workOrderId: workOrder.id, decision, adminName }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to record repair decision');
+      }
+
+      const refreshSnap = await getDoc(doc(db, 'workOrders', workOrder.id));
+      if (refreshSnap.exists()) setWorkOrder({ id: refreshSnap.id, ...refreshSnap.data() } as any);
+
+      toast.success(decision === 'approve' ? 'Repair approved. Subcontractor will be notified to submit a repair quote.' : 'Repair declined. Diagnostic fee will be billed.');
+    } catch (err: any) {
+      console.error('Error processing repair decision:', err);
+      toast.error(err.message || 'Failed to record repair decision');
+    } finally {
+      setRepairDecisionSubmitting(null);
+    }
+  };
 
   const handleApproveWorkOrder = async () => {
     if (!workOrder) return;
@@ -1157,42 +1204,63 @@ export default function ViewWorkOrder() {
   const handleOpenInvoiceModal = async () => {
     if (!workOrder) return;
     try {
-      // Find the approved quote
-      let approvedQuote: Quote | null = null;
       const invoiceWoData = (await getDoc(doc(db, 'workOrders', workOrder.id))).data();
-      const approvedQuoteId = invoiceWoData?.approvedQuoteId;
+      const phase = (invoiceWoData?.billingPhase || workOrder.billingPhase) as 'diagnostic' | 'repair' | undefined;
 
-      if (approvedQuoteId) {
-        const qDoc = await getDoc(doc(db, 'quotes', approvedQuoteId));
-        if (qDoc.exists()) approvedQuote = { id: qDoc.id, ...qDoc.data() } as Quote;
-      }
-      if (!approvedQuote) {
-        approvedQuote = quotes.find(q => q.status === 'accepted') || quotes[0] || null;
-      }
-
-      // Build line items
       let lineItems: Array<{ description: string; quantity: number; unitPrice: number; amount: number }> = [];
-      if (approvedQuote) {
-        const clientAmount = approvedQuote.clientAmount || approvedQuote.totalAmount || 0;
-        if (approvedQuote.lineItems && approvedQuote.lineItems.length > 0) {
-          const scale = approvedQuote.totalAmount > 0 ? clientAmount / approvedQuote.totalAmount : 1;
-          lineItems = approvedQuote.lineItems.map(li => ({
-            description: li.description,
-            quantity: li.quantity,
-            unitPrice: parseFloat((li.unitPrice * scale).toFixed(2)),
-            amount: parseFloat((li.amount * scale).toFixed(2)),
-          }));
-        } else {
-          lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: clientAmount, amount: clientAmount }];
-        }
+
+      if (phase === 'diagnostic') {
+        // Bill diagnostic fee only — client declined repair.
+        const fee = Number(invoiceWoData?.diagnosticFee ?? workOrder.diagnosticFee ?? 0);
+        lineItems = [{
+          description: 'Diagnostic Visit',
+          quantity: 1,
+          unitPrice: fee,
+          amount: fee,
+        }];
       } else {
-        const amt = invoiceWoData?.approvedQuoteAmount || workOrder.estimateBudget || 0;
-        lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: amt, amount: amt }];
+        // Repair billing (or legacy / no diagnostic flow): use accepted repair quote.
+        let approvedQuote: Quote | null = null;
+        const approvedQuoteId = invoiceWoData?.approvedQuoteId;
+
+        if (approvedQuoteId) {
+          const qDoc = await getDoc(doc(db, 'quotes', approvedQuoteId));
+          if (qDoc.exists()) approvedQuote = { id: qDoc.id, ...qDoc.data() } as Quote;
+        }
+        if (!approvedQuote) {
+          // Prefer accepted, non-diagnostic quotes. Fallback to any non-diagnostic quote.
+          approvedQuote =
+            quotes.find(q => q.status === 'accepted' && (q as any).isDiagnosticQuote !== true) ||
+            quotes.find(q => (q as any).isDiagnosticQuote !== true) ||
+            quotes.find(q => q.status === 'accepted') ||
+            quotes[0] ||
+            null;
+        }
+
+        if (approvedQuote) {
+          const clientAmount = approvedQuote.clientAmount || approvedQuote.totalAmount || 0;
+          if (approvedQuote.lineItems && approvedQuote.lineItems.length > 0) {
+            const scale = approvedQuote.totalAmount > 0 ? clientAmount / approvedQuote.totalAmount : 1;
+            lineItems = approvedQuote.lineItems.map(li => ({
+              description: li.description,
+              quantity: li.quantity,
+              unitPrice: parseFloat((li.unitPrice * scale).toFixed(2)),
+              amount: parseFloat((li.amount * scale).toFixed(2)),
+            }));
+          } else {
+            lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: clientAmount, amount: clientAmount }];
+          }
+        } else {
+          const amt = invoiceWoData?.approvedQuoteAmount || workOrder.estimateBudget || 0;
+          lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: amt, amount: amt }];
+        }
       }
 
       setInvoiceLineItems(lineItems);
       setInvoiceForm({
-        notes: '',
+        notes: phase === 'diagnostic'
+          ? 'Client declined recommended repair. Diagnostic fee is billed per agreement.'
+          : '',
         terms: 'Payment due within 30 days of invoice date.',
         discountAmount: '',
       });
@@ -1594,11 +1662,16 @@ export default function ViewWorkOrder() {
     { key: 'quotes_received', label: 'Quotes Received' },
     { key: 'assigned', label: 'Assigned' },
     { key: 'accepted_by_subcontractor', label: 'In Progress' },
+    { key: 'diagnostic_submitted', label: 'Diagnostic' },
+    { key: 'repair_approved', label: 'Repair' },
     { key: 'pending_invoice', label: 'Pending Invoice' },
     { key: 'completed', label: 'Completed' },
   ];
   const currentStepIdx = workOrder
-    ? STATUS_PIPELINE.findIndex(s => s.key === workOrder.status)
+    ? workOrder.status === 'repair_declined'
+      // Treat a declined repair as the "Repair" step visually, so the pipeline still shows progress.
+      ? STATUS_PIPELINE.findIndex(s => s.key === 'repair_approved')
+      : STATUS_PIPELINE.findIndex(s => s.key === workOrder.status)
     : -1;
 
   if (loading) {
@@ -2154,6 +2227,131 @@ export default function ViewWorkOrder() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Repair Decision Card (diagnostic → repair workflow) */}
+                {workOrder.status === 'diagnostic_submitted' && (
+                  <Card className="border-indigo-200 bg-indigo-50/50 dark:bg-indigo-950/20">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
+                        <Stethoscope className="h-5 w-5 text-indigo-600" />
+                        Diagnostic Submitted — Repair Decision Required
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="rounded-lg border border-indigo-200 bg-white dark:bg-indigo-950/40 p-3">
+                          <div className="text-xs text-muted-foreground">Diagnostic Fee</div>
+                          <div className="text-xl font-bold text-indigo-900 dark:text-indigo-200">
+                            ${Number(workOrder.diagnosticFee ?? 0).toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-indigo-200 bg-white dark:bg-indigo-950/40 p-3">
+                          <div className="text-xs text-muted-foreground">Submitted</div>
+                          <div className="text-sm font-semibold text-foreground">
+                            {workOrder.diagnosticSubmittedAt?.toDate?.().toLocaleString?.() || '—'}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            By {workOrder.assignedToName || workOrder.assignedSubcontractorName || 'Subcontractor'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {workOrder.diagnosticNotes && (
+                        <div>
+                          <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Diagnostic Notes</div>
+                          <p className="text-sm text-foreground whitespace-pre-wrap bg-white dark:bg-indigo-950/40 border border-indigo-200 rounded-lg p-3">
+                            {workOrder.diagnosticNotes}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="rounded-lg bg-white dark:bg-indigo-950/40 border border-indigo-200 p-3 text-sm text-indigo-900 dark:text-indigo-200">
+                        <p className="font-semibold mb-1">How this decision bills:</p>
+                        <ul className="list-disc pl-5 space-y-0.5 text-xs">
+                          <li><strong>Approve Repair</strong> — diagnostic fee is waived; client is billed only the repair cost (subcontractor will submit a repair quote next).</li>
+                          <li><strong>Decline Repair</strong> — client is billed only the ${Number(workOrder.diagnosticFee ?? 0).toFixed(2)} diagnostic fee; no repair will be scheduled.</li>
+                        </ul>
+                      </div>
+
+                      <div className="flex gap-3 pt-2 border-t border-indigo-200">
+                        <Button
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => handleRepairDecision('approve')}
+                          disabled={repairDecisionSubmitting !== null}
+                          loading={repairDecisionSubmitting === 'approve'}
+                        >
+                          <ThumbsUp className="h-4 w-4 mr-2" />
+                          {repairDecisionSubmitting === 'approve' ? 'Approving...' : 'Approve Repair'}
+                        </Button>
+                        <Button
+                          className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                          onClick={() => handleRepairDecision('decline')}
+                          disabled={repairDecisionSubmitting !== null}
+                          loading={repairDecisionSubmitting === 'decline'}
+                        >
+                          <ThumbsDown className="h-4 w-4 mr-2" />
+                          {repairDecisionSubmitting === 'decline' ? 'Declining...' : 'Decline Repair'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Diagnostic summary for later stages (repair_approved/declined/completed) */}
+                {workOrder.status !== 'diagnostic_submitted' &&
+                 workOrder.diagnosticSubmittedAt &&
+                 ['repair_approved', 'repair_declined', 'pending_invoice', 'completed', 'archived'].includes(workOrder.status) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Stethoscope className="h-5 w-5 text-indigo-600" />
+                        Diagnostic Visit
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <div className="text-xs text-muted-foreground">Diagnostic Fee</div>
+                          <div className="font-semibold">${Number(workOrder.diagnosticFee ?? 0).toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Billing Phase</div>
+                          <div className="font-semibold capitalize">
+                            {workOrder.billingPhase === 'diagnostic' ? (
+                              <span className="inline-flex items-center gap-1 text-orange-700">
+                                <DollarSign className="h-3.5 w-3.5" /> Diagnostic fee billed
+                              </span>
+                            ) : workOrder.billingPhase === 'repair' ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-700">
+                                <Wrench className="h-3.5 w-3.5" /> Repair billed (fee waived)
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Pending</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {workOrder.diagnosticNotes && (
+                        <div>
+                          <div className="text-xs font-semibold text-muted-foreground uppercase mb-1">Notes</div>
+                          <p className="text-sm text-foreground whitespace-pre-wrap">{workOrder.diagnosticNotes}</p>
+                        </div>
+                      )}
+                      {workOrder.status === 'repair_declined' && (
+                        <div className="rounded-lg bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900 flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>Repair was declined. Only the diagnostic fee (${Number(workOrder.diagnosticFee ?? 0).toFixed(2)}) will be billed when the invoice is created.</span>
+                        </div>
+                      )}
+                      {workOrder.status === 'repair_approved' && (
+                        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-900 flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>Repair approved. Diagnostic fee waived — the client will be billed the repair quote amount.</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Quick quotes preview */}
                 {quotes.length > 0 && (

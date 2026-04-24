@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { workOrderId, completionDetails, completionNotes, completionImageUrls, subName } =
+    const { workOrderId, completionDetails, completionNotes, completionImageUrls, subName, billingPhase } =
       await request.json();
 
     if (!workOrderId) {
@@ -37,17 +37,38 @@ export async function POST(request: Request) {
     const existingTimeline = woData?.timeline || [];
     const existingSysInfo = woData?.systemInformation || {};
 
+    // Determine billing phase:
+    // - If caller explicitly passes 'diagnostic' or 'repair', honor it.
+    // - Else fall back to woData.billingPhase if already set (e.g. by repair-decision route).
+    // - Else leave undefined (regular non-diagnostic flow — nothing to set).
+    const resolvedBillingPhase: 'diagnostic' | 'repair' | undefined =
+      billingPhase === 'diagnostic' || billingPhase === 'repair'
+        ? billingPhase
+        : (woData?.billingPhase === 'diagnostic' || woData?.billingPhase === 'repair')
+          ? woData.billingPhase
+          : undefined;
+
+    const detailsSuffix =
+      resolvedBillingPhase === 'diagnostic'
+        ? ' (diagnostic fee will be billed)'
+        : resolvedBillingPhase === 'repair'
+          ? ' (repair will be billed)'
+          : '';
+
     const timelineEvent = {
       type: 'completed',
       userId: uid,
       userName: subName || 'Subcontractor',
       userRole: 'subcontractor',
-      details: `Work order completed by ${subName || 'Subcontractor'}`,
-      metadata: { completionDetails: (completionDetails || '').substring(0, 100) },
+      details: `Work order completed by ${subName || 'Subcontractor'}${detailsSuffix}`,
+      metadata: {
+        completionDetails: (completionDetails || '').substring(0, 100),
+        ...(resolvedBillingPhase ? { billingPhase: resolvedBillingPhase } : {}),
+      },
       timestamp: Timestamp.now(),
     };
 
-    await updateDoc(woRef, {
+    const updates: Record<string, any> = {
       status: 'pending_invoice',
       completedAt: serverTimestamp(),
       completionDetails: completionDetails || '',
@@ -63,7 +84,10 @@ export async function POST(request: Request) {
           notes: completionDetails || '',
         },
       },
-    });
+    };
+    if (resolvedBillingPhase) updates.billingPhase = resolvedBillingPhase;
+
+    await updateDoc(woRef, updates);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -70,6 +70,10 @@ service cloud.firestore {
             'completionDetails',
             'completionNotes',
             'completionImages',
+            'diagnosticFee',
+            'diagnosticNotes',
+            'diagnosticSubmittedAt',
+            'billingPhase',
             'updatedAt',
             'timeline',
             'systemInformation'
@@ -77,6 +81,7 @@ service cloud.firestore {
           request.resource.data.status in [
             'accepted_by_subcontractor',
             'rejected_by_subcontractor',
+            'diagnostic_submitted',
             'pending_invoice',
             'completed'
           ]
