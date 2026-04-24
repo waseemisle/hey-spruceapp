@@ -9,7 +9,7 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive, Upload, Loader2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive, Upload, Loader2, Stethoscope, Eye } from 'lucide-react';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -156,7 +156,7 @@ export default function ViewClientWorkOrder() {
   const [relatedInvoices, setRelatedInvoices] = useState<
     Array<{ id: string; invoiceNumber?: string; totalAmount?: number; status?: string; createdAt?: { toDate?: () => Date } }>
   >([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'attachments' | 'quotes' | 'invoices' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'attachments' | 'diagnostic_requests' | 'quotes' | 'invoices' | 'history'>('overview');
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -838,10 +838,16 @@ export default function ViewClientWorkOrder() {
   const currentStepIdx = STATUS_PIPELINE.findIndex(s => s.key === workOrder.status);
   const totalImages = (workOrder.images?.length ?? 0) + (workOrder.completionImages?.length ?? 0);
 
+  // Split quotes: Diagnostic Requests live on their own tab; the Quotes tab
+  // only shows non-diagnostic quotes (regular repair quotes).
+  const diagnosticRequests = quotes.filter(q => (q as any).isDiagnosticQuote === true);
+  const regularQuotes = quotes.filter(q => (q as any).isDiagnosticQuote !== true);
+
   const TABS = [
     { key: 'overview', label: 'Overview', icon: FileText },
     { key: 'attachments', label: `Attachments${totalImages > 0 ? ` (${totalImages})` : ''}`, icon: Paperclip },
-    ...(quotes.length > 0 ? [{ key: 'quotes', label: `Quotes (${quotes.length})`, icon: Receipt }] : []),
+    ...(diagnosticRequests.length > 0 ? [{ key: 'diagnostic_requests', label: `Diagnostic Requests (${diagnosticRequests.length})`, icon: Stethoscope }] : []),
+    { key: 'quotes', label: `Quotes (${regularQuotes.length})`, icon: Receipt },
     {
       key: 'invoices' as const,
       label: `Invoices${relatedInvoices.length > 0 ? ` (${relatedInvoices.length})` : ''}`,
@@ -1183,6 +1189,62 @@ export default function ViewClientWorkOrder() {
             </div>
           )}
 
+          {/* DIAGNOSTIC REQUESTS TAB */}
+          {activeTab === 'diagnostic_requests' && (
+            <div className="max-w-3xl">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Stethoscope className="h-5 w-5 text-indigo-600" />
+                    Diagnostic Requests ({diagnosticRequests.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {diagnosticRequests.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No diagnostic requests for this work order.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {diagnosticRequests.map((req) => {
+                        const amt = Number((req as any).diagnosticFee ?? req.clientAmount ?? req.totalAmount ?? 0);
+                        return (
+                          <div key={req.id} className="p-4 border rounded-lg hover:bg-muted/30 transition-colors bg-indigo-50/30 border-indigo-200">
+                            <div className="flex justify-between items-start gap-3">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                    <Stethoscope className="h-3 w-3" />
+                                    Diagnostic Request
+                                  </span>
+                                </div>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {req.sentToClientAt?.toDate?.().toLocaleDateString() || req.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                                </p>
+                                {req.notes && <p className="text-sm text-muted-foreground mt-1">{req.notes}</p>}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold text-indigo-700">${amt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                <p className="text-xs text-indigo-700">Diagnostic fee</p>
+                                <p className="text-xs text-muted-foreground capitalize">{req.status.replace(/_/g, ' ')}</p>
+                              </div>
+                            </div>
+                            <div className="mt-3 pt-3 border-t">
+                              <Link href={`/client-portal/diagnostic-requests/${req.id}`}>
+                                <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1">
+                                  <Eye className="h-3.5 w-3.5" />
+                                  View Details
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* QUOTES TAB */}
           {activeTab === 'quotes' && (
             <div className="max-w-3xl">
@@ -1190,23 +1252,23 @@ export default function ViewClientWorkOrder() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
-                    Quotes ({quotes.length})
+                    Quotes ({regularQuotes.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {quotes.length === 0 ? (
+                  {regularQuotes.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
                   ) : (
                     <div className="space-y-3">
-                      {quotes.length >= 2 && (
+                      {regularQuotes.length >= 2 && (
                         <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
                           <p className="text-sm text-primary">Select 2 or more quotes to compare them side-by-side</p>
                         </div>
                       )}
-                      {quotes.map((quote) => (
+                      {regularQuotes.map((quote) => (
                         <div key={quote.id} className={`p-4 border rounded-lg hover:bg-muted/30 transition-colors ${selectedQuoteIds.includes(quote.id) ? 'bg-primary/5 border-primary/30' : ''}`}>
                           <div className="flex items-start gap-3">
-                            {quotes.length >= 2 && (
+                            {regularQuotes.length >= 2 && (
                               <Checkbox
                                 checked={selectedQuoteIds.includes(quote.id)}
                                 onCheckedChange={(checked) => handleQuoteSelection(quote.id, checked === true)}
@@ -1231,7 +1293,7 @@ export default function ViewClientWorkOrder() {
                           </div>
                         </div>
                       ))}
-                      {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
+                      {regularQuotes.length >= 2 && selectedQuoteIds.length >= 2 && (
                         <Button onClick={handleCompareQuotes} className="w-full">
                           <GitCompare className="h-4 w-4 mr-2" />
                           Compare {selectedQuoteIds.length} Quotes

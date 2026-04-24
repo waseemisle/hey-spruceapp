@@ -298,7 +298,10 @@ export default function SubcontractorBidding() {
         const workOrderSnapshot = await getDoc(workOrderRef);
         if (workOrderSnapshot.exists()) {
           const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
-          const statusesEligibleForQuote = ['pending', 'approved', 'bidding'];
+          // 'diagnostic_accepted' is the post-diagnostic entry point for this
+          // modal — submitting the repair quote advances the WO to
+          // 'quotes_received' so admin sees the Share Quote with Client button.
+          const statusesEligibleForQuote = ['pending', 'approved', 'bidding', 'diagnostic_accepted'];
           const woData = workOrderSnapshot.data();
           const existingTimeline = woData?.timeline || [];
           const existingSysInfo = woData?.systemInformation || {};
