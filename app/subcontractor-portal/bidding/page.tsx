@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc, Timestamp } from 'firebase/firestore';
 import { createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifyQuoteSubmission } from '@/lib/notifications';
@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, DollarSign, Search, Stethoscope, AlertCircle, FileText, X, Plus, Trash2 } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, DollarSign, Search, Stethoscope, AlertCircle, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
@@ -48,6 +48,169 @@ const SERVICE_TIME_SLOTS = [
   '4:00 PM - 6:00 PM',
   '6:00 PM - 8:00 PM',
 ] as const;
+
+// ─── Schedule picker (Calendly-style date strip + time-slot grid) ───
+type Accent = 'indigo' | 'emerald';
+
+const ACCENT: Record<Accent, {
+  ring: string;
+  pillIdle: string;
+  pillSelected: string;
+  panelBg: string;
+  panelBorder: string;
+  divider: string;
+  text: string;
+}> = {
+  indigo: {
+    ring: 'focus-visible:ring-indigo-500',
+    pillIdle: 'border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300',
+    pillSelected: 'border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-600/25',
+    panelBg: 'bg-white/70',
+    panelBorder: 'border-indigo-200/60',
+    divider: 'border-indigo-200/60',
+    text: 'text-indigo-700',
+  },
+  emerald: {
+    ring: 'focus-visible:ring-emerald-500',
+    pillIdle: 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300',
+    pillSelected: 'border-emerald-600 bg-emerald-600 text-white shadow-md shadow-emerald-600/25',
+    panelBg: 'bg-white/70',
+    panelBorder: 'border-emerald-200/60',
+    divider: 'border-emerald-200/60',
+    text: 'text-emerald-700',
+  },
+};
+
+// "YYYY-MM-DD" in LOCAL time (avoids the UTC-shift bug from toISOString).
+const toLocalIso = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso: string) => void; accent: Accent }) {
+  const styles = ACCENT[accent];
+  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const todayIso = toLocalIso(today);
+
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    if (value) {
+      const [y, m, d] = value.split('-').map(Number);
+      const picked = new Date(y, (m || 1) - 1, d || 1);
+      picked.setHours(0, 0, 0, 0);
+      return picked < today ? today : picked;
+    }
+    return today;
+  });
+
+  const days = useMemo<Date[]>(
+    () => Array.from({ length: 7 }, (_: unknown, i: number) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; }),
+    [weekStart],
+  );
+
+  const canGoBack = toLocalIso(weekStart) > todayIso;
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => { const prev = new Date(weekStart); prev.setDate(prev.getDate() - 7); setWeekStart(prev < today ? today : prev); }}
+        disabled={!canGoBack}
+        aria-label="Previous week"
+        className="h-10 w-10 shrink-0 rounded-xl border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+
+      <div className="flex-1 grid grid-cols-7 gap-1.5 rounded-2xl border border-border bg-white p-1.5">
+        {days.map((d) => {
+          const iso = toLocalIso(d);
+          const isSelected = value === iso;
+          const isPast = iso < todayIso;
+          return (
+            <button
+              type="button"
+              key={iso}
+              disabled={isPast}
+              onClick={() => onChange(iso)}
+              aria-pressed={isSelected}
+              className={`flex flex-col items-center justify-center rounded-xl px-1 py-2.5 text-center transition-all disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? styles.pillSelected + ' border-transparent' : 'bg-white text-foreground hover:bg-muted'}`}
+            >
+              <span className={`text-[10px] font-semibold uppercase tracking-wide ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
+                {d.toLocaleDateString('en-US', { weekday: 'short' })}
+              </span>
+              <span className="text-lg font-bold leading-none mt-1 tabular-nums">{d.getDate()}</span>
+              <span className={`text-[10px] font-medium mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
+                {d.toLocaleDateString('en-US', { month: 'short' })}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => { const next = new Date(weekStart); next.setDate(next.getDate() + 7); setWeekStart(next); }}
+        aria-label="Next week"
+        className="h-10 w-10 shrink-0 rounded-xl border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function TimeSlotGrid({ slots, value, onChange, accent, columns = 3 }: { slots: readonly string[]; value: string; onChange: (slot: string) => void; accent: Accent; columns?: 3 | 4 }) {
+  const styles = ACCENT[accent];
+  const colCls = columns === 4 ? 'sm:grid-cols-3 lg:grid-cols-4' : 'sm:grid-cols-3';
+  return (
+    <div className={`grid grid-cols-2 ${colCls} gap-2.5`}>
+      {slots.map((slot) => {
+        const isSelected = value === slot;
+        return (
+          <button
+            type="button"
+            key={slot}
+            onClick={() => onChange(slot)}
+            aria-pressed={isSelected}
+            className={`rounded-xl border px-3 py-3 text-sm font-semibold tabular-nums whitespace-nowrap transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${styles.ring} ${isSelected ? styles.pillSelected : styles.pillIdle}`}
+          >
+            {slot}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SchedulePicker({
+  date, onDateChange, time, onTimeChange, slots, accent, durationLabel, slotColumns,
+}: {
+  date: string; onDateChange: (iso: string) => void; time: string; onTimeChange: (slot: string) => void;
+  slots: readonly string[]; accent: Accent; durationLabel: string; slotColumns?: 3 | 4;
+}) {
+  const styles = ACCENT[accent];
+  return (
+    <div className={`rounded-2xl border ${styles.panelBorder} ${styles.panelBg} p-4 sm:p-5 space-y-5`}>
+      <div>
+        <p className="text-sm font-semibold text-foreground mb-2.5">Pick a service date</p>
+        <DateStrip value={date} onChange={onDateChange} accent={accent} />
+      </div>
+      <div className={`border-t border-dashed ${styles.divider}`} />
+      <div>
+        <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+          <p className="text-sm font-semibold text-foreground">Select a time slot</p>
+          <span className={`text-xs font-medium flex items-center gap-1 ${styles.text}`}>
+            <Clock className="h-3.5 w-3.5" />
+            {durationLabel}
+          </span>
+        </div>
+        <TimeSlotGrid slots={slots} value={time} onChange={onTimeChange} accent={accent} columns={slotColumns} />
+      </div>
+    </div>
+  );
+}
 
 interface BiddingWorkOrder {
   id: string;
@@ -845,34 +1008,17 @@ export default function SubcontractorBidding() {
                       required
                     />
                   </div>
-                  <div />
-                  <div>
-                    <Label htmlFor="directServiceDate">Proposed Service Date *</Label>
-                    <Input
-                      id="directServiceDate"
-                      type="date"
-                      value={directQuoteServiceDate}
-                      onChange={(e) => setDirectQuoteServiceDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="directServiceTime">Proposed Service Time *</Label>
-                    <select
-                      id="directServiceTime"
-                      value={directQuoteServiceTime}
-                      onChange={(e) => setDirectQuoteServiceTime(e.target.value)}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      required
-                    >
-                      <option value="">Select a time slot…</option>
-                      {SERVICE_TIME_SLOTS.map((slot) => (
-                        <option key={slot} value={slot}>{slot}</option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
+
+                <SchedulePicker
+                  date={directQuoteServiceDate}
+                  onDateChange={setDirectQuoteServiceDate}
+                  time={directQuoteServiceTime}
+                  onTimeChange={setDirectQuoteServiceTime}
+                  slots={SERVICE_TIME_SLOTS}
+                  accent="emerald"
+                  durationLabel="2-hour window"
+                />
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -1117,36 +1263,17 @@ export default function SubcontractorBidding() {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="proposedServiceDate">Proposed Service Date *</Label>
-                    <Input
-                      id="proposedServiceDate"
-                      name="proposedServiceDate"
-                      type="date"
-                      value={quoteForm.proposedServiceDate}
-                      onChange={handleQuoteFormChange}
-                      required
-                      min={new Date().toISOString().split('T')[0]}
+                  <div className="md:col-span-2">
+                    <SchedulePicker
+                      date={quoteForm.proposedServiceDate}
+                      onDateChange={(iso) => setQuoteForm(prev => ({ ...prev, proposedServiceDate: iso }))}
+                      time={quoteForm.proposedServiceTime}
+                      onTimeChange={(slot) => setQuoteForm(prev => ({ ...prev, proposedServiceTime: slot }))}
+                      slots={DIAGNOSTIC_TIME_SLOTS}
+                      accent="indigo"
+                      durationLabel="1-hour window"
+                      slotColumns={4}
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Date you can perform the diagnostic</p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="proposedServiceTime">Proposed Service Time *</Label>
-                    <select
-                      id="proposedServiceTime"
-                      name="proposedServiceTime"
-                      value={quoteForm.proposedServiceTime}
-                      onChange={(e) => setQuoteForm(prev => ({ ...prev, proposedServiceTime: e.target.value }))}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      required
-                    >
-                      <option value="">Select a time slot…</option>
-                      {DIAGNOSTIC_TIME_SLOTS.map((slot) => (
-                        <option key={slot} value={slot}>{slot}</option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-muted-foreground mt-1">1-hour slot you can perform the diagnostic</p>
                   </div>
 
                   <div className="md:col-span-2">
