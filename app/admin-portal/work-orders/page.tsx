@@ -2708,30 +2708,6 @@ const filteredLocationsForForm = locations.filter((location) => {
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="isMaintenanceRequestOrder"
-                        checked={formData.isMaintenanceRequestOrder}
-                        onChange={(e) => {
-                          // Only allow unchecking if it's not a maintenance request order
-                          // If it's already true (from maintenance request), don't allow changing
-                          if (!formData.isMaintenanceRequestOrder) {
-                            setFormData({ ...formData, isMaintenanceRequestOrder: e.target.checked });
-                          }
-                        }}
-                        disabled={formData.isMaintenanceRequestOrder}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                      <Label htmlFor="isMaintenanceRequestOrder" className={formData.isMaintenanceRequestOrder ? 'text-muted-foreground' : ''}>
-                        Maintenance Request Order
-                      </Label>
-                      {formData.isMaintenanceRequestOrder && (
-                        <span className="text-xs text-muted-foreground ml-2">(This field cannot be edited)</span>
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
