@@ -190,6 +190,9 @@ export default function ViewWorkOrder() {
   const [shareQuote, setShareQuote] = useState<Quote | null>(null);
   const [shareMarkup, setShareMarkup] = useState('20');
   const [shareSubmitting, setShareSubmitting] = useState(false);
+  // Editable copy of the quote's line items used in the share modal. Diagnostic
+  // Request lines are excluded from markup (they pass through at the sub's price).
+  const [shareLineItems, setShareLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([]);
 
   // Vendor payment
   const [vendorPayment, setVendorPayment] = useState<VendorPayment | null>(null);
@@ -1454,6 +1457,50 @@ export default function ViewWorkOrder() {
     }
   };
 
+  // Diagnostic Request fee is passed through at the sub's price — never marked up.
+  const isDiagnosticLine = (description: string) => /diagnostic/i.test((description || '').trim());
+
+  const openShareModal = (quote: Quote) => {
+    setShareQuote(quote);
+    setShareMarkup(String(quote.markupPercentage || 20));
+    const seed = (quote.lineItems || []).map((item: any) => {
+      const quantity = Number(item.quantity ?? 1);
+      const unitPrice = Number(item.unitPrice ?? 0);
+      return {
+        description: item.description || '',
+        quantity,
+        unitPrice,
+        amount: Number(item.amount ?? parseFloat((quantity * unitPrice).toFixed(2))),
+      };
+    });
+    setShareLineItems(seed);
+    setShowShareModal(true);
+  };
+
+  const updateShareLineItem = (idx: number, field: 'description' | 'quantity' | 'unitPrice', value: string) => {
+    setShareLineItems(prev => {
+      const next = [...prev];
+      const item = { ...next[idx] };
+      if (field === 'description') {
+        item.description = value;
+      } else {
+        const num = parseFloat(value) || 0;
+        if (field === 'quantity') {
+          item.quantity = num;
+          item.amount = parseFloat((num * item.unitPrice).toFixed(2));
+        } else {
+          item.unitPrice = num;
+          item.amount = parseFloat((item.quantity * num).toFixed(2));
+        }
+      }
+      next[idx] = item;
+      return next;
+    });
+  };
+  const addShareLineItem = () => setShareLineItems(prev => [...prev, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+  const removeShareLineItem = (idx: number) =>
+    setShareLineItems(prev => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
+
   const handleShareWithClient = async () => {
     if (!shareQuote || !workOrder) return;
     const markup = parseFloat(shareMarkup) || 0;
@@ -1463,13 +1510,28 @@ export default function ViewWorkOrder() {
       if (!currentUser) return;
       const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
       const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
-      const clientAmount = shareQuote.totalAmount * (1 + markup / 100);
-      const markupFactor = shareQuote.totalAmount > 0 ? clientAmount / shareQuote.totalAmount : 1;
-      const clientLineItems = (shareQuote.lineItems || []).map((item: any) => ({
-        ...item,
-        unitPrice: item.unitPrice * markupFactor,
-        amount: item.amount * markupFactor,
+      const factor = 1 + markup / 100;
+      // Use the admin's edited line items as the client-facing source of truth.
+      // Markup is applied per non-diagnostic line; "Diagnostic Request" lines pass through unchanged.
+      const editedLineItems = shareLineItems.map(li => ({
+        description: li.description,
+        quantity: li.quantity,
+        unitPrice: li.unitPrice,
+        amount: parseFloat((li.quantity * li.unitPrice).toFixed(2)),
       }));
+      const clientLineItems = editedLineItems.map(item => {
+        const f = isDiagnosticLine(item.description) ? 1 : factor;
+        return {
+          ...item,
+          unitPrice: parseFloat((item.unitPrice * f).toFixed(2)),
+          amount: parseFloat((item.amount * f).toFixed(2)),
+          isDiagnostic: isDiagnosticLine(item.description),
+          markupApplied: f !== 1,
+        };
+      });
+      const clientAmount = parseFloat(
+        clientLineItems.reduce((s, it) => s + (Number(it.amount) || 0), 0).toFixed(2)
+      );
       const isResend = shareQuote.status === 'sent_to_client';
       const existingQuoteTimeline = (shareQuote as any).timeline || [];
       const sentEvent = createQuoteTimelineEvent({
@@ -1487,6 +1549,7 @@ export default function ViewWorkOrder() {
         markupPercentage: markup,
         clientAmount,
         clientLineItems,
+        adminEditedLineItems: editedLineItems,
         originalAmount: shareQuote.totalAmount,
         status: 'sent_to_client',
         sentToClientAt: serverTimestamp(),
@@ -3192,7 +3255,7 @@ export default function ViewWorkOrder() {
                               View Full Quote
                             </Button>
                             {canShare && (
-                              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { setShareQuote(quote); setShareMarkup(String(quote.markupPercentage || 20)); setShowShareModal(true); }}>
+                              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => openShareModal(quote)}>
                                 <Share2 className="h-3.5 w-3.5 mr-2" />
                                 {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Share Quote with Client'}
                               </Button>
@@ -3480,7 +3543,7 @@ export default function ViewWorkOrder() {
               {/* Actions */}
               <div className="border-t pt-4 flex flex-col gap-2">
                 {viewQuoteDetail.status !== 'accepted' && viewQuoteDetail.status !== 'rejected' && workOrder.status === 'quotes_received' && (
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { setShareQuote(viewQuoteDetail); setShareMarkup(String(viewQuoteDetail.markupPercentage || 20)); setShowShareModal(true); setViewQuoteDetail(null); }}>
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { openShareModal(viewQuoteDetail); setViewQuoteDetail(null); }}>
                     <Share2 className="h-4 w-4 mr-2" />
                     {viewQuoteDetail.status === 'sent_to_client' ? 'Resend to Client' : 'Share with Client'}
                   </Button>
@@ -3497,9 +3560,24 @@ export default function ViewWorkOrder() {
         </div>
       )}
 
-      {showShareModal && shareQuote && (
+      {showShareModal && shareQuote && (() => {
+        const markupNum = parseFloat(shareMarkup) || 0;
+        const factor = 1 + markupNum / 100;
+        const previewRows = shareLineItems.map(li => {
+          const isDiag = isDiagnosticLine(li.description);
+          const f = isDiag ? 1 : factor;
+          const baseAmount = parseFloat((li.quantity * li.unitPrice).toFixed(2));
+          return {
+            ...li,
+            isDiag,
+            clientUnitPrice: parseFloat((li.unitPrice * f).toFixed(2)),
+            clientAmount: parseFloat((baseAmount * f).toFixed(2)),
+          };
+        });
+        const clientTotalPreview = previewRows.reduce((s, r) => s + r.clientAmount, 0);
+        return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-card rounded-lg shadow-lg max-w-lg w-full my-4">
+          <div className="bg-card rounded-lg shadow-lg max-w-3xl w-full my-4">
             <div className="p-5 border-b flex justify-between items-center">
               <h2 className="text-lg font-semibold">Share Quote with Client</h2>
               <Button variant="outline" size="sm" onClick={() => setShowShareModal(false)}>
@@ -3519,47 +3597,89 @@ export default function ViewWorkOrder() {
                   onChange={e => setShareMarkup(e.target.value)}
                   placeholder="e.g. 20"
                 />
+                <p className="text-xs text-muted-foreground mt-1">Markup is applied to each line except <strong>Diagnostic Request</strong> fees, which pass through at the sub's price.</p>
               </div>
-              {/* Real-time line items preview */}
-              {shareQuote.lineItems && shareQuote.lineItems.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Client will see</p>
-                  <div className="border rounded-md overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-muted text-muted-foreground text-xs uppercase">
-                          <th className="px-3 py-2 text-left">Description</th>
-                          <th className="px-3 py-2 text-center">Qty</th>
-                          <th className="px-3 py-2 text-right">Unit Price</th>
-                          <th className="px-3 py-2 text-right">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {shareQuote.lineItems.map((item: any, idx: number) => {
-                          const factor = 1 + (parseFloat(shareMarkup) || 0) / 100;
-                          return (
-                            <tr key={idx} className="border-t border-border">
-                              <td className="px-3 py-2">{item.description}</td>
-                              <td className="px-3 py-2 text-center">{(item.quantity || 1).toFixed(1)}</td>
-                              <td className="px-3 py-2 text-right">${(item.unitPrice * factor).toFixed(2)}</td>
-                              <td className="px-3 py-2 text-right font-medium">${(item.amount * factor).toFixed(2)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="mt-2 flex justify-between items-center text-sm font-semibold border-t pt-2">
-                    <span>Client Total</span>
-                    <span className="text-blue-600">${(shareQuote.totalAmount * (1 + (parseFloat(shareMarkup) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                  </div>
+              {/* Editable line items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client will see</p>
+                  <Button type="button" variant="outline" size="sm" onClick={addShareLineItem}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Line Item
+                  </Button>
                 </div>
-              )}
-              {(!shareQuote.lineItems || shareQuote.lineItems.length === 0) && shareMarkup && (
-                <p className="text-sm font-semibold">
-                  Client will see: <span className="text-blue-600">${(shareQuote.totalAmount * (1 + (parseFloat(shareMarkup) || 0) / 100)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                </p>
-              )}
+                <div className="border rounded-md overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted text-muted-foreground text-xs uppercase">
+                        <th className="px-3 py-2 text-left">Description</th>
+                        <th className="px-3 py-2 text-center w-20">Qty</th>
+                        <th className="px-3 py-2 text-right w-32">Unit Price</th>
+                        <th className="px-3 py-2 text-right w-32">Amount</th>
+                        <th className="px-3 py-2 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRows.map((row, idx) => (
+                        <tr key={idx} className="border-t border-border align-top">
+                          <td className="px-2 py-2">
+                            <Input
+                              value={row.description}
+                              onChange={e => updateShareLineItem(idx, 'description', e.target.value)}
+                              placeholder="Description"
+                              className="h-9"
+                            />
+                            {row.isDiag && (
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 mt-1">No markup applied</p>
+                            )}
+                          </td>
+                          <td className="px-2 py-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={row.quantity}
+                              onChange={e => updateShareLineItem(idx, 'quantity', e.target.value)}
+                              className="h-9 text-center"
+                            />
+                          </td>
+                          <td className="px-2 py-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={row.unitPrice}
+                              onChange={e => updateShareLineItem(idx, 'unitPrice', e.target.value)}
+                              className="h-9 text-right"
+                            />
+                            {!row.isDiag && markupNum > 0 && (
+                              <p className="text-[10px] text-muted-foreground text-right mt-1">→ ${row.clientUnitPrice.toFixed(2)} w/ markup</p>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium">
+                            ${row.clientAmount.toFixed(2)}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            {shareLineItems.length > 1 && (
+                              <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => removeShareLineItem(idx)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {previewRows.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-3 py-4 text-center text-sm text-muted-foreground">No line items. Click "Add Line Item" to add one.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-2 flex justify-between items-center text-sm font-semibold border-t pt-2">
+                  <span>Client Total</span>
+                  <span className="text-blue-600">${clientTotalPreview.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowShareModal(false)}>Cancel</Button>
                 <Button
@@ -3574,7 +3694,8 @@ export default function ViewWorkOrder() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {lightboxImages.length > 0 && (
         <ImageLightbox
