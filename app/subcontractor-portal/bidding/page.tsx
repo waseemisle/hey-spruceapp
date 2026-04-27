@@ -816,17 +816,19 @@ export default function SubcontractorBidding() {
                 <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => setViewWorkOrder(null)}>
                   Back
                 </Button>
-                <Button
-                  className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
-                  onClick={() => {
-                    setSelectedBidding(viewWorkOrder);
-                    setShowQuoteForm(true);
-                    setViewWorkOrder(null);
-                  }}
-                >
-                  <Stethoscope className="h-4 w-4" />
-                  Submit Diagnostic Bid
-                </Button>
+                {viewWorkOrder.status === 'pending' && (
+                  <Button
+                    className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
+                    onClick={() => {
+                      setSelectedBidding(viewWorkOrder);
+                      setShowQuoteForm(true);
+                      setViewWorkOrder(null);
+                    }}
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Submit Diagnostic Bid
+                  </Button>
+                )}
               </div>
             }
           />
