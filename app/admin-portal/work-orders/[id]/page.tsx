@@ -1241,16 +1241,41 @@ export default function ViewWorkOrder() {
             null;
         }
 
+        // Track whether we copied admin-curated client line items so the legacy
+        // diagnostic prepend below doesn't double-add the fee.
+        let usedClientLineItems = false;
+
         if (approvedQuote) {
           const clientAmount = approvedQuote.clientAmount || approvedQuote.totalAmount || 0;
-          if (approvedQuote.lineItems && approvedQuote.lineItems.length > 0) {
+          const adminClientLineItems = (approvedQuote as any).clientLineItems as Array<{ description: string; quantity: number; unitPrice: number; amount: number }> | undefined;
+
+          if (adminClientLineItems && adminClientLineItems.length > 0) {
+            // Source of truth: the line items the client agreed to (with admin's
+            // per-line markup already applied; diagnostic lines pass through at
+            // the sub's price). Sum equals approvedQuote.clientAmount.
+            usedClientLineItems = true;
+            lineItems = adminClientLineItems.map(li => {
+              const isDiag = /diagnostic/i.test(li.description || '');
+              return {
+                description: isDiag ? 'Diagnostic Visit' : li.description,
+                quantity: Number(li.quantity || 1),
+                unitPrice: parseFloat(Number(li.unitPrice || 0).toFixed(2)),
+                amount: parseFloat(Number(li.amount || 0).toFixed(2)),
+              };
+            });
+          } else if (approvedQuote.lineItems && approvedQuote.lineItems.length > 0) {
+            // Legacy: no clientLineItems on file. Scale the sub's items uniformly
+            // and drop any diagnostic line — the canonical Diagnostic Visit is
+            // prepended below from workOrder.diagnosticFee.
             const scale = approvedQuote.totalAmount > 0 ? clientAmount / approvedQuote.totalAmount : 1;
-            lineItems = approvedQuote.lineItems.map(li => ({
-              description: li.description,
-              quantity: li.quantity,
-              unitPrice: parseFloat((li.unitPrice * scale).toFixed(2)),
-              amount: parseFloat((li.amount * scale).toFixed(2)),
-            }));
+            lineItems = approvedQuote.lineItems
+              .filter(li => !/diagnostic/i.test(li.description || ''))
+              .map(li => ({
+                description: li.description,
+                quantity: li.quantity,
+                unitPrice: parseFloat((li.unitPrice * scale).toFixed(2)),
+                amount: parseFloat((li.amount * scale).toFixed(2)),
+              }));
           } else {
             lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: clientAmount, amount: clientAmount }];
           }
@@ -1259,15 +1284,17 @@ export default function ViewWorkOrder() {
           lineItems = [{ description: workOrder.title, quantity: 1, unitPrice: amt, amount: amt }];
         }
 
-        // If this work order went through the diagnostic → repair flow, the
-        // client-approved diagnostic fee was pinned on the work order. Bill it
-        // alongside the repair amount per the two-phase agreement.
-        const diagFee = Number(invoiceWoData?.diagnosticFee ?? workOrder.diagnosticFee ?? 0);
-        if (diagFee > 0) {
-          lineItems = [
-            { description: 'Diagnostic Visit', quantity: 1, unitPrice: diagFee, amount: diagFee },
-            ...lineItems,
-          ];
+        // Legacy fallback only — when clientLineItems wasn't available, the
+        // pinned diagnostic fee is added back here so the two-phase agreement is
+        // billed. No markup is applied — the fee passes through at the sub's price.
+        if (!usedClientLineItems) {
+          const diagFee = Number(invoiceWoData?.diagnosticFee ?? workOrder.diagnosticFee ?? 0);
+          if (diagFee > 0) {
+            lineItems = [
+              { description: 'Diagnostic Visit', quantity: 1, unitPrice: diagFee, amount: diagFee },
+              ...lineItems,
+            ];
+          }
         }
       }
 
@@ -3597,7 +3624,7 @@ export default function ViewWorkOrder() {
                   onChange={e => setShareMarkup(e.target.value)}
                   placeholder="e.g. 20"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Markup is applied to each line except <strong>Diagnostic Request</strong> fees, which pass through at the sub's price.</p>
+                <p className="text-xs text-muted-foreground mt-1">Markup is applied to each line except <strong>Diagnostic Visit</strong> fees, which pass through at the sub's price.</p>
               </div>
               {/* Editable line items */}
               <div>

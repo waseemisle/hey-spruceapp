@@ -356,7 +356,7 @@ export default function SubcontractorBidding() {
       setDirectQuoteLineItems([
         { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
         { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
-        { description: 'Diagnostic Request', quantity: 1, unitPrice: pinnedDiagFee, amount: pinnedDiagFee },
+        { description: 'Diagnostic Visit', quantity: 1, unitPrice: pinnedDiagFee, amount: pinnedDiagFee },
       ]);
     } else {
       setDirectQuoteLineItems([
