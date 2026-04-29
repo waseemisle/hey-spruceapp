@@ -123,7 +123,8 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
         <ChevronLeft className="h-4 w-4" />
       </button>
 
-      <div className="flex-1 grid grid-cols-7 gap-1.5 rounded-2xl border border-border bg-white p-1.5">
+      <div className="flex-1 min-w-0 rounded-2xl border border-border bg-white p-1.5 overflow-x-auto">
+        <div className="flex sm:grid sm:grid-cols-7 gap-1.5 min-w-max sm:min-w-0">
         {days.map((d) => {
           const iso = toLocalIso(d);
           const isSelected = value === iso;
@@ -135,7 +136,7 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
               disabled={isPast}
               onClick={() => onChange(iso)}
               aria-pressed={isSelected}
-              className={`flex flex-col items-center justify-center rounded-xl px-1 py-2.5 text-center transition-all disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? styles.pillSelected + ' border-transparent' : 'bg-white text-foreground hover:bg-muted'}`}
+              className={`flex flex-col items-center justify-center rounded-xl px-2 sm:px-1 py-2.5 text-center transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0 w-12 sm:w-auto ${isSelected ? styles.pillSelected + ' border-transparent' : 'bg-white text-foreground hover:bg-muted'}`}
             >
               <span className={`text-[10px] font-semibold uppercase tracking-wide ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
                 {d.toLocaleDateString('en-US', { weekday: 'short' })}
@@ -147,6 +148,7 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
             </button>
           );
         })}
+        </div>
       </div>
 
       <button
