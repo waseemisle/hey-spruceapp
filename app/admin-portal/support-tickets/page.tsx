@@ -491,7 +491,7 @@ export default function AdminSupportTicketsPage() {
                 <Label>Description</Label>
                 <Textarea className="mt-1 min-h-[100px]" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <Label>Category</Label>
                   <SearchableSelect

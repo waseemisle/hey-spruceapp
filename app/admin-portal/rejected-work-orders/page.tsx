@@ -104,9 +104,9 @@ export default function RejectedWorkOrders() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
               <XCircle className="h-8 w-8 text-red-600" />
               Rejected Work Orders
             </h1>

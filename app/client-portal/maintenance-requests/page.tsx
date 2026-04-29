@@ -182,9 +182,9 @@ export default function ClientMaintenanceRequests() {
   return (
     <ClientLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Maintenance Requests</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Maintenance Requests</h1>
             <p className="text-muted-foreground mt-2">View maintenance requests from your properties</p>
           </div>
         </div>
@@ -281,7 +281,7 @@ export default function ClientMaintenanceRequests() {
                     className="w-full h-64 object-cover rounded"
                   />
                 )}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Venue</p>
                     <p className="font-medium">{selectedRequest.venue}</p>

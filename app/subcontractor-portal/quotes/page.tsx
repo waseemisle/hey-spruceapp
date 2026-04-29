@@ -125,7 +125,7 @@ export default function SubcontractorQuotes() {
     <SubcontractorLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">My Quotes</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Quotes</h1>
           <p className="text-muted-foreground mt-2">Track your submitted quotes and their status</p>
         </div>
 
@@ -210,7 +210,7 @@ export default function SubcontractorQuotes() {
                   </div>
 
                   {/* Cost breakdown */}
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <span>Labor: <span className="font-semibold text-foreground">${(quote.laborCost || 0).toFixed(2)}</span></span>
                     <span>Materials: <span className="font-semibold text-foreground">${(quote.materialCost || 0).toFixed(2)}</span></span>
                   </div>

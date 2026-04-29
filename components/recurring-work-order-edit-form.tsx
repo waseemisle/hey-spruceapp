@@ -641,7 +641,7 @@ export default function RecurringWorkOrderEditForm({ id, onSaved, onCancel }: Re
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Category *</Label>
                 <SearchableSelect
@@ -801,7 +801,7 @@ export default function RecurringWorkOrderEditForm({ id, onSaved, onCancel }: Re
             {(formData.recurrencePatternLabel === 'DAILY' || formData.recurrencePatternLabel === 'BI-WEEKLY') && (
               <div>
                 <Label>{formData.recurrencePatternLabel === 'BI-WEEKLY' ? 'Select Day of the Week *' : 'Select Days *'}</Label>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {daysOfWeek.map((day, index) => {
                     const isSelected = formData.recurrenceDaysOfWeek.includes(index);
                     const isDisabled = formData.recurrencePatternLabel === 'BI-WEEKLY' && !isSelected && formData.recurrenceDaysOfWeek.length >= 1;
@@ -1017,7 +1017,7 @@ export default function RecurringWorkOrderEditForm({ id, onSaved, onCancel }: Re
               <p className="text-xs text-muted-foreground mt-1">Day of the month when invoice should be sent (1-31)</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Time of Day</Label>
                 <Input

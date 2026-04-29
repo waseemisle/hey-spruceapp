@@ -364,7 +364,7 @@ export default function CreateWorkOrder() {
               Back to Work Orders
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-foreground">Create Work Order</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Create Work Order</h1>
           <p className="text-muted-foreground mt-2">Submit a new maintenance request</p>
         </div>
 

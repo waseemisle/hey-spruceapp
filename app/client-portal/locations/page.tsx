@@ -479,7 +479,7 @@ export default function ClientLocations() {
                 {selectedLocation.images && selectedLocation.images.length > 0 && (
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Images</p>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {selectedLocation.images.map((image, index) => (
                         <img
                           key={index}

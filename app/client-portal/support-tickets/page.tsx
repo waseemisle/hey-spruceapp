@@ -253,7 +253,7 @@ export default function ClientSupportTicketsPage() {
           action={<Button onClick={() => setDialogOpen(true)}>Create New Ticket</Button>}
         />
 
-        <div className="grid grid-cols-2 gap-3 max-w-md">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
             <p className="text-xs text-blue-700 opacity-75">Open</p>
             <p className="text-xl font-bold text-blue-900">{stats.open}</p>
@@ -369,7 +369,7 @@ export default function ClientSupportTicketsPage() {
                 <Label>Description * (plain text / markdown-style)</Label>
                 <Textarea className="mt-1 min-h-[100px]" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <Label>Category</Label>
                   <SearchableSelect

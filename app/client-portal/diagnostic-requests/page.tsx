@@ -233,7 +233,7 @@ export default function ClientDiagnosticRequests() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Diagnostic Requests</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Diagnostic Requests</h1>
             <p className="text-muted-foreground mt-2">
               Approve the diagnostic fee so a subcontractor can inspect the job and submit a repair quote.
             </p>

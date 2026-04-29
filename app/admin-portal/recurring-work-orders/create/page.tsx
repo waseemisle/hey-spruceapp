@@ -652,7 +652,7 @@ export default function CreateRecurringWorkOrder() {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Create Recurring Work Order</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Create Recurring Work Order</h1>
             <p className="text-muted-foreground mt-2">Set up a work order that repeats automatically</p>
           </div>
         </div>
@@ -722,7 +722,7 @@ export default function CreateRecurringWorkOrder() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Category *</Label>
                   <div className="mt-1">
@@ -844,7 +844,7 @@ export default function CreateRecurringWorkOrder() {
               {(formData.recurrencePatternLabel === 'DAILY' || formData.recurrencePatternLabel === 'BI-WEEKLY') && (
                 <div>
                   <Label>{formData.recurrencePatternLabel === 'BI-WEEKLY' ? 'Select Day of the Week *' : 'Select Days *'}</Label>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {daysOfWeek.map((day, index) => {
                       const isSelected = formData.recurrenceDaysOfWeek.includes(index);
                       const isDisabled = formData.recurrencePatternLabel === 'BI-WEEKLY' && !isSelected && formData.recurrenceDaysOfWeek.length >= 1;
@@ -1063,7 +1063,7 @@ export default function CreateRecurringWorkOrder() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Time of Day</Label>
                   <Input

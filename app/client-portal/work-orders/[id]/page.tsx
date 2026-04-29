@@ -1010,7 +1010,7 @@ export default function ViewClientWorkOrder() {
                       <h3 className="font-semibold text-muted-foreground text-sm mb-1">Description</h3>
                       <p className="text-foreground">{workOrder.description}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <h3 className="font-semibold text-muted-foreground text-sm mb-1">Category</h3>
                         <p className="text-foreground">{workOrder.category}</p>
@@ -1024,7 +1024,7 @@ export default function ViewClientWorkOrder() {
                       </div>
                     </div>
                     {(workOrder.scheduledServiceDate || workOrder.scheduledServiceTime) && (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Date</h3>
                           {workOrder.scheduledServiceDate

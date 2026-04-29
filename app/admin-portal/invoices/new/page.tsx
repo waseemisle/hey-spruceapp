@@ -445,7 +445,7 @@ function CreateInvoiceContent() {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Create Invoice</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Create Invoice</h1>
             <p className="text-muted-foreground mt-1">Fill in the details or select a work order to auto-fill</p>
           </div>
         </div>

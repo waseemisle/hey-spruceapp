@@ -2006,7 +2006,7 @@ export default function ViewWorkOrder() {
               </div>
               <div className="p-6 space-y-6">
                 {/* Client Info (read-only) */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
                     <Label className="text-muted-foreground">Client</Label>
                     <p className="font-medium">{workOrder?.clientName}</p>
@@ -2250,7 +2250,7 @@ export default function ViewWorkOrder() {
                         <p className="text-foreground">{workOrder.description}</p>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <h3 className="font-semibold text-muted-foreground text-sm mb-1">Category</h3>
                         {editMode ? (
@@ -2288,7 +2288,7 @@ export default function ViewWorkOrder() {
                         )}
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Date</h3>
                         {editMode ? (
@@ -2424,7 +2424,7 @@ export default function ViewWorkOrder() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div>
                           <div className="text-xs text-muted-foreground">Diagnostic Fee</div>
                           <div className="font-semibold">${Number(workOrder.diagnosticFee ?? 0).toFixed(2)}</div>
@@ -2827,7 +2827,7 @@ export default function ViewWorkOrder() {
                         <Landmark className="h-3.5 w-3.5 text-green-600" />
                         <span className="text-xs font-semibold text-green-800 dark:text-green-300">ACH Details on File</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-1 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
                         <div><span className="text-muted-foreground">Bank:</span> <span className="font-medium">{subBankAccount.bankName}</span></div>
                         <div><span className="text-muted-foreground">Holder:</span> <span className="font-medium">{subBankAccount.accountHolderName}</span></div>
                         <div><span className="text-muted-foreground">Routing:</span> <span className="font-medium">{subBankAccount.routingNumber}</span></div>
@@ -2863,7 +2863,7 @@ export default function ViewWorkOrder() {
                     const base = Number(vendorPaymentBaseAmount) || 0;
                     const { adjustmentTotal, finalAmount } = computeTotals(base, modalAdjustments);
                     return (
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         <div className="rounded-lg border border-border p-3 text-center">
                           <div className="text-xs text-muted-foreground">Base amount</div>
                           <div className="font-semibold">{formatMoney(base, 'USD')}</div>
@@ -2883,7 +2883,7 @@ export default function ViewWorkOrder() {
                   {/* Add adjustment */}
                   <div className="rounded-xl border border-border p-4 space-y-3">
                     <div className="font-semibold text-sm">Add adjustment</div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label>Type</Label>
                         <select
@@ -3510,7 +3510,7 @@ export default function ViewWorkOrder() {
             </div>
             <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
               {/* Amounts */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">${(viewQuoteDetail.totalAmount || 0).toFixed(2)}</p></div>
                 {viewQuoteDetail.clientAmount != null && (
                   <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuoteDetail.markupPercentage != null ? `(${viewQuoteDetail.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">${viewQuoteDetail.clientAmount.toFixed(2)}</p></div>

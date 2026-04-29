@@ -409,7 +409,7 @@ export default function ProviderSearchPage() {
         {/* Hero Header */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-primary/90 to-primary mb-8 p-8 text-white">
           <div className="relative z-10">
-            <h1 className="text-3xl font-bold mb-2">Industry professionals, meet the right providers.</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Industry professionals, meet the right providers.</h1>
             <p className="text-white/80 mb-6">Find and invite the best service providers for your facilities.</p>
 
             {/* Search Bar */}

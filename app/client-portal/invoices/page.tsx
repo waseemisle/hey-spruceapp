@@ -301,7 +301,7 @@ function ClientInvoicesInner() {
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-foreground">${invoice.totalAmount.toLocaleString()}</p>
-                  <div className="grid grid-cols-2 gap-3 text-sm text-muted-foreground">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                       <span>{invoice.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</span>

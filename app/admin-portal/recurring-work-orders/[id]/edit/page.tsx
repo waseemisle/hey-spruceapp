@@ -18,7 +18,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Edit Recurring Work Order</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Edit Recurring Work Order</h1>
             <p className="text-muted-foreground mt-2">Update recurring work order settings</p>
           </div>
         </div>

@@ -165,7 +165,7 @@ function TimeSlotGrid({ slots, value, onChange, accent, columns = 3 }: { slots: 
   const styles = ACCENT[accent];
   const colCls = columns === 4 ? 'sm:grid-cols-3 lg:grid-cols-4' : 'sm:grid-cols-3';
   return (
-    <div className={`grid grid-cols-2 ${colCls} gap-2.5`}>
+    <div className={`grid grid-cols-1 sm:grid-cols-2 ${colCls} gap-2.5`}>
       {slots.map((slot) => {
         const isSelected = value === slot;
         return (
@@ -1424,7 +1424,7 @@ export default function SubcontractorBidding() {
                 )}
 
                 {/* Actions — vary by state */}
-                <div className="border-t border-border pt-3 mt-auto grid grid-cols-2 gap-2">
+                <div className="border-t border-border pt-3 mt-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Button
                     variant="outline"
                     className="h-9 rounded-xl text-xs font-semibold gap-1.5"

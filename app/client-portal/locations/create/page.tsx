@@ -252,7 +252,7 @@ export default function CreateLocation() {
               Back to Locations
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold text-foreground">Add New Location</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Add New Location</h1>
           <p className="text-muted-foreground mt-2">Submit a new property location for approval</p>
         </div>
 

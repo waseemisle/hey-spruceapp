@@ -686,7 +686,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
               Back
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">{recurringWorkOrder.title}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{recurringWorkOrder.title}</h1>
               <p className="text-muted-foreground mt-2">{recurringWorkOrder.workOrderNumber}</p>
             </div>
           </div>
@@ -755,7 +755,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <span className="font-semibold">Status:</span>
                     <span className={`ml-2 px-2 py-1 rounded text-xs font-semibold ${getStatusColor(recurringWorkOrder.status)}`}>

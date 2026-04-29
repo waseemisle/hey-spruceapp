@@ -206,7 +206,7 @@ export default function ClientEditRecurringWorkOrder() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Edit Recurring Work Order</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Edit Recurring Work Order</h1>
             <p className="text-muted-foreground mt-2">Update recurring work order details</p>
           </div>
         </div>
@@ -238,7 +238,7 @@ export default function ClientEditRecurringWorkOrder() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Category *</Label>
                 <SearchableSelect

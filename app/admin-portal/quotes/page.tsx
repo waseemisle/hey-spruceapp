@@ -523,9 +523,9 @@ function QuotesContent() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Quotes</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Quotes</h1>
             <p className="text-muted-foreground mt-2">
               {workOrderIdFilter
                 ? 'Showing quotes for this work order'
@@ -816,7 +816,7 @@ function QuotesContent() {
               </div>
               <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
                 {/* Info grid */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor</p><p className="font-medium">{viewQuote.subcontractorName}</p><p className="text-xs text-muted-foreground">{viewQuote.subcontractorEmail}</p></div>
                   <div><p className="text-xs text-muted-foreground mb-0.5">Client</p><p className="font-medium">{viewQuote.clientName}</p><p className="text-xs text-muted-foreground">{viewQuote.clientEmail}</p></div>
                   <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">${(viewQuote.totalAmount || 0).toFixed(2)}</p></div>

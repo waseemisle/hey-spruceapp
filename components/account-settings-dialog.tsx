@@ -175,7 +175,7 @@ export default function AccountSettingsDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">Account Settings</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <DialogHeader>
             <DialogTitle>Account Settings</DialogTitle>

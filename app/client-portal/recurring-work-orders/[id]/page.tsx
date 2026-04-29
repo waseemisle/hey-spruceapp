@@ -165,7 +165,7 @@ export default function ClientRecurringWorkOrderDetails() {
             </Button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-foreground">{recurringWorkOrder.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{recurringWorkOrder.title}</h1>
             {recurringWorkOrder.workOrderNumber && (
               <p className="text-muted-foreground mt-1">Work Order: {recurringWorkOrder.workOrderNumber}</p>
             )}
