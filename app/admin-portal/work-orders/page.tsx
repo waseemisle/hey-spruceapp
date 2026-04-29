@@ -1524,6 +1524,40 @@ const handleLocationSelect = (locationId: string) => {
       if (editingId) {
         // Update existing work order
         await updateDoc(doc(db, 'workOrders', editingId), workOrderData);
+
+        // Propagate the denormalized fields to child docs so subcontractor
+        // bidding pages and client diagnostic-request / quote views stay in sync.
+        try {
+          const denormalizedUpdate = {
+            workOrderTitle: workOrderData.title,
+            workOrderDescription: workOrderData.description,
+            priority: workOrderData.priority || '',
+            category: workOrderData.category || '',
+            locationName: workOrderData.locationName || '',
+            locationAddress: workOrderData.locationAddress || '',
+            updatedAt: serverTimestamp(),
+          };
+
+          const [biddingSnap, quotesSnap] = await Promise.all([
+            getDocs(query(collection(db, 'biddingWorkOrders'), where('workOrderId', '==', editingId))),
+            getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', editingId))),
+          ]);
+
+          const totalChildDocs = biddingSnap.size + quotesSnap.size;
+          if (totalChildDocs > 0) {
+            const batch = writeBatch(db);
+            biddingSnap.docs.forEach(d => batch.update(d.ref, denormalizedUpdate));
+            quotesSnap.docs.forEach(d => batch.update(d.ref, {
+              workOrderTitle: workOrderData.title,
+              workOrderDescription: workOrderData.description,
+              updatedAt: serverTimestamp(),
+            }));
+            await batch.commit();
+          }
+        } catch (propagateError) {
+          console.error('Failed to propagate work order changes to bidding/quote docs:', propagateError);
+        }
+
         toast.success('Work order updated successfully');
       } else {
         // Create new work order
