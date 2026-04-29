@@ -2250,6 +2250,27 @@ export default function ViewWorkOrder() {
                         <p className="text-foreground">{workOrder.description}</p>
                       )}
                     </div>
+                    {(workOrder as any).diagnosticResults && (
+                      <div className="rounded-xl border border-indigo-200/60 bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
+                        <h3 className="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-2 flex items-center gap-2">
+                          <span className="inline-block h-2 w-2 rounded-full bg-indigo-500" />
+                          Diagnostic Results
+                          {(workOrder as any).diagnosticResultsBy?.name && (
+                            <span className="text-xs font-normal text-muted-foreground">— {(workOrder as any).diagnosticResultsBy.name}</span>
+                          )}
+                        </h3>
+                        <p className="text-foreground whitespace-pre-wrap text-sm">{(workOrder as any).diagnosticResults}</p>
+                        {Array.isArray((workOrder as any).diagnosticResultsImages) && (workOrder as any).diagnosticResultsImages.length > 0 && (
+                          <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                            {(workOrder as any).diagnosticResultsImages.map((url: string, idx: number) => (
+                              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:border-indigo-400 transition-colors">
+                                <img src={url} alt={`Diagnostic result ${idx + 1}`} className="h-20 w-full object-cover" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <h3 className="font-semibold text-muted-foreground text-sm mb-1">Category</h3>

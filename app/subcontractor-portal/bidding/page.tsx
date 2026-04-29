@@ -251,16 +251,20 @@ interface BiddingWorkOrder {
   estimateBudget?: number;
   /**
    * Bidding lifecycle:
-   *  - 'pending'              → nothing submitted yet; all 4 actions visible
-   *  - 'diagnostic_requested' → diagnostic request submitted, awaiting client
-   *  - 'diagnostic_accepted'  → client approved the diagnostic; sub can now Submit Quote
-   *  - 'diagnostic_rejected'  → client rejected the diagnostic
-   *  - 'quoted'               → full quote submitted (direct path or post-diagnostic)
-   *  - 'rejected'             → sub rejected the opportunity
+   *  - 'pending'                       → nothing submitted yet; all 4 actions visible
+   *  - 'diagnostic_requested'          → diagnostic request submitted, awaiting client
+   *  - 'diagnostic_accepted'           → client approved the diagnostic; sub now submits Diagnostic Results
+   *  - 'diagnostic_results_submitted'  → results submitted; sub can now Submit Quote
+   *  - 'diagnostic_rejected'           → client rejected the diagnostic
+   *  - 'quoted'                        → full quote submitted (direct path or post-diagnostic)
+   *  - 'rejected'                      → sub rejected the opportunity
    */
   status: string;
   diagnosticFee?: number;
   rejectionReason?: string;
+  diagnosticResults?: string;
+  diagnosticResultsImages?: string[];
+  diagnosticResultsSubmittedAt?: any;
   sharedAt: any;
 }
 
@@ -285,6 +289,14 @@ export default function SubcontractorBidding() {
 
   /** Diagnostic fee for the initial visit — subcontractor bids this amount. Default $69. */
   const [diagnosticFee, setDiagnosticFee] = useState<string>('');
+
+  // ─── Submit Diagnostic Results (after client accepts the diagnostic) ───
+  const [showResultsForm, setShowResultsForm] = useState(false);
+  const [resultsBidding, setResultsBidding] = useState<BiddingWorkOrder | null>(null);
+  const [resultsText, setResultsText] = useState('');
+  const [resultsImages, setResultsImages] = useState<string[]>([]);
+  const [resultsSubmitting, setResultsSubmitting] = useState(false);
+  const [uploadingResultsImages, setUploadingResultsImages] = useState(false);
 
   // ─── Direct Submit Quote (no diagnostic) ───
   const [showDirectQuoteForm, setShowDirectQuoteForm] = useState(false);
@@ -373,7 +385,7 @@ export default function SubcontractorBidding() {
     // If the client has already approved the diagnostic fee for this WO, the
     // sub's repair quote should include it as a pre-filled line item.
     const pinnedDiagFee = Number(bidding.diagnosticFee ?? 0);
-    if (bidding.status === 'diagnostic_accepted' && pinnedDiagFee > 0) {
+    if ((bidding.status === 'diagnostic_accepted' || bidding.status === 'diagnostic_results_submitted') && pinnedDiagFee > 0) {
       setDirectQuoteLineItems([
         { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
         { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
@@ -389,6 +401,108 @@ export default function SubcontractorBidding() {
     setDirectQuoteServiceDate('');
     setDirectQuoteServiceTime('');
     setShowDirectQuoteForm(true);
+  };
+
+  // ─── Submit Diagnostic Results helpers ───
+  const openResultsForm = (bidding: BiddingWorkOrder) => {
+    setResultsBidding(bidding);
+    setResultsText(bidding.diagnosticResults || '');
+    setResultsImages(bidding.diagnosticResultsImages || []);
+    setShowResultsForm(true);
+  };
+
+  const handleResultsImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingResultsImages(true);
+    try {
+      const { uploadMultipleToCloudinary } = await import('@/lib/cloudinary-upload');
+      const urls = await uploadMultipleToCloudinary(files);
+      setResultsImages(prev => [...prev, ...urls]);
+    } catch (error: any) {
+      console.error('Error uploading diagnostic results images:', error);
+      toast.error(error?.message || 'Failed to upload images');
+    } finally {
+      setUploadingResultsImages(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeResultsImage = (idx: number) => {
+    setResultsImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmitResults = async () => {
+    if (!resultsBidding) return;
+    const trimmed = resultsText.trim();
+    if (!trimmed) {
+      toast.error('Please describe the diagnostic results.');
+      return;
+    }
+    setResultsSubmitting(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        toast.error('You must be signed in to submit results.');
+        return;
+      }
+      const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+      const subData = subDoc.exists() ? subDoc.data() : {};
+      const subName = (subData as any).fullName || (subData as any).businessName || 'Subcontractor';
+
+      // 1) Update the bidding card → diagnostic_results_submitted
+      await updateDoc(doc(db, 'biddingWorkOrders', resultsBidding.id), {
+        status: 'diagnostic_results_submitted',
+        diagnosticResults: trimmed,
+        diagnosticResultsImages: resultsImages,
+        diagnosticResultsSubmittedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // 2) Mirror onto the parent work order so admin + client see it
+      try {
+        const workOrderRef = doc(db, 'workOrders', resultsBidding.workOrderId);
+        const workOrderSnap = await getDoc(workOrderRef);
+        if (workOrderSnap.exists()) {
+          const woData = workOrderSnap.data();
+          const existingTimeline = woData?.timeline || [];
+          const woTimelineEvent = {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: Timestamp.now(),
+            type: 'diagnostic_results_submitted',
+            userId: currentUser.uid,
+            userName: subName,
+            userRole: 'subcontractor',
+            details: `Diagnostic results submitted by ${subName}.`,
+            metadata: {
+              biddingWorkOrderId: resultsBidding.id,
+              imageCount: resultsImages.length,
+            },
+          };
+          await updateDoc(workOrderRef, {
+            diagnosticResults: trimmed,
+            diagnosticResultsImages: resultsImages,
+            diagnosticResultsSubmittedAt: serverTimestamp(),
+            diagnosticResultsBy: { id: currentUser.uid, name: subName },
+            updatedAt: serverTimestamp(),
+            timeline: [...existingTimeline, woTimelineEvent],
+          });
+        }
+      } catch (workOrderUpdateError) {
+        console.warn('Could not mirror diagnostic results onto work order:', workOrderUpdateError);
+      }
+
+      toast.success('Diagnostic results submitted. You can now submit your quote.');
+      setShowResultsForm(false);
+      setResultsBidding(null);
+      setResultsText('');
+      setResultsImages([]);
+    } catch (error: any) {
+      console.error('Error submitting diagnostic results:', error);
+      toast.error(error?.message || 'Failed to submit diagnostic results');
+    } finally {
+      setResultsSubmitting(false);
+    }
   };
 
   const updateDirectLineItem = (idx: number, field: 'description' | 'quantity' | 'unitPrice' | 'amount', value: string) => {
@@ -510,7 +624,7 @@ export default function SubcontractorBidding() {
           // 'diagnostic_accepted' is the post-diagnostic entry point for this
           // modal — submitting the repair quote advances the WO to
           // 'quotes_received' so admin sees the Share Quote with Client button.
-          const statusesEligibleForQuote = ['pending', 'approved', 'bidding', 'diagnostic_accepted'];
+          const statusesEligibleForQuote = ['pending', 'approved', 'bidding', 'diagnostic_accepted', 'diagnostic_results_submitted'];
           const woData = workOrderSnapshot.data();
           const existingTimeline = woData?.timeline || [];
           const existingSysInfo = woData?.systemInformation || {};
@@ -871,6 +985,18 @@ export default function SubcontractorBidding() {
                 )}
                 {viewWorkOrder.status === 'diagnostic_accepted' && (
                   <Button
+                    className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
+                    onClick={() => {
+                      openResultsForm(viewWorkOrder);
+                      setViewWorkOrder(null);
+                    }}
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Submit Diagnostic Results
+                  </Button>
+                )}
+                {viewWorkOrder.status === 'diagnostic_results_submitted' && (
+                  <Button
                     className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25"
                     onClick={() => {
                       openDirectQuoteForm(viewWorkOrder);
@@ -965,6 +1091,115 @@ export default function SubcontractorBidding() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </PageContainer>
+      </SubcontractorLayout>
+    );
+  }
+
+  if (showResultsForm && resultsBidding) {
+    return (
+      <SubcontractorLayout>
+        <PageContainer>
+          <PageHeader
+            title="Submit Diagnostic Results"
+            subtitle={resultsBidding.workOrderNumber ? `Work Order: ${resultsBidding.workOrderNumber}` : resultsBidding.workOrderTitle}
+            icon={Stethoscope}
+            iconClassName="text-indigo-600"
+            action={
+              <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => {
+                setShowResultsForm(false);
+                setResultsBidding(null);
+              }}>
+                Cancel
+              </Button>
+            }
+          />
+
+          <Card className="rounded-2xl border border-indigo-200/60 shadow-sm bg-indigo-50/40 dark:bg-indigo-950/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
+                <Stethoscope className="h-5 w-5" />
+                Diagnostic Results
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-6">
+                <div>
+                  <Label htmlFor="resultsText" className="text-sm font-semibold text-foreground">
+                    What did you find on the diagnostic visit? *
+                  </Label>
+                  <textarea
+                    id="resultsText"
+                    name="resultsText"
+                    value={resultsText}
+                    onChange={(e) => setResultsText(e.target.value)}
+                    rows={6}
+                    className="mt-1.5 w-full px-3.5 py-2.5 border border-input bg-background rounded-xl text-sm placeholder:text-muted-foreground hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                    placeholder="Describe the issues found, the cause if known, and what the repair will involve..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Visible to the admin and the client on the work order.
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-semibold text-foreground">Photos (optional)</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-3">
+                    {resultsImages.map((url, idx) => (
+                      <div key={idx} className="relative h-20 w-20 rounded-lg overflow-hidden border border-border group">
+                        <img src={url} alt={`Result ${idx + 1}`} className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeResultsImage(idx)}
+                          className="absolute top-0.5 right-0.5 h-6 w-6 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                          aria-label="Remove image"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className={`h-20 w-20 rounded-lg border-2 border-dashed border-input flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors ${uploadingResultsImages ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleResultsImageUpload}
+                        disabled={uploadingResultsImages}
+                      />
+                      <Plus className="h-5 w-5 text-muted-foreground" />
+                    </label>
+                  </div>
+                  {uploadingResultsImages && (
+                    <p className="text-xs text-muted-foreground mt-2">Uploading…</p>
+                  )}
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-xl px-5 font-semibold w-full sm:w-auto"
+                    onClick={() => {
+                      setShowResultsForm(false);
+                      setResultsBidding(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSubmitResults}
+                    loading={resultsSubmitting} disabled={resultsSubmitting || uploadingResultsImages}
+                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25 w-full sm:w-auto"
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    {resultsSubmitting ? 'Submitting...' : 'Submit Diagnostic Results'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </PageContainer>
@@ -1456,6 +1691,15 @@ export default function SubcontractorBidding() {
                     <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
                     <span>
                       <strong>Diagnostic accepted by the client{bidding.diagnosticFee ? ` — $${Number(bidding.diagnosticFee).toFixed(2)}` : ''}.</strong>
+                      {' '}Submit your diagnostic results to continue.
+                    </span>
+                  </div>
+                )}
+                {bidding.status === 'diagnostic_results_submitted' && (
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200/60 px-3 py-2.5 text-xs text-emerald-900 flex items-start gap-2">
+                    <FileText className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+                    <span>
+                      <strong>Diagnostic results submitted.</strong>
                       {' '}You can now submit your quote.
                     </span>
                   </div>
@@ -1513,6 +1757,16 @@ export default function SubcontractorBidding() {
                   )}
 
                   {bidding.status === 'diagnostic_accepted' && (
+                    <Button
+                      className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/20"
+                      onClick={() => openResultsForm(bidding)}
+                    >
+                      <Stethoscope className="h-3.5 w-3.5" />
+                      Submit Diagnostic Results
+                    </Button>
+                  )}
+
+                  {bidding.status === 'diagnostic_results_submitted' && (
                     <Button
                       className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
                       onClick={() => openDirectQuoteForm(bidding)}
