@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect, SearchableMultiSelect } from '@/components/ui/searchable-select';
 import {
   CheckCircle, XCircle, User, Mail, Phone, Building, Award, Plus, Edit2, Save, X,
-  Search, Trash2, Lock, Send, Eye, MapPin,
+  Search, Trash2, Lock, Send, Eye, EyeOff, MapPin,
   Users, Clock, BadgeCheck, Wrench,
 } from 'lucide-react';
 import { useViewControls } from '@/contexts/view-controls-context';
@@ -144,6 +144,7 @@ export default function SubcontractorsManagement() {
   const [resendingEmail, setResendingEmail] = useState<string | null>(null);
   const [resendingInvitation, setResendingInvitation] = useState<string | null>(null);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [showHiddenFields, setShowHiddenFields] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -282,6 +283,7 @@ export default function SubcontractorsManagement() {
     setSelectedSkills([]);
     setEditingId(null);
     setShowModal(false);
+    setShowHiddenFields(false);
   };
 
   const handleOpenCreate = () => { resetForm(); setShowModal(true); };
@@ -767,14 +769,33 @@ export default function SubcontractorsManagement() {
 
                 {editingId && (
                   <div className="flex justify-end">
-                    <div className="text-right w-full max-w-[240px]">
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Password (View Only)</Label>
-                      <Input type="text" value={formData.password || ''} readOnly className="mt-0.5 h-7 text-xs bg-muted cursor-default font-mono text-right" placeholder="Not set yet" />
-                      <p className={`text-[10px] mt-0.5 flex items-center justify-end gap-1 ${formData.password ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        <span className={`inline-block w-1 h-1 rounded-full ${formData.password ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                        {formData.password ? 'Set by subcontractor' : 'Awaiting setup'}
-                      </p>
-                    </div>
+                    {showHiddenFields ? (
+                      <div className="text-right w-full max-w-[240px]">
+                        <div className="flex items-center justify-end gap-2 mb-0.5">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Password (View Only)</Label>
+                          <button
+                            type="button"
+                            onClick={() => setShowHiddenFields(false)}
+                            className="text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                          >
+                            <EyeOff className="h-3 w-3" /> Hide
+                          </button>
+                        </div>
+                        <Input type="text" value={formData.password || ''} readOnly className="h-7 text-xs bg-muted cursor-default font-mono text-right" placeholder="Not set yet" />
+                        <p className={`text-[10px] mt-0.5 flex items-center justify-end gap-1 ${formData.password ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          <span className={`inline-block w-1 h-1 rounded-full ${formData.password ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                          {formData.password ? 'Set by subcontractor' : 'Awaiting setup'}
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowHiddenFields(true)}
+                        className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+                      >
+                        <Eye className="h-3 w-3" /> Show hidden fields
+                      </button>
+                    )}
                   </div>
                 )}
 
