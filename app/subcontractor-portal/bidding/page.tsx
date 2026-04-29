@@ -27,6 +27,14 @@ const DEFAULT_DIAGNOSTIC_FEE = 30;
 // (e.g. "Proposed Date Apr 25 at 8:00 AM - 10:00 AM").
 // Diagnostic visits use 1-hour slots; full repair quotes use wider 2-hour windows.
 const DIAGNOSTIC_TIME_SLOTS = [
+  '12:00 AM - 1:00 AM',
+  '1:00 AM - 2:00 AM',
+  '2:00 AM - 3:00 AM',
+  '3:00 AM - 4:00 AM',
+  '4:00 AM - 5:00 AM',
+  '5:00 AM - 6:00 AM',
+  '6:00 AM - 7:00 AM',
+  '7:00 AM - 8:00 AM',
   '8:00 AM - 9:00 AM',
   '9:00 AM - 10:00 AM',
   '10:00 AM - 11:00 AM',
@@ -39,14 +47,24 @@ const DIAGNOSTIC_TIME_SLOTS = [
   '5:00 PM - 6:00 PM',
   '6:00 PM - 7:00 PM',
   '7:00 PM - 8:00 PM',
+  '8:00 PM - 9:00 PM',
+  '9:00 PM - 10:00 PM',
+  '10:00 PM - 11:00 PM',
+  '11:00 PM - 12:00 AM',
 ] as const;
 const SERVICE_TIME_SLOTS = [
+  '12:00 AM - 2:00 AM',
+  '2:00 AM - 4:00 AM',
+  '4:00 AM - 6:00 AM',
+  '6:00 AM - 8:00 AM',
   '8:00 AM - 10:00 AM',
   '10:00 AM - 12:00 PM',
   '12:00 PM - 2:00 PM',
   '2:00 PM - 4:00 PM',
   '4:00 PM - 6:00 PM',
   '6:00 PM - 8:00 PM',
+  '8:00 PM - 10:00 PM',
+  '10:00 PM - 12:00 AM',
 ] as const;
 
 // ─── Schedule picker (Calendly-style date strip + time-slot grid) ───
