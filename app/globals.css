@@ -113,3 +113,48 @@
 .dark .fc-theme-standard th {
   border-color: hsl(var(--border));
 }
+
+/* Mobile-friendly calendar layout */
+@media (max-width: 640px) {
+  .fc {
+    font-size: 11px;
+  }
+  .fc .fc-toolbar.fc-header-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .fc .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 0.95rem !important;
+    text-align: center;
+  }
+  .fc .fc-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .fc .fc-col-header-cell-cushion,
+  .fc .fc-daygrid-day-number {
+    font-size: 10px;
+    padding: 2px 3px;
+  }
+  /* Time-grid views: keep columns readable; parent container scrolls horizontally */
+  .fc-timegrid .fc-scrollgrid-sync-table,
+  .fc-timegrid .fc-col-header,
+  .fc-timegrid-cols > table,
+  .fc-daygrid-body table {
+    min-width: 720px;
+  }
+  .fc-timegrid-axis-cushion,
+  .fc-timegrid-slot-label-cushion {
+    font-size: 10px;
+  }
+  .fc-list-event-title { font-size: 12px; }
+  .fc-list-day-cushion { padding: 6px 8px !important; }
+}

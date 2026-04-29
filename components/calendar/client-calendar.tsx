@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatAddress } from '@/lib/utils';
 import { buildQuoteCalendarEvent, QuoteLikeForCalendar } from '@/lib/calendar-utils';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 interface WorkOrder {
   id: string;
@@ -63,8 +64,16 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
   const [quotes, setQuotes] = useState<QuoteLikeForCalendar[]>([]);
+  const isMobile = useIsMobile();
   const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar>(null);
+
+  useEffect(() => {
+    if (!calendarRef.current) return;
+    const targetView = isMobile ? 'listWeek' : 'dayGridMonth';
+    calendarRef.current.getApi().changeView(targetView);
+    setView(targetView);
+  }, [isMobile]);
 
   useEffect(() => {
     let unsubscribeWorkOrders: (() => void) | null = null;
@@ -417,11 +426,10 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
       <CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Calendar</CardTitle>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             <Button
               variant={view === 'dayGridMonth' ? 'default' : 'outline'}
               size="sm"
-              className="flex-1 sm:flex-none"
               onClick={() => {
                 setView('dayGridMonth');
                 calendarRef.current?.getApi().changeView('dayGridMonth');
@@ -432,7 +440,6 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
             <Button
               variant={view === 'timeGridWeek' ? 'default' : 'outline'}
               size="sm"
-              className="flex-1 sm:flex-none"
               onClick={() => {
                 setView('timeGridWeek');
                 calendarRef.current?.getApi().changeView('timeGridWeek');
@@ -443,7 +450,6 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
             <Button
               variant={view === 'timeGridDay' ? 'default' : 'outline'}
               size="sm"
-              className="flex-1 sm:flex-none"
               onClick={() => {
                 setView('timeGridDay');
                 calendarRef.current?.getApi().changeView('timeGridDay');
@@ -454,7 +460,6 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
             <Button
               variant={view === 'listWeek' ? 'default' : 'outline'}
               size="sm"
-              className="flex-1 sm:flex-none"
               onClick={() => {
                 setView('listWeek');
                 calendarRef.current?.getApi().changeView('listWeek');
