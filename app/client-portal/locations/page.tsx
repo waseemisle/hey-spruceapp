@@ -407,16 +407,16 @@ export default function ClientLocations() {
         {showModal && selectedLocation && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">{selectedLocation.name || (selectedLocation as any).locationName}</h2>
-                  <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
+                <div className="flex justify-between items-center gap-3">
+                  <h2 className="text-xl sm:text-2xl font-bold truncate">{selectedLocation.name || (selectedLocation as any).locationName}</h2>
+                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowModal(false)}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-4 sm:p-6 space-y-6">
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(selectedLocation.status)}`}>
                     Status: {selectedLocation.status}

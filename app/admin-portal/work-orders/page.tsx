@@ -2308,7 +2308,8 @@ const filteredLocationsForForm = locations.filter((location) => {
           </Card>
         ) : viewMode === 'list' ? (
           <div className="border rounded-lg overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
               <thead className="bg-muted border-b">
                 <tr>
                   <th className="px-4 py-3 w-10">
@@ -2389,6 +2390,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2868,7 +2870,7 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Work Order Type Selection Modal */}
         {showWorkOrderTypeModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-card rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl sm:text-2xl font-bold">Create Work Order</h2>
@@ -2944,7 +2946,7 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Reject Reason Modal */}
         {showRejectModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-card rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl sm:text-2xl font-bold">Reject Work Order</h2>
@@ -3003,7 +3005,7 @@ const filteredLocationsForForm = locations.filter((location) => {
         {/* Assign to Subcontractor Modal */}
         {showAssignModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-card rounded-lg max-w-md w-full">
+            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl sm:text-2xl font-bold">Assign to Subcontractor</h2>

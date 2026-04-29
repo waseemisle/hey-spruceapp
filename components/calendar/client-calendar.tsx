@@ -367,12 +367,13 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>Calendar</CardTitle>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={view === 'dayGridMonth' ? 'default' : 'outline'}
               size="sm"
+              className="flex-1 sm:flex-none"
               onClick={() => {
                 setView('dayGridMonth');
                 calendarRef.current?.getApi().changeView('dayGridMonth');
@@ -383,6 +384,7 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
             <Button
               variant={view === 'timeGridWeek' ? 'default' : 'outline'}
               size="sm"
+              className="flex-1 sm:flex-none"
               onClick={() => {
                 setView('timeGridWeek');
                 calendarRef.current?.getApi().changeView('timeGridWeek');
@@ -393,6 +395,7 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
             <Button
               variant={view === 'timeGridDay' ? 'default' : 'outline'}
               size="sm"
+              className="flex-1 sm:flex-none"
               onClick={() => {
                 setView('timeGridDay');
                 calendarRef.current?.getApi().changeView('timeGridDay');
@@ -403,6 +406,7 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
             <Button
               variant={view === 'listWeek' ? 'default' : 'outline'}
               size="sm"
+              className="flex-1 sm:flex-none"
               onClick={() => {
                 setView('listWeek');
                 calendarRef.current?.getApi().changeView('listWeek');

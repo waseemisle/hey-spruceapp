@@ -114,7 +114,6 @@ interface Quote {
   lineItems: LineItem[];
   notes?: string;
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
-  estimatedDuration?: string;
   createdAt: any;
   sentToClientAt?: any;
 }
@@ -1399,7 +1398,7 @@ export default function ViewClientWorkOrder() {
       {showBiddingModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
+            <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Share for Bidding</h2>
@@ -1410,7 +1409,7 @@ export default function ViewClientWorkOrder() {
                 </button>
               </div>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <h3 className="font-semibold text-blue-900 mb-1">{workOrder.title}</h3>
                 {workOrder.workOrderNumber && <p className="text-sm text-blue-700">{workOrder.workOrderNumber}</p>}

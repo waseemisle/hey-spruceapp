@@ -271,13 +271,13 @@ export default function ClientRecurringWorkOrders() {
         </div>
 
         {/* Filter Controls */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           <label htmlFor="status-filter" className="text-sm font-medium text-foreground">
             Filter by Status:
           </label>
           <SearchableSelect
             id="status-filter"
-            className="w-full min-w-[200px] max-w-[280px]"
+            className="w-full sm:w-auto sm:min-w-[200px] sm:max-w-[280px]"
             value={filter}
             onValueChange={(v) => setFilter(v as typeof filter)}
             options={['all', 'active', 'paused', 'cancelled'].map((filterOption) => ({

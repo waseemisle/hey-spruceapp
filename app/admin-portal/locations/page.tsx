@@ -527,7 +527,8 @@ export default function LocationsManagement() {
           <EmptyState icon={MapPin} title="No locations found" subtitle="Try adjusting your search or filters" />
         ) : viewMode === 'list' ? (
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[800px]">
               <thead>
                 <tr className="border-b border-border bg-muted">
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Location Name</th>
@@ -596,6 +597,7 @@ export default function LocationsManagement() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

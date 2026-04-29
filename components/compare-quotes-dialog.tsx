@@ -32,7 +32,6 @@ interface Quote {
   lineItems: LineItem[];
   notes?: string;
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
-  estimatedDuration?: string;
   createdAt: any;
 }
 
@@ -203,14 +202,6 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                             );
                           })}
                         </div>
-                      </div>
-                    )}
-
-                    {/* Estimated Duration */}
-                    {quote.estimatedDuration && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
-                        <Calendar className="h-3 w-3" />
-                        <span><strong>Duration:</strong> {quote.estimatedDuration}</span>
                       </div>
                     )}
 

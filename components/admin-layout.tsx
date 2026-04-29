@@ -14,7 +14,7 @@ import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw,
   Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail, Headphones,
-  Database, FlaskConical, BookOpen, Archive, Clock,
+  Database, FlaskConical, BookOpen, Archive, Clock, Settings,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -339,15 +339,18 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             <GlobalSearchDialog />
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
             <EstClock />
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
             <Link href="/admin-portal/account-settings">
-              <Button variant="outline" size="sm">Account Settings</Button>
+              <Button variant="outline" size="sm" className="px-2 md:px-3" aria-label="Account Settings">
+                <Settings className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Account Settings</span>
+              </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
+            <Button variant="outline" size="sm" className="px-2 md:px-3" onClick={handleLogout} aria-label="Logout">
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>
             </Button>
@@ -528,8 +531,8 @@ export default function AdminLayout({ children, headerExtra }: { children: React
         </>
       )}
 
-      {/* ── Main content — offset for 56px header + 40px subnav ── */}
-      <main className="pt-24">
+      {/* ── Main content — offset 56px (mobile, no subnav) / 96px (md+, with subnav) ── */}
+      <main className="pt-14 md:pt-24">
         <div className="p-4 md:p-6 space-y-4">
           <div className="flex items-center gap-4">
             {headerExtra}

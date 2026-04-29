@@ -657,7 +657,8 @@ export default function ScheduledInvoicesManagement() {
           </Card>
         ) : viewMode === 'list' ? (
           <div className="border rounded-lg overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
               <thead className="bg-muted border-b">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Title</th>
@@ -724,6 +725,7 @@ export default function ScheduledInvoicesManagement() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -807,16 +809,16 @@ export default function ScheduledInvoicesManagement() {
         {showEditModal && editingId && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-card z-10">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">Edit Scheduled Invoice</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold">Edit Scheduled Invoice</h2>
                   <Button variant="outline" size="sm" onClick={resetEditForm}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <form onSubmit={handleUpdate} className="space-y-4">
                   <div>
                     <Label>Title *</Label>

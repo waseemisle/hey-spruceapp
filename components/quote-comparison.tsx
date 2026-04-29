@@ -31,7 +31,6 @@ interface Quote {
   }>;
   notes?: string;
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
-  estimatedDuration?: string;
   createdAt: any;
 }
 
@@ -115,13 +114,6 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
               <div className="border-t pt-4">
                 <h4 className="font-semibold mb-2">Notes</h4>
                 <p className="text-sm text-muted-foreground">{quote.notes}</p>
-              </div>
-            )}
-
-            {quote.estimatedDuration && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>Estimated Duration: {quote.estimatedDuration}</span>
               </div>
             )}
 
@@ -261,14 +253,6 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                         <p className="text-xs text-muted-foreground">+{quote.lineItems.length - 3} more items</p>
                       )}
                     </div>
-                  </div>
-                )}
-
-                {/* Estimated Duration */}
-                {quote.estimatedDuration && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground border-t pt-3">
-                    <Calendar className="h-3 w-3" />
-                    <span>{quote.estimatedDuration}</span>
                   </div>
                 )}
 

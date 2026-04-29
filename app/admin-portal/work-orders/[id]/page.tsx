@@ -137,7 +137,6 @@ interface Quote {
   clientLineItems?: LineItem[];
   notes?: string;
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
-  estimatedDuration?: string;
   createdAt: any;
 }
 
@@ -2129,7 +2128,7 @@ export default function ViewWorkOrder() {
         {/* Reject Dialog */}
         {showRejectDialog && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-6">
+            <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-semibold mb-2">Reject Work Order</h3>
               <p className="text-sm text-muted-foreground mb-4">Please provide a reason for rejecting this work order.</p>
               <Textarea
@@ -2158,7 +2157,7 @@ export default function ViewWorkOrder() {
         {/* Rating Dialog */}
         {showRatingDialog && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-6">
+            <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-semibold mb-2">Leave a Rating for this Work Order</h3>
               <p className="text-muted-foreground text-sm mb-4">Is the work complete and to specifications?</p>
               <div className="flex gap-3">
@@ -2795,8 +2794,8 @@ export default function ViewWorkOrder() {
           {/* Create Vendor Payment Modal */}
           {showCreateVendorPaymentModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-card rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
-                <div className="p-6 border-b flex items-start justify-between gap-3">
+              <div className="bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-4 sm:p-6 border-b flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-semibold">Create Vendor Payment</h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -3447,16 +3446,16 @@ export default function ViewWorkOrder() {
       {/* Manual Assign Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-lg shadow-lg max-w-md w-full">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="text-lg font-semibold">
+          <div className="bg-card rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b flex justify-between items-center gap-3 sticky top-0 bg-card z-10">
+              <h2 className="text-lg font-semibold truncate">
                 {assignFromQuote ? `Assign Quote: ${assignFromQuote.subcontractorName}` : 'Assign to Subcontractor'}
               </h2>
-              <Button variant="outline" size="sm" onClick={() => setShowAssignModal(false)}>
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowAssignModal(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               {assignFromQuote && (
                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                   Assigning quote from <strong>{assignFromQuote.subcontractorName}</strong> — ${(assignFromQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -3522,7 +3521,8 @@ export default function ViewWorkOrder() {
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Line Items — Client View ({viewQuoteDetail.markupPercentage ?? 0}% markup)</p>
                   <div className="border rounded-md overflow-hidden">
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[420px]">
                       <thead><tr className="bg-muted text-muted-foreground text-xs uppercase"><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-center">Qty</th><th className="px-3 py-2 text-right">Unit Price</th><th className="px-3 py-2 text-right">Amount</th></tr></thead>
                       <tbody>
                         {viewQuoteDetail.clientLineItems.map((item, idx) => (
@@ -3535,6 +3535,7 @@ export default function ViewWorkOrder() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                   <div className="mt-2 text-right text-sm font-semibold text-blue-600">Client Total: ${(viewQuoteDetail.clientAmount || 0).toFixed(2)}</div>
                 </div>
@@ -3544,7 +3545,8 @@ export default function ViewWorkOrder() {
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{viewQuoteDetail.clientLineItems?.length ? 'Original Subcontractor Quote' : 'Line Items'}</p>
                   <div className="border rounded-md overflow-hidden">
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[420px]">
                       <thead><tr className="bg-muted text-muted-foreground text-xs uppercase"><th className="px-3 py-2 text-left">Description</th><th className="px-3 py-2 text-center">Qty</th><th className="px-3 py-2 text-right">Unit Price</th><th className="px-3 py-2 text-right">Amount</th></tr></thead>
                       <tbody>
                         {viewQuoteDetail.lineItems.map((item, idx) => (
@@ -3557,6 +3559,7 @@ export default function ViewWorkOrder() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                   <div className="mt-2 text-right text-sm font-semibold">Total: ${(viewQuoteDetail.totalAmount || 0).toFixed(2)}</div>
                 </div>
@@ -3635,7 +3638,8 @@ export default function ViewWorkOrder() {
                   </Button>
                 </div>
                 <div className="border rounded-md overflow-hidden">
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[640px]">
                     <thead>
                       <tr className="bg-muted text-muted-foreground text-xs uppercase">
                         <th className="px-3 py-2 text-left">Description</th>
@@ -3701,16 +3705,17 @@ export default function ViewWorkOrder() {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
                 <div className="mt-2 flex justify-between items-center text-sm font-semibold border-t pt-2">
                   <span>Client Total</span>
                   <span className="text-blue-600">${clientTotalPreview.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setShowShareModal(false)}>Cancel</Button>
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                <Button variant="outline" className="flex-1 w-full sm:w-auto" onClick={() => setShowShareModal(false)}>Cancel</Button>
                 <Button
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
                   onClick={handleShareWithClient}
                   disabled={shareSubmitting}
                 >

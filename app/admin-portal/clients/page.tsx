@@ -537,7 +537,8 @@ export default function ClientsManagement() {
         {/* List View */}
         {!loading && viewMode === 'list' && filteredClients.length > 0 && (
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border bg-muted">
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Client</th>
@@ -612,6 +613,7 @@ export default function ClientsManagement() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
@@ -619,7 +621,7 @@ export default function ClientsManagement() {
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-foreground">
                     {editingId ? 'Edit Client' : 'Create New Client'}
@@ -801,8 +803,8 @@ export default function ClientsManagement() {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && clientToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
-              <div className="p-6">
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <Trash2 className="h-5 w-5 text-red-600" />

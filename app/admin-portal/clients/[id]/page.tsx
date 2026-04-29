@@ -1517,8 +1517,8 @@ export default function ClientDetailPage() {
             SUBSCRIPTION MODAL
         ══════════════════════════════════════════════════════════════════════ */}
         {showSubModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-4">
+            <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-4 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
                   {client.stripeSubscriptionId && client.subscriptionStatus === 'active'
@@ -1643,7 +1643,7 @@ export default function ClientDetailPage() {
               )}
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[720px]">
                 <thead>
                   <tr className="border-b border-border bg-muted">
                     {['Period', 'Invoices', 'Total Amount', 'Status', 'Created', 'Actions'].map((h) => (
@@ -1906,7 +1906,7 @@ export default function ClientDetailPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[800px]">
                   <thead>
                     <tr className="border-b border-border">
                       {['Date & Time', 'Amount', 'Card', 'Description', 'Status', 'Stripe ID'].map((h) => (
@@ -2043,7 +2043,7 @@ export default function ClientDetailPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[900px]">
               <thead className="bg-muted">
                 <tr>
                   {['WO #', 'Date', 'Location', 'Title', 'Amount', 'Invoice Status', 'Due Date', 'Actions'].map(
@@ -2132,9 +2132,9 @@ export default function ClientDetailPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !chargingNow && !chargeResult && setShowChargeModal(false)}
           />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
                   <DollarSign className="h-4 w-4 text-emerald-600" />
@@ -2306,8 +2306,8 @@ export default function ClientDetailPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !submittingCard && setShowCardModal(false)}
           />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
                   <CreditCard className="h-4 w-4 text-blue-600" />
@@ -2380,8 +2380,8 @@ export default function ClientDetailPage() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !submittingBank && setShowBankModal(false)}
           />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
                   <Building2 className="h-4 w-4 text-emerald-600" />
@@ -2499,8 +2499,8 @@ export default function ClientDetailPage() {
 
       {/* ── Edit Billing Terms Modal ───────────────────────────────────────── */}
       {showBillingTermsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-4">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-4 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">Edit Billing Terms</h2>
               <button onClick={() => setShowBillingTermsModal(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">

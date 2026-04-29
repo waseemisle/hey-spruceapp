@@ -166,7 +166,7 @@ export default function AdminAccountSettings() {
 
   return (
     <AdminLayout>
-      <div className="max-w-3xl mx-auto space-y-8 pb-16">
+      <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-16">
 
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -195,26 +195,26 @@ export default function AdminAccountSettings() {
         ) : (
           <>
             {/* Profile Photo */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Camera className="h-5 w-5 text-blue-600" />
                 <h2 className="text-base font-semibold text-foreground">Profile Photo</h2>
               </div>
-              <div className="flex items-center gap-6">
-                <Avatar className="h-24 w-24 ring-4 ring-gray-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                <Avatar className="h-20 w-20 sm:h-24 sm:w-24 ring-4 ring-gray-100">
                   {photoPreview
                     ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} />
                     : <AvatarFallback className="text-xl font-bold bg-blue-100 text-blue-700">{initials}</AvatarFallback>
                   }
                 </Avatar>
-                <div className="space-y-2">
+                <div className="space-y-2 w-full sm:w-auto min-w-0">
                   <Label htmlFor="profilePhoto" className="text-sm font-medium">Upload new photo</Label>
                   <Input
                     id="profilePhoto"
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    className="max-w-xs"
+                    className="w-full sm:max-w-xs"
                   />
                   <p className="text-xs text-muted-foreground">JPG, PNG or WebP. Max 5MB.</p>
                 </div>
@@ -222,7 +222,7 @@ export default function AdminAccountSettings() {
             </div>
 
             {/* Personal Information */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
                 <User className="h-5 w-5 text-blue-600" />
                 <h2 className="text-base font-semibold text-foreground">Personal Information</h2>
@@ -274,7 +274,7 @@ export default function AdminAccountSettings() {
             </div>
 
             {/* Notification Preferences */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Bell className="h-5 w-5 text-blue-600" />
                 <h2 className="text-base font-semibold text-foreground">Notification Preferences</h2>
@@ -313,7 +313,7 @@ export default function AdminAccountSettings() {
             <Separator />
 
             {/* Change Password */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Lock className="h-5 w-5 text-blue-600" />
                 <div>

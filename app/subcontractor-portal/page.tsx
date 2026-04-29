@@ -161,7 +161,7 @@ export default function SubcontractorDashboard() {
         <DashboardSearchBar portalType="subcontractor" onSearch={handleSearch} />
 
         {/* Main Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {/* Calendar Section */}
           <SubcontractorCalendar />
 

@@ -278,9 +278,9 @@ service cloud.firestore {
           request.resource.data.workOrderId == resource.data.workOrderId &&
           request.resource.data.clientId == resource.data.clientId &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'status', 'quotedAt', 'updatedAt'
+            'status', 'quotedAt', 'updatedAt', 'rejectedAt', 'rejectedBy'
           ]) &&
-          request.resource.data.status in ['pending', 'quoted', 'declined']
+          request.resource.data.status in ['pending', 'quoted', 'declined', 'rejected', 'diagnostic_requested']
         )
       );
     }

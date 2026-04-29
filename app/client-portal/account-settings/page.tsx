@@ -129,7 +129,7 @@ export default function ClientAccountSettings() {
 
   return (
     <ClientLayout>
-      <div className="max-w-3xl mx-auto space-y-8 pb-16 p-6">
+      <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-16 p-4 sm:p-6">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-5 w-5" />
@@ -151,22 +151,22 @@ export default function ClientAccountSettings() {
         ) : (
           <>
             {/* Profile Photo */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6"><Camera className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Profile Photo</h2></div>
-              <div className="flex items-center gap-6">
-                <Avatar className="h-24 w-24 ring-4 ring-gray-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                <Avatar className="h-20 w-20 sm:h-24 sm:w-24 ring-4 ring-gray-100">
                   {photoPreview ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} /> : <AvatarFallback className="text-xl font-bold bg-blue-100 text-blue-700">{initials}</AvatarFallback>}
                 </Avatar>
-                <div className="space-y-2">
+                <div className="space-y-2 w-full sm:w-auto min-w-0">
                   <Label htmlFor="profilePhoto" className="text-sm font-medium">Upload new photo</Label>
-                  <Input id="profilePhoto" type="file" accept="image/*" onChange={handleFileChange} className="max-w-xs" />
+                  <Input id="profilePhoto" type="file" accept="image/*" onChange={handleFileChange} className="w-full sm:max-w-xs" />
                   <p className="text-xs text-muted-foreground">JPG, PNG or WebP. Max 5MB.</p>
                 </div>
               </div>
             </div>
 
             {/* Personal Information */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6"><User className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Personal Information</h2></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -209,7 +209,7 @@ export default function ClientAccountSettings() {
             <Separator />
 
             {/* Change Password */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Lock className="h-5 w-5 text-blue-600" />
                 <div><h2 className="text-base font-semibold text-foreground">Change Password</h2><p className="text-sm text-muted-foreground mt-0.5">Re-enter your current password to set a new one</p></div>

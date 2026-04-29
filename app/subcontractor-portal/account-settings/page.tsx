@@ -236,7 +236,7 @@ export default function SubcontractorAccountSettings() {
 
   return (
     <SubcontractorLayout>
-      <div className="max-w-3xl mx-auto space-y-8 pb-16 p-6">
+      <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-16 p-4 sm:p-6">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-5 w-5" />
@@ -258,22 +258,22 @@ export default function SubcontractorAccountSettings() {
         ) : (
           <>
             {/* Profile Photo */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6"><Camera className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Profile Photo</h2></div>
-              <div className="flex items-center gap-6">
-                <Avatar className="h-24 w-24 ring-4 ring-gray-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                <Avatar className="h-20 w-20 sm:h-24 sm:w-24 ring-4 ring-gray-100">
                   {photoPreview ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} /> : <AvatarFallback className="text-xl font-bold bg-blue-100 text-blue-700">{initials}</AvatarFallback>}
                 </Avatar>
-                <div className="space-y-2">
+                <div className="space-y-2 w-full sm:w-auto min-w-0">
                   <Label htmlFor="profilePhoto" className="text-sm font-medium">Upload new photo</Label>
-                  <Input id="profilePhoto" type="file" accept="image/*" onChange={handleFileChange} className="max-w-xs" />
+                  <Input id="profilePhoto" type="file" accept="image/*" onChange={handleFileChange} className="w-full sm:max-w-xs" />
                   <p className="text-xs text-muted-foreground">JPG, PNG or WebP. Max 5MB.</p>
                 </div>
               </div>
             </div>
 
             {/* Personal & Business Information */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6"><User className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Personal & Business Information</h2></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -322,7 +322,7 @@ export default function SubcontractorAccountSettings() {
             <Separator />
 
             {/* ACH Bank Account Information */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <Landmark className="h-5 w-5 text-blue-600" />
@@ -374,10 +374,11 @@ export default function SubcontractorAccountSettings() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setEditingBank(true);
                         setBankName(savedBankName);
@@ -390,7 +391,7 @@ export default function SubcontractorAccountSettings() {
                     >
                       Update Bank Account
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleRemoveBankAccount} disabled={savingBank}>
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleRemoveBankAccount} disabled={savingBank}>
                       Remove
                     </Button>
                   </div>
@@ -504,13 +505,13 @@ export default function SubcontractorAccountSettings() {
                     </div>
                   </div>
 
-                  <div className="flex gap-3 justify-end pt-2">
+                  <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-2">
                     {editingBank && (
-                      <Button variant="outline" onClick={() => { setEditingBank(false); setBankName(''); setAccountHolderName(''); setRoutingNumber(''); setAccountNumber(''); setConfirmAccountNumber(''); }}>
+                      <Button variant="outline" className="w-full sm:w-auto" onClick={() => { setEditingBank(false); setBankName(''); setAccountHolderName(''); setRoutingNumber(''); setAccountNumber(''); setConfirmAccountNumber(''); }}>
                         Cancel
                       </Button>
                     )}
-                    <Button onClick={handleSaveBankAccount} disabled={savingBank} className="gap-2">
+                    <Button onClick={handleSaveBankAccount} disabled={savingBank} className="gap-2 w-full sm:w-auto">
                       <Save className="h-4 w-4" />
                       {savingBank ? 'Saving...' : hasSavedBank ? 'Update Bank Account' : 'Save Bank Account'}
                     </Button>
@@ -522,7 +523,7 @@ export default function SubcontractorAccountSettings() {
             <Separator />
 
             {/* Change Password */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
                 <Lock className="h-5 w-5 text-blue-600" />
                 <div><h2 className="text-base font-semibold text-foreground">Change Password</h2><p className="text-sm text-muted-foreground mt-0.5">Re-enter your current password to set a new one</p></div>

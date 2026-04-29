@@ -240,10 +240,10 @@ export default function ClientDiagnosticRequests() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
           <span className="text-sm font-medium text-foreground shrink-0">Filter by Status:</span>
           <SearchableSelect
-            className="min-w-[200px]"
+            className="w-full sm:w-auto sm:min-w-[200px]"
             value={filter}
             onValueChange={setFilter}
             options={filterOptions.map(opt => ({ value: opt.value, label: `${opt.label} (${opt.count})` }))}

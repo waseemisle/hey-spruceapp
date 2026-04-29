@@ -277,11 +277,15 @@ export default function GlobalSearchDialog() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors min-w-[200px] max-w-xs"
+        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors w-full sm:w-auto sm:min-w-[200px] sm:max-w-xs"
         title="Global Search (Ctrl+K)"
+        aria-label="Global Search"
       >
         <Search className="h-4 w-4 flex-shrink-0" />
-        <span className="flex-1 text-left">Search everything...</span>
+        <span className="flex-1 text-left truncate">
+          <span className="hidden sm:inline">Search everything...</span>
+          <span className="sm:hidden">Search</span>
+        </span>
         <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-mono">
           Ctrl K
         </kbd>

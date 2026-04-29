@@ -757,7 +757,8 @@ function InvoicesManagementInner() {
           </Card>
         ) : viewMode === 'list' ? (
           <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px]">
               <thead className="bg-muted border-b border-border">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice #</th>
@@ -809,6 +810,7 @@ function InvoicesManagementInner() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1045,8 +1047,8 @@ function InvoicesManagementInner() {
         {/* Upload PDF Modal */}
         {showUploadModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg max-w-md w-full">
-              <div className="p-6 border-b">
+            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold">Upload Invoice PDF</h2>
                   <Button
@@ -1117,8 +1119,8 @@ function InvoicesManagementInner() {
         {/* Delete Confirmation Modal */}
         {showDeleteModal && invoiceToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg max-w-md w-full">
-              <div className="p-6">
+            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Invoice</h2>
                 <p className="text-foreground mb-4">
                   Are you sure you want to delete invoice <strong>"{invoiceToDelete.invoiceNumber}"</strong>?

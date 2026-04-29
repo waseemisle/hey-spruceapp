@@ -630,7 +630,7 @@ export default function ReportsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[800px]">
               <thead className="bg-muted">
                 <tr>
                   {[
@@ -832,7 +832,7 @@ export default function ReportsPage() {
               </Button>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[560px]">
                 <thead className="bg-muted">
                   <tr>
                     {['Age Bucket', 'Invoice Count', 'Amount Outstanding', 'Share'].map((h) => (
@@ -935,7 +935,7 @@ export default function ReportsPage() {
                 </Button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[680px]">
                   <thead className="bg-muted">
                     <tr>
                       {['Customer', 'Jobs', 'Revenue', 'Cost', 'Profit', 'Margin'].map((h) => (
@@ -996,7 +996,7 @@ export default function ReportsPage() {
                 </Button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[680px]">
                   <thead className="bg-muted">
                     <tr>
                       {['Vendor', 'Jobs', 'Revenue', 'Cost', 'Profit', 'Margin'].map((h) => (

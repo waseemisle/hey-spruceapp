@@ -317,7 +317,7 @@ export default function ClientSubcontractorsView() {
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-bold">Add Subcontractor</h2>
                   <Button variant="outline" size="sm" onClick={() => {
@@ -329,7 +329,7 @@ export default function ClientSubcontractorsView() {
                   </Button>
                 </div>
               </div>
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="sub-email">Email <span className="text-red-500">*</span></Label>
                   <Input
@@ -401,13 +401,13 @@ export default function ClientSubcontractorsView() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">An invitation email will be sent to the subcontractor to set up their account. They will be in <strong>pending</strong> status until approved by an admin.</p>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="outline" onClick={() => {
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+                  <Button variant="outline" className="w-full sm:w-auto" onClick={() => {
                     setShowCreateModal(false);
                     setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
                     setSelectedSkills([]);
                   }}>Cancel</Button>
-                  <Button onClick={handleCreateSubcontractor} disabled={submitting}>
+                  <Button onClick={handleCreateSubcontractor} disabled={submitting} className="w-full sm:w-auto">
                     {submitting ? 'Creating...' : 'Create & Send Invite'}
                   </Button>
                 </div>

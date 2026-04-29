@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones, Stethoscope } from 'lucide-react';
+import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones, Stethoscope, Settings } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 import ClientGlobalSearchDialog from '@/components/client-global-search-dialog';
@@ -274,7 +274,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <div className="flex items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="mr-4 md:hidden text-muted-foreground hover:text-foreground"
+              className="mr-2 sm:mr-4 md:hidden text-muted-foreground hover:text-foreground"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -282,7 +282,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <Logo href="/client-portal" size="sm" />
             <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Client Portal</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4">
             {user?.uid && <ClientGlobalSearchDialog dbInstance={firebaseInstances.dbInstance} userId={user.uid} />}
             <ThemeToggle />
             <NotificationBell />
@@ -296,9 +296,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               )}
             </div>
             <Link href="/client-portal/account-settings">
-              <Button variant="outline" size="sm">Account Settings</Button>
+              <Button variant="outline" size="sm" className="px-2 md:px-3" aria-label="Account Settings">
+                <Settings className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Account Settings</span>
+              </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
+            <Button variant="outline" size="sm" className="px-2 md:px-3" onClick={handleLogout} aria-label="Logout">
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>
             </Button>

@@ -771,7 +771,8 @@ function ClientWorkOrdersContent() {
         ) : viewMode === 'list' ? (
           /* List View */
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border bg-muted">
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Work Order</th>
@@ -862,6 +863,7 @@ function ClientWorkOrdersContent() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           /* Grid View */
@@ -952,7 +954,7 @@ function ClientWorkOrdersContent() {
       {showBiddingModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
+            <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Share for Bidding</h2>
@@ -973,7 +975,7 @@ function ClientWorkOrdersContent() {
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {workOrderToShare && (
                 <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                   <h3 className="font-semibold text-blue-900 mb-1">{workOrderToShare.title}</h3>

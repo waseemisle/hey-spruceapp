@@ -42,9 +42,9 @@ export default function WorkOrdersSection({ data, portalType }: WorkOrdersSectio
   };
 
   return (
-    <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
         <Link
           href={getWorkOrdersLink()}
           className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-lg"
@@ -61,7 +61,7 @@ export default function WorkOrdersSection({ data, portalType }: WorkOrdersSectio
       </div>
 
       {/* Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         {/* Work Required Column */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">

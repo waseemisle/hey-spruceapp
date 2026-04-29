@@ -7,7 +7,7 @@ import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessageSquare, Send, Search, Trash2, X, Plus, UserPlus } from 'lucide-react';
+import { MessageSquare, Send, Search, Trash2, X, Plus, UserPlus, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Chat {
@@ -314,8 +314,8 @@ export default function MessagesManagement() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Chats List */}
-          <Card className="md:col-span-1">
+          {/* Chats List — hidden on mobile when a chat is open */}
+          <Card className={`md:col-span-1 ${selectedChat ? 'hidden md:block' : ''}`}>
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Conversations</CardTitle>
@@ -373,13 +373,25 @@ export default function MessagesManagement() {
           </Card>
 
           {/* Chat Window */}
-          <Card className="md:col-span-2">
+          <Card className={`md:col-span-2 ${!selectedChat ? 'hidden md:block' : ''}`}>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>
-                  {selectedChatData
-                    ? selectedChatData.participantDetails?.find(p => p.id !== auth.currentUser?.uid)?.name || 'Chat'
-                    : 'Select a conversation'}
+              <div className="flex justify-between items-center gap-2">
+                <CardTitle className="flex items-center gap-2 min-w-0">
+                  {selectedChat && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedChat(null)}
+                      className="md:hidden -ml-1 p-1 rounded-md hover:bg-muted text-muted-foreground shrink-0"
+                      aria-label="Back to conversations"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                  )}
+                  <span className="truncate">
+                    {selectedChatData
+                      ? selectedChatData.participantDetails?.find(p => p.id !== auth.currentUser?.uid)?.name || 'Chat'
+                      : 'Select a conversation'}
+                  </span>
                 </CardTitle>
                 {selectedChatData && (
                   <Button
@@ -466,9 +478,9 @@ export default function MessagesManagement() {
         {/* Delete Message Modal */}
         {showDeleteMessageModal && messageToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg max-w-md w-full">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Delete Message</h2>
+            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold mb-4">Delete Message</h2>
                 <p className="text-foreground mb-4">
                   Are you sure you want to delete this message?
                 </p>
@@ -504,9 +516,9 @@ export default function MessagesManagement() {
         {/* Delete Thread Modal */}
         {showDeleteThreadModal && threadToDelete && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg max-w-md w-full">
-              <div className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Delete Conversation</h2>
+            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold mb-4">Delete Conversation</h2>
                 <p className="text-foreground mb-4">
                   Are you sure you want to delete this entire conversation?
                 </p>
@@ -550,10 +562,10 @@ export default function MessagesManagement() {
         {/* New Chat Modal */}
         {showNewChatModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-              <div className="p-6 border-b">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">Start New Conversation</h2>
+            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[90vh] sm:max-h-[80vh] overflow-hidden flex flex-col">
+              <div className="p-4 sm:p-6 border-b">
+                <div className="flex justify-between items-center gap-2">
+                  <h2 className="text-xl sm:text-2xl font-bold truncate">Start New Conversation</h2>
                   <Button
                     variant="outline"
                     size="sm"

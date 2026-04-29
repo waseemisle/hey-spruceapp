@@ -20,7 +20,6 @@ interface Quote {
   totalAmount: number;
   clientAmount?: number;
   markupPercent?: number;
-  estimatedDuration: string;
   lineItems: Array<{
     description: string;
     quantity: number;
@@ -99,8 +98,7 @@ export default function SubcontractorQuotes() {
     const searchMatch = !searchQuery ||
       quote.workOrderTitle.toLowerCase().includes(searchLower) ||
       quote.clientName.toLowerCase().includes(searchLower) ||
-      (quote.notes && quote.notes.toLowerCase().includes(searchLower)) ||
-      quote.estimatedDuration.toLowerCase().includes(searchLower);
+      (quote.notes && quote.notes.toLowerCase().includes(searchLower));
 
     return statusMatch && searchMatch;
   });
@@ -135,7 +133,7 @@ export default function SubcontractorQuotes() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search quotes by title, client, or estimated duration..."
+            placeholder="Search quotes by title or client..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -209,9 +207,6 @@ export default function SubcontractorQuotes() {
                       <Calendar className="h-3.5 w-3.5 shrink-0" />
                       Submitted {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                     </span>
-                    {quote.estimatedDuration && (
-                      <span className="truncate">Duration: {quote.estimatedDuration}</span>
-                    )}
                   </div>
 
                   {/* Cost breakdown */}

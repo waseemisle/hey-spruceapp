@@ -591,7 +591,8 @@ function QuotesContent() {
           </Card>
         ) : viewMode === 'list' ? (
           <div className="border rounded-lg overflow-hidden">
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px]">
               <thead className="bg-muted border-b">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Work Order</th>
@@ -662,6 +663,7 @@ function QuotesContent() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -829,7 +831,8 @@ function QuotesContent() {
                       Line Items — Client View ({viewQuote.markupPercentage ?? 0}% markup)
                     </p>
                     <div className="border rounded-md overflow-hidden">
-                      <table className="w-full text-sm">
+                      <div className="overflow-x-auto">
+                      <table className="w-full text-sm min-w-[420px]">
                         <thead>
                           <tr className="bg-muted text-muted-foreground text-xs uppercase">
                             <th className="px-3 py-2 text-left">Description</th>
@@ -849,6 +852,7 @@ function QuotesContent() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                     <div className="mt-2 text-right text-sm font-semibold text-blue-600">
                       Client Total: ${(viewQuote.clientAmount || 0).toFixed(2)}
@@ -862,7 +866,8 @@ function QuotesContent() {
                       {viewQuote.clientLineItems?.length ? 'Original Subcontractor Quote' : 'Line Items'}
                     </p>
                     <div className="border rounded-md overflow-hidden">
-                      <table className="w-full text-sm">
+                      <div className="overflow-x-auto">
+                      <table className="w-full text-sm min-w-[420px]">
                         <thead>
                           <tr className="bg-muted text-muted-foreground text-xs uppercase">
                             <th className="px-3 py-2 text-left">Description</th>
@@ -882,6 +887,7 @@ function QuotesContent() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                     <div className="mt-2 text-right text-sm font-semibold">
                       Total: ${(viewQuote.totalAmount || 0).toFixed(2)}
@@ -916,10 +922,10 @@ function QuotesContent() {
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-card z-10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">Create New Quote</h2>
-                  <Button variant="outline" onClick={resetForm}>Cancel</Button>
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
+                <div className="flex justify-between items-center gap-3">
+                  <h2 className="text-xl sm:text-2xl font-bold truncate">Create New Quote</h2>
+                  <Button variant="outline" className="shrink-0" onClick={resetForm}>Cancel</Button>
                 </div>
               </div>
 

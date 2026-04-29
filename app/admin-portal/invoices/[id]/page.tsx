@@ -705,7 +705,7 @@ export default function AdminInvoiceDetail() {
                 <div>
                   <h4 className="font-semibold text-sm uppercase text-muted-foreground mb-2">Labor</h4>
                   <div className="overflow-x-auto border rounded-md">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[720px]">
                       <thead className="bg-muted/50">
                         <tr>
                           <th className="px-4 py-2 text-left font-medium">Labor Item / Approval Code</th>
@@ -753,7 +753,7 @@ export default function AdminInvoiceDetail() {
                 <div>
                   <h4 className="font-semibold text-sm uppercase text-muted-foreground mb-2">Materials</h4>
                   <div className="overflow-x-auto border rounded-md">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[720px]">
                       <thead className="bg-muted/50">
                         <tr>
                           <th className="px-4 py-2 text-left font-medium">Item</th>
@@ -953,7 +953,7 @@ export default function AdminInvoiceDetail() {
       {showEditModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center gap-3">
+            <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center gap-3">
               <div>
                 <h2 className="text-xl font-bold">
                   {editModalIntent === 'reshare' ? 'Update invoice & reshare' : 'Edit Invoice'}

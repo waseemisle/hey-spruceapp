@@ -264,15 +264,15 @@ export default function ClientSupportTicketsPage() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap gap-3 items-end shadow-sm">
-          <div className="relative flex-1 min-w-[180px]">
+        <div className="bg-card rounded-xl border border-border p-4 grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 lg:items-end shadow-sm">
+          <div className="relative sm:col-span-2 lg:flex-1 lg:min-w-[180px]">
             <Label className="text-xs text-muted-foreground">Search</Label>
             <Input className="mt-1" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Ticket # or title" />
           </div>
-          <div>
+          <div className="sm:col-span-2 lg:col-auto">
             <Label className="text-xs text-muted-foreground">Status</Label>
             <SearchableSelect
-              className="mt-1 w-full min-w-[160px]"
+              className="mt-1 w-full lg:min-w-[160px]"
               value={statusFilter}
               onValueChange={(v) => { setStatusFilter(v); setPage(1); }}
               options={[
@@ -290,11 +290,11 @@ export default function ClientSupportTicketsPage() {
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">From</Label>
-            <Input type="date" className="mt-1 w-[150px]" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} />
+            <Input type="date" className="mt-1 w-full lg:w-[150px]" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} />
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">To</Label>
-            <Input type="date" className="mt-1 w-[150px]" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
+            <Input type="date" className="mt-1 w-full lg:w-[150px]" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
           </div>
         </div>
 

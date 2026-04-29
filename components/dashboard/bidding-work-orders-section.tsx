@@ -13,9 +13,9 @@ interface BiddingWorkOrdersSectionProps {
 
 export default function BiddingWorkOrdersSection({ data }: BiddingWorkOrdersSectionProps) {
   return (
-    <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
         <Link
           href="/subcontractor-portal/bidding"
           className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold text-lg"
@@ -32,7 +32,7 @@ export default function BiddingWorkOrdersSection({ data }: BiddingWorkOrdersSect
       </div>
 
       {/* Columns */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-3 sm:gap-6">
         {/* Total Column */}
         <div className="space-y-2">
           <h3 className="font-medium text-foreground text-sm">Total</h3>

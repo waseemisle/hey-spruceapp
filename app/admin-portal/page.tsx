@@ -221,7 +221,7 @@ export default function AdminDashboard() {
         <DashboardSearchBar portalType="admin" onSearch={handleSearch} />
 
         {/* Main Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
           {/* Header + Company Selector */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -230,14 +230,14 @@ export default function AdminDashboard() {
             </div>
 
             {/* Company Selector */}
-            <div className="relative" ref={companyDropdownRef}>
+            <div className="relative w-full sm:w-auto" ref={companyDropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsCompanyDropdownOpen(v => !v)}
-                className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg shadow-sm hover:border-gray-300 transition-colors min-w-[200px]"
+                className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg shadow-sm hover:border-gray-300 transition-colors w-full sm:min-w-[200px]"
               >
                 <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm text-foreground flex-1 text-left truncate max-w-[200px]">
+                <span className="text-sm text-foreground flex-1 text-left truncate sm:max-w-[200px]">
                   {selectedCompany ? selectedCompany.name : 'All Companies'}
                 </span>
                 {selectedCompanyId ? (

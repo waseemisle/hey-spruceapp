@@ -500,7 +500,7 @@ export default function SubcontractorDetailPage() {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[900px]">
               <thead className="bg-muted">
                 <tr>
                   {['WO #', 'Date', 'Location', 'Title', 'Quote Amount', 'Status', 'Scheduled', 'Action'].map(

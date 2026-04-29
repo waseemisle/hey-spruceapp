@@ -267,13 +267,13 @@ export default function ClientMaintenanceRequests() {
         {showModal && selectedRequest && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-card">
-                <h2 className="text-2xl font-bold">{selectedRequest.title}</h2>
-                <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
+              <div className="p-4 sm:p-6 border-b flex items-center justify-between sticky top-0 bg-card gap-3">
+                <h2 className="text-xl sm:text-2xl font-bold truncate">{selectedRequest.title}</h2>
+                <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowModal(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 {selectedRequest.image && (
                   <img
                     src={selectedRequest.image}

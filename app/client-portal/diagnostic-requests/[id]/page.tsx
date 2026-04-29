@@ -30,7 +30,6 @@ interface DiagnosticQuote {
   isDiagnosticQuote?: boolean;
   proposedServiceDate?: any;
   proposedServiceTime?: string;
-  estimatedDuration?: string;
   notes?: string;
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
   sentToClientAt?: any;
@@ -279,15 +278,6 @@ export default function ClientDiagnosticRequestDetail() {
                   <p className="text-sm text-foreground">{quote.subcontractorName}</p>
                 </div>
               </div>
-              {quote.estimatedDuration && (
-                <div className="flex items-start gap-2">
-                  <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Estimated Duration</p>
-                    <p className="text-sm text-foreground">{quote.estimatedDuration}</p>
-                  </div>
-                </div>
-              )}
               {serviceDate && (
                 <div className="flex items-start gap-2">
                   <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />

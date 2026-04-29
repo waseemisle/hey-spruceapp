@@ -12,7 +12,7 @@ import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
-import { Home, ClipboardList, FileText, CheckSquare, ClipboardCheck, MessageSquare, LogOut, Menu, X, Headphones } from 'lucide-react';
+import { Home, ClipboardList, FileText, CheckSquare, ClipboardCheck, MessageSquare, LogOut, Menu, X, Headphones, Settings } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
@@ -227,7 +227,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
           <div className="flex items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="mr-4 md:hidden text-muted-foreground hover:text-foreground"
+              className="mr-2 sm:mr-4 md:hidden text-muted-foreground hover:text-foreground"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -235,15 +235,18 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
             <Logo href="/subcontractor-portal" size="sm" />
             <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Subcontractor Portal</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4">
             {user?.uid && <SubcontractorGlobalSearchDialog dbInstance={firebaseInstances.dbInstance} userId={user.uid} />}
             <ThemeToggle />
             <NotificationBell />
             <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
             <Link href="/subcontractor-portal/account-settings">
-              <Button variant="outline" size="sm">Account Settings</Button>
+              <Button variant="outline" size="sm" className="px-2 md:px-3" aria-label="Account Settings">
+                <Settings className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Account Settings</span>
+              </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
+            <Button variant="outline" size="sm" className="px-2 md:px-3" onClick={handleLogout} aria-label="Logout">
               <LogOut className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">Logout</span>
             </Button>

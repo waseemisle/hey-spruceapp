@@ -8,7 +8,7 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessageSquare, Send } from 'lucide-react';
+import { MessageSquare, Send, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Chat {
@@ -149,8 +149,8 @@ export default function ClientMessages() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Chats List */}
-          <Card className="md:col-span-1">
+          {/* Chats List — hidden on mobile when a chat is open */}
+          <Card className={`md:col-span-1 ${selectedChat ? 'hidden md:block' : ''}`}>
             <CardHeader>
               <CardTitle>Conversations</CardTitle>
             </CardHeader>
@@ -185,12 +185,24 @@ export default function ClientMessages() {
           </Card>
 
           {/* Chat Window */}
-          <Card className="md:col-span-2">
+          <Card className={`md:col-span-2 ${!selectedChat ? 'hidden md:block' : ''}`}>
             <CardHeader>
-              <CardTitle>
-                {selectedChatData
-                  ? selectedChatData.participantDetails?.find(p => p.id !== auth.currentUser?.uid)?.name || 'Chat'
-                  : 'Select a conversation'}
+              <CardTitle className="flex items-center gap-2">
+                {selectedChat && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedChat(null)}
+                    className="md:hidden -ml-1 p-1 rounded-md hover:bg-muted text-muted-foreground"
+                    aria-label="Back to conversations"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                )}
+                <span className="truncate">
+                  {selectedChatData
+                    ? selectedChatData.participantDetails?.find(p => p.id !== auth.currentUser?.uid)?.name || 'Chat'
+                    : 'Select a conversation'}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>

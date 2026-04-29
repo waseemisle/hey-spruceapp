@@ -450,25 +450,25 @@ function PaymentMethodsContent() {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !submittingBank && setShowBankModal(false)}
           />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
                   <Building2 className="h-4 w-4 text-emerald-600" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground text-sm">Add Bank Account</h3>
-                  <p className="text-xs text-muted-foreground">ACH Direct Debit via Stripe</p>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-foreground text-sm truncate">Add Bank Account</h3>
+                  <p className="text-xs text-muted-foreground truncate">ACH Direct Debit via Stripe</p>
                 </div>
               </div>
               <button
                 onClick={() => !submittingBank && setShowBankModal(false)}
-                className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
+                className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form onSubmit={handleAddBankAccount} className="p-6 space-y-4">
+            <form onSubmit={handleAddBankAccount} className="p-4 sm:p-6 space-y-4">
               {/* Account Holder Name */}
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Holder Name</label>
@@ -542,11 +542,11 @@ function PaymentMethodsContent() {
                 </p>
               )}
 
-              <div className="flex gap-3 pt-1">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setShowBankModal(false)} disabled={submittingBank}>
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-1">
+                <Button type="button" variant="outline" className="flex-1 w-full sm:w-auto" onClick={() => setShowBankModal(false)} disabled={submittingBank}>
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-2" disabled={submittingBank}>
+                <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-2 w-full sm:w-auto" disabled={submittingBank}>
                   {submittingBank ? (
                     <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
                   ) : (
@@ -555,7 +555,7 @@ function PaymentMethodsContent() {
                 </Button>
               </div>
             </form>
-            <div className="px-6 pb-5">
+            <div className="px-4 sm:px-6 pb-5">
               <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
@@ -577,30 +577,30 @@ function PaymentMethodsContent() {
           />
 
           {/* Dialog */}
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
                   <CreditCard className="h-4 w-4 text-blue-600" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground text-sm">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-foreground text-sm truncate">
                     {hasCard ? 'Update Card' : 'Add Card'}
                   </h3>
-                  <p className="text-xs text-muted-foreground">Secured by Stripe</p>
+                  <p className="text-xs text-muted-foreground truncate">Secured by Stripe</p>
                 </div>
               </div>
               <button
                 onClick={() => !submittingCard && setShowCardModal(false)}
-                className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
+                className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleCardSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleCardSubmit} className="p-4 sm:p-6 space-y-5">
               {/* Stripe Card Element mount point */}
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-2">
@@ -625,11 +625,11 @@ function PaymentMethodsContent() {
               </p>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-1">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-1">
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 w-full sm:w-auto"
                   onClick={() => setShowCardModal(false)}
                   disabled={submittingCard}
                 >
@@ -637,7 +637,7 @@ function PaymentMethodsContent() {
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2 w-full sm:w-auto"
                   disabled={submittingCard || !!cardError}
                 >
                   {submittingCard ? (
@@ -656,7 +656,7 @@ function PaymentMethodsContent() {
             </form>
 
             {/* Footer security note */}
-            <div className="px-6 pb-5">
+            <div className="px-4 sm:px-6 pb-5">
               <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                 <p className="text-[11px] text-muted-foreground">

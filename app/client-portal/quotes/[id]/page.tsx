@@ -478,7 +478,8 @@ export default function QuoteDetail() {
               const materialsSubtotal = materialItems.reduce((s, i) => s + i.amount, 0);
               const subtotal = displayItems.reduce((s, i) => s + i.amount, 0);
               const renderTable = (items: typeof displayItems) => (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[420px]">
                   <thead>
                     <tr className="bg-muted text-muted-foreground text-xs uppercase">
                       <th className="px-3 py-2 text-left">Description</th>
@@ -498,6 +499,7 @@ export default function QuoteDetail() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               );
               return (
                 <div className="border-t pt-6 space-y-4">

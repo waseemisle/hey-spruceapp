@@ -255,7 +255,6 @@ export default function SubcontractorBidding() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [quoteForm, setQuoteForm] = useState({
-    estimatedDuration: '',
     proposedServiceDate: '',
     proposedServiceTime: '',
     notes: '',
@@ -271,7 +270,6 @@ export default function SubcontractorBidding() {
     { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
   ]);
   const [directQuoteNotes, setDirectQuoteNotes] = useState('');
-  const [directQuoteDuration, setDirectQuoteDuration] = useState('');
   const [directQuoteServiceDate, setDirectQuoteServiceDate] = useState('');
   const [directQuoteServiceTime, setDirectQuoteServiceTime] = useState('');
   const [directQuoteSubmitting, setDirectQuoteSubmitting] = useState(false);
@@ -365,7 +363,6 @@ export default function SubcontractorBidding() {
       ]);
     }
     setDirectQuoteNotes('');
-    setDirectQuoteDuration('');
     setDirectQuoteServiceDate('');
     setDirectQuoteServiceTime('');
     setShowDirectQuoteForm(true);
@@ -397,8 +394,8 @@ export default function SubcontractorBidding() {
       toast.error('Please add at least one line item with description and amount');
       return;
     }
-    if (!directQuoteDuration || !directQuoteServiceDate || !directQuoteServiceTime) {
-      toast.error('Please fill in estimated duration and proposed service date/time');
+    if (!directQuoteServiceDate || !directQuoteServiceTime) {
+      toast.error('Please pick a proposed service date and time');
       return;
     }
     setDirectQuoteSubmitting(true);
@@ -439,7 +436,6 @@ export default function SubcontractorBidding() {
         discountAmount: 0,
         totalAmount: total,
         originalAmount: total,
-        estimatedDuration: directQuoteDuration,
         proposedServiceDate: new Date(directQuoteServiceDate),
         proposedServiceTime: directQuoteServiceTime,
         lineItems: validItems,
@@ -536,7 +532,6 @@ export default function SubcontractorBidding() {
         { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
       ]);
       setDirectQuoteNotes('');
-      setDirectQuoteDuration('');
       setDirectQuoteServiceDate('');
       setDirectQuoteServiceTime('');
     } catch (error) {
@@ -570,7 +565,7 @@ export default function SubcontractorBidding() {
   const handleSubmitQuote = async () => {
     if (!selectedBidding) return;
 
-    if (!quoteForm.estimatedDuration || !quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
+    if (!quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
       toast.error('Please fill in all required fields (including service date and time)');
       return;
     }
@@ -639,7 +634,6 @@ export default function SubcontractorBidding() {
         originalAmount: total,
         clientAmount: total,
         markupPercentage: 0,
-        estimatedDuration: quoteForm.estimatedDuration,
         proposedServiceDate: new Date(quoteForm.proposedServiceDate),
         proposedServiceTime: quoteForm.proposedServiceTime,
         lineItems: diagnosticLineItem,
@@ -758,7 +752,6 @@ export default function SubcontractorBidding() {
       setShowQuoteForm(false);
       setSelectedBidding(null);
       setQuoteForm({
-        estimatedDuration: '',
         proposedServiceDate: '',
         proposedServiceTime: '',
         notes: '',
@@ -999,19 +992,6 @@ export default function SubcontractorBidding() {
               </div>
 
               <form className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="directDuration">Estimated Duration *</Label>
-                    <Input
-                      id="directDuration"
-                      value={directQuoteDuration}
-                      onChange={(e) => setDirectQuoteDuration(e.target.value)}
-                      placeholder="e.g., 2-3 hours"
-                      required
-                    />
-                  </div>
-                </div>
-
                 <SchedulePicker
                   date={directQuoteServiceDate}
                   onDateChange={setDirectQuoteServiceDate}
@@ -1032,14 +1012,16 @@ export default function SubcontractorBidding() {
                   <div className="space-y-2">
                     {directQuoteLineItems.map((item, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-5">
+                        <div className="col-span-12 sm:col-span-5">
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Description</Label>
                           <Input
                             placeholder="Description"
                             value={item.description}
                             onChange={(e) => updateDirectLineItem(idx, 'description', e.target.value)}
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-3 sm:col-span-2">
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Qty</Label>
                           <Input
                             type="number" min="0" step="0.01"
                             placeholder="Qty"
@@ -1047,7 +1029,8 @@ export default function SubcontractorBidding() {
                             onChange={(e) => updateDirectLineItem(idx, 'quantity', e.target.value)}
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-3 sm:col-span-2">
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Unit $</Label>
                           <Input
                             type="number" min="0" step="0.01"
                             placeholder="Unit $"
@@ -1055,10 +1038,10 @@ export default function SubcontractorBidding() {
                             onChange={(e) => updateDirectLineItem(idx, 'unitPrice', e.target.value)}
                           />
                         </div>
-                        <div className="col-span-2 text-right text-sm font-semibold tabular-nums">
+                        <div className="col-span-4 sm:col-span-2 text-right text-sm font-semibold tabular-nums self-center sm:self-end">
                           ${item.amount.toFixed(2)}
                         </div>
-                        <div className="col-span-1">
+                        <div className="col-span-2 sm:col-span-1 flex justify-end self-center sm:self-end">
                           {directQuoteLineItems.length > 1 && (
                             <Button type="button" size="icon" variant="ghost" onClick={() => removeDirectLineItem(idx)} className="h-9 w-9 rounded-lg text-rose-600 hover:bg-rose-50">
                               <Trash2 className="h-4 w-4" />
@@ -1092,8 +1075,8 @@ export default function SubcontractorBidding() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="outline" className="h-10 rounded-xl px-5 font-semibold" onClick={() => {
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                  <Button type="button" variant="outline" className="h-10 rounded-xl px-5 font-semibold w-full sm:w-auto" onClick={() => {
                     setShowDirectQuoteForm(false);
                     setSelectedBidding(null);
                   }}>
@@ -1103,7 +1086,7 @@ export default function SubcontractorBidding() {
                     type="button"
                     onClick={handleSubmitDirectQuote}
                     loading={directQuoteSubmitting} disabled={directQuoteSubmitting}
-                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25"
+                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25 w-full sm:w-auto"
                   >
                     <FileText className="h-4 w-4" />
                     {directQuoteSubmitting ? 'Submitting...' : 'Submit Quote'}
@@ -1253,18 +1236,6 @@ export default function SubcontractorBidding() {
                     </p>
                   </div>
 
-                  <div>
-                    <Label htmlFor="estimatedDuration">Estimated Duration *</Label>
-                    <Input
-                      id="estimatedDuration"
-                      name="estimatedDuration"
-                      value={quoteForm.estimatedDuration}
-                      onChange={handleQuoteFormChange}
-                      placeholder="e.g., 1-2 hours"
-                      required
-                    />
-                  </div>
-
                   <div className="md:col-span-2">
                     <SchedulePicker
                       date={quoteForm.proposedServiceDate}
@@ -1306,11 +1277,11 @@ export default function SubcontractorBidding() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 rounded-xl px-5 font-semibold"
+                    className="h-10 rounded-xl px-5 font-semibold w-full sm:w-auto"
                     onClick={() => {
                       setShowQuoteForm(false);
                       setSelectedBidding(null);
@@ -1322,7 +1293,7 @@ export default function SubcontractorBidding() {
                     type="button"
                     onClick={handleSubmitQuote}
                     loading={submitting} disabled={submitting}
-                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
+                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25 w-full sm:w-auto"
                   >
                     <Stethoscope className="h-4 w-4" />
                     {submitting ? 'Submitting...' : 'Submit Diagnostic Bid'}

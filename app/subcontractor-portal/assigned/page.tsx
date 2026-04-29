@@ -900,7 +900,7 @@ export default function SubcontractorAssignedJobs() {
               className="pl-10"
             />
           </div>
-          <div className="flex bg-muted rounded-lg p-1 gap-1 flex-shrink-0">
+          <div className="flex bg-muted rounded-lg p-1 gap-1 flex-shrink-0 overflow-x-auto">
             {filterOptions.map(option => (
               <button
                 key={option.value}
@@ -1058,8 +1058,8 @@ export default function SubcontractorAssignedJobs() {
         {/* Accept Assignment Modal */}
         {showAcceptModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
+            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
                 <h2 className="text-xl font-bold text-foreground">Schedule Service</h2>
                 <Button
                   variant="outline"
@@ -1074,7 +1074,7 @@ export default function SubcontractorAssignedJobs() {
                 </Button>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <p className="text-sm text-muted-foreground">
                   Please select the scheduled date and arrival time window for this job:
                 </p>
@@ -1126,9 +1126,20 @@ export default function SubcontractorAssignedJobs() {
                   </p>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t">
                   <Button
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      setShowAcceptModal(false);
+                      setAcceptingJobId(null);
+                      setAcceptingWorkOrderId(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
                     onClick={handleConfirmAccept}
                     disabled={acceptSubmitting}
                   >
@@ -1137,16 +1148,6 @@ export default function SubcontractorAssignedJobs() {
                     ) : (
                       <><CheckCircle className="h-4 w-4 mr-2" />Approve Work Order</>
                     )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowAcceptModal(false);
-                      setAcceptingJobId(null);
-                      setAcceptingWorkOrderId(null);
-                    }}
-                  >
-                    Cancel
                   </Button>
                 </div>
               </div>
@@ -1157,8 +1158,8 @@ export default function SubcontractorAssignedJobs() {
         {/* Diagnostic Submission Modal */}
         {showDiagnosticModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-2xl max-w-lg w-full shadow-2xl">
-              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
+            <div className="bg-card rounded-2xl max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
                 <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                   <Stethoscope className="h-5 w-5 text-indigo-600" />
                   Submit Diagnostic
@@ -1173,7 +1174,7 @@ export default function SubcontractorAssignedJobs() {
                 </Button>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div className="rounded-lg bg-indigo-50 border border-indigo-200 p-3 text-sm text-indigo-900">
                   Submit your diagnostic findings. The admin will review and decide whether to approve a repair.
                   If the client approves the repair, the diagnostic fee will be waived. If the repair is declined,
@@ -1228,9 +1229,17 @@ export default function SubcontractorAssignedJobs() {
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t">
                   <Button
-                    className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => setShowDiagnosticModal(false)}
+                    disabled={diagnosticSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 w-full sm:w-auto"
                     onClick={handleSubmitDiagnostic}
                     disabled={diagnosticSubmitting}
                   >
@@ -1239,13 +1248,6 @@ export default function SubcontractorAssignedJobs() {
                     ) : (
                       <><Stethoscope className="h-4 w-4 mr-2" />Submit Diagnostic</>
                     )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowDiagnosticModal(false)}
-                    disabled={diagnosticSubmitting}
-                  >
-                    Cancel
                   </Button>
                 </div>
               </div>
@@ -1257,7 +1259,7 @@ export default function SubcontractorAssignedJobs() {
         {showRepairQuoteModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
+              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
                 <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                   <Wrench className="h-5 w-5 text-emerald-600" />
                   Submit Repair Quote
@@ -1272,7 +1274,7 @@ export default function SubcontractorAssignedJobs() {
                 </Button>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-4 sm:p-6 space-y-4">
                 <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-900 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                   <span>
@@ -1380,9 +1382,17 @@ export default function SubcontractorAssignedJobs() {
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t">
                   <Button
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => setShowRepairQuoteModal(false)}
+                    disabled={repairQuoteSubmitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
                     onClick={handleSubmitRepairQuote}
                     disabled={repairQuoteSubmitting}
                   >
@@ -1391,13 +1401,6 @@ export default function SubcontractorAssignedJobs() {
                     ) : (
                       <><Wrench className="h-4 w-4 mr-2" />Submit Repair Quote</>
                     )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowRepairQuoteModal(false)}
-                    disabled={repairQuoteSubmitting}
-                  >
-                    Cancel
                   </Button>
                 </div>
               </div>
@@ -1412,7 +1415,7 @@ export default function SubcontractorAssignedJobs() {
           return (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
-                <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
+                <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
                   <h2 className="text-xl font-bold text-foreground">
                     {isDeclinedFlow ? 'Close Out Declined Repair' : 'Complete Work Order'}
                   </h2>
@@ -1430,7 +1433,7 @@ export default function SubcontractorAssignedJobs() {
                   </Button>
                 </div>
 
-                <div className="p-6 space-y-4">
+                <div className="p-4 sm:p-6 space-y-4">
                   {isDeclinedFlow ? (
                     <div className="rounded-lg bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900 flex items-start gap-2">
                       <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -1526,20 +1529,10 @@ export default function SubcontractorAssignedJobs() {
                     )}
                   </div>
 
-                  <div className="flex gap-3 pt-4 border-t">
-                    <Button
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                      onClick={handleConfirmComplete}
-                      disabled={completionSubmitting || uploadingFiles}
-                    >
-                      {completionSubmitting || uploadingFiles ? (
-                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{uploadingFiles ? 'Uploading Files...' : 'Saving...'}</>
-                      ) : (
-                        <><CheckCircle className="h-4 w-4 mr-2" />Mark as Complete</>
-                      )}
-                    </Button>
+                  <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t">
                     <Button
                       variant="outline"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setShowCompletionModal(false);
                         setCompletingWorkOrderId(null);
@@ -1550,6 +1543,17 @@ export default function SubcontractorAssignedJobs() {
                       }}
                     >
                       Cancel
+                    </Button>
+                    <Button
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 w-full sm:w-auto"
+                      onClick={handleConfirmComplete}
+                      disabled={completionSubmitting || uploadingFiles}
+                    >
+                      {completionSubmitting || uploadingFiles ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{uploadingFiles ? 'Uploading Files...' : 'Saving...'}</>
+                      ) : (
+                        <><CheckCircle className="h-4 w-4 mr-2" />Mark as Complete</>
+                      )}
                     </Button>
                   </div>
                 </div>
