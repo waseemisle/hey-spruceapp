@@ -57,6 +57,20 @@ service cloud.firestore {
           request.resource.data.status == 'quotes_received'
         ) ||
         (
+          // Bidding subs may attach Diagnostic Results to the parent WO so
+          // admin and client see them on the work-order detail pages.
+          resource.data.biddingSubcontractors != null &&
+          request.auth.uid in resource.data.biddingSubcontractors &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'diagnosticResults',
+            'diagnosticResultsImages',
+            'diagnosticResultsSubmittedAt',
+            'diagnosticResultsBy',
+            'updatedAt',
+            'timeline'
+          ])
+        ) ||
+        (
           (
             resource.data.assignedSubcontractor == request.auth.uid ||
             resource.data.assignedTo == request.auth.uid
@@ -278,9 +292,13 @@ service cloud.firestore {
           request.resource.data.workOrderId == resource.data.workOrderId &&
           request.resource.data.clientId == resource.data.clientId &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly([
-            'status', 'quotedAt', 'updatedAt', 'rejectedAt', 'rejectedBy'
+            'status', 'quotedAt', 'updatedAt', 'rejectedAt', 'rejectedBy',
+            'diagnosticResults', 'diagnosticResultsImages', 'diagnosticResultsSubmittedAt'
           ]) &&
-          request.resource.data.status in ['pending', 'quoted', 'declined', 'rejected', 'diagnostic_requested']
+          request.resource.data.status in [
+            'pending', 'quoted', 'declined', 'rejected',
+            'diagnostic_requested', 'diagnostic_results_submitted'
+          ]
         )
       );
     }
