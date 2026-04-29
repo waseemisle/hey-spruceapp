@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, DollarSign, Search, Stethoscope, AlertCircle, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, DollarSign, Search, Stethoscope, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
@@ -1049,14 +1049,6 @@ export default function SubcontractorBidding() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-2xl bg-white/70 border border-emerald-200/60 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200 flex items-start gap-2.5 mb-6">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600" />
-                <span>
-                  Submit your complete quote for this job (labor + materials). Once the client
-                  approves it, the work order will be assigned to you.
-                </span>
-              </div>
-
               <form className="space-y-6">
                 <SchedulePicker
                   date={directQuoteServiceDate}
@@ -1075,6 +1067,13 @@ export default function SubcontractorBidding() {
                       <Plus className="h-3.5 w-3.5" /> Add Item
                     </Button>
                   </div>
+                  <div className="hidden sm:grid grid-cols-12 gap-2 px-1 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="col-span-5">Description</div>
+                    <div className="col-span-2">Quantity</div>
+                    <div className="col-span-2">Rate</div>
+                    <div className="col-span-2 text-right">Total</div>
+                    <div className="col-span-1" />
+                  </div>
                   <div className="space-y-2">
                     {directQuoteLineItems.map((item, idx) => (
                       <div key={idx} className="grid grid-cols-12 gap-2 items-end">
@@ -1087,24 +1086,25 @@ export default function SubcontractorBidding() {
                           />
                         </div>
                         <div className="col-span-3 sm:col-span-2">
-                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Qty</Label>
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Quantity</Label>
                           <Input
                             type="number" min="0" step="0.01"
-                            placeholder="Qty"
-                            value={item.quantity}
+                            placeholder="0"
+                            value={item.quantity || ''}
                             onChange={(e) => updateDirectLineItem(idx, 'quantity', e.target.value)}
                           />
                         </div>
                         <div className="col-span-3 sm:col-span-2">
-                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Unit $</Label>
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Rate</Label>
                           <Input
                             type="number" min="0" step="0.01"
-                            placeholder="Unit $"
-                            value={item.unitPrice}
+                            placeholder="0.00"
+                            value={item.unitPrice || ''}
                             onChange={(e) => updateDirectLineItem(idx, 'unitPrice', e.target.value)}
                           />
                         </div>
                         <div className="col-span-4 sm:col-span-2 text-right text-sm font-semibold tabular-nums self-center sm:self-end">
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground text-left block">Total</Label>
                           ${item.amount.toFixed(2)}
                         </div>
                         <div className="col-span-2 sm:col-span-1 flex justify-end self-center sm:self-end">
@@ -1264,20 +1264,10 @@ export default function SubcontractorBidding() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
                 <Stethoscope className="h-5 w-5" />
-                Diagnostic Bid
+                Diagnostic Request
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-2xl bg-white/70 border border-indigo-200/60 px-4 py-3 text-sm text-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-200 flex items-start gap-2.5 mb-6">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-indigo-600" />
-                <span>
-                  Bid the <strong>diagnostic fee</strong> for the initial service visit. After the
-                  client approves this diagnostic fee, you'll be able to <strong>submit a repair quote</strong>.
-                  If the client approves the repair, the final invoice will include <strong>both the diagnostic fee
-                  and the repair amount</strong>. If the client declines the repair, only the diagnostic fee will be billed.
-                </span>
-              </div>
-
               <form className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
