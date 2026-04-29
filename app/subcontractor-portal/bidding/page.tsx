@@ -112,54 +112,64 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
   const canGoBack = toLocalIso(weekStart) > todayIso;
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => { const prev = new Date(weekStart); prev.setDate(prev.getDate() - 7); setWeekStart(prev < today ? today : prev); }}
-        disabled={!canGoBack}
-        aria-label="Previous week"
-        className="h-10 w-10 shrink-0 rounded-xl border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
+    <>
+      {/* Mobile: native date input — always fits, no overflow */}
+      <input
+        type="date"
+        className={`sm:hidden w-full h-12 rounded-xl border ${styles.panelBorder} bg-white px-4 text-base font-semibold text-foreground focus:outline-none focus-visible:ring-2 ${styles.ring}`}
+        min={todayIso}
+        value={value || todayIso}
+        onChange={(e) => onChange(e.target.value)}
+      />
 
-      <div className="flex-1 min-w-0 rounded-2xl border border-border bg-white p-1.5 overflow-x-auto">
-        <div className="flex sm:grid sm:grid-cols-7 gap-1.5 min-w-max sm:min-w-0">
-        {days.map((d) => {
-          const iso = toLocalIso(d);
-          const isSelected = value === iso;
-          const isPast = iso < todayIso;
-          return (
-            <button
-              type="button"
-              key={iso}
-              disabled={isPast}
-              onClick={() => onChange(iso)}
-              aria-pressed={isSelected}
-              className={`flex flex-col items-center justify-center rounded-xl px-2 sm:px-1 py-2.5 text-center transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0 w-12 sm:w-auto ${isSelected ? styles.pillSelected + ' border-transparent' : 'bg-white text-foreground hover:bg-muted'}`}
-            >
-              <span className={`text-[10px] font-semibold uppercase tracking-wide ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
-                {d.toLocaleDateString('en-US', { weekday: 'short' })}
-              </span>
-              <span className="text-lg font-bold leading-none mt-1 tabular-nums">{d.getDate()}</span>
-              <span className={`text-[10px] font-medium mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
-                {d.toLocaleDateString('en-US', { month: 'short' })}
-              </span>
-            </button>
-          );
-        })}
+      {/* sm+: visual week strip */}
+      <div className="hidden sm:flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => { const prev = new Date(weekStart); prev.setDate(prev.getDate() - 7); setWeekStart(prev < today ? today : prev); }}
+          disabled={!canGoBack}
+          aria-label="Previous week"
+          className="h-10 w-10 shrink-0 rounded-xl border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        <div className="flex-1 min-w-0 grid grid-cols-7 gap-1.5 rounded-2xl border border-border bg-white p-1.5">
+          {days.map((d) => {
+            const iso = toLocalIso(d);
+            const isSelected = value === iso;
+            const isPast = iso < todayIso;
+            return (
+              <button
+                type="button"
+                key={iso}
+                disabled={isPast}
+                onClick={() => onChange(iso)}
+                aria-pressed={isSelected}
+                className={`flex flex-col items-center justify-center rounded-xl px-1 py-2.5 text-center transition-all disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? styles.pillSelected + ' border-transparent' : 'bg-white text-foreground hover:bg-muted'}`}
+              >
+                <span className={`text-[10px] font-semibold uppercase tracking-wide ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
+                  {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                </span>
+                <span className="text-lg font-bold leading-none mt-1 tabular-nums">{d.getDate()}</span>
+                <span className={`text-[10px] font-medium mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
+                  {d.toLocaleDateString('en-US', { month: 'short' })}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      </div>
 
-      <button
-        type="button"
-        onClick={() => { const next = new Date(weekStart); next.setDate(next.getDate() + 7); setWeekStart(next); }}
-        aria-label="Next week"
-        className="h-10 w-10 shrink-0 rounded-xl border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    </div>
+        <button
+          type="button"
+          onClick={() => { const next = new Date(weekStart); next.setDate(next.getDate() + 7); setWeekStart(next); }}
+          aria-label="Next week"
+          className="h-10 w-10 shrink-0 rounded-xl border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -167,7 +177,7 @@ function TimeSlotGrid({ slots, value, onChange, accent, columns = 3 }: { slots: 
   const styles = ACCENT[accent];
   const colCls = columns === 4 ? 'sm:grid-cols-3 lg:grid-cols-4' : 'sm:grid-cols-3';
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 ${colCls} gap-2.5`}>
+    <div className={`grid grid-cols-2 ${colCls} gap-2.5`}>
       {slots.map((slot) => {
         const isSelected = value === slot;
         return (

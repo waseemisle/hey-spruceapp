@@ -360,7 +360,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </nav>
         </aside>
 
-        <main className="flex-1 md:ml-64">
+        <main className="flex-1 md:ml-64 min-w-0 overflow-x-hidden">
           <div className="p-4 md:p-6 space-y-4">
             <div className="flex items-center gap-4">
               <ViewControls className="flex-1" />

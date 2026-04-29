@@ -532,7 +532,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
       )}
 
       {/* ── Main content — offset 56px (mobile, no subnav) / 96px (md+, with subnav) ── */}
-      <main className="pt-14 md:pt-24">
+      <main className="pt-14 md:pt-24 overflow-x-hidden">
         <div className="p-4 md:p-6 space-y-4">
           <div className="flex items-center gap-4">
             {headerExtra}
