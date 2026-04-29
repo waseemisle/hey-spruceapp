@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react';
 import { onSnapshot, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
 import ProposalsSection from '@/components/dashboard/proposals-section';
 import InvoicesSection from '@/components/dashboard/invoices-section';
@@ -204,10 +203,6 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const handleSearch = (searchType: string, searchValue: string) => {
-    console.log('Search:', searchType, searchValue);
-  };
-
   const selectedCompany = companies.find(c => c.id === selectedCompanyId);
 
   const filteredCompanies = companies.filter(c =>
@@ -217,9 +212,6 @@ export default function AdminDashboard() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-muted">
-        {/* Search Bar */}
-        <DashboardSearchBar portalType="admin" onSearch={handleSearch} />
-
         {/* Main Content */}
         <div className="p-4 sm:p-6 space-y-6">
           {/* Header + Company Selector */}
