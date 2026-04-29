@@ -749,17 +749,6 @@ export default function SubcontractorsManagement() {
                     />
                   </div>
 
-                  {editingId && (
-                    <div className="md:col-span-2">
-                      <Label className="text-sm font-medium text-foreground">Password (View Only)</Label>
-                      <Input type="text" value={formData.password || ''} readOnly className="mt-1 bg-muted cursor-default font-mono" placeholder="Not set yet" />
-                      <p className={`text-xs mt-1 flex items-center gap-1 ${formData.password ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${formData.password ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                        {formData.password ? 'Password set by subcontractor' : 'Waiting for subcontractor to set password'}
-                      </p>
-                    </div>
-                  )}
-
                   <div className="md:col-span-2">
                     <Label className="text-sm font-medium text-foreground">Skills *</Label>
                     <SearchableMultiSelect
@@ -775,6 +764,19 @@ export default function SubcontractorsManagement() {
                     />
                   </div>
                 </div>
+
+                {editingId && (
+                  <div className="flex justify-end">
+                    <div className="text-right w-full max-w-[240px]">
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Password (View Only)</Label>
+                      <Input type="text" value={formData.password || ''} readOnly className="mt-0.5 h-7 text-xs bg-muted cursor-default font-mono text-right" placeholder="Not set yet" />
+                      <p className={`text-[10px] mt-0.5 flex items-center justify-end gap-1 ${formData.password ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        <span className={`inline-block w-1 h-1 rounded-full ${formData.password ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                        {formData.password ? 'Set by subcontractor' : 'Awaiting setup'}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-4 border-t border-border">
                   <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>

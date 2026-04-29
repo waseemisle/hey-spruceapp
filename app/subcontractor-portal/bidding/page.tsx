@@ -817,21 +817,57 @@ export default function SubcontractorBidding() {
             icon={ClipboardList}
             iconClassName="text-blue-600"
             action={
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => setViewWorkOrder(null)}>
                   Back
                 </Button>
                 {viewWorkOrder.status === 'pending' && (
+                  <>
+                    <Button
+                      className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25"
+                      onClick={() => {
+                        openDirectQuoteForm(viewWorkOrder);
+                        setViewWorkOrder(null);
+                      }}
+                    >
+                      <FileText className="h-4 w-4" />
+                      Submit Quote
+                    </Button>
+                    <Button
+                      className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
+                      onClick={() => {
+                        setSelectedBidding(viewWorkOrder);
+                        setShowQuoteForm(true);
+                        setViewWorkOrder(null);
+                      }}
+                    >
+                      <Stethoscope className="h-4 w-4" />
+                      Submit Diagnostic Request
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-10 rounded-xl px-4 font-semibold gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300"
+                      disabled={rejectingId === viewWorkOrder.id}
+                      onClick={async () => {
+                        await handleRejectBidding(viewWorkOrder);
+                        setViewWorkOrder(null);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                      {rejectingId === viewWorkOrder.id ? 'Rejecting…' : 'Reject Quote Request'}
+                    </Button>
+                  </>
+                )}
+                {viewWorkOrder.status === 'diagnostic_accepted' && (
                   <Button
-                    className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
+                    className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25"
                     onClick={() => {
-                      setSelectedBidding(viewWorkOrder);
-                      setShowQuoteForm(true);
+                      openDirectQuoteForm(viewWorkOrder);
                       setViewWorkOrder(null);
                     }}
                   >
-                    <Stethoscope className="h-4 w-4" />
-                    Submit Diagnostic Bid
+                    <FileText className="h-4 w-4" />
+                    Submit Quote
                   </Button>
                 )}
               </div>
@@ -1117,7 +1153,7 @@ export default function SubcontractorBidding() {
       <SubcontractorLayout>
         <PageContainer>
           <PageHeader
-            title="Submit Diagnostic Bid"
+            title="Submit Diagnostic Request"
             subtitle={selectedBidding.workOrderNumber ? `Work Order: ${selectedBidding.workOrderNumber}` : selectedBidding.workOrderTitle}
             icon={Stethoscope}
             iconClassName="text-indigo-600"
@@ -1308,7 +1344,7 @@ export default function SubcontractorBidding() {
                     className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25 w-full sm:w-auto"
                   >
                     <Stethoscope className="h-4 w-4" />
-                    {submitting ? 'Submitting...' : 'Submit Diagnostic Bid'}
+                    {submitting ? 'Submitting...' : 'Submit Diagnostic Request'}
                   </Button>
                 </div>
               </form>
