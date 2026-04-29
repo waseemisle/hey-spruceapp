@@ -117,7 +117,7 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
       const [y, m, d] = value.split('-').map(Number);
       const picked = new Date(y, (m || 1) - 1, d || 1);
       picked.setHours(0, 0, 0, 0);
-      return picked < today ? today : picked;
+      return picked;
     }
     return today;
   });
@@ -127,15 +127,12 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
     [weekStart],
   );
 
-  const canGoBack = toLocalIso(weekStart) > todayIso;
-
   return (
     <>
       {/* Mobile: native date input — always fits, no overflow */}
       <input
         type="date"
         className={`sm:hidden w-full h-12 rounded-xl border ${styles.panelBorder} bg-white px-4 text-base font-semibold text-foreground focus:outline-none focus-visible:ring-2 ${styles.ring}`}
-        min={todayIso}
         value={value || todayIso}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -144,10 +141,9 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
       <div className="hidden sm:flex items-center gap-2">
         <button
           type="button"
-          onClick={() => { const prev = new Date(weekStart); prev.setDate(prev.getDate() - 7); setWeekStart(prev < today ? today : prev); }}
-          disabled={!canGoBack}
+          onClick={() => { const prev = new Date(weekStart); prev.setDate(prev.getDate() - 7); setWeekStart(prev); }}
           aria-label="Previous week"
-          className="h-10 w-10 shrink-0 rounded-xl border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="h-10 w-10 shrink-0 rounded-xl border border-border bg-white flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -156,15 +152,13 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
           {days.map((d) => {
             const iso = toLocalIso(d);
             const isSelected = value === iso;
-            const isPast = iso < todayIso;
             return (
               <button
                 type="button"
                 key={iso}
-                disabled={isPast}
                 onClick={() => onChange(iso)}
                 aria-pressed={isSelected}
-                className={`flex flex-col items-center justify-center rounded-xl px-1 py-2.5 text-center transition-all disabled:opacity-30 disabled:cursor-not-allowed ${isSelected ? styles.pillSelected + ' border-transparent' : 'bg-white text-foreground hover:bg-muted'}`}
+                className={`flex flex-col items-center justify-center rounded-xl px-1 py-2.5 text-center transition-all ${isSelected ? styles.pillSelected + ' border-transparent' : 'bg-white text-foreground hover:bg-muted'}`}
               >
                 <span className={`text-[10px] font-semibold uppercase tracking-wide ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
                   {d.toLocaleDateString('en-US', { weekday: 'short' })}
