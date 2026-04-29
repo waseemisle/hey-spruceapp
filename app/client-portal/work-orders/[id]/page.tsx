@@ -1023,9 +1023,17 @@ export default function ViewClientWorkOrder() {
                         {Array.isArray((workOrder as any).diagnosticResultsImages) && (workOrder as any).diagnosticResultsImages.length > 0 && (
                           <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                             {(workOrder as any).diagnosticResultsImages.map((url: string, idx: number) => (
-                              <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:border-indigo-400 transition-colors">
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setLightboxImages((workOrder as any).diagnosticResultsImages || []);
+                                  setLightboxIndex(idx);
+                                }}
+                                className="block rounded-lg overflow-hidden border border-border hover:border-indigo-400 transition-colors cursor-pointer"
+                              >
                                 <img src={url} alt={`Diagnostic result ${idx + 1}`} className="h-20 w-full object-cover" />
-                              </a>
+                              </button>
                             ))}
                           </div>
                         )}
