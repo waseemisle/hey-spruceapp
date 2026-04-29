@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatAddress } from '@/lib/utils';
 import { toast } from 'sonner';
+import { buildQuoteCalendarEvent, QuoteLikeForCalendar } from '@/lib/calendar-utils';
 
 interface WorkOrder {
   id: string;
@@ -40,13 +41,16 @@ interface CalendarEvent {
   extendedProps: {
     workOrderId: string;
     workOrderNumber: string;
-    locationName: string;
-    locationAddress: string;
-    clientName: string;
+    locationName?: string;
+    locationAddress?: string;
+    clientName?: string;
     status: string;
-    category: string;
+    category?: string;
     isRecurring?: boolean;
     isRecurringTemplate?: boolean;
+    isQuoteEvent?: boolean;
+    isDiagnosticQuote?: boolean;
+    quoteId?: string;
   };
 }
 
@@ -63,6 +67,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
+  const [quotes, setQuotes] = useState<QuoteLikeForCalendar[]>([]);
   const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar>(null);
 
@@ -97,9 +102,17 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
       setRecurringWorkOrders(recurringData);
     });
 
+    // Listen to all quotes (diagnostic requests + regular quotes)
+    const quotesQuery = query(collection(db, 'quotes'));
+    const unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
+      const quotesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[];
+      setQuotes(quotesData);
+    });
+
     return () => {
       unsubscribeWorkOrders();
       unsubscribeRecurring();
+      unsubscribeQuotes();
     };
   }, []);
 
@@ -370,9 +383,43 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
       }
     }
 
-    // Combine both event types
-    setEvents([...workOrderEvents, ...recurringEvents]);
-  }, [workOrders, recurringWorkOrders, selectedClients, selectedLocations, selectedStatuses, companyId, companyClientIds]);
+    // Quote / Diagnostic Request events from the quotes collection
+    let filteredQuotes = quotes;
+    if (companyClientIds && companyClientIds.length > 0) {
+      const allowed = new Set(companyClientIds);
+      filteredQuotes = filteredQuotes.filter(q => (q as any).clientId && allowed.has((q as any).clientId));
+    }
+    if (selectedClients && selectedClients.length > 0) {
+      filteredQuotes = filteredQuotes.filter(q => q.clientName && selectedClients.includes(q.clientName));
+    }
+
+    const quoteEvents: CalendarEvent[] = filteredQuotes
+      .map(q => buildQuoteCalendarEvent(q, 'admin'))
+      .filter((e): e is NonNullable<typeof e> => e !== null)
+      .map(e => ({
+        id: e.id,
+        title: e.title,
+        start: e.start,
+        end: e.end,
+        backgroundColor: e.backgroundColor,
+        borderColor: e.borderColor,
+        textColor: e.textColor,
+        url: e.url,
+        editable: false,
+        extendedProps: {
+          workOrderId: e.extendedProps.workOrderId,
+          workOrderNumber: e.extendedProps.workOrderNumber,
+          status: e.extendedProps.status,
+          isQuoteEvent: true,
+          isDiagnosticQuote: e.extendedProps.isDiagnosticQuote,
+          quoteId: e.extendedProps.quoteId,
+          clientName: e.extendedProps.clientName,
+        },
+      }));
+
+    // Combine all event types
+    setEvents([...workOrderEvents, ...recurringEvents, ...quoteEvents]);
+  }, [workOrders, recurringWorkOrders, quotes, selectedClients, selectedLocations, selectedStatuses, companyId, companyClientIds]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -413,10 +460,17 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
   const handleEventDrop = async (dropInfo: any) => {
     const eventId = String(dropInfo.event.id || '');
     const isRecurringTemplateEvent = eventId.startsWith('recurring-') || dropInfo.event.extendedProps?.isRecurringTemplate;
+    const isQuoteEvent = eventId.startsWith('quote-') || dropInfo.event.extendedProps?.isQuoteEvent;
 
     if (isRecurringTemplateEvent) {
       dropInfo.revert();
       toast.error('Recurring work orders cannot be rescheduled from the calendar. Edit the recurrence pattern instead.');
+      return;
+    }
+
+    if (isQuoteEvent) {
+      dropInfo.revert();
+      toast.error('Quote / Diagnostic Request times cannot be rescheduled from the calendar.');
       return;
     }
 

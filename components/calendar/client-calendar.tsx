@@ -13,6 +13,7 @@ import { RecurringWorkOrder } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatAddress } from '@/lib/utils';
+import { buildQuoteCalendarEvent, QuoteLikeForCalendar } from '@/lib/calendar-utils';
 
 interface WorkOrder {
   id: string;
@@ -37,14 +38,18 @@ interface CalendarEvent {
   backgroundColor: string;
   borderColor: string;
   textColor: string;
+  url?: string;
   extendedProps: {
     workOrderId: string;
     workOrderNumber: string;
-    locationName: string;
-    locationAddress: string;
+    locationName?: string;
+    locationAddress?: string;
     status: string;
-    category: string;
+    category?: string;
     isRecurring?: boolean;
+    isQuoteEvent?: boolean;
+    isDiagnosticQuote?: boolean;
+    quoteId?: string;
   };
 }
 
@@ -57,6 +62,7 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
+  const [quotes, setQuotes] = useState<QuoteLikeForCalendar[]>([]);
   const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar>(null);
 
@@ -200,9 +206,17 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
       }
     };
 
+    let unsubscribeQuotes: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         setupListeners(firebaseUser);
+
+        const quotesQuery = query(collection(db, 'quotes'), where('clientId', '==', firebaseUser.uid));
+        unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
+          const quotesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[];
+          setQuotes(quotesData);
+        });
       }
     });
 
@@ -210,6 +224,7 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
       unsubscribeAuth();
       unsubscribeWorkOrders?.();
       unsubscribeRecurring?.();
+      unsubscribeQuotes?.();
     };
   }, []);
 
@@ -326,9 +341,32 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
         };
       });
 
+    // Quote / Diagnostic Request events from the quotes collection
+    const quoteEvents: CalendarEvent[] = quotes
+      .map(q => buildQuoteCalendarEvent(q, 'client'))
+      .filter((e): e is NonNullable<typeof e> => e !== null)
+      .map(e => ({
+        id: e.id,
+        title: e.title,
+        start: e.start,
+        end: e.end,
+        backgroundColor: e.backgroundColor,
+        borderColor: e.borderColor,
+        textColor: e.textColor,
+        url: e.url,
+        extendedProps: {
+          workOrderId: e.extendedProps.workOrderId,
+          workOrderNumber: e.extendedProps.workOrderNumber,
+          status: e.extendedProps.status,
+          isQuoteEvent: true,
+          isDiagnosticQuote: e.extendedProps.isDiagnosticQuote,
+          quoteId: e.extendedProps.quoteId,
+        },
+      }));
+
     // Combine both event types
-    setEvents([...workOrderEvents, ...recurringEvents]);
-  }, [workOrders, recurringWorkOrders, selectedLocations]);
+    setEvents([...workOrderEvents, ...recurringEvents, ...quoteEvents]);
+  }, [workOrders, recurringWorkOrders, quotes, selectedLocations]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -351,8 +389,18 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
   };
 
   const handleEventClick = (clickInfo: any) => {
-    const { workOrderId } = clickInfo.event.extendedProps;
-    const isRecurringTemplateEvent = String(clickInfo.event.id || '').startsWith('recurring-');
+    const { workOrderId, isQuoteEvent, isDiagnosticQuote, quoteId } = clickInfo.event.extendedProps;
+    const eventId = String(clickInfo.event.id || '');
+    const isRecurringTemplateEvent = eventId.startsWith('recurring-');
+    if (isQuoteEvent) {
+      const target = isDiagnosticQuote
+        ? `/client-portal/diagnostic-requests/${quoteId}`
+        : workOrderId
+          ? `/client-portal/work-orders/${workOrderId}`
+          : '/client-portal/quotes';
+      window.location.href = target;
+      return;
+    }
     if (onEventClick) {
       onEventClick(workOrderId);
     } else {

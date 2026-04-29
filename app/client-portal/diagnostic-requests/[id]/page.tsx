@@ -263,11 +263,6 @@ export default function ClientDiagnosticRequestDetail() {
                   <p className="text-3xl font-bold text-indigo-700">${displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
               </div>
-              <p className="mt-3 text-xs text-indigo-900">
-                This fee covers the subcontractor's inspection visit. Once approved, they'll visit the site
-                and submit a repair quote for your review. The final invoice will include both the diagnostic
-                fee and the approved repair amount.
-              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -282,7 +277,7 @@ export default function ClientDiagnosticRequestDetail() {
                 <div className="flex items-start gap-2">
                   <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Proposed Service</p>
+                    <p className="text-xs font-medium text-muted-foreground">Diagnostic Service Date Time</p>
                     <p className="text-sm text-foreground">
                       {serviceDate.toLocaleDateString()}
                       {quote.proposedServiceTime ? ` at ${quote.proposedServiceTime}` : ''}

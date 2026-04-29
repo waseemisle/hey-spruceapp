@@ -12,6 +12,7 @@ import { db, auth } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatAddress } from '@/lib/utils';
+import { buildQuoteCalendarEvent, QuoteLikeForCalendar } from '@/lib/calendar-utils';
 
 interface AssignedJob {
   id: string;
@@ -43,14 +44,18 @@ interface CalendarEvent {
   backgroundColor: string;
   borderColor: string;
   textColor: string;
+  url?: string;
   extendedProps: {
     workOrderId: string;
     workOrderNumber: string;
-    locationName: string;
-    locationAddress: string;
-    clientName: string;
+    locationName?: string;
+    locationAddress?: string;
+    clientName?: string;
     status: string;
-    category: string;
+    category?: string;
+    isQuoteEvent?: boolean;
+    isDiagnosticQuote?: boolean;
+    quoteId?: string;
   };
 }
 
@@ -58,10 +63,14 @@ export default function SubcontractorCalendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [assignedJobs, setAssignedJobs] = useState<AssignedJob[]>([]);
   const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
+  const [quotes, setQuotes] = useState<QuoteLikeForCalendar[]>([]);
   const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek'>('dayGridMonth');
   const calendarRef = useRef<FullCalendar>(null);
 
   useEffect(() => {
+    let unsubscribeAssigned: (() => void) | null = null;
+    let unsubscribeQuotes: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (!user) return;
 
@@ -72,7 +81,7 @@ export default function SubcontractorCalendar() {
         where('status', 'in', ['pending_acceptance', 'accepted'])
       );
 
-      const unsubscribeAssigned = onSnapshot(assignedQuery, (snapshot) => {
+      unsubscribeAssigned = onSnapshot(assignedQuery, (snapshot) => {
         const assignedData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -98,16 +107,25 @@ export default function SubcontractorCalendar() {
         }
       });
 
-      return () => unsubscribeAssigned();
+      // Listen to this subcontractor's submitted quotes / diagnostic requests
+      const quotesQuery = query(collection(db, 'quotes'), where('subcontractorId', '==', user.uid));
+      unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
+        const quotesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[];
+        setQuotes(quotesData);
+      });
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeAssigned?.();
+      unsubscribeQuotes?.();
+    };
   }, []);
 
   useEffect(() => {
     // Convert assigned jobs to calendar events
     const calendarEvents: CalendarEvent[] = assignedJobs
-      .map(job => {
+      .map((job): CalendarEvent | null => {
         const workOrder = workOrders.get(job.workOrderId);
         if (!workOrder) return null;
         // Exclude archived work orders from the calendar
@@ -180,8 +198,30 @@ export default function SubcontractorCalendar() {
       })
       .filter((event): event is CalendarEvent => event !== null);
 
-    setEvents(calendarEvents);
-  }, [assignedJobs, workOrders]);
+    const quoteEvents: CalendarEvent[] = quotes
+      .map(q => buildQuoteCalendarEvent(q, 'subcontractor'))
+      .filter((e): e is NonNullable<typeof e> => e !== null)
+      .map(e => ({
+        id: e.id,
+        title: e.title,
+        start: e.start,
+        end: e.end,
+        backgroundColor: e.backgroundColor,
+        borderColor: e.borderColor,
+        textColor: e.textColor,
+        url: e.url,
+        extendedProps: {
+          workOrderId: e.extendedProps.workOrderId,
+          workOrderNumber: e.extendedProps.workOrderNumber,
+          status: e.extendedProps.status,
+          isQuoteEvent: true,
+          isDiagnosticQuote: e.extendedProps.isDiagnosticQuote,
+          quoteId: e.extendedProps.quoteId,
+        },
+      }));
+
+    setEvents([...calendarEvents, ...quoteEvents]);
+  }, [assignedJobs, workOrders, quotes]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -201,7 +241,10 @@ export default function SubcontractorCalendar() {
   };
 
   const handleEventClick = (clickInfo: any) => {
-    window.location.href = `/subcontractor-portal/assigned`;
+    const { isQuoteEvent } = clickInfo.event.extendedProps || {};
+    window.location.href = isQuoteEvent
+      ? '/subcontractor-portal/bidding'
+      : '/subcontractor-portal/assigned';
   };
 
   return (

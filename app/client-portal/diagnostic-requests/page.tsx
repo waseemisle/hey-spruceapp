@@ -299,7 +299,7 @@ export default function ClientDiagnosticRequests() {
                     {quote.proposedServiceDate && (
                       <span className="flex items-center gap-1 text-blue-700">
                         <Calendar className="h-3.5 w-3.5 shrink-0" />
-                        Service: {quote.proposedServiceDate?.toDate?.().toLocaleDateString() ||
+                        Diagnostic Service Date Time: {quote.proposedServiceDate?.toDate?.().toLocaleDateString() ||
                           new Date(quote.proposedServiceDate).toLocaleDateString()}
                         {quote.proposedServiceTime && ` at ${quote.proposedServiceTime}`}
                       </span>
