@@ -288,7 +288,19 @@ export default function ClientDiagnosticRequests() {
                       <DollarSign className="h-4 w-4 shrink-0" />
                       {displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                    {quote.workOrderNumber && <span>WO: {quote.workOrderNumber}</span>}
+                    {quote.workOrderNumber && (
+                      quote.workOrderId ? (
+                        <Link
+                          href={`/client-portal/work-orders/${quote.workOrderId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                        >
+                          WO: {quote.workOrderNumber}
+                        </Link>
+                      ) : (
+                        <span>WO: {quote.workOrderNumber}</span>
+                      )
+                    )}
                     <span>From: {quote.subcontractorName}</span>
                     {quote.sentToClientAt && (
                       <span className="flex items-center gap-1">

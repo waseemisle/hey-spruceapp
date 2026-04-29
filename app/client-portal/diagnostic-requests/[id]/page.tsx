@@ -10,6 +10,7 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Stethoscope, Check, X, Calendar, DollarSign, User, FileText, ClipboardList } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 
 interface DiagnosticQuote {
@@ -252,7 +253,18 @@ export default function ClientDiagnosticRequestDetail() {
             <div>
               <p className="text-xs font-medium text-muted-foreground">Work Order</p>
               <p className="text-lg font-semibold text-foreground">{quote.workOrderTitle}</p>
-              {quote.workOrderNumber && <p className="text-sm text-muted-foreground">WO #{quote.workOrderNumber}</p>}
+              {quote.workOrderNumber && (
+                quote.workOrderId ? (
+                  <Link
+                    href={`/client-portal/work-orders/${quote.workOrderId}`}
+                    className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                  >
+                    WO #{quote.workOrderNumber}
+                  </Link>
+                ) : (
+                  <p className="text-sm text-muted-foreground">WO #{quote.workOrderNumber}</p>
+                )
+              )}
             </div>
 
             <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4">

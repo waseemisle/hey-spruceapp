@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp, arrayUnion, writeBatch } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -827,6 +827,38 @@ export default function ViewWorkOrder() {
         updates.scheduledServiceTime = editForm.scheduledServiceTime;
       }
       await updateDoc(doc(db, 'workOrders', workOrder.id), updates);
+
+      // Propagate denormalized snapshots to bidding + quote child docs so
+      // sub bidding cards and client diagnostic-request views stay in sync.
+      try {
+        const denormalizedUpdate = {
+          workOrderTitle: updates.title,
+          workOrderDescription: updates.description,
+          priority: updates.priority || '',
+          category: updates.category || '',
+          locationName: updates.locationName || '',
+          locationAddress: updates.locationAddress || workOrder.locationAddress || '',
+          updatedAt: serverTimestamp(),
+        };
+        const [biddingSnap, quotesSnap] = await Promise.all([
+          getDocs(query(collection(db, 'biddingWorkOrders'), where('workOrderId', '==', workOrder.id))),
+          getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', workOrder.id))),
+        ]);
+        const totalChildDocs = biddingSnap.size + quotesSnap.size;
+        if (totalChildDocs > 0) {
+          const batch = writeBatch(db);
+          biddingSnap.docs.forEach(d => batch.update(d.ref, denormalizedUpdate));
+          quotesSnap.docs.forEach(d => batch.update(d.ref, {
+            workOrderTitle: updates.title,
+            workOrderDescription: updates.description,
+            updatedAt: serverTimestamp(),
+          }));
+          await batch.commit();
+        }
+      } catch (propagateError) {
+        console.error('Failed to propagate work order changes to bidding/quote docs:', propagateError);
+      }
+
       setWorkOrder(prev => prev ? {
         ...prev, ...updates,
         scheduledServiceDate: editForm.scheduledServiceDate ? { toDate: () => new Date(editForm.scheduledServiceDate) } : prev.scheduledServiceDate,
@@ -3178,13 +3210,31 @@ export default function ViewWorkOrder() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {(workOrder as any).diagnosticResults && (
+                    <div className="mb-4 rounded-xl border border-indigo-200/60 bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
+                      <h3 className="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-2 flex items-center gap-2">
+                        <Stethoscope className="h-4 w-4" />
+                        Diagnostic Results
+                        {(workOrder as any).diagnosticResultsBy?.name && (
+                          <span className="text-xs font-normal text-muted-foreground">— {(workOrder as any).diagnosticResultsBy.name}</span>
+                        )}
+                      </h3>
+                      <p className="text-foreground whitespace-pre-wrap text-sm">{(workOrder as any).diagnosticResults}</p>
+                      {Array.isArray((workOrder as any).diagnosticResultsImages) && (workOrder as any).diagnosticResultsImages.length > 0 && (
+                        <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                          {(workOrder as any).diagnosticResultsImages.map((url: string, idx: number) => (
+                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-border hover:border-indigo-400 transition-colors">
+                              <img src={url} alt={`Diagnostic result ${idx + 1}`} className="h-20 w-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {diagnosticRequests.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">No diagnostic requests received yet</p>
                   ) : (
                     <div className="space-y-3">
-                      <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm text-indigo-900">
-                        Diagnostic Requests are forwarded directly to the client for approval — no admin markup is required.
-                      </div>
                       {diagnosticRequests.map(quote => {
                         const amount = (quote as any).diagnosticFee ?? quote.totalAmount ?? 0;
                         const statusLabels: Record<string, string> = {
