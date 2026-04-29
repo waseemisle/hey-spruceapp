@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, DollarSign, Search, Stethoscope, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, Search, Stethoscope, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
@@ -20,7 +20,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
-const DEFAULT_DIAGNOSTIC_FEE = 30;
 
 // Predefined service time slots the subcontractor picks from. The chosen
 // label is stored verbatim on the quote and shown to client + admin
@@ -285,7 +284,7 @@ export default function SubcontractorBidding() {
   });
 
   /** Diagnostic fee for the initial visit — subcontractor bids this amount. Default $69. */
-  const [diagnosticFee, setDiagnosticFee] = useState<string>(DEFAULT_DIAGNOSTIC_FEE.toFixed(2));
+  const [diagnosticFee, setDiagnosticFee] = useState<string>('');
 
   // ─── Direct Submit Quote (no diagnostic) ───
   const [showDirectQuoteForm, setShowDirectQuoteForm] = useState(false);
@@ -780,7 +779,7 @@ export default function SubcontractorBidding() {
         proposedServiceTime: '',
         notes: '',
       });
-      setDiagnosticFee(DEFAULT_DIAGNOSTIC_FEE.toFixed(2));
+      setDiagnosticFee('');
     } catch (error) {
       console.error('Error submitting diagnostic bid:', error);
       toast.error('Failed to submit diagnostic bid');
@@ -1264,26 +1263,24 @@ export default function SubcontractorBidding() {
             <CardContent>
               <form className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="diagnosticFee" className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      Diagnostic Fee *
-                    </Label>
-                    <Input
-                      id="diagnosticFee"
-                      name="diagnosticFee"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={diagnosticFee}
-                      onChange={(e) => setDiagnosticFee(e.target.value)}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      placeholder="30.00"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Default is ${DEFAULT_DIAGNOSTIC_FEE.toFixed(2)}. Override if your rate differs.
-                    </p>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="diagnosticFee" className="text-sm font-semibold text-foreground">Diagnostic Fee *</Label>
+                    <div className="relative mt-1.5">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium pointer-events-none">$</span>
+                      <Input
+                        id="diagnosticFee"
+                        name="diagnosticFee"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={diagnosticFee}
+                        onChange={(e) => setDiagnosticFee(e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        placeholder="0.00"
+                        required
+                        className="pl-7"
+                      />
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">
