@@ -284,7 +284,7 @@ export default function AdminUsersManagement() {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
               <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
                 <div className="flex justify-between items-center">
@@ -360,7 +360,7 @@ export default function AdminUsersManagement() {
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && adminToDelete && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Delete Admin User</h2>

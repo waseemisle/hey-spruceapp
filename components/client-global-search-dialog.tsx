@@ -237,7 +237,7 @@ export default function ClientGlobalSearchDialog({ dbInstance, userId }: ClientG
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors min-w-[180px] max-w-xs"
+        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors sm:min-w-[180px] max-w-xs"
         title="Search (Ctrl+K)"
       >
         <Search className="h-4 w-4 flex-shrink-0" />

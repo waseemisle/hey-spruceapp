@@ -952,7 +952,7 @@ function ClientWorkOrdersContent() {
 
       {/* Share for Bidding Modal */}
       {showBiddingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
               <div className="flex justify-between items-center">

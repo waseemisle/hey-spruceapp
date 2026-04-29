@@ -501,6 +501,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
         </div>
       </CardHeader>
       <CardContent>
+        <div className="overflow-x-auto">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
@@ -525,6 +526,7 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
             </div>
           )}
         />
+        </div>
         <style jsx global>{`
           /* Let event titles wrap onto multiple lines instead of truncating */
           .fc .fc-event,

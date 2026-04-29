@@ -109,7 +109,7 @@ export default function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-96">
+      <DropdownMenuContent align="end" className="w-[calc(100vw-1rem)] sm:w-96 max-w-sm">
         <div className="flex items-center justify-between px-4 py-3 border-b bg-muted">
           <h3 className="font-semibold text-foreground">
             Notifications {unreadCount > 0 && `(${unreadCount})`}

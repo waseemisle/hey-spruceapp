@@ -382,7 +382,7 @@ export default function ResourcesPage() {
 
         {/* ── Add / Edit Modal ──────────────────────────────────────────────── */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-2xl max-w-lg w-full shadow-2xl flex flex-col max-h-[90vh]">
 
               {/* Header */}
@@ -523,7 +523,7 @@ export default function ResourcesPage() {
 
         {/* ── Delete Confirmation Modal ──────────────────────────────────────── */}
         {showDeleteModal && resourceToDelete && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
               <div className="p-6">
                 <h2 className="text-xl font-bold mb-4">Delete Resource</h2>

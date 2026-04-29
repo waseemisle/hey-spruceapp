@@ -477,7 +477,7 @@ export default function MessagesManagement() {
 
         {/* Delete Message Modal */}
         {showDeleteMessageModal && messageToDelete && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6">
                 <h2 className="text-xl sm:text-2xl font-bold mb-4">Delete Message</h2>
@@ -515,7 +515,7 @@ export default function MessagesManagement() {
 
         {/* Delete Thread Modal */}
         {showDeleteThreadModal && threadToDelete && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6">
                 <h2 className="text-xl sm:text-2xl font-bold mb-4">Delete Conversation</h2>
@@ -561,7 +561,7 @@ export default function MessagesManagement() {
 
         {/* New Chat Modal */}
         {showNewChatModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-lg max-w-2xl w-full max-h-[90vh] sm:max-h-[80vh] overflow-hidden flex flex-col">
               <div className="p-4 sm:p-6 border-b">
                 <div className="flex justify-between items-center gap-2">

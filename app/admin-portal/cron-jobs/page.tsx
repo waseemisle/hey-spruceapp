@@ -254,12 +254,12 @@ export default function CronJobsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Cron Job Monitor</h1>
             <p className="text-muted-foreground mt-1">Track recurring work order auto-execution</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={fetchData} disabled={dataLoading} size="sm">
               <RefreshCw className={`h-4 w-4 mr-1 ${dataLoading ? 'animate-spin' : ''}`} /> Refresh
             </Button>

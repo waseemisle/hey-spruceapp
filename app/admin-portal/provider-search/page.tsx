@@ -207,7 +207,7 @@ function ComparePanel({ subs, onClose }: { subs: Subcontractor[]; onClose: () =>
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t shadow-lg p-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
           <BarChart2 className="h-5 w-5 text-primary" />
           <span className="font-medium text-sm">Comparing {subs.length} providers</span>
@@ -405,9 +405,9 @@ export default function ProviderSearchPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         {/* Hero Header */}
-        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-primary/90 to-primary mb-8 p-8 text-white">
+        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-primary/90 to-primary mb-6 sm:mb-8 p-5 sm:p-8 text-white">
           <div className="relative z-10">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Industry professionals, meet the right providers.</h1>
             <p className="text-white/80 mb-6">Find and invite the best service providers for your facilities.</p>
@@ -442,7 +442,7 @@ export default function ProviderSearchPage() {
             </div>
           </div>
           {/* Background decoration */}
-          <div className="absolute right-0 bottom-0 opacity-10">
+          <div className="hidden sm:block absolute right-0 bottom-0 opacity-10">
             <Users className="h-48 w-48" />
           </div>
         </div>

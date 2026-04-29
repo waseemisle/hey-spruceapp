@@ -259,7 +259,7 @@ export default function AdminDashboard() {
               </button>
 
               {isCompanyDropdownOpen && (
-                <div className="absolute top-full right-0 z-50 mt-1 w-72 bg-card border border-border rounded-lg shadow-lg">
+                <div className="absolute top-full right-0 z-50 mt-1 w-[calc(100vw-2rem)] sm:w-72 max-w-sm bg-card border border-border rounded-lg shadow-lg">
                   <div className="p-2 border-b border-border">
                     <input
                       type="text"

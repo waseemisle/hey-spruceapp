@@ -375,7 +375,7 @@ export default function LocationMapPage() {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <Card className="w-full max-w-md">
               <CardHeader>
                 <div className="flex justify-between items-center">

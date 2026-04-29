@@ -1991,7 +1991,7 @@ export default function ViewWorkOrder() {
 
         {/* Create Invoice Modal */}
         {showInvoiceModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center gap-3">
                 <div>
@@ -2127,7 +2127,7 @@ export default function ViewWorkOrder() {
 
         {/* Reject Dialog */}
         {showRejectDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-semibold mb-2">Reject Work Order</h3>
               <p className="text-sm text-muted-foreground mb-4">Please provide a reason for rejecting this work order.</p>
@@ -2156,7 +2156,7 @@ export default function ViewWorkOrder() {
 
         {/* Rating Dialog */}
         {showRatingDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-lg font-semibold mb-2">Leave a Rating for this Work Order</h3>
               <p className="text-muted-foreground text-sm mb-4">Is the work complete and to specifications?</p>
@@ -2793,7 +2793,7 @@ export default function ViewWorkOrder() {
 
           {/* Create Vendor Payment Modal */}
           {showCreateVendorPaymentModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
               <div className="bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
                 <div className="p-4 sm:p-6 border-b flex items-start justify-between gap-3">
                   <div>
@@ -3353,7 +3353,7 @@ export default function ViewWorkOrder() {
 
       {/* Share for Bidding Modal */}
       {showBiddingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
           <div className="bg-card rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
               <div className="flex justify-between items-center">
@@ -3445,7 +3445,7 @@ export default function ViewWorkOrder() {
 
       {/* Manual Assign Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-card rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b flex justify-between items-center gap-3 sticky top-0 bg-card z-10">
               <h2 className="text-lg font-semibold truncate">
