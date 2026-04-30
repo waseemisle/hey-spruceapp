@@ -502,15 +502,14 @@ function CreateInvoiceContent() {
   // ── Options ──────────────────────────────────────────────────────────────────
   // Only invoiceable work orders show up: archived/draft/rejected/etc. are
   // hidden so an admin can't accidentally bill against them.
-  const INVOICEABLE_STATUSES = new Set([
-    'quotes_received',
-    'assigned',
-    'in_progress',
-    'accepted_by_subcontractor',
-    'pending_invoice',
-  ]);
+  // Only show work orders that are still in a billable state. Always include
+  // the preselected one from the URL so deep-links from WO detail pages
+  // (e.g. status === 'completed') don't appear broken.
   const workOrderOptions: SelectOption[] = workOrders
-    .filter(wo => wo.status && INVOICEABLE_STATUSES.has(wo.status))
+    .filter(wo =>
+      INVOICEABLE_STATUSES.has(String(wo.status)) ||
+      (preselectedWorkOrderId && wo.id === preselectedWorkOrderId)
+    )
     .map(wo => ({
       value: wo.id,
       label: wo.workOrderNumber ? `${wo.workOrderNumber} — ${wo.title}` : wo.title,
