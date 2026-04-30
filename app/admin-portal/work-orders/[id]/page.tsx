@@ -1977,7 +1977,7 @@ export default function ViewWorkOrder() {
                 Assign to Subcontractor
               </Button>
             )}
-            {workOrder.status === 'pending_invoice' && (
+            {workOrder.status === 'pending_invoice' && relatedInvoices.length === 0 && (
               <Button
                 size="sm"
                 className="bg-orange-600 hover:bg-orange-700"

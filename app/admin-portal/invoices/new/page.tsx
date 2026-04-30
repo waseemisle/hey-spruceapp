@@ -397,6 +397,44 @@ function CreateInvoiceContent() {
         }
       }
 
+      // Flip the work order out of pending_invoice so the WO detail page
+      // stops showing the "Create Invoice" button.
+      if (formData.workOrderId) {
+        try {
+          const woRef = doc(db, 'workOrders', formData.workOrderId);
+          const woSnap = await getDoc(woRef);
+          if (woSnap.exists()) {
+            const woData = woSnap.data();
+            const currentStatus = woData?.status as string | undefined;
+            if (currentStatus === 'pending_invoice') {
+              const existingTimeline = woData?.timeline || [];
+              await updateDoc(woRef, {
+                status: 'completed',
+                invoicedAt: serverTimestamp(),
+                latestInvoiceId: invoiceRef.id,
+                latestInvoiceNumber: invoiceNumber,
+                updatedAt: serverTimestamp(),
+                timeline: [
+                  ...existingTimeline,
+                  {
+                    id: `invoice_created_${Date.now()}`,
+                    timestamp: new Date(),
+                    type: 'invoice_created',
+                    userId: currentUser.uid,
+                    userName: createdByName,
+                    userRole: 'admin',
+                    details: `Invoice ${invoiceNumber} created — $${totalAmount.toLocaleString()}`,
+                    metadata: { invoiceId: invoiceRef.id, invoiceNumber, amount: totalAmount },
+                  },
+                ],
+              });
+            }
+          }
+        } catch (woUpdateErr) {
+          console.error('Failed to flip work order out of pending_invoice:', woUpdateErr);
+        }
+      }
+
       if (!autoCharged) toast.success('Invoice created successfully');
       router.push('/admin-portal/invoices');
     } catch (err: any) {
