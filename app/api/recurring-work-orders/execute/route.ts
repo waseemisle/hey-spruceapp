@@ -569,10 +569,10 @@ async function createStripePaymentLink(data: {
   invoiceNumber: string;
 }): Promise<string> {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  
+
   if (!stripeSecretKey) {
     console.error('Stripe secret key not found in environment variables');
-    return `https://checkout.stripe.com/pay/error_no_key_${Date.now()}`;
+    return '';
   }
 
   const stripe = new Stripe(stripeSecretKey, {
@@ -580,26 +580,27 @@ async function createStripePaymentLink(data: {
   });
 
   try {
-    // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: data.description,
-              description: `Recurring Work Order - ${data.invoiceNumber}`,
-            },
-            unit_amount: Math.round(data.amount * 100), // Convert to cents
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      customer_email: data.clientEmail,
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app'}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app'}/payment-cancelled`,
+    // Stripe Invoices need a Customer.
+    const customer = await stripe.customers.create({
+      email: data.clientEmail,
+      name: data.clientName,
+      metadata: { invoiceNumber: data.invoiceNumber, type: 'recurring-work-order' },
+    });
+
+    await stripe.invoiceItems.create({
+      customer: customer.id,
+      amount: Math.round(data.amount * 100),
+      currency: 'usd',
+      description: `${data.description} — ${data.invoiceNumber}`,
+      metadata: { invoiceNumber: data.invoiceNumber, type: 'recurring-work-order' },
+    });
+
+    const stripeInvoice = await stripe.invoices.create({
+      customer: customer.id,
+      collection_method: 'send_invoice',
+      days_until_due: 30,
+      auto_advance: false,
+      description: `${data.description} — ${data.invoiceNumber}`,
       metadata: {
         invoiceNumber: data.invoiceNumber,
         clientName: data.clientName,
@@ -607,11 +608,12 @@ async function createStripePaymentLink(data: {
       },
     });
 
-    return session.url || '';
+    if (!stripeInvoice.id) return '';
+    const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
+    return finalized.hosted_invoice_url || '';
   } catch (error) {
     console.error('Stripe error:', error);
-    // Return a fallback URL or handle the error appropriately
-    return `https://checkout.stripe.com/pay/error_${Date.now()}`;
+    return '';
   }
 }
 

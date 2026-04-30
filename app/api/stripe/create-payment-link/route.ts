@@ -141,6 +141,21 @@ export async function POST(request: NextRequest) {
       throw new Error('Stripe invoice did not return a hosted URL');
     }
 
+    // Always write the fresh hosted URL back to the Firestore invoice so
+    // every consumer (admin detail page, client portal, emails) sees the
+    // new link immediately. Without this, callers had to remember to
+    // update the doc themselves and legacy checkout.stripe.com links
+    // could be regenerated yet still saved as the old value.
+    try {
+      await updateDoc(doc(db, 'invoices', invoiceId), {
+        stripePaymentLink: hostedUrl,
+        stripeInvoiceId: finalized.id,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (persistErr) {
+      console.warn('[create-payment-link] Failed to persist hosted URL on invoice:', persistErr);
+    }
+
     return NextResponse.json({
       paymentLink: hostedUrl,
       hostedInvoiceUrl: hostedUrl,
