@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, Timestamp, addDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, onSnapshot, Timestamp, addDoc, arrayUnion } from 'firebase/firestore';
 import { createTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -178,57 +178,69 @@ export default function ViewClientWorkOrder() {
   }, [auth, db]);
 
   useEffect(() => {
-    const fetchWorkOrder = async () => {
-      if (!id) return;
+    if (!id) return;
 
-      try {
-        const woDoc = await getDoc(doc(db, 'workOrders', id));
-        if (woDoc.exists()) {
-          setWorkOrder({ id: woDoc.id, ...woDoc.data() } as WorkOrder);
+    let unsubWO: (() => void) | null = null;
+    let unsubQuotes: (() => void) | null = null;
+    let unsubInvoices: (() => void) | null = null;
 
-          const currentUser = auth.currentUser;
-          if (currentUser) {
-            const quotesQuery = query(
-              collection(db, 'quotes'),
-              where('clientId', '==', currentUser.uid)
-            );
-            const quotesSnapshot = await getDocs(quotesQuery);
-            const allClientQuotes = quotesSnapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data(),
-            })) as Quote[];
-            setQuotes(
-              allClientQuotes.filter(
-                q => q.workOrderId === id && ['sent_to_client', 'accepted', 'rejected'].includes(q.status)
-              )
-            );
-
-            const invQuery = query(
-              collection(db, 'invoices'),
-              where('clientId', '==', currentUser.uid),
-              where('workOrderId', '==', id)
-            );
-            const invSnap = await getDocs(invQuery);
-            setRelatedInvoices(
-              invSnap.docs.map((d) => ({
-                id: d.id,
-                invoiceNumber: d.data().invoiceNumber,
-                totalAmount: d.data().totalAmount,
-                status: d.data().status,
-                createdAt: d.data().createdAt,
-              }))
-            );
-          }
+    // Live listener on the work order doc so status / scheduling changes
+    // pushed by admin land here without a refresh.
+    unsubWO = onSnapshot(
+      doc(db, 'workOrders', id as string),
+      (snap) => {
+        if (snap.exists()) {
+          setWorkOrder({ id: snap.id, ...snap.data() } as WorkOrder);
         }
-      } catch (error) {
-        console.error('Error fetching work order:', error);
-      } finally {
         setLoading(false);
-      }
-    };
+      },
+      (err) => {
+        console.error('Work order listener error:', err);
+        setLoading(false);
+      },
+    );
 
-    fetchWorkOrder();
-  }, [id, db, hasCompareQuotesPermission]);
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      // Live listener on quotes for this client. We filter to this WO +
+      // client-visible statuses on the client side so newly shared quotes
+      // (admin flipping status to 'sent_to_client') appear immediately.
+      const quotesQuery = query(collection(db, 'quotes'), where('clientId', '==', currentUser.uid));
+      unsubQuotes = onSnapshot(
+        quotesQuery,
+        (snap) => {
+          const all = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Quote[];
+          setQuotes(all.filter(q => q.workOrderId === id && ['sent_to_client', 'accepted', 'rejected'].includes(q.status)));
+        },
+        (err) => console.error('Quotes listener error:', err),
+      );
+
+      const invQuery = query(
+        collection(db, 'invoices'),
+        where('clientId', '==', currentUser.uid),
+        where('workOrderId', '==', id as string),
+      );
+      unsubInvoices = onSnapshot(
+        invQuery,
+        (snap) => {
+          setRelatedInvoices(snap.docs.map((d) => ({
+            id: d.id,
+            invoiceNumber: d.data().invoiceNumber,
+            totalAmount: d.data().totalAmount,
+            status: d.data().status,
+            createdAt: d.data().createdAt,
+          })));
+        },
+        (err) => console.error('Invoices listener error:', err),
+      );
+    }
+
+    return () => {
+      unsubWO?.();
+      unsubQuotes?.();
+      unsubInvoices?.();
+    };
+  }, [id, db, auth, hasCompareQuotesPermission]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
