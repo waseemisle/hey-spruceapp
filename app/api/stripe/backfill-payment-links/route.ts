@@ -139,19 +139,14 @@ async function regenerateHostedInvoiceUrl(
 
   const description = `Invoice ${invoiceNumber} — Payment for GroundOps Facility Maintenance services`;
 
-  await stripe.invoiceItems.create({
-    customer: stripeCustomerId,
-    amount: Math.round(totalAmount * 100),
-    currency: 'usd',
-    description,
-    metadata: { invoiceId, invoiceNumber },
-  });
-
+  // Create the empty Stripe Invoice first so line items can be attached
+  // directly to it (Stripe no longer auto-pulls pending customer items).
   const stripeInvoice = await stripe.invoices.create({
     customer: stripeCustomerId,
     collection_method: 'send_invoice',
     days_until_due: 30,
     auto_advance: false,
+    pending_invoice_items_behavior: 'exclude',
     description,
     metadata: {
       invoiceId,
@@ -162,7 +157,37 @@ async function regenerateHostedInvoiceUrl(
   });
 
   if (!stripeInvoice.id) return null;
+
+  const rawLineItems = Array.isArray((invoiceData as any).lineItems) ? (invoiceData as any).lineItems : [];
+  const usableLineItems = rawLineItems.filter((li: any) => Number(li?.amount) > 0);
+
+  if (usableLineItems.length > 0) {
+    for (const li of usableLineItems) {
+      await stripe.invoiceItems.create({
+        customer: stripeCustomerId,
+        invoice: stripeInvoice.id,
+        amount: Math.round(Number(li.amount) * 100),
+        currency: 'usd',
+        description: String(li.description || description).slice(0, 250),
+        metadata: { invoiceId, invoiceNumber },
+      });
+    }
+  } else {
+    await stripe.invoiceItems.create({
+      customer: stripeCustomerId,
+      invoice: stripeInvoice.id,
+      amount: Math.round(totalAmount * 100),
+      currency: 'usd',
+      description,
+      metadata: { invoiceId, invoiceNumber },
+    });
+  }
+
   const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
+  if (typeof finalized.amount_due === 'number' && finalized.amount_due <= 0) {
+    try { await stripe.invoices.voidInvoice(stripeInvoice.id); } catch {}
+    return null;
+  }
   const hostedUrl = finalized.hosted_invoice_url;
   if (!hostedUrl) return null;
 

@@ -587,19 +587,14 @@ async function createStripePaymentLink(data: {
       metadata: { invoiceNumber: data.invoiceNumber, type: 'recurring-work-order' },
     });
 
-    await stripe.invoiceItems.create({
-      customer: customer.id,
-      amount: Math.round(data.amount * 100),
-      currency: 'usd',
-      description: `${data.description} — ${data.invoiceNumber}`,
-      metadata: { invoiceNumber: data.invoiceNumber, type: 'recurring-work-order' },
-    });
-
+    // Create the empty invoice first so the InvoiceItem can be attached
+    // directly to it.
     const stripeInvoice = await stripe.invoices.create({
       customer: customer.id,
       collection_method: 'send_invoice',
       days_until_due: 30,
       auto_advance: false,
+      pending_invoice_items_behavior: 'exclude',
       description: `${data.description} — ${data.invoiceNumber}`,
       metadata: {
         invoiceNumber: data.invoiceNumber,
@@ -609,7 +604,21 @@ async function createStripePaymentLink(data: {
     });
 
     if (!stripeInvoice.id) return '';
+
+    await stripe.invoiceItems.create({
+      customer: customer.id,
+      invoice: stripeInvoice.id,
+      amount: Math.round(data.amount * 100),
+      currency: 'usd',
+      description: `${data.description} — ${data.invoiceNumber}`,
+      metadata: { invoiceNumber: data.invoiceNumber, type: 'recurring-work-order' },
+    });
+
     const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
+    if (typeof finalized.amount_due === 'number' && finalized.amount_due <= 0) {
+      try { await stripe.invoices.voidInvoice(stripeInvoice.id); } catch {}
+      return '';
+    }
     return finalized.hosted_invoice_url || '';
   } catch (error) {
     console.error('Stripe error:', error);

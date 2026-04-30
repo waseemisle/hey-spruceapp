@@ -103,40 +103,18 @@ export async function POST(request: NextRequest) {
 
     const description = `Invoice ${invoiceNumber} — Payment for GroundOps Facility Maintenance services`;
 
-    // 1) InvoiceItem(s) — mirror the Firestore line items so the hosted
-    //    invoice page shows the same breakdown the admin sees. Fall back to
-    //    a single item with the total when no usable line items exist.
-    const rawLineItems = Array.isArray((inv as any).lineItems) ? (inv as any).lineItems : [];
-    const usableLineItems = rawLineItems.filter((li: any) => Number(li?.amount) > 0);
-    if (usableLineItems.length > 0) {
-      for (const li of usableLineItems) {
-        await stripe.invoiceItems.create({
-          customer: stripeCustomerId,
-          amount: Math.round(Number(li.amount) * 100),
-          currency: 'usd',
-          description: String(li.description || description).slice(0, 250),
-          metadata: { invoiceId, invoiceNumber },
-        });
-      }
-    } else {
-      await stripe.invoiceItems.create({
-        customer: stripeCustomerId,
-        amount: Math.round(resolvedAmount * 100),
-        currency: 'usd',
-        description,
-        metadata: { invoiceId, invoiceNumber },
-      });
-    }
-
-    // 2) Create the Stripe Invoice. collection_method: 'send_invoice' produces
-    //    the hosted invoice page (https://invoice.stripe.com/i/...).
-    //    auto_advance: false — we finalize ourselves so we know when the URL
-    //    is ready to return.
+    // 1) Create the empty Stripe Invoice first (draft) so we can attach
+    //    InvoiceItems directly to it via the `invoice` parameter. Earlier
+    //    versions of the Stripe API auto-pulled pending invoice items for
+    //    a customer at finalize time, but that behaviour is no longer
+    //    reliable — items not bound to the invoice end up unattached and
+    //    the invoice finalizes for \$0.
     const stripeInvoice = await stripe.invoices.create({
       customer: stripeCustomerId,
       collection_method: 'send_invoice',
       days_until_due: 30,
       auto_advance: false,
+      pending_invoice_items_behavior: 'exclude',
       description,
       metadata: {
         invoiceId,
@@ -150,8 +128,42 @@ export async function POST(request: NextRequest) {
       throw new Error('Stripe did not return an invoice id');
     }
 
-    // 3) Finalize → produces hosted_invoice_url.
+    // 2) Attach line items directly to that invoice id.
+    const rawLineItems = Array.isArray((inv as any).lineItems) ? (inv as any).lineItems : [];
+    const usableLineItems = rawLineItems.filter((li: any) => Number(li?.amount) > 0);
+
+    if (usableLineItems.length > 0) {
+      for (const li of usableLineItems) {
+        await stripe.invoiceItems.create({
+          customer: stripeCustomerId,
+          invoice: stripeInvoice.id,
+          amount: Math.round(Number(li.amount) * 100),
+          currency: 'usd',
+          description: String(li.description || description).slice(0, 250),
+          metadata: { invoiceId, invoiceNumber },
+        });
+      }
+    } else {
+      await stripe.invoiceItems.create({
+        customer: stripeCustomerId,
+        invoice: stripeInvoice.id,
+        amount: Math.round(resolvedAmount * 100),
+        currency: 'usd',
+        description,
+        metadata: { invoiceId, invoiceNumber },
+      });
+    }
+
+    // 3) Finalize → produces hosted_invoice_url, with the line items now
+    //    locked in.
     const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
+    if (typeof finalized.amount_due === 'number' && finalized.amount_due <= 0) {
+      // Defensive: the invoice should have a non-zero amount due here. If
+      // Stripe returns 0 (e.g. all line items were rejected) void it so
+      // we don't ship a paid-\$0 link, then surface the error.
+      try { await stripe.invoices.voidInvoice(stripeInvoice.id); } catch {}
+      throw new Error(`Stripe invoice finalized at \$0 (amount_due=${finalized.amount_due}) — line items did not attach`);
+    }
     const hostedUrl = finalized.hosted_invoice_url;
     if (!hostedUrl) {
       throw new Error('Stripe invoice did not return a hosted URL');
