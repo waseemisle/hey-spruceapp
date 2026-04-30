@@ -25,6 +25,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState({
     bidding: 0,
+    quotes: 0,
     messages: 0,
     supportTickets: 0,
   });
@@ -97,13 +98,16 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
     }
 
     let unsubscribeBidding: (() => void) | null = null;
+    let unsubscribeQuotes: (() => void) | null = null;
     let unsubscribeSupportTickets: (() => void) | null = null;
 
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
       onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
-        // Clean up previous bidding listener when auth state changes
+        // Clean up previous listeners when auth state changes
         unsubscribeBidding?.();
         unsubscribeBidding = null;
+        unsubscribeQuotes?.();
+        unsubscribeQuotes = null;
         unsubscribeSupportTickets?.();
         unsubscribeSupportTickets = null;
 
@@ -124,6 +128,20 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
                 setBadgeCounts(prev => ({ ...prev, bidding: snapshot.size }));
               }, (error) => {
                 console.error('Bidding badge listener error:', error);
+              });
+
+              // Listen to quotes the client has acted on — these need
+              // sub follow-through (accepted → start the job; rejected →
+              // know the outcome). Mirrors the bidding red-badge pattern.
+              const quotesQuery = query(
+                collection(instances.dbInstance, 'quotes'),
+                where('subcontractorId', '==', firebaseUser.uid),
+                where('status', 'in', ['accepted', 'rejected'])
+              );
+              unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
+                setBadgeCounts(prev => ({ ...prev, quotes: snapshot.size }));
+              }, (error) => {
+                console.error('Quotes badge listener error:', error);
               });
 
               unsubscribeSupportTickets = subscribeSubcontractorOpenSupportTicketCount(
@@ -176,6 +194,8 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
       unsubscribe();
       unsubscribeBidding?.();
       unsubscribeBidding = null;
+      unsubscribeQuotes?.();
+      unsubscribeQuotes = null;
       unsubscribeSupportTickets?.();
       unsubscribeSupportTickets = null;
       clearInterval(interval);
@@ -212,7 +232,7 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
   const menuItems = [
     { name: 'Dashboard', href: '/subcontractor-portal', icon: Home, badgeKey: null },
     { name: 'Bidding Work Orders', href: '/subcontractor-portal/bidding', icon: ClipboardList, badgeKey: 'bidding' },
-    { name: 'My Quotes', href: '/subcontractor-portal/quotes', icon: FileText, badgeKey: null },
+    { name: 'My Quotes', href: '/subcontractor-portal/quotes', icon: FileText, badgeKey: 'quotes' },
     { name: 'Assigned Jobs', href: '/subcontractor-portal/assigned', icon: CheckSquare, badgeKey: null },
     { name: 'My Completed Jobs', href: '/subcontractor-portal/completed-jobs', icon: ClipboardCheck, badgeKey: null },
     { name: 'Messages', href: '/subcontractor-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
