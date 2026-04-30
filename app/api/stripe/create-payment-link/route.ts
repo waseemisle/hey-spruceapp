@@ -103,14 +103,30 @@ export async function POST(request: NextRequest) {
 
     const description = `Invoice ${invoiceNumber} — Payment for GroundOps Facility Maintenance services`;
 
-    // 1) InvoiceItem — the line that will be billed.
-    await stripe.invoiceItems.create({
-      customer: stripeCustomerId,
-      amount: Math.round(resolvedAmount * 100),
-      currency: 'usd',
-      description,
-      metadata: { invoiceId, invoiceNumber },
-    });
+    // 1) InvoiceItem(s) — mirror the Firestore line items so the hosted
+    //    invoice page shows the same breakdown the admin sees. Fall back to
+    //    a single item with the total when no usable line items exist.
+    const rawLineItems = Array.isArray((inv as any).lineItems) ? (inv as any).lineItems : [];
+    const usableLineItems = rawLineItems.filter((li: any) => Number(li?.amount) > 0);
+    if (usableLineItems.length > 0) {
+      for (const li of usableLineItems) {
+        await stripe.invoiceItems.create({
+          customer: stripeCustomerId,
+          amount: Math.round(Number(li.amount) * 100),
+          currency: 'usd',
+          description: String(li.description || description).slice(0, 250),
+          metadata: { invoiceId, invoiceNumber },
+        });
+      }
+    } else {
+      await stripe.invoiceItems.create({
+        customer: stripeCustomerId,
+        amount: Math.round(resolvedAmount * 100),
+        currency: 'usd',
+        description,
+        metadata: { invoiceId, invoiceNumber },
+      });
+    }
 
     // 2) Create the Stripe Invoice. collection_method: 'send_invoice' produces
     //    the hosted invoice page (https://invoice.stripe.com/i/...).

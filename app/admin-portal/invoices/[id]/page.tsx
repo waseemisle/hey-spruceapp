@@ -72,6 +72,10 @@ interface Invoice {
   stripePaymentLink?: string;
   stripeSessionId?: string;
   stripeInvoiceId?: string;
+  stripeChargeId?: string;
+  stripeReceiptUrl?: string;
+  stripeInvoicePdf?: string;
+  stripeHostedInvoiceUrl?: string;
   checkInOut?: Array<{ type: 'check_in' | 'check_out'; timestamp: any; location?: string }>;
   attachments?: Array<{ name: string; url: string }>;
   approvalChain?: Array<{ role: string; name?: string; status: 'pending' | 'approved' | 'rejected'; at?: any }>;
@@ -629,9 +633,15 @@ export default function AdminInvoiceDetail() {
   const travelTotal = invoice.travelAmount ?? 0;
   const materialsRows = invoice.materialsLines ?? [];
   const materialsTotal = materialsRows.reduce((s, r) => s + (r.amount ?? 0), 0);
-  const subTotal = laborTotal + travelTotal + materialsTotal;
+  const computedSubTotal = laborTotal + travelTotal + materialsTotal;
   const discount = invoice.discountAmount ?? 0;
   const totalDisplay = invoice.totalAmount;
+  // Some legacy invoices were saved with totalAmount but no line items,
+  // which made Subtotal render as $0 while Total showed the real number.
+  // Fall back to (Total + discount) so the breakdown stays consistent.
+  const subTotal = computedSubTotal > 0
+    ? computedSubTotal
+    : Math.max(0, Number(totalDisplay || 0) + Number(discount || 0));
 
   return (
     <AdminLayout>
@@ -679,6 +689,22 @@ export default function AdminInvoiceDetail() {
               <Button size="sm" onClick={handleOpenPayLink} disabled={openingPayLink}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 {openingPayLink ? 'Opening…' : 'Pay via Stripe'}
+              </Button>
+            )}
+            {invoice.status === 'paid' && invoice.stripeReceiptUrl && (
+              <Button size="sm" variant="outline" asChild>
+                <a href={invoice.stripeReceiptUrl} target="_blank" rel="noopener noreferrer">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  View Receipt
+                </a>
+              </Button>
+            )}
+            {invoice.status === 'paid' && invoice.stripeInvoicePdf && (
+              <Button size="sm" variant="outline" asChild>
+                <a href={invoice.stripeInvoicePdf} target="_blank" rel="noopener noreferrer">
+                  <Download className="h-4 w-4 mr-2" />
+                  Stripe PDF
+                </a>
               </Button>
             )}
             {invoice.status !== 'paid' && (

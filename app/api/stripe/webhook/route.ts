@@ -374,6 +374,29 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
       metadata: { stripeInvoiceId: stripeInvoice.id, hostedInvoiceUrl: stripeInvoice.hosted_invoice_url || '' },
     });
 
+    // Resolve receipt_url from the latest charge so the admin/client can
+    // download the customer-facing payment receipt directly.
+    let receiptUrl: string | null = null;
+    let chargeId: string | null = null;
+    try {
+      const piRef = stripeInvoice.payment_intent;
+      const paymentIntentId = typeof piRef === 'string' ? piRef : piRef?.id || null;
+      if (paymentIntentId) {
+        const pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] });
+        const latest: any = (pi as any).latest_charge;
+        if (latest && typeof latest === 'object') {
+          chargeId = latest.id || null;
+          receiptUrl = latest.receipt_url || null;
+        } else if (typeof latest === 'string') {
+          chargeId = latest;
+          const charge = await stripe.charges.retrieve(latest);
+          receiptUrl = charge.receipt_url || null;
+        }
+      }
+    } catch (rcErr) {
+      console.warn('Could not resolve charge receipt for paid invoice:', rcErr);
+    }
+
     await updateDoc(doc(db, 'invoices', invoiceId), {
       status: 'paid',
       paidAt: serverTimestamp(),
@@ -381,6 +404,10 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
       stripePaymentIntentId: typeof stripeInvoice.payment_intent === 'string'
         ? stripeInvoice.payment_intent
         : stripeInvoice.payment_intent?.id || null,
+      stripeChargeId: chargeId,
+      stripeReceiptUrl: receiptUrl,
+      stripeInvoicePdf: stripeInvoice.invoice_pdf || null,
+      stripeHostedInvoiceUrl: stripeInvoice.hosted_invoice_url || null,
       timeline: [...existingTimeline, paidEvent],
       systemInformation: {
         ...existingSysInfo,

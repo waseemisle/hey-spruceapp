@@ -31,6 +31,8 @@ interface Invoice {
   discountAmount?: number;
   dueDate: any;
   stripePaymentLink?: string;
+  stripeReceiptUrl?: string;
+  stripeInvoicePdf?: string;
   paidAt?: any;
   notes?: string;
   terms?: string;
@@ -318,10 +320,24 @@ export default function ClientInvoiceDetail() {
               </div>
             </div>
             {invoice.status === 'paid' && invoice.paidAt && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-start gap-2">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
                   <p className="text-sm font-medium text-green-900">Paid on {invoice.paidAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</p>
+                  {(invoice.stripeReceiptUrl || invoice.stripeInvoicePdf) && (
+                    <div className="mt-1 flex flex-wrap gap-3 text-xs">
+                      {invoice.stripeReceiptUrl && (
+                        <a href={invoice.stripeReceiptUrl} target="_blank" rel="noopener noreferrer" className="text-green-800 underline hover:text-green-900">
+                          View Receipt
+                        </a>
+                      )}
+                      {invoice.stripeInvoicePdf && (
+                        <a href={invoice.stripeInvoicePdf} target="_blank" rel="noopener noreferrer" className="text-green-800 underline hover:text-green-900">
+                          Stripe Invoice PDF
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
