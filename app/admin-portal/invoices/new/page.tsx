@@ -543,7 +543,7 @@ function CreateInvoiceContent() {
               </div>
 
               <div>
-                <Label>Work Order Title *</Label>
+                <Label>Invoice Title *</Label>
                 <Input
                   className="mt-1"
                   value={formData.workOrderTitle}
