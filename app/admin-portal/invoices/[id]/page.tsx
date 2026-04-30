@@ -71,6 +71,7 @@ interface Invoice {
   creationSource?: string;
   stripePaymentLink?: string;
   stripeSessionId?: string;
+  stripeInvoiceId?: string;
   checkInOut?: Array<{ type: 'check_in' | 'check_out'; timestamp: any; location?: string }>;
   attachments?: Array<{ name: string; url: string }>;
   approvalChain?: Array<{ role: string; name?: string; status: 'pending' | 'approved' | 'rejected'; at?: any }>;
@@ -110,6 +111,37 @@ export default function AdminInvoiceDetail() {
   const [saving, setSaving] = useState(false);
   const [charging, setCharging] = useState(false);
   const [resharing, setResharing] = useState(false);
+  const [openingPayLink, setOpeningPayLink] = useState(false);
+
+  const handleOpenPayLink = async () => {
+    if (!invoice) return;
+    let link = invoice.stripePaymentLink;
+    const isLegacy = !!link && link.includes('checkout.stripe.com');
+    if (!link || isLegacy) {
+      try {
+        setOpeningPayLink(true);
+        const res = await fetch('/api/stripe/create-payment-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: invoice.id }),
+        });
+        const data = await res.json();
+        if (res.ok && data.paymentLink) {
+          link = data.paymentLink as string;
+          setInvoice(prev => prev ? { ...prev, stripePaymentLink: link, stripeInvoiceId: data.stripeInvoiceId || prev.stripeInvoiceId } : prev);
+        }
+      } catch (err) {
+        console.error('Failed to refresh Stripe link:', err);
+      } finally {
+        setOpeningPayLink(false);
+      }
+    }
+    if (link) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+    } else {
+      toast.error('Payment link not available');
+    }
+  };
   /** edit = save only; reshare = opened from Reshare Invoice (save & reshare with client) */
   const [editModalIntent, setEditModalIntent] = useState<'edit' | 'reshare'>('edit');
 
@@ -139,6 +171,35 @@ export default function AdminInvoiceDetail() {
         }
         const data = { ...snap.data(), id: snap.id } as Invoice;
         setInvoice(data);
+
+        // Self-heal legacy checkout.stripe.com links — regen as a hosted
+        // invoice URL silently so Pay via Stripe and re-share emails always
+        // hand out the new format.
+        if (
+          data.status !== 'paid'
+          && typeof data.stripePaymentLink === 'string'
+          && data.stripePaymentLink.includes('checkout.stripe.com')
+        ) {
+          (async () => {
+            try {
+              const res = await fetch('/api/stripe/create-payment-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceId: data.id }),
+              });
+              const out = await res.json();
+              if (res.ok && out.paymentLink) {
+                setInvoice(prev => prev ? {
+                  ...prev,
+                  stripePaymentLink: out.paymentLink,
+                  stripeInvoiceId: out.stripeInvoiceId || prev.stripeInvoiceId,
+                } : prev);
+              }
+            } catch (healErr) {
+              console.warn('Background Stripe link heal failed:', healErr);
+            }
+          })();
+        }
         // Fetch client billing info
         if (data.clientId) {
           const clientSnap = await getDoc(doc(db, 'clients', data.clientId));
@@ -615,11 +676,9 @@ export default function AdminInvoiceDetail() {
               </Button>
             )}
             {invoice.status !== 'paid' && invoice.stripePaymentLink && (
-              <Button size="sm" asChild>
-                <a href={invoice.stripePaymentLink} target="_blank" rel="noopener noreferrer">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Pay via Stripe
-                </a>
+              <Button size="sm" onClick={handleOpenPayLink} disabled={openingPayLink}>
+                <CreditCard className="h-4 w-4 mr-2" />
+                {openingPayLink ? 'Opening…' : 'Pay via Stripe'}
               </Button>
             )}
             {invoice.status !== 'paid' && (
