@@ -32,7 +32,7 @@ interface Invoice {
   clientEmail: string;
   subcontractorId?: string;
   subcontractorName?: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'sent' | 'paid';
   totalAmount: number;
   lineItems: Array<{
     description: string;
@@ -67,7 +67,7 @@ function InvoicesManagementInner() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [clientBillingMap, setClientBillingMap] = useState<Record<string, ClientBilling>>({});
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'paid' | 'overdue'>('all');
+  const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'paid'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [chargingInvoice, setChargingInvoice] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
@@ -150,7 +150,7 @@ function InvoicesManagementInner() {
       // Load billing info for unique clients that have unpaid invoices
       const unpaidClientIds = [...new Set(
         invoicesData
-          .filter(inv => inv.status === 'sent' || inv.status === 'overdue')
+          .filter(inv => inv.status === 'sent')
           .map(inv => inv.clientId)
       )];
       if (unpaidClientIds.length > 0) {
@@ -677,10 +677,9 @@ function InvoicesManagementInner() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft': return 'text-muted-foreground bg-muted';
-      case 'sent': return 'text-blue-600 bg-blue-50';
-      case 'paid': return 'text-green-600 bg-green-50';
-      case 'overdue': return 'text-red-600 bg-red-50';
+      case 'draft': return 'text-amber-700 bg-amber-50 border border-amber-200';
+      case 'sent': return 'text-blue-700 bg-blue-50 border border-blue-200';
+      case 'paid': return 'text-emerald-700 bg-emerald-50 border border-emerald-200';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -741,7 +740,7 @@ function InvoicesManagementInner() {
 
         {/* Filter Tabs */}
         <div className="flex gap-2 flex-wrap">
-          {['all', 'draft', 'sent', 'paid', 'overdue'].map((filterOption) => (
+          {['all', 'draft', 'sent', 'paid'].map((filterOption) => (
             <Button
               key={filterOption}
               variant={filter === filterOption ? 'default' : 'outline'}
@@ -837,7 +836,7 @@ function InvoicesManagementInner() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredInvoices.map((invoice) => {
               const dueDate = invoice.dueDate?.toDate ? invoice.dueDate.toDate() : invoice.dueDate ? new Date(invoice.dueDate) : null;
-              const hasSavedCard = (invoice.status === 'sent' || invoice.status === 'overdue') && clientBillingMap[invoice.clientId]?.defaultPaymentMethodId;
+              const hasSavedCard = invoice.status === 'sent' && clientBillingMap[invoice.clientId]?.defaultPaymentMethodId;
               return (
                 <div key={invoice.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
                   {/* Top row: invoice number + status */}
@@ -1035,7 +1034,6 @@ function InvoicesManagementInner() {
                       { value: 'draft', label: 'Draft' },
                       { value: 'sent', label: 'Sent' },
                       { value: 'paid', label: 'Paid' },
-                      { value: 'overdue', label: 'Overdue' },
                     ]}
                     placeholder="Status"
                     aria-label="Invoice status"

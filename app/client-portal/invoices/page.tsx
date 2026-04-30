@@ -28,7 +28,7 @@ interface Invoice {
   clientEmail: string;
   subcontractorId?: string;
   subcontractorName?: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'sent' | 'paid';
   totalAmount: number;
   lineItems: Array<{
     description: string;
@@ -150,10 +150,9 @@ function ClientInvoicesInner() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      draft: 'bg-muted text-foreground border-border',
+      draft: 'bg-amber-50 text-amber-700 border-amber-200',
       sent: 'bg-blue-50 text-blue-700 border-blue-200',
       paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      overdue: 'bg-red-50 text-red-700 border-red-200',
     };
     return styles[status as keyof typeof styles] || 'bg-muted text-foreground border-border';
   };
@@ -163,7 +162,6 @@ function ClientInvoicesInner() {
       draft: 'Draft',
       sent: 'Awaiting Payment',
       paid: 'Paid',
-      overdue: 'Overdue',
     };
     return labels[status as keyof typeof labels] || status;
   };
@@ -181,11 +179,10 @@ function ClientInvoicesInner() {
     { value: 'all', label: 'All', count: scopedInvoices.length },
     { value: 'sent', label: 'Awaiting Payment', count: scopedInvoices.filter(i => i.status === 'sent').length },
     { value: 'paid', label: 'Paid', count: scopedInvoices.filter(i => i.status === 'paid').length },
-    { value: 'overdue', label: 'Overdue', count: scopedInvoices.filter(i => i.status === 'overdue').length },
   ];
 
   const totalUnpaid = scopedInvoices
-    .filter(i => i.status === 'sent' || i.status === 'overdue')
+    .filter(i => i.status === 'sent')
     .reduce((sum, i) => sum + i.totalAmount, 0);
 
   if (loading) {
@@ -226,7 +223,6 @@ function ClientInvoicesInner() {
             { label: 'Total', value: scopedInvoices.length, icon: Receipt, color: 'blue' },
             { label: 'Awaiting Payment', value: scopedInvoices.filter(i => i.status === 'sent').length, icon: CreditCard, color: 'amber' },
             { label: 'Paid', value: scopedInvoices.filter(i => i.status === 'paid').length, icon: CheckCircle, color: 'emerald' },
-            { label: 'Overdue', value: scopedInvoices.filter(i => i.status === 'overdue').length, icon: Receipt, color: 'red' },
           ]}
         />
 
@@ -238,7 +234,7 @@ function ClientInvoicesInner() {
               <p className="text-xl font-bold leading-none">${totalUnpaid.toLocaleString()}</p>
             </div>
             <p className="ml-auto text-sm text-amber-700">
-              {scopedInvoices.filter(i => i.status === 'sent' || i.status === 'overdue').length} unpaid invoice(s)
+              {scopedInvoices.filter(i => i.status === 'sent').length} unpaid invoice(s)
             </p>
           </div>
         )}
@@ -303,7 +299,7 @@ function ClientInvoicesInner() {
             {filteredInvoices.map((invoice) => (
               <div
                 key={invoice.id}
-                className={`bg-card rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow ${invoice.status === 'overdue' ? 'border-red-200' : 'border-border'}`}
+                className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
               >
                 <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
                 <div className="p-5 space-y-4">
@@ -365,7 +361,7 @@ function ClientInvoicesInner() {
                       <Download className="h-3.5 w-3.5" />
                       PDF
                     </Button>
-                    {(invoice.status === 'sent' || invoice.status === 'overdue') && invoice.stripePaymentLink && invoice.autoChargeStatus !== 'succeeded' && (
+                    {invoice.status === 'sent' && invoice.stripePaymentLink && invoice.autoChargeStatus !== 'succeeded' && (
                       <Button onClick={() => handlePayNow(invoice)} className="gap-2 bg-emerald-600 hover:bg-emerald-700" size="sm">
                         <CreditCard className="h-3.5 w-3.5" />
                         Pay Now

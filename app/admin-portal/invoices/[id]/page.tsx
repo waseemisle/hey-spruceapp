@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, ArrowLeft, History, Paperclip, MapPin, FileText, CreditCard, GitBranch, Edit2, Zap, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Building2 } from 'lucide-react';
+import { Receipt, Download, ArrowLeft, History, Paperclip, CreditCard, Edit2, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Send } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
@@ -51,7 +51,7 @@ interface Invoice {
   clientName: string;
   clientEmail: string;
   subcontractorName?: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'sent' | 'paid';
   totalAmount: number;
   lineItems: Array<{ description: string; quantity: number; unitPrice: number; amount: number }>;
   laborLines?: LaborLine[];
@@ -84,7 +84,7 @@ interface Invoice {
   completionImages?: string[];
 }
 
-type InvoiceTab = 'charges' | 'completion' | 'history' | 'attachments' | 'checkinout' | 'related' | 'approval';
+type InvoiceTab = 'charges' | 'completion' | 'history' | 'attachments';
 
 interface ClientBilling {
   savedCardLast4?: string;
@@ -496,6 +496,147 @@ export default function AdminInvoiceDetail() {
     });
   };
 
+  const [sendingToClient, setSendingToClient] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
+
+  const handleSendToClient = async () => {
+    if (!invoice) return;
+    if (!invoice.clientEmail) {
+      toast.error('Invoice has no client email — cannot send.');
+      return;
+    }
+    if (!Number.isFinite(Number(invoice.totalAmount)) || Number(invoice.totalAmount) <= 0) {
+      toast.error('Invoice total must be greater than $0 before sending.');
+      return;
+    }
+    setSendingToClient(true);
+    try {
+      // 1) Mint a fresh hosted Stripe invoice URL.
+      const stripeRes = await fetch('/api/stripe/create-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId: invoice.id }),
+      });
+      const stripeData = await stripeRes.json();
+      if (!stripeRes.ok || !stripeData.paymentLink) {
+        throw new Error(stripeData.error || 'Failed to create Stripe payment link');
+      }
+
+      // 2) Build a PDF of the invoice to attach to the email.
+      const { getInvoicePDFBase64 } = await import('@/lib/pdf-generator');
+      const pdfBase64 = getInvoicePDFBase64({
+        invoiceNumber: invoice.invoiceNumber,
+        clientName: invoice.clientName,
+        clientEmail: invoice.clientEmail,
+        lineItems: invoice.lineItems?.length
+          ? invoice.lineItems
+          : [{ description: invoice.workOrderTitle || 'Service', quantity: 1, unitPrice: invoice.totalAmount, amount: invoice.totalAmount }],
+        subtotal: (invoice.lineItems || []).reduce((s, li) => s + (li.amount || 0), 0) || invoice.totalAmount,
+        discountAmount: invoice.discountAmount || 0,
+        totalAmount: invoice.totalAmount,
+        dueDate: invoice.dueDate?.toDate?.()?.toLocaleDateString?.() || 'Net 10',
+        notes: invoice.notes || '',
+        terms: invoice.terms || '',
+      });
+
+      // 3) Email the client with PDF + Stripe link.
+      const emailRes = await fetch('/api/email/send-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: invoice.clientEmail,
+          toName: invoice.clientName,
+          invoiceNumber: invoice.invoiceNumber,
+          workOrderTitle: invoice.workOrderTitle,
+          totalAmount: invoice.totalAmount,
+          dueDate: invoice.dueDate?.toDate?.()?.toLocaleDateString?.() || 'Net 10',
+          lineItems: invoice.lineItems || [],
+          notes: invoice.notes || '',
+          stripePaymentLink: stripeData.paymentLink,
+          invoiceId: invoice.id,
+          pdfBase64,
+        }),
+      });
+      const emailData = await emailRes.json();
+      if (!emailRes.ok) {
+        throw new Error(emailData.details || emailData.error || 'Failed to send invoice email');
+      }
+
+      // 4) Flip status → sent + timeline event.
+      const currentUser = auth.currentUser;
+      const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;
+      const adminName = adminDoc?.exists() ? (adminDoc.data() as any).fullName : 'Admin';
+      const sentEvent = createInvoiceTimelineEvent({
+        type: 'sent',
+        userId: currentUser?.uid || 'unknown',
+        userName: adminName || 'Admin',
+        userRole: 'admin',
+        details: `Invoice sent to ${invoice.clientEmail} with PDF + Stripe payment link.`,
+        metadata: { invoiceNumber: invoice.invoiceNumber },
+      });
+
+      await updateDoc(doc(db, 'invoices', invoice.id), {
+        status: 'sent',
+        sentAt: serverTimestamp(),
+        stripePaymentLink: stripeData.paymentLink,
+        stripeInvoiceId: stripeData.stripeInvoiceId || stripeData.sessionId,
+        timeline: [...((invoice.timeline as any) || []), sentEvent],
+        updatedAt: serverTimestamp(),
+      });
+      setInvoice(prev => prev ? {
+        ...prev,
+        status: 'sent',
+        stripePaymentLink: stripeData.paymentLink,
+        stripeInvoiceId: stripeData.stripeInvoiceId || stripeData.sessionId,
+        timeline: [...((prev.timeline as any) || []), sentEvent],
+      } : prev);
+      toast.success('Invoice emailed to client.');
+    } catch (err: any) {
+      console.error('Send to Client error:', err);
+      toast.error(err?.message || 'Failed to send invoice');
+    } finally {
+      setSendingToClient(false);
+    }
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (!invoice) return;
+    if (invoice.status === 'paid') return;
+    if (!confirm(`Mark invoice ${invoice.invoiceNumber} as paid? This is a manual override and won't run a real Stripe charge.`)) return;
+    setMarkingPaid(true);
+    try {
+      const currentUser = auth.currentUser;
+      const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;
+      const adminName = adminDoc?.exists() ? (adminDoc.data() as any).fullName : 'Admin';
+      const paidEvent = createInvoiceTimelineEvent({
+        type: 'paid',
+        userId: currentUser?.uid || 'unknown',
+        userName: adminName || 'Admin',
+        userRole: 'admin',
+        details: `Invoice marked as paid by ${adminName || 'Admin'} (manual).`,
+        metadata: { invoiceNumber: invoice.invoiceNumber, manual: true },
+      });
+      await updateDoc(doc(db, 'invoices', invoice.id), {
+        status: 'paid',
+        paidAt: serverTimestamp(),
+        manuallyMarkedPaid: true,
+        timeline: [...((invoice.timeline as any) || []), paidEvent],
+        updatedAt: serverTimestamp(),
+      });
+      setInvoice(prev => prev ? {
+        ...prev,
+        status: 'paid',
+        timeline: [...((prev.timeline as any) || []), paidEvent],
+      } : prev);
+      toast.success('Invoice marked as paid.');
+    } catch (err: any) {
+      console.error('Mark as Paid error:', err);
+      toast.error(err?.message || 'Failed to mark as paid');
+    } finally {
+      setMarkingPaid(false);
+    }
+  };
+
   const handleAutoCharge = async () => {
     if (!invoice || !clientBilling) return;
     setCharging(true);
@@ -602,24 +743,11 @@ export default function AdminInvoiceDetail() {
   const hasCompletionData = !!(invoice.completionDetails || invoice.completionNotes || (invoice.completionImages && invoice.completionImages.length > 0));
 
   const tabs: { id: InvoiceTab; label: string; icon: React.ElementType }[] = [
-    { id: 'charges', label: 'Charges', icon: Receipt },
+    { id: 'charges', label: 'Line Items', icon: Receipt },
     ...(hasCompletionData ? [{ id: 'completion' as InvoiceTab, label: 'Completion Details', icon: CheckCircle }] : []),
     { id: 'history', label: 'History', icon: History },
     { id: 'attachments', label: 'Attachments', icon: Paperclip },
-    { id: 'checkinout', label: 'Check-In/Out', icon: MapPin },
-    { id: 'related', label: 'Related Invoices', icon: FileText },
-    { id: 'approval', label: 'Approval Workflow', icon: GitBranch },
   ];
-
-  type ApprovalStep = { role: string; name?: string; status: string };
-  const defaultApprovalChain: ApprovalStep[] = [
-    { role: 'Service Provider', status: invoice?.subcontractorName ? 'approved' : 'pending' },
-    { role: 'Location User', status: 'pending' },
-    { role: 'Store Manager', status: 'pending' },
-    { role: 'Regional Manager', status: 'pending' },
-    { role: 'Director of Facilities', status: invoice?.status === 'paid' ? 'approved' : 'pending' },
-  ];
-  const approvalSteps: ApprovalStep[] = invoice?.approvalChain?.length ? invoice.approvalChain : defaultApprovalChain;
 
   const laborRows: LaborLine[] = invoice.laborLines?.length
     ? invoice.laborLines
@@ -672,26 +800,25 @@ export default function AdminInvoiceDetail() {
               <Edit2 className="h-4 w-4 mr-2" />
               Edit
             </Button>
-            {invoice.status !== 'paid' && (
-              <Button onClick={() => openEditModal('reshare')} size="sm" disabled={resharing}>
-                <Receipt className="h-4 w-4 mr-2" />
-                Reshare Invoice
+            {invoice.status === 'draft' && (
+              <Button size="sm" onClick={handleSendToClient} disabled={sendingToClient}>
+                <Send className="h-4 w-4 mr-2" />
+                {sendingToClient ? 'Sending…' : 'Send to Client'}
               </Button>
             )}
-            {(invoice.status === 'sent' || invoice.status === 'overdue') &&
-              clientBilling?.defaultPaymentMethodId && (
+            {invoice.status === 'sent' && (
               <Button
                 size="sm"
                 className="bg-emerald-600 hover:bg-emerald-700"
-                onClick={handleAutoCharge}
-                disabled={charging}
+                onClick={handleMarkAsPaid}
+                disabled={markingPaid}
               >
-                <Zap className="h-4 w-4 mr-2" />
-                {charging ? 'Charging…' : `Auto-Charge${clientBilling?.defaultMethodLabel ? ` ${clientBilling.defaultMethodLabel}` : ''}`}
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {markingPaid ? 'Marking…' : 'Mark as Paid'}
               </Button>
             )}
-            {invoice.status !== 'paid' && invoice.stripePaymentLink && (
-              <Button size="sm" onClick={handleOpenPayLink} disabled={openingPayLink}>
+            {invoice.status === 'sent' && invoice.stripePaymentLink && (
+              <Button size="sm" variant="outline" onClick={handleOpenPayLink} disabled={openingPayLink}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 {openingPayLink ? 'Opening…' : 'Pay via Stripe'}
               </Button>
@@ -710,19 +837,6 @@ export default function AdminInvoiceDetail() {
                   <Download className="h-4 w-4 mr-2" />
                   Stripe PDF
                 </a>
-              </Button>
-            )}
-            {invoice.status !== 'paid' && (
-              <Button size="sm" variant="outline" asChild>
-                <a href={`/pay-bank/${invoice.id}`} target="_blank" rel="noopener noreferrer">
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Pay from Bank
-                </a>
-              </Button>
-            )}
-            {invoice.status !== 'paid' && !invoice.stripePaymentLink && (
-              <Button size="sm" variant="secondary" disabled title="Payment link not set">
-                Pay
               </Button>
             )}
           </div>
@@ -791,104 +905,39 @@ export default function AdminInvoiceDetail() {
             </div>
 
             {activeTab === 'charges' && (
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-semibold text-sm uppercase text-muted-foreground mb-2">Labor</h4>
-                  <div className="overflow-x-auto border rounded-md">
-                    <table className="w-full text-sm min-w-[720px]">
-                      <thead className="bg-muted/50">
+              <div className="space-y-4">
+                <div className="overflow-x-auto border rounded-md">
+                  <table className="w-full text-sm min-w-[480px]">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium">Description</th>
+                        <th className="px-4 py-2 text-right font-medium">Qty</th>
+                        <th className="px-4 py-2 text-right font-medium">Unit Price</th>
+                        <th className="px-4 py-2 text-right font-medium">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(invoice.lineItems || []).length === 0 ? (
                         <tr>
-                          <th className="px-4 py-2 text-left font-medium">Labor Item / Approval Code</th>
-                          <th className="px-4 py-2 text-left font-medium">Add'l Codes</th>
-                          <th className="px-4 py-2 text-left font-medium">Time Type</th>
-                          <th className="px-4 py-2 text-right font-medium">Rate</th>
-                          <th className="px-4 py-2 text-right font-medium">Hrs</th>
-                          <th className="px-4 py-2 text-right font-medium">Amount</th>
+                          <td colSpan={4} className="px-4 py-4 text-center text-muted-foreground">No line items</td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {laborRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="px-4 py-4 text-center text-muted-foreground">
-                              No labor lines
-                            </td>
+                      ) : (
+                        (invoice.lineItems || []).map((row, idx) => (
+                          <tr key={idx}>
+                            <td className="px-4 py-2">{row.description || '—'}</td>
+                            <td className="px-4 py-2 text-right">{row.quantity ?? '—'}</td>
+                            <td className="px-4 py-2 text-right">${Number(row.unitPrice ?? 0).toLocaleString()}</td>
+                            <td className="px-4 py-2 text-right font-medium">${Number(row.amount ?? 0).toLocaleString()}</td>
                           </tr>
-                        ) : (
-                          laborRows.map((row, idx) => (
-                            <tr key={idx}>
-                              <td className="px-4 py-2">{row.description ?? '—'}</td>
-                              <td className="px-4 py-2">{row.additionalCodes ?? '—'}</td>
-                              <td className="px-4 py-2">{row.timeType ?? 'Regular'}</td>
-                              <td className="px-4 py-2 text-right">
-                                {row.hourlyRate != null ? `$${Number(row.hourlyRate).toLocaleString()}` : '—'}
-                              </td>
-                              <td className="px-4 py-2 text-right">{row.hours ?? '—'}</td>
-                              <td className="px-4 py-2 text-right font-medium">
-                                ${Number(row.amount).toLocaleString()}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className="text-sm font-medium mt-2">Labor Total: ${laborTotal.toLocaleString()}</p>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
 
-                <div>
-                  <h4 className="font-semibold text-sm uppercase text-muted-foreground mb-2">Travel</h4>
-                  <p className="text-sm">Travel Total: ${travelTotal.toLocaleString()}</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold text-sm uppercase text-muted-foreground mb-2">Materials</h4>
-                  <div className="overflow-x-auto border rounded-md">
-                    <table className="w-full text-sm min-w-[720px]">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="px-4 py-2 text-left font-medium">Item</th>
-                          <th className="px-4 py-2 text-left font-medium">Part #</th>
-                          <th className="px-4 py-2 text-right font-medium">Unit Price</th>
-                          <th className="px-4 py-2 text-right font-medium">Markup %</th>
-                          <th className="px-4 py-2 text-right font-medium">Qty</th>
-                          <th className="px-4 py-2 text-right font-medium">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {materialsRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="px-4 py-4 text-center text-muted-foreground">
-                              No materials
-                            </td>
-                          </tr>
-                        ) : (
-                          materialsRows.map((row, idx) => (
-                            <tr key={idx}>
-                              <td className="px-4 py-2">{row.item ?? '—'}</td>
-                              <td className="px-4 py-2">{row.partNumber ?? '—'}</td>
-                              <td className="px-4 py-2 text-right">
-                                {row.unitPrice != null ? `$${Number(row.unitPrice).toLocaleString()}` : '—'}
-                              </td>
-                              <td className="px-4 py-2 text-right">
-                                {row.markupPercent != null ? `${row.markupPercent}%` : '—'}
-                              </td>
-                              <td className="px-4 py-2 text-right">{row.quantity ?? '—'}</td>
-                              <td className="px-4 py-2 text-right font-medium">
-                                ${Number(row.amount).toLocaleString()}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className="text-sm font-medium mt-2">Materials Total: ${materialsTotal.toLocaleString()}</p>
-                </div>
-
-                <div className="border-t pt-4 space-y-1 text-sm">
-                  <p>Sub Total: ${subTotal.toLocaleString()}</p>
+                <div className="border-t pt-3 space-y-1 text-sm">
                   {discount > 0 && <p>Discount: -${discount.toLocaleString()}</p>}
-                  <p className="font-bold text-lg">Total: ${totalDisplay.toLocaleString()}</p>
+                  <p className="font-bold text-lg">Total: ${Number(totalDisplay || 0).toLocaleString()}</p>
                 </div>
               </div>
             )}
@@ -967,74 +1016,6 @@ export default function AdminInvoiceDetail() {
               </div>
             )}
 
-            {activeTab === 'checkinout' && (
-              <div className="space-y-2">
-                {invoice.checkInOut?.length ? (
-                  <ul className="divide-y">
-                    {invoice.checkInOut.map((c, i) => (
-                      <li key={i} className="py-2 flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium capitalize">{c.type.replace('_', ' ')}</span>
-                        <span className="text-muted-foreground">
-                          {toDate(c.timestamp)?.toLocaleString() ?? 'N/A'}
-                          {c.location && ` — ${c.location}`}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground">No check-in/out records</p>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'related' && (
-              <div className="space-y-2">
-                {relatedInvoices.length ? (
-                  <ul className="divide-y">
-                    {relatedInvoices.map((inv) => (
-                      <li key={inv.id} className="py-2">
-                        <Link
-                          href={`/admin-portal/invoices/${inv.id}`}
-                          className="text-primary hover:underline font-medium"
-                        >
-                          {inv.invoiceNumber}
-                        </Link>
-                        <span className="text-muted-foreground ml-2">
-                          ${inv.totalAmount?.toLocaleString() ?? 0} — {inv.status}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground">No related invoices</p>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'approval' && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Multi-level approval chain for this invoice.</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {approvalSteps.map((step, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className={`px-3 py-1.5 rounded-lg border text-sm ${
-                        step.status === 'approved' ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:text-green-300' :
-                        step.status === 'rejected' ? 'bg-red-50 border-red-200 text-red-800' :
-                        'bg-muted/50 border-muted text-muted-foreground'
-                      }`}>
-                        <span className="font-medium">{step.role}</span>
-                        {step.name && <span className="ml-1 text-xs">({step.name})</span>}
-                        <span className="ml-1 text-xs capitalize">— {step.status}</span>
-                      </div>
-                      {i < approvalSteps.length - 1 && (
-                        <span className="text-muted-foreground">→</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>

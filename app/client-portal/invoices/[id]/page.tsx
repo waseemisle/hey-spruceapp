@@ -25,7 +25,7 @@ interface Invoice {
   clientName: string;
   clientEmail: string;
   subcontractorName?: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'sent' | 'paid';
   totalAmount: number;
   lineItems: Array<{ description: string; quantity: number; unitPrice: number; amount: number }>;
   discountAmount?: number;
@@ -229,10 +229,9 @@ export default function ClientInvoiceDetail() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      draft: 'bg-muted text-foreground',
+      draft: 'bg-amber-100 text-amber-800',
       sent: 'bg-blue-100 text-blue-800',
-      paid: 'bg-green-100 text-green-800',
-      overdue: 'bg-red-100 text-red-800',
+      paid: 'bg-emerald-100 text-emerald-800',
     };
     return styles[status] || 'bg-muted text-foreground';
   };
@@ -242,7 +241,6 @@ export default function ClientInvoiceDetail() {
       draft: 'Draft',
       sent: 'Awaiting Payment',
       paid: 'Paid',
-      overdue: 'Overdue',
     };
     return labels[status] || status;
   };
@@ -345,13 +343,13 @@ export default function ClientInvoiceDetail() {
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
-              {(invoice.status === 'sent' || invoice.status === 'overdue') && invoice.stripePaymentLink && (
+              {invoice.status === 'sent' && invoice.stripePaymentLink && (
                 <Button onClick={handlePayNow} className="flex-1 bg-green-600 hover:bg-green-700">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Pay Now
                 </Button>
               )}
-              {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+              {invoice.status === 'sent' && (
                 <Button asChild variant="outline" className="flex-1">
                   <a href={`/pay-bank/${invoice.id}`}>
                     <Building2 className="h-4 w-4 mr-2" />
