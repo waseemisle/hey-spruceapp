@@ -315,10 +315,28 @@ export default function QuoteDetail() {
     return isNaN(d.getTime()) ? null : d;
   };
 
+  // Strip sub-side cost details from any timeline event before showing it to
+  // the client. The client must never see the subcontractor's raw amount —
+  // only the marked-up clientAmount that lives elsewhere on the page.
+  const sanitizeForClient = (e: QuoteTimelineEvent): QuoteTimelineEvent => {
+    if (e.userRole !== 'subcontractor') return e;
+    const original = e.details || '';
+    let details = original.replace(/\$\s*[\d,]+(?:\.\d+)?/g, '').replace(/—\s*total\s*\.?$/i, '').replace(/—\s*$/, '').trim();
+    if (!details || /^quote submitted/i.test(original)) {
+      details = `Quote submitted by ${e.userName}`;
+    } else if (/diagnostic.*request/i.test(original)) {
+      details = `Diagnostic request submitted by ${e.userName}`;
+    } else if (/diagnostic.*results/i.test(original)) {
+      details = `Diagnostic results submitted by ${e.userName}`;
+    }
+    return { ...e, details };
+  };
+
   const buildQuoteTimeline = (q: Quote): QuoteTimelineEvent[] => {
     if (q.timeline && q.timeline.length > 0) {
       return [...q.timeline]
         .filter(e => e.type !== 'sent_to_client')
+        .map(sanitizeForClient)
         .sort((a, b) => {
           const ta = toDate(a.timestamp)?.getTime() ?? 0;
           const tb = toDate(b.timestamp)?.getTime() ?? 0;
