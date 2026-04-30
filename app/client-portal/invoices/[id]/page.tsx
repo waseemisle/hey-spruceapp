@@ -129,9 +129,30 @@ export default function ClientInvoiceDetail() {
     }
   };
 
-  const handlePayNow = () => {
-    if (invoice?.stripePaymentLink) {
-      window.open(invoice.stripePaymentLink, '_blank');
+  const handlePayNow = async () => {
+    if (!invoice) return;
+    let link = invoice.stripePaymentLink;
+    // Self-heal legacy Checkout-style links (checkout.stripe.com) by
+    // regenerating a hosted invoice URL on demand.
+    const isLegacy = !!link && link.includes('checkout.stripe.com');
+    if (!link || isLegacy) {
+      try {
+        const res = await fetch('/api/stripe/create-payment-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoiceId: invoice.id }),
+        });
+        const data = await res.json();
+        if (res.ok && data.paymentLink) {
+          link = data.paymentLink as string;
+          setInvoice({ ...invoice, stripePaymentLink: link });
+        }
+      } catch (err) {
+        console.error('Failed to refresh payment link:', err);
+      }
+    }
+    if (link) {
+      window.open(link, '_blank');
     } else {
       toast.error('Payment link not available');
     }

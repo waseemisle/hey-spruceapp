@@ -331,7 +331,7 @@ export default function AdminInvoiceDetail() {
 
     await updateDoc(doc(db, 'invoices', inv.id), {
       stripePaymentLink: stripeData.paymentLink,
-      stripeSessionId: stripeData.sessionId,
+      stripeInvoiceId: stripeData.stripeInvoiceId || stripeData.sessionId,
       status: 'sent',
       sentAt: serverTimestamp(),
       timeline: [...existingTimeline, sentEvent],
@@ -367,7 +367,7 @@ export default function AdminInvoiceDetail() {
       ...prev,
       status: 'sent',
       stripePaymentLink: stripeData.paymentLink,
-      stripeSessionId: stripeData.sessionId,
+      stripeInvoiceId: stripeData.stripeInvoiceId || stripeData.sessionId,
       timeline: [...(prev.timeline || []), sentEvent],
       sentAt: new Date(),
     }) : prev);

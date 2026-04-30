@@ -48,9 +48,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
-
-    // If clientId is provided, use/create a Stripe Customer so the card can be saved
+    // Stripe Invoices require a Customer object. If no clientId is on the
+    // invoice we still need an ad-hoc customer keyed off the email.
     let stripeCustomerId: string | undefined;
     if (clientId) {
       const clientDoc = await getDoc(doc(db, 'clients', clientId));
@@ -72,55 +71,83 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build session params — if we have a customer, save the card for future off-session charges
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Invoice ${invoiceNumber}`,
-              description: `Payment for GroundOps Facility Maintenance services`,
-            },
-            unit_amount: Math.round(resolvedAmount * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'payment',
-      success_url: `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}&invoice_id=${invoiceId}`,
-      cancel_url: `${baseUrl}/payment-cancelled?invoice_id=${invoiceId}`,
+    if (!stripeCustomerId) {
+      if (!customerEmail?.trim()) {
+        return NextResponse.json(
+          { error: 'Invoice has no client email; cannot create a Stripe customer.' },
+          { status: 400 }
+        );
+      }
+      const customer = await stripe.customers.create({
+        email: customerEmail,
+        name: clientName,
+        metadata: { invoiceId, invoiceNumber },
+      });
+      stripeCustomerId = customer.id;
+    }
+
+    // If we already created a hosted invoice for this Firestore invoice, void
+    // it before creating a fresh one — Stripe doesn't let two open invoices
+    // for the same invoice item exist, and we want the latest amount.
+    const previousStripeInvoiceId = (inv as any).stripeInvoiceId as string | undefined;
+    if (previousStripeInvoiceId) {
+      try {
+        const prev = await stripe.invoices.retrieve(previousStripeInvoiceId);
+        if (prev.status === 'open' || prev.status === 'draft') {
+          await stripe.invoices.voidInvoice(previousStripeInvoiceId);
+        }
+      } catch (voidErr) {
+        console.warn('[create-payment-link] Could not void previous Stripe invoice:', voidErr);
+      }
+    }
+
+    const description = `Invoice ${invoiceNumber} — Payment for GroundOps Facility Maintenance services`;
+
+    // 1) InvoiceItem — the line that will be billed.
+    await stripe.invoiceItems.create({
+      customer: stripeCustomerId,
+      amount: Math.round(resolvedAmount * 100),
+      currency: 'usd',
+      description,
+      metadata: { invoiceId, invoiceNumber },
+    });
+
+    // 2) Create the Stripe Invoice. collection_method: 'send_invoice' produces
+    //    the hosted invoice page (https://invoice.stripe.com/i/...).
+    //    auto_advance: false — we finalize ourselves so we know when the URL
+    //    is ready to return.
+    const stripeInvoice = await stripe.invoices.create({
+      customer: stripeCustomerId,
+      collection_method: 'send_invoice',
+      days_until_due: 30,
+      auto_advance: false,
+      description,
       metadata: {
         invoiceId,
         invoiceNumber,
         clientName: clientName || '',
         clientId: clientId || '',
       },
-    };
+    });
 
-    if (stripeCustomerId) {
-      // Link to Stripe customer and save card for future auto-charges
-      sessionParams.customer = stripeCustomerId;
-      sessionParams.payment_intent_data = {
-        setup_future_usage: 'off_session',
-        metadata: { invoiceId, clientId: clientId || '' },
-      };
-    } else {
-      if (!customerEmail?.trim()) {
-        return NextResponse.json(
-          { error: 'Invoice has no client email; cannot create guest Checkout link.' },
-          { status: 400 }
-        );
-      }
-      sessionParams.customer_email = customerEmail;
+    if (!stripeInvoice.id) {
+      throw new Error('Stripe did not return an invoice id');
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    // 3) Finalize → produces hosted_invoice_url.
+    const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
+    const hostedUrl = finalized.hosted_invoice_url;
+    if (!hostedUrl) {
+      throw new Error('Stripe invoice did not return a hosted URL');
+    }
 
     return NextResponse.json({
-      sessionId: session.id,
-      paymentLink: session.url,
+      paymentLink: hostedUrl,
+      hostedInvoiceUrl: hostedUrl,
+      stripeInvoiceId: finalized.id,
+      // Retained for backwards compatibility with callers that previously
+      // persisted the Checkout Session id; this is now the Stripe Invoice id.
+      sessionId: finalized.id,
     });
   } catch (error: any) {
     console.error('Stripe error:', error);

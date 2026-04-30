@@ -388,7 +388,7 @@ function CreateInvoiceContent() {
           if (res.ok && data.paymentLink) {
             await updateDoc(doc(db, 'invoices', invoiceRef.id), {
               stripePaymentLink: data.paymentLink,
-              stripeSessionId: data.sessionId,
+              stripeInvoiceId: data.stripeInvoiceId || data.sessionId,
             });
           }
         } catch (stripeErr) {

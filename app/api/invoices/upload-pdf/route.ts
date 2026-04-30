@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
           if (stripeData.paymentLink) {
             await updateDoc(doc(db, 'invoices', invoiceRef.id), {
               stripePaymentLink: stripeData.paymentLink,
-              stripeSessionId: stripeData.sessionId,
+              stripeInvoiceId: stripeData.stripeInvoiceId || stripeData.sessionId,
               updatedAt: serverTimestamp(),
             });
           }

@@ -60,16 +60,31 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      // ── Stripe Subscription invoices (fixed recurring) ───────────────────
+      // ── Stripe Invoice events ────────────────────────────────────────────
+      // Two flavors share these events:
+      //   • One-off invoices created by /api/stripe/create-payment-link
+      //     (carry metadata.invoiceId pointing at a Firestore invoice).
+      //   • Subscription invoices for fixed recurring plans (have
+      //     stripeInvoice.subscription set; metadata.invoiceId is missing).
       case 'invoice.paid': {
         const stripeInvoice = event.data.object as Stripe.Invoice;
-        await handleSubscriptionInvoicePaid(stripeInvoice);
+        if (stripeInvoice.metadata?.invoiceId) {
+          await handleHostedInvoicePaid(stripeInvoice);
+        } else if (stripeInvoice.subscription) {
+          await handleSubscriptionInvoicePaid(stripeInvoice);
+        } else {
+          console.log(`invoice.paid received with no invoiceId or subscription: ${stripeInvoice.id}`);
+        }
         break;
       }
 
       case 'invoice.payment_failed': {
         const stripeInvoice = event.data.object as Stripe.Invoice;
-        await handleSubscriptionInvoiceFailed(stripeInvoice);
+        if (stripeInvoice.metadata?.invoiceId) {
+          await handleHostedInvoicePaymentFailed(stripeInvoice);
+        } else if (stripeInvoice.subscription) {
+          await handleSubscriptionInvoiceFailed(stripeInvoice);
+        }
         break;
       }
 
@@ -326,6 +341,81 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
     console.log(`Invoice ${invoiceId} auto-charge failed`);
   } catch (error) {
     console.error('Error handling payment_intent.payment_failed:', error);
+  }
+}
+
+/**
+ * Hosted Stripe Invoice (one-off) was paid by the client. Mark the matching
+ * Firestore invoice (referenced via stripeInvoice.metadata.invoiceId) as paid.
+ */
+async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
+  try {
+    const db = await getServerDb();
+    const invoiceId = stripeInvoice.metadata?.invoiceId;
+    if (!invoiceId) return;
+
+    const invSnap = await getDoc(doc(db, 'invoices', invoiceId));
+    if (!invSnap.exists()) {
+      console.warn(`Stripe invoice paid but Firestore invoice not found: ${invoiceId}`);
+      return;
+    }
+    const invData = invSnap.data();
+    if (invData?.status === 'paid') return;
+
+    const existingTimeline = invData?.timeline || [];
+    const existingSysInfo = invData?.systemInformation || {};
+
+    const paidEvent = createInvoiceTimelineEvent({
+      type: 'paid',
+      userId: 'system',
+      userName: 'Payment System',
+      userRole: 'system',
+      details: 'Payment received via Stripe hosted invoice',
+      metadata: { stripeInvoiceId: stripeInvoice.id, hostedInvoiceUrl: stripeInvoice.hosted_invoice_url || '' },
+    });
+
+    await updateDoc(doc(db, 'invoices', invoiceId), {
+      status: 'paid',
+      paidAt: serverTimestamp(),
+      stripeInvoiceId: stripeInvoice.id,
+      stripePaymentIntentId: typeof stripeInvoice.payment_intent === 'string'
+        ? stripeInvoice.payment_intent
+        : stripeInvoice.payment_intent?.id || null,
+      timeline: [...existingTimeline, paidEvent],
+      systemInformation: {
+        ...existingSysInfo,
+        paidAt: Timestamp.now(),
+        paidBy: { id: 'system', name: 'Payment System', timestamp: Timestamp.now() },
+      },
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`Hosted invoice ${invoiceId} marked as paid (Stripe invoice: ${stripeInvoice.id})`);
+  } catch (error) {
+    console.error('Error handling hosted invoice paid:', error);
+  }
+}
+
+/** Hosted Stripe Invoice payment failed — note it on the Firestore invoice. */
+async function handleHostedInvoicePaymentFailed(stripeInvoice: Stripe.Invoice) {
+  try {
+    const db = await getServerDb();
+    const invoiceId = stripeInvoice.metadata?.invoiceId;
+    if (!invoiceId) return;
+
+    const invSnap = await getDoc(doc(db, 'invoices', invoiceId));
+    if (!invSnap.exists()) return;
+    const invData = invSnap.data();
+    if (invData?.status === 'paid') return;
+
+    await updateDoc(doc(db, 'invoices', invoiceId), {
+      autoChargeStatus: 'failed',
+      autoChargeFailedAt: serverTimestamp(),
+      autoChargeFailureReason: 'Stripe hosted invoice payment failed',
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error handling hosted invoice payment failure:', error);
   }
 }
 
