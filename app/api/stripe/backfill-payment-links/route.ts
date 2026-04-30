@@ -137,17 +137,18 @@ async function regenerateHostedInvoiceUrl(
     }
   }
 
-  const description = `Invoice ${invoiceNumber} — Payment for GroundOps Facility Maintenance services`;
+  const fallbackLineDescription = `Invoice ${invoiceNumber}`;
 
   // Create the empty Stripe Invoice first so line items can be attached
   // directly to it (Stripe no longer auto-pulls pending customer items).
+  // No description (Memo) — line items render the breakdown.
   const stripeInvoice = await stripe.invoices.create({
     customer: stripeCustomerId,
     collection_method: 'send_invoice',
     days_until_due: 30,
     auto_advance: false,
     pending_invoice_items_behavior: 'exclude',
-    description,
+    footer: `Invoice ${invoiceNumber}`,
     metadata: {
       invoiceId,
       invoiceNumber,
@@ -168,7 +169,7 @@ async function regenerateHostedInvoiceUrl(
         invoice: stripeInvoice.id,
         amount: Math.round(Number(li.amount) * 100),
         currency: 'usd',
-        description: String(li.description || description).slice(0, 250),
+        description: String(li.description || fallbackLineDescription).slice(0, 250),
         metadata: { invoiceId, invoiceNumber },
       });
     }
@@ -178,7 +179,7 @@ async function regenerateHostedInvoiceUrl(
       invoice: stripeInvoice.id,
       amount: Math.round(totalAmount * 100),
       currency: 'usd',
-      description,
+      description: fallbackLineDescription,
       metadata: { invoiceId, invoiceNumber },
     });
   }

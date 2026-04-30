@@ -588,14 +588,15 @@ async function createStripePaymentLink(data: {
     });
 
     // Create the empty invoice first so the InvoiceItem can be attached
-    // directly to it.
+    // directly to it. No Memo description — the line item carries the
+    // text and Stripe shows it in the breakdown.
     const stripeInvoice = await stripe.invoices.create({
       customer: customer.id,
       collection_method: 'send_invoice',
       days_until_due: 30,
       auto_advance: false,
       pending_invoice_items_behavior: 'exclude',
-      description: `${data.description} — ${data.invoiceNumber}`,
+      footer: `Invoice ${data.invoiceNumber}`,
       metadata: {
         invoiceNumber: data.invoiceNumber,
         clientName: data.clientName,

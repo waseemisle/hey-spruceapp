@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const description = `Invoice ${invoiceNumber} — Payment for GroundOps Facility Maintenance services`;
+    const fallbackLineDescription = `Invoice ${invoiceNumber}`;
 
     // 1) Create the empty Stripe Invoice first (draft) so we can attach
     //    InvoiceItems directly to it via the `invoice` parameter. Earlier
@@ -109,13 +109,18 @@ export async function POST(request: NextRequest) {
     //    a customer at finalize time, but that behaviour is no longer
     //    reliable — items not bound to the invoice end up unattached and
     //    the invoice finalizes for \$0.
+    //
+    //    No `description` here on purpose — the Invoice.description renders
+    //    as a "Memo" at the top of the hosted page and was duplicating the
+    //    line items. Memo intentionally omitted; per-item descriptions are
+    //    enough.
     const stripeInvoice = await stripe.invoices.create({
       customer: stripeCustomerId,
       collection_method: 'send_invoice',
       days_until_due: 30,
       auto_advance: false,
       pending_invoice_items_behavior: 'exclude',
-      description,
+      footer: `Invoice ${invoiceNumber}`,
       metadata: {
         invoiceId,
         invoiceNumber,
@@ -139,7 +144,7 @@ export async function POST(request: NextRequest) {
           invoice: stripeInvoice.id,
           amount: Math.round(Number(li.amount) * 100),
           currency: 'usd',
-          description: String(li.description || description).slice(0, 250),
+          description: String(li.description || fallbackLineDescription).slice(0, 250),
           metadata: { invoiceId, invoiceNumber },
         });
       }
@@ -149,7 +154,7 @@ export async function POST(request: NextRequest) {
         invoice: stripeInvoice.id,
         amount: Math.round(resolvedAmount * 100),
         currency: 'usd',
-        description,
+        description: fallbackLineDescription,
         metadata: { invoiceId, invoiceNumber },
       });
     }
