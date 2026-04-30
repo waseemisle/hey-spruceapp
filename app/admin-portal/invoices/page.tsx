@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle } from 'lucide-react';
+import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { Quote } from '@/types';
@@ -77,6 +77,53 @@ function InvoicesManagementInner() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [refreshingLinks, setRefreshingLinks] = useState(false);
+
+  const handleRefreshLegacyStripeLinks = async () => {
+    setRefreshingLinks(true);
+    let totalProcessed = 0;
+    let totalFailed = 0;
+    let lastFound = 0;
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        toast.error('You must be signed in.');
+        return;
+      }
+      // Run the backfill in batches until the server reports remaining: 0.
+      // Each call processes up to 25 invoices.
+      // Cap iterations defensively.
+      for (let i = 0; i < 40; i += 1) {
+        const res = await fetch('/api/stripe/backfill-payment-links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Refresh failed (HTTP ${res.status})`);
+        }
+        const data = await res.json();
+        totalProcessed += Number(data.processed) || 0;
+        totalFailed += Number(data.failed) || 0;
+        lastFound = Number(data.totalFound) || 0;
+        if (i === 0 && lastFound === 0) {
+          toast.success('No legacy Stripe links to refresh.');
+          return;
+        }
+        if (Number(data.remaining) === 0) break;
+      }
+      if (totalFailed > 0) {
+        toast.error(`Refreshed ${totalProcessed} link${totalProcessed === 1 ? '' : 's'} — ${totalFailed} failed`);
+      } else {
+        toast.success(`Refreshed ${totalProcessed} Stripe link${totalProcessed === 1 ? '' : 's'} to hosted invoice URLs.`);
+      }
+    } catch (err: any) {
+      console.error('Backfill error:', err);
+      toast.error(err?.message || 'Failed to refresh Stripe links');
+    } finally {
+      setRefreshingLinks(false);
+    }
+  };
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -659,6 +706,15 @@ function InvoicesManagementInner() {
             <p className="text-muted-foreground mt-2">Generate and manage invoices with Stripe payment links</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleRefreshLegacyStripeLinks}
+              disabled={refreshingLinks}
+              title="Replace any saved checkout.stripe.com links with hosted invoice URLs"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshingLinks ? 'animate-spin' : ''}`} />
+              {refreshingLinks ? 'Refreshing…' : 'Refresh Stripe Links'}
+            </Button>
             <Link href="/admin-portal/invoices/new">
               <Button variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
