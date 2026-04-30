@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc, Timestamp } from 'firebase/firestore';
 import { createQuoteTimelineEvent } from '@/lib/timeline';
-import { notifyQuoteSubmission } from '@/lib/notifications';
+import { notifyQuoteSubmission, notifyAdminsOfBiddingRejection, notifyDiagnosticResultsSubmitted } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
@@ -492,6 +492,14 @@ export default function SubcontractorBidding() {
         console.warn('Could not mirror diagnostic results onto work order:', workOrderUpdateError);
       }
 
+      // Fire-and-forget: notify admins + client that results are in
+      notifyDiagnosticResultsSubmitted(
+        resultsBidding.workOrderId,
+        resultsBidding.workOrderNumber || resultsBidding.workOrderId,
+        subName,
+        resultsBidding.clientId || null,
+      ).catch(console.error);
+
       toast.success('Diagnostic results submitted. You can now submit your quote.');
       setShowResultsForm(false);
       setResultsBidding(null);
@@ -690,6 +698,21 @@ export default function SubcontractorBidding() {
         rejectedBy: currentUser?.uid || null,
         updatedAt: serverTimestamp(),
       });
+      // Fire-and-forget admin notification
+      try {
+        const subDoc = currentUser ? await getDoc(doc(db, 'subcontractors', currentUser.uid)) : null;
+        const subName = subDoc?.exists()
+          ? ((subDoc.data() as any).fullName || (subDoc.data() as any).businessName || 'Subcontractor')
+          : 'Subcontractor';
+        notifyAdminsOfBiddingRejection(
+          bidding.workOrderId,
+          bidding.workOrderNumber || bidding.workOrderId,
+          bidding.workOrderTitle,
+          subName,
+        ).catch(console.error);
+      } catch (notifyErr) {
+        console.error('Failed to notify admins of bidding rejection:', notifyErr);
+      }
       toast.success('Quote request rejected');
     } catch (error) {
       console.error('Error rejecting bidding:', error);

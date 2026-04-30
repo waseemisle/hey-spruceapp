@@ -20,11 +20,13 @@ interface Notification {
   type:
     | 'work_order'
     | 'quote'
+    | 'diagnostic_request'
     | 'invoice'
     | 'assignment'
     | 'completion'
     | 'schedule'
     | 'general'
+    | 'location'
     | 'support_ticket';
   title: string;
   message: string;
@@ -138,6 +140,8 @@ export default function NotificationBell() {
                       return '📋';
                     case 'quote':
                       return '💰';
+                    case 'diagnostic_request':
+                      return '🩺';
                     case 'invoice':
                       return '🧾';
                     case 'assignment':
@@ -146,6 +150,8 @@ export default function NotificationBell() {
                       return '✔️';
                     case 'schedule':
                       return '📅';
+                    case 'location':
+                      return '📍';
                     default:
                       return '🔔';
                   }

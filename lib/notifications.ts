@@ -352,6 +352,179 @@ export async function notifyWorkOrderCompletion(
 }
 
 /**
+ * Notifies client when admin rejects a work order
+ */
+export async function notifyClientOfWorkOrderRejection(
+  clientId: string,
+  workOrderId: string,
+  workOrderNumber: string,
+  reason?: string,
+) {
+  try {
+    await createNotification({
+      userId: clientId,
+      userRole: 'client',
+      type: 'work_order',
+      title: 'Work Order Rejected',
+      message: reason
+        ? `Work Order ${workOrderNumber} was rejected. Reason: ${reason}`
+        : `Work Order ${workOrderNumber} was rejected by the admin team.`,
+      link: `/client-portal/work-orders/${workOrderId}`,
+      referenceId: workOrderId,
+      referenceType: 'workOrder',
+    });
+  } catch (error) {
+    console.error('Error notifying client of WO rejection:', error);
+  }
+}
+
+/**
+ * Notifies admins when a subcontractor rejects a bidding opportunity
+ */
+export async function notifyAdminsOfBiddingRejection(
+  workOrderId: string,
+  workOrderNumber: string,
+  workOrderTitle: string,
+  subcontractorName: string,
+) {
+  try {
+    const adminIds = await getAllAdminUserIds();
+    if (adminIds.length === 0) return;
+    await createNotification({
+      recipientIds: adminIds,
+      userRole: 'admin',
+      type: 'work_order',
+      title: 'Bidding Opportunity Declined',
+      message: `${subcontractorName} declined the bidding opportunity for "${workOrderTitle}" (WO ${workOrderNumber}).`,
+      link: `/admin-portal/work-orders/${workOrderId}`,
+      referenceId: workOrderId,
+      referenceType: 'workOrder',
+    });
+  } catch (error) {
+    console.error('Error notifying admins of bidding rejection:', error);
+  }
+}
+
+/**
+ * Notifies admins (and the sub) when the client rejects a quote
+ */
+export async function notifyQuoteRejection(
+  workOrderId: string,
+  workOrderNumber: string,
+  subcontractorId: string | null,
+  subcontractorName: string,
+  reason?: string,
+) {
+  try {
+    const adminIds = await getAllAdminUserIds();
+    const summary = reason
+      ? `Quote from ${subcontractorName} for WO ${workOrderNumber} was rejected by the client. Reason: ${reason}`
+      : `Quote from ${subcontractorName} for WO ${workOrderNumber} was rejected by the client.`;
+    if (adminIds.length > 0) {
+      await createNotification({
+        recipientIds: adminIds,
+        userRole: 'admin',
+        type: 'quote',
+        title: 'Quote Rejected by Client',
+        message: summary,
+        link: `/admin-portal/work-orders/${workOrderId}`,
+        referenceId: workOrderId,
+        referenceType: 'workOrder',
+      });
+    }
+    if (subcontractorId) {
+      await createNotification({
+        userId: subcontractorId,
+        userRole: 'subcontractor',
+        type: 'quote',
+        title: 'Quote Rejected by Client',
+        message: reason
+          ? `Your quote for WO ${workOrderNumber} was rejected by the client. Reason: ${reason}`
+          : `Your quote for WO ${workOrderNumber} was rejected by the client.`,
+        link: `/subcontractor-portal/quotes`,
+        referenceId: workOrderId,
+        referenceType: 'workOrder',
+      });
+    }
+  } catch (error) {
+    console.error('Error notifying quote rejection:', error);
+  }
+}
+
+/**
+ * Notifies admins + client when a sub submits diagnostic results
+ */
+export async function notifyDiagnosticResultsSubmitted(
+  workOrderId: string,
+  workOrderNumber: string,
+  subcontractorName: string,
+  clientId: string | null,
+) {
+  try {
+    const adminIds = await getAllAdminUserIds();
+    if (adminIds.length > 0) {
+      await createNotification({
+        recipientIds: adminIds,
+        userRole: 'admin',
+        type: 'diagnostic_request',
+        title: 'Diagnostic Results Submitted',
+        message: `${subcontractorName} submitted diagnostic results for WO ${workOrderNumber}.`,
+        link: `/admin-portal/work-orders/${workOrderId}`,
+        referenceId: workOrderId,
+        referenceType: 'workOrder',
+      });
+    }
+    if (clientId) {
+      await createNotification({
+        userId: clientId,
+        userRole: 'client',
+        type: 'diagnostic_request',
+        title: 'Diagnostic Results Submitted',
+        message: `${subcontractorName} submitted diagnostic results for WO ${workOrderNumber}.`,
+        link: `/client-portal/work-orders/${workOrderId}`,
+        referenceId: workOrderId,
+        referenceType: 'workOrder',
+      });
+    }
+  } catch (error) {
+    console.error('Error notifying diagnostic results:', error);
+  }
+}
+
+/**
+ * Notifies admins when a sub accepts/rejects an assignment
+ */
+export async function notifyAdminsOfAssignmentResponse(
+  workOrderId: string,
+  workOrderNumber: string,
+  subcontractorName: string,
+  decision: 'accepted' | 'rejected',
+  reason?: string,
+) {
+  try {
+    const adminIds = await getAllAdminUserIds();
+    if (adminIds.length === 0) return;
+    const accepted = decision === 'accepted';
+    await createNotification({
+      recipientIds: adminIds,
+      userRole: 'admin',
+      type: accepted ? 'assignment' : 'work_order',
+      title: accepted ? 'Assignment Accepted' : 'Assignment Rejected',
+      message: accepted
+        ? `${subcontractorName} accepted the assignment for WO ${workOrderNumber}.`
+        : reason
+          ? `${subcontractorName} rejected the assignment for WO ${workOrderNumber}. Reason: ${reason}`
+          : `${subcontractorName} rejected the assignment for WO ${workOrderNumber}.`,
+      link: `/admin-portal/work-orders/${workOrderId}`,
+      referenceId: workOrderId,
+      referenceType: 'workOrder',
+    });
+  } catch (error) {
+    console.error('Error notifying assignment response:', error);
+  }
+}
+
+/**
  * Notifies client about scheduled service date
  */
 export async function notifyScheduledService(

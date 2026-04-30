@@ -6,7 +6,7 @@ import type { QuoteTimelineEvent } from '@/types';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import { notifySubcontractorAssignment } from '@/lib/notifications';
+import { notifySubcontractorAssignment, notifyQuoteRejection } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -308,6 +308,15 @@ export default function ClientQuotes() {
                 updatedAt: serverTimestamp(),
               });
             }
+
+            // Fire-and-forget notification to admins + the sub
+            notifyQuoteRejection(
+              quote.workOrderId || '',
+              quote.workOrderNumber || quote.workOrderId || '',
+              quote.subcontractorId || null,
+              quote.subcontractorName,
+              reason || undefined,
+            ).catch(console.error);
 
             toast.success('Quote rejected successfully!');
           } catch (error) {

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, writeBatch } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService } from '@/lib/notifications';
+import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService, notifyClientOfWorkOrderRejection } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -437,6 +437,16 @@ const fetchCategories = async () => {
           },
         },
       });
+
+      // Fire-and-forget: tell the client the WO was rejected
+      if (workOrderData?.clientId) {
+        notifyClientOfWorkOrderRejection(
+          workOrderData.clientId,
+          rejectingWorkOrderId,
+          workOrderData.workOrderNumber || rejectingWorkOrderId,
+          rejectionReason,
+        ).catch(console.error);
+      }
 
       toast.success('Work order rejected');
       setShowRejectModal(false);

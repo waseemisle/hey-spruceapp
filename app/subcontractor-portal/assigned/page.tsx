@@ -5,7 +5,7 @@ import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTi
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import { notifyWorkOrderCompletion, notifyScheduledService, notifyQuoteSubmission, getAllAdminUserIds } from '@/lib/notifications';
+import { notifyWorkOrderCompletion, notifyScheduledService, notifyQuoteSubmission, getAllAdminUserIds, notifyAdminsOfAssignmentResponse } from '@/lib/notifications';
 import { createNotification } from '@/lib/notifications';
 import Link from 'next/link';
 import SubcontractorLayout from '@/components/subcontractor-layout';
@@ -242,6 +242,25 @@ export default function SubcontractorAssignedJobs() {
         updatedAt: serverTimestamp(),
       });
 
+      // Fire-and-forget admin notification
+      try {
+        const currentUser = auth.currentUser;
+        let subName = 'Subcontractor';
+        if (currentUser) {
+          const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+          if (subDoc.exists()) subName = (subDoc.data() as any).fullName || (subDoc.data() as any).businessName || subName;
+        }
+        const wo = workOrders.get(woId);
+        notifyAdminsOfAssignmentResponse(
+          woId,
+          wo?.workOrderNumber || woId,
+          subName,
+          'accepted',
+        ).catch(console.error);
+      } catch (notifyErr) {
+        console.error('Failed to notify admins of assignment acceptance:', notifyErr);
+      }
+
       toast.success('Assignment accepted successfully!');
       setShowAcceptModal(false);
       setAcceptingJobId(null);
@@ -354,6 +373,20 @@ export default function SubcontractorAssignedJobs() {
                 metadata: { context: 'assignment_rejection', reason: reason || '' },
               })],
             });
+
+            // Fire-and-forget admin notification
+            try {
+              const wo = workOrders.get(workOrderId);
+              notifyAdminsOfAssignmentResponse(
+                workOrderId,
+                wo?.workOrderNumber || workOrderId,
+                subName,
+                'rejected',
+                reason || undefined,
+              ).catch(console.error);
+            } catch (notifyErr) {
+              console.error('Failed to notify admins of assignment rejection:', notifyErr);
+            }
 
             toast.success('Assignment rejected. The work order will be available for reassignment.');
           } catch (error) {
