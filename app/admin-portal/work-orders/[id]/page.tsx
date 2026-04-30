@@ -270,7 +270,35 @@ export default function ViewWorkOrder() {
         ]);
 
         setQuotes(quotesSnapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Quote[]);
-        setRelatedInvoices(invoicesSnapshot.docs.map(d => ({ ...d.data(), id: d.id })));
+        const loadedInvoices = invoicesSnapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+        setRelatedInvoices(loadedInvoices);
+
+        // Self-heal legacy data: an invoice exists but the WO never moved
+        // off pending_invoice (rows created before /invoices/new flipped
+        // status). Flip it now so the badge and listings stay accurate.
+        try {
+          if (loadedInvoices.length > 0) {
+            const woRef = doc(db, 'workOrders', id as string);
+            const woSnapshot = await getDoc(woRef);
+            if (woSnapshot.exists() && (woSnapshot.data()?.status as string | undefined) === 'pending_invoice') {
+              const woData = woSnapshot.data() as any;
+              const firstInvoice = loadedInvoices[0] as any;
+              const invoicedAtTs = woData?.invoicedAt
+                || firstInvoice?.createdAt
+                || serverTimestamp();
+              await updateDoc(woRef, {
+                status: 'completed',
+                invoicedAt: invoicedAtTs,
+                latestInvoiceId: woData?.latestInvoiceId || firstInvoice?.id,
+                latestInvoiceNumber: woData?.latestInvoiceNumber || firstInvoice?.invoiceNumber,
+                updatedAt: serverTimestamp(),
+              });
+              setWorkOrder(prev => prev ? { ...prev, status: 'completed' } : prev);
+            }
+          }
+        } catch (healErr) {
+          console.warn('Self-heal pending_invoice → completed skipped:', healErr);
+        }
         setNotes(
           notesSnapshot.docs
             .map(d => ({ id: d.id, ...d.data() }))
