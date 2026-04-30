@@ -141,8 +141,11 @@ async function regenerateHostedInvoiceUrl(
 
   // Create the empty Stripe Invoice first so line items can be attached
   // directly to it (Stripe no longer auto-pulls pending customer items).
-  // No description (Memo) — line items render the breakdown.
-  const stripeInvoice = await stripe.invoices.create({
+  // No description (Memo) — line items render the breakdown. Set
+  // `number` so Stripe's hosted page shows the Firestore invoice number;
+  // fall back to a timestamped variant on duplicate (Stripe reserves
+  // numbers permanently, so a re-run needs a unique value).
+  const baseInvoiceParams: Stripe.InvoiceCreateParams = {
     customer: stripeCustomerId,
     collection_method: 'send_invoice',
     days_until_due: 30,
@@ -155,7 +158,18 @@ async function regenerateHostedInvoiceUrl(
       clientName: clientName || '',
       clientId: clientId || '',
     },
-  });
+  };
+
+  let stripeInvoice: Stripe.Invoice;
+  try {
+    stripeInvoice = await stripe.invoices.create({ ...baseInvoiceParams, number: invoiceNumber });
+  } catch (firstErr: any) {
+    const code = firstErr?.code || firstErr?.raw?.code;
+    const isDuplicate = code === 'invoice_number_invalid' || code === 'resource_already_exists' || /already exists/i.test(firstErr?.message || '');
+    if (!isDuplicate) throw firstErr;
+    const suffix = `-r${Math.floor(Date.now() / 1000) % 1000000}`;
+    stripeInvoice = await stripe.invoices.create({ ...baseInvoiceParams, number: `${invoiceNumber}${suffix}` });
+  }
 
   if (!stripeInvoice.id) return null;
 

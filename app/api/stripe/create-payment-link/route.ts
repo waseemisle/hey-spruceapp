@@ -110,11 +110,17 @@ export async function POST(request: NextRequest) {
     //    reliable — items not bound to the invoice end up unattached and
     //    the invoice finalizes for \$0.
     //
+    //    Set `number` so the hosted page shows our Firestore invoice
+    //    number (e.g. INV-73052262) instead of Stripe's auto-generated
+    //    sequence. Stripe reserves invoice numbers permanently, so on a
+    //    regenerate we can't reuse the same string — fall back to a
+    //    timestamped variant when Stripe rejects the duplicate.
+    //
     //    No `description` here on purpose — the Invoice.description renders
     //    as a "Memo" at the top of the hosted page and was duplicating the
     //    line items. Memo intentionally omitted; per-item descriptions are
     //    enough.
-    const stripeInvoice = await stripe.invoices.create({
+    const baseInvoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
       collection_method: 'send_invoice',
       days_until_due: 30,
@@ -127,7 +133,21 @@ export async function POST(request: NextRequest) {
         clientName: clientName || '',
         clientId: clientId || '',
       },
-    });
+    };
+
+    let stripeInvoice: Stripe.Invoice;
+    try {
+      stripeInvoice = await stripe.invoices.create({ ...baseInvoiceParams, number: invoiceNumber });
+    } catch (firstErr: any) {
+      // Stripe blocks duplicate invoice numbers (even after voiding). On a
+      // regen, append a short suffix so the hosted page still leads with
+      // the user's invoice number.
+      const code = firstErr?.code || firstErr?.raw?.code;
+      const isDuplicate = code === 'invoice_number_invalid' || code === 'resource_already_exists' || /already exists/i.test(firstErr?.message || '');
+      if (!isDuplicate) throw firstErr;
+      const suffix = `-r${Math.floor(Date.now() / 1000) % 1000000}`;
+      stripeInvoice = await stripe.invoices.create({ ...baseInvoiceParams, number: `${invoiceNumber}${suffix}` });
+    }
 
     if (!stripeInvoice.id) {
       throw new Error('Stripe did not return an invoice id');

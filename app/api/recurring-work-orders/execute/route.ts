@@ -589,8 +589,10 @@ async function createStripePaymentLink(data: {
 
     // Create the empty invoice first so the InvoiceItem can be attached
     // directly to it. No Memo description — the line item carries the
-    // text and Stripe shows it in the breakdown.
-    const stripeInvoice = await stripe.invoices.create({
+    // text and Stripe shows it in the breakdown. `number` mirrors the
+    // Firestore invoiceNumber on the hosted page; fall back to a
+    // timestamped variant on duplicate.
+    const baseInvoiceParams: Stripe.InvoiceCreateParams = {
       customer: customer.id,
       collection_method: 'send_invoice',
       days_until_due: 30,
@@ -602,7 +604,18 @@ async function createStripePaymentLink(data: {
         clientName: data.clientName,
         type: 'recurring-work-order',
       },
-    });
+    };
+
+    let stripeInvoice: Stripe.Invoice;
+    try {
+      stripeInvoice = await stripe.invoices.create({ ...baseInvoiceParams, number: data.invoiceNumber });
+    } catch (firstErr: any) {
+      const code = firstErr?.code || firstErr?.raw?.code;
+      const isDuplicate = code === 'invoice_number_invalid' || code === 'resource_already_exists' || /already exists/i.test(firstErr?.message || '');
+      if (!isDuplicate) throw firstErr;
+      const suffix = `-r${Math.floor(Date.now() / 1000) % 1000000}`;
+      stripeInvoice = await stripe.invoices.create({ ...baseInvoiceParams, number: `${data.invoiceNumber}${suffix}` });
+    }
 
     if (!stripeInvoice.id) return '';
 
