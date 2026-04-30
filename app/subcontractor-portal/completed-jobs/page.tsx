@@ -6,8 +6,6 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
-  documentId,
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -22,16 +20,6 @@ import {
 } from 'lucide-react';
 import { formatAddress } from '@/lib/utils';
 import type { VendorPayment } from '@/types';
-
-interface AssignedJob {
-  id: string;
-  workOrderId: string;
-  subcontractorId: string;
-  assignedAt: unknown;
-  status: 'pending_acceptance' | 'accepted' | 'rejected';
-  scheduledServiceDate?: unknown;
-  scheduledServiceTime?: string;
-}
 
 interface WorkOrder {
   id: string;
@@ -67,99 +55,99 @@ const PRIORITY_CONFIG: Record<string, { className: string; dot: string }> = {
 export default function SubcontractorCompletedJobs() {
   const { auth, db } = useFirebaseInstance();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [assignedJobs, setAssignedJobs] = useState<AssignedJob[]>([]);
-  const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
+  const [workOrdersAssignedTo, setWorkOrdersAssignedTo] = useState<Map<string, WorkOrder>>(new Map());
+  const [workOrdersLegacySub, setWorkOrdersLegacySub] = useState<Map<string, WorkOrder>>(new Map());
   const [vendorPaymentsByWorkOrderId, setVendorPaymentsByWorkOrderId] = useState<Map<string, VendorPayment>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    let unsubscribeWorkOrders: (() => void) | null = null;
+    let unsubAssignedTo: (() => void) | null = null;
+    let unsubLegacy: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUserId(user?.uid ?? null);
-      if (user) {
-        const assignedQuery = query(
-          collection(db, 'assignedJobs'),
-          where('subcontractorId', '==', user.uid),
-          orderBy('assignedAt', 'desc'),
-        );
+      unsubAssignedTo?.();
+      unsubLegacy?.();
+      unsubAssignedTo = null;
+      unsubLegacy = null;
 
-        const unsubscribeSnapshot = onSnapshot(
-          assignedQuery,
-          async (snapshot) => {
-            const assignedData = snapshot.docs.map((d) => ({
-              id: d.id,
-              ...d.data(),
-            })) as AssignedJob[];
-
-            setAssignedJobs(assignedData);
-
-            unsubscribeWorkOrders?.();
-            unsubscribeWorkOrders = null;
-
-            const workOrderIds = [...new Set(assignedData.map((j) => j.workOrderId))];
-
-            if (workOrderIds.length > 0) {
-              const workOrdersQuery = query(
-                collection(db, 'workOrders'),
-                where(documentId(), 'in', workOrderIds),
-              );
-
-              unsubscribeWorkOrders = onSnapshot(
-                workOrdersQuery,
-                (woSnapshot) => {
-                  const workOrdersMap = new Map<string, WorkOrder>();
-                  woSnapshot.docs.forEach((woDoc) => {
-                    workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
-                  });
-                  setWorkOrders(workOrdersMap);
-                  setLoading(false);
-                },
-                (error) => {
-                  console.error('Work orders listener error:', error);
-                  setLoading(false);
-                },
-              );
-            } else {
-              setWorkOrders(new Map());
-              setLoading(false);
-            }
-          },
-          (error) => {
-            console.error('Assigned jobs listener error:', error);
-            setLoading(false);
-          },
-        );
-
-        return () => {
-          unsubscribeSnapshot();
-          unsubscribeWorkOrders?.();
-          unsubscribeWorkOrders = null;
-        };
-      } else {
+      if (!user) {
+        setWorkOrdersAssignedTo(new Map());
+        setWorkOrdersLegacySub(new Map());
         setLoading(false);
+        return;
       }
+
+      // The bidding/quote-approval flow sets assignedTo on the work order.
+      // Older paths used assignedSubcontractor — query both so neither set
+      // of completed jobs is dropped.
+      const qAssignedTo = query(
+        collection(db, 'workOrders'),
+        where('assignedTo', '==', user.uid),
+      );
+      const qLegacySub = query(
+        collection(db, 'workOrders'),
+        where('assignedSubcontractor', '==', user.uid),
+      );
+
+      let firstFiredAssignedTo = false;
+      let firstFiredLegacy = false;
+      const maybeStopLoading = () => {
+        if (firstFiredAssignedTo && firstFiredLegacy) setLoading(false);
+      };
+
+      unsubAssignedTo = onSnapshot(
+        qAssignedTo,
+        (snap) => {
+          const m = new Map<string, WorkOrder>();
+          snap.docs.forEach(d => m.set(d.id, { id: d.id, ...d.data() } as WorkOrder));
+          setWorkOrdersAssignedTo(m);
+          firstFiredAssignedTo = true;
+          maybeStopLoading();
+        },
+        (err) => {
+          console.error('assignedTo listener error:', err);
+          firstFiredAssignedTo = true;
+          maybeStopLoading();
+        },
+      );
+
+      unsubLegacy = onSnapshot(
+        qLegacySub,
+        (snap) => {
+          const m = new Map<string, WorkOrder>();
+          snap.docs.forEach(d => m.set(d.id, { id: d.id, ...d.data() } as WorkOrder));
+          setWorkOrdersLegacySub(m);
+          firstFiredLegacy = true;
+          maybeStopLoading();
+        },
+        (err) => {
+          console.error('assignedSubcontractor listener error:', err);
+          firstFiredLegacy = true;
+          maybeStopLoading();
+        },
+      );
     });
 
     return () => {
       unsubscribeAuth();
-      unsubscribeWorkOrders?.();
-      unsubscribeWorkOrders = null;
+      unsubAssignedTo?.();
+      unsubLegacy?.();
     };
   }, [auth, db]);
 
   const completedRows = useMemo(() => {
-    const rows: { job: AssignedJob; workOrder: WorkOrder }[] = [];
-    for (const job of assignedJobs) {
-      const wo = workOrders.get(job.workOrderId);
-      if (wo && isCompletedWorkOrder(wo)) {
-        rows.push({ job, workOrder: wo });
-      }
-    }
+    const merged = new Map<string, WorkOrder>();
+    workOrdersAssignedTo.forEach((wo, id) => merged.set(id, wo));
+    workOrdersLegacySub.forEach((wo, id) => { if (!merged.has(id)) merged.set(id, wo); });
+    const rows: { workOrder: WorkOrder }[] = [];
+    merged.forEach(wo => {
+      if (isCompletedWorkOrder(wo)) rows.push({ workOrder: wo });
+    });
     rows.sort((a, b) => completedAtMs(b.workOrder) - completedAtMs(a.workOrder));
     return rows;
-  }, [assignedJobs, workOrders]);
+  }, [workOrdersAssignedTo, workOrdersLegacySub]);
 
   useEffect(() => {
     // Query vendor payments by subcontractorId to satisfy Firestore security rules
@@ -271,7 +259,7 @@ export default function SubcontractorCompletedJobs() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredRows.map(({ job, workOrder }) => {
+            {filteredRows.map(({ workOrder }) => {
               const priorityCfg =
                 PRIORITY_CONFIG[workOrder.priority] || {
                   className: 'bg-muted text-foreground border-border',
@@ -303,7 +291,7 @@ export default function SubcontractorCompletedJobs() {
 
               return (
                 <div
-                  key={job.id}
+                  key={workOrder.id}
                   className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className="h-1 w-full bg-gradient-to-r from-emerald-400 to-emerald-600" />

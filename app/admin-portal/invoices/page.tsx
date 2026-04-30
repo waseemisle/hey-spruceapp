@@ -672,41 +672,6 @@ function InvoicesManagementInner() {
           </div>
         </div>
 
-        {/* Generate from Accepted Quotes */}
-        {quotes.filter(q =>
-          !invoices.some(inv => inv.quoteId === q.id || inv.workOrderId === q.workOrderId)
-        ).length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Generate Invoices from Accepted Quotes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {quotes.filter(q =>
-                  !invoices.some(inv => inv.quoteId === q.id || inv.workOrderId === q.workOrderId)
-                ).map(quote => (
-                  <div key={quote.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <div>
-                      <div className="font-semibold">{quote.workOrderTitle}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {quote.workOrderNumber && <span className="mr-1 font-medium text-foreground/70">#{quote.workOrderNumber}</span>}
-                        {quote.clientName} - ${quote.clientAmount?.toLocaleString() || quote.totalAmount?.toLocaleString()}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => generateInvoiceFromQuote(quote)}
-                      disabled={generating === quote.id}
-                    >
-                      {generating === quote.id ? 'Generating...' : 'Generate Invoice'}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
