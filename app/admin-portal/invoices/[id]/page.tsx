@@ -120,8 +120,11 @@ export default function AdminInvoiceDetail() {
   const handleOpenPayLink = async () => {
     if (!invoice) return;
     let link = invoice.stripePaymentLink;
-    const isLegacy = !!link && link.includes('checkout.stripe.com');
-    if (!link || isLegacy) {
+    // For any non-paid invoice, ALWAYS mint a fresh Stripe invoice so the
+    // hosted page reflects the current Firestore total + line items. Stored
+    // links can point at stale, already-finalized (or \$0/paid) Stripe
+    // invoices that our previous regen left dangling.
+    if (invoice.status !== 'paid') {
       try {
         setOpeningPayLink(true);
         const res = await fetch('/api/stripe/create-payment-link', {
@@ -133,6 +136,8 @@ export default function AdminInvoiceDetail() {
         if (res.ok && data.paymentLink) {
           link = data.paymentLink as string;
           setInvoice(prev => prev ? { ...prev, stripePaymentLink: link, stripeInvoiceId: data.stripeInvoiceId || prev.stripeInvoiceId } : prev);
+        } else {
+          console.error('Stripe regen returned:', data);
         }
       } catch (err) {
         console.error('Failed to refresh Stripe link:', err);

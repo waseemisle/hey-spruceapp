@@ -126,8 +126,9 @@ function ClientInvoicesInner() {
 
   const handlePayNow = async (invoice: Invoice) => {
     let link = invoice.stripePaymentLink;
-    const isLegacy = !!link && link.includes('checkout.stripe.com');
-    if (!link || isLegacy) {
+    // Always regenerate for non-paid invoices to guarantee the hosted
+    // page reflects the current Firestore total.
+    if (invoice.status !== 'paid') {
       try {
         const res = await fetch('/api/stripe/create-payment-link', {
           method: 'POST',

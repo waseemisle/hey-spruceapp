@@ -134,10 +134,9 @@ export default function ClientInvoiceDetail() {
   const handlePayNow = async () => {
     if (!invoice) return;
     let link = invoice.stripePaymentLink;
-    // Self-heal legacy Checkout-style links (checkout.stripe.com) by
-    // regenerating a hosted invoice URL on demand.
-    const isLegacy = !!link && link.includes('checkout.stripe.com');
-    if (!link || isLegacy) {
+    // Always regenerate for non-paid invoices — the stored link can point
+    // at a stale Stripe invoice (already paid, voided, or \$0).
+    if (invoice.status !== 'paid') {
       try {
         const res = await fetch('/api/stripe/create-payment-link', {
           method: 'POST',
