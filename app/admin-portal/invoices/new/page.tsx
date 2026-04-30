@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  collection, query, getDocs, addDoc, doc, getDoc, updateDoc,
+  collection, query, where, getDocs, addDoc, doc, getDoc, updateDoc,
   serverTimestamp, orderBy,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -33,7 +33,21 @@ interface WorkOrder {
   locationName?: string;
   companyId?: string;
   companyName?: string;
+  approvedQuoteId?: string;
+  approvedQuoteAmount?: number;
+  estimateBudget?: number;
+  diagnosticFee?: number;
+  billingPhase?: 'diagnostic' | 'repair';
 }
+
+// Statuses where it's still valid to bill the client. Excludes archived,
+// completed, pending, approved, bidding, to_be_started, rejected_by_subcontractor.
+const INVOICEABLE_STATUSES = new Set([
+  'quotes_received',
+  'assigned',
+  'accepted_by_subcontractor',
+  'pending_invoice',
+]);
 
 interface Client {
   id: string;
@@ -214,7 +228,7 @@ function CreateInvoiceContent() {
   }, [preselectedWorkOrderId]);
 
   // ── Auto-fill from work order ────────────────────────────────────────────────
-  const handleWorkOrderSelect = (workOrderId: string) => {
+  const handleWorkOrderSelect = async (workOrderId: string) => {
     setSelectedWorkOrderId(workOrderId);
     if (!workOrderId) {
       setFormData(prev => ({
@@ -243,6 +257,46 @@ function CreateInvoiceContent() {
       category: wo.category ?? '',
       priority: wo.priority ?? '',
     }));
+
+    // Pull the most recent client-facing quote and copy its line items in.
+    // Prefer 'accepted' (the one that was approved) > 'sent_to_client' >
+    // anything else. Skip diagnostic quotes — the invoice should reflect
+    // the repair quote the client approved.
+    try {
+      const qSnap = await getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', wo.id)));
+      const allQuotes = qSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      const repairQuotes = allQuotes.filter(q => q.isDiagnosticQuote !== true);
+      const rank = (s: string | undefined) => s === 'accepted' ? 0 : s === 'sent_to_client' ? 1 : s === 'pending' ? 2 : 3;
+      const candidates = repairQuotes.sort((a, b) => {
+        const r = rank(a.status) - rank(b.status);
+        if (r !== 0) return r;
+        const am = (a.acceptedAt?.toMillis?.() ?? a.updatedAt?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0);
+        const bm = (b.acceptedAt?.toMillis?.() ?? b.updatedAt?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0);
+        return bm - am;
+      });
+      const chosen = candidates[0];
+      if (chosen) {
+        const sourceLineItems = Array.isArray(chosen.clientLineItems) && chosen.clientLineItems.length > 0
+          ? chosen.clientLineItems
+          : Array.isArray(chosen.lineItems) ? chosen.lineItems : [];
+        if (sourceLineItems.length > 0) {
+          setLineItems(sourceLineItems.map((li: any) => ({
+            description: String(li.description || ''),
+            quantity: Number(li.quantity ?? 1),
+            unitPrice: Number(li.unitPrice ?? 0),
+            amount: Number(li.amount ?? (Number(li.quantity ?? 1) * Number(li.unitPrice ?? 0))),
+          })));
+        } else {
+          // Fallback: a single line for the marked-up clientAmount or totalAmount.
+          const total = Number(chosen.clientAmount ?? chosen.totalAmount ?? 0);
+          if (total > 0) {
+            setLineItems([{ description: wo.title || 'Service', quantity: 1, unitPrice: total, amount: total }]);
+          }
+        }
+      }
+    } catch (qErr) {
+      console.warn('Could not auto-fill line items from quote:', qErr);
+    }
   };
 
   // ── Line items ───────────────────────────────────────────────────────────────
@@ -446,10 +500,21 @@ function CreateInvoiceContent() {
   };
 
   // ── Options ──────────────────────────────────────────────────────────────────
-  const workOrderOptions: SelectOption[] = workOrders.map(wo => ({
-    value: wo.id,
-    label: wo.workOrderNumber ? `${wo.workOrderNumber} — ${wo.title}` : wo.title,
-  }));
+  // Only invoiceable work orders show up: archived/draft/rejected/etc. are
+  // hidden so an admin can't accidentally bill against them.
+  const INVOICEABLE_STATUSES = new Set([
+    'quotes_received',
+    'assigned',
+    'in_progress',
+    'accepted_by_subcontractor',
+    'pending_invoice',
+  ]);
+  const workOrderOptions: SelectOption[] = workOrders
+    .filter(wo => wo.status && INVOICEABLE_STATUSES.has(wo.status))
+    .map(wo => ({
+      value: wo.id,
+      label: wo.workOrderNumber ? `${wo.workOrderNumber} — ${wo.title}` : wo.title,
+    }));
 
   const clientOptions: SelectOption[] = clients.map(c => ({
     value: c.id,
