@@ -361,7 +361,7 @@ function ClientInvoicesInner() {
                       <Download className="h-3.5 w-3.5" />
                       PDF
                     </Button>
-                    {invoice.status === 'sent' && invoice.stripePaymentLink && invoice.autoChargeStatus !== 'succeeded' && (
+                    {invoice.status !== 'paid' && invoice.autoChargeStatus !== 'succeeded' && (
                       <Button onClick={() => handlePayNow(invoice)} className="gap-2 bg-emerald-600 hover:bg-emerald-700" size="sm">
                         <CreditCard className="h-3.5 w-3.5" />
                         Pay Now

@@ -611,7 +611,13 @@ async function createStripePaymentLink(data: {
       stripeInvoice = await stripe.invoices.create({ ...baseInvoiceParams, number: data.invoiceNumber });
     } catch (firstErr: any) {
       const code = firstErr?.code || firstErr?.raw?.code;
-      const isDuplicate = code === 'invoice_number_invalid' || code === 'resource_already_exists' || /already exists/i.test(firstErr?.message || '');
+      const msg = String(firstErr?.message || firstErr?.raw?.message || '');
+      const isDuplicate =
+        code === 'invoice_number_invalid' ||
+        code === 'resource_already_exists' ||
+        /already exists/i.test(msg) ||
+        /already set on another invoice/i.test(msg) ||
+        /invoice number/i.test(msg);
       if (!isDuplicate) throw firstErr;
       const suffix = `-r${Math.floor(Date.now() / 1000) % 1000000}`;
       stripeInvoice = await stripe.invoices.create({ ...baseInvoiceParams, number: `${data.invoiceNumber}${suffix}` });

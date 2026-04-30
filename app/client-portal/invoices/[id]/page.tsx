@@ -343,13 +343,13 @@ export default function ClientInvoiceDetail() {
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
-              {invoice.status === 'sent' && invoice.stripePaymentLink && (
+              {invoice.status !== 'paid' && (
                 <Button onClick={handlePayNow} className="flex-1 bg-green-600 hover:bg-green-700">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Pay Now
                 </Button>
               )}
-              {invoice.status === 'sent' && (
+              {invoice.status !== 'paid' && (
                 <Button asChild variant="outline" className="flex-1">
                   <a href={`/pay-bank/${invoice.id}`}>
                     <Building2 className="h-4 w-4 mr-2" />

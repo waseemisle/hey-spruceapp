@@ -767,7 +767,7 @@ export default function AdminInvoiceDetail() {
                 {markingPaid ? 'Marking…' : 'Mark as Paid'}
               </Button>
             )}
-            {invoice.status === 'sent' && invoice.stripePaymentLink && (
+            {invoice.status !== 'paid' && (
               <Button size="sm" variant="outline" onClick={handleOpenPayLink} disabled={openingPayLink}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 {openingPayLink ? 'Opening…' : 'Pay via Stripe'}
