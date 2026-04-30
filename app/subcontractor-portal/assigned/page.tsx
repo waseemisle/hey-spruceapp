@@ -1000,24 +1000,16 @@ export default function SubcontractorAssignedJobs() {
                       </>
                     )}
 
-                    {/* Accepted — show "Submit Diagnostic" */}
-                    {job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (
+                    {/* Accepted — sub is on the job; ready to mark complete when done */}
+                    {job.status === 'accepted' && (workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor' || workOrder.status === 'scheduled') && (
                       <Button
                         size="sm"
-                        onClick={() => openDiagnosticModal(workOrder.id)}
-                        className="flex-1 h-8 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700"
+                        onClick={() => handleMarkComplete(workOrder.id)}
+                        className="flex-1 h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
                       >
-                        <Stethoscope className="h-3.5 w-3.5" />
-                        Submit Diagnostic
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Mark Complete
                       </Button>
-                    )}
-
-                    {/* Diagnostic submitted — awaiting admin */}
-                    {workOrder.status === 'diagnostic_submitted' && (
-                      <span className="flex-1 inline-flex items-center gap-1 text-xs font-semibold text-indigo-700">
-                        <Clock className="h-3.5 w-3.5" />
-                        Awaiting admin decision
-                      </span>
                     )}
 
                     {/* Repair approved — submit repair quote OR mark complete */}
