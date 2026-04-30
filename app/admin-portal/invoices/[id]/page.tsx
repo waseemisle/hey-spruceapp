@@ -19,27 +19,6 @@ import type { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
-interface LaborLine {
-  description?: string;
-  approvalCode?: string;
-  additionalCodes?: string;
-  timeType?: string;
-  hourlyRate?: number;
-  hours?: number;
-  amount: number;
-}
-
-interface MaterialsLine {
-  item?: string;
-  partNumber?: string;
-  approvalCode?: string;
-  units?: string;
-  unitPrice?: number;
-  markupPercent?: number;
-  quantity?: number;
-  amount: number;
-}
-
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -54,9 +33,6 @@ interface Invoice {
   status: 'draft' | 'sent' | 'paid';
   totalAmount: number;
   lineItems: Array<{ description: string; quantity: number; unitPrice: number; amount: number }>;
-  laborLines?: LaborLine[];
-  travelAmount?: number;
-  materialsLines?: MaterialsLine[];
   discountAmount?: number;
   dueDate: any;
   paidAt?: any;
@@ -76,9 +52,7 @@ interface Invoice {
   stripeReceiptUrl?: string;
   stripeInvoicePdf?: string;
   stripeHostedInvoiceUrl?: string;
-  checkInOut?: Array<{ type: 'check_in' | 'check_out'; timestamp: any; location?: string }>;
   attachments?: Array<{ name: string; url: string }>;
-  approvalChain?: Array<{ role: string; name?: string; status: 'pending' | 'approved' | 'rejected'; at?: any }>;
   completionDetails?: string;
   completionNotes?: string;
   completionImages?: string[];
@@ -749,32 +723,8 @@ export default function AdminInvoiceDetail() {
     { id: 'attachments', label: 'Attachments', icon: Paperclip },
   ];
 
-  const laborRows: LaborLine[] = invoice.laborLines?.length
-    ? invoice.laborLines
-    : (invoice.lineItems?.length
-        ? invoice.lineItems.map((li) => ({
-            description: li.description,
-            approvalCode: '—',
-            additionalCodes: '—',
-            timeType: 'Regular',
-            hourlyRate: li.unitPrice,
-            hours: li.quantity,
-            amount: li.amount,
-          }))
-        : []);
-  const laborTotal = laborRows.reduce((s, r) => s + (r.amount ?? 0), 0);
-  const travelTotal = invoice.travelAmount ?? 0;
-  const materialsRows = invoice.materialsLines ?? [];
-  const materialsTotal = materialsRows.reduce((s, r) => s + (r.amount ?? 0), 0);
-  const computedSubTotal = laborTotal + travelTotal + materialsTotal;
   const discount = invoice.discountAmount ?? 0;
   const totalDisplay = invoice.totalAmount;
-  // Some legacy invoices were saved with totalAmount but no line items,
-  // which made Subtotal render as $0 while Total showed the real number.
-  // Fall back to (Total + discount) so the breakdown stays consistent.
-  const subTotal = computedSubTotal > 0
-    ? computedSubTotal
-    : Math.max(0, Number(totalDisplay || 0) + Number(discount || 0));
 
   return (
     <AdminLayout>
