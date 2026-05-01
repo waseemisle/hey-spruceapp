@@ -301,6 +301,11 @@ function InvoicesManagementInner() {
         return;
       }
 
+      // TODO(invoice-approval): when generating an invoice from an accepted
+      // quote, mirror the gating in app/admin-portal/work-orders/page.tsx
+      // handleSendInvoice — check isInvoiceApprovalRequiredForClient and
+      // create with status='pending_approval' + approvalDeadlineAt instead of
+      // sending immediately. See /lib/invoice-approval.ts.
       const invoiceRef = await addDoc(collection(db, 'invoices'), invoiceData);
 
       // Create Stripe payment link

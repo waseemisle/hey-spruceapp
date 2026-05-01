@@ -142,7 +142,7 @@ export interface WorkOrderTimelineEvent {
   type: 'created' | 'approved' | 'rejected' | 'shared_for_bidding' | 'quote_received' |
         'quote_shared_with_client' | 'quote_approved_by_client' | 'quote_rejected_by_client' |
         'assigned' | 'schedule_set' | 'schedule_shared' | 'started' | 'completed' |
-        'invoice_sent' | 'invoice_paid' | 'payment_received' | 'archived' |
+        'invoice_sent' | 'invoice_pending_approval' | 'invoice_paid' | 'payment_received' | 'archived' |
         'diagnostic_request_received' | 'diagnostic_accepted' | 'diagnostic_rejected' |
         'diagnostic_submitted' | 'repair_approved' | 'repair_declined';
   userId: string;
@@ -391,7 +391,7 @@ export interface Invoice {
   subcontractorId: string;
   subcontractorName: string;
   subcontractorEmail: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'pending_approval' | 'sent' | 'paid' | 'overdue' | 'disputed';
   totalAmount: number;
   laborCost: number;
   materialCost: number;
@@ -415,6 +415,25 @@ export interface Invoice {
   autoChargeAttempted?: boolean;
   autoChargeStatus?: 'pending' | 'succeeded' | 'failed' | 'requires_action';
   autoChargeError?: string;
+  // ── Invoice Approval (72h window) — populated when client's company has
+  // invoiceApprovalRequired=true. The clock starts at createdAt; auto-finalize
+  // cron looks for clientApprovalStatus='pending' && now > approvalDeadlineAt.
+  // ────────────────────────────────────────────────────────────────────────
+  /** Whether this invoice is gated by the 72h client-approval workflow. */
+  approvalRequired?: boolean;
+  /** Snapshot of the company's permission at creation time, for audit. */
+  approvalRequiredCompanyId?: string;
+  /** UTC timestamp = createdAt + 72h. */
+  approvalDeadlineAt?: Date;
+  /** Workflow state. Distinct from `status` so admin can see both. */
+  clientApprovalStatus?: 'pending' | 'approved' | 'disputed' | 'auto_finalized';
+  approvedAt?: Date;
+  disputedAt?: Date;
+  disputeReason?: string;
+  /** Set when auto-finalize cron transitions a pending invoice past deadline. */
+  finalizedAt?: Date;
+  /** Idempotency guard — set after the final invoice email is sent (manual approve, auto-finalize). */
+  invoiceEmailSentAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

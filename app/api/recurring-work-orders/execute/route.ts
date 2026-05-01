@@ -364,6 +364,11 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // TODO(invoice-approval): recurring executions currently send the invoice
+      // email immediately even when the client's company has
+      // invoiceApprovalRequired=true. Recurring runs are pre-arranged so
+      // bypassing the 72h gate may be intentional — confirm with product before
+      // routing through the approval workflow. See /lib/invoice-approval.ts.
       // Send email with attachments using the existing email service
       const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/email/send-invoice`, {
         method: 'POST',

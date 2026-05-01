@@ -8,7 +8,7 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft, Image as ImageIcon, Building2 } from 'lucide-react';
+import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft, Image as ImageIcon, Building2, AlertTriangle, ThumbsUp, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
@@ -25,7 +25,7 @@ interface Invoice {
   clientName: string;
   clientEmail: string;
   subcontractorName?: string;
-  status: 'draft' | 'sent' | 'paid';
+  status: 'draft' | 'pending_approval' | 'sent' | 'paid' | 'overdue' | 'disputed';
   totalAmount: number;
   lineItems: Array<{ description: string; quantity: number; unitPrice: number; amount: number }>;
   discountAmount?: number;
@@ -37,6 +37,12 @@ interface Invoice {
   notes?: string;
   terms?: string;
   createdAt: any;
+  approvalRequired?: boolean;
+  approvalDeadlineAt?: any;
+  clientApprovalStatus?: 'pending' | 'approved' | 'disputed' | 'auto_finalized';
+  approvedAt?: any;
+  disputedAt?: any;
+  disputeReason?: string;
   timeline?: InvoiceTimelineEvent[];
   systemInformation?: InvoiceSystemInformation;
   creationSource?: string;
@@ -129,6 +135,77 @@ export default function ClientInvoiceDetail() {
       console.error('Error downloading PDF:', error);
       toast.error('Failed to download PDF');
     }
+  };
+
+  // ── Invoice Approval (72h) — client actions ──────────────────────────────
+  const [approving, setApproving] = useState(false);
+  const [disputing, setDisputing] = useState(false);
+
+  const handleApprove = async () => {
+    if (!invoice) return;
+    if (!confirm(`Approve invoice ${invoice.invoiceNumber} for $${invoice.totalAmount.toLocaleString()}? This will finalize and email the invoice immediately.`)) return;
+    setApproving(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/invoices/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}) },
+        body: JSON.stringify({ invoiceId: invoice.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to approve invoice');
+      }
+      toast.success('Invoice approved. Finalizing now.');
+      // Optimistically reflect new status — full state will refresh on next page load.
+      setInvoice({ ...invoice, status: 'sent', clientApprovalStatus: 'approved' });
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Failed to approve invoice');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleDispute = async () => {
+    if (!invoice) return;
+    const reason = prompt('Please describe the issue you found with this invoice (optional):') ?? '';
+    if (reason === null) return;
+    setDisputing(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/invoices/dispute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}) },
+        body: JSON.stringify({ invoiceId: invoice.id, reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to file dispute');
+      }
+      toast.success('Dispute filed. Our team will review.');
+      setInvoice({ ...invoice, status: 'disputed', clientApprovalStatus: 'disputed', disputeReason: reason });
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Failed to file dispute');
+    } finally {
+      setDisputing(false);
+    }
+  };
+
+  /** Format the remaining 72h window as e.g. "23h 14m left" or "Deadline passed". */
+  const formatTimeLeft = (deadline: Date | null): string => {
+    if (!deadline) return '';
+    const ms = deadline.getTime() - Date.now();
+    if (ms <= 0) return 'Deadline passed';
+    const hours = Math.floor(ms / 3_600_000);
+    const minutes = Math.floor((ms % 3_600_000) / 60_000);
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      const remH = hours % 24;
+      return `${days}d ${remH}h left`;
+    }
+    return hours > 0 ? `${hours}h ${minutes}m left` : `${minutes}m left`;
   };
 
   const handlePayNow = async () => {
@@ -230,8 +307,11 @@ export default function ClientInvoiceDetail() {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       draft: 'bg-amber-100 text-amber-800',
+      pending_approval: 'bg-amber-100 text-amber-800',
       sent: 'bg-blue-100 text-blue-800',
       paid: 'bg-emerald-100 text-emerald-800',
+      disputed: 'bg-red-100 text-red-800',
+      overdue: 'bg-red-100 text-red-800',
     };
     return styles[status] || 'bg-muted text-foreground';
   };
@@ -239,8 +319,11 @@ export default function ClientInvoiceDetail() {
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
       draft: 'Draft',
+      pending_approval: 'Pending Your Approval',
       sent: 'Awaiting Payment',
       paid: 'Paid',
+      disputed: 'Disputed — Under Review',
+      overdue: 'Overdue',
     };
     return labels[status] || status;
   };
@@ -316,6 +399,65 @@ export default function ClientInvoiceDetail() {
                 </div>
               </div>
             </div>
+            {/* Pending Approval banner — 72h client review window */}
+            {invoice.status === 'pending_approval' && invoice.clientApprovalStatus === 'pending' && (() => {
+              const deadline = toDate(invoice.approvalDeadlineAt);
+              const timeLeft = formatTimeLeft(deadline);
+              const passed = !deadline || (deadline.getTime() - Date.now()) <= 0;
+              return (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <Clock className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-900">Review &amp; approve this invoice</p>
+                      <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                        Please review the invoice below. You have <strong>72 hours</strong> from generation
+                        to approve or dispute the work / amount.
+                        {deadline && (
+                          <> Deadline: <strong>{deadline.toLocaleString()}</strong> ({timeLeft}).</>
+                        )}
+                        {' '}If you don&apos;t respond in time, the invoice will be deemed approved and finalized.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      onClick={handleApprove}
+                      disabled={approving || disputing || passed}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      <ThumbsUp className="h-4 w-4 mr-2" />
+                      {approving ? 'Approving…' : 'Approve &amp; Finalize'}
+                    </Button>
+                    <Button
+                      onClick={handleDispute}
+                      disabled={approving || disputing || passed}
+                      variant="outline"
+                      className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+                    >
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      {disputing ? 'Filing dispute…' : 'Dispute Invoice'}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {invoice.status === 'disputed' && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-900">Invoice disputed</p>
+                  <p className="text-xs text-red-800 mt-1">
+                    Our team has been notified and will follow up.
+                    {invoice.disputeReason && (
+                      <> Your note: <span className="italic">&ldquo;{invoice.disputeReason}&rdquo;</span></>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {invoice.status === 'paid' && invoice.paidAt && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-start gap-2">
                 <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
@@ -343,7 +485,7 @@ export default function ClientInvoiceDetail() {
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
-              {invoice.status !== 'paid' && (
+              {invoice.status !== 'paid' && invoice.status !== 'pending_approval' && invoice.status !== 'disputed' && (
                 <Button onClick={handlePayNow} className="flex-1 bg-green-600 hover:bg-green-700">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Pay Now

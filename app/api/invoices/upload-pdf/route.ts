@@ -97,6 +97,10 @@ export async function POST(request: NextRequest) {
     }];
 
     // Create invoice in Firestore
+    // TODO(invoice-approval): if the resolved client's company has
+    // invoiceApprovalRequired=true, route this PDF-upload invoice through the
+    // 72h approval workflow (see /lib/invoice-approval.ts). Currently this
+    // path stays in 'draft' until manually sent — admins can defer alignment.
     const invoiceData: any = {
       invoiceNumber,
       workOrderTitle: invoiceDetails.description || 'Uploaded Invoice',

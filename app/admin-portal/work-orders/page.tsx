@@ -20,6 +20,7 @@ import { createTimelineEvent, createInvoiceTimelineEvent } from '@/lib/timeline'
 import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
+import { isInvoiceApprovalRequiredForClient, computeApprovalDeadline, APPROVAL_WINDOW_HOURS } from '@/lib/invoice-approval';
 
 interface WorkOrder {
   id: string;
@@ -748,6 +749,82 @@ const handleLocationSelect = (locationId: string) => {
       }
 
       const stripePaymentLink = stripeData.paymentLink;
+
+      // ── Invoice Approval (72h) gate ─────────────────────────────────────
+      // If the client's company has invoiceApprovalRequired=true, the invoice
+      // enters a pending_approval state instead of `sent`. The customer-facing
+      // email is deferred until the client approves OR the auto-finalize cron
+      // ages it past approvalDeadlineAt.
+      const approval = await isInvoiceApprovalRequiredForClient(workOrder.clientId, db);
+      const invSnap = await getDoc(invoiceRef);
+      const invData = invSnap.data();
+      const existingTimeline = invData?.timeline || [];
+      const existingSysInfo = invData?.systemInformation || {};
+
+      if (approval.required) {
+        const approvalDeadline = computeApprovalDeadline();
+        const pendingEvent = createInvoiceTimelineEvent({
+          type: 'created',
+          userId: currentUser?.uid || 'system',
+          userName: adminName,
+          userRole: 'admin',
+          details: `Invoice generated — awaiting client approval (${APPROVAL_WINDOW_HOURS}h window)`,
+          metadata: { invoiceNumber, approvalDeadlineAt: approvalDeadline.toISOString() },
+        });
+        await updateDoc(invoiceRef, {
+          stripePaymentLink,
+          status: 'pending_approval',
+          approvalRequired: true,
+          approvalRequiredCompanyId: approval.companyId,
+          approvalDeadlineAt: Timestamp.fromDate(approvalDeadline),
+          clientApprovalStatus: 'pending',
+          timeline: [...existingTimeline, pendingEvent],
+          systemInformation: {
+            ...existingSysInfo,
+            sentBy: {
+              id: currentUser?.uid || 'system',
+              name: adminName,
+              timestamp: Timestamp.now(),
+            },
+          },
+          updatedAt: serverTimestamp(),
+        });
+
+        // In-app notification ONLY — the customer-facing email is deferred
+        // until approve/auto-finalize. notifyClientOfInvoice is reused with
+        // approval-aware messaging on the client side.
+        await notifyClientOfInvoice(
+          workOrder.clientId,
+          invoiceRef.id,
+          invoiceNumber,
+          workOrder.workOrderNumber || workOrder.id,
+          invoiceData.totalAmount,
+        );
+
+        // Mirror the approval state onto the work order timeline.
+        if (currentUser) {
+          const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+          const woData = woDoc.data();
+          const woExistingTimeline = woData?.timeline || [];
+          await updateDoc(doc(db, 'workOrders', workOrder.id), {
+            hasInvoice: true,
+            timeline: [...woExistingTimeline, createTimelineEvent({
+              type: 'invoice_pending_approval',
+              userId: currentUser.uid,
+              userName: adminName,
+              userRole: 'admin',
+              details: `Invoice ${invoiceNumber} generated — pending client approval (${APPROVAL_WINDOW_HOURS}h)`,
+              metadata: { invoiceNumber, totalAmount: invoiceData.totalAmount, approvalDeadlineAt: approvalDeadline.toISOString() },
+            })],
+          });
+        }
+
+        toast.success(`Invoice generated — awaiting client approval (${APPROVAL_WINDOW_HOURS}h).`);
+        fetchWorkOrders();
+        return;
+      }
+      // ── End approval gate ───────────────────────────────────────────────
+
       const sentEvent = createInvoiceTimelineEvent({
         type: 'sent',
         userId: currentUser?.uid || 'system',
@@ -756,15 +833,12 @@ const handleLocationSelect = (locationId: string) => {
         details: 'Invoice sent to client with payment link',
         metadata: { invoiceNumber },
       });
-      const invSnap = await getDoc(invoiceRef);
-      const invData = invSnap.data();
-      const existingTimeline = invData?.timeline || [];
-      const existingSysInfo = invData?.systemInformation || {};
       // Update invoice with payment link
       await updateDoc(invoiceRef, {
         stripePaymentLink,
         status: 'sent',
         sentAt: serverTimestamp(),
+        invoiceEmailSentAt: serverTimestamp(),
         timeline: [...existingTimeline, sentEvent],
         systemInformation: {
           ...existingSysInfo,

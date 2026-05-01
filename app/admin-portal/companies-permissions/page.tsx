@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Building2, Search, Users, CheckCircle2, XCircle, Save, Shield,
-  Mail, Phone, ChevronDown, ChevronUp, Eye, MapPin,
+  Mail, Phone, ChevronDown, ChevronUp, Eye, MapPin, Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -25,6 +25,12 @@ interface Company {
   logoUrl?: string;
   /** Empty / missing = ALL states allowed (backward-compatible default). */
   allowedSubcontractorStates?: string[];
+  /**
+   * When true, invoices generated for clients of this company enter a 72-hour
+   * intermediary approval window before the final invoice email is sent.
+   * Off / missing = current immediate-send behavior (backward-compatible).
+   */
+  invoiceApprovalRequired?: boolean;
 }
 
 interface Client {
@@ -107,6 +113,9 @@ export default function CompaniesPermissions() {
    */
   const [companyAllowedStates, setCompanyAllowedStates] = useState<Record<string, string[]>>({});
   const [companyStateSaving, setCompanyStateSaving] = useState<string | null>(null);
+  /** Local edit state for company-level "Invoice Approval" permission. companyId → bool. */
+  const [companyInvoiceApproval, setCompanyInvoiceApproval] = useState<Record<string, boolean>>({});
+  const [companyApprovalSaving, setCompanyApprovalSaving] = useState<string | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -125,12 +134,15 @@ export default function CompaniesPermissions() {
       setClients(cls);
 
       const allowedStatesMap: Record<string, string[]> = {};
+      const invoiceApprovalMap: Record<string, boolean> = {};
       comps.forEach((c) => {
         allowedStatesMap[c.id] = Array.isArray(c.allowedSubcontractorStates)
           ? c.allowedSubcontractorStates
           : [];
+        invoiceApprovalMap[c.id] = c.invoiceApprovalRequired === true;
       });
       setCompanyAllowedStates(allowedStatesMap);
+      setCompanyInvoiceApproval(invoiceApprovalMap);
 
       const permissionsMap: Record<string, Client['permissions']> = {};
       cls.forEach((client) => {
@@ -192,6 +204,30 @@ export default function CompaniesPermissions() {
       toast.error(e?.message || 'Failed to save state permissions');
     } finally {
       setCompanyStateSaving(null);
+    }
+  };
+
+  // --- Company-level invoice-approval permission --------------------------
+  const handleSaveInvoiceApproval = async (companyId: string) => {
+    setCompanyApprovalSaving(companyId);
+    try {
+      const enabled = companyInvoiceApproval[companyId] === true;
+      await updateDoc(doc(db, 'companies', companyId), {
+        invoiceApprovalRequired: enabled,
+        updatedAt: serverTimestamp(),
+      });
+      toast.success(
+        enabled
+          ? 'Invoice approval (72h) enabled for this company'
+          : 'Invoice approval disabled — invoices will send immediately',
+      );
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === companyId ? { ...c, invoiceApprovalRequired: enabled } : c)),
+      );
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save invoice-approval setting');
+    } finally {
+      setCompanyApprovalSaving(null);
     }
   };
 
@@ -453,6 +489,70 @@ export default function CompaniesPermissions() {
                               >
                                 <Save className="h-3.5 w-3.5" />
                                 {isStateSaving ? 'Saving…' : dirty ? 'Save State Access' : 'Saved'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Company-level: invoice approval (72h intermediary window) */}
+                      {(() => {
+                        const enabled = companyInvoiceApproval[company.id] === true;
+                        const persisted = company.invoiceApprovalRequired === true;
+                        const dirty = enabled !== persisted;
+                        const isApprovalSaving = companyApprovalSaving === company.id;
+                        return (
+                          <div className="border-b border-border bg-card p-4">
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex items-start gap-2 min-w-0">
+                                <Receipt className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-foreground">
+                                    Invoice Approval (72h)
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                                    When enabled, generated invoices enter a pending state. The
+                                    client has 72 hours to approve or dispute. If neither happens,
+                                    the invoice is auto-finalized and emailed.
+                                  </p>
+                                </div>
+                              </div>
+                              <span
+                                className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                  enabled
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'bg-muted text-muted-foreground border border-border'
+                                }`}
+                              >
+                                {enabled ? 'Enabled' : 'Disabled'}
+                              </span>
+                            </div>
+
+                            <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                              <Checkbox
+                                checked={enabled}
+                                onCheckedChange={(checked) =>
+                                  setCompanyInvoiceApproval((prev) => ({
+                                    ...prev,
+                                    [company.id]: checked === true,
+                                  }))
+                                }
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm text-foreground">
+                                Require client approval before sending invoice email
+                              </span>
+                            </label>
+
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveInvoiceApproval(company.id)}
+                                disabled={isApprovalSaving || !dirty}
+                                className="gap-1.5"
+                              >
+                                <Save className="h-3.5 w-3.5" />
+                                {isApprovalSaving ? 'Saving…' : dirty ? 'Save Invoice Approval' : 'Saved'}
                               </Button>
                             </div>
                           </div>

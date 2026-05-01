@@ -225,6 +225,11 @@ export default function ScheduledInvoicesManagement() {
             amount: schedule.amount,
           }];
 
+      // TODO(invoice-approval): scheduled invoices currently bypass the 72h
+      // approval workflow even when the client's company has
+      // invoiceApprovalRequired=true. Decision deferred — scheduled invoices
+      // are typically pre-arranged contracts; revisit if Ggiata wants the
+      // approval gate applied here too. See /lib/invoice-approval.ts.
       const invoiceDocRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
         scheduledInvoiceId: schedule.id,
