@@ -1666,6 +1666,31 @@ export default function ViewWorkOrder() {
           );
         } catch { /* best effort */ }
       }
+
+      // Send the quote email to the client. Fire-and-forget so the modal
+      // closes immediately — failures land in the admin email logs page.
+      const clientEmailForQuote = workOrder.clientEmail;
+      const clientNameForQuote = workOrder.clientName;
+      if (clientEmailForQuote) {
+        fetch('/api/email/send-quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: clientEmailForQuote,
+            toName: clientNameForQuote,
+            quoteNumber: shareQuote.workOrderNumber || shareQuote.id,
+            workOrderTitle: shareQuote.workOrderTitle,
+            totalAmount: shareQuote.totalAmount,
+            clientAmount,
+            markupPercentage: markup,
+            lineItems: clientLineItems,
+            notes: shareQuote.notes,
+          }),
+        }).catch((err) => console.error('Failed to send quote email to client:', err));
+      } else {
+        console.warn(`[share-quote] WO ${workOrder.id} has no clientEmail — email skipped, in-app notification still sent.`);
+      }
+
       toast.success(isResend ? 'Quote resent to client' : 'Quote shared with client');
       setShowShareModal(false);
       setShareQuote(null);

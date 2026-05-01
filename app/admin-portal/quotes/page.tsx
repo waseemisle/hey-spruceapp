@@ -239,6 +239,29 @@ function QuotesContent() {
         );
       }
 
+      // Send the quote email to the client. Fire-and-forget so the toast/UX
+      // doesn't block on Mailgun — failures get logged via /api/email/send-quote
+      // and surface in the admin email logs page.
+      if (quote.clientEmail) {
+        fetch('/api/email/send-quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: quote.clientEmail,
+            toName: quote.clientName,
+            quoteNumber: quote.workOrderNumber || quote.id,
+            workOrderTitle: quote.workOrderTitle,
+            totalAmount: quote.totalAmount,
+            clientAmount,
+            markupPercentage: markup,
+            lineItems: clientLineItems,
+            notes: quote.notes,
+          }),
+        }).catch((err) => console.error('Failed to send quote email to client:', err));
+      } else {
+        console.warn(`[share-quote] Quote ${quote.id} has no clientEmail — email skipped, in-app notification still sent.`);
+      }
+
       toast.success(isResend ? `Quote resent to client with ${markup}% markup` : `Quote forwarded to client with ${markup}% markup`);
       setSelectedQuote(null);
       fetchQuotes();
