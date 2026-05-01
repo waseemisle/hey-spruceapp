@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import { createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifySubcontractorAssignment, notifyQuoteRejection } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
@@ -474,7 +475,7 @@ export default function QuoteDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Amount</p>
                   <p className="text-3xl font-bold text-foreground">
-                    ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
+                    {formatMoney(quote.clientAmount || quote.totalAmount)}
                   </p>
                 </div>
               </div>
@@ -521,7 +522,7 @@ export default function QuoteDetail() {
                         <td className="px-3 py-2">{item.description}</td>
                         <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
                         <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-medium">{formatMoney(item.amount)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -546,16 +547,16 @@ export default function QuoteDetail() {
                     {materialsSubtotal > 0 && (
                       <div className="flex justify-between text-muted-foreground">
                         <span>Materials subtotal</span>
-                        <span>${materialsSubtotal.toFixed(2)}</span>
+                        <span>{formatMoney(materialsSubtotal)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-muted-foreground">
                       <span>Subtotal</span>
-                      <span>${subtotal.toFixed(2)}</span>
+                      <span>{formatMoney(subtotal)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-base border-t border-border pt-2 mt-2">
                       <span>Total</span>
-                      <span>${(quote.clientAmount || quote.totalAmount).toFixed(2)}</span>
+                      <span>{formatMoney(quote.clientAmount || quote.totalAmount)}</span>
                     </div>
                   </div>
                 </div>

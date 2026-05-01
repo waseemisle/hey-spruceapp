@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { formatMoney } from '@/lib/money';
 import { CheckCircle, ArrowLeft, Receipt, Download } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -244,7 +245,7 @@ function PaymentSuccessContent() {
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <span className="text-sm font-medium text-foreground">Amount</span>
                 <span className="text-sm font-semibold text-foreground">
-                  ${(paymentDetails.amount || 0).toFixed(2)} {paymentDetails.currency}
+                  {formatMoney(paymentDetails.amount)} {paymentDetails.currency}
                 </span>
               </div>
 

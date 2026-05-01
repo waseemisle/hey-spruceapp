@@ -5,6 +5,7 @@ import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTi
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import { notifyWorkOrderCompletion, notifyScheduledService, notifyQuoteSubmission, getAllAdminUserIds, notifyAdminsOfAssignmentResponse } from '@/lib/notifications';
 import { createNotification } from '@/lib/notifications';
 import Link from 'next/link';
@@ -584,7 +585,7 @@ export default function SubcontractorAssignedJobs() {
         userId: currentUser.uid,
         userName: subName,
         userRole: 'subcontractor',
-        details: `Repair quote submitted (diagnostic fee waived) — total $${repairTotal.toFixed(2)}`,
+        details: `Repair quote submitted (diagnostic fee waived) — total ${formatMoney(repairTotal)}`,
         metadata: { source: 'repair_quote', workOrderNumber: woData.workOrderNumber },
       });
 
@@ -758,7 +759,7 @@ export default function SubcontractorAssignedJobs() {
       }
 
       const defaultDetails = isDeclinedFlow
-        ? `Client declined repair. Diagnostic fee of $${Number(wo?.diagnosticFee || 0).toFixed(2)} to be billed.`
+        ? `Client declined repair. Diagnostic fee of ${formatMoney(wo?.diagnosticFee)} to be billed.`
         : '';
 
       const idToken = await currentUser?.getIdToken();
@@ -1075,7 +1076,7 @@ export default function SubcontractorAssignedJobs() {
                         className="flex-1 h-8 text-xs gap-1 bg-orange-600 hover:bg-orange-700"
                       >
                         <CheckCircle className="h-3.5 w-3.5" />
-                        Mark Complete (bill ${Number(workOrder.diagnosticFee || 0).toFixed(2)})
+                        Mark Complete (bill {formatMoney(workOrder.diagnosticFee)})
                       </Button>
                     )}
 
@@ -1404,9 +1405,9 @@ export default function SubcontractorAssignedJobs() {
                   </div>
                   <div className="rounded-lg border border-border p-3 bg-muted/30">
                     <div className="text-xs text-muted-foreground">Quote Total</div>
-                    <div className="text-lg font-bold">${repairTotal.toFixed(2)}</div>
+                    <div className="text-lg font-bold">{formatMoney(repairTotal)}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Subtotal ${repairSubtotal.toFixed(2)} + Tax ${repairTaxAmount.toFixed(2)}
+                      Subtotal {formatMoney(repairSubtotal)} + Tax {formatMoney(repairTaxAmount)}
                     </div>
                   </div>
                 </div>
@@ -1479,7 +1480,7 @@ export default function SubcontractorAssignedJobs() {
                       <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <span>
                         Client declined the repair. The $
-                        {Number(currentWo?.diagnosticFee || 0).toFixed(2)} diagnostic fee will be billed.
+                        {formatMoney(currentWo?.diagnosticFee)} diagnostic fee will be billed.
                         No repair work required.
                       </span>
                     </div>

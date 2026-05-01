@@ -5,6 +5,7 @@ import { WorkOrderTimelineEvent, WorkOrderSystemInformation } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronUp, Clock, User, CheckCircle, XCircle, Share2, FileText, Calendar, DollarSign } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 const ADMIN_ONLY_EVENTS = ['shared_for_bidding', 'quote_received'];
 
@@ -248,7 +249,7 @@ export default function WorkOrderSystemInfo({ timeline, systemInformation, viewe
                       <p className="text-sm font-medium text-foreground">{quote.subcontractorName}</p>
                       <p className="text-xs text-muted-foreground">{formatTimestamp(quote.timestamp)}</p>
                     </div>
-                    <p className="text-sm font-semibold text-foreground">${quote.amount.toLocaleString()}</p>
+                    <p className="text-sm font-semibold text-foreground">{formatMoney(quote.amount)}</p>
                   </div>
                 ))}
               </div>

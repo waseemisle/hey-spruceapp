@@ -6,6 +6,7 @@ import { createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifyQuoteSubmission, notifyAdminsOfBiddingRejection, notifyDiagnosticResultsSubmitted } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -561,7 +562,7 @@ export default function SubcontractorBidding() {
         userId: currentUser.uid,
         userName: createdByName,
         userRole: 'subcontractor',
-        details: `Quote submitted — total $${total.toFixed(2)}`,
+        details: `Quote submitted — total ${formatMoney(total)}`,
         metadata: { source: 'subcontractor_bidding_direct', workOrderNumber: selectedBidding.workOrderNumber },
       });
 
@@ -643,7 +644,7 @@ export default function SubcontractorBidding() {
             userId: currentUser.uid,
             userName: subData.fullName || subData.businessName,
             userRole: 'subcontractor',
-            details: `Quote received from ${subData.fullName || subData.businessName} - $${total.toLocaleString()}`,
+            details: `Quote received from ${subData.fullName || subData.businessName} - ${formatMoney(total)}`,
             metadata: { quoteId: quoteRef.id, amount: total },
           };
           const updatedSysInfo = {
@@ -767,7 +768,7 @@ export default function SubcontractorBidding() {
         userId: currentUser.uid,
         userName: createdByName,
         userRole: 'subcontractor',
-        details: `Diagnostic request submitted to client — fee $${feeNum.toFixed(2)}`,
+        details: `Diagnostic request submitted to client — fee ${formatMoney(feeNum)}`,
         metadata: {
           source: 'subcontractor_bidding',
           workOrderNumber: selectedBidding.workOrderNumber,
@@ -864,7 +865,7 @@ export default function SubcontractorBidding() {
             userId: currentUser.uid,
             userName: subData.fullName || subData.businessName,
             userRole: 'subcontractor',
-            details: `Diagnostic Request received from ${subData.fullName || subData.businessName} - $${total.toLocaleString()} (sent directly to client)`,
+            details: `Diagnostic Request received from ${subData.fullName || subData.businessName} - ${formatMoney(total)} (sent directly to client)`,
             metadata: {
               quoteId: quoteRef.id,
               amount: total,
@@ -1070,7 +1071,7 @@ export default function SubcontractorBidding() {
                 {viewWorkOrder.estimateBudget != null && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
-                    <p className="text-sm text-foreground">${Number(viewWorkOrder.estimateBudget).toLocaleString()}</p>
+                    <p className="text-sm text-foreground">{formatMoney(viewWorkOrder.estimateBudget)}</p>
                   </div>
                 )}
                 {viewWorkOrder.locationName && (
@@ -1356,7 +1357,7 @@ export default function SubcontractorBidding() {
                         </div>
                         <div className="col-span-4 sm:col-span-2 text-right text-sm font-semibold tabular-nums self-center sm:self-end">
                           <Label className="sm:hidden text-[11px] font-medium text-muted-foreground text-left block">Total</Label>
-                          ${item.amount.toFixed(2)}
+                          {formatMoney(item.amount)}
                         </div>
                         <div className="col-span-2 sm:col-span-1 flex justify-end self-center sm:self-end">
                           {directQuoteLineItems.length > 1 && (
@@ -1388,7 +1389,7 @@ export default function SubcontractorBidding() {
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Quote Total</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Submitted to client for approval</p>
                     </div>
-                    <p className="text-2xl font-bold text-emerald-700 tabular-nums">${directQuoteTotal.toFixed(2)}</p>
+                    <p className="text-2xl font-bold text-emerald-700 tabular-nums">{formatMoney(directQuoteTotal)}</p>
                   </div>
                 </div>
 
@@ -1473,7 +1474,7 @@ export default function SubcontractorBidding() {
                 {(selectedBidding as any).estimateBudget != null && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
-                    <p className="text-sm text-foreground">${Number((selectedBidding as any).estimateBudget).toLocaleString()}</p>
+                    <p className="text-sm text-foreground">{formatMoney((selectedBidding as any).estimateBudget)}</p>
                   </div>
                 )}
                 {selectedBidding.locationName && (
@@ -1573,11 +1574,11 @@ export default function SubcontractorBidding() {
                   <div className="space-y-2.5">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Diagnostic Visit</span>
-                      <span className="font-semibold tabular-nums">${(Number(diagnosticFee) || 0).toFixed(2)}</span>
+                      <span className="font-semibold tabular-nums">{formatMoney(Number(diagnosticFee))}</span>
                     </div>
                     <div className="flex items-center justify-between border-t border-indigo-200/60 pt-3">
                       <span className="text-sm font-semibold text-foreground">Total Bid</span>
-                      <span className="text-2xl font-bold text-indigo-700 tabular-nums">${(Number(diagnosticFee) || 0).toFixed(2)}</span>
+                      <span className="text-2xl font-bold text-indigo-700 tabular-nums">{formatMoney(Number(diagnosticFee))}</span>
                     </div>
                   </div>
                 </div>
@@ -1713,7 +1714,7 @@ export default function SubcontractorBidding() {
                   <div className="rounded-xl bg-emerald-50 border border-emerald-200/60 px-3 py-2.5 text-xs text-emerald-900 flex items-start gap-2">
                     <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
                     <span>
-                      <strong>Diagnostic accepted by the client{bidding.diagnosticFee ? ` — $${Number(bidding.diagnosticFee).toFixed(2)}` : ''}.</strong>
+                      <strong>Diagnostic accepted by the client{bidding.diagnosticFee ? ` — ${formatMoney(bidding.diagnosticFee)}` : ''}.</strong>
                       {' '}Submit your diagnostic results to continue.
                     </span>
                   </div>

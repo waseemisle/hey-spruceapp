@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -200,7 +201,7 @@ export default function SubcontractorQuotes() {
                     <span className="truncate">Client: {quote.clientName}</span>
                     <span className="flex items-center gap-1">
                       <DollarSign className="h-3.5 w-3.5 shrink-0 text-green-600" />
-                      <span className="font-semibold text-foreground">${(quote.totalAmount || 0).toFixed(2)}</span>
+                      <span className="font-semibold text-foreground">{formatMoney(quote.totalAmount)}</span>
                       <span className="text-muted-foreground">total</span>
                     </span>
                     <span className="flex items-center gap-1">
@@ -211,8 +212,8 @@ export default function SubcontractorQuotes() {
 
                   {/* Cost breakdown */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span>Labor: <span className="font-semibold text-foreground">${(quote.laborCost || 0).toFixed(2)}</span></span>
-                    <span>Materials: <span className="font-semibold text-foreground">${(quote.materialCost || 0).toFixed(2)}</span></span>
+                    <span>Labor: <span className="font-semibold text-foreground">{formatMoney(quote.laborCost)}</span></span>
+                    <span>Materials: <span className="font-semibold text-foreground">{formatMoney(quote.materialCost)}</span></span>
                   </div>
 
                   {quote.forwardedToClient && (

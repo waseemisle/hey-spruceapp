@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
@@ -412,7 +413,7 @@ function PaymentMethodsContent() {
                 <Clock className="h-8 w-8 text-amber-500 flex-shrink-0" />
                 <div>
                   <p className="font-semibold text-foreground">
-                    ${clientData?.subscriptionAmount?.toLocaleString()}/month
+                    {formatMoney(clientData?.subscriptionAmount)}/month
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Billed on the {ordinalSuffix(clientData?.subscriptionBillingDay || 1)} of each month

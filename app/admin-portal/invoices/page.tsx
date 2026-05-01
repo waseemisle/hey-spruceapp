@@ -15,6 +15,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
+import { formatMoney } from '@/lib/money';
 import { Quote } from '@/types';
 import { toast } from 'sonner';
 import { notifyClientOfInvoice } from '@/lib/notifications';
@@ -185,7 +186,7 @@ function InvoicesManagementInner() {
       toast.error('This client has no saved card. Ask them to add one via their portal.');
       return;
     }
-    if (!confirm(`Auto-charge $${invoice.totalAmount.toLocaleString()} from ${invoice.clientName}'s saved ${billing.savedCardBrand || 'card'} ending in ${billing.savedCardLast4}?`)) return;
+    if (!confirm(`Auto-charge ${formatMoney(invoice.totalAmount)} from ${invoice.clientName}'s saved ${billing.savedCardBrand || 'card'} ending in ${billing.savedCardLast4}?`)) return;
     setChargingInvoice(invoice.id);
     try {
       const res = await fetch('/api/stripe/charge-saved-card', {
@@ -196,7 +197,7 @@ function InvoicesManagementInner() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Charge failed');
       if (data.status === 'succeeded') {
-        toast.success(`$${invoice.totalAmount.toLocaleString()} charged successfully! Invoice marked as paid.`);
+        toast.success(`${formatMoney(invoice.totalAmount)} charged successfully! Invoice marked as paid.`);
       } else {
         toast.warning(`Charge requires authentication from the client (status: ${data.status}).`);
       }
@@ -809,7 +810,7 @@ function InvoicesManagementInner() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm font-semibold text-foreground">
-                        ${invoice.totalAmount?.toLocaleString() ?? '0'}
+                        {formatMoney(invoice.totalAmount)}
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
                         {dueDate ? dueDate.toLocaleDateString() : '—'}
@@ -858,7 +859,7 @@ function InvoicesManagementInner() {
                   {/* Client + amount */}
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="text-muted-foreground truncate">{invoice.clientName}</span>
-                    <span className="font-bold text-foreground shrink-0">${invoice.totalAmount?.toLocaleString() ?? '0'}</span>
+                    <span className="font-bold text-foreground shrink-0">{formatMoney(invoice.totalAmount)}</span>
                   </div>
 
                   {/* Due date + optional badges */}
@@ -977,7 +978,7 @@ function InvoicesManagementInner() {
                             <div className="flex-1">
                               <Label className="text-xs">Amount</Label>
                               <div className="text-lg font-bold text-blue-600">
-                                ${item.amount.toLocaleString()}
+                                {formatMoney(item.amount)}
                               </div>
                             </div>
                             {lineItems.length > 1 && (
@@ -1000,7 +1001,7 @@ function InvoicesManagementInner() {
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total Amount:</span>
                       <span className="text-2xl font-bold text-blue-600">
-                        ${calculateTotal().toLocaleString()}
+                        {formatMoney(calculateTotal())}
                       </span>
                     </div>
                   </div>

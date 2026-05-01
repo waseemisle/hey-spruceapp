@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, XCircle, BarChart2, MoreHorizontal, FileText } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface Quote {
   id: string;
@@ -79,7 +80,7 @@ export default function ProposalDecisionEngine({
                   style={{ width: `${Math.min(100, (quote.totalAmount / maxBar) * 100)}%` }}
                 />
               </div>
-              <span className="w-20 text-right font-medium">${quote.totalAmount.toLocaleString()}</span>
+              <span className="w-20 text-right font-medium">{formatMoney(quote.totalAmount)}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-24 shrink-0">Average</span>
@@ -89,7 +90,7 @@ export default function ProposalDecisionEngine({
                   style={{ width: `${Math.min(100, (benchmarkAmount / maxBar) * 100)}%` }}
                 />
               </div>
-              <span className="w-20 text-right text-muted-foreground">${benchmarkAmount.toLocaleString()}</span>
+              <span className="w-20 text-right text-muted-foreground">{formatMoney(benchmarkAmount)}</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
@@ -119,7 +120,7 @@ export default function ProposalDecisionEngine({
             <ul className="text-xs text-muted-foreground space-y-0.5">
               {similarProposals.slice(0, 5).map((q) => (
                 <li key={q.id}>
-                  {q.subcontractorName} — ${(q.totalAmount || 0).toLocaleString()} ({q.status})
+                  {q.subcontractorName} — {formatMoney(q.totalAmount)} ({q.status})
                 </li>
               ))}
             </ul>

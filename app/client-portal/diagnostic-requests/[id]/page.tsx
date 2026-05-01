@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import { createNotification } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,7 +105,7 @@ export default function ClientDiagnosticRequestDetail() {
 
   const handleApprove = async () => {
     if (!quote) return;
-    if (!confirm(`Approve diagnostic fee of $${Number(quote.diagnosticFee ?? quote.totalAmount ?? 0).toFixed(2)} for "${quote.workOrderTitle}"?`)) return;
+    if (!confirm(`Approve diagnostic fee of ${formatMoney(quote.diagnosticFee ?? quote.totalAmount)} for "${quote.workOrderTitle}"?`)) return;
     setActioning(true);
     try {
       const idToken = await auth.currentUser?.getIdToken();

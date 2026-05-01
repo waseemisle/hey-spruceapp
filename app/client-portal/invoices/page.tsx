@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
@@ -233,7 +234,7 @@ function ClientInvoicesInner() {
             <Receipt className="h-5 w-5 flex-shrink-0" />
             <div>
               <p className="text-xs mt-0.5 opacity-75">Outstanding Balance</p>
-              <p className="text-xl font-bold leading-none">${totalUnpaid.toLocaleString()}</p>
+              <p className="text-xl font-bold leading-none">{formatMoney(totalUnpaid)}</p>
             </div>
             <p className="ml-auto text-sm text-amber-700">
               {scopedInvoices.filter(i => i.status === 'sent').length} unpaid invoice(s)
@@ -314,7 +315,7 @@ function ClientInvoicesInner() {
                       {getStatusLabel(invoice.status)}
                     </span>
                   </div>
-                  <p className="text-2xl font-bold text-foreground">${invoice.totalAmount.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatMoney(invoice.totalAmount)}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-3.5 w-3.5 text-muted-foreground" />

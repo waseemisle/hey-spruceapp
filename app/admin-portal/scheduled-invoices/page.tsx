@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { getInvoicePDFBase64 } from '@/lib/pdf-generator';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
+import { formatMoney } from '@/lib/money';
 
 interface LineItem {
   description: string;
@@ -578,7 +579,7 @@ export default function ScheduledInvoicesManagement() {
                             <div className="flex-1">
                               <Label className="text-xs">Amount</Label>
                               <div className="text-lg font-bold text-blue-600">
-                                ${item.amount.toLocaleString()}
+                                {formatMoney(item.amount)}
                               </div>
                             </div>
                             {lineItems.length > 1 && (
@@ -602,7 +603,7 @@ export default function ScheduledInvoicesManagement() {
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total Amount:</span>
                       <span className="text-2xl font-bold text-blue-600">
-                        ${calculateTotal().toLocaleString()}
+                        {formatMoney(calculateTotal())}
                       </span>
                     </div>
                   </div>
@@ -685,7 +686,7 @@ export default function ScheduledInvoicesManagement() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{schedule.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">${schedule.amount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{formatMoney(schedule.amount)}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{schedule.frequency}</td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -753,7 +754,7 @@ export default function ScheduledInvoicesManagement() {
                 <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                   <div>{schedule.clientName}</div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-foreground">${schedule.amount.toLocaleString()}</span>
+                    <span className="font-medium text-foreground">{formatMoney(schedule.amount)}</span>
                     <span className="capitalize">{schedule.frequency}</span>
                   </div>
                   {schedule.nextExecution && (
@@ -888,7 +889,7 @@ export default function ScheduledInvoicesManagement() {
                               <div className="flex-1">
                                 <Label className="text-xs">Amount</Label>
                                 <div className="text-lg font-bold text-blue-600">
-                                  ${item.amount.toLocaleString()}
+                                  {formatMoney(item.amount)}
                                 </div>
                               </div>
                               {lineItems.length > 1 && (
@@ -912,7 +913,7 @@ export default function ScheduledInvoicesManagement() {
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">Total Amount:</span>
                         <span className="text-2xl font-bold text-blue-600">
-                          ${calculateTotal().toLocaleString()}
+                          {formatMoney(calculateTotal())}
                         </span>
                       </div>
                     </div>

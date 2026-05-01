@@ -23,6 +23,7 @@ import { notifyBiddingOpportunity, notifyClientOfQuoteSent } from '@/lib/notific
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
+import { formatMoney } from '@/lib/money';
 import { toast } from 'sonner';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import type { VendorPayment, VendorPaymentAdjustment, VendorPaymentStatus } from '@/types';
@@ -380,14 +381,6 @@ export default function ViewWorkOrder() {
       setVendorPayment(vpDoc ? ({ id: vpDoc.id, ...vpDoc.data() } as VendorPayment) : null);
     } finally {
       setVendorPaymentLoading(false);
-    }
-  };
-
-  const formatMoney = (amount: number, currency = 'USD') => {
-    try {
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount || 0);
-    } catch {
-      return `$${(amount || 0).toFixed(2)}`;
     }
   };
 
@@ -1626,8 +1619,8 @@ export default function ViewWorkOrder() {
         userName: adminName,
         userRole: 'admin',
         details: isResend
-          ? `Quote resent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`
-          : `Quote sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
+          ? `Quote resent to client with ${markup}% markup (${formatMoney(clientAmount)})`
+          : `Quote sent to client with ${markup}% markup (${formatMoney(clientAmount)})`,
         metadata: { quoteId: shareQuote.id, workOrderNumber: shareQuote.workOrderNumber },
       });
       const existingSysInfo = (shareQuote as any).systemInformation || {};
@@ -2117,7 +2110,7 @@ export default function ViewWorkOrder() {
                   </Button>
                   <div className="flex justify-end mt-3 text-sm">
                     <span className="text-muted-foreground">
-                      Subtotal: <span className="font-semibold text-foreground">${invoiceLineItems.reduce((s, li) => s + (li.amount || 0), 0).toFixed(2)}</span>
+                      Subtotal: <span className="font-semibold text-foreground">{formatMoney(invoiceLineItems.reduce((s, li) => s + (li.amount || 0), 0))}</span>
                     </span>
                   </div>
                 </div>
@@ -2140,7 +2133,7 @@ export default function ViewWorkOrder() {
                   <div className="rounded-lg border border-border p-3 bg-muted/30">
                     <div className="text-xs text-muted-foreground">Invoice Total</div>
                     <div className="text-lg font-bold">
-                      ${Math.max(0, invoiceLineItems.reduce((s, li) => s + (li.amount || 0), 0) - (Number(invoiceForm.discountAmount || 0) || 0)).toFixed(2)}
+                      {formatMoney(Math.max(0, invoiceLineItems.reduce((s, li) => s + (li.amount || 0), 0) - (Number(invoiceForm.discountAmount || 0) || 0)))}
                     </div>
                   </div>
                 </div>
@@ -2372,7 +2365,7 @@ export default function ViewWorkOrder() {
                           />
                         ) : (
                           workOrder.estimateBudget
-                            ? <p className="text-foreground font-semibold">${workOrder.estimateBudget.toLocaleString()}</p>
+                            ? <p className="text-foreground font-semibold">{formatMoney(workOrder.estimateBudget)}</p>
                             : <p className="text-muted-foreground text-sm">Not set</p>
                         )}
                       </div>
@@ -2446,7 +2439,7 @@ export default function ViewWorkOrder() {
                         <div className="rounded-lg border border-indigo-200 bg-white dark:bg-indigo-950/40 p-3">
                           <div className="text-xs text-muted-foreground">Diagnostic Fee</div>
                           <div className="text-xl font-bold text-indigo-900 dark:text-indigo-200">
-                            ${Number(workOrder.diagnosticFee ?? 0).toFixed(2)}
+                            {formatMoney(workOrder.diagnosticFee)}
                           </div>
                         </div>
                         <div className="rounded-lg border border-indigo-200 bg-white dark:bg-indigo-950/40 p-3">
@@ -2473,7 +2466,7 @@ export default function ViewWorkOrder() {
                         <p className="font-semibold mb-1">How this decision bills:</p>
                         <ul className="list-disc pl-5 space-y-0.5 text-xs">
                           <li><strong>Approve Repair</strong> — diagnostic fee is waived; client is billed only the repair cost (subcontractor will submit a repair quote next).</li>
-                          <li><strong>Decline Repair</strong> — client is billed only the ${Number(workOrder.diagnosticFee ?? 0).toFixed(2)} diagnostic fee; no repair will be scheduled.</li>
+                          <li><strong>Decline Repair</strong> — client is billed only the {formatMoney(workOrder.diagnosticFee)} diagnostic fee; no repair will be scheduled.</li>
                         </ul>
                       </div>
 
@@ -2516,7 +2509,7 @@ export default function ViewWorkOrder() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div>
                           <div className="text-xs text-muted-foreground">Diagnostic Fee</div>
-                          <div className="font-semibold">${Number(workOrder.diagnosticFee ?? 0).toFixed(2)}</div>
+                          <div className="font-semibold">{formatMoney(workOrder.diagnosticFee)}</div>
                         </div>
                         <div>
                           <div className="text-xs text-muted-foreground">Billing Phase</div>
@@ -2544,7 +2537,7 @@ export default function ViewWorkOrder() {
                       {workOrder.status === 'repair_declined' && (
                         <div className="rounded-lg bg-orange-50 border border-orange-200 p-3 text-sm text-orange-900 flex items-start gap-2">
                           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          <span>Repair was declined. Only the diagnostic fee (${Number(workOrder.diagnosticFee ?? 0).toFixed(2)}) will be billed when the invoice is created.</span>
+                          <span>Repair was declined. Only the diagnostic fee ({formatMoney(workOrder.diagnosticFee)}) will be billed when the invoice is created.</span>
                         </div>
                       )}
                       {workOrder.status === 'repair_approved' && (
@@ -2760,7 +2753,7 @@ export default function ViewWorkOrder() {
                       <div className="text-sm text-muted-foreground">
                         Base amount defaults from the accepted quote (if available):{' '}
                         <span className="font-medium text-foreground">
-                          {preferredBaseQuote ? formatMoney(preferredBaseQuote.totalAmount, 'USD') : '—'}
+                          {preferredBaseQuote ? formatMoney(preferredBaseQuote.totalAmount) : '—'}
                         </span>
                       </div>
                       {/* Subcontractor Bank Account Info */}
@@ -2825,18 +2818,18 @@ export default function ViewWorkOrder() {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="rounded-xl border border-border p-4">
                           <div className="text-xs text-muted-foreground">Base amount</div>
-                          <div className="text-lg font-bold">{formatMoney(vendorPayment.baseAmount, vendorPayment.currency)}</div>
+                          <div className="text-lg font-bold">{formatMoney(vendorPayment.baseAmount)}</div>
                         </div>
                         <div className="rounded-xl border border-border p-4">
                           <div className="text-xs text-muted-foreground">Adjustments total</div>
                           <div className="text-lg font-bold">
-                            {formatMoney(vendorPayment.adjustmentTotal, vendorPayment.currency)}
+                            {formatMoney(vendorPayment.adjustmentTotal)}
                           </div>
                         </div>
                         <div className="rounded-xl border border-border p-4">
                           <div className="text-xs text-muted-foreground">Final amount</div>
                           <div className="text-lg font-bold">
-                            {formatMoney(vendorPayment.finalAmount, vendorPayment.currency)}
+                            {formatMoney(vendorPayment.finalAmount)}
                           </div>
                         </div>
                       </div>
@@ -2864,7 +2857,7 @@ export default function ViewWorkOrder() {
                                       </div>
                                     </div>
                                     <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
-                                      {signed >= 0 ? "+" : "−"}{formatMoney(Math.abs(signed), vendorPayment.currency)}
+                                      {signed >= 0 ? "+" : "−"}{formatMoney(Math.abs(signed))}
                                     </span>
                                   </div>
                                 </div>
@@ -2943,7 +2936,7 @@ export default function ViewWorkOrder() {
                       placeholder="e.g. 250"
                     />
                     <div className="text-xs text-muted-foreground mt-1">
-                      Quote default: {preferredBaseQuote ? formatMoney(preferredBaseQuote.totalAmount, 'USD') : '—'}
+                      Quote default: {preferredBaseQuote ? formatMoney(preferredBaseQuote.totalAmount) : '—'}
                     </div>
                   </div>
 
@@ -2955,15 +2948,15 @@ export default function ViewWorkOrder() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         <div className="rounded-lg border border-border p-3 text-center">
                           <div className="text-xs text-muted-foreground">Base amount</div>
-                          <div className="font-semibold">{formatMoney(base, 'USD')}</div>
+                          <div className="font-semibold">{formatMoney(base)}</div>
                         </div>
                         <div className="rounded-lg border border-border p-3 text-center">
                           <div className="text-xs text-muted-foreground">Adjustments total</div>
-                          <div className="font-semibold">{formatMoney(adjustmentTotal, 'USD')}</div>
+                          <div className="font-semibold">{formatMoney(adjustmentTotal)}</div>
                         </div>
                         <div className="rounded-lg border border-border p-3 text-center">
                           <div className="text-xs text-muted-foreground">Final amount</div>
-                          <div className="font-semibold text-emerald-700">{formatMoney(finalAmount, 'USD')}</div>
+                          <div className="font-semibold text-emerald-700">{formatMoney(finalAmount)}</div>
                         </div>
                       </div>
                     );
@@ -3054,7 +3047,7 @@ export default function ViewWorkOrder() {
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className={`text-sm font-semibold ${signed >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                                  {signed >= 0 ? '+' : '−'}{formatMoney(Math.abs(signed), 'USD')}
+                                  {signed >= 0 ? '+' : '−'}{formatMoney(Math.abs(signed))}
                                 </span>
                                 <button
                                   className="text-muted-foreground hover:text-red-500"
@@ -3618,9 +3611,9 @@ export default function ViewWorkOrder() {
             <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
               {/* Amounts */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">${(viewQuoteDetail.totalAmount || 0).toFixed(2)}</p></div>
+                <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">{formatMoney(viewQuoteDetail.totalAmount)}</p></div>
                 {viewQuoteDetail.clientAmount != null && (
-                  <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuoteDetail.markupPercentage != null ? `(${viewQuoteDetail.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">${viewQuoteDetail.clientAmount.toFixed(2)}</p></div>
+                  <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuoteDetail.markupPercentage != null ? `(${viewQuoteDetail.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">{formatMoney(viewQuoteDetail.clientAmount)}</p></div>
                 )}
               </div>
               {/* Client-facing line items */}
@@ -3636,15 +3629,15 @@ export default function ViewWorkOrder() {
                           <tr key={idx} className="border-t border-border">
                             <td className="px-3 py-2">{item.description}</td>
                             <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
-                            <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
-                            <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right">{formatMoney(item.unitPrice)}</td>
+                            <td className="px-3 py-2 text-right font-medium">{formatMoney(item.amount)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                     </div>
                   </div>
-                  <div className="mt-2 text-right text-sm font-semibold text-blue-600">Client Total: ${(viewQuoteDetail.clientAmount || 0).toFixed(2)}</div>
+                  <div className="mt-2 text-right text-sm font-semibold text-blue-600">Client Total: {formatMoney(viewQuoteDetail.clientAmount)}</div>
                 </div>
               )}
               {/* Original subcontractor line items */}
@@ -3660,15 +3653,15 @@ export default function ViewWorkOrder() {
                           <tr key={idx} className="border-t border-border">
                             <td className="px-3 py-2">{item.description}</td>
                             <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
-                            <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
-                            <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right">{formatMoney(item.unitPrice)}</td>
+                            <td className="px-3 py-2 text-right font-medium">{formatMoney(item.amount)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                     </div>
                   </div>
-                  <div className="mt-2 text-right text-sm font-semibold">Total: ${(viewQuoteDetail.totalAmount || 0).toFixed(2)}</div>
+                  <div className="mt-2 text-right text-sm font-semibold">Total: {formatMoney(viewQuoteDetail.totalAmount)}</div>
                 </div>
               )}
               {viewQuoteDetail.notes && (
@@ -3790,11 +3783,11 @@ export default function ViewWorkOrder() {
                               className="h-9 text-right"
                             />
                             {!row.isDiag && markupNum > 0 && (
-                              <p className="text-[10px] text-muted-foreground text-right mt-1">→ ${row.clientUnitPrice.toFixed(2)} w/ markup</p>
+                              <p className="text-[10px] text-muted-foreground text-right mt-1">→ {formatMoney(row.clientUnitPrice)} w/ markup</p>
                             )}
                           </td>
                           <td className="px-3 py-2 text-right font-medium">
-                            ${row.clientAmount.toFixed(2)}
+                            {formatMoney(row.clientAmount)}
                           </td>
                           <td className="px-2 py-2 text-center">
                             {shareLineItems.length > 1 && (

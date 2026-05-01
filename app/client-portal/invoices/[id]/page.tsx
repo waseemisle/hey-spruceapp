@@ -12,6 +12,7 @@ import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft, Image 
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
+import { formatMoney } from '@/lib/money';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import type { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
@@ -167,7 +168,7 @@ export default function ClientInvoiceDetail() {
 
   const handleApprove = async () => {
     if (!invoice) return;
-    if (!confirm(`Approve invoice ${invoice.invoiceNumber} for $${invoice.totalAmount.toLocaleString()}? This will finalize and email the invoice immediately.`)) return;
+    if (!confirm(`Approve invoice ${invoice.invoiceNumber} for ${formatMoney(invoice.totalAmount)}? This will finalize and email the invoice immediately.`)) return;
     setApproving(true);
     try {
       const idToken = await auth.currentUser?.getIdToken();
@@ -413,7 +414,7 @@ export default function ClientInvoiceDetail() {
                 <Receipt className="h-5 w-5 text-green-600" />
                 <div>
                   <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="text-3xl font-bold text-foreground">${invoice.totalAmount.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-foreground">{formatMoney(invoice.totalAmount)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

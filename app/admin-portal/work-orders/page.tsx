@@ -21,6 +21,7 @@ import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { isInvoiceApprovalRequiredForClient, computeApprovalDeadline, APPROVAL_WINDOW_HOURS } from '@/lib/invoice-approval';
+import { formatMoney } from '@/lib/money';
 
 interface WorkOrder {
   id: string;
@@ -687,11 +688,11 @@ const handleLocationSelect = (locationId: string) => {
               userId: currentUser?.uid || 'system',
               userName: adminName,
               userRole: 'admin',
-              details: `Invoice ${invoiceNumber} auto-charged (Fixed Auto-Charge Plan — $${invoiceAmount.toFixed(2)})`,
+              details: `Invoice ${invoiceNumber} auto-charged (Fixed Auto-Charge Plan — ${formatMoney(invoiceAmount)})`,
               metadata: { invoiceId: invoiceRef.id, invoiceNumber, amount: invoiceAmount },
             })],
           });
-          toast.success(`Invoice auto-charged ($${invoiceAmount.toFixed(2)}) using Fixed Auto-Charge Plan. Work order marked as completed.`);
+          toast.success(`Invoice auto-charged (${formatMoney(invoiceAmount)}) using Fixed Auto-Charge Plan. Work order marked as completed.`);
           fetchWorkOrders();
           return;
         } else {
@@ -2474,7 +2475,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {workOrder.estimateBudget ? `$${workOrder.estimateBudget.toLocaleString()}` : '-'}
+                      {workOrder.estimateBudget ? formatMoney(workOrder.estimateBudget) : '-'}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {workOrder.createdAt?.toDate?.()
@@ -2549,7 +2550,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                 <div className="flex items-center justify-between text-xs text-muted-foreground gap-2">
                   <span className="truncate">{workOrder.category || '—'}</span>
                   <span className="shrink-0">
-                    {workOrder.estimateBudget ? `$${workOrder.estimateBudget.toLocaleString()}` : workOrder.assignedSubcontractorName || workOrder.assignedToName || '—'}
+                    {workOrder.estimateBudget ? formatMoney(workOrder.estimateBudget) : workOrder.assignedSubcontractorName || workOrder.assignedToName || '—'}
                   </span>
                 </div>
 

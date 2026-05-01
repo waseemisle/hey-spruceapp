@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -223,7 +224,7 @@ export default function ClientRecurringWorkOrderDetails() {
                   <DollarSign className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-foreground mb-1">Estimate Budget</p>
-                    <p className="text-foreground">${recurringWorkOrder.estimateBudget.toLocaleString()}</p>
+                    <p className="text-foreground">{formatMoney(recurringWorkOrder.estimateBudget)}</p>
                   </div>
                 </div>
               )}

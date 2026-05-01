@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { formatMoney } from '@/lib/money';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClipboardList, FileText, Users, Receipt, DollarSign, TrendingUp, Building2 } from 'lucide-react';
@@ -199,7 +200,7 @@ export default function AnalyticsExecutiveDashboard() {
                       }}
                     />
                     <span className="text-xs font-medium">{r.label}</span>
-                    <span className="text-xs text-muted-foreground">${r.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    <span className="text-xs text-muted-foreground">{formatMoney(r.value)}</span>
                   </div>
                 ))}
               </div>
@@ -226,7 +227,7 @@ export default function AnalyticsExecutiveDashboard() {
                       spendByLocation.map((row) => (
                         <tr key={row.id}>
                           <td className="px-4 py-2">{row.name}</td>
-                          <td className="px-4 py-2 text-right font-medium">${row.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <td className="px-4 py-2 text-right font-medium">{formatMoney(row.amount)}</td>
                         </tr>
                       ))
                     )}
@@ -242,7 +243,7 @@ export default function AnalyticsExecutiveDashboard() {
                   <div
                     key={month}
                     className="flex-1 flex flex-col items-center gap-0.5 min-w-0"
-                    title={`${month}: $${amount.toLocaleString()}`}
+                    title={`${month}: ${formatMoney(amount)}`}
                   >
                     <div
                       className="w-full rounded-t bg-primary/70 min-h-[2px]"

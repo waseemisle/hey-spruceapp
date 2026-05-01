@@ -6,6 +6,7 @@ import type { QuoteTimelineEvent } from '@/types';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import { notifySubcontractorAssignment, notifyQuoteRejection } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -440,7 +441,7 @@ export default function ClientQuotes() {
                 <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <DollarSign className="h-3.5 w-3.5 shrink-0" />
-                    ${(quote.clientAmount || quote.totalAmount).toLocaleString()}
+                    {formatMoney(quote.clientAmount || quote.totalAmount)}
                   </span>
                   {quote.workOrderNumber && (
                     <span>WO: {quote.workOrderNumber}</span>

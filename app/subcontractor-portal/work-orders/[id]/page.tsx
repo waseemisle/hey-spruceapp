@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { collection, doc, getDoc, onSnapshot, query, where, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -232,7 +233,7 @@ export default function SubWorkOrderDetail() {
               {workOrder.estimateBudget != null && (
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
-                  <p className="text-sm text-foreground">${Number(workOrder.estimateBudget).toLocaleString()}</p>
+                  <p className="text-sm text-foreground">{formatMoney(workOrder.estimateBudget)}</p>
                 </div>
               )}
               {workOrder.clientName && (
@@ -308,7 +309,7 @@ export default function SubWorkOrderDetail() {
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">Diagnostic Fee</p>
                   <p className="text-sm font-semibold text-indigo-700">
-                    ${Number(diagnosticQuote.diagnosticFee ?? diagnosticQuote.totalAmount ?? 0).toFixed(2)}
+                    {formatMoney(diagnosticQuote.diagnosticFee ?? diagnosticQuote.totalAmount)}
                   </p>
                 </div>
                 <div>
@@ -387,7 +388,7 @@ export default function SubWorkOrderDetail() {
                 <div key={q.id} className="rounded-xl bg-white/70 border border-emerald-200/60 p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-semibold text-foreground">
-                      Total: ${Number(q.totalAmount ?? 0).toFixed(2)}
+                      Total: {formatMoney(q.totalAmount)}
                     </p>
                     <p className="text-xs font-semibold text-muted-foreground capitalize">
                       {(q.status || '').replace(/_/g, ' ')}
@@ -417,7 +418,7 @@ export default function SubWorkOrderDetail() {
                         {q.lineItems.map((li, i) => (
                           <div key={i} className="flex items-center justify-between text-sm">
                             <span className="text-foreground">{li.description} ({li.quantity} × ${Number(li.unitPrice).toFixed(2)})</span>
-                            <span className="font-semibold tabular-nums">${Number(li.amount).toFixed(2)}</span>
+                            <span className="font-semibold tabular-nums">{formatMoney(li.amount)}</span>
                           </div>
                         ))}
                       </div>

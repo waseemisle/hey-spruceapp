@@ -13,6 +13,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Receipt, Download, ArrowLeft, History, Paperclip, CreditCard, Edit2, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Send } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
+import { formatMoney } from '@/lib/money';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
 import { toast } from 'sonner';
 import type { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
@@ -650,7 +651,7 @@ export default function AdminInvoiceDetail() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Charge failed');
       if (data.status === 'succeeded') {
-        toast.success(`Charged $${invoice.totalAmount.toLocaleString()} successfully!`);
+        toast.success(`Charged ${formatMoney(invoice.totalAmount)} successfully!`);
         setInvoice(prev => prev ? { ...prev, status: 'paid' } : prev);
       } else {
         toast.warning(`Charge status: ${data.status}. Client may need to authenticate.`);
@@ -855,7 +856,7 @@ export default function AdminInvoiceDetail() {
                   {clientBilling.stripeSubscriptionId && clientBilling.subscriptionStatus === 'active' && (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
                       <span>⚡</span>
-                      Client has Fixed Recurring Plan: ${(clientBilling.subscriptionAmount || 0).toLocaleString()}/month
+                      Client has Fixed Recurring Plan: {formatMoney(clientBilling.subscriptionAmount)}/month
                     </span>
                   )}
                 </div>
@@ -903,8 +904,8 @@ export default function AdminInvoiceDetail() {
                           <tr key={idx}>
                             <td className="px-4 py-2">{row.description || '—'}</td>
                             <td className="px-4 py-2 text-right">{row.quantity ?? '—'}</td>
-                            <td className="px-4 py-2 text-right">${Number(row.unitPrice ?? 0).toLocaleString()}</td>
-                            <td className="px-4 py-2 text-right font-medium">${Number(row.amount ?? 0).toLocaleString()}</td>
+                            <td className="px-4 py-2 text-right">{formatMoney(row.unitPrice)}</td>
+                            <td className="px-4 py-2 text-right font-medium">{formatMoney(row.amount)}</td>
                           </tr>
                         ))
                       )}
@@ -913,8 +914,8 @@ export default function AdminInvoiceDetail() {
                 </div>
 
                 <div className="border-t pt-3 space-y-1 text-sm">
-                  {discount > 0 && <p>Discount: -${discount.toLocaleString()}</p>}
-                  <p className="font-bold text-lg">Total: ${Number(totalDisplay || 0).toLocaleString()}</p>
+                  {discount > 0 && <p>Discount: -{formatMoney(discount)}</p>}
+                  <p className="font-bold text-lg">Total: {formatMoney(totalDisplay)}</p>
                 </div>
               </div>
             )}

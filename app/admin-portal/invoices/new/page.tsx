@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Save, Plus, Trash2, Receipt, ChevronDown, Search, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
+import { formatMoney } from '@/lib/money';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -411,7 +412,7 @@ function CreateInvoiceContent() {
               const chargeData = await chargeRes.json();
               if (chargeRes.ok && chargeData.status === 'succeeded') {
                 autoCharged = true;
-                toast.success(`Invoice auto-charged $${totalAmount.toLocaleString()} via Fixed Auto-Charge Plan!`);
+                toast.success(`Invoice auto-charged ${formatMoney(totalAmount)} via Fixed Auto-Charge Plan!`);
               } else {
                 console.error('Auto-charge failed:', chargeData.error || chargeData.message);
               }
@@ -477,7 +478,7 @@ function CreateInvoiceContent() {
                     userId: currentUser.uid,
                     userName: createdByName,
                     userRole: 'admin',
-                    details: `Invoice ${invoiceNumber} created — $${totalAmount.toLocaleString()}`,
+                    details: `Invoice ${invoiceNumber} created — ${formatMoney(totalAmount)}`,
                     metadata: { invoiceId: invoiceRef.id, invoiceNumber, amount: totalAmount },
                   },
                 ],
@@ -761,7 +762,7 @@ function CreateInvoiceContent() {
               <div className="flex justify-end pt-2 border-t">
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-2xl font-bold text-foreground">${totalAmount.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatMoney(totalAmount)}</p>
                 </div>
               </div>
             </CardContent>

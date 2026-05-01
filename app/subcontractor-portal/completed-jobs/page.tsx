@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Input } from '@/components/ui/input';
 import {
@@ -184,7 +185,7 @@ export default function SubcontractorCompletedJobs() {
     try {
       return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount || 0);
     } catch {
-      return `$${(amount || 0).toFixed(2)}`;
+      return formatMoney(amount);
     }
   };
 

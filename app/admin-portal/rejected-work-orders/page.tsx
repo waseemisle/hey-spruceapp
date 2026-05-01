@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { formatMoney } from '@/lib/money';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -161,7 +162,7 @@ export default function RejectedWorkOrders() {
                   )}
                   <div>Category: <span className="text-foreground">{workOrder.category}</span></div>
                   {workOrder.estimateBudget != null && (
-                    <div>Budget: <span className="text-foreground">${workOrder.estimateBudget.toLocaleString()}</span></div>
+                    <div>Budget: <span className="text-foreground">{formatMoney(workOrder.estimateBudget)}</span></div>
                   )}
                   <div className="bg-red-50 border border-red-200 rounded p-2 mt-1">
                     <div className="flex items-start gap-1.5">

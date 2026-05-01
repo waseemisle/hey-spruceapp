@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, getDoc, doc, updateDoc, serverTimestamp, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { formatMoney } from '@/lib/money';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -503,7 +504,7 @@ export default function ClientsManagement() {
                       )}
                       {client.autoChargeThreshold && (
                         <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full">
-                          Threshold ${client.autoChargeThreshold.toLocaleString()}
+                          Threshold {formatMoney(client.autoChargeThreshold)}
                         </span>
                       )}
                     </div>

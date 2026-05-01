@@ -5,6 +5,7 @@ import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getD
 import { createTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { formatMoney } from '@/lib/money';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1059,7 +1060,7 @@ export default function ViewClientWorkOrder() {
                       <div>
                         <h3 className="font-semibold text-muted-foreground text-sm mb-1">Estimate Budget</h3>
                         {workOrder.estimateBudget
-                          ? <p className="text-foreground font-semibold">${workOrder.estimateBudget.toLocaleString()}</p>
+                          ? <p className="text-foreground font-semibold">{formatMoney(workOrder.estimateBudget)}</p>
                           : <p className="text-muted-foreground text-sm">Not set</p>
                         }
                       </div>
@@ -1121,7 +1122,7 @@ export default function ViewClientWorkOrder() {
                         <div className="flex justify-between items-center mb-4">
                           <span className="text-lg font-semibold text-foreground">Total Amount</span>
                           <span className="text-3xl font-bold text-green-600">
-                            ${workOrder.approvedQuoteAmount.toLocaleString()}
+                            {formatMoney(workOrder.approvedQuoteAmount)}
                           </span>
                         </div>
                       </div>

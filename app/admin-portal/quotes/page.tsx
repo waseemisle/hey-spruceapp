@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { db, auth } from '@/lib/firebase';
+import { formatMoney } from '@/lib/money';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -173,8 +174,8 @@ function QuotesContent() {
         userName: adminName,
         userRole: 'admin',
         details: isResend
-          ? `Quote resent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`
-          : `Quote sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
+          ? `Quote resent to client with ${markup}% markup (${formatMoney(clientAmount)})`
+          : `Quote sent to client with ${markup}% markup (${formatMoney(clientAmount)})`,
         metadata: { quoteId: quote.id, workOrderNumber: quote.workOrderNumber },
       });
       const existingSysInfo = (quote as any).systemInformation || {};
@@ -212,8 +213,8 @@ function QuotesContent() {
             userName: adminName,
             userRole: 'admin',
             details: isResend
-              ? `Quote from ${quote.subcontractorName} resent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`
-              : `Quote from ${quote.subcontractorName} sent to client with ${markup}% markup ($${clientAmount.toFixed(2)})`,
+              ? `Quote from ${quote.subcontractorName} resent to client with ${markup}% markup (${formatMoney(clientAmount)})`
+              : `Quote from ${quote.subcontractorName} sent to client with ${markup}% markup (${formatMoney(clientAmount)})`,
             metadata: { quoteId: quote.id, subcontractorName: quote.subcontractorName, clientAmount, markup },
           })],
           systemInformation: {
@@ -365,7 +366,7 @@ function QuotesContent() {
   const handleDeleteQuote = async (quote: Quote) => {
     // Show confirmation toast with action buttons
     toast(`Delete quote for "${quote.workOrderTitle}"?`, {
-      description: `Quote Amount: $${quote.totalAmount?.toFixed(2) || '0.00'}\nSubcontractor: ${quote.subcontractorName}\n\nThis action cannot be undone.`,
+      description: `Quote Amount: ${formatMoney(quote.totalAmount)}\nSubcontractor: ${quote.subcontractorName}\n\nThis action cannot be undone.`,
       action: {
         label: 'Delete',
         onClick: async () => {
@@ -727,7 +728,7 @@ function QuotesContent() {
                                 <tr key={idx} className="border-t border-border">
                                   <td className="px-2 py-1">{item.description}</td>
                                   <td className="px-2 py-1 text-center">{item.quantity.toFixed(1)}</td>
-                                  <td className="px-2 py-1 text-right font-medium">${(item.amount * factor).toFixed(2)}</td>
+                                  <td className="px-2 py-1 text-right font-medium">{formatMoney(item.amount * factor)}</td>
                                 </tr>
                               );
                             })}
@@ -819,9 +820,9 @@ function QuotesContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor</p><p className="font-medium">{viewQuote.subcontractorName}</p><p className="text-xs text-muted-foreground">{viewQuote.subcontractorEmail}</p></div>
                   <div><p className="text-xs text-muted-foreground mb-0.5">Client</p><p className="font-medium">{viewQuote.clientName}</p><p className="text-xs text-muted-foreground">{viewQuote.clientEmail}</p></div>
-                  <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">${(viewQuote.totalAmount || 0).toFixed(2)}</p></div>
+                  <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">{formatMoney(viewQuote.totalAmount)}</p></div>
                   {viewQuote.clientAmount != null && (
-                    <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuote.markupPercentage != null ? `(${viewQuote.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">${viewQuote.clientAmount.toFixed(2)}</p></div>
+                    <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuote.markupPercentage != null ? `(${viewQuote.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">{formatMoney(viewQuote.clientAmount)}</p></div>
                   )}
                 </div>
                 {/* Line Items — client-facing (with markup) */}
@@ -846,8 +847,8 @@ function QuotesContent() {
                             <tr key={idx} className="border-t border-border">
                               <td className="px-3 py-2">{item.description}</td>
                               <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
-                              <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
-                              <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right">{formatMoney(item.unitPrice)}</td>
+                              <td className="px-3 py-2 text-right font-medium">{formatMoney(item.amount)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -855,7 +856,7 @@ function QuotesContent() {
                       </div>
                     </div>
                     <div className="mt-2 text-right text-sm font-semibold text-blue-600">
-                      Client Total: ${(viewQuote.clientAmount || 0).toFixed(2)}
+                      Client Total: {formatMoney(viewQuote.clientAmount)}
                     </div>
                   </div>
                 )}
@@ -881,8 +882,8 @@ function QuotesContent() {
                             <tr key={idx} className="border-t border-border">
                               <td className="px-3 py-2">{item.description}</td>
                               <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
-                              <td className="px-3 py-2 text-right">${item.unitPrice.toFixed(2)}</td>
-                              <td className="px-3 py-2 text-right font-medium">${item.amount.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right">{formatMoney(item.unitPrice)}</td>
+                              <td className="px-3 py-2 text-right font-medium">{formatMoney(item.amount)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -890,7 +891,7 @@ function QuotesContent() {
                       </div>
                     </div>
                     <div className="mt-2 text-right text-sm font-semibold">
-                      Total: ${(viewQuote.totalAmount || 0).toFixed(2)}
+                      Total: {formatMoney(viewQuote.totalAmount)}
                     </div>
                   </div>
                 )}

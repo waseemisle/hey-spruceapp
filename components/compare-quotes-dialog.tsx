@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { X, User, Calendar, FileText, DollarSign, CheckCircle, TrendingUp } from 'lucide-react';
+import { formatMoney } from '@/lib/money';
 
 interface LineItem {
   description: string;
@@ -138,7 +139,7 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                     <div className="text-center py-4 bg-blue-50 rounded-lg border border-blue-200">
                       <p className="text-xs text-muted-foreground mb-1 font-medium">Total Amount</p>
                       <p className="text-3xl font-bold text-blue-600">
-                        ${getDisplayAmount(quote).toLocaleString()}
+                        {formatMoney(getDisplayAmount(quote))}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1 capitalize">{quote.status.replace(/_/g, ' ')}</p>
                     </div>
@@ -152,20 +153,20 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Labor Cost:</span>
                         <span className="font-semibold">
-                          ${isClient ? Math.round(quote.laborCost * getMarkup(quote)).toLocaleString() : quote.laborCost.toLocaleString()}
+                          {formatMoney(isClient ? Math.round(quote.laborCost * getMarkup(quote)) : quote.laborCost)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Material Cost:</span>
                         <span className="font-semibold">
-                          ${isClient ? Math.round(quote.materialCost * getMarkup(quote)).toLocaleString() : quote.materialCost.toLocaleString()}
+                          {formatMoney(isClient ? Math.round(quote.materialCost * getMarkup(quote)) : quote.materialCost)}
                         </span>
                       </div>
                       {quote.additionalCosts > 0 && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Additional Costs:</span>
                           <span className="font-semibold">
-                            ${isClient ? Math.round(quote.additionalCosts * getMarkup(quote)).toLocaleString() : quote.additionalCosts.toLocaleString()}
+                            {formatMoney(isClient ? Math.round(quote.additionalCosts * getMarkup(quote)) : quote.additionalCosts)}
                           </span>
                         </div>
                       )}
@@ -173,7 +174,7 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                         <div className="flex justify-between text-green-600">
                           <span>Discount:</span>
                           <span className="font-semibold">
-                            -${isClient ? Math.round(quote.discountAmount * getMarkup(quote)).toLocaleString() : quote.discountAmount.toLocaleString()}
+                            -{formatMoney(isClient ? Math.round(quote.discountAmount * getMarkup(quote)) : quote.discountAmount)}
                           </span>
                         </div>
                       )}
@@ -195,9 +196,9 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                               <div key={idx} className="text-xs flex justify-between items-start bg-muted p-2 rounded">
                                 <div className="flex-1">
                                   <p className="font-medium text-foreground">{item.description}</p>
-                                  <p className="text-muted-foreground">Qty: {item.quantity} × ${displayPrice.toLocaleString()}</p>
+                                  <p className="text-muted-foreground">Qty: {item.quantity} × {formatMoney(displayPrice)}</p>
                                 </div>
-                                <span className="font-semibold ml-2">${displayAmount.toLocaleString()}</span>
+                                <span className="font-semibold ml-2">{formatMoney(displayAmount)}</span>
                               </div>
                             );
                           })}

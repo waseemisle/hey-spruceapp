@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurringWorkOrderExecution, WorkOrderTimelineEvent, WorkOrderSystemInformation } from '@/types';
 import { formatAddress } from '@/lib/utils';
+import { formatMoney } from '@/lib/money';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
 import RecurringWorkOrderEditForm from '@/components/recurring-work-order-edit-form';
 
@@ -806,7 +807,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                 {recurringWorkOrder.estimateBudget && (
                   <div>
                     <span className="font-semibold">Estimate Budget:</span>
-                    <span className="ml-2">${recurringWorkOrder.estimateBudget.toLocaleString()}</span>
+                    <span className="ml-2">{formatMoney(recurringWorkOrder.estimateBudget)}</span>
                   </div>
                 )}
 

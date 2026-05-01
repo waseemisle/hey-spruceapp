@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { FileText, DollarSign, Check, X, Calendar, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatMoney } from '@/lib/money';
 
 interface Quote {
   id: string;
@@ -90,7 +91,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
               </div>
               <div className="text-right">
                 <p className="text-3xl font-bold text-blue-600">
-                  ${quote.totalAmount.toLocaleString()}
+                  {formatMoney(quote.totalAmount)}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">{quote.status}</p>
               </div>
@@ -103,7 +104,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                   {quote.lineItems.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-sm">
                       <span>{item.description} (Qty: {item.quantity})</span>
-                      <span className="font-semibold">${item.amount.toLocaleString()}</span>
+                      <span className="font-semibold">{formatMoney(item.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -216,7 +217,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                 <div className="text-center py-3 bg-blue-50 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
                   <p className="text-3xl font-bold text-blue-600">
-                    ${quote.totalAmount.toLocaleString()}
+                    {formatMoney(quote.totalAmount)}
                   </p>
                 </div>
 
@@ -224,16 +225,16 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Labor Cost:</span>
-                    <span className="font-semibold">${quote.laborCost.toLocaleString()}</span>
+                    <span className="font-semibold">{formatMoney(quote.laborCost)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Material Cost:</span>
-                    <span className="font-semibold">${quote.materialCost.toLocaleString()}</span>
+                    <span className="font-semibold">{formatMoney(quote.materialCost)}</span>
                   </div>
                   {quote.discountAmount > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span>Discount:</span>
-                      <span className="font-semibold">-${quote.discountAmount.toLocaleString()}</span>
+                      <span className="font-semibold">-{formatMoney(quote.discountAmount)}</span>
                     </div>
                   )}
                 </div>
@@ -246,7 +247,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                       {quote.lineItems.slice(0, 3).map((item, idx) => (
                         <div key={idx} className="text-xs flex justify-between">
                           <span className="text-muted-foreground truncate">{item.description}</span>
-                          <span className="font-semibold ml-2">${item.amount.toLocaleString()}</span>
+                          <span className="font-semibold ml-2">{formatMoney(item.amount)}</span>
                         </div>
                       ))}
                       {quote.lineItems.length > 3 && (
