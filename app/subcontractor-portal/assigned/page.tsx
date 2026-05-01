@@ -17,8 +17,6 @@ import { Label } from '@/components/ui/label';
 import { formatAddress } from '@/lib/utils';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 
-const DEFAULT_DIAGNOSTIC_FEE = 30;
-
 interface AssignedJob {
   id: string;
   workOrderId: string;
@@ -110,7 +108,7 @@ export default function SubcontractorAssignedJobs() {
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
   const [diagnosticSubmitting, setDiagnosticSubmitting] = useState(false);
   const [diagnosticWorkOrderId, setDiagnosticWorkOrderId] = useState<string | null>(null);
-  const [diagnosticFee, setDiagnosticFee] = useState<string>(String(DEFAULT_DIAGNOSTIC_FEE.toFixed(2)));
+  const [diagnosticFee, setDiagnosticFee] = useState<string>('');
   const [diagnosticTimeSpent, setDiagnosticTimeSpent] = useState<string>('');
   const [diagnosticNotes, setDiagnosticNotes] = useState<string>('');
 
@@ -406,10 +404,8 @@ export default function SubcontractorAssignedJobs() {
 
   const openDiagnosticModal = (workOrderId: string) => {
     setDiagnosticWorkOrderId(workOrderId);
-    // Pre-populate the fee from the work order (set from the sub's accepted bid).
-    const wo = workOrders.get(workOrderId);
-    const prefillFee = Number(wo?.diagnosticFee ?? DEFAULT_DIAGNOSTIC_FEE);
-    setDiagnosticFee(prefillFee.toFixed(2));
+    // Subcontractor must enter the diagnostic fee manually — no auto-populate.
+    setDiagnosticFee('');
     setDiagnosticTimeSpent('');
     setDiagnosticNotes('');
     setShowDiagnosticModal(true);
@@ -417,9 +413,13 @@ export default function SubcontractorAssignedJobs() {
 
   const handleSubmitDiagnostic = async () => {
     if (!diagnosticWorkOrderId) return;
+    if (!diagnosticFee.trim()) {
+      toast.error('Please enter the diagnostic fee');
+      return;
+    }
     const feeNum = Number(diagnosticFee);
     if (!Number.isFinite(feeNum) || feeNum < 0) {
-      toast.error('Diagnostic fee is missing or invalid');
+      toast.error('Diagnostic fee is invalid');
       return;
     }
     if (!diagnosticNotes.trim()) {
@@ -471,7 +471,7 @@ export default function SubcontractorAssignedJobs() {
       toast.success('Diagnostic submitted. Awaiting admin decision on repair.');
       setShowDiagnosticModal(false);
       setDiagnosticWorkOrderId(null);
-      setDiagnosticFee(String(DEFAULT_DIAGNOSTIC_FEE.toFixed(2)));
+      setDiagnosticFee('');
       setDiagnosticTimeSpent('');
       setDiagnosticNotes('');
       setDiagnosticSubmitting(false);
@@ -758,7 +758,7 @@ export default function SubcontractorAssignedJobs() {
       }
 
       const defaultDetails = isDeclinedFlow
-        ? `Client declined repair. Diagnostic fee of $${Number(wo?.diagnosticFee || DEFAULT_DIAGNOSTIC_FEE).toFixed(2)} to be billed.`
+        ? `Client declined repair. Diagnostic fee of $${Number(wo?.diagnosticFee || 0).toFixed(2)} to be billed.`
         : '';
 
       const idToken = await currentUser?.getIdToken();
@@ -1075,7 +1075,7 @@ export default function SubcontractorAssignedJobs() {
                         className="flex-1 h-8 text-xs gap-1 bg-orange-600 hover:bg-orange-700"
                       >
                         <CheckCircle className="h-3.5 w-3.5" />
-                        Mark Complete (bill ${Number(workOrder.diagnosticFee || DEFAULT_DIAGNOSTIC_FEE).toFixed(2)})
+                        Mark Complete (bill ${Number(workOrder.diagnosticFee || 0).toFixed(2)})
                       </Button>
                     )}
 
@@ -1219,11 +1219,11 @@ export default function SubcontractorAssignedJobs() {
                   the diagnostic fee will be billed.
                 </div>
 
-                {/* Diagnostic fee was set when the subcontractor's bid was accepted — shown read-only here. */}
+                {/* Subcontractor enters the diagnostic fee manually — no auto-populate. */}
                 <div>
-                  <Label htmlFor="diagnostic-fee" className="flex items-center gap-2 mb-2">
+                  <Label htmlFor="diagnostic-fee" className="flex items-center gap-2 mb-2 font-semibold">
                     <DollarSign className="h-4 w-4" />
-                    Diagnostic Fee (from your accepted bid)
+                    Diagnostic Fee *
                   </Label>
                   <Input
                     id="diagnostic-fee"
@@ -1231,11 +1231,13 @@ export default function SubcontractorAssignedJobs() {
                     min="0"
                     step="0.01"
                     value={diagnosticFee}
-                    readOnly
-                    className="bg-muted"
+                    onChange={(e) => setDiagnosticFee(e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="0.00"
+                    required
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    This fee was set when your bid was accepted. It cannot be changed here.
+                    Enter the diagnostic fee for this visit.
                   </p>
                 </div>
 
@@ -1477,7 +1479,7 @@ export default function SubcontractorAssignedJobs() {
                       <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <span>
                         Client declined the repair. The $
-                        {Number(currentWo?.diagnosticFee || DEFAULT_DIAGNOSTIC_FEE).toFixed(2)} diagnostic fee will be billed.
+                        {Number(currentWo?.diagnosticFee || 0).toFixed(2)} diagnostic fee will be billed.
                         No repair work required.
                       </span>
                     </div>
