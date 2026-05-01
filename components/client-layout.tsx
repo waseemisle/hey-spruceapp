@@ -256,39 +256,59 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               }, (error) => console.error('Messages badge listener error:', error));
 
               // Support tickets — open tickets the client is involved in.
-              const { subscribeClientSupportTickets } = await import('@/lib/support-ticket-snapshots');
-              const OPEN = new Set(['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin']);
-              unsubscribeSupportTickets = subscribeClientSupportTickets(
-                instances.dbInstance,
-                firebaseUser.uid,
-                (tickets) => {
-                  itemsStore.supportTickets = tickets
-                    .filter(t => OPEN.has(String(t.status || '')))
-                    .map(t => ({ id: t.id, updatedAt: (t as any).lastActivityAt || (t as any).updatedAt, createdAt: (t as any).createdAt }));
-                  recompute();
-                },
-                (error) => console.error('Support tickets badge listener error:', error),
-              );
+              // Wrapped in its own try/catch so a transient chunk-load failure
+              // (which can happen on App Router nav with stale CDN cache)
+              // doesn't propagate up and trigger the outer redirect-to-login.
+              try {
+                const { subscribeClientSupportTickets } = await import('@/lib/support-ticket-snapshots');
+                const OPEN = new Set(['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin']);
+                unsubscribeSupportTickets = subscribeClientSupportTickets(
+                  instances.dbInstance,
+                  firebaseUser.uid,
+                  (tickets) => {
+                    itemsStore.supportTickets = tickets
+                      .filter(t => OPEN.has(String(t.status || '')))
+                      .map(t => ({ id: t.id, updatedAt: (t as any).lastActivityAt || (t as any).updatedAt, createdAt: (t as any).createdAt }));
+                    recompute();
+                  },
+                  (error) => console.error('Support tickets badge listener error:', error),
+                );
+              } catch (importErr) {
+                console.error('Support tickets module load failed (non-fatal):', importErr);
+              }
             } else {
               setLoading(false);
-              // Only redirect if not impersonating
+              // The clientDoc lookup can fail or return a stale "doesn't exist"
+              // result during the rapid unmount/remount that App Router does
+              // on every nav. Only redirect when the underlying auth singleton
+              // also reports no current user — otherwise treat it as transient.
+              const stillSignedIn = !!instances.authInstance?.currentUser;
               const stored = localStorage.getItem('impersonationState');
               const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
-              if (!isCurrentlyImpersonating) {
+              if (!stillSignedIn && !isCurrentlyImpersonating) {
                 router.push('/portal-login');
               }
             }
           } catch (error) {
-            console.error('Error fetching client profile:', error);
+            // Don't kick the user back to the login page on a transient
+            // failure (chunk load, network blip, Firestore rules race during
+            // page transition). The previous behavior caused a logout every
+            // time a sidebar nav click triggered a layout remount with any
+            // failed await in this block. Just log and recover — badges will
+            // be empty until the next mount, but the user stays signed in.
+            console.error('Error fetching client profile (non-fatal):', error);
             setLoading(false);
-            router.push('/portal-login');
           }
         } else {
           setLoading(false);
-          // Only redirect if not impersonating
+          // The first onAuthStateChanged callback after a layout remount can
+          // briefly fire with `null` before Firebase Auth restores the
+          // persisted user from IndexedDB. If the underlying singleton still
+          // has a current user, this is transient — don't redirect.
+          const stillSignedIn = !!instances.authInstance?.currentUser;
           const stored = localStorage.getItem('impersonationState');
           const isCurrentlyImpersonating = stored ? JSON.parse(stored).isImpersonating === true : false;
-          if (!isCurrentlyImpersonating) {
+          if (!stillSignedIn && !isCurrentlyImpersonating) {
             router.push('/portal-login');
           }
         }
