@@ -62,7 +62,7 @@ export default function ClientDiagnosticRequestDetail() {
 
       if (!user) {
         setLoading(false);
-        router.push('/portal-login');
+        if (!auth.currentUser) router.push('/portal-login');
         return;
       }
 

@@ -74,7 +74,7 @@ export default function QuoteDetail() {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setLoading(false);
-        router.push('/portal-login');
+        if (!auth.currentUser) router.push('/portal-login');
         return;
       }
 

@@ -66,12 +66,12 @@ export default function ClientCreateRecurringWorkOrder() {
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (!user) { router.push('/portal-login'); return; }
+      if (!user) { if (!auth.currentUser) router.push('/portal-login'); return; }
 
       try {
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         if (!clientDoc.exists() || clientDoc.data().status !== 'approved') {
-          router.push('/portal-login');
+          if (!auth.currentUser) router.push('/portal-login');
           return;
         }
 

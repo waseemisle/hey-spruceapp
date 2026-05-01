@@ -159,7 +159,7 @@ export default function ClientRecurringWorkOrders() {
 
             setLoading(false);
           } else {
-            router.push('/portal-login');
+            if (!auth.currentUser) router.push('/portal-login');
           }
         } catch (error: any) {
           console.error('Error fetching recurring work orders:', error);
@@ -167,7 +167,7 @@ export default function ClientRecurringWorkOrders() {
           setLoading(false);
         }
       } else {
-        router.push('/portal-login');
+        if (!auth.currentUser) router.push('/portal-login');
       }
     });
 

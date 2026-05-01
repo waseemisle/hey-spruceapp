@@ -102,10 +102,10 @@ export default function ClientSubcontractorsView() {
               setLoading(false);
             }
           } else {
-            router.push('/portal-login');
+            if (!auth.currentUser) router.push('/portal-login');
           }
         } else {
-          router.push('/portal-login');
+          if (!auth.currentUser) router.push('/portal-login');
         }
       });
 
