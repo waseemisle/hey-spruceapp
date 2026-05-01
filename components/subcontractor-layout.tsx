@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
-import { subscribeSubcontractorOpenSupportTicketCount } from '@/lib/support-ticket-snapshots';
+import { isItemUnviewed, markBadgeViewed, pathnameToBadgeKey, type SubBadgeKey } from '@/lib/sidebar-badges';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
@@ -23,9 +23,11 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
   const [user, setUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
-  const [badgeCounts, setBadgeCounts] = useState({
+  const [badgeCounts, setBadgeCounts] = useState<Record<SubBadgeKey, number>>({
     bidding: 0,
     quotes: 0,
+    assigned: 0,
+    completedJobs: 0,
     messages: 0,
     supportTickets: 0,
   });
@@ -34,7 +36,11 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
     dbInstance: db,
     storageInstance: storage,
   });
+  // lastViewedAt map from the subcontractor's profile doc — drives all badge filtering.
+  // Stored as a ref because badge listeners need the latest value without re-subscribing.
+  const lastViewedRef = useRef<Record<string, any>>({});
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     // Check for impersonation state and get the correct auth instance
@@ -97,57 +103,134 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
       return;
     }
 
+    // Per-badge listeners. Each one writes raw items into a closure-scoped store;
+    // a single recompute() projects items + lastViewedAt → unread counts.
     let unsubscribeBidding: (() => void) | null = null;
     let unsubscribeQuotes: (() => void) | null = null;
+    let unsubscribeAssigned: (() => void) | null = null;
+    let unsubscribeCompleted: (() => void) | null = null;
+    let unsubscribeMessages: (() => void) | null = null;
     let unsubscribeSupportTickets: (() => void) | null = null;
+    let unsubscribeUserDoc: (() => void) | null = null;
+
+    type Item = { id: string; updatedAt?: any; createdAt?: any; status?: string; lastMessageTimestamp?: any; senderId?: string };
+    const itemsStore: Record<SubBadgeKey, Item[]> = {
+      bidding: [], quotes: [], assigned: [], completedJobs: [], messages: [], supportTickets: [],
+    };
+    let lastViewed: Record<string, any> = {};
+
+    const recompute = () => {
+      const next: Record<SubBadgeKey, number> = {
+        bidding: 0, quotes: 0, assigned: 0, completedJobs: 0, messages: 0, supportTickets: 0,
+      };
+      for (const key of Object.keys(itemsStore) as SubBadgeKey[]) {
+        const lvKey = lastViewed?.[key];
+        for (const item of itemsStore[key]) {
+          // Messages use lastMessageTimestamp instead of updatedAt; isItemUnviewed
+          // already handles both via toMillis() — pass the right field per key.
+          const ts = key === 'messages' ? item.lastMessageTimestamp : item.updatedAt;
+          if (isItemUnviewed(ts, item.createdAt, lvKey)) next[key] += 1;
+        }
+      }
+      setBadgeCounts(next);
+    };
 
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
       onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
         // Clean up previous listeners when auth state changes
-        unsubscribeBidding?.();
-        unsubscribeBidding = null;
-        unsubscribeQuotes?.();
-        unsubscribeQuotes = null;
-        unsubscribeSupportTickets?.();
-        unsubscribeSupportTickets = null;
+        unsubscribeBidding?.(); unsubscribeBidding = null;
+        unsubscribeQuotes?.(); unsubscribeQuotes = null;
+        unsubscribeAssigned?.(); unsubscribeAssigned = null;
+        unsubscribeCompleted?.(); unsubscribeCompleted = null;
+        unsubscribeMessages?.(); unsubscribeMessages = null;
+        unsubscribeSupportTickets?.(); unsubscribeSupportTickets = null;
+        unsubscribeUserDoc?.(); unsubscribeUserDoc = null;
+
+        // Reset per-user state
+        for (const k of Object.keys(itemsStore) as SubBadgeKey[]) itemsStore[k] = [];
+        lastViewed = {};
+        setBadgeCounts({ bidding: 0, quotes: 0, assigned: 0, completedJobs: 0, messages: 0, supportTickets: 0 });
+        lastViewedRef.current = {};
 
         if (firebaseUser) {
           try {
-            const subDoc = await getDoc(doc(instances.dbInstance, 'subcontractors', firebaseUser.uid));
+            const subDocRef = doc(instances.dbInstance, 'subcontractors', firebaseUser.uid);
+            const subDoc = await getDoc(subDocRef);
             if (subDoc.exists() && subDoc.data().status === 'approved') {
               setUser({ ...firebaseUser, ...subDoc.data() });
               setLoading(false);
 
-              // Listen to pending bidding work orders count
+              // Live-track lastViewedAt from the user profile doc so badges clear
+              // immediately when markBadgeViewed() writes serverTimestamp.
+              unsubscribeUserDoc = onSnapshot(subDocRef, (snap) => {
+                lastViewed = (snap.data()?.lastViewedAt as Record<string, any>) || {};
+                lastViewedRef.current = lastViewed;
+                recompute();
+              }, (error) => console.error('Subcontractor profile listener error:', error));
+
+              // Pending bidding work orders — sub needs to submit a quote.
               const biddingQuery = query(
                 collection(instances.dbInstance, 'biddingWorkOrders'),
                 where('subcontractorId', '==', firebaseUser.uid),
                 where('status', '==', 'pending')
               );
               unsubscribeBidding = onSnapshot(biddingQuery, (snapshot) => {
-                setBadgeCounts(prev => ({ ...prev, bidding: snapshot.size }));
-              }, (error) => {
-                console.error('Bidding badge listener error:', error);
-              });
+                itemsStore.bidding = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+                recompute();
+              }, (error) => console.error('Bidding badge listener error:', error));
 
-              // Listen to quotes the client has acted on — these need
-              // sub follow-through (accepted → start the job; rejected →
-              // know the outcome). Mirrors the bidding red-badge pattern.
+              // Quotes the client has acted on (accepted/rejected) — sub needs follow-through.
               const quotesQuery = query(
                 collection(instances.dbInstance, 'quotes'),
                 where('subcontractorId', '==', firebaseUser.uid),
                 where('status', 'in', ['accepted', 'rejected'])
               );
               unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
-                setBadgeCounts(prev => ({ ...prev, quotes: snapshot.size }));
-              }, (error) => {
-                console.error('Quotes badge listener error:', error);
-              });
+                itemsStore.quotes = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+                recompute();
+              }, (error) => console.error('Quotes badge listener error:', error));
 
-              unsubscribeSupportTickets = subscribeSubcontractorOpenSupportTicketCount(
+              // Assigned work orders — anything actively in flight (excluding terminal states).
+              const assignedQuery = query(
+                collection(instances.dbInstance, 'workOrders'),
+                where('assignedTo', '==', firebaseUser.uid),
+              );
+              const TERMINAL = new Set(['completed', 'pending_invoice', 'cancelled', 'rejected']);
+              unsubscribeAssigned = onSnapshot(assignedQuery, (snapshot) => {
+                itemsStore.assigned = snapshot.docs
+                  .map(d => ({ id: d.id, ...(d.data() as any) }))
+                  .filter(it => !TERMINAL.has(String(it.status || '')));
+                itemsStore.completedJobs = snapshot.docs
+                  .map(d => ({ id: d.id, ...(d.data() as any) }))
+                  .filter(it => it.status === 'completed' || it.status === 'pending_invoice');
+                recompute();
+              }, (error) => console.error('Assigned badge listener error:', error));
+
+              // Messages — chats this sub participates in. Count chats whose
+              // lastMessageTimestamp is newer than lastViewedAt.messages.
+              const chatsQuery = query(
+                collection(instances.dbInstance, 'chats'),
+                where('participants', 'array-contains', firebaseUser.uid),
+              );
+              unsubscribeMessages = onSnapshot(chatsQuery, (snapshot) => {
+                itemsStore.messages = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+                recompute();
+              }, (error) => console.error('Messages badge listener error:', error));
+
+              // Support tickets — listen to all of the sub's open tickets, then
+              // filter by lastViewedAt. Reuses the existing two-query merge helper
+              // by reading items directly via subscribeSubcontractorSupportTickets.
+              const { subscribeSubcontractorSupportTickets } = await import('@/lib/support-ticket-snapshots');
+              const OPEN = new Set(['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin']);
+              unsubscribeSupportTickets = subscribeSubcontractorSupportTickets(
                 instances.dbInstance,
                 firebaseUser.uid,
-                (n) => setBadgeCounts((prev) => ({ ...prev, supportTickets: n })),
+                (tickets) => {
+                  itemsStore.supportTickets = tickets
+                    .filter(t => OPEN.has(String(t.status || '')))
+                    .map(t => ({ id: t.id, updatedAt: (t as any).lastActivityAt || (t as any).updatedAt, createdAt: (t as any).createdAt }));
+                  recompute();
+                },
                 (error) => console.error('Support tickets badge listener error:', error),
               );
             } else {
@@ -192,15 +275,27 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
 
     return () => {
       unsubscribe();
-      unsubscribeBidding?.();
-      unsubscribeBidding = null;
-      unsubscribeQuotes?.();
-      unsubscribeQuotes = null;
-      unsubscribeSupportTickets?.();
-      unsubscribeSupportTickets = null;
+      unsubscribeBidding?.(); unsubscribeBidding = null;
+      unsubscribeQuotes?.(); unsubscribeQuotes = null;
+      unsubscribeAssigned?.(); unsubscribeAssigned = null;
+      unsubscribeCompleted?.(); unsubscribeCompleted = null;
+      unsubscribeMessages?.(); unsubscribeMessages = null;
+      unsubscribeSupportTickets?.(); unsubscribeSupportTickets = null;
+      unsubscribeUserDoc?.(); unsubscribeUserDoc = null;
       clearInterval(interval);
     };
   }, [router]);
+
+  // Auto-mark the current page as viewed when the user navigates to it.
+  // Writes lastViewedAt[badgeKey] = serverTimestamp() to the sub's profile doc,
+  // which the snapshot listener above reads back and clears the badge.
+  useEffect(() => {
+    const uid = firebaseInstances.authInstance?.currentUser?.uid;
+    if (!uid || !pathname) return;
+    const key = pathnameToBadgeKey(pathname, 'subcontractor');
+    if (!key) return;
+    void markBadgeViewed(firebaseInstances.dbInstance, 'subcontractor', uid, key as SubBadgeKey);
+  }, [pathname, firebaseInstances]);
 
   const handleLogout = async () => {
     let authInstance = firebaseInstances.authInstance || auth;
@@ -233,8 +328,8 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
     { name: 'Dashboard', href: '/subcontractor-portal', icon: Home, badgeKey: null },
     { name: 'Bidding Work Orders', href: '/subcontractor-portal/bidding', icon: ClipboardList, badgeKey: 'bidding' },
     { name: 'My Quotes', href: '/subcontractor-portal/quotes', icon: FileText, badgeKey: 'quotes' },
-    { name: 'Assigned Jobs', href: '/subcontractor-portal/assigned', icon: CheckSquare, badgeKey: null },
-    { name: 'My Completed Jobs', href: '/subcontractor-portal/completed-jobs', icon: ClipboardCheck, badgeKey: null },
+    { name: 'Assigned Jobs', href: '/subcontractor-portal/assigned', icon: CheckSquare, badgeKey: 'assigned' },
+    { name: 'My Completed Jobs', href: '/subcontractor-portal/completed-jobs', icon: ClipboardCheck, badgeKey: 'completedJobs' },
     { name: 'Messages', href: '/subcontractor-portal/messages', icon: MessageSquare, badgeKey: 'messages' },
     { name: 'Support Tickets', href: '/subcontractor-portal/support-tickets', icon: Headphones, badgeKey: 'supportTickets' },
   ];

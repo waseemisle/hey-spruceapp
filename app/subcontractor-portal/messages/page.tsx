@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot, where, updateDoc, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { markBadgeViewed } from '@/lib/sidebar-badges';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -119,7 +120,12 @@ export default function SubcontractorMessages() {
       await updateDoc(doc(db, 'chats', selectedChat), {
         lastMessage: newMessage,
         lastMessageTimestamp: serverTimestamp(),
+        lastMessageSenderId: currentUser.uid,
       });
+
+      // Self-sent messages shouldn't make the sidebar badge tick up — bump
+      // lastViewedAt.messages so the new lastMessageTimestamp doesn't count as unread.
+      void markBadgeViewed(db, 'subcontractor', currentUser.uid, 'messages');
 
       setNewMessage('');
     } catch (error) {

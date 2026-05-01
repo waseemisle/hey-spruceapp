@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
-import { subscribeClientOpenSupportTicketCount } from '@/lib/support-ticket-snapshots';
+import { isItemUnviewed, markBadgeViewed, pathnameToBadgeKey, type ClientBadgeKey } from '@/lib/sidebar-badges';
 import { onAuthStateChanged, getAuth } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
@@ -23,9 +23,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [user, setUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
-  const [badgeCounts, setBadgeCounts] = useState({
-    quotes: 0,
+  const [badgeCounts, setBadgeCounts] = useState<Record<ClientBadgeKey, number>>({
+    workOrders: 0,
+    recurringWorkOrders: 0,
+    locations: 0,
     diagnosticRequests: 0,
+    quotes: 0,
     invoices: 0,
     messages: 0,
     supportTickets: 0,
@@ -39,7 +42,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     dbInstance: db,
     storageInstance: storage,
   });
+  const lastViewedRef = useRef<Record<string, any>>({});
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     // Check for impersonation state and get the correct auth instance
@@ -102,23 +107,64 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       return;
     }
 
+    // Per-badge listeners. Each one writes raw items into a closure-scoped store;
+    // a single recompute() projects items + lastViewedAt → unread counts.
+    let unsubscribeWorkOrders: (() => void) | null = null;
+    let unsubscribeRecurring: (() => void) | null = null;
+    let unsubscribeLocations: (() => void) | null = null;
     let unsubscribeQuotes: (() => void) | null = null;
     let unsubscribeInvoices: (() => void) | null = null;
+    let unsubscribeMessages: (() => void) | null = null;
     let unsubscribeSupportTickets: (() => void) | null = null;
+    let unsubscribeUserDoc: (() => void) | null = null;
+
+    type Item = { id: string; updatedAt?: any; createdAt?: any; status?: string; lastMessageTimestamp?: any; isDiagnosticQuote?: boolean };
+    const itemsStore: Record<ClientBadgeKey, Item[]> = {
+      workOrders: [], recurringWorkOrders: [], locations: [],
+      diagnosticRequests: [], quotes: [], invoices: [], messages: [], supportTickets: [],
+    };
+    let lastViewed: Record<string, any> = {};
+
+    const recompute = () => {
+      const next: Record<ClientBadgeKey, number> = {
+        workOrders: 0, recurringWorkOrders: 0, locations: 0,
+        diagnosticRequests: 0, quotes: 0, invoices: 0, messages: 0, supportTickets: 0,
+      };
+      for (const key of Object.keys(itemsStore) as ClientBadgeKey[]) {
+        const lvKey = lastViewed?.[key];
+        for (const item of itemsStore[key]) {
+          const ts = key === 'messages' ? item.lastMessageTimestamp : item.updatedAt;
+          if (isItemUnviewed(ts, item.createdAt, lvKey)) next[key] += 1;
+        }
+      }
+      setBadgeCounts(next);
+    };
 
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
       onAuthStateChanged(instances.authInstance, async (firebaseUser) => {
         // Clean up previous badge listeners on every auth state change
-        unsubscribeQuotes?.();
-        unsubscribeQuotes = null;
-        unsubscribeInvoices?.();
-        unsubscribeInvoices = null;
-        unsubscribeSupportTickets?.();
-        unsubscribeSupportTickets = null;
+        unsubscribeWorkOrders?.(); unsubscribeWorkOrders = null;
+        unsubscribeRecurring?.(); unsubscribeRecurring = null;
+        unsubscribeLocations?.(); unsubscribeLocations = null;
+        unsubscribeQuotes?.(); unsubscribeQuotes = null;
+        unsubscribeInvoices?.(); unsubscribeInvoices = null;
+        unsubscribeMessages?.(); unsubscribeMessages = null;
+        unsubscribeSupportTickets?.(); unsubscribeSupportTickets = null;
+        unsubscribeUserDoc?.(); unsubscribeUserDoc = null;
+
+        // Reset per-user state
+        for (const k of Object.keys(itemsStore) as ClientBadgeKey[]) itemsStore[k] = [];
+        lastViewed = {};
+        setBadgeCounts({
+          workOrders: 0, recurringWorkOrders: 0, locations: 0,
+          diagnosticRequests: 0, quotes: 0, invoices: 0, messages: 0, supportTickets: 0,
+        });
+        lastViewedRef.current = {};
 
         if (firebaseUser) {
           try {
-            const clientDoc = await getDoc(doc(instances.dbInstance, 'clients', firebaseUser.uid));
+            const clientDocRef = doc(instances.dbInstance, 'clients', firebaseUser.uid);
+            const clientDoc = await getDoc(clientDocRef);
             if (clientDoc.exists() && clientDoc.data().status === 'approved') {
               const clientData = clientDoc.data();
               setUser({ ...firebaseUser, ...clientData });
@@ -130,45 +176,97 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               setHasRecurringWorkOrdersPermission(permissions.viewRecurringWorkOrders || false);
               setLoading(false);
 
-              // Listen to quotes count (pending/sent_to_client) — split into
-              // regular quotes vs diagnostic requests client-side.
+              // Live-track lastViewedAt from the user profile doc.
+              unsubscribeUserDoc = onSnapshot(clientDocRef, (snap) => {
+                lastViewed = (snap.data()?.lastViewedAt as Record<string, any>) || {};
+                lastViewedRef.current = lastViewed;
+                recompute();
+              }, (error) => console.error('Client profile listener error:', error));
+
+              // Work orders — anything not in a terminal state.
+              const WO_TERMINAL = new Set(['completed', 'cancelled', 'rejected']);
+              const workOrdersQuery = query(
+                collection(instances.dbInstance, 'workOrders'),
+                where('clientId', '==', firebaseUser.uid),
+              );
+              unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
+                itemsStore.workOrders = snapshot.docs
+                  .map(d => ({ id: d.id, ...(d.data() as any) }))
+                  .filter(it => !WO_TERMINAL.has(String(it.status || '')));
+                recompute();
+              }, (error) => console.error('Work orders badge listener error:', error));
+
+              // Recurring work orders — active and paused (not cancelled).
+              const recurringQuery = query(
+                collection(instances.dbInstance, 'recurringWorkOrders'),
+                where('clientId', '==', firebaseUser.uid),
+              );
+              unsubscribeRecurring = onSnapshot(recurringQuery, (snapshot) => {
+                itemsStore.recurringWorkOrders = snapshot.docs
+                  .map(d => ({ id: d.id, ...(d.data() as any) }))
+                  .filter(it => it.status !== 'cancelled');
+                recompute();
+              }, (error) => console.error('Recurring work orders badge listener error:', error));
+
+              // Locations — any (covers status transitions: pending → approved/rejected).
+              const locationsQuery = query(
+                collection(instances.dbInstance, 'locations'),
+                where('clientId', '==', firebaseUser.uid),
+              );
+              unsubscribeLocations = onSnapshot(locationsQuery, (snapshot) => {
+                itemsStore.locations = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+                recompute();
+              }, (error) => console.error('Locations badge listener error:', error));
+
+              // Quotes — split into regular vs diagnostic. Only 'sent_to_client'
+              // are visible to the client; 'pending' hasn't reached them yet.
               const quotesQuery = query(
                 collection(instances.dbInstance, 'quotes'),
                 where('clientId', '==', firebaseUser.uid),
                 where('status', 'in', ['pending', 'sent_to_client'])
               );
               unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
-                let regular = 0;
-                let diagnostic = 0;
-                snapshot.forEach(d => {
-                  const data = d.data() as any;
-                  // Only 'sent_to_client' quotes are visible to the client and
-                  // count against their badge — 'pending' hasn't reached them yet.
-                  if (data.status !== 'sent_to_client') return;
-                  if (data.isDiagnosticQuote === true) diagnostic += 1;
-                  else regular += 1;
-                });
-                setBadgeCounts(prev => ({ ...prev, quotes: regular, diagnosticRequests: diagnostic }));
-              }, (error) => {
-                console.error('Quotes badge listener error:', error);
-              });
+                const visible = snapshot.docs
+                  .map(d => ({ id: d.id, ...(d.data() as any) }))
+                  .filter(it => it.status === 'sent_to_client');
+                itemsStore.quotes = visible.filter(it => it.isDiagnosticQuote !== true);
+                itemsStore.diagnosticRequests = visible.filter(it => it.isDiagnosticQuote === true);
+                recompute();
+              }, (error) => console.error('Quotes badge listener error:', error));
 
-              // Listen to unpaid invoices count
+              // Unpaid invoices.
               const invoicesQuery = query(
                 collection(instances.dbInstance, 'invoices'),
                 where('clientId', '==', firebaseUser.uid),
                 where('status', 'in', ['sent', 'draft'])
               );
               unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
-                setBadgeCounts(prev => ({ ...prev, invoices: snapshot.size }));
-              }, (error) => {
-                console.error('Invoices badge listener error:', error);
-              });
+                itemsStore.invoices = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+                recompute();
+              }, (error) => console.error('Invoices badge listener error:', error));
 
-              unsubscribeSupportTickets = subscribeClientOpenSupportTicketCount(
+              // Messages — chats this client participates in.
+              const chatsQuery = query(
+                collection(instances.dbInstance, 'chats'),
+                where('participants', 'array-contains', firebaseUser.uid),
+              );
+              unsubscribeMessages = onSnapshot(chatsQuery, (snapshot) => {
+                itemsStore.messages = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+                recompute();
+              }, (error) => console.error('Messages badge listener error:', error));
+
+              // Support tickets — open tickets the client is involved in.
+              const { subscribeClientSupportTickets } = await import('@/lib/support-ticket-snapshots');
+              const OPEN = new Set(['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin']);
+              unsubscribeSupportTickets = subscribeClientSupportTickets(
                 instances.dbInstance,
                 firebaseUser.uid,
-                (n) => setBadgeCounts((prev) => ({ ...prev, supportTickets: n })),
+                (tickets) => {
+                  itemsStore.supportTickets = tickets
+                    .filter(t => OPEN.has(String(t.status || '')))
+                    .map(t => ({ id: t.id, updatedAt: (t as any).lastActivityAt || (t as any).updatedAt, createdAt: (t as any).createdAt }));
+                  recompute();
+                },
                 (error) => console.error('Support tickets badge listener error:', error),
               );
             } else {
@@ -214,15 +312,28 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
     return () => {
       unsubscribe();
-      unsubscribeQuotes?.();
-      unsubscribeQuotes = null;
-      unsubscribeInvoices?.();
-      unsubscribeInvoices = null;
-      unsubscribeSupportTickets?.();
-      unsubscribeSupportTickets = null;
+      unsubscribeWorkOrders?.(); unsubscribeWorkOrders = null;
+      unsubscribeRecurring?.(); unsubscribeRecurring = null;
+      unsubscribeLocations?.(); unsubscribeLocations = null;
+      unsubscribeQuotes?.(); unsubscribeQuotes = null;
+      unsubscribeInvoices?.(); unsubscribeInvoices = null;
+      unsubscribeMessages?.(); unsubscribeMessages = null;
+      unsubscribeSupportTickets?.(); unsubscribeSupportTickets = null;
+      unsubscribeUserDoc?.(); unsubscribeUserDoc = null;
       clearInterval(interval);
     };
   }, [router]);
+
+  // Auto-mark the current page as viewed when the client navigates to it.
+  // Writes lastViewedAt[badgeKey] = serverTimestamp() to the client's profile doc;
+  // the snapshot listener above reads it back and clears the badge.
+  useEffect(() => {
+    const uid = firebaseInstances.authInstance?.currentUser?.uid;
+    if (!uid || !pathname) return;
+    const key = pathnameToBadgeKey(pathname, 'client');
+    if (!key) return;
+    void markBadgeViewed(firebaseInstances.dbInstance, 'client', uid, key as ClientBadgeKey);
+  }, [pathname, firebaseInstances]);
 
   const handleLogout = async () => {
     let authInstance = firebaseInstances.authInstance || auth;
@@ -254,9 +365,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const menuItems = [
     { name: 'Dashboard', href: '/client-portal', icon: Home, badgeKey: null },
-    { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: null },
-    { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: null },
-    { name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: null },
+    { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: 'locations' },
+    { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
+    { name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: 'recurringWorkOrders' },
     ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
     { name: 'Diagnostic Requests', href: '/client-portal/diagnostic-requests', icon: Stethoscope, badgeKey: 'diagnosticRequests' },
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
