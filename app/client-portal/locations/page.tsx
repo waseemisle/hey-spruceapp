@@ -72,78 +72,96 @@ export default function ClientLocations() {
     let unsubscribeSnapshot: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCheckingCompany(true);
-        try {
-          const clientDoc = await getDoc(doc(db, 'clients', user.uid));
-          if (!clientDoc.exists()) {
-            setCompanyInfo(null);
-            setLocations([]);
-            setLoading(false);
-            setCheckingCompany(false);
-            return;
-          }
+      // Tear down any prior snapshot before this auth change so we never
+      // accumulate listeners across user switches or transient nulls.
+      unsubscribeSnapshot?.();
+      unsubscribeSnapshot = null;
 
-          const clientData = clientDoc.data();
-          const permissions = clientData.permissions || {};
-          setCanCreateLocation(!!permissions.createLocation);
-          const clientCompanyId = clientData.companyId;
-          if (!clientCompanyId) {
-            setCompanyInfo(null);
-            setLocations([]);
-            setLoading(false);
-            setCheckingCompany(false);
-            return;
-          }
-
-          // Fetch company info for UI context
-          try {
-            const companyDoc = await getDoc(doc(db, 'companies', clientCompanyId));
-            if (companyDoc.exists()) {
-              const data = companyDoc.data() as { name?: string };
-              setCompanyInfo({ id: companyDoc.id, name: data.name || 'Assigned Company' });
-            } else {
-              setCompanyInfo({ id: clientCompanyId, name: 'Assigned Company' });
-            }
-          } catch {
-            setCompanyInfo({ id: clientCompanyId, name: 'Assigned Company' });
-          }
-
-          const locationsQuery = query(
-            collection(db, 'locations'),
-            where('companyId', '==', clientCompanyId),
-            orderBy('createdAt', 'desc'),
-            limit(200)
-          );
-
-          unsubscribeSnapshot = onSnapshot(
-            locationsQuery,
-            (snapshot) => {
-              const locationsData = snapshot.docs.map(docSnap => ({
-                id: docSnap.id,
-                ...docSnap.data(),
-              })) as Location[];
-              setLocations(locationsData);
-              setLoading(false);
-            },
-            (error) => {
-              console.error('Error listening to company locations', error);
-              setLocations([]);
-              setLoading(false);
-            }
-          );
-        } catch (error) {
-          console.error('Error loading client locations', error);
-          setCompanyInfo(null);
-          setLocations([]);
-          setLoading(false);
-        } finally {
-          setCheckingCompany(false);
-        }
-      } else {
+      if (!user) {
+        // Firebase Auth's first emission after a layout remount can briefly be
+        // null before the persisted user is restored from IndexedDB. If the
+        // singleton still has a current user, the null arg is transient — bail
+        // out without flipping `loading` to false, so the spinner stays up
+        // and the user never sees a "No company" flash on first load.
+        if (auth.currentUser) return;
         setCompanyInfo(null);
         setLocations([]);
         setLoading(false);
+        setCheckingCompany(false);
+        return;
+      }
+
+      // Real user — keep the spinner showing until we've decided whether
+      // there's a company to show. Without this, a prior null-arg callback
+      // could have already set loading=false, and the brief gap before
+      // companyInfo lands would render the "No company" warning.
+      setLoading(true);
+      setCheckingCompany(true);
+
+      try {
+        const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+        if (!clientDoc.exists()) {
+          setCompanyInfo(null);
+          setLocations([]);
+          setLoading(false);
+          setCheckingCompany(false);
+          return;
+        }
+
+        const clientData = clientDoc.data();
+        const permissions = clientData.permissions || {};
+        setCanCreateLocation(!!permissions.createLocation);
+        const clientCompanyId = clientData.companyId;
+        if (!clientCompanyId) {
+          setCompanyInfo(null);
+          setLocations([]);
+          setLoading(false);
+          setCheckingCompany(false);
+          return;
+        }
+
+        // Fetch company info for UI context
+        try {
+          const companyDoc = await getDoc(doc(db, 'companies', clientCompanyId));
+          if (companyDoc.exists()) {
+            const data = companyDoc.data() as { name?: string };
+            setCompanyInfo({ id: companyDoc.id, name: data.name || 'Assigned Company' });
+          } else {
+            setCompanyInfo({ id: clientCompanyId, name: 'Assigned Company' });
+          }
+        } catch {
+          setCompanyInfo({ id: clientCompanyId, name: 'Assigned Company' });
+        }
+
+        const locationsQuery = query(
+          collection(db, 'locations'),
+          where('companyId', '==', clientCompanyId),
+          orderBy('createdAt', 'desc'),
+          limit(200)
+        );
+
+        unsubscribeSnapshot = onSnapshot(
+          locationsQuery,
+          (snapshot) => {
+            const locationsData = snapshot.docs.map(docSnap => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            })) as Location[];
+            setLocations(locationsData);
+            setLoading(false);
+          },
+          (error) => {
+            console.error('Error listening to company locations', error);
+            setLocations([]);
+            setLoading(false);
+          }
+        );
+      } catch (error) {
+        console.error('Error loading client locations', error);
+        setCompanyInfo(null);
+        setLocations([]);
+        setLoading(false);
+      } finally {
         setCheckingCompany(false);
       }
     });
