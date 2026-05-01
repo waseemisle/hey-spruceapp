@@ -78,16 +78,15 @@ export default function ClientLocations() {
       unsubscribeSnapshot = null;
 
       if (!user) {
-        // Firebase Auth's first emission after a layout remount can briefly be
-        // null before the persisted user is restored from IndexedDB. If the
-        // singleton still has a current user, the null arg is transient — bail
-        // out without flipping `loading` to false, so the spinner stays up
-        // and the user never sees a "No company" flash on first load.
-        if (auth.currentUser) return;
-        setCompanyInfo(null);
-        setLocations([]);
-        setLoading(false);
-        setCheckingCompany(false);
+        // Don't touch state on null callbacks — Firebase Auth's first emission
+        // after a fresh page mount (or App Router page remount on nav) can be
+        // null both as the callback arg AND `auth.currentUser` while the
+        // persisted user is being restored from IndexedDB. Any state change
+        // here flashes the "No company assigned" warning before the next
+        // callback (~150ms later) arrives with the real user.
+        // The layout's auth handler is the single source of truth for the
+        // "user is genuinely signed out → redirect" decision; this page just
+        // stays in loading state until a real user arrives.
         return;
       }
 
