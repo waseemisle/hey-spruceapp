@@ -27,6 +27,7 @@ export default function RecurringWorkOrdersManagement() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'paused' | 'cancelled'>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [companyFilter, setCompanyFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -419,9 +420,17 @@ export default function RecurringWorkOrdersManagement() {
     new Set(recurringWorkOrders.map(rwo => rwo.locationName).filter((name): name is string => !!name))
   ).sort((a, b) => a.localeCompare(b));
 
+  // Compute unique companies sorted alphabetically (companyName is set on RWOs at create / import time)
+  const uniqueCompanies = Array.from(
+    new Set(recurringWorkOrders.map(rwo => (rwo as any).companyName).filter((name): name is string => !!name))
+  ).sort((a, b) => a.localeCompare(b));
+
   const filteredRecurringWorkOrders = recurringWorkOrders.filter(rwo => {
     // Filter by status
     const statusMatch = filter === 'all' || rwo.status === filter;
+
+    // Filter by company
+    const companyMatch = companyFilter === 'all' || (rwo as any).companyName === companyFilter;
 
     // Filter by location
     const locationMatch = locationFilter === 'all' || rwo.locationName === locationFilter;
@@ -432,10 +441,11 @@ export default function RecurringWorkOrdersManagement() {
       (rwo.title || '').toLowerCase().includes(searchLower) ||
       (rwo.description || '').toLowerCase().includes(searchLower) ||
       (rwo.clientName || '').toLowerCase().includes(searchLower) ||
+      ((rwo as any).companyName || '').toLowerCase().includes(searchLower) ||
       (rwo.workOrderNumber || '').toLowerCase().includes(searchLower) ||
       (rwo.category || '').toLowerCase().includes(searchLower);
 
-    return statusMatch && locationMatch && searchMatch;
+    return statusMatch && companyMatch && locationMatch && searchMatch;
   });
 
   // Sort filtered recurring work orders
@@ -593,6 +603,25 @@ export default function RecurringWorkOrdersManagement() {
           })()}
 
           <div className="flex flex-wrap items-center gap-3">
+            <label htmlFor="company-filter" className="text-sm font-medium text-foreground">
+              Company:
+            </label>
+            <SearchableSelect
+              id="company-filter"
+              className="w-full max-w-[220px]"
+              value={companyFilter}
+              onValueChange={setCompanyFilter}
+              options={[
+                { value: 'all', label: `All Companies (${recurringWorkOrders.length})` },
+                ...uniqueCompanies.map((co) => ({
+                  value: co,
+                  label: `${co} (${recurringWorkOrders.filter((rwo) => (rwo as any).companyName === co).length})`,
+                })),
+              ]}
+              placeholder="All companies"
+              aria-label="Filter by company"
+            />
+
             <label htmlFor="location-filter" className="text-sm font-medium text-foreground">
               Location:
             </label>
