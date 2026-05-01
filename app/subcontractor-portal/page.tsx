@@ -9,36 +9,38 @@ import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import BiddingWorkOrdersSection from '@/components/dashboard/bidding-work-orders-section';
 import MyQuotesSection from '@/components/dashboard/my-quotes-section';
 import AssignedJobsSection from '@/components/dashboard/assigned-jobs-section';
+import CompletedJobsSection from '@/components/dashboard/completed-jobs-section';
 import SubcontractorCalendar from '@/components/calendar/subcontractor-calendar';
 import {
   calculateBiddingWorkOrdersData,
   calculateMyQuotesData,
   calculateAssignedJobsData,
+  calculateCompletedJobsData,
+  fetchRecentBiddingWorkOrders,
+  fetchRecentMyQuotes,
+  fetchRecentAssignedJobs,
+  fetchRecentCompletedJobs,
+  type RecentItemRow,
 } from '@/lib/dashboard-utils';
 
 export default function SubcontractorDashboard() {
   const { auth, db } = useFirebaseInstance();
   const [biddingWorkOrdersData, setBiddingWorkOrdersData] = useState({
-    pending: 0,
-    quoteSubmitted: 0,
-    total: 0,
+    pending: 0, quoteSubmitted: 0, total: 0,
   });
-
   const [myQuotesData, setMyQuotesData] = useState({
-    pending: 0,
-    underReview: 0,
-    accepted: 0,
-    rejected: 0,
-    total: 0,
+    pending: 0, underReview: 0, accepted: 0, rejected: 0, total: 0,
   });
-
   const [assignedJobsData, setAssignedJobsData] = useState({
-    pendingAcceptance: 0,
-    accepted: 0,
-    inProgress: 0,
-    completed: 0,
-    total: 0,
+    pendingAcceptance: 0, accepted: 0, inProgress: 0, completed: 0, total: 0,
   });
+  const [completedJobsData, setCompletedJobsData] = useState({
+    total: 0, pendingInvoice: 0, completed: 0,
+  });
+  const [biddingItems, setBiddingItems] = useState<RecentItemRow[]>([]);
+  const [quotesItems, setQuotesItems] = useState<RecentItemRow[]>([]);
+  const [assignedItems, setAssignedItems] = useState<RecentItemRow[]>([]);
+  const [completedItems, setCompletedItems] = useState<RecentItemRow[]>([]);
 
   const [loading, setLoading] = useState(true);
 
@@ -60,9 +62,35 @@ export default function SubcontractorDashboard() {
         return;
       }
 
+      // Stats + recent items always refresh together so the inline list stays
+      // consistent with the column totals above it.
+      const refreshBidding = async () => {
+        const [data, items] = await Promise.all([
+          calculateBiddingWorkOrdersData(user.uid, db),
+          fetchRecentBiddingWorkOrders(user.uid, db),
+        ]);
+        setBiddingWorkOrdersData(data);
+        setBiddingItems(items);
+      };
+      const refreshMyQuotes = async () => {
+        const [data, items] = await Promise.all([
+          calculateMyQuotesData(user.uid, db),
+          fetchRecentMyQuotes(user.uid, db),
+        ]);
+        setMyQuotesData(data);
+        setQuotesItems(items);
+      };
       const refreshAssigned = async () => {
-        const assignedJobs = await calculateAssignedJobsData(user.uid, db);
-        setAssignedJobsData(assignedJobs);
+        const [assignedData, completedData, assignedRecent, completedRecent] = await Promise.all([
+          calculateAssignedJobsData(user.uid, db),
+          calculateCompletedJobsData(user.uid, db),
+          fetchRecentAssignedJobs(user.uid, db),
+          fetchRecentCompletedJobs(user.uid, db),
+        ]);
+        setAssignedJobsData(assignedData);
+        setCompletedJobsData(completedData);
+        setAssignedItems(assignedRecent);
+        setCompletedItems(completedRecent);
       };
 
       const attachWorkOrderDocListeners = (workOrderIds: string[]) => {
@@ -82,13 +110,7 @@ export default function SubcontractorDashboard() {
       };
 
       try {
-        const biddingWorkOrders = await calculateBiddingWorkOrdersData(user.uid, db);
-        const myQuotes = await calculateMyQuotesData(user.uid, db);
-        const assignedJobs = await calculateAssignedJobsData(user.uid, db);
-
-        setBiddingWorkOrdersData(biddingWorkOrders);
-        setMyQuotesData(myQuotes);
-        setAssignedJobsData(assignedJobs);
+        await Promise.all([refreshBidding(), refreshMyQuotes(), refreshAssigned()]);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -97,24 +119,14 @@ export default function SubcontractorDashboard() {
 
       unsubscribeBidding = onSnapshot(
         query(collection(db, 'biddingWorkOrders'), where('subcontractorId', '==', user.uid)),
-        async () => {
-          const biddingWorkOrders = await calculateBiddingWorkOrdersData(user.uid, db);
-          setBiddingWorkOrdersData(biddingWorkOrders);
-        },
-        (error) => {
-          console.error('Bidding work orders listener error:', error);
-        }
+        () => { void refreshBidding(); },
+        (error) => console.error('Bidding work orders listener error:', error),
       );
 
       unsubscribeQuotes = onSnapshot(
         query(collection(db, 'quotes'), where('subcontractorId', '==', user.uid)),
-        async () => {
-          const myQuotes = await calculateMyQuotesData(user.uid, db);
-          setMyQuotesData(myQuotes);
-        },
-        (error) => {
-          console.error('Quotes listener error:', error);
-        }
+        () => { void refreshMyQuotes(); },
+        (error) => console.error('Quotes listener error:', error),
       );
 
       unsubscribeAssigned = onSnapshot(
@@ -124,9 +136,7 @@ export default function SubcontractorDashboard() {
           attachWorkOrderDocListeners(ids);
           void refreshAssigned();
         },
-        (error) => {
-          console.error('Assigned jobs listener error:', error);
-        }
+        (error) => console.error('Assigned jobs listener error:', error),
       );
     });
 
@@ -157,22 +167,14 @@ export default function SubcontractorDashboard() {
   return (
     <SubcontractorLayout>
       <div className="min-h-screen bg-muted">
-        {/* Search Bar */}
         <DashboardSearchBar portalType="subcontractor" onSearch={handleSearch} />
 
-        {/* Main Content */}
         <div className="p-4 sm:p-6 space-y-6">
-          {/* Calendar Section */}
           <SubcontractorCalendar />
-
-          {/* Bidding Work Orders Section */}
-          <BiddingWorkOrdersSection data={biddingWorkOrdersData} />
-
-          {/* My Quotes Section */}
-          <MyQuotesSection data={myQuotesData} />
-
-          {/* Assigned Jobs Section */}
-          <AssignedJobsSection data={assignedJobsData} />
+          <BiddingWorkOrdersSection data={biddingWorkOrdersData} items={biddingItems} />
+          <MyQuotesSection data={myQuotesData} items={quotesItems} />
+          <AssignedJobsSection data={assignedJobsData} items={assignedItems} />
+          <CompletedJobsSection data={completedJobsData} items={completedItems} />
         </div>
       </div>
     </SubcontractorLayout>

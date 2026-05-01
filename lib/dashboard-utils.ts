@@ -664,3 +664,373 @@ function processAssignedJobsData(assignedJobs: DocumentData[], workOrders: Docum
 
   return data;
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// Completed Jobs (subcontractor) — companion to calculateAssignedJobsData.
+// Returns counts split between work orders the sub completed and ones that
+// are completed-but-not-invoiced (pending_invoice).
+// ───────────────────────────────────────────────────────────────────────────
+export async function calculateCompletedJobsData(userId: string, db?: Firestore) {
+  const dbInstance = db || defaultDb;
+  const empty = { total: 0, pendingInvoice: 0, completed: 0 };
+  if (!dbInstance) return empty;
+  try {
+    // assignedTo is the modern field; assignedSubcontractor is legacy. Query both.
+    const [primary, legacy] = await Promise.all([
+      getDocs(query(collection(dbInstance, 'workOrders'), where('assignedTo', '==', userId))),
+      getDocs(query(collection(dbInstance, 'workOrders'), where('assignedSubcontractor', '==', userId))),
+    ]);
+    const map = new Map<string, DocumentData>();
+    [...primary.docs, ...legacy.docs].forEach(d => map.set(d.id, { id: d.id, ...d.data() }));
+    let pendingInvoice = 0;
+    let completed = 0;
+    for (const wo of map.values()) {
+      if (wo.status === 'pending_invoice') pendingInvoice += 1;
+      else if (wo.status === 'completed') completed += 1;
+    }
+    return { total: pendingInvoice + completed, pendingInvoice, completed };
+  } catch (error) {
+    console.error('Error calculating completed jobs data:', error);
+    return empty;
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Recent items — small lists rendered inline on the dashboard so the user
+// can drill into specific records without leaving the dashboard.
+// All return { items: [...], ... } where items have shape compatible with
+// DashboardRecentList. Sort by createdAt desc; cap at `limit`.
+// ───────────────────────────────────────────────────────────────────────────
+
+const toMs = (v: any): number => {
+  if (!v) return 0;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (typeof v.toDate === 'function') return v.toDate().getTime();
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number') return v;
+  if (typeof v.seconds === 'number') return v.seconds * 1000;
+  return 0;
+};
+
+const fmtMoney = (n: number | undefined | null): string =>
+  typeof n === 'number' && Number.isFinite(n) ? `$${n.toFixed(2)}` : '';
+
+export interface RecentItemRow {
+  id: string;
+  title: string;
+  subtitle?: string;
+  amount?: string;
+  statusLabel?: string;
+  statusTone?: 'green' | 'red' | 'amber' | 'blue' | 'gray';
+  href: string;
+  actionLabel?: string;
+}
+
+export async function fetchRecentBiddingWorkOrders(
+  userId: string,
+  db?: Firestore,
+  limit = 5,
+): Promise<RecentItemRow[]> {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(dbInstance, 'biddingWorkOrders'),
+      where('subcontractorId', '==', userId),
+      where('status', '==', 'pending'),
+    ));
+    const rows = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .sort((a, b) => toMs(b.sharedAt || b.createdAt) - toMs(a.sharedAt || a.createdAt))
+      .slice(0, limit)
+      .map((b): RecentItemRow => ({
+        id: b.id,
+        title: b.workOrderTitle || b.workOrderNumber || 'Untitled bidding request',
+        subtitle: [b.locationName, b.category, b.priority]
+          .filter(Boolean)
+          .join(' • ') || undefined,
+        statusLabel: 'Submit Quote',
+        statusTone: 'amber',
+        href: '/subcontractor-portal/bidding',
+        actionLabel: 'Review',
+      }));
+    return rows;
+  } catch (error) {
+    console.error('fetchRecentBiddingWorkOrders error:', error);
+    return [];
+  }
+}
+
+export async function fetchRecentMyQuotes(
+  userId: string,
+  db?: Firestore,
+  limit = 5,
+): Promise<RecentItemRow[]> {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(dbInstance, 'quotes'),
+      where('subcontractorId', '==', userId),
+    ));
+    const rows = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt))
+      .slice(0, limit)
+      .map((q): RecentItemRow => {
+        const status = String(q.status || '');
+        let label: string = status.replace(/_/g, ' ');
+        let tone: RecentItemRow['statusTone'] = 'gray';
+        if (status === 'accepted') { label = 'Accepted'; tone = 'green'; }
+        else if (status === 'rejected') { label = 'Rejected'; tone = 'red'; }
+        else if (status === 'sent_to_client' || q.forwardedToClient) { label = 'Under Review'; tone = 'blue'; }
+        else if (status === 'pending') { label = 'Pending'; tone = 'amber'; }
+        return {
+          id: q.id,
+          title: q.workOrderTitle || q.workOrderNumber || 'Quote',
+          subtitle: [q.clientName, q.locationName].filter(Boolean).join(' • ') || undefined,
+          amount: fmtMoney(typeof q.totalAmount === 'number' ? q.totalAmount : q.amount),
+          statusLabel: label,
+          statusTone: tone,
+          href: '/subcontractor-portal/quotes',
+        };
+      });
+    return rows;
+  } catch (error) {
+    console.error('fetchRecentMyQuotes error:', error);
+    return [];
+  }
+}
+
+export async function fetchRecentAssignedJobs(
+  userId: string,
+  db?: Firestore,
+  limit = 5,
+): Promise<RecentItemRow[]> {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(dbInstance, 'assignedJobs'),
+      where('subcontractorId', '==', userId),
+    ));
+    const jobs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+    // Pull related work orders to surface real status (in_progress vs pending_invoice etc.)
+    const woIds = [...new Set(jobs.map(j => j.workOrderId).filter(Boolean))] as string[];
+    const woMap = new Map<string, DocumentData>();
+    for (let i = 0; i < woIds.length; i += 10) {
+      const batch = woIds.slice(i, i + 10);
+      const woSnap = await getDocs(query(
+        collection(dbInstance, 'workOrders'),
+        where(documentId(), 'in', batch),
+      ));
+      woSnap.docs.forEach(d => woMap.set(d.id, { id: d.id, ...d.data() }));
+    }
+    const ACTIVE = (job: any, wo: any) => {
+      if (job.status === 'pending_acceptance') return true;
+      if (job.status === 'rejected') return false;
+      const woStatus = wo?.status;
+      return !(woStatus === 'completed' || woStatus === 'pending_invoice' || woStatus === 'cancelled');
+    };
+    const rows = jobs
+      .filter(j => ACTIVE(j, woMap.get(j.workOrderId)))
+      .sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt))
+      .slice(0, limit)
+      .map((j): RecentItemRow => {
+        const wo = woMap.get(j.workOrderId);
+        let label = 'Open';
+        let tone: RecentItemRow['statusTone'] = 'blue';
+        if (j.status === 'pending_acceptance') { label = 'Accept Job'; tone = 'amber'; }
+        else if (wo?.status === 'in-progress') { label = 'In Progress'; tone = 'blue'; }
+        else if (wo?.status === 'accepted_by_subcontractor' || wo?.status === 'scheduled') { label = 'Scheduled'; tone = 'blue'; }
+        else if (wo?.status === 'repair_approved') { label = 'Repair Approved'; tone = 'green'; }
+        return {
+          id: j.id,
+          title: wo?.title || j.workOrderTitle || j.workOrderNumber || 'Assigned job',
+          subtitle: [wo?.locationName || j.locationName, wo?.category || j.category]
+            .filter(Boolean)
+            .join(' • ') || undefined,
+          amount: fmtMoney(typeof wo?.estimateBudget === 'number' ? wo.estimateBudget : undefined),
+          statusLabel: label,
+          statusTone: tone,
+          href: '/subcontractor-portal/assigned',
+          actionLabel: j.status === 'pending_acceptance' ? 'Open' : 'View',
+        };
+      });
+    return rows;
+  } catch (error) {
+    console.error('fetchRecentAssignedJobs error:', error);
+    return [];
+  }
+}
+
+export async function fetchRecentCompletedJobs(
+  userId: string,
+  db?: Firestore,
+  limit = 5,
+): Promise<RecentItemRow[]> {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) return [];
+  try {
+    const [primary, legacy] = await Promise.all([
+      getDocs(query(collection(dbInstance, 'workOrders'), where('assignedTo', '==', userId))),
+      getDocs(query(collection(dbInstance, 'workOrders'), where('assignedSubcontractor', '==', userId))),
+    ]);
+    const map = new Map<string, DocumentData>();
+    [...primary.docs, ...legacy.docs].forEach(d => map.set(d.id, { id: d.id, ...d.data() }));
+    const rows = [...map.values()]
+      .filter(wo => wo.status === 'completed' || wo.status === 'pending_invoice')
+      .sort((a, b) => toMs(b.completedAt || b.updatedAt || b.createdAt) - toMs(a.completedAt || a.updatedAt || a.createdAt))
+      .slice(0, limit)
+      .map((wo): RecentItemRow => ({
+        id: wo.id,
+        title: wo.title || wo.workOrderNumber || 'Completed job',
+        subtitle: [wo.locationName, wo.category].filter(Boolean).join(' • ') || undefined,
+        amount: fmtMoney(typeof wo.estimateBudget === 'number' ? wo.estimateBudget : undefined),
+        statusLabel: wo.status === 'pending_invoice' ? 'Pending Invoice' : 'Completed',
+        statusTone: wo.status === 'pending_invoice' ? 'amber' : 'green',
+        href: '/subcontractor-portal/completed-jobs',
+      }));
+    return rows;
+  } catch (error) {
+    console.error('fetchRecentCompletedJobs error:', error);
+    return [];
+  }
+}
+
+// ── Client portal ──────────────────────────────────────────────────────────
+
+export async function fetchRecentClientQuotes(
+  userId: string,
+  db?: Firestore,
+  limit = 5,
+): Promise<RecentItemRow[]> {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(dbInstance, 'quotes'),
+      where('clientId', '==', userId),
+      where('status', '==', 'sent_to_client'),
+    ));
+    const rows = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .filter(q => q.isDiagnosticQuote !== true)
+      .sort((a, b) => toMs(b.sentToClientAt || b.createdAt) - toMs(a.sentToClientAt || a.createdAt))
+      .slice(0, limit)
+      .map((q): RecentItemRow => ({
+        id: q.id,
+        title: q.workOrderTitle || q.workOrderNumber || 'Quote',
+        subtitle: [q.subcontractorName, q.locationName].filter(Boolean).join(' • ') || undefined,
+        amount: fmtMoney(typeof q.totalAmount === 'number' ? q.totalAmount : q.amount),
+        statusLabel: 'Pending Approval',
+        statusTone: 'amber',
+        href: '/client-portal/quotes',
+        actionLabel: 'Review',
+      }));
+    return rows;
+  } catch (error) {
+    console.error('fetchRecentClientQuotes error:', error);
+    return [];
+  }
+}
+
+export async function fetchRecentDiagnosticRequests(
+  userId: string,
+  db?: Firestore,
+  limit = 5,
+): Promise<RecentItemRow[]> {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(dbInstance, 'quotes'),
+      where('clientId', '==', userId),
+    ));
+    const rows = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .filter(q => q.isDiagnosticQuote === true && q.status === 'sent_to_client')
+      .sort((a, b) => toMs(b.sentToClientAt || b.createdAt) - toMs(a.sentToClientAt || a.createdAt))
+      .slice(0, limit)
+      .map((q): RecentItemRow => ({
+        id: q.id,
+        title: q.workOrderTitle || q.workOrderNumber || 'Diagnostic visit',
+        subtitle: [q.subcontractorName, q.locationName].filter(Boolean).join(' • ') || undefined,
+        amount: fmtMoney(typeof q.diagnosticFee === 'number' ? q.diagnosticFee : (typeof q.totalAmount === 'number' ? q.totalAmount : undefined)),
+        statusLabel: 'Pending Decision',
+        statusTone: 'amber',
+        href: '/client-portal/diagnostic-requests',
+        actionLabel: 'Review',
+      }));
+    return rows;
+  } catch (error) {
+    console.error('fetchRecentDiagnosticRequests error:', error);
+    return [];
+  }
+}
+
+export async function fetchRecentClientInvoices(
+  userId: string,
+  db?: Firestore,
+  limit = 5,
+): Promise<RecentItemRow[]> {
+  const dbInstance = db || defaultDb;
+  if (!dbInstance) return [];
+  try {
+    const snap = await getDocs(query(
+      collection(dbInstance, 'invoices'),
+      where('clientId', '==', userId),
+      where('status', 'in', ['sent', 'draft', 'overdue']),
+    ));
+    const rows = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .sort((a, b) => toMs(b.sentAt || b.createdAt) - toMs(a.sentAt || a.createdAt))
+      .slice(0, limit)
+      .map((inv): RecentItemRow => {
+        const tone: RecentItemRow['statusTone'] =
+          inv.status === 'overdue' ? 'red' : inv.status === 'draft' ? 'gray' : 'amber';
+        const label =
+          inv.status === 'overdue' ? 'Overdue' : inv.status === 'draft' ? 'Draft' : 'Open';
+        return {
+          id: inv.id,
+          title: inv.invoiceNumber || inv.title || 'Invoice',
+          subtitle: [inv.workOrderTitle, inv.locationName].filter(Boolean).join(' • ') || undefined,
+          amount: fmtMoney(typeof inv.totalAmount === 'number' ? inv.totalAmount : undefined),
+          statusLabel: label,
+          statusTone: tone,
+          href: `/client-portal/invoices/${inv.id}`,
+          actionLabel: 'Pay / View',
+        };
+      });
+    return rows;
+  } catch (error) {
+    console.error('fetchRecentClientInvoices error:', error);
+    return [];
+  }
+}
+
+// Diagnostic requests aggregate counts for the dashboard section.
+export async function calculateDiagnosticRequestsData(userId: string, db?: Firestore) {
+  const dbInstance = db || defaultDb;
+  const empty = { pendingReview: 0, accepted: 0, rejected: 0, total: 0 };
+  if (!dbInstance) return empty;
+  try {
+    const snap = await getDocs(query(
+      collection(dbInstance, 'quotes'),
+      where('clientId', '==', userId),
+    ));
+    const data = { ...empty };
+    snap.docs.forEach(d => {
+      const q = d.data() as any;
+      if (q.isDiagnosticQuote !== true) return;
+      data.total += 1;
+      if (q.status === 'sent_to_client') data.pendingReview += 1;
+      else if (q.status === 'accepted') data.accepted += 1;
+      else if (q.status === 'rejected') data.rejected += 1;
+    });
+    return data;
+  } catch (error) {
+    console.error('Error calculating diagnostic requests data:', error);
+    return empty;
+  }
+}

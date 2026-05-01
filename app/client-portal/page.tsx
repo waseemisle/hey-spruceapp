@@ -8,12 +8,18 @@ import ClientLayout from '@/components/client-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
 import ProposalsSection from '@/components/dashboard/proposals-section';
+import DiagnosticRequestsSection from '@/components/dashboard/diagnostic-requests-section';
 import InvoicesSection from '@/components/dashboard/invoices-section';
 import ClientCalendar from '@/components/calendar/client-calendar';
 import {
   calculateWorkOrdersData,
   calculateProposalsData,
   calculateInvoicesData,
+  calculateDiagnosticRequestsData,
+  fetchRecentClientQuotes,
+  fetchRecentDiagnosticRequests,
+  fetchRecentClientInvoices,
+  type RecentItemRow,
 } from '@/lib/dashboard-utils';
 
 export default function ClientDashboard() {
@@ -46,6 +52,10 @@ export default function ClientDashboard() {
     approved: 0,
   });
 
+  const [diagnosticData, setDiagnosticData] = useState({
+    pendingReview: 0, accepted: 0, rejected: 0, total: 0,
+  });
+
   const [invoicesData, setInvoicesData] = useState({
     completedNotInvoiced: 0,
     openReviewed: { count: 0, amount: '0.00', mixedCurrency: false },
@@ -53,8 +63,12 @@ export default function ClientDashboard() {
     rejected: { count: 0, amount: '0.00' },
   });
 
+  const [quoteItems, setQuoteItems] = useState<RecentItemRow[]>([]);
+  const [diagnosticItems, setDiagnosticItems] = useState<RecentItemRow[]>([]);
+  const [invoiceItems, setInvoiceItems] = useState<RecentItemRow[]>([]);
+
   const [loading, setLoading] = useState(true);
-  const [assignedLocations, setAssignedLocations] = useState<string[]>([]);
+  const [_assignedLocations, setAssignedLocations] = useState<string[]>([]);
 
   useEffect(() => {
     let unsubscribeWorkOrders: (() => void) | undefined;
@@ -73,14 +87,12 @@ export default function ClientDashboard() {
 
       const setupDashboard = async () => {
         try {
-          // Fetch client's assigned locations first
           const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
           const clientData = clientDoc.data();
           const locations = clientData?.assignedLocations || [];
           const peerCompanyId = clientData?.companyId as string | undefined;
           setAssignedLocations(locations);
 
-          // Fetch initial dashboard data using the freshly loaded locations
           const recalcWorkOrders = () =>
             calculateWorkOrdersData(
               'client',
@@ -91,14 +103,37 @@ export default function ClientDashboard() {
               peerCompanyId
             );
 
-          const [workOrders, proposals, invoices] = await Promise.all([
+          // Quotes / diagnostic requests / invoices each refresh their stats AND
+          // their inline list together so the column counts and rows never drift.
+          const refreshQuotes = async () => {
+            const [counts, [quotes, diagnostic], dCounts] = await Promise.all([
+              calculateProposalsData('client', currentUser.uid, db),
+              Promise.all([
+                fetchRecentClientQuotes(currentUser.uid, db),
+                fetchRecentDiagnosticRequests(currentUser.uid, db),
+              ]),
+              calculateDiagnosticRequestsData(currentUser.uid, db),
+            ]);
+            setProposalsData(counts);
+            setQuoteItems(quotes);
+            setDiagnosticItems(diagnostic);
+            setDiagnosticData(dCounts);
+          };
+          const refreshInvoices = async () => {
+            const [counts, items] = await Promise.all([
+              calculateInvoicesData('client', currentUser.uid, db),
+              fetchRecentClientInvoices(currentUser.uid, db),
+            ]);
+            setInvoicesData(counts);
+            setInvoiceItems(items);
+          };
+
+          const [workOrders] = await Promise.all([
             recalcWorkOrders(),
-            calculateProposalsData('client', currentUser.uid, db),
-            calculateInvoicesData('client', currentUser.uid, db),
+            refreshQuotes(),
+            refreshInvoices(),
           ]);
           setWorkOrdersData(workOrders);
-          setProposalsData(proposals);
-          setInvoicesData(invoices);
 
           const refreshWorkOrders = async () => {
             const updated = await recalcWorkOrders();
@@ -109,24 +144,16 @@ export default function ClientDashboard() {
           workOrderUnsubs.push(
             onSnapshot(
               query(collection(db, 'workOrders'), where('clientId', '==', currentUser.uid)),
-              () => {
-                void refreshWorkOrders();
-              },
-              (error) => {
-                console.error('Work orders listener error:', error);
-              }
+              () => { void refreshWorkOrders(); },
+              (error) => console.error('Work orders listener error:', error),
             )
           );
           if (peerCompanyId && locations.length > 0) {
             workOrderUnsubs.push(
               onSnapshot(
                 query(collection(db, 'workOrders'), where('companyId', '==', peerCompanyId)),
-                () => {
-                  void refreshWorkOrders();
-                },
-                (error) => {
-                  console.error('Work orders (company) listener error:', error);
-                }
+                () => { void refreshWorkOrders(); },
+                (error) => console.error('Work orders (company) listener error:', error),
               )
             );
           }
@@ -134,22 +161,14 @@ export default function ClientDashboard() {
 
           unsubscribeQuotes = onSnapshot(
             query(collection(db, 'quotes'), where('clientId', '==', currentUser.uid)),
-            async () => {
-              const updated = await calculateProposalsData('client', currentUser.uid, db);
-              setProposalsData(updated);
-            }, (error) => {
-              console.error('Quotes listener error:', error);
-            }
+            () => { void refreshQuotes(); },
+            (error) => console.error('Quotes listener error:', error),
           );
 
           unsubscribeInvoices = onSnapshot(
             query(collection(db, 'invoices'), where('clientId', '==', currentUser.uid)),
-            async () => {
-              const updated = await calculateInvoicesData('client', currentUser.uid, db);
-              setInvoicesData(updated);
-            }, (error) => {
-              console.error('Invoices listener error:', error);
-            }
+            () => { void refreshInvoices(); },
+            (error) => console.error('Invoices listener error:', error),
           );
         } catch (error) {
           console.error('Error fetching dashboard data:', error);
@@ -170,9 +189,7 @@ export default function ClientDashboard() {
   }, [auth, db]);
 
   const handleSearch = (searchType: string, searchValue: string) => {
-    // Implement search functionality
     console.log('Search:', searchType, searchValue);
-    // TODO: Navigate to appropriate page with search filters
   };
 
   if (loading) {
@@ -191,22 +208,14 @@ export default function ClientDashboard() {
   return (
     <ClientLayout>
       <div className="min-h-screen bg-muted">
-        {/* Search Bar */}
         <DashboardSearchBar portalType="client" onSearch={handleSearch} />
 
-        {/* Main Content */}
         <div className="p-4 sm:p-6 space-y-6">
-          {/* Calendar Section */}
           <ClientCalendar />
-
-          {/* Work Orders Section */}
           <WorkOrdersSection data={workOrdersData} portalType="client" />
-
-          {/* Proposals Section */}
-          <ProposalsSection data={proposalsData} portalType="client" />
-
-          {/* Invoices Section */}
-          <InvoicesSection data={invoicesData} portalType="client" />
+          <ProposalsSection data={proposalsData} portalType="client" items={quoteItems} />
+          <DiagnosticRequestsSection data={diagnosticData} items={diagnosticItems} />
+          <InvoicesSection data={invoicesData} portalType="client" items={invoiceItems} />
         </div>
       </div>
     </ClientLayout>
