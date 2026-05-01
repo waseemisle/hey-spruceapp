@@ -79,7 +79,6 @@ function QuotesContent() {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [markupPercent, setMarkupPercent] = useState('20');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [viewQuote, setViewQuote] = useState<Quote | null>(null);
   const { viewMode, sortOption } = useViewControls();
 
   // Create Quote Form State
@@ -654,13 +653,11 @@ function QuotesContent() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setViewQuote(quote)}
-                          title="View full quote"
-                        >
-                          <Eye className="h-4 w-4" />
+                        <Button size="sm" variant="outline" asChild className="gap-1.5">
+                          <Link href={`/admin-portal/quotes/${quote.id}`}>
+                            <Eye className="h-4 w-4" />
+                            View Quote
+                          </Link>
                         </Button>
                         {quote.status === 'pending' && (
                           <Button
@@ -671,7 +668,8 @@ function QuotesContent() {
                               setMarkupPercent('20');
                             }}
                           >
-                            <Send className="h-4 w-4" />
+                            <Send className="h-4 w-4 mr-1" />
+                            Send
                           </Button>
                         )}
                         <Button
@@ -779,11 +777,13 @@ function QuotesContent() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 px-2"
-                    title="View full quote"
-                    onClick={() => setViewQuote(quote)}
+                    className="flex-1 h-8 text-xs gap-1"
+                    asChild
                   >
-                    <Eye className="h-3.5 w-3.5" />
+                    <Link href={`/admin-portal/quotes/${quote.id}`}>
+                      <Eye className="h-3.5 w-3.5" />
+                      View Quote
+                    </Link>
                   </Button>
                   {(quote.status === 'pending' || quote.status === 'sent_to_client') && selectedQuote?.id !== quote.id && (
                     <Button
@@ -814,133 +814,6 @@ function QuotesContent() {
           </div>
         )}
 
-        {/* View Quote Modal */}
-        {viewQuote && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg shadow-lg max-w-2xl w-full my-4">
-              <div className="p-5 border-b flex justify-between items-center sticky top-0 bg-card z-10">
-                <div>
-                  <h2 className="text-lg font-semibold">{viewQuote.workOrderTitle}</h2>
-                  {viewQuote.workOrderNumber && <p className="text-xs text-muted-foreground">WO: {viewQuote.workOrderNumber}</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${(() => {
-                    switch (viewQuote.status) {
-                      case 'pending': return 'text-yellow-600 bg-yellow-50';
-                      case 'sent_to_client': return 'text-blue-600 bg-blue-50';
-                      case 'accepted': return 'text-green-600 bg-green-50';
-                      case 'rejected': return 'text-red-600 bg-red-50';
-                      default: return 'text-muted-foreground bg-muted';
-                    }
-                  })()}`}>
-                    {viewQuote.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                  </span>
-                  <Button variant="outline" size="sm" onClick={() => setViewQuote(null)}><X className="h-4 w-4" /></Button>
-                </div>
-              </div>
-              <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
-                {/* Info grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor</p><p className="font-medium">{viewQuote.subcontractorName}</p><p className="text-xs text-muted-foreground">{viewQuote.subcontractorEmail}</p></div>
-                  <div><p className="text-xs text-muted-foreground mb-0.5">Client</p><p className="font-medium">{viewQuote.clientName}</p><p className="text-xs text-muted-foreground">{viewQuote.clientEmail}</p></div>
-                  <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">{formatMoney(viewQuote.totalAmount)}</p></div>
-                  {viewQuote.clientAmount != null && (
-                    <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuote.markupPercentage != null ? `(${viewQuote.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">{formatMoney(viewQuote.clientAmount)}</p></div>
-                  )}
-                </div>
-                {/* Line Items — client-facing (with markup) */}
-                {viewQuote.clientLineItems && viewQuote.clientLineItems.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                      Line Items — Client View ({viewQuote.markupPercentage ?? 0}% markup)
-                    </p>
-                    <div className="border rounded-md overflow-hidden">
-                      <div className="overflow-x-auto">
-                      <table className="w-full text-sm min-w-[420px]">
-                        <thead>
-                          <tr className="bg-muted text-muted-foreground text-xs uppercase">
-                            <th className="px-3 py-2 text-left">Description</th>
-                            <th className="px-3 py-2 text-center">Qty</th>
-                            <th className="px-3 py-2 text-right">Unit Price</th>
-                            <th className="px-3 py-2 text-right">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {viewQuote.clientLineItems.map((item, idx) => (
-                            <tr key={idx} className="border-t border-border">
-                              <td className="px-3 py-2">{item.description}</td>
-                              <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(item.unitPrice)}</td>
-                              <td className="px-3 py-2 text-right font-medium">{formatMoney(item.amount)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-right text-sm font-semibold text-blue-600">
-                      Client Total: {formatMoney(viewQuote.clientAmount)}
-                    </div>
-                  </div>
-                )}
-                {/* Line Items — original subcontractor amounts */}
-                {viewQuote.lineItems && viewQuote.lineItems.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                      {viewQuote.clientLineItems?.length ? 'Original Subcontractor Quote' : 'Line Items'}
-                    </p>
-                    <div className="border rounded-md overflow-hidden">
-                      <div className="overflow-x-auto">
-                      <table className="w-full text-sm min-w-[420px]">
-                        <thead>
-                          <tr className="bg-muted text-muted-foreground text-xs uppercase">
-                            <th className="px-3 py-2 text-left">Description</th>
-                            <th className="px-3 py-2 text-center">Qty</th>
-                            <th className="px-3 py-2 text-right">Unit Price</th>
-                            <th className="px-3 py-2 text-right">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {viewQuote.lineItems.map((item, idx) => (
-                            <tr key={idx} className="border-t border-border">
-                              <td className="px-3 py-2">{item.description}</td>
-                              <td className="px-3 py-2 text-center">{item.quantity.toFixed(1)}</td>
-                              <td className="px-3 py-2 text-right">{formatMoney(item.unitPrice)}</td>
-                              <td className="px-3 py-2 text-right font-medium">{formatMoney(item.amount)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-right text-sm font-semibold">
-                      Total: {formatMoney(viewQuote.totalAmount)}
-                    </div>
-                  </div>
-                )}
-                {/* Notes */}
-                {viewQuote.notes && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
-                    <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-3">{viewQuote.notes}</p>
-                  </div>
-                )}
-                {/* Send action */}
-                {(viewQuote.status === 'pending' || viewQuote.status === 'sent_to_client') && (
-                  <div className="border-t pt-4">
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      onClick={() => { setSelectedQuote(viewQuote); setMarkupPercent(String(viewQuote.markupPercentage || 20)); setViewQuote(null); }}
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {viewQuote.status === 'sent_to_client' ? 'Resend to Client' : 'Send to Client'}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Create Quote Modal */}
         {showCreateModal && (
