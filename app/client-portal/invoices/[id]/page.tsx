@@ -66,8 +66,11 @@ export default function ClientInvoiceDetail() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        // Guard against transient null on first emission (Firebase restoring
+        // persisted session). Only redirect when the singleton is also null.
+        if (auth.currentUser) return;
         setLoading(false);
-        router.push('/client-portal/login');
+        router.push('/portal-login');
         return;
       }
       try {

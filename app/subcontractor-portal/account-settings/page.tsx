@@ -60,7 +60,14 @@ export default function SubcontractorAccountSettings() {
   useEffect(() => {
     if (!auth || !db) return;
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) { router.push('/subcontractor-login'); return; }
+      if (!firebaseUser) {
+        // Guard against transient null on first emission. Real logout:
+        // auth.currentUser is also null. Transient: singleton still set,
+        // ignore and wait for the next callback with the real user.
+        if (auth.currentUser) return;
+        router.push('/portal-login');
+        return;
+      }
       setUid(firebaseUser.uid);
       setEmail(firebaseUser.email || '');
       try {
