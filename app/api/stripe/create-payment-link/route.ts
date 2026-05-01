@@ -86,18 +86,78 @@ export async function POST(request: NextRequest) {
       stripeCustomerId = customer.id;
     }
 
-    // If we already created a hosted invoice for this Firestore invoice, void
-    // it before creating a fresh one — Stripe doesn't let two open invoices
-    // for the same invoice item exist, and we want the latest amount.
+    // ── Idempotency: reuse the existing Stripe invoice when possible ────
+    // Earlier this route always voided the previous Stripe invoice and
+    // created a fresh one, which produced INV-46743594 (void) +
+    // INV-46743594-r{timestamp} (open) duplicates every time someone
+    // clicked "Pay via Stripe" or "Pay Now". Stripe permanently reserves
+    // invoice numbers, so the original number was lost.
+    //
+    // New behavior — return the existing Stripe invoice unchanged when:
+    //   • Status is `open` AND amount_due matches the current Firestore
+    //     totalAmount → caller just gets the same hosted_invoice_url back.
+    //   • Status is `paid` / `uncollectible` → return current state without
+    //     touching it (the webhook should have already synced status; if
+    //     not, the sync route + auto-sync on page load will).
+    // Only void+recreate when:
+    //   • Existing invoice is `void` already (no harm), or
+    //   • Status is `draft` (unfinished — discard and rebuild), or
+    //   • `open` but the amount has drifted (line items were edited).
+    // Callers that explicitly want a fresh invoice (e.g. after editing
+    // line items) can pass `forceRegenerate: true` in the request body.
+    // ────────────────────────────────────────────────────────────────────
+    const expectedAmountCents = Math.round(resolvedAmount * 100);
+    const forceRegenerate = body?.forceRegenerate === true;
     const previousStripeInvoiceId = (inv as any).stripeInvoiceId as string | undefined;
-    if (previousStripeInvoiceId) {
+    if (previousStripeInvoiceId && !forceRegenerate) {
+      try {
+        const prev = await stripe.invoices.retrieve(previousStripeInvoiceId);
+        const prevAmount = typeof prev.amount_due === 'number' ? prev.amount_due : -1;
+
+        if (prev.status === 'open' && prevAmount === expectedAmountCents && prev.hosted_invoice_url) {
+          // Reuse — no changes needed.
+          return NextResponse.json({
+            paymentLink: prev.hosted_invoice_url,
+            hostedInvoiceUrl: prev.hosted_invoice_url,
+            stripeInvoiceId: prev.id,
+            sessionId: prev.id,
+            reused: true,
+          });
+        }
+
+        if (prev.status === 'paid' || prev.status === 'uncollectible') {
+          // Don't recreate a settled invoice. Return its hosted URL so
+          // the UI can still link to it; the auto-sync route will pick
+          // up the paid state on the next page load.
+          return NextResponse.json({
+            paymentLink: prev.hosted_invoice_url || '',
+            hostedInvoiceUrl: prev.hosted_invoice_url || '',
+            stripeInvoiceId: prev.id,
+            sessionId: prev.id,
+            reused: true,
+            stripeStatus: prev.status,
+          });
+        }
+
+        // open-with-wrong-amount, draft, or anything else falls through to
+        // a void + recreate. Voiding a draft is fine; voiding an open with
+        // drifted amount is intentional.
+        if (prev.status === 'open' || prev.status === 'draft') {
+          await stripe.invoices.voidInvoice(previousStripeInvoiceId);
+        }
+      } catch (voidErr) {
+        console.warn('[create-payment-link] Could not check/void previous Stripe invoice:', voidErr);
+      }
+    } else if (previousStripeInvoiceId && forceRegenerate) {
+      // Caller explicitly asked for a regen — void the previous one if
+      // it's still in a state where that's safe.
       try {
         const prev = await stripe.invoices.retrieve(previousStripeInvoiceId);
         if (prev.status === 'open' || prev.status === 'draft') {
           await stripe.invoices.voidInvoice(previousStripeInvoiceId);
         }
       } catch (voidErr) {
-        console.warn('[create-payment-link] Could not void previous Stripe invoice:', voidErr);
+        console.warn('[create-payment-link] forceRegenerate void failed:', voidErr);
       }
     }
 

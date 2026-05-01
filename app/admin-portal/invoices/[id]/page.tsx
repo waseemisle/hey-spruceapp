@@ -94,11 +94,12 @@ export default function AdminInvoiceDetail() {
   const handleOpenPayLink = async () => {
     if (!invoice) return;
     let link = invoice.stripePaymentLink;
-    // For any non-paid invoice, ALWAYS mint a fresh Stripe invoice so the
-    // hosted page reflects the current Firestore total + line items. Stored
-    // links can point at stale, already-finalized (or \$0/paid) Stripe
-    // invoices that our previous regen left dangling.
-    if (invoice.status !== 'paid') {
+    // Only mint a payment link if we don't have one yet. The /api route is
+    // idempotent — it reuses the existing Stripe invoice when amount + status
+    // are still good — so calling it on every click is harmless, but skipping
+    // the round-trip when we already have a working link is faster and avoids
+    // any chance of the older "void + recreate" pattern recurring.
+    if (!link && invoice.status !== 'paid') {
       try {
         setOpeningPayLink(true);
         const res = await fetch('/api/stripe/create-payment-link', {
@@ -111,10 +112,10 @@ export default function AdminInvoiceDetail() {
           link = data.paymentLink as string;
           setInvoice(prev => prev ? { ...prev, stripePaymentLink: link, stripeInvoiceId: data.stripeInvoiceId || prev.stripeInvoiceId } : prev);
         } else {
-          console.error('Stripe regen returned:', data);
+          console.error('Stripe payment-link request returned:', data);
         }
       } catch (err) {
-        console.error('Failed to refresh Stripe link:', err);
+        console.error('Failed to fetch Stripe link:', err);
       } finally {
         setOpeningPayLink(false);
       }
@@ -154,6 +155,32 @@ export default function AdminInvoiceDetail() {
         }
         const data = { ...snap.data(), id: snap.id } as Invoice;
         setInvoice(data);
+
+        // ── Self-sync from Stripe ───────────────────────────────────────
+        // Closes the gap when Stripe's invoice.paid webhook didn't reach
+        // us (mis-configured webhook secret, dropped event, or the Stripe
+        // dashboard webhook missing the `invoice.paid` event type). If
+        // Stripe says paid, we update Firestore. The detail page's later
+        // re-fetch — or the user reloading — will then show "Paid".
+        if (data.status !== 'paid' && (data as any).stripeInvoiceId) {
+          (async () => {
+            try {
+              const res = await fetch('/api/stripe/sync-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceId: data.id }),
+              });
+              const out = await res.json();
+              if (out?.synced && out?.stripeStatus === 'paid') {
+                // Re-read so the UI flips to Paid without a manual reload.
+                const fresh = await getDoc(doc(db, 'invoices', data.id));
+                if (fresh.exists()) setInvoice({ ...fresh.data(), id: fresh.id } as Invoice);
+              }
+            } catch (syncErr) {
+              console.warn('Background Stripe status sync failed:', syncErr);
+            }
+          })();
+        }
 
         // Self-heal legacy checkout.stripe.com links — regen as a hosted
         // invoice URL silently so Pay via Stripe and re-share emails always

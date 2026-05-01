@@ -104,6 +104,30 @@ export default function ClientInvoiceDetail() {
         setCanViewTimeline(clientData?.permissions?.viewTimeline === true);
         setInvoice(data);
         setIsAuthorized(true);
+
+        // ── Self-sync from Stripe ───────────────────────────────────────
+        // If Stripe shows the invoice as paid but Firestore hasn't caught
+        // up (e.g. webhook miss), pull the status. Fire-and-forget; on a
+        // successful sync we re-read to flip the page to "Paid" without
+        // the user having to refresh.
+        if (data.status !== 'paid' && (data as any).stripeInvoiceId) {
+          (async () => {
+            try {
+              const res = await fetch('/api/stripe/sync-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invoiceId: data.id }),
+              });
+              const out = await res.json();
+              if (out?.synced && out?.stripeStatus === 'paid') {
+                const fresh = await getDoc(doc(db, 'invoices', data.id));
+                if (fresh.exists()) setInvoice({ ...fresh.data(), id: fresh.id } as Invoice);
+              }
+            } catch (syncErr) {
+              console.warn('Background Stripe status sync failed:', syncErr);
+            }
+          })();
+        }
       } catch (error) {
         console.error('Error fetching invoice:', error);
         toast.error('Failed to load invoice');
@@ -211,9 +235,12 @@ export default function ClientInvoiceDetail() {
   const handlePayNow = async () => {
     if (!invoice) return;
     let link = invoice.stripePaymentLink;
-    // Always regenerate for non-paid invoices — the stored link can point
-    // at a stale Stripe invoice (already paid, voided, or \$0).
-    if (invoice.status !== 'paid') {
+    // Open the stored hosted invoice link directly when we have one — the
+    // /api/stripe/create-payment-link route is idempotent so calling it on
+    // every Pay click was previously safe, but it added unnecessary latency
+    // and (before idempotency was added) caused void + duplicate Stripe
+    // invoices. Only mint a link when one doesn't exist yet.
+    if (!link && invoice.status !== 'paid') {
       try {
         const res = await fetch('/api/stripe/create-payment-link', {
           method: 'POST',
@@ -226,7 +253,7 @@ export default function ClientInvoiceDetail() {
           setInvoice({ ...invoice, stripePaymentLink: link });
         }
       } catch (err) {
-        console.error('Failed to refresh payment link:', err);
+        console.error('Failed to fetch payment link:', err);
       }
     }
     if (link) {

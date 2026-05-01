@@ -126,9 +126,11 @@ function ClientInvoicesInner() {
 
   const handlePayNow = async (invoice: Invoice) => {
     let link = invoice.stripePaymentLink;
-    // Always regenerate for non-paid invoices to guarantee the hosted
-    // page reflects the current Firestore total.
-    if (invoice.status !== 'paid') {
+    // Reuse the stored hosted invoice URL when present — the /api route is
+    // idempotent on the server side, but skipping the round-trip avoids the
+    // pre-idempotency void + duplicate-suffix bug from re-emerging if any
+    // older client/CDN cache hits this code path.
+    if (!link && invoice.status !== 'paid') {
       try {
         const res = await fetch('/api/stripe/create-payment-link', {
           method: 'POST',
@@ -138,7 +140,7 @@ function ClientInvoicesInner() {
         const data = await res.json();
         if (res.ok && data.paymentLink) link = data.paymentLink as string;
       } catch (err) {
-        console.error('Failed to refresh payment link:', err);
+        console.error('Failed to fetch payment link:', err);
       }
     }
     if (link) {
