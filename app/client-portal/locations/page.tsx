@@ -91,15 +91,45 @@ export default function ClientLocations() {
       }
 
       // Real user — keep the spinner showing until we've decided whether
-      // there's a company to show. Without this, a prior null-arg callback
-      // could have already set loading=false, and the brief gap before
-      // companyInfo lands would render the "No company" warning.
+      // there's a company to show.
       setLoading(true);
       setCheckingCompany(true);
 
+      // Read the client doc with retry-on-permission-error. Right after a
+      // fresh login (or after the layout remounts on App Router nav), the
+      // Firebase Auth token sometimes hasn't propagated to Firestore yet,
+      // so the first getDoc rejects with permission-denied even though the
+      // user is genuinely authenticated. Without retry, the catch block
+      // would flip companyInfo=null + checkingCompany=false and paint the
+      // "No company assigned" warning. Retrying with short backoff lets
+      // the token catch up — the second try almost always succeeds.
+      const readClientDoc = async () => {
+        let lastErr: any = null;
+        for (let i = 0; i < 4; i++) {
+          try {
+            return await getDoc(doc(db, 'clients', user.uid));
+          } catch (err: any) {
+            lastErr = err;
+            const code = err?.code || '';
+            const msg = String(err?.message || '');
+            const isAuthRace =
+              code === 'permission-denied' ||
+              code === 'unauthenticated' ||
+              /permission|insufficient|unauthenticated/i.test(msg);
+            if (!isAuthRace || i === 3) throw err;
+            await new Promise((r) => setTimeout(r, 250 * (i + 1)));
+            // Force-refresh the ID token before retrying so Firestore picks
+            // up the latest claims.
+            try { await user.getIdToken(true); } catch {}
+          }
+        }
+        throw lastErr;
+      };
+
       try {
-        const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+        const clientDoc = await readClientDoc();
         if (!clientDoc.exists()) {
+          // POSITIVELY confirmed: there is no client doc for this uid.
           setCompanyInfo(null);
           setLocations([]);
           setLoading(false);
@@ -112,6 +142,7 @@ export default function ClientLocations() {
         setCanCreateLocation(!!permissions.createLocation);
         const clientCompanyId = clientData.companyId;
         if (!clientCompanyId) {
+          // POSITIVELY confirmed: client doc exists but has no companyId.
           setCompanyInfo(null);
           setLocations([]);
           setLoading(false);
@@ -131,6 +162,11 @@ export default function ClientLocations() {
         } catch {
           setCompanyInfo({ id: clientCompanyId, name: 'Assigned Company' });
         }
+        // Mark the company-check phase as done now that companyInfo is set —
+        // this is the only success path that flips checkingCompany to false
+        // with companyInfo populated, so the "no company" render condition
+        // can never match here.
+        setCheckingCompany(false);
 
         const locationsQuery = query(
           collection(db, 'locations'),
@@ -156,13 +192,18 @@ export default function ClientLocations() {
           }
         );
       } catch (error) {
-        console.error('Error loading client locations', error);
-        setCompanyInfo(null);
-        setLocations([]);
-        setLoading(false);
-      } finally {
-        setCheckingCompany(false);
+        // Transient Firestore failure (network blip, exhausted retries on
+        // post-login JWT race, rules layer hiccup). Do NOT conclude "no
+        // company" — that's the bug that paints the wrong warning. Stay in
+        // loading state. The next auth callback or a manual refresh will
+        // retry the read; we'd rather show a spinner a moment longer than
+        // a wrong empty state.
+        console.error('Error loading client locations (will not flash "no company"):', error);
       }
+      // No finally block — checkingCompany stays true unless one of the
+      // positive-answer branches above explicitly turned it off. This
+      // guarantees the "no company" warning is only ever shown when we
+      // POSITIVELY confirmed the client doc has no companyId.
     });
 
     return () => {
