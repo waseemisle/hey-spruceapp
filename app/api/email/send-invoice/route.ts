@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
@@ -34,6 +34,75 @@ async function resolveSubcontractorBusinessName(input: {
     if (!subSnap.exists()) return null;
     const bn = (subSnap.data().businessName || '').trim();
     return bn || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the per-location CC recipient for an invoice, gated on the parent
+ * company's `invoiceLocationEmailEnabled` permission.
+ *
+ * Chain: invoiceId (or invoiceNumber) → invoice.workOrderId → workOrder.locationId
+ *      → location.locationEmail + location.companyId → company.invoiceLocationEmailEnabled
+ *
+ * Returns the email string only when the permission is enabled AND a valid
+ * location email is configured. Always returns null on any failure — this
+ * function MUST never throw, since the main invoice email must still send.
+ */
+async function resolveLocationCcEmail(input: {
+  invoiceId?: string;
+  invoiceNumber?: string;
+  primaryToEmail?: string;
+}): Promise<string | null> {
+  try {
+    const db = await getServerDb();
+
+    let invoiceData: any = null;
+    if (input.invoiceId) {
+      const snap = await getDoc(doc(db, 'invoices', input.invoiceId));
+      if (snap.exists()) invoiceData = snap.data();
+    }
+    if (!invoiceData && input.invoiceNumber) {
+      const q = query(
+        collection(db, 'invoices'),
+        where('invoiceNumber', '==', input.invoiceNumber),
+        limit(1),
+      );
+      const qs = await getDocs(q);
+      if (!qs.empty) invoiceData = qs.docs[0].data();
+    }
+    if (!invoiceData) return null;
+
+    const workOrderId = (invoiceData.workOrderId || '').toString().trim();
+    if (!workOrderId) return null;
+
+    const woSnap = await getDoc(doc(db, 'workOrders', workOrderId));
+    if (!woSnap.exists()) return null;
+    const wo = woSnap.data();
+    const locationId = (wo.locationId || '').toString().trim();
+    if (!locationId) return null;
+
+    const locSnap = await getDoc(doc(db, 'locations', locationId));
+    if (!locSnap.exists()) return null;
+    const loc = locSnap.data();
+    const locationEmail = (loc.locationEmail || '').toString().trim();
+    const companyId = (loc.companyId || '').toString().trim();
+    if (!locationEmail || !companyId) return null;
+
+    const compSnap = await getDoc(doc(db, 'companies', companyId));
+    if (!compSnap.exists()) return null;
+    const company = compSnap.data();
+    if (company.invoiceLocationEmailEnabled !== true) return null;
+
+    // Don't duplicate when the location email IS the primary recipient.
+    if (
+      input.primaryToEmail &&
+      locationEmail.toLowerCase() === input.primaryToEmail.toLowerCase()
+    ) {
+      return null;
+    }
+    return locationEmail;
   } catch {
     return null;
   }
@@ -230,15 +299,26 @@ export async function POST(request: Request) {
       });
     }
 
+    // Per-location CC: only when the parent company has the
+    // Invoice Location Email permission enabled and the location has an
+    // address configured. Fail-soft — never block the main email.
+    const locationCcEmail = await resolveLocationCcEmail({
+      invoiceId,
+      invoiceNumber,
+      primaryToEmail: toEmail,
+    });
+
+    const recipients = locationCcEmail ? [toEmail, locationCcEmail] : toEmail;
+
     await sendEmail({
-      to: toEmail,
+      to: recipients,
       subject: `Invoice #${invoiceNumber} - Payment Due`,
       html: emailHtml,
       attachments,
     });
-    await logEmail({ type: 'invoice', to: toEmail, subject: `Invoice #${invoiceNumber} - Payment Due`, status: 'sent', context: { toName, invoiceNumber, workOrderTitle, totalAmount, dueDate, notes, hasAttachment: !!pdfBase64, hasWorkOrderAttachment: !!workOrderPdfBase64 } });
+    await logEmail({ type: 'invoice', to: Array.isArray(recipients) ? recipients.join(', ') : recipients, subject: `Invoice #${invoiceNumber} - Payment Due`, status: 'sent', context: { toName, invoiceNumber, workOrderTitle, totalAmount, dueDate, notes, hasAttachment: !!pdfBase64, hasWorkOrderAttachment: !!workOrderPdfBase64, locationCcEmail: locationCcEmail || undefined } });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, locationCcEmail: locationCcEmail || null });
   } catch (error: any) {
     console.error('❌ Error sending invoice email:', error);
     console.error('❌ Error details:', error.message || error);

@@ -33,6 +33,12 @@ interface Location {
   propertyType: string;
   contactPerson: string;
   contactPhone: string;
+  /**
+   * Per-location billing/notification email. Used by the Invoice Location
+   * Email feature: when the parent company has invoiceLocationEmailEnabled,
+   * invoices generated for this location are also CC'd here.
+   */
+  locationEmail?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
 }
@@ -69,9 +75,10 @@ export default function LocationsManagement() {
     propertyType: '',
     contactPerson: '',
     contactPhone: '',
+    locationEmail: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
   });
-  const [companies, setCompanies] = useState<{ id: string; name: string; clientId: string }[]>([]);
+  const [companies, setCompanies] = useState<{ id: string; name: string; clientId: string; invoiceLocationEmailEnabled?: boolean }[]>([]);
 
   const fetchLocations = async () => {
     try {
@@ -111,10 +118,11 @@ export default function LocationsManagement() {
       const snapshot = await getDocs(companiesQuery);
       const companiesData = snapshot.docs.map(d => {
         const data = d.data();
-        return { 
-          id: d.id, 
-          name: data.name as string || '', 
-          clientId: (data.clientId as string) || '' 
+        return {
+          id: d.id,
+          name: data.name as string || '',
+          clientId: (data.clientId as string) || '',
+          invoiceLocationEmailEnabled: data.invoiceLocationEmailEnabled === true,
         };
       }).filter(c => c.name); // Only include companies with names
       setCompanies(companiesData);
@@ -217,6 +225,7 @@ export default function LocationsManagement() {
       propertyType: '',
       contactPerson: '',
       contactPhone: '',
+      locationEmail: '',
       status: 'approved',
     });
     setEditingId(null);
@@ -241,6 +250,7 @@ export default function LocationsManagement() {
       propertyType: location.propertyType,
       contactPerson: location.contactPerson,
       contactPhone: location.contactPhone,
+      locationEmail: location.locationEmail || '',
       status: location.status,
     });
     setEditingId(location.id);
@@ -264,6 +274,15 @@ export default function LocationsManagement() {
 
       // Get client info from the company
       const client = formData.clientId ? clients.find(c => c.id === formData.clientId) : null;
+
+      // Only persist locationEmail if the parent company has the
+      // Invoice Location Email permission enabled. Otherwise the field is
+      // hidden in the UI and we don't want to keep stale data around.
+      const trimmedLocationEmail = (formData.locationEmail || '').trim();
+      const locationEmailValue = selectedCompany.invoiceLocationEmailEnabled
+        ? trimmedLocationEmail
+        : '';
+
       const locationData = {
         clientId: formData.clientId || selectedCompany.clientId || '',
         clientName: client?.fullName || '',
@@ -281,6 +300,7 @@ export default function LocationsManagement() {
         propertyType: formData.propertyType,
         contactPerson: formData.contactPerson,
         contactPhone: formData.contactPhone,
+        locationEmail: locationEmailValue,
         status: formData.status,
         updatedAt: serverTimestamp(),
       };
@@ -756,6 +776,31 @@ export default function LocationsManagement() {
                       placeholder="94104"
                     />
                   </div>
+
+                  {/*
+                    Location Email Address — only shown when the selected company
+                    has the Invoice Location Email permission enabled. When set,
+                    invoices generated for this location are also CC'd here on send.
+                  */}
+                  {(() => {
+                    const selected = companies.find(c => c.id === formData.companyId);
+                    if (!selected?.invoiceLocationEmailEnabled) return null;
+                    return (
+                      <div className="md:col-span-2">
+                        <Label>Location Email Address</Label>
+                        <Input
+                          type="email"
+                          value={formData.locationEmail}
+                          onChange={(e) => setFormData({ ...formData, locationEmail: e.target.value })}
+                          placeholder="billing@property.com"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Invoices generated for this location will be automatically
+                          emailed to this address on top of the regular client recipient.
+                        </p>
+                      </div>
+                    );
+                  })()}
 
                   <div>
                     <Label>Status *</Label>

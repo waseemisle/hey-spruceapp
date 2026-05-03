@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -8,9 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { PageContainer } from '@/components/ui/page-container';
+import { StatCards } from '@/components/ui/stat-cards';
 import {
   Building2, Search, Users, CheckCircle2, XCircle, Save, Shield,
-  Mail, Phone, ChevronDown, ChevronUp, Eye, MapPin, Receipt,
+  Mail, Phone, ChevronDown, ChevronUp, ChevronRight, Eye, MapPin, Receipt,
+  MailPlus, Settings, Sparkles, ArrowLeft, Globe2, Clock, UserCheck,
+  PlusCircle, GitBranch, Tag, Workflow, RotateCcw, ShieldCheck,
+  ListChecks, FileText, Repeat,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -23,14 +28,9 @@ interface Company {
   phone?: string;
   clientId: string;
   logoUrl?: string;
-  /** Empty / missing = ALL states allowed (backward-compatible default). */
   allowedSubcontractorStates?: string[];
-  /**
-   * When true, invoices generated for clients of this company enter a 72-hour
-   * intermediary approval window before the final invoice email is sent.
-   * Off / missing = current immediate-send behavior (backward-compatible).
-   */
   invoiceApprovalRequired?: boolean;
+  invoiceLocationEmailEnabled?: boolean;
 }
 
 interface Client {
@@ -57,30 +57,45 @@ interface Client {
 }
 
 type PermKey = keyof NonNullable<Client['permissions']>;
+type PermCategory = 'visibility' | 'creation' | 'workflow';
 
-const PERMISSION_DEFS: { key: PermKey; label: string; desc: string }[] = [
-  { key: 'shareForBidding', label: 'Share for Bidding', desc: 'Client can share work orders with subcontractors for bidding. Quotes will be shared without markup.' },
-  { key: 'viewMaintenanceRequests', label: 'View Maintenance Requests', desc: 'Client can view maintenance requests in their portal.' },
-  { key: 'viewMaintenanceRequestsWorkOrders', label: 'Maintenance Request Work Orders', desc: 'Client can view maintenance request work orders. Nav will show as "Maintenance Requests Work Orders".' },
-  { key: 'approveRejectOrder', label: 'Approve / Reject Order', desc: 'Client can approve or reject work orders in their portal.' },
-  { key: 'rejectedWorkOrders', label: 'Rejected Work Orders', desc: 'Client can view rejected work orders in their portal.' },
-  { key: 'viewSubcontractors', label: 'View Subcontractors', desc: 'Client can view all subcontractors (read-only).' },
-  { key: 'compareQuotes', label: 'Compare Quotes', desc: 'Client can compare multiple quotes side-by-side with detailed subcontractor information.' },
-  { key: 'viewRecurringWorkOrders', label: 'Recurring Work Orders', desc: 'Client can view and edit recurring work orders in their portal.' },
-  { key: 'viewTimeline', label: 'View Timeline', desc: 'Client can see the Timeline section on work orders, quotes, and invoices.' },
-  { key: 'createSubcontractors', label: 'Create Subcontractors', desc: 'Client can create new subcontractors and send them an invitation to join the platform.' },
-  { key: 'createLocation', label: 'Create Location', desc: 'Client can add new property locations to their company.' },
-  { key: 'createRecurringWorkOrders', label: 'Create Recurring Work Orders', desc: 'Client can create new recurring work orders for their locations.' },
-  { key: 'archiveWorkOrders', label: 'Archive Work Orders', desc: 'Client can archive work orders. Archived work orders are moved out of the active list.' },
+const PERMISSION_DEFS: {
+  key: PermKey;
+  label: string;
+  desc: string;
+  category: PermCategory;
+  icon: typeof Shield;
+}[] = [
+  { key: 'viewMaintenanceRequests',            label: 'Maintenance Requests',           desc: 'View incoming maintenance requests in the client portal.',                                       category: 'visibility', icon: ListChecks },
+  { key: 'viewMaintenanceRequestsWorkOrders',  label: 'Maintenance Request Work Orders',desc: 'See work orders that originated from maintenance requests.',                                     category: 'visibility', icon: FileText },
+  { key: 'viewSubcontractors',                 label: 'View Subcontractors',            desc: 'Read-only view of all subcontractors in the platform.',                                          category: 'visibility', icon: Users },
+  { key: 'viewRecurringWorkOrders',            label: 'Recurring Work Orders',          desc: 'View and edit recurring work orders for owned locations.',                                       category: 'visibility', icon: Repeat },
+  { key: 'rejectedWorkOrders',                 label: 'Rejected Work Orders',           desc: 'Show rejected work orders in the client portal.',                                                category: 'visibility', icon: XCircle },
+  { key: 'viewTimeline',                       label: 'Timeline',                       desc: 'Show the activity timeline on work orders, quotes and invoices.',                                category: 'visibility', icon: Clock },
+
+  { key: 'createSubcontractors',               label: 'Create Subcontractors',          desc: 'Create new subcontractors and send them platform invitations.',                                  category: 'creation', icon: UserCheck },
+  { key: 'createLocation',                     label: 'Create Location',                desc: 'Add new property locations to the company.',                                                     category: 'creation', icon: MapPin },
+  { key: 'createRecurringWorkOrders',          label: 'Create Recurring Work Orders',   desc: 'Create new recurring work orders for owned locations.',                                          category: 'creation', icon: PlusCircle },
+
+  { key: 'shareForBidding',                    label: 'Share for Bidding',              desc: 'Share work orders with subcontractors for bidding. Quotes are shared without markup.',           category: 'workflow', icon: GitBranch },
+  { key: 'approveRejectOrder',                 label: 'Approve / Reject Order',         desc: 'Allow clients to approve or reject work orders from their portal.',                              category: 'workflow', icon: CheckCircle2 },
+  { key: 'compareQuotes',                      label: 'Compare Quotes',                 desc: 'Compare multiple quotes side-by-side with subcontractor details.',                               category: 'workflow', icon: Workflow },
+  { key: 'archiveWorkOrders',                  label: 'Archive Work Orders',            desc: 'Archive work orders, removing them from active lists.',                                          category: 'workflow', icon: RotateCcw },
 ];
 
+const CATEGORY_META: Record<PermCategory, { label: string; icon: typeof Shield; ringClass: string; pillClass: string }> = {
+  visibility: { label: 'Visibility & Access', icon: Eye,        ringClass: 'ring-blue-200 dark:ring-blue-900/50',     pillClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60' },
+  creation:   { label: 'Create & Manage',     icon: PlusCircle, ringClass: 'ring-emerald-200 dark:ring-emerald-900/50', pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60' },
+  workflow:   { label: 'Workflow Actions',    icon: Workflow,   ringClass: 'ring-purple-200 dark:ring-purple-900/50', pillClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900/60' },
+};
+
 const AVATAR_COLORS = [
-  'from-blue-500 to-blue-700',
-  'from-purple-500 to-purple-700',
-  'from-green-500 to-green-700',
-  'from-orange-500 to-orange-700',
-  'from-rose-500 to-rose-700',
-  'from-teal-500 to-teal-700',
+  'from-blue-500 to-indigo-600',
+  'from-purple-500 to-fuchsia-600',
+  'from-emerald-500 to-teal-600',
+  'from-orange-500 to-rose-600',
+  'from-rose-500 to-pink-600',
+  'from-cyan-500 to-blue-600',
 ];
 
 function getInitials(name: string): string {
@@ -97,25 +112,111 @@ function enabledCount(perms: Client['permissions'] = {}): number {
   return PERMISSION_DEFS.filter((p) => perms[p.key]).length;
 }
 
+function configuredFeatureCount(c: Company): number {
+  let n = 0;
+  if ((c.allowedSubcontractorStates || []).length > 0) n++;
+  if (c.invoiceApprovalRequired) n++;
+  if (c.invoiceLocationEmailEnabled) n++;
+  return n;
+}
+
+/**
+ * Modern toggle. Visually a switch, semantically a checkbox.
+ * Tailwind only, theme-aware via primary/muted tokens.
+ */
+function Switch({
+  checked,
+  onCheckedChange,
+  disabled,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
+  disabled?: boolean;
+  label?: string;
+  description?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onCheckedChange(!checked)}
+      className={`group inline-flex items-center gap-3 select-none ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      <span
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ${
+          checked
+            ? 'bg-blue-600 dark:bg-blue-500'
+            : 'bg-muted border border-border'
+        }`}
+      >
+        <span
+          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+            checked ? 'translate-x-[22px]' : 'translate-x-0.5'
+          }`}
+        />
+      </span>
+      {(label || description) && (
+        <span className="text-left">
+          {label && <span className="block text-sm font-medium text-foreground">{label}</span>}
+          {description && <span className="block text-xs text-muted-foreground mt-0.5">{description}</span>}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * Compact circular avatar — uses logo when present, falls back to a
+ * deterministic gradient initials tile.
+ */
+function CompanyAvatar({ company, size = 40 }: { company: Company; size?: number }) {
+  const px = `${size}px`;
+  if (company.logoUrl) {
+    return (
+      <img
+        src={company.logoUrl}
+        alt={company.name}
+        style={{ width: px, height: px }}
+        className="rounded-xl object-contain border border-border bg-muted p-1 flex-shrink-0"
+      />
+    );
+  }
+  return (
+    <div
+      style={{ width: px, height: px, fontSize: size * 0.36 }}
+      className={`rounded-xl bg-gradient-to-br ${avatarColor(company.id)} text-white font-bold flex items-center justify-center shadow-sm flex-shrink-0`}
+    >
+      {getInitials(company.name)}
+    </div>
+  );
+}
+
 export default function CompaniesPermissions() {
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'settings' | 'clients'>('settings');
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
+
+  // Per-client perm edit state
   const [clientPermissions, setClientPermissions] = useState<Record<string, Client['permissions']>>({});
   const [saving, setSaving] = useState<string | null>(null);
-  /**
-   * Local edit state for company-level "Subcontractor States" permission.
-   * companyId → array of state codes (empty array = ALL).
-   */
+
+  // Company-level perm edit state
   const [companyAllowedStates, setCompanyAllowedStates] = useState<Record<string, string[]>>({});
   const [companyStateSaving, setCompanyStateSaving] = useState<string | null>(null);
-  /** Local edit state for company-level "Invoice Approval" permission. companyId → bool. */
   const [companyInvoiceApproval, setCompanyInvoiceApproval] = useState<Record<string, boolean>>({});
   const [companyApprovalSaving, setCompanyApprovalSaving] = useState<string | null>(null);
+  const [companyLocationEmail, setCompanyLocationEmail] = useState<Record<string, boolean>>({});
+  const [companyLocationEmailSaving, setCompanyLocationEmailSaving] = useState<string | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -135,18 +236,18 @@ export default function CompaniesPermissions() {
 
       const allowedStatesMap: Record<string, string[]> = {};
       const invoiceApprovalMap: Record<string, boolean> = {};
+      const locationEmailMap: Record<string, boolean> = {};
       comps.forEach((c) => {
-        allowedStatesMap[c.id] = Array.isArray(c.allowedSubcontractorStates)
-          ? c.allowedSubcontractorStates
-          : [];
+        allowedStatesMap[c.id] = Array.isArray(c.allowedSubcontractorStates) ? c.allowedSubcontractorStates : [];
         invoiceApprovalMap[c.id] = c.invoiceApprovalRequired === true;
+        locationEmailMap[c.id] = c.invoiceLocationEmailEnabled === true;
       });
       setCompanyAllowedStates(allowedStatesMap);
       setCompanyInvoiceApproval(invoiceApprovalMap);
+      setCompanyLocationEmail(locationEmailMap);
 
       const permissionsMap: Record<string, Client['permissions']> = {};
       cls.forEach((client) => {
-        // Build permissions map dynamically from PERMISSION_DEFS to avoid missing new permissions
         const perms: Record<string, boolean> = {};
         PERMISSION_DEFS.forEach((def) => {
           perms[def.key] = client.permissions?.[def.key] || false;
@@ -164,7 +265,15 @@ export default function CompaniesPermissions() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  // --- Company-level subcontractor-state permissions -----------------------
+  // Auto-select the first company once data lands so the detail panel
+  // always has something to render on desktop.
+  useEffect(() => {
+    if (!selectedCompanyId && companies.length > 0) {
+      setSelectedCompanyId(companies[0].id);
+    }
+  }, [companies, selectedCompanyId]);
+
+  // --- Subcontractor state perm ----------------------------------------
   const toggleCompanyState = (companyId: string, code: string) => {
     setCompanyAllowedStates((prev) => {
       const cur = prev[companyId] || [];
@@ -172,16 +281,8 @@ export default function CompaniesPermissions() {
       return { ...prev, [companyId]: exists ? cur.filter((s) => s !== code) : [...cur, code] };
     });
   };
-
-  const setCompanyStatesAll = (companyId: string) => {
-    setCompanyAllowedStates((prev) => ({ ...prev, [companyId]: [] })); // [] = ALL
-  };
-
-  const setCompanyStatesNone = (companyId: string) => {
-    // Clear selection — semantically same as ALL since [] = ALL by design.
-    // We expose the explicit "Select all" button which is user-friendlier.
+  const setCompanyStatesAll = (companyId: string) =>
     setCompanyAllowedStates((prev) => ({ ...prev, [companyId]: [] }));
-  };
 
   const handleSaveCompanyStates = async (companyId: string) => {
     setCompanyStateSaving(companyId);
@@ -191,15 +292,8 @@ export default function CompaniesPermissions() {
         allowedSubcontractorStates: states,
         updatedAt: serverTimestamp(),
       });
-      toast.success(
-        states.length === 0
-          ? 'All states allowed for this company'
-          : `${states.length} state(s) allowed for this company`,
-      );
-      // Reflect locally without a full refetch
-      setCompanies((prev) =>
-        prev.map((c) => (c.id === companyId ? { ...c, allowedSubcontractorStates: states } : c)),
-      );
+      toast.success(states.length === 0 ? 'All states allowed for this company' : `${states.length} state(s) allowed`);
+      setCompanies((prev) => prev.map((c) => (c.id === companyId ? { ...c, allowedSubcontractorStates: states } : c)));
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save state permissions');
     } finally {
@@ -207,7 +301,7 @@ export default function CompaniesPermissions() {
     }
   };
 
-  // --- Company-level invoice-approval permission --------------------------
+  // --- Invoice approval perm -------------------------------------------
   const handleSaveInvoiceApproval = async (companyId: string) => {
     setCompanyApprovalSaving(companyId);
     try {
@@ -216,14 +310,8 @@ export default function CompaniesPermissions() {
         invoiceApprovalRequired: enabled,
         updatedAt: serverTimestamp(),
       });
-      toast.success(
-        enabled
-          ? 'Invoice approval (72h) enabled for this company'
-          : 'Invoice approval disabled — invoices will send immediately',
-      );
-      setCompanies((prev) =>
-        prev.map((c) => (c.id === companyId ? { ...c, invoiceApprovalRequired: enabled } : c)),
-      );
+      toast.success(enabled ? 'Invoice approval (72h) enabled' : 'Invoice approval disabled');
+      setCompanies((prev) => prev.map((c) => (c.id === companyId ? { ...c, invoiceApprovalRequired: enabled } : c)));
     } catch (e: any) {
       toast.error(e?.message || 'Failed to save invoice-approval setting');
     } finally {
@@ -231,6 +319,29 @@ export default function CompaniesPermissions() {
     }
   };
 
+  // --- Invoice location email perm -------------------------------------
+  const handleSaveLocationEmailPerm = async (companyId: string) => {
+    setCompanyLocationEmailSaving(companyId);
+    try {
+      const enabled = companyLocationEmail[companyId] === true;
+      await updateDoc(doc(db, 'companies', companyId), {
+        invoiceLocationEmailEnabled: enabled,
+        updatedAt: serverTimestamp(),
+      });
+      toast.success(
+        enabled
+          ? 'Invoice Location Email enabled — invoices will also CC the per-location address'
+          : 'Invoice Location Email disabled',
+      );
+      setCompanies((prev) => prev.map((c) => (c.id === companyId ? { ...c, invoiceLocationEmailEnabled: enabled } : c)));
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save Invoice Location Email setting');
+    } finally {
+      setCompanyLocationEmailSaving(null);
+    }
+  };
+
+  // --- Per-client perm -------------------------------------------------
   const handlePermissionChange = (clientId: string, permission: PermKey, value: boolean) => {
     setClientPermissions((prev) => ({
       ...prev,
@@ -254,16 +365,26 @@ export default function CompaniesPermissions() {
     }
   };
 
-  const getCompanyClients = (companyId: string) => clients.filter((c) => c.companyId === companyId);
+  // --- Computed --------------------------------------------------------
+  const filteredCompanies = useMemo(() =>
+    companies.filter((c) => !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())),
+    [companies, searchQuery],
+  );
 
-  const filtered = companies.filter((c) =>
-    !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const selectedCompany = companies.find((c) => c.id === selectedCompanyId) || null;
+  const selectedCompanyClients = useMemo(
+    () => (selectedCompany ? clients.filter((c) => c.companyId === selectedCompany.id) : []),
+    [selectedCompany, clients],
   );
 
   const totalClients = clients.length;
-  const totalEnabled = clients.reduce((sum, cl) => sum + enabledCount(clientPermissions[cl.id] || {}), 0);
-  const totalPossible = totalClients * PERMISSION_DEFS.length;
+  const totalPermissionsEnabled = clients.reduce(
+    (sum, cl) => sum + enabledCount(clientPermissions[cl.id] || {}),
+    0,
+  );
+  const totalConfiguredFeatures = companies.reduce((sum, c) => sum + configuredFeatureCount(c), 0);
 
+  // --- Render ----------------------------------------------------------
   if (loading) {
     return (
       <AdminLayout>
@@ -276,404 +397,648 @@ export default function CompaniesPermissions() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Shield className="h-7 w-7 text-blue-600" />
-              Companies Permissions
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage portal access permissions for each company's clients</p>
+      <PageContainer>
+        {/* Hero Header — gradient panel with icon */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-blue-50 via-card to-purple-50/60 dark:from-blue-950/30 dark:via-card dark:to-purple-950/20">
+          <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-blue-200/30 dark:bg-blue-900/20 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-12 h-40 w-40 rounded-full bg-purple-200/30 dark:bg-purple-900/20 blur-3xl pointer-events-none" />
+          <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="rounded-xl bg-card border border-border shadow-sm p-3 flex-shrink-0">
+                <ShieldCheck className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                  Companies Permissions
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                  Configure portal access, billing flows, subcontractor visibility and per-location
+                  email routing for each company in one place.
+                </p>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground bg-card/60 border border-border rounded-full px-3 py-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <span>{companies.length} companies · {totalClients} clients managed</span>
+            </div>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Companies', value: companies.length, icon: Building2, color: 'text-blue-600 bg-blue-50 border-blue-100' },
-            { label: 'Clients', value: totalClients, icon: Users, color: 'text-purple-600 bg-purple-50 border-purple-100' },
-            { label: 'Permission Types', value: PERMISSION_DEFS.length, icon: Shield, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
-            {
-              label: 'Permissions Enabled',
-              value: totalPossible > 0 ? `${totalEnabled}/${totalPossible}` : '0',
-              icon: CheckCircle2,
-              color: 'text-amber-600 bg-amber-50 border-amber-100',
-            },
-          ].map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className={`rounded-xl border p-4 flex items-center gap-3 ${color}`}>
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              <div>
-                <p className="text-xl font-bold leading-none">{value}</p>
-                <p className="text-xs mt-0.5 opacity-75">{label}</p>
+        <StatCards
+          items={[
+            { label: 'Companies', value: companies.length, icon: Building2, color: 'blue' },
+            { label: 'Clients', value: totalClients, icon: Users, color: 'purple' },
+            { label: 'Permission Types', value: PERMISSION_DEFS.length, icon: Shield, color: 'emerald' },
+            { label: 'Permissions Active', value: totalPermissionsEnabled, icon: CheckCircle2, color: 'amber' },
+          ]}
+        />
+
+        {/* Master-Detail */}
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-4">
+          {/* ================= Left Rail: Companies List ================= */}
+          <aside className={`${selectedCompany ? 'hidden lg:block' : 'block'}`}>
+            <div className="sticky top-4 bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-border bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Companies
+                  </p>
+                  <span className="text-xs font-semibold text-muted-foreground bg-card border border-border rounded-full px-2 py-0.5">
+                    {filteredCompanies.length}
+                  </span>
+                </div>
+                <div className="relative mt-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search companies..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="max-h-[calc(100vh-22rem)] overflow-y-auto p-2 space-y-1">
+                {filteredCompanies.length === 0 ? (
+                  <div className="text-center py-10">
+                    <Building2 className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No companies found</p>
+                  </div>
+                ) : (
+                  filteredCompanies.map((company) => {
+                    const isSelected = company.id === selectedCompanyId;
+                    const companyClientCount = clients.filter((c) => c.companyId === company.id).length;
+                    const features = configuredFeatureCount(company);
+                    return (
+                      <button
+                        key={company.id}
+                        onClick={() => {
+                          setSelectedCompanyId(company.id);
+                          setActiveTab('settings');
+                          setExpandedClient(null);
+                        }}
+                        className={`w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-3 transition-all ${
+                          isSelected
+                            ? 'bg-blue-50 dark:bg-blue-950/30 ring-1 ring-blue-200 dark:ring-blue-900/60 shadow-sm'
+                            : 'hover:bg-muted/60'
+                        }`}
+                      >
+                        <CompanyAvatar company={company} size={36} />
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-semibold truncate ${isSelected ? 'text-blue-900 dark:text-blue-100' : 'text-foreground'}`}>
+                            {company.name}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-muted-foreground">
+                              {companyClientCount} {companyClientCount === 1 ? 'client' : 'clients'}
+                            </span>
+                            {features > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60">
+                                <Sparkles className="h-2.5 w-2.5" /> {features}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight className={`h-4 w-4 flex-shrink-0 transition-transform ${isSelected ? 'text-blue-600 dark:text-blue-400 translate-x-0.5' : 'text-muted-foreground/40'}`} />
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
-          ))}
-        </div>
+          </aside>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search companies..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+          {/* ================= Right Panel: Company Detail ================= */}
+          <section className={`${selectedCompany ? 'block' : 'hidden lg:block'}`}>
+            {!selectedCompany ? (
+              <div className="bg-card rounded-2xl border border-border shadow-sm p-12 text-center">
+                <Building2 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Select a company to manage its permissions
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Mobile back button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="lg:hidden gap-1.5"
+                  onClick={() => setSelectedCompanyId(null)}
+                >
+                  <ArrowLeft className="h-4 w-4" /> Back to companies
+                </Button>
 
-        {/* Company List */}
-        <div className="space-y-3">
-          {filtered.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border shadow-sm p-12 text-center">
-              <Building2 className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">No companies found</p>
-            </div>
-          ) : (
-            filtered.map((company) => {
-              const companyClients = getCompanyClients(company.id);
-              const isExpanded = expandedCompany === company.id;
-
-              return (
-                <div key={company.id} className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-
-                  {/* Company Row */}
-                  <div className="flex items-center justify-between gap-4 px-5 py-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {company.logoUrl ? (
-                        <img
-                          src={company.logoUrl}
-                          alt={company.name}
-                          className="h-10 w-10 object-contain rounded-lg border border-border bg-muted p-1 flex-shrink-0"
-                        />
-                      ) : (
-                        <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${avatarColor(company.id)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
-                          {getInitials(company.name)}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground text-sm">{company.name}</p>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                          {company.email && (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Mail className="h-3 w-3" />{company.email}
-                            </span>
-                          )}
-                          {company.phone && (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Phone className="h-3 w-3" />{company.phone}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Users className="h-3 w-3" />
-                            {companyClients.length} {companyClients.length === 1 ? 'client' : 'clients'}
+                {/* Company hero card */}
+                <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+                  <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6">
+                    <CompanyAvatar company={selectedCompany} size={64} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start sm:items-center flex-wrap gap-2">
+                        <h2 className="text-xl font-bold text-foreground truncate">
+                          {selectedCompany.name}
+                        </h2>
+                        {configuredFeatureCount(selectedCompany) > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60">
+                            <Sparkles className="h-3 w-3" />
+                            {configuredFeatureCount(selectedCompany)} feature{configuredFeatureCount(selectedCompany) === 1 ? '' : 's'} active
                           </span>
-                        </div>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-sm text-muted-foreground">
+                        {selectedCompany.email && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Mail className="h-3.5 w-3.5" />{selectedCompany.email}
+                          </span>
+                        )}
+                        {selectedCompany.phone && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5" />{selectedCompany.phone}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5" />
+                          {selectedCompanyClients.length} {selectedCompanyClients.length === 1 ? 'client' : 'clients'}
+                        </span>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 h-8 text-xs"
-                        onClick={() => router.push(`/admin-portal/subsidiaries/${company.id}`)}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        View
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={isExpanded ? 'default' : 'outline'}
-                        className="gap-1.5 h-8 text-xs"
-                        onClick={() => setExpandedCompany(isExpanded ? null : company.id)}
-                      >
-                        {isExpanded ? (
-                          <><ChevronUp className="h-3.5 w-3.5" />Collapse</>
-                        ) : (
-                          <><ChevronDown className="h-3.5 w-3.5" />Permissions</>
-                        )}
-                      </Button>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => router.push(`/admin-portal/subsidiaries/${selectedCompany.id}`)}
+                    >
+                      <Eye className="h-4 w-4" /> View Company
+                    </Button>
                   </div>
 
-                  {/* Expanded: Subcontractor State Access + Clients */}
-                  {isExpanded && (
-                    <div className="border-t border-border bg-muted/40">
+                  {/* Tabs */}
+                  <div className="border-t border-border bg-muted/30 px-3 sm:px-4 flex">
+                    {[
+                      { id: 'settings' as const, label: 'Company Settings', icon: Settings, count: configuredFeatureCount(selectedCompany) },
+                      { id: 'clients' as const,  label: 'Client Permissions', icon: Users, count: selectedCompanyClients.length },
+                    ].map(({ id, label, icon: Icon, count }) => {
+                      const active = activeTab === id;
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => setActiveTab(id)}
+                          className={`relative inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
+                            active ? 'text-blue-700 dark:text-blue-300' : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {label}
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full border ${
+                            active
+                              ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-900/60'
+                              : 'bg-card text-muted-foreground border-border'
+                          }`}>
+                            {count}
+                          </span>
+                          {active && (
+                            <span className="absolute inset-x-3 -bottom-px h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                      {/* Company-level: subcontractor state visibility */}
-                      {(() => {
-                        const allowed = companyAllowedStates[company.id] || [];
-                        const allSelected = allowed.length === 0;
-                        const isStateSaving = companyStateSaving === company.id;
-                        const persisted = company.allowedSubcontractorStates || [];
-                        const dirty = JSON.stringify([...persisted].sort()) !== JSON.stringify([...allowed].sort());
-                        return (
-                          <div className="border-b border-border bg-card p-4">
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                              <div className="flex items-start gap-2 min-w-0">
-                                <MapPin className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-foreground">
-                                    Subcontractor State Access
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                                    Restricts which subcontractors this company's clients can see when sharing
-                                    work orders for bidding. Pick states or "Select all" for no restriction.
-                                  </p>
-                                </div>
-                              </div>
-                              <span
-                                className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                                  allSelected
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : 'bg-blue-50 text-blue-700 border border-blue-200'
-                                }`}
-                              >
-                                {allSelected ? 'All states' : `${allowed.length} state${allowed.length === 1 ? '' : 's'}`}
-                              </span>
-                            </div>
+                {/* Tab body */}
+                {activeTab === 'settings' && (
+                  <SettingsTab
+                    company={selectedCompany}
+                    companyAllowedStates={companyAllowedStates[selectedCompany.id] || []}
+                    onToggleState={(code) => toggleCompanyState(selectedCompany.id, code)}
+                    onSelectAllStates={() => setCompanyStatesAll(selectedCompany.id)}
+                    onSaveStates={() => handleSaveCompanyStates(selectedCompany.id)}
+                    statesSaving={companyStateSaving === selectedCompany.id}
 
-                            <div className="flex items-center gap-2 mb-3">
-                              <Button
-                                size="sm"
-                                variant={allSelected ? 'default' : 'outline'}
-                                className="h-7 text-xs"
-                                onClick={() => setCompanyStatesAll(company.id)}
-                              >
-                                {allSelected ? '✓ All states selected' : 'Select all states'}
-                              </Button>
-                              {!allSelected && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                                  onClick={() => setCompanyStatesNone(company.id)}
-                                >
-                                  Clear
-                                </Button>
-                              )}
-                            </div>
+                    invoiceApprovalEnabled={companyInvoiceApproval[selectedCompany.id] === true}
+                    onSetInvoiceApproval={(v) => setCompanyInvoiceApproval((prev) => ({ ...prev, [selectedCompany.id]: v }))}
+                    onSaveInvoiceApproval={() => handleSaveInvoiceApproval(selectedCompany.id)}
+                    invoiceApprovalSaving={companyApprovalSaving === selectedCompany.id}
 
-                            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-2 mb-4">
-                              {US_STATES.map((s) => {
-                                const checked = allowed.includes(s.code);
-                                return (
-                                  <label
-                                    key={s.code}
-                                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded border cursor-pointer text-xs transition-colors ${
-                                      checked
-                                        ? 'bg-blue-50 border-blue-300 text-blue-900'
-                                        : 'bg-card border-border text-foreground hover:bg-muted/60'
-                                    }`}
-                                  >
-                                    <Checkbox
-                                      checked={checked}
-                                      onCheckedChange={() => toggleCompanyState(company.id, s.code)}
-                                      className="h-3.5 w-3.5"
-                                    />
-                                    <span className="font-mono font-semibold">{s.code}</span>
-                                    <span className="hidden sm:inline truncate">{s.name}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
+                    locationEmailEnabled={companyLocationEmail[selectedCompany.id] === true}
+                    onSetLocationEmail={(v) => setCompanyLocationEmail((prev) => ({ ...prev, [selectedCompany.id]: v }))}
+                    onSaveLocationEmail={() => handleSaveLocationEmailPerm(selectedCompany.id)}
+                    locationEmailSaving={companyLocationEmailSaving === selectedCompany.id}
+                  />
+                )}
 
-                            <div className="flex justify-end">
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveCompanyStates(company.id)}
-                                disabled={isStateSaving || !dirty}
-                                className="gap-1.5"
-                              >
-                                <Save className="h-3.5 w-3.5" />
-                                {isStateSaving ? 'Saving…' : dirty ? 'Save State Access' : 'Saved'}
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })()}
+                {activeTab === 'clients' && (
+                  <ClientsTab
+                    clients={selectedCompanyClients}
+                    expandedClient={expandedClient}
+                    onToggleExpand={(id) => setExpandedClient((cur) => (cur === id ? null : id))}
+                    clientPermissions={clientPermissions}
+                    onPermissionChange={handlePermissionChange}
+                    onSave={handleSavePermissions}
+                    saving={saving}
+                  />
+                )}
+              </div>
+            )}
+          </section>
+        </div>
+      </PageContainer>
+    </AdminLayout>
+  );
+}
 
-                      {/* Company-level: invoice approval (72h intermediary window) */}
-                      {(() => {
-                        const enabled = companyInvoiceApproval[company.id] === true;
-                        const persisted = company.invoiceApprovalRequired === true;
-                        const dirty = enabled !== persisted;
-                        const isApprovalSaving = companyApprovalSaving === company.id;
-                        return (
-                          <div className="border-b border-border bg-card p-4">
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                              <div className="flex items-start gap-2 min-w-0">
-                                <Receipt className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-foreground">
-                                    Invoice Approval (72h)
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                                    When enabled, generated invoices enter a pending state. The
-                                    client has 72 hours to approve or dispute. If neither happens,
-                                    the invoice is auto-finalized and emailed.
-                                  </p>
-                                </div>
-                              </div>
-                              <span
-                                className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                                  enabled
-                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                    : 'bg-muted text-muted-foreground border border-border'
-                                }`}
-                              >
-                                {enabled ? 'Enabled' : 'Disabled'}
-                              </span>
-                            </div>
+/* ================================================================== */
+/*  Settings Tab                                                      */
+/* ================================================================== */
 
-                            <label className="flex items-center gap-2 mb-3 cursor-pointer">
-                              <Checkbox
-                                checked={enabled}
-                                onCheckedChange={(checked) =>
-                                  setCompanyInvoiceApproval((prev) => ({
-                                    ...prev,
-                                    [company.id]: checked === true,
-                                  }))
-                                }
-                                className="h-4 w-4"
-                              />
-                              <span className="text-sm text-foreground">
-                                Require client approval before sending invoice email
-                              </span>
-                            </label>
+function SettingsTab(props: {
+  company: Company;
+  companyAllowedStates: string[];
+  onToggleState: (code: string) => void;
+  onSelectAllStates: () => void;
+  onSaveStates: () => void;
+  statesSaving: boolean;
 
-                            <div className="flex justify-end">
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveInvoiceApproval(company.id)}
-                                disabled={isApprovalSaving || !dirty}
-                                className="gap-1.5"
-                              >
-                                <Save className="h-3.5 w-3.5" />
-                                {isApprovalSaving ? 'Saving…' : dirty ? 'Save Invoice Approval' : 'Saved'}
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })()}
+  invoiceApprovalEnabled: boolean;
+  onSetInvoiceApproval: (v: boolean) => void;
+  onSaveInvoiceApproval: () => void;
+  invoiceApprovalSaving: boolean;
 
-                      {companyClients.length === 0 ? (
-                        <div className="py-10 text-center">
-                          <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                          <p className="text-sm text-muted-foreground">No clients associated with this company</p>
+  locationEmailEnabled: boolean;
+  onSetLocationEmail: (v: boolean) => void;
+  onSaveLocationEmail: () => void;
+  locationEmailSaving: boolean;
+}) {
+  const {
+    company,
+    companyAllowedStates, onToggleState, onSelectAllStates, onSaveStates, statesSaving,
+    invoiceApprovalEnabled, onSetInvoiceApproval, onSaveInvoiceApproval, invoiceApprovalSaving,
+    locationEmailEnabled, onSetLocationEmail, onSaveLocationEmail, locationEmailSaving,
+  } = props;
+
+  const allStates = companyAllowedStates.length === 0;
+  const persistedStates = company.allowedSubcontractorStates || [];
+  const statesDirty = JSON.stringify([...persistedStates].sort()) !== JSON.stringify([...companyAllowedStates].sort());
+
+  const apprDirty = invoiceApprovalEnabled !== (company.invoiceApprovalRequired === true);
+  const emailDirty = locationEmailEnabled !== (company.invoiceLocationEmailEnabled === true);
+
+  return (
+    <div className="space-y-4">
+      {/* Subcontractor State Access */}
+      <SettingCard
+        accent="blue"
+        icon={Globe2}
+        title="Subcontractor State Access"
+        description="Restrict which subcontractors this company's clients see when sharing work orders for bidding. Empty selection = all states."
+        statusBadge={
+          <span
+            className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+              allStates
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60'
+                : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60'
+            }`}
+          >
+            {allStates ? 'All states' : `${companyAllowedStates.length} state${companyAllowedStates.length === 1 ? '' : 's'}`}
+          </span>
+        }
+        footer={
+          <Button size="sm" onClick={onSaveStates} disabled={statesSaving || !statesDirty} className="gap-1.5">
+            <Save className="h-3.5 w-3.5" />
+            {statesSaving ? 'Saving…' : statesDirty ? 'Save State Access' : 'Saved'}
+          </Button>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <Button
+            size="sm"
+            variant={allStates ? 'default' : 'outline'}
+            className="h-7 text-xs"
+            onClick={onSelectAllStates}
+          >
+            {allStates ? '✓ All states selected' : 'Select all states'}
+          </Button>
+          {!allStates && (
+            <span className="text-xs text-muted-foreground">
+              Click states below to add or remove. Showing {companyAllowedStates.length} selected.
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 gap-2">
+          {US_STATES.map((s) => {
+            const checked = companyAllowedStates.includes(s.code);
+            return (
+              <button
+                key={s.code}
+                type="button"
+                onClick={() => onToggleState(s.code)}
+                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs transition-all ${
+                  checked
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm hover:bg-blue-700'
+                    : 'bg-card border-border text-foreground hover:bg-muted/60 hover:border-blue-200'
+                }`}
+              >
+                <span className="font-mono font-semibold">{s.code}</span>
+                <span className="hidden md:inline truncate text-[11px] opacity-80">{s.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </SettingCard>
+
+      {/* Invoice Approval (72h) */}
+      <SettingCard
+        accent="amber"
+        icon={Receipt}
+        title="Invoice Approval (72h)"
+        description="Generated invoices enter a pending state. Clients have 72 hours to approve or dispute. If neither happens, the invoice is auto-finalized and emailed."
+        statusBadge={
+          <StatusPill on={invoiceApprovalEnabled} />
+        }
+        footer={
+          <Button size="sm" onClick={onSaveInvoiceApproval} disabled={invoiceApprovalSaving || !apprDirty} className="gap-1.5">
+            <Save className="h-3.5 w-3.5" />
+            {invoiceApprovalSaving ? 'Saving…' : apprDirty ? 'Save Invoice Approval' : 'Saved'}
+          </Button>
+        }
+      >
+        <div className="flex items-start gap-4 p-3 rounded-lg bg-muted/30 border border-border">
+          <Switch
+            checked={invoiceApprovalEnabled}
+            onCheckedChange={onSetInvoiceApproval}
+          />
+          <div className="text-sm">
+            <p className="font-medium text-foreground">Require client approval before sending invoice email</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              When off, invoices are emailed immediately on generation (default behavior).
+            </p>
+          </div>
+        </div>
+      </SettingCard>
+
+      {/* Invoice Location Email */}
+      <SettingCard
+        accent="purple"
+        icon={MailPlus}
+        title="Invoice Location Email"
+        description={`When enabled, this company's locations get a "Location Email Address" field. Any invoice generated for that location is automatically also emailed to the configured per-location address.`}
+        statusBadge={
+          <StatusPill on={locationEmailEnabled} />
+        }
+        footer={
+          <Button size="sm" onClick={onSaveLocationEmail} disabled={locationEmailSaving || !emailDirty} className="gap-1.5">
+            <Save className="h-3.5 w-3.5" />
+            {locationEmailSaving ? 'Saving…' : emailDirty ? 'Save Location Email' : 'Saved'}
+          </Button>
+        }
+      >
+        <div className="flex items-start gap-4 p-3 rounded-lg bg-muted/30 border border-border">
+          <Switch
+            checked={locationEmailEnabled}
+            onCheckedChange={onSetLocationEmail}
+          />
+          <div className="text-sm">
+            <p className="font-medium text-foreground">Email invoices to per-location address on generation</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Adds a "Location Email Address" field on each location for this company.
+            </p>
+          </div>
+        </div>
+      </SettingCard>
+    </div>
+  );
+}
+
+function StatusPill({ on }: { on: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${
+        on
+          ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60'
+          : 'bg-muted text-muted-foreground border-border'
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-blue-500' : 'bg-muted-foreground/40'}`} />
+      {on ? 'Enabled' : 'Disabled'}
+    </span>
+  );
+}
+
+const ACCENT: Record<'blue' | 'amber' | 'purple' | 'emerald', { stripe: string; iconBg: string; iconText: string }> = {
+  blue:    { stripe: 'before:bg-blue-500',    iconBg: 'bg-blue-50 dark:bg-blue-950/40',       iconText: 'text-blue-600 dark:text-blue-400' },
+  amber:   { stripe: 'before:bg-amber-500',   iconBg: 'bg-amber-50 dark:bg-amber-950/40',     iconText: 'text-amber-600 dark:text-amber-400' },
+  purple:  { stripe: 'before:bg-purple-500',  iconBg: 'bg-purple-50 dark:bg-purple-950/40',   iconText: 'text-purple-600 dark:text-purple-400' },
+  emerald: { stripe: 'before:bg-emerald-500', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40', iconText: 'text-emerald-600 dark:text-emerald-400' },
+};
+
+function SettingCard({
+  accent, icon: Icon, title, description, statusBadge, footer, children,
+}: {
+  accent: keyof typeof ACCENT;
+  icon: typeof Shield;
+  title: string;
+  description: string;
+  statusBadge?: React.ReactNode;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const a = ACCENT[accent];
+  return (
+    <div className={`relative bg-card rounded-2xl border border-border shadow-sm overflow-hidden before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 ${a.stripe}`}>
+      <div className="p-5 sm:p-6 pl-6 sm:pl-7">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className={`rounded-lg ${a.iconBg} p-2 flex-shrink-0`}>
+              <Icon className={`h-4 w-4 ${a.iconText}`} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed max-w-2xl">{description}</p>
+            </div>
+          </div>
+          {statusBadge}
+        </div>
+
+        {children}
+
+        {footer && (
+          <div className="flex justify-end mt-4 pt-4 border-t border-border">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  Clients Tab                                                       */
+/* ================================================================== */
+
+function ClientsTab({
+  clients,
+  expandedClient,
+  onToggleExpand,
+  clientPermissions,
+  onPermissionChange,
+  onSave,
+  saving,
+}: {
+  clients: Client[];
+  expandedClient: string | null;
+  onToggleExpand: (id: string) => void;
+  clientPermissions: Record<string, Client['permissions']>;
+  onPermissionChange: (clientId: string, perm: PermKey, value: boolean) => void;
+  onSave: (clientId: string) => void;
+  saving: string | null;
+}) {
+  if (clients.length === 0) {
+    return (
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-12 text-center">
+        <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+        <p className="text-sm font-medium text-muted-foreground">
+          No clients associated with this company
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+      <ul className="divide-y divide-border">
+        {clients.map((client) => {
+          const permissions = clientPermissions[client.id] || {};
+          const isSaving = saving === client.id;
+          const enabled = enabledCount(permissions);
+          const isExpanded = expandedClient === client.id;
+          const totalPossible = PERMISSION_DEFS.length;
+          const ratio = totalPossible > 0 ? (enabled / totalPossible) * 100 : 0;
+
+          return (
+            <li key={client.id} className="bg-card">
+              {/* Client header */}
+              <button
+                type="button"
+                onClick={() => onToggleExpand(client.id)}
+                className="w-full text-left px-4 sm:px-5 py-4 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+              >
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-stone-400 to-stone-600 dark:from-stone-600 dark:to-stone-800 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                  {getInitials(client.fullName)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-foreground text-sm truncate">{client.fullName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{client.email}</p>
+                </div>
+
+                {/* Permission ratio + bar */}
+                <div className="hidden sm:flex flex-col items-end gap-1 flex-shrink-0">
+                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    enabled === 0
+                      ? 'bg-muted text-muted-foreground'
+                      : enabled === totalPossible
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60'
+                      : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60'
+                  }`}>
+                    {enabled}/{totalPossible} active
+                  </span>
+                  <div className="w-32 h-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        enabled === 0
+                          ? 'bg-muted-foreground/20'
+                          : enabled === totalPossible
+                          ? 'bg-emerald-500'
+                          : 'bg-blue-500'
+                      }`}
+                      style={{ width: `${ratio}%` }}
+                    />
+                  </div>
+                </div>
+
+                <ChevronDown
+                  className={`h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {/* Expanded body */}
+              {isExpanded && (
+                <div className="px-4 sm:px-5 pb-5 pt-1 bg-muted/20 border-t border-border space-y-5">
+                  {(['visibility', 'creation', 'workflow'] as PermCategory[]).map((cat) => {
+                    const meta = CATEGORY_META[cat];
+                    const items = PERMISSION_DEFS.filter((p) => p.category === cat);
+                    const activeInCat = items.filter((p) => permissions[p.key]).length;
+                    const CatIcon = meta.icon;
+                    return (
+                      <div key={cat}>
+                        <div className="flex items-center gap-2 mb-2 mt-3">
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-lg border ${meta.pillClass}`}>
+                            <CatIcon className="h-3.5 w-3.5" />
+                            {meta.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {activeInCat}/{items.length} active
+                          </span>
                         </div>
-                      ) : (
-                        <div className="p-4 space-y-2">
-                          {companyClients.map((client) => {
-                            const permissions = clientPermissions[client.id] || {};
-                            const isSaving = saving === client.id;
-                            const enabled = enabledCount(permissions);
-                            const isClientExpanded = expandedClient === client.id;
-
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {items.map((perm) => {
+                            const isEnabled = permissions[perm.key] || false;
+                            const PermIcon = perm.icon;
                             return (
-                              <div key={client.id} className="bg-card rounded-lg border border-border overflow-hidden">
-
-                                {/* Client row */}
-                                <div
-                                  className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/60 transition-colors"
-                                  onClick={() => setExpandedClient(isClientExpanded ? null : client.id)}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-                                      {getInitials(client.fullName)}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="font-medium text-foreground text-sm">{client.fullName}</p>
-                                      <p className="text-xs text-muted-foreground truncate">{client.email}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 flex-shrink-0">
-                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                                      enabled === 0
-                                        ? 'bg-muted text-muted-foreground'
-                                        : enabled === PERMISSION_DEFS.length
-                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                        : 'bg-blue-50 text-blue-700 border border-blue-200'
-                                    }`}>
-                                      {enabled}/{PERMISSION_DEFS.length}
-                                      <span className="hidden sm:inline"> active</span>
+                              <label
+                                key={perm.key}
+                                htmlFor={`${perm.key}-${client.id}`}
+                                className={`group cursor-pointer rounded-xl border p-3 flex items-start gap-3 transition-all ${
+                                  isEnabled
+                                    ? 'bg-blue-50/40 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/60 ring-1 ring-blue-100 dark:ring-blue-900/40'
+                                    : 'bg-card border-border hover:border-blue-200 hover:bg-muted/40'
+                                }`}
+                              >
+                                <Checkbox
+                                  id={`${perm.key}-${client.id}`}
+                                  checked={isEnabled}
+                                  onCheckedChange={(checked) =>
+                                    onPermissionChange(client.id, perm.key, checked === true)
+                                  }
+                                  className="mt-0.5"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <PermIcon className={`h-3.5 w-3.5 flex-shrink-0 ${isEnabled ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+                                    <span className={`text-sm font-medium ${isEnabled ? 'text-foreground' : 'text-foreground'}`}>
+                                      {perm.label}
                                     </span>
-                                    {isClientExpanded
-                                      ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                                      : <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                    }
                                   </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                                    {perm.desc}
+                                  </p>
                                 </div>
-
-                                {/* Permission toggles */}
-                                {isClientExpanded && (
-                                  <div className="border-t border-border p-4 space-y-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-border rounded-lg overflow-hidden border border-border">
-                                      {PERMISSION_DEFS.map((perm, idx) => {
-                                        const isEnabled = permissions[perm.key] || false;
-                                        return (
-                                          <div
-                                            key={perm.key}
-                                            className={`bg-card p-3.5 flex items-start gap-3 hover:bg-muted/50 transition-colors ${
-                                              idx === PERMISSION_DEFS.length - 1 && PERMISSION_DEFS.length % 2 !== 0
-                                                ? 'md:col-span-2'
-                                                : ''
-                                            }`}
-                                          >
-                                            <Checkbox
-                                              id={`${perm.key}-${client.id}`}
-                                              checked={isEnabled}
-                                              onCheckedChange={(checked) =>
-                                                handlePermissionChange(client.id, perm.key, checked === true)
-                                              }
-                                              className="mt-0.5"
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                              <Label
-                                                htmlFor={`${perm.key}-${client.id}`}
-                                                className="font-medium text-sm cursor-pointer text-foreground"
-                                              >
-                                                {perm.label}
-                                              </Label>
-                                              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{perm.desc}</p>
-                                            </div>
-                                            {isEnabled
-                                              ? <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                                              : <XCircle className="h-4 w-4 text-muted-foreground/30 flex-shrink-0 mt-0.5" />
-                                            }
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-
-                                    <div className="flex justify-end">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleSavePermissions(client.id)}
-                                        disabled={isSaving}
-                                        className="gap-1.5"
-                                      >
-                                        <Save className="h-3.5 w-3.5" />
-                                        {isSaving ? 'Saving...' : 'Save Permissions'}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
+                              </label>
                             );
                           })}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })}
+
+                  <div className="flex justify-end pt-2 border-t border-border">
+                    <Button
+                      size="sm"
+                      onClick={() => onSave(client.id)}
+                      disabled={isSaving}
+                      className="gap-1.5"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      {isSaving ? 'Saving...' : 'Save Permissions'}
+                    </Button>
+                  </div>
                 </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </AdminLayout>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
