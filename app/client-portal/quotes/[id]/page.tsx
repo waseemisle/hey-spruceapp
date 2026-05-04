@@ -69,6 +69,10 @@ export default function QuoteDetail() {
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [canViewTimeline, setCanViewTimeline] = useState(false);
+  // Action-in-flight state — drives the Approve / Reject button spinners
+  // and disables both during the API call so users can't double-submit.
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -147,6 +151,8 @@ export default function QuoteDetail() {
       action: {
         label: 'Approve',
         onClick: async () => {
+          if (approving) return; // double-click guard
+          setApproving(true);
           try {
             const idToken = await auth.currentUser?.getIdToken();
             const res = await fetch('/api/quotes/approve', {
@@ -166,53 +172,52 @@ export default function QuoteDetail() {
             const result = await res.json();
             const workOrderData = result.workOrderData;
 
-            // Subcontractor assignment notification now fires server-side
-            // from /api/quotes/approve to avoid duplicate bell entries.
+            // Fire-and-forget the trailing email notifications so the UI
+            // returns instantly. Awaiting these added 3–6s of stuck button
+            // for the user with no payoff (the user doesn't need confirmation
+            // that an email was sent — they need confirmation the quote is
+            // approved). Emails still fire; their failures are logged but
+            // never block the UX. Honors the "no stuck buttons" rule.
+            void fetch('/api/email/send-assignment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toEmail: quote.subcontractorEmail,
+                toName: quote.subcontractorName,
+                workOrderNumber: workOrderData.workOrderNumber,
+                workOrderTitle: quote.workOrderTitle,
+                clientName: quote.clientName,
+                locationName: workOrderData.locationName,
+                locationAddress: workOrderData.locationAddress,
+              }),
+            }).catch((e) => console.error('[approve-quote] sub email send failed (non-fatal):', e));
 
-            // Send email notification to subcontractor
-            try {
-              await fetch('/api/email/send-assignment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  toEmail: quote.subcontractorEmail,
-                  toName: quote.subcontractorName,
-                  workOrderNumber: workOrderData.workOrderNumber,
-                  workOrderTitle: quote.workOrderTitle,
-                  clientName: quote.clientName,
-                  locationName: workOrderData.locationName,
-                  locationAddress: workOrderData.locationAddress,
-                }),
-              });
-            } catch (emailError) {
-              console.error('Failed to send assignment email:', emailError);
-            }
+            void fetch('/api/email/send-quote-approval-admin-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workOrderId: workOrderData.workOrderId,
+                workOrderNumber: workOrderData.workOrderNumber,
+                workOrderTitle: quote.workOrderTitle,
+                clientName: quote.clientName,
+                subcontractorName: quote.subcontractorName,
+                quoteAmount: quote.clientAmount || quote.totalAmount,
+                locationName: workOrderData.locationName,
+                locationAddress: workOrderData.locationAddress,
+              }),
+            }).catch((e) => console.error('[approve-quote] admin email send failed (non-fatal):', e));
 
-            // Notify admins that quote was approved and work order assigned
-            try {
-              await fetch('/api/email/send-quote-approval-admin-notification', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  workOrderId: workOrderData.workOrderId,
-                  workOrderNumber: workOrderData.workOrderNumber,
-                  workOrderTitle: quote.workOrderTitle,
-                  clientName: quote.clientName,
-                  subcontractorName: quote.subcontractorName,
-                  quoteAmount: quote.clientAmount || quote.totalAmount,
-                  locationName: workOrderData.locationName,
-                  locationAddress: workOrderData.locationAddress,
-                }),
-              });
-            } catch (adminEmailError) {
-              console.error('Failed to send admin quote approval notification:', adminEmailError);
-            }
-
-            toast.success('Quote accepted! Work order automatically assigned to subcontractor.');
+            toast.success(
+              result.alreadyAccepted
+                ? 'Quote already approved — taking you back.'
+                : 'Quote accepted! Work order automatically assigned to subcontractor.'
+            );
             router.push('/client-portal/quotes');
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error approving quote:', error);
-            toast.error('Failed to approve quote');
+            toast.error(error?.message || 'Failed to approve quote');
+          } finally {
+            setApproving(false);
           }
         }
       },
@@ -233,7 +238,8 @@ export default function QuoteDetail() {
         onClick: async () => {
           const reason = prompt('Please provide a reason for rejection (optional):');
           if (reason === null) return;
-
+          if (rejecting) return; // double-click guard
+          setRejecting(true);
           try {
             const currentUser = auth.currentUser;
             let clientName = quote.clientName || 'Client';
@@ -278,9 +284,11 @@ export default function QuoteDetail() {
 
             toast.success('Quote rejected successfully!');
             router.push('/client-portal/quotes');
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error rejecting quote:', error);
-            toast.error('Failed to reject quote');
+            toast.error(error?.message || 'Failed to reject quote');
+          } finally {
+            setRejecting(false);
           }
         }
       },
@@ -597,18 +605,22 @@ export default function QuoteDetail() {
               <div className="flex gap-3 pt-6 border-t">
                 <Button
                   onClick={handleApprove}
+                  loading={approving}
+                  disabled={approving || rejecting}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
-                  <Check className="h-4 w-4 mr-2" />
-                  Approve Quote
+                  {!approving && <Check className="h-4 w-4 mr-2" />}
+                  {approving ? 'Approving…' : 'Approve Quote'}
                 </Button>
                 <Button
                   onClick={handleReject}
+                  loading={rejecting}
+                  disabled={approving || rejecting}
                   variant="outline"
                   className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
                 >
-                  <X className="h-4 w-4 mr-2" />
-                  Reject Quote
+                  {!rejecting && <X className="h-4 w-4 mr-2" />}
+                  {rejecting ? 'Rejecting…' : 'Reject Quote'}
                 </Button>
               </div>
             )}

@@ -40,6 +40,28 @@ export async function POST(request: Request) {
     if (!quoteData.workOrderId) {
       return NextResponse.json({ error: 'Quote has no associated work order' }, { status: 400 });
     }
+    // Idempotency guard — if this quote is already accepted (user double-
+    // clicked, slow network retried, etc.) short-circuit with success
+    // instead of running the full assignment flow twice and creating
+    // duplicate assignedJobs rows + duplicate timeline entries.
+    if (quoteData.status === 'accepted') {
+      return NextResponse.json({
+        success: true,
+        alreadyAccepted: true,
+        diagnostic: quoteData.isDiagnosticQuote === true,
+        workOrderData: {
+          workOrderNumber: quoteData.workOrderNumber || quoteData.workOrderId,
+          workOrderTitle: quoteData.workOrderTitle || '',
+          locationName: quoteData.locationName || '',
+          locationAddress: quoteData.locationAddress || '',
+          subcontractorEmail: quoteData.subcontractorEmail || '',
+          subcontractorName: quoteData.subcontractorName || '',
+          clientName: quoteData.clientName || '',
+          subcontractorId: quoteData.subcontractorId || '',
+          workOrderId: quoteData.workOrderId,
+        },
+      });
+    }
 
     // Get client's display name
     let clientName: string = quoteData.clientName || 'Client';
@@ -193,17 +215,34 @@ export async function POST(request: Request) {
     const currentWoStatus = (workOrderData.status as string | undefined) || '';
     const EARLY_STAGES = new Set(['pending', 'approved', 'bidding', 'quotes_received', 'diagnostic_accepted']);
     const shouldSetAssigned = EARLY_STAGES.has(currentWoStatus);
+
+    // Firestore rejects updateDoc payloads that contain `undefined` and
+    // throws "Function setDoc() called with invalid data. Unsupported field
+    // value: undefined". Quote docs commonly have missing optional numerics
+    // (laborCost/materialCost on a quote that wasn't itemised, totalAmount
+    // on a quote that only set clientAmount, etc.) so we coalesce every
+    // value to a Firestore-safe default (null for numerics, '' for strings,
+    // [] for arrays). This was the root cause of the 500 the client portal
+    // hit on Approve Quote — one missing field nuked the entire write.
+    const safeAmount = Number(quoteData.clientAmount ?? quoteData.totalAmount ?? 0) || 0;
+    const safeLabor = Number(quoteData.laborCost ?? 0) || 0;
+    const safeMaterial = Number(quoteData.materialCost ?? 0) || 0;
+    const safeSubName = String(quoteData.subcontractorName || '');
+    const safeSubEmail = String(quoteData.subcontractorEmail || '');
+    const safeSubId = String(resolvedSubId || quoteData.subcontractorId || '');
+    const safeLineItems = Array.isArray(quoteData.lineItems) ? quoteData.lineItems : [];
+
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
       ...(shouldSetAssigned ? { status: 'assigned' } : {}),
-      assignedSubcontractor: resolvedSubId,
-      assignedSubcontractorName: quoteData.subcontractorName,
+      assignedSubcontractor: safeSubId,
+      assignedSubcontractorName: safeSubName,
       assignedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       approvedQuoteId: quoteId,
-      approvedQuoteAmount: quoteData.clientAmount || quoteData.totalAmount,
-      approvedQuoteLaborCost: quoteData.laborCost,
-      approvedQuoteMaterialCost: quoteData.materialCost,
-      approvedQuoteLineItems: quoteData.lineItems || [],
+      approvedQuoteAmount: safeAmount,
+      approvedQuoteLaborCost: safeLabor,
+      approvedQuoteMaterialCost: safeMaterial,
+      approvedQuoteLineItems: safeLineItems,
       timeline: [
         ...existingTimeline,
         createTimelineEvent({
@@ -211,11 +250,11 @@ export async function POST(request: Request) {
           userId: uid,
           userName: clientName,
           userRole: 'client',
-          details: `Quote from ${quoteData.subcontractorName} approved by ${clientName}. Work order assigned.`,
+          details: `Quote from ${safeSubName || 'subcontractor'} approved by ${clientName}. Work order assigned.`,
           metadata: {
             quoteId,
-            subcontractorName: quoteData.subcontractorName,
-            amount: quoteData.clientAmount || quoteData.totalAmount,
+            subcontractorName: safeSubName,
+            amount: safeAmount,
           },
         }),
       ],
@@ -232,20 +271,18 @@ export async function POST(request: Request) {
     // Create assignedJobs record using resolved auth UID
     await addDoc(collection(db, 'assignedJobs'), {
       workOrderId: quoteData.workOrderId,
-      subcontractorId: resolvedSubId,
+      subcontractorId: safeSubId,
       assignedAt: serverTimestamp(),
       status: 'pending_acceptance',
     });
 
-    // Also update assignedTo on the work order for consistency with manual assignment flow.
-    // Bumping updatedAt here too keeps any downstream consumers that key off
-    // updatedAt (sidebar badges, lastViewedAt diffing) honest — the previous
-    // omission left this write effectively invisible to anything watching
-    // the workOrder for "freshly assigned" signals.
+    // Also update assignedTo on the work order for consistency with manual
+    // assignment flow. Bumping updatedAt here too keeps downstream consumers
+    // that key off updatedAt (sidebar badges, lastViewedAt diffing) honest.
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
-      assignedTo: resolvedSubId,
-      assignedToName: quoteData.subcontractorName,
-      assignedToEmail: quoteData.subcontractorEmail,
+      assignedTo: safeSubId,
+      assignedToName: safeSubName,
+      assignedToEmail: safeSubEmail,
       updatedAt: serverTimestamp(),
     });
 
@@ -255,9 +292,9 @@ export async function POST(request: Request) {
     // worst case (silence) when the client UI never reaches the
     // notification call (closed tab, page nav, network blip). Better dupe
     // than silent. Idempotency / dedupe at the bell is a follow-up.
-    if (resolvedSubId) {
+    if (safeSubId) {
       notifySubcontractorAssignment(
-        resolvedSubId,
+        safeSubId,
         quoteData.workOrderId,
         workOrderData.workOrderNumber || quoteData.workOrderId,
       ).catch((e) => console.error('[quotes/approve] assignment notify fail (non-fatal):', e));
@@ -268,18 +305,28 @@ export async function POST(request: Request) {
       diagnostic: false,
       workOrderData: {
         workOrderNumber: workOrderData.workOrderNumber || quoteData.workOrderId,
-        locationName: workOrderData.locationName,
-        locationAddress: workOrderData.locationAddress,
-        workOrderTitle: quoteData.workOrderTitle,
-        subcontractorEmail: quoteData.subcontractorEmail,
-        subcontractorName: quoteData.subcontractorName,
-        clientName: quoteData.clientName,
-        subcontractorId: resolvedSubId,
+        locationName: workOrderData.locationName || '',
+        locationAddress: workOrderData.locationAddress || '',
+        workOrderTitle: quoteData.workOrderTitle || '',
+        subcontractorEmail: safeSubEmail,
+        subcontractorName: safeSubName,
+        clientName: quoteData.clientName || '',
+        subcontractorId: safeSubId,
         workOrderId: quoteData.workOrderId,
       },
     });
   } catch (error: any) {
-    console.error('Error approving quote server-side:', error);
-    return NextResponse.json({ error: error.message || 'Failed to approve quote' }, { status: 500 });
+    // Surface the underlying error so the client toast actually says what
+    // broke instead of a generic "Failed to approve quote". Includes the
+    // Firestore error code (e.g. 'invalid-argument', 'permission-denied')
+    // when present, which is the difference between "I'll fix the data"
+    // and "I have no idea".
+    const message = error?.message || String(error) || 'Failed to approve quote';
+    const code = error?.code ? ` [${error.code}]` : '';
+    console.error('[quotes/approve] failed:', message, error?.stack);
+    return NextResponse.json(
+      { error: `${message}${code}` },
+      { status: 500 },
+    );
   }
 }
