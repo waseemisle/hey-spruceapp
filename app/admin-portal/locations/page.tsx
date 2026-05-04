@@ -39,6 +39,13 @@ interface Location {
    * invoices generated for this location are also CC'd here.
    */
   locationEmail?: string;
+  /**
+   * Per-location Margin Edge AP inbox. Used by the Margin Edge integration:
+   * when the parent company has marginEdgeEnabled AND an admin approves an
+   * invoice for this location, the invoice PDF is forwarded here. Falls
+   * back to companies/{id}.marginEdgeInvoiceEmail when empty.
+   */
+  marginEdgeEmail?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
 }
@@ -76,9 +83,16 @@ export default function LocationsManagement() {
     contactPerson: '',
     contactPhone: '',
     locationEmail: '',
+    marginEdgeEmail: '',
     status: 'approved' as 'pending' | 'approved' | 'rejected',
   });
-  const [companies, setCompanies] = useState<{ id: string; name: string; clientId: string; invoiceLocationEmailEnabled?: boolean }[]>([]);
+  const [companies, setCompanies] = useState<{
+    id: string;
+    name: string;
+    clientId: string;
+    invoiceLocationEmailEnabled?: boolean;
+    marginEdgeEnabled?: boolean;
+  }[]>([]);
 
   const fetchLocations = async () => {
     try {
@@ -123,6 +137,7 @@ export default function LocationsManagement() {
           name: data.name as string || '',
           clientId: (data.clientId as string) || '',
           invoiceLocationEmailEnabled: data.invoiceLocationEmailEnabled === true,
+          marginEdgeEnabled: data.marginEdgeEnabled === true,
         };
       }).filter(c => c.name); // Only include companies with names
       setCompanies(companiesData);
@@ -226,6 +241,7 @@ export default function LocationsManagement() {
       contactPerson: '',
       contactPhone: '',
       locationEmail: '',
+      marginEdgeEmail: '',
       status: 'approved',
     });
     setEditingId(null);
@@ -251,6 +267,7 @@ export default function LocationsManagement() {
       contactPerson: location.contactPerson,
       contactPhone: location.contactPhone,
       locationEmail: location.locationEmail || '',
+      marginEdgeEmail: (location as any).marginEdgeEmail || '',
       status: location.status,
     });
     setEditingId(location.id);
@@ -275,12 +292,16 @@ export default function LocationsManagement() {
       // Get client info from the company
       const client = formData.clientId ? clients.find(c => c.id === formData.clientId) : null;
 
-      // Only persist locationEmail if the parent company has the
-      // Invoice Location Email permission enabled. Otherwise the field is
+      // Only persist locationEmail / marginEdgeEmail if the parent company
+      // has the corresponding permission enabled. Otherwise the fields are
       // hidden in the UI and we don't want to keep stale data around.
       const trimmedLocationEmail = (formData.locationEmail || '').trim();
       const locationEmailValue = selectedCompany.invoiceLocationEmailEnabled
         ? trimmedLocationEmail
+        : '';
+      const trimmedMarginEdgeEmail = (formData.marginEdgeEmail || '').trim();
+      const marginEdgeEmailValue = selectedCompany.marginEdgeEnabled
+        ? trimmedMarginEdgeEmail
         : '';
 
       const locationData = {
@@ -301,6 +322,7 @@ export default function LocationsManagement() {
         contactPerson: formData.contactPerson,
         contactPhone: formData.contactPhone,
         locationEmail: locationEmailValue,
+        marginEdgeEmail: marginEdgeEmailValue,
         status: formData.status,
         updatedAt: serverTimestamp(),
       };
@@ -797,6 +819,35 @@ export default function LocationsManagement() {
                         <p className="text-xs text-muted-foreground mt-1">
                           Invoices generated for this location will be automatically
                           emailed to this address on top of the regular client recipient.
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  {/*
+                    Margin Edge AP Email — per-location override for the
+                    company-level Margin Edge inbox. Only shown when the parent
+                    company has marginEdgeEnabled. When the admin Approves an
+                    invoice for this location, we push the PDF here (or fall
+                    back to the company-level address if blank).
+                  */}
+                  {(() => {
+                    const selected = companies.find(c => c.id === formData.companyId);
+                    if (!selected?.marginEdgeEnabled) return null;
+                    return (
+                      <div className="md:col-span-2">
+                        <Label>Margin Edge AP Email</Label>
+                        <Input
+                          type="email"
+                          value={formData.marginEdgeEmail}
+                          onChange={(e) => setFormData({ ...formData, marginEdgeEmail: e.target.value })}
+                          placeholder="restaurant-westside@ap.marginedge.com"
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Per-location AP inbox override. When set, approved
+                          invoices for this location are forwarded here. Leave
+                          blank to use the company-level Margin Edge inbox.
                         </p>
                       </div>
                     );

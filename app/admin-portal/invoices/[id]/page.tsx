@@ -505,6 +505,40 @@ export default function AdminInvoiceDetail() {
 
   const [sendingToClient, setSendingToClient] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [approvingForME, setApprovingForME] = useState(false);
+
+  const handleApproveForMarginEdge = async () => {
+    if (!invoice) return;
+    setApprovingForME(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/invoices/${invoice.id}/approve-for-margin-edge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error || `Forward failed: HTTP ${res.status}`);
+      } else if (data?.skipped) {
+        toast.warning(data.message || 'Already forwarded to Margin Edge.');
+      } else {
+        toast.success(`Approved & forwarded to Margin Edge${data?.sentTo ? ` (${data.sentTo})` : ''}`);
+        // Re-read the invoice doc so the status pill reflects the new
+        // marginEdgeSentAt + marginEdgeMessageId immediately.
+        try {
+          const fresh = await getDoc(doc(db, 'invoices', invoice.id));
+          if (fresh.exists()) setInvoice({ id: fresh.id, ...fresh.data() } as Invoice);
+        } catch { /* non-fatal */ }
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Approval request failed');
+    } finally {
+      setApprovingForME(false);
+    }
+  };
 
   const handleSendToClient = async () => {
     if (!invoice) return;
@@ -787,6 +821,27 @@ export default function AdminInvoiceDetail() {
               <Button size="sm" onClick={handleSendToClient} disabled={sendingToClient}>
                 <Send className="h-4 w-4 mr-2" />
                 {sendingToClient ? 'Sending…' : 'Send to Client'}
+              </Button>
+            )}
+
+            {/*
+              Approve & Forward to Margin Edge — only renders when the
+              ME forward hasn't happened yet (so we don't tempt the admin
+              to "re-approve" something already pushed). The route itself
+              is idempotent (skips when marginEdgeSentAt is already set)
+              and refuses (400) when the company doesn't have ME enabled,
+              so this is just UI gating; the source of truth is server-side.
+            */}
+            {!invoice.marginEdgeSentAt && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleApproveForMarginEdge}
+                disabled={approvingForME}
+                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/60 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {approvingForME ? 'Forwarding…' : 'Approve & Forward to Margin Edge'}
               </Button>
             )}
             {invoice.status === 'sent' && (

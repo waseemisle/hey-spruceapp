@@ -1,17 +1,22 @@
 /**
- * Margin Edge integration — auto-forward Hey Spruce invoices to a client's
+ * Margin Edge integration — forward Hey Spruce invoices to a client's
  * Margin Edge AP inbox so their AP/invoice-capture pipeline picks them up
  * without ops manually forwarding from Gmail.
  *
- * Configuration lives on the COMPANY doc (per-tenant), gated by an admin
- * toggle in the Companies Permissions page:
- *   companies/{id}.marginEdgeEnabled       (boolean)
- *   companies/{id}.marginEdgeInvoiceEmail  (string — the ME inbox)
+ * Configuration:
+ *   companies/{id}.marginEdgeEnabled       (boolean toggle, gates the feature)
+ *   companies/{id}.marginEdgeInvoiceEmail  (string — company-level default inbox)
+ *   locations/{id}.marginEdgeEmail         (string — per-location override)
  *
- * Trigger: every time the customer-facing invoice email goes out via
- * /api/email/send-invoice, this helper fires AFTER the customer email
- * succeeds. We don't want ME to receive an invoice the customer never
- * saw, and we don't want a ME failure to block the customer email.
+ * Resolution order for the recipient:
+ *   1. The location's marginEdgeEmail (per-restaurant inbox)
+ *   2. Falls back to the company-level marginEdgeInvoiceEmail
+ *
+ * Trigger: ADMIN APPROVAL. The admin reviews a draft invoice and clicks
+ * "Approve & Forward to Margin Edge". This is intentionally decoupled
+ * from the customer-facing /api/email/send-invoice route — the customer
+ * email is a separate, later step. Approval pushes to ME for AP
+ * processing; "Send" delivers to the client.
  *
  * Idempotency: persisted on the invoice doc as
  *   invoices/{id}.marginEdgeSentAt       (Timestamp)
@@ -19,8 +24,8 @@
  *   invoices/{id}.marginEdgeSentTo       (string — the ME address used)
  *   invoices/{id}.marginEdgeError        (string — set on failure)
  *
- * Webhook retries / repeated "Send Invoice" clicks check marginEdgeSentAt
- * and skip — ME never receives a duplicate.
+ * Re-clicking Approve checks marginEdgeSentAt and skips. ME never
+ * receives a duplicate.
  *
  * Reference: https://help.marginedge.com/hc/en-us/articles/218822667-Uploading-Invoices
  */
@@ -97,16 +102,17 @@ export async function resolveMarginEdgeTarget(
     if (!woSnap.exists()) return null;
     const wo = woSnap.data();
 
-    // Resolve companyId — prefer the WO's stamped companyId, fall back to
-    // the location lookup so legacy WOs without companyId still route.
+    // Always look up the location — needed both for companyId fallback AND
+    // for the per-location marginEdgeEmail override. We accept the round-
+    // trip cost because the routing decision needs both.
     let companyId = ((wo as any).companyId || '').toString().trim();
-    if (!companyId) {
-      const locationId = (wo.locationId || '').toString().trim();
-      if (locationId) {
-        const locSnap = await getDoc(doc(db, 'locations', locationId));
-        if (locSnap.exists()) {
-          companyId = (locSnap.data().companyId || '').toString().trim();
-        }
+    let locationData: any = null;
+    const locationId = (wo.locationId || '').toString().trim();
+    if (locationId) {
+      const locSnap = await getDoc(doc(db, 'locations', locationId));
+      if (locSnap.exists()) {
+        locationData = locSnap.data();
+        if (!companyId) companyId = (locationData.companyId || '').toString().trim();
       }
     }
     if (!companyId) return null;
@@ -116,7 +122,13 @@ export async function resolveMarginEdgeTarget(
     const company = compSnap.data();
     if (company.marginEdgeEnabled !== true) return null;
 
-    const marginEdgeEmail = (company.marginEdgeInvoiceEmail || '').toString().trim();
+    // Recipient resolution: prefer the per-location override; fall back to
+    // the company-level default. This is the heart of "send to per-location
+    // MarginEdge inbox by location" — different restaurants get different
+    // inboxes via the locations doc, with the company doc as the safety net.
+    const locationOverride = (locationData?.marginEdgeEmail || '').toString().trim();
+    const companyDefault = (company.marginEdgeInvoiceEmail || '').toString().trim();
+    const marginEdgeEmail = locationOverride || companyDefault;
     if (!marginEdgeEmail) return null;
 
     return {

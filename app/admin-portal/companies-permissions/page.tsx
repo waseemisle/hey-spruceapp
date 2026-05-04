@@ -892,7 +892,9 @@ function SettingsTab(props: {
         accent="emerald"
         icon={Receipt}
         title="Margin Edge Integration"
-        description="When enabled, every invoice generated for this company is auto-forwarded to their Margin Edge AP inbox with the invoice PDF attached. Idempotent — webhook retries and repeated sends never duplicate to Margin Edge."
+        description={
+          'When enabled, an "Approve & Forward to Margin Edge" action appears on each invoice. Approving forwards the invoice PDF to the per-location Margin Edge AP inbox (or the company-level fallback below if no per-location override). Each location can set its own Margin Edge inbox in the Locations admin. Idempotent — re-approving the same invoice never duplicates.'
+        }
         statusBadge={<StatusPill on={marginEdgeEnabled} />}
         footer={
           <Button
@@ -913,19 +915,20 @@ function SettingsTab(props: {
               onCheckedChange={onSetMarginEdgeEnabled}
             />
             <div className="text-sm">
-              <p className="font-medium text-foreground">Auto-forward invoices to Margin Edge</p>
+              <p className="font-medium text-foreground">Enable Margin Edge approval action on invoices</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Fires after each customer-facing invoice email succeeds. PDF
-                attached, plain subject, parser-friendly body.
+                Adds an "Approve &amp; Forward to Margin Edge" button on
+                each invoice in the admin. Forward fires on click, not on
+                customer-facing send.
               </p>
             </div>
           </div>
 
-          {/* Email field — only meaningful when enabled, but visible while
-              disabled so admin can configure ahead of time. */}
+          {/* Company-level fallback inbox. Per-location overrides are
+              configured in the Locations admin. */}
           <div className={marginEdgeEnabled ? '' : 'opacity-60'}>
             <Label htmlFor="margin-edge-email" className="text-xs font-semibold text-muted-foreground">
-              Margin Edge invoice email
+              Company-level Margin Edge inbox (fallback)
             </Label>
             <Input
               id="margin-edge-email"
@@ -938,9 +941,10 @@ function SettingsTab(props: {
               spellCheck={false}
             />
             <p className="text-xs text-muted-foreground mt-1.5">
-              Find this in the Margin Edge admin under{' '}
+              Used when a location doesn't have its own Margin Edge inbox set.
+              Each location can override this in <span className="font-medium text-foreground">Locations → Edit Location → Margin Edge AP Email</span>.
+              Find the address in Margin Edge under{' '}
               <span className="font-medium text-foreground">Orders → Orders Setup → Invoice Email</span>.
-              {' '}Required when toggled on.
             </p>
           </div>
         </div>

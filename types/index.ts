@@ -103,6 +103,19 @@ export interface Location {
   propertyType: string;
   contactPerson: string;
   contactPhone: string;
+  /**
+   * Per-location billing/notification email (Invoice Location Email
+   * feature). Used when the parent company has invoiceLocationEmailEnabled.
+   */
+  locationEmail?: string;
+  /**
+   * Per-location Margin Edge AP inbox. Used when the parent company has
+   * marginEdgeEnabled. Falls back to company.marginEdgeInvoiceEmail when
+   * empty (admin can configure a default at the company and override
+   * per-location). The Margin Edge forward fires on admin Approve (not
+   * on customer-facing send).
+   */
+  marginEdgeEmail?: string;
   status: 'pending' | 'approved' | 'rejected';
   approvedBy?: string;
   approvedAt?: Date;
@@ -393,6 +406,11 @@ export interface Invoice {
   subcontractorEmail: string;
   /**
    * Invoice lifecycle. Note for filters / UI:
+   *  - 'approved'  set when an admin clicks "Approve & Forward" on a draft.
+   *                Triggers the Margin Edge forward (per-location address
+   *                with company-level fallback) when the company has
+   *                marginEdgeEnabled. Independent of the customer-facing
+   *                send — admin still clicks "Send" to email the client.
    *  - 'expired'   set by the Stripe webhook when a Checkout session expires
    *                without payment (handleExpiredPayment).
    *  - 'cancelled' / 'void' reserved for explicit admin-initiated kill of an
@@ -402,7 +420,11 @@ export interface Invoice {
    *    treats expired / cancelled / void as terminal and ALLOWS a new
    *    invoice to be created against the same work order or schedule.
    */
-  status: 'draft' | 'pending_approval' | 'sent' | 'paid' | 'overdue' | 'disputed' | 'expired' | 'cancelled' | 'void';
+  status: 'draft' | 'pending_approval' | 'approved' | 'sent' | 'paid' | 'overdue' | 'disputed' | 'expired' | 'cancelled' | 'void';
+  /** When the admin clicked "Approve & Forward to Margin Edge". */
+  approvedForMarginEdgeAt?: Date;
+  /** Admin user id who approved (audit). */
+  approvedForMarginEdgeBy?: string;
   totalAmount: number;
   laborCost: number;
   materialCost: number;
