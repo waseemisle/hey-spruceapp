@@ -184,8 +184,30 @@ export default function SubcontractorAssignedJobs() {
                 r.value.docs.forEach((d) => {
                   workOrdersMap.set(d.id, { id: d.id, ...d.data() } as WorkOrder);
                 });
+              } else {
+                console.warn('[assigned] WO batch fetch failed (rules or stale ref):', r.reason);
               }
             }
+
+            // Diagnostic — if no WOs came back at all but we expected some,
+            // try fetching each ID individually with getDoc. The 'in' query
+            // can hide perm errors that a per-doc read surfaces clearly,
+            // and per-doc reads also catch the case where a single bad ID
+            // poisoned an 'in' batch.
+            if (workOrdersMap.size === 0 && workOrderIds.length > 0) {
+              console.warn('[assigned] Batch fetch returned zero — falling back to per-doc reads to surface errors');
+              const perDoc = await Promise.allSettled(
+                workOrderIds.map((id) => getDoc(doc(db, 'workOrders', id))),
+              );
+              perDoc.forEach((r, idx) => {
+                if (r.status === 'fulfilled' && r.value.exists()) {
+                  workOrdersMap.set(r.value.id, { id: r.value.id, ...r.value.data() } as WorkOrder);
+                } else if (r.status === 'rejected') {
+                  console.warn(`[assigned] WO ${workOrderIds[idx]} unreadable:`, r.reason);
+                }
+              });
+            }
+
             setWorkOrders(workOrdersMap);
 
             // Load which WOs this sub already submitted a repair quote for
@@ -1000,7 +1022,38 @@ export default function SubcontractorAssignedJobs() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredJobs.map((job) => {
               const workOrder = workOrders.get(job.workOrderId);
-              if (!workOrder) return null;
+              if (!workOrder) {
+                // Render a degraded card instead of silently dropping the
+                // row. Previously this `return null` made the page LOOK
+                // empty even when stats showed 19 jobs — if the WO doc
+                // was deleted, the rules denied a read, or the
+                // workOrderId was stale, the sub had no way to see the
+                // assignment existed at all. Now they see at minimum the
+                // assignedJobs row + a clear "details unavailable" hint
+                // so they know to ping admin.
+                return (
+                  <div key={job.id} className="bg-card border border-amber-200 rounded-lg p-4 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Assigned · WO ref</p>
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {String(job.workOrderId || '').slice(0, 12) || 'Unknown work order'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Status on this assignment: <span className="font-medium">{job.status || 'unknown'}</span>
+                        </p>
+                      </div>
+                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border border-amber-300 bg-amber-50 text-amber-700">
+                        <AlertCircle className="h-3 w-3" />
+                        Details unavailable
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
+                      The work order this assignment points to could not be loaded — it may have been deleted, archived, or your access to it was revoked. If you expected to see job details here, ping admin with the WO ref above.
+                    </div>
+                  </div>
+                );
+              }
 
               const eff = effectiveStatusFor(job, workOrder);
               const jobStatusCfg = JOB_STATUS_CONFIG[eff] || JOB_STATUS_CONFIG['pending_acceptance'];
