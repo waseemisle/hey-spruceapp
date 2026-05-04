@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, writeBatch, limit } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, writeBatch, limit, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService, notifyClientOfWorkOrderRejection } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
@@ -22,6 +22,7 @@ import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { isInvoiceApprovalRequiredForClient, computeApprovalDeadline, APPROVAL_WINDOW_HOURS } from '@/lib/invoice-approval';
 import { formatMoney } from '@/lib/money';
+import { canAddBidders, hasBeenSharedForBidding } from '@/lib/bidding-eligibility';
 
 interface WorkOrder {
   id: string;
@@ -1754,9 +1755,23 @@ const handleLocationSelect = (locationId: string) => {
         skills: doc.data().skills || [],
       })) as (Subcontractor & { skills: string[] })[];
 
+      // Filter out subs already invited to this WO so the modal only
+      // shows NEW candidates the admin could add.
+      const alreadyInvited = new Set<string>(
+        Array.isArray((workOrder as any).biddingSubcontractors)
+          ? ((workOrder as any).biddingSubcontractors as string[])
+          : [],
+      );
+      const candidateSubs = allSubsData.filter((s) => !alreadyInvited.has((s.uid as string) || s.id));
+
+      if (alreadyInvited.size > 0 && candidateSubs.length === 0) {
+        toast.info('All approved subcontractors have already been invited to this work order.');
+        return;
+      }
+
       // Mark subcontractors that match the work order category
       let matchingCount = 0;
-      const subsData = allSubsData.map(sub => {
+      const subsData = candidateSubs.map(sub => {
         let matchesCategory = false;
 
         if (workOrder.category) {
@@ -1908,47 +1923,78 @@ const handleLocationSelect = (locationId: string) => {
         return sub ? sub.fullName : 'Unknown';
       }).join(', ');
 
-      // Create timeline event
+      // First share vs add-bidders. We never downgrade an in-progress
+      // status (e.g. 'quotes_received') back to 'bidding'. Per spec,
+      // ops can keep widening the bidder pool until a quote is
+      // approved — see lib/bidding-eligibility.ts.
+      const isFirstShare = !hasBeenSharedForBidding(workOrderToShare);
+      const currentStatus = (workOrderToShare.status || '').toLowerCase();
+      const shouldFlipToBidding = isFirstShare || currentStatus === 'approved' || currentStatus === 'pending';
+
       const timelineEvent = {
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: Timestamp.now(),
-        type: 'shared_for_bidding',
+        type: isFirstShare ? 'shared_for_bidding' : 'bidders_added',
         userId: currentUser.uid,
         userName: adminName,
         userRole: 'admin',
-        details: `Shared for bidding with ${selectedSubcontractors.length} subcontractor(s): ${selectedSubNames}`,
+        details: isFirstShare
+          ? `Shared for bidding with ${selectedSubcontractors.length} subcontractor(s): ${selectedSubNames}`
+          : `Added ${selectedSubcontractors.length} more bidder(s): ${selectedSubNames}`,
         metadata: {
           subcontractorIds: selectedSubcontractors,
           subcontractorCount: selectedSubcontractors.length,
-        }
+          isAddition: !isFirstShare,
+        },
       };
 
-      // Update system information
+      // System-information snapshot. For additions we extend the
+      // history rather than overwrite the original-share record.
       const updatedSysInfo = {
         ...existingSysInfo,
-        sharedForBidding: {
+        sharedForBidding: existingSysInfo?.sharedForBidding || {
           by: { id: currentUser.uid, name: adminName },
           timestamp: Timestamp.now(),
           subcontractors: selectedSubcontractors.map(subId => {
             const sub = subcontractors.find(s => s.id === subId);
             return { id: subId, name: sub ? sub.fullName : 'Unknown' };
-          })
-        }
+          }),
+        },
+        ...(!isFirstShare ? {
+          bidderAdditions: [
+            ...(Array.isArray(existingSysInfo?.bidderAdditions) ? existingSysInfo.bidderAdditions : []),
+            {
+              by: { id: currentUser.uid, name: adminName },
+              timestamp: Timestamp.now(),
+              subcontractors: selectedSubcontractors.map(subId => {
+                const sub = subcontractors.find(s => s.id === subId);
+                return { id: subId, name: sub ? sub.fullName : 'Unknown' };
+              }),
+            },
+          ],
+        } : {}),
       };
 
-      // Update work order status and ensure workOrderNumber exists
-      // Also add biddingSubcontractors array so subcontractors can update status via Firestore rules
+      // CRITICAL: arrayUnion (was overwriting the existing array — that
+      // would have wiped previously-invited subs). And don't flip status
+      // backwards from 'quotes_received' → 'bidding'.
       await updateDoc(doc(db, 'workOrders', workOrderToShare.id), {
-        status: 'bidding',
-        workOrderNumber: workOrderNumber,
-        sharedForBiddingAt: serverTimestamp(),
-        biddingSubcontractors: subAuthIds,
+        ...(shouldFlipToBidding ? { status: 'bidding' } : {}),
+        workOrderNumber,
+        ...(isFirstShare
+          ? { sharedForBiddingAt: serverTimestamp() }
+          : { biddersLastAddedAt: serverTimestamp() }),
+        biddingSubcontractors: arrayUnion(...subAuthIds),
         updatedAt: serverTimestamp(),
         timeline: [...existingTimeline, timelineEvent],
         systemInformation: updatedSysInfo,
       });
 
-      toast.success(`Work order shared with ${selectedSubcontractors.length} subcontractor(s) for bidding`);
+      toast.success(
+        isFirstShare
+          ? `Work order shared with ${selectedSubcontractors.length} subcontractor(s) for bidding`
+          : `Added ${selectedSubcontractors.length} more bidder(s) to this work order`,
+      );
       setShowBiddingModal(false);
       setSelectedSubcontractors([]);
       setWorkOrderToShare(null);
@@ -2594,8 +2640,14 @@ const filteredLocationsForForm = locations.filter((location) => {
                       </Button>
                     </>
                   )}
-                  {(workOrder.status === 'approved' || workOrder.status === 'bidding') && (
-                    <Button size="sm" variant="outline" className="h-8 px-2" title="Share for Bidding" onClick={() => handleShareForBidding(workOrder)}>
+                  {canAddBidders(workOrder) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2"
+                      title={hasBeenSharedForBidding(workOrder) ? 'Add Bidders' : 'Share for Bidding'}
+                      onClick={() => handleShareForBidding(workOrder)}
+                    >
                       <Share2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
@@ -2864,9 +2916,13 @@ const filteredLocationsForForm = locations.filter((location) => {
               <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-bold">Share for Bidding</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold">
+                      {workOrderToShare && hasBeenSharedForBidding(workOrderToShare) ? 'Add More Bidders' : 'Share for Bidding'}
+                    </h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Select subcontractors to share this work order with
+                      {workOrderToShare && hasBeenSharedForBidding(workOrderToShare)
+                        ? 'Pick additional subcontractors to invite. Existing bidders and quotes are unaffected.'
+                        : 'Select subcontractors to share this work order with'}
                     </p>
                   </div>
                   <Button

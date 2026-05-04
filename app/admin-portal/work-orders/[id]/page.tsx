@@ -24,6 +24,7 @@ import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { formatMoney } from '@/lib/money';
+import { canAddBidders, hasBeenSharedForBidding } from '@/lib/bidding-eligibility';
 import { toast } from 'sonner';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import type { VendorPayment, VendorPaymentAdjustment, VendorPaymentStatus } from '@/types';
@@ -942,8 +943,26 @@ export default function ViewWorkOrder() {
         return;
       }
 
+      // Filter out subs already invited to this WO so the modal only shows
+      // NEW candidates the admin could add. Without this filter, admins
+      // could re-pick the same sub and either hit the dedupe noop below
+      // or create a confusing duplicate biddingWorkOrders row.
+      const alreadyInvited = new Set<string>(
+        Array.isArray((workOrder as any).biddingSubcontractors)
+          ? ((workOrder as any).biddingSubcontractors as string[])
+          : [],
+      );
+      const candidateSubs = allSubs.filter(
+        (s) => !alreadyInvited.has(s.uid || s.id),
+      );
+
+      if (alreadyInvited.size > 0 && candidateSubs.length === 0) {
+        toast.info('All approved subcontractors have already been invited to this WO.');
+        return;
+      }
+
       let matchingCount = 0;
-      const subsData: Subcontractor[] = allSubs.map(sub => {
+      const subsData: Subcontractor[] = candidateSubs.map(sub => {
         let matchesCategory = false;
         if (workOrder.category && sub.skills.length > 0) {
           const cat = workOrder.category.toLowerCase();
@@ -983,16 +1002,32 @@ export default function ViewWorkOrder() {
       const selectedSubNames = selectedSubcontractors.map(id => subcontractors.find(s => s.id === id)?.fullName || 'Unknown').join(', ');
       const currentUser = auth.currentUser;
 
+      // Don't downgrade status if we're already past 'bidding' (e.g. quotes
+      // have arrived). Only set status='bidding' on the very first share
+      // when the WO is still 'approved' (or earlier). Once we're in
+      // 'quotes_received', adding bidders should leave the status alone.
+      const isFirstShare = !hasBeenSharedForBidding(workOrder);
+      const currentStatus = (workOrder.status || '').toLowerCase();
+      const shouldFlipToBidding = isFirstShare || currentStatus === 'approved' || currentStatus === 'pending';
+
       // ONE single Firestore write — update work order status + bidding subs
       await updateDoc(doc(db, 'workOrders', workOrder.id), {
-        status: 'bidding', workOrderNumber,
+        ...(shouldFlipToBidding ? { status: 'bidding' } : {}),
+        workOrderNumber,
         biddingSubcontractors: arrayUnion(...subAuthIds),
-        sharedForBiddingAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        ...(isFirstShare ? { sharedForBiddingAt: serverTimestamp() } : { biddersLastAddedAt: serverTimestamp() }),
+        updatedAt: serverTimestamp(),
       });
 
       // DONE — close modal immediately, everything else runs in background
-      setWorkOrder(prev => prev ? { ...prev, status: 'bidding' } : prev);
-      toast.success(`Shared with ${selectedSubcontractors.length} subcontractor(s) for bidding`);
+      if (shouldFlipToBidding) {
+        setWorkOrder(prev => prev ? { ...prev, status: 'bidding' } : prev);
+      }
+      toast.success(
+        isFirstShare
+          ? `Shared with ${selectedSubcontractors.length} subcontractor(s) for bidding`
+          : `Added ${selectedSubcontractors.length} more bidder(s) to this work order`,
+      );
       setShowBiddingModal(false);
       setSelectedSubcontractors([]);
       setBiddingSubmitting(false);
@@ -1045,10 +1080,13 @@ export default function ViewWorkOrder() {
           await updateDoc(doc(db, 'workOrders', workOrder.id), {
             timeline: [...(woData?.timeline || []), {
               id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              timestamp: Timestamp.now(), type: 'shared_for_bidding',
+              timestamp: Timestamp.now(),
+              type: isFirstShare ? 'shared_for_bidding' : 'bidders_added',
               userId: currentUser?.uid || 'unknown', userName: adminName, userRole: 'admin',
-              details: `Shared for bidding with ${selectedSubcontractors.length} subcontractor(s): ${selectedSubNames}`,
-              metadata: { subcontractorIds: selectedSubcontractors, subcontractorCount: selectedSubcontractors.length },
+              details: isFirstShare
+                ? `Shared for bidding with ${selectedSubcontractors.length} subcontractor(s): ${selectedSubNames}`
+                : `Added ${selectedSubcontractors.length} more bidder(s): ${selectedSubNames}`,
+              metadata: { subcontractorIds: selectedSubcontractors, subcontractorCount: selectedSubcontractors.length, isAddition: !isFirstShare },
             }],
             systemInformation: {
               ...(woData?.systemInformation || {}),
@@ -1988,10 +2026,16 @@ export default function ViewWorkOrder() {
                 </Button>
               </>
             )}
-            {(workOrder.status === 'approved' || workOrder.status === 'bidding') && (
+            {/*
+              Bidding stays open until the client approves a quote (or the WO
+              hits a terminal state). Button label switches between first-time
+              "Share for Bidding" and follow-on "Add Bidders". See
+              lib/bidding-eligibility.ts for the rule.
+            */}
+            {canAddBidders(workOrder) && (
               <Button size="sm" onClick={handleShareForBidding}>
                 <Share2 className="h-4 w-4 mr-2" />
-                Share for Bidding
+                {hasBeenSharedForBidding(workOrder) ? 'Add Bidders' : 'Share for Bidding'}
               </Button>
             )}
             {(workOrder.status === 'assigned' || workOrder.status === 'accepted_by_subcontractor') && (workOrder.assignedSubcontractor || workOrder.assignedTo) && (
@@ -3483,8 +3527,14 @@ export default function ViewWorkOrder() {
             <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-bold">Share for Bidding</h2>
-                  <p className="text-sm text-muted-foreground mt-1">Select subcontractors to share this work order with</p>
+                  <h2 className="text-xl sm:text-2xl font-bold">
+                    {hasBeenSharedForBidding(workOrder) ? 'Add More Bidders' : 'Share for Bidding'}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {hasBeenSharedForBidding(workOrder)
+                      ? 'Pick additional subcontractors to invite. Existing bidders and quotes are unaffected.'
+                      : 'Select subcontractors to share this work order with'}
+                  </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); }}>
                   <X className="h-4 w-4" />
