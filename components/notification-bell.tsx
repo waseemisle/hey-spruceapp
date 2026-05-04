@@ -11,8 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Notification {
   id: string;
@@ -43,25 +42,21 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
-  const pathname = usePathname();
-
-  // Determine messages page based on current path
-  const getMessagesPath = (): string | null => {
-    if (pathname?.startsWith('/admin-portal')) return '/admin-portal/messages';
-    if (pathname?.startsWith('/client-portal')) return '/client-portal/messages';
-    if (pathname?.startsWith('/subcontractor-portal')) return '/subcontractor-portal/messages';
-    return null;
-  };
 
   useEffect(() => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
+    // Fetch the most recent 50 — enough that the dropdown's scroll
+     // container shows everything a user practically cares about
+     // without us needing a dedicated "View All" history page (the
+     // previous footer link pointed at /messages which is a chat
+     // page, not a notifications history, and confused users).
     const notificationsQuery = query(
       collection(db, 'notifications'),
       where('userId', '==', currentUser.uid),
       orderBy('createdAt', 'desc'),
-      limit(10)
+      limit(50)
     );
 
     const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
@@ -207,16 +202,13 @@ export default function NotificationBell() {
             </div>
           )}
         </div>
-        {notifications.length > 0 && getMessagesPath() && (
-          <div className="px-4 py-2 border-t bg-muted">
-            <Link
-              href={getMessagesPath()!}
-              className="block text-xs text-blue-600 hover:text-blue-800 font-medium w-full text-center"
-            >
-              View All Notifications
-            </Link>
-          </div>
-        )}
+        {/*
+          Footer "View All Notifications" link removed — it used to point
+          at /<portal>/messages which is the chat page, not a
+          notifications history. The dropdown now fetches up to 50
+          recent notifications which covers practical use; a dedicated
+          notifications page can be added later if needed.
+        */}
       </DropdownMenuContent>
     </DropdownMenu>
   );
