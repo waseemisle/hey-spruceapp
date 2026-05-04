@@ -7,10 +7,9 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
   CalendarDays, CalendarRange, Clock, ListChecks, ChevronLeft, ChevronRight,
-  MapPin, Calendar as CalendarIcon, Sparkles, ArrowRight,
+  MapPin, Filter, Search, ArrowUpRight, X, CalendarCheck2,
 } from 'lucide-react';
 import { useIsMobile } from '@/lib/use-is-mobile';
 import { STATUS_PALETTE, type StatusSlot } from '@/lib/calendar-events';
@@ -40,20 +39,23 @@ const VIEW_OPTIONS: { id: CalendarView; label: string; shortLabel: string; icon:
 ];
 
 /**
- * Calendar workspace — calendar grid plus a contextual right sidebar
- * showing TODAY and UPCOMING events. Uses a multi-hue gradient backdrop
- * (violet → sky → emerald), frosted-glass toolbar, and category-aware
- * event tiles with icon dots instead of flat color blocks.
+ * "Editorial command center" — a clean three-pane workspace.
  *
- * Design moves that distinguish this from the previous two iterations:
- *   • Two-column workspace on desktop (calendar + agenda sidebar) so
- *     the page reads as a real workspace, not just a grid
- *   • Frosted-glass toolbar with backdrop-blur over a tinted gradient
- *   • Today: animated pulsing ring around the date number
- *   • Event tiles: gradient backgrounds tinted by status, with a
- *     contrast-aware shadow on hover
- *   • Sidebar event cards use the same palette but presented as
- *     scannable rows with time + location instead of grid pills
+ * Visual direction (deliberately different from prior soft-tint and
+ * violet/sky/emerald iterations):
+ *   • LEFT rail: monochrome controls — search, status filter chips that
+ *     toggle event visibility, mini stats, "today" jumper.
+ *   • CENTER: the calendar grid itself, on a flat editorial surface.
+ *     No gradient backdrop. Today is a solid filled square (no halo,
+ *     no pulse animation — confident, not noisy). Event chips are
+ *     saturated solid colors with white text on month view, so the
+ *     palette stays the visual signal of status.
+ *   • RIGHT rail: agenda — today's events, then the next 7 days,
+ *     each row showing time + title + location and an arrow on hover.
+ *
+ * Color story: warm slate neutrals (no purple gradient backdrops).
+ * Accent is the status palette itself, not a brand color sprayed
+ * on top. Headlines are oversized for editorial weight.
  */
 export default function CalendarShell({
   title,
@@ -68,6 +70,8 @@ export default function CalendarShell({
   const isMobile = useIsMobile();
   const [view, setView] = useState<CalendarView>('dayGridMonth');
   const [headerTitle, setHeaderTitle] = useState('');
+  const [search, setSearch] = useState('');
+  const [hiddenSlots, setHiddenSlots] = useState<Set<StatusSlot>>(new Set());
 
   useEffect(() => {
     if (!calendarRef.current) return;
@@ -88,7 +92,19 @@ export default function CalendarShell({
     updateTitle();
   };
 
-  // Derive today's + upcoming events for the side panel
+  // Apply search + slot filters to events fed into FullCalendar
+  const visibleEvents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return events.filter((ev) => {
+      const slot = (ev?.extendedProps?.statusSlot as StatusSlot) || 'neutral';
+      if (hiddenSlots.has(slot)) return false;
+      if (!q) return true;
+      const title = String(ev.title || '').toLowerCase();
+      const loc = String(ev?.extendedProps?.locationName || '').toLowerCase();
+      return title.includes(q) || loc.includes(q);
+    });
+  }, [events, search, hiddenSlots]);
+
   const { todayEvents, upcomingEvents, statusCounts } = useMemo(() => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -101,7 +117,7 @@ export default function CalendarShell({
     const upcoming: any[] = [];
     const counts: Partial<Record<StatusSlot, number>> = {};
 
-    for (const ev of events) {
+    for (const ev of visibleEvents) {
       const s = ev.start instanceof Date ? ev.start : new Date(ev.start);
       const slot = (ev?.extendedProps?.statusSlot as StatusSlot) || 'neutral';
       counts[slot] = (counts[slot] || 0) + 1;
@@ -118,126 +134,195 @@ export default function CalendarShell({
       (b.start instanceof Date ? b.start : new Date(b.start)).getTime(),
     );
 
-    return { todayEvents: today, upcomingEvents: upcoming.slice(0, 5), statusCounts: counts };
-  }, [events]);
+    return { todayEvents: today, upcomingEvents: upcoming.slice(0, 6), statusCounts: counts };
+  }, [visibleEvents]);
+
+  const toggleSlot = (slot: StatusSlot) => {
+    setHiddenSlots((prev) => {
+      const next = new Set(prev);
+      if (next.has(slot)) next.delete(slot);
+      else next.add(slot);
+      return next;
+    });
+  };
+
+  const totalCount = visibleEvents.length;
+  const hiddenCount = events.length - totalCount;
 
   return (
-    <Card className="overflow-hidden border-border bg-gradient-to-br from-violet-50/40 via-sky-50/40 to-emerald-50/30 dark:from-violet-950/20 dark:via-sky-950/20 dark:to-emerald-950/15 shadow-[0_2px_4px_rgba(15,23,42,0.04),0_12px_32px_rgba(15,23,42,0.06)]">
-      {/* Frosted-glass toolbar */}
-      <div className="relative border-b border-border bg-card/70 backdrop-blur-xl">
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 px-5 py-4">
-          {/* Left: title + count + nav */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="rounded-xl bg-gradient-to-br from-violet-600 to-indigo-700 p-2 shadow-md shadow-violet-500/20 flex-shrink-0">
-              <CalendarIcon className="h-4 w-4 text-white" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-lg font-bold tracking-tight text-foreground truncate">
-                  {headerTitle || title}
-                </h2>
-                {events.length > 0 && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-full bg-gradient-to-r from-violet-100 to-sky-100 dark:from-violet-950/40 dark:to-sky-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-900/60 px-2 py-0.5">
-                    <Sparkles className="h-3 w-3" />
-                    {events.length} {events.length === 1 ? 'event' : 'events'}
-                  </span>
-                )}
-              </div>
-              {subtitle && <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
-            </div>
+    <div className="ground-ops-cal-shell rounded-2xl border border-border bg-card overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.05)]">
+      {/* ───────── EDITORIAL HEADER ───────── */}
+      <div className="border-b border-border bg-card">
+        <div className="px-6 pt-6 pb-4 flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              Schedule
+            </p>
+            <h1 className="text-3xl sm:text-[34px] font-bold tracking-tight text-foreground leading-tight mt-1">
+              {headerTitle || title}
+            </h1>
+            {subtitle && (
+              <p className="text-sm text-muted-foreground mt-1.5">{subtitle}</p>
+            )}
+          </div>
 
-            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 rounded-full hover:bg-violet-100/60 dark:hover:bg-violet-950/40"
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Date nav */}
+            <div className="inline-flex items-stretch rounded-lg border border-border overflow-hidden bg-card">
+              <button
                 onClick={() => { calendarRef.current?.getApi().prev(); updateTitle(); }}
+                className="h-9 w-9 inline-flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 aria-label="Previous"
               >
                 <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 rounded-full hover:bg-violet-100/60 dark:hover:bg-violet-950/40"
+              </button>
+              <button
+                onClick={() => { calendarRef.current?.getApi().today(); updateTitle(); }}
+                className="h-9 px-3.5 text-xs font-semibold text-foreground border-x border-border hover:bg-muted transition-colors inline-flex items-center gap-1.5"
+              >
+                <CalendarCheck2 className="h-3.5 w-3.5" />
+                Today
+              </button>
+              <button
                 onClick={() => { calendarRef.current?.getApi().next(); updateTitle(); }}
+                className="h-9 w-9 inline-flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                 aria-label="Next"
               >
                 <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3 text-xs font-semibold ml-1.5 rounded-full bg-card/80 backdrop-blur"
-                onClick={() => { calendarRef.current?.getApi().today(); updateTitle(); }}
-              >
-                Today
-              </Button>
+              </button>
+            </div>
+
+            {/* Segmented view switcher */}
+            <div className="inline-flex rounded-lg border border-border overflow-hidden bg-card">
+              {VIEW_OPTIONS.map(({ id, label, shortLabel, icon: Icon }, idx) => {
+                const active = view === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => handleViewChange(id)}
+                    className={`h-9 px-3 text-xs font-semibold transition-colors inline-flex items-center gap-1.5 ${
+                      idx > 0 ? 'border-l border-border' : ''
+                    } ${
+                      active
+                        ? 'bg-foreground text-background'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                    aria-pressed={active}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{label}</span>
+                    <span className="sm:hidden">{shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ───────── 3-PANE WORKSPACE ───────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
+        {/* LEFT: filters + status legend */}
+        <aside className="hidden lg:flex flex-col gap-5 border-r border-border bg-muted/30 p-5 min-w-0">
+          {/* Search */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-1.5 block">
+              Search
+            </label>
+            <div className="relative">
+              <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Title or location"
+                className="w-full h-9 pl-8 pr-7 text-xs rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/30"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Right: gradient pill view switcher */}
-          <div className="inline-flex bg-card/70 backdrop-blur border border-border rounded-full p-0.5 self-start xl:self-auto shadow-sm">
-            {VIEW_OPTIONS.map(({ id, label, shortLabel, icon: Icon }) => {
-              const active = view === id;
-              return (
-                <button
-                  key={id}
-                  onClick={() => handleViewChange(id)}
-                  className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    active
-                      ? 'bg-gradient-to-r from-violet-600 to-indigo-700 text-white shadow-md shadow-violet-500/20'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  aria-pressed={active}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{label}</span>
-                  <span className="sm:hidden">{shortLabel}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+          {/* Status filter chips — clickable to hide/show */}
+          {legend && legend.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                  <Filter className="h-3 w-3 inline mr-1 -mt-0.5" />
+                  Filter by status
+                </label>
+                {hiddenSlots.size > 0 && (
+                  <button
+                    onClick={() => setHiddenSlots(new Set())}
+                    className="text-[10px] font-semibold text-foreground hover:underline"
+                  >
+                    Show all
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1">
+                {legend.map(({ slot, label }) => {
+                  const palette = STATUS_PALETTE[slot];
+                  const count = statusCounts[slot] || 0;
+                  const hidden = hiddenSlots.has(slot);
+                  return (
+                    <button
+                      key={`${slot}-${label}`}
+                      onClick={() => toggleSlot(slot)}
+                      className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors ${
+                        hidden ? 'opacity-40 hover:opacity-70' : 'hover:bg-card'
+                      }`}
+                      aria-pressed={!hidden}
+                    >
+                      <span
+                        className="h-2.5 w-2.5 rounded-sm flex-shrink-0"
+                        style={{ background: palette.bg }}
+                      />
+                      <span className="text-xs font-medium text-foreground flex-1 truncate">
+                        {label}
+                      </span>
+                      <span className={`text-[10px] font-bold tabular-nums ${
+                        hidden ? 'line-through text-muted-foreground' : 'text-muted-foreground'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-        {/* Status legend chips — only render slots that exist */}
-        {legend && legend.length > 0 && (
-          <div className="px-5 pb-3 flex flex-wrap gap-1.5">
-            {legend.map(({ slot, label }) => {
-              const palette = STATUS_PALETTE[slot];
-              const count = statusCounts[slot] || 0;
-              if (count === 0) return null;
-              return (
-                <span
-                  key={`${slot}-${label}`}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-medium rounded-full border px-2 py-0.5 shadow-sm"
-                  style={{
-                    background: palette.softBg,
-                    color: palette.softText,
-                    borderColor: palette.bg + '40',
-                  }}
-                >
-                  <span
-                    className="inline-block h-1.5 w-1.5 rounded-full ring-2 ring-white dark:ring-card"
-                    style={{ background: palette.bg }}
-                  />
-                  {label}
-                  <span className="font-bold">{count}</span>
-                </span>
-              );
-            })}
+          {/* Mini stats */}
+          <div className="mt-auto pt-4 border-t border-border">
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                Visible
+              </span>
+              <span className="text-2xl font-bold text-foreground tabular-nums">{totalCount}</span>
+            </div>
+            {hiddenCount > 0 && (
+              <p className="text-[10.5px] text-muted-foreground">
+                {hiddenCount} hidden by filter
+              </p>
+            )}
           </div>
-        )}
-      </div>
+        </aside>
 
-      {/* Two-column workspace — calendar + agenda sidebar (sidebar collapses below the grid on smaller widths) */}
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-3 p-3">
-        <div className="ground-ops-calendar bg-card rounded-xl border border-border overflow-hidden">
+        {/* CENTER: calendar grid */}
+        <div className="ground-ops-calendar bg-card min-w-0">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
             initialView="dayGridMonth"
-            events={events}
+            events={visibleEvents}
             eventClick={onEventClick}
             eventDrop={onEventDrop}
             editable={editable}
@@ -257,13 +342,14 @@ export default function CalendarShell({
               const slot: StatusSlot = props.statusSlot || 'neutral';
               const palette = STATUS_PALETTE[slot];
               const isList = arg.view.type === 'listWeek';
+              const isMonth = arg.view.type === 'dayGridMonth';
               const time = arg.event.start ? formatTimeShort(arg.event.start) : '';
 
               if (isList) {
                 return (
                   <div className="flex items-center gap-3 py-1">
                     <span
-                      className="inline-block h-3 w-3 rounded-full flex-shrink-0 ring-2 ring-card shadow-sm"
+                      className="inline-block h-3 w-3 rounded-sm flex-shrink-0"
                       style={{ background: palette.bg }}
                     />
                     <div className="min-w-0 flex-1">
@@ -279,61 +365,73 @@ export default function CalendarShell({
                 );
               }
 
+              // Month view: saturated solid chip with white text — bold, scannable
+              if (isMonth) {
+                return (
+                  <div
+                    className="ground-ops-event-chip"
+                    style={{
+                      background: palette.bg,
+                      color: '#ffffff',
+                    }}
+                  >
+                    {time && (
+                      <span className="ground-ops-event-chip-time">{time}</span>
+                    )}
+                    <span className="ground-ops-event-chip-title">{arg.event.title}</span>
+                  </div>
+                );
+              }
+
+              // Time grid: tinted block with bold left bar
               return (
                 <div
                   className="ground-ops-event-tile"
                   style={{
-                    background: `linear-gradient(135deg, ${palette.softBg} 0%, ${palette.softBg} 60%, ${palette.bg}15 100%)`,
+                    background: palette.softBg,
                     color: palette.softText,
                     borderLeftColor: palette.bg,
                   }}
                 >
-                  <span
-                    className="ground-ops-event-dot"
-                    style={{ background: palette.bg }}
-                  />
-                  <div className="ground-ops-event-text">
-                    {time && (
-                      <span className="ground-ops-event-time" style={{ color: palette.bg }}>
-                        {time}
-                      </span>
-                    )}
-                    <span className="ground-ops-event-title">{arg.event.title}</span>
-                  </div>
+                  {time && (
+                    <span className="ground-ops-event-time" style={{ color: palette.bg }}>
+                      {time}
+                    </span>
+                  )}
+                  <span className="ground-ops-event-title">{arg.event.title}</span>
                 </div>
               );
             }}
           />
         </div>
 
-        {/* Agenda sidebar */}
-        <aside className="hidden xl:flex flex-col gap-3 min-w-0">
-          <SidebarPanel
-            title="Today"
-            badge={todayEvents.length}
-            accentClass="bg-gradient-to-br from-violet-600 to-indigo-700"
+        {/* RIGHT: agenda */}
+        <aside className="hidden lg:flex flex-col gap-4 border-l border-border bg-card p-4 min-w-0">
+          <AgendaSection
+            label="Today"
+            count={todayEvents.length}
             events={todayEvents}
-            emptyMessage="Nothing scheduled today."
+            emptyMessage="Nothing scheduled."
             onEventClick={onEventClick}
           />
-          <SidebarPanel
-            title="Upcoming"
-            badge={upcomingEvents.length}
-            accentClass="bg-gradient-to-br from-sky-600 to-cyan-700"
+          <AgendaSection
+            label="Next 7 days"
+            count={upcomingEvents.length}
             events={upcomingEvents}
-            emptyMessage="No events in the next 7 days."
+            emptyMessage="No upcoming events."
             showDate
             onEventClick={onEventClick}
           />
         </aside>
       </div>
 
+      {/* ───────── CALENDAR-INTERNAL STYLES ───────── */}
       <style jsx global>{`
         .ground-ops-calendar .fc {
           --fc-border-color: hsl(var(--border));
           --fc-page-bg-color: transparent;
           --fc-neutral-bg-color: transparent;
-          --fc-list-event-hover-bg-color: hsl(var(--muted) / 0.5);
+          --fc-list-event-hover-bg-color: hsl(var(--muted) / 0.6);
           --fc-today-bg-color: transparent;
           --fc-now-indicator-color: #ef4444;
           font-family: inherit;
@@ -342,15 +440,16 @@ export default function CalendarShell({
         .ground-ops-calendar .fc-theme-standard .fc-scrollgrid,
         .ground-ops-calendar .fc-theme-standard td,
         .ground-ops-calendar .fc-theme-standard th {
-          border-color: hsl(var(--border) / 0.6);
+          border-color: hsl(var(--border) / 0.7);
         }
         .ground-ops-calendar .fc .fc-scrollgrid {
           border: none;
         }
 
+        /* Column header — small caps, lots of spacing */
         .ground-ops-calendar .fc .fc-col-header-cell {
-          background: hsl(var(--muted) / 0.25);
-          padding: 12px 4px 10px;
+          background: hsl(var(--muted) / 0.4);
+          padding: 14px 4px 12px;
           border-bottom: 1px solid hsl(var(--border));
         }
         .ground-ops-calendar .fc .fc-col-header-cell-cushion {
@@ -358,61 +457,52 @@ export default function CalendarShell({
           text-transform: uppercase;
           font-size: 10px;
           font-weight: 800;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.16em;
           padding: 0;
         }
 
         .ground-ops-calendar .fc .fc-daygrid-day {
           background: hsl(var(--card));
-          transition: background-color 0.18s ease;
+          transition: background-color 0.15s ease;
         }
         .ground-ops-calendar .fc .fc-daygrid-day:hover {
-          background: linear-gradient(180deg, hsl(var(--muted) / 0.3), hsl(var(--muted) / 0.1));
+          background: hsl(var(--muted) / 0.35);
         }
         .ground-ops-calendar .fc .fc-daygrid-day-frame {
-          min-height: 124px;
+          min-height: 128px;
           padding: 4px;
         }
         .ground-ops-calendar .fc .fc-daygrid-day-top {
           flex-direction: row;
           justify-content: flex-start;
-          padding: 2px 4px 4px;
+          padding: 4px 4px 4px;
         }
         .ground-ops-calendar .fc .fc-daygrid-day-number {
           color: hsl(var(--foreground));
           font-size: 13px;
           font-weight: 600;
-          padding: 5px 8px;
+          padding: 4px 7px;
           line-height: 1;
-          border-radius: 9999px;
-          min-width: 26px;
+          border-radius: 6px;
+          min-width: 24px;
           text-align: center;
           transition: all 0.12s ease;
         }
         .ground-ops-calendar .fc .fc-day-other .fc-daygrid-day-number {
-          color: hsl(var(--muted-foreground) / 0.4);
+          color: hsl(var(--muted-foreground) / 0.45);
           font-weight: 500;
         }
 
-        /* Today: gradient circle + animated halo */
-        .ground-ops-calendar .fc .fc-day-today {
-          background: linear-gradient(180deg, rgba(124, 58, 237, 0.05), rgba(124, 58, 237, 0)) !important;
-        }
+        /* Today: filled square in foreground color — confident, no animation */
         .ground-ops-calendar .fc .fc-day-today .fc-daygrid-day-number {
-          background: linear-gradient(135deg, #7c3aed, #4f46e5);
-          color: #fff;
-          font-weight: 800;
-          box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.15), 0 4px 10px rgba(124, 58, 237, 0.3);
-          animation: groundOpsTodayPulse 2.4s ease-in-out infinite;
-        }
-        @keyframes groundOpsTodayPulse {
-          0%, 100% { box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.15), 0 4px 10px rgba(124, 58, 237, 0.25); }
-          50% { box-shadow: 0 0 0 6px rgba(124, 58, 237, 0.25), 0 4px 14px rgba(124, 58, 237, 0.4); }
+          background: hsl(var(--foreground));
+          color: hsl(var(--background));
+          font-weight: 700;
         }
 
         .ground-ops-calendar .fc .fc-day-sat,
         .ground-ops-calendar .fc .fc-day-sun {
-          background: hsl(var(--muted) / 0.15);
+          background: hsl(var(--muted) / 0.18);
         }
 
         .ground-ops-calendar .fc .fc-event {
@@ -424,95 +514,90 @@ export default function CalendarShell({
         }
         .ground-ops-calendar .fc .fc-daygrid-event,
         .ground-ops-calendar .fc .fc-timegrid-event {
-          border-radius: 8px;
+          border-radius: 6px;
           overflow: hidden;
         }
         .ground-ops-calendar .fc .fc-event-main { padding: 0 !important; }
 
-        .ground-ops-calendar .ground-ops-event-tile {
+        /* Month view: saturated solid chip */
+        .ground-ops-calendar .ground-ops-event-chip {
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding: 4px 8px 4px 6px;
-          border-radius: 8px;
-          border-left: 3px solid;
-          min-height: 24px;
-          font-size: 11.5px;
+          gap: 5px;
+          padding: 3px 7px;
+          border-radius: 5px;
+          min-height: 22px;
+          font-size: 11px;
           line-height: 1.25;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          transition: transform 0.15s ease, filter 0.15s ease;
           overflow: hidden;
         }
-        .ground-ops-calendar .ground-ops-event-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 9999px;
-          flex-shrink: 0;
-          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
-        }
-        .ground-ops-calendar .fc-event:hover .ground-ops-event-tile {
-          transform: translateY(-1px) scale(1.01);
-          box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
-        }
-        .ground-ops-calendar .ground-ops-event-text {
-          display: flex;
-          align-items: baseline;
-          gap: 5px;
-          min-width: 0;
-          flex: 1;
-        }
-        .ground-ops-calendar .ground-ops-event-time {
-          font-size: 10.5px;
+        .ground-ops-calendar .ground-ops-event-chip-time {
           font-weight: 800;
+          font-size: 10.5px;
+          opacity: 0.92;
           letter-spacing: 0.01em;
           flex-shrink: 0;
         }
-        .ground-ops-calendar .ground-ops-event-title {
+        .ground-ops-calendar .ground-ops-event-chip-title {
           font-weight: 600;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
+        .ground-ops-calendar .fc-event:hover .ground-ops-event-chip {
+          filter: brightness(1.06);
+          transform: translateY(-1px);
+        }
 
-        .ground-ops-calendar .fc .fc-timegrid-event .ground-ops-event-tile {
-          height: 100%;
+        /* Time grid: soft tile w/ left bar */
+        .ground-ops-calendar .ground-ops-event-tile {
+          display: flex;
           flex-direction: column;
-          align-items: flex-start;
           gap: 2px;
           padding: 6px 8px 6px 9px;
+          border-radius: 5px;
+          border-left: 3px solid;
+          height: 100%;
+          font-size: 11.5px;
+          line-height: 1.3;
+          transition: filter 0.15s ease;
         }
-        .ground-ops-calendar .fc .fc-timegrid-event .ground-ops-event-text {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 2px;
+        .ground-ops-calendar .ground-ops-event-time {
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 0.01em;
         }
-        .ground-ops-calendar .fc .fc-timegrid-event .ground-ops-event-title {
-          white-space: normal;
+        .ground-ops-calendar .ground-ops-event-title {
+          font-weight: 600;
+        }
+        .ground-ops-calendar .fc-event:hover .ground-ops-event-tile {
+          filter: brightness(0.97);
         }
 
         .ground-ops-calendar .fc .fc-daygrid-more-link {
-          color: hsl(var(--muted-foreground));
+          color: hsl(var(--foreground));
           font-size: 11px;
           font-weight: 700;
           padding: 2px 8px;
           margin: 0 4px;
-          border-radius: 9999px;
-          background: hsl(var(--muted) / 0.5);
+          border-radius: 4px;
+          background: hsl(var(--muted) / 0.6);
         }
         .ground-ops-calendar .fc .fc-daygrid-more-link:hover {
           background: hsl(var(--muted));
-          color: hsl(var(--foreground));
           text-decoration: none;
         }
 
         .ground-ops-calendar .fc .fc-popover {
           background: hsl(var(--card));
           border: 1px solid hsl(var(--border));
-          border-radius: 14px;
+          border-radius: 12px;
           box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
           overflow: hidden;
         }
         .ground-ops-calendar .fc .fc-popover-header {
-          background: linear-gradient(180deg, hsl(var(--muted) / 0.4), transparent);
+          background: hsl(var(--muted) / 0.4);
           color: hsl(var(--foreground));
           padding: 10px 14px;
           font-weight: 700;
@@ -525,19 +610,19 @@ export default function CalendarShell({
           border: none !important;
         }
         .ground-ops-calendar .fc-list-day-cushion {
-          background: linear-gradient(180deg, hsl(var(--muted) / 0.4), hsl(var(--muted) / 0.2)) !important;
+          background: hsl(var(--muted) / 0.55) !important;
           color: hsl(var(--muted-foreground));
           padding: 10px 14px;
           font-weight: 800;
           font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.12em;
         }
         .ground-ops-calendar .fc-list-event {
           background: transparent !important;
         }
         .ground-ops-calendar .fc-list-event:hover td {
-          background: hsl(var(--muted) / 0.5) !important;
+          background: hsl(var(--muted) / 0.6) !important;
         }
         .ground-ops-calendar .fc-list-event-time,
         .ground-ops-calendar .fc-list-event-title {
@@ -565,50 +650,45 @@ export default function CalendarShell({
           color: #ef4444;
         }
       `}</style>
-    </Card>
+    </div>
   );
 }
 
 /* ────────────────────────── Agenda sidebar ────────────────────────── */
 
-function SidebarPanel({
-  title,
-  badge,
-  accentClass,
+function AgendaSection({
+  label,
+  count,
   events,
   emptyMessage,
   showDate = false,
   onEventClick,
 }: {
-  title: string;
-  badge: number;
-  accentClass: string;
+  label: string;
+  count: number;
   events: any[];
   emptyMessage: string;
   showDate?: boolean;
   onEventClick?: (info: any) => void;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col min-h-0 shadow-sm">
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${accentClass} shadow-md shadow-black/10`}>
-            <CalendarIcon className="h-3.5 w-3.5 text-white" />
-          </span>
-          <h3 className="text-sm font-bold tracking-tight text-foreground">{title}</h3>
-        </div>
-        <span className="text-[11px] font-bold text-muted-foreground bg-muted/60 border border-border rounded-full px-2 py-0.5">
-          {badge}
+    <div className="flex flex-col min-h-0">
+      <div className="flex items-baseline justify-between px-1 mb-2">
+        <h3 className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </h3>
+        <span className="text-[10px] font-bold tabular-nums text-muted-foreground">
+          {count}
         </span>
       </div>
-      <div className="flex-1 min-h-0 max-h-[420px] overflow-y-auto p-2 space-y-1.5">
+      <div className="flex-1 min-h-0 max-h-[360px] overflow-y-auto space-y-1 pr-0.5">
         {events.length === 0 ? (
-          <div className="text-center py-6 px-3">
+          <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
             <p className="text-xs text-muted-foreground">{emptyMessage}</p>
           </div>
         ) : (
           events.map((ev: any) => (
-            <SidebarEventRow key={ev.id} event={ev} showDate={showDate} onClick={onEventClick} />
+            <AgendaRow key={ev.id} event={ev} showDate={showDate} onClick={onEventClick} />
           ))
         )}
       </div>
@@ -616,7 +696,7 @@ function SidebarPanel({
   );
 }
 
-function SidebarEventRow({
+function AgendaRow({
   event,
   showDate,
   onClick,
@@ -641,35 +721,31 @@ function SidebarEventRow({
     <button
       type="button"
       onClick={handleClick}
-      className="group w-full text-left rounded-lg border border-border bg-gradient-to-br hover:shadow-md transition-all p-2.5 flex items-start gap-2.5 hover:-translate-y-px"
-      style={{
-        backgroundImage: `linear-gradient(135deg, ${palette.softBg} 0%, ${palette.softBg} 50%, ${palette.bg}10 100%)`,
-      }}
+      className="group w-full text-left rounded-lg p-2.5 transition-colors hover:bg-muted/60 flex items-start gap-2.5 border border-transparent hover:border-border"
     >
       <span
-        className="mt-1 inline-block h-2.5 w-2.5 rounded-full flex-shrink-0 ring-2 ring-white dark:ring-card shadow-sm"
+        className="mt-1 inline-block h-2.5 w-2.5 rounded-sm flex-shrink-0"
         style={{ background: palette.bg }}
       />
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-bold truncate" style={{ color: palette.softText }}>
-          {event.title}
-        </p>
-        <div className="flex items-center gap-2 mt-1 text-[10.5px] font-medium text-muted-foreground">
+        <div className="flex items-baseline gap-2">
           {(time || dateLabel) && (
-            <span className="inline-flex items-center gap-1">
-              <Clock className="h-2.5 w-2.5" />
+            <span className="text-[10.5px] font-bold tabular-nums text-muted-foreground flex-shrink-0">
               {[dateLabel, time].filter(Boolean).join(' · ')}
             </span>
           )}
-          {locationName && (
-            <span className="inline-flex items-center gap-1 truncate">
-              <MapPin className="h-2.5 w-2.5" />
-              {locationName}
-            </span>
-          )}
         </div>
+        <p className="text-[12.5px] font-semibold text-foreground truncate mt-0.5">
+          {event.title}
+        </p>
+        {locationName && (
+          <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground mt-0.5 truncate max-w-full">
+            <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+            <span className="truncate">{locationName}</span>
+          </span>
+        )}
       </div>
-      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+      <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
     </button>
   );
 }
