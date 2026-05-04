@@ -26,13 +26,24 @@ export async function POST(request: NextRequest) {
     }
     const clientData = clientDoc.data();
 
-    // Detach from Stripe (ignore if already detached)
+    // Detach from Stripe — but if the PM is already detached, was never
+    // attached, or no longer exists in Stripe at all, that's fine: the
+    // user's intent is to get rid of it, and our Firestore record needs
+    // to be cleaned up either way. Treat all of these as success and
+    // continue to the Firestore update.
     try {
       await stripe.paymentMethods.detach(paymentMethodId);
     } catch (stripeErr: any) {
-      if (!stripeErr.message?.includes('already been detached')) {
+      const msg = String(stripeErr?.message || '');
+      const code = stripeErr?.code;
+      const benign =
+        msg.includes('already been detached') ||
+        msg.includes('not attached to a customer') ||
+        code === 'resource_missing';
+      if (!benign) {
         throw stripeErr;
       }
+      console.warn(`[remove-pm] Skipping Stripe detach for ${paymentMethodId} — ${msg || code}; cleaning up Firestore only.`);
     }
 
     // Remove from paymentMethods array
