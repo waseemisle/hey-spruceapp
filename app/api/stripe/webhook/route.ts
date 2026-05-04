@@ -456,6 +456,105 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
       updatedAt: serverTimestamp(),
     });
 
+    // After-payment payment-method save: when a client pays a hosted
+    // invoice for the first time, persist the card/bank used so the admin
+    // can auto-charge subsequent invoices for the same client without
+    // asking the client to add a card again. Only saves if the client
+    // doesn't already have a default PM (avoid clobbering an admin-added
+    // primary), and only when a non-recurring PM was used.
+    const clientId = invData?.clientId;
+    if (clientId && stripeInvoice.payment_intent) {
+      try {
+        const piId = typeof stripeInvoice.payment_intent === 'string'
+          ? stripeInvoice.payment_intent
+          : stripeInvoice.payment_intent.id;
+        const pi = await stripe.paymentIntents.retrieve(piId, { expand: ['payment_method'] });
+        const paidPm: any = pi.payment_method;
+        const paidPmId = typeof paidPm === 'string' ? paidPm : paidPm?.id;
+        if (paidPmId) {
+          const clientRef = doc(db, 'clients', clientId);
+          const clientSnap = await getDoc(clientRef);
+          if (clientSnap.exists()) {
+            const clientData = clientSnap.data();
+            const existingMethods: any[] = clientData?.paymentMethods || [];
+            const alreadyKnown = existingMethods.some((m: any) => m.id === paidPmId)
+              || clientData?.defaultPaymentMethodId === paidPmId;
+            if (!alreadyKnown) {
+              const pmObj = typeof paidPm === 'string'
+                ? await stripe.paymentMethods.retrieve(paidPmId)
+                : paidPm;
+
+              // Attach to customer for off-session charging on future invoices.
+              if (clientData?.stripeCustomerId && pmObj.customer == null) {
+                try {
+                  await stripe.paymentMethods.attach(paidPmId, { customer: clientData.stripeCustomerId });
+                } catch (attachErr: any) {
+                  if (attachErr?.code !== 'payment_method_already_attached') {
+                    console.warn('[webhook] Could not attach PM to customer:', attachErr?.message);
+                  }
+                }
+              }
+
+              const isCard = pmObj.type === 'card';
+              const isBank = pmObj.type === 'us_bank_account';
+              const newMethod = isCard ? {
+                id: paidPmId,
+                type: 'card',
+                last4: pmObj.card?.last4 || '',
+                brand: pmObj.card?.brand || 'card',
+                expMonth: pmObj.card?.exp_month || null,
+                expYear: pmObj.card?.exp_year || null,
+                isDefault: !clientData?.defaultPaymentMethodId,
+                createdAt: Timestamp.now(),
+              } : isBank ? {
+                id: paidPmId,
+                type: 'us_bank_account',
+                last4: pmObj.us_bank_account?.last4 || '',
+                brand: pmObj.us_bank_account?.bank_name || 'Bank',
+                bankName: pmObj.us_bank_account?.bank_name || '',
+                routingNumber: pmObj.us_bank_account?.routing_number || '',
+                accountType: pmObj.us_bank_account?.account_type || 'checking',
+                accountHolderType: pmObj.us_bank_account?.account_holder_type || 'individual',
+                isDefault: !clientData?.defaultPaymentMethodId,
+                verificationStatus: 'verified',
+                createdAt: Timestamp.now(),
+              } : null;
+
+              if (newMethod) {
+                const updatePayload: Record<string, any> = {
+                  paymentMethods: [...existingMethods, newMethod],
+                  updatedAt: serverTimestamp(),
+                };
+                if (!clientData?.defaultPaymentMethodId) {
+                  updatePayload.defaultPaymentMethodId = paidPmId;
+                  updatePayload.autoPayEnabled = true;
+                  if (isCard) {
+                    updatePayload.savedCardLast4 = newMethod.last4;
+                    updatePayload.savedCardBrand = newMethod.brand;
+                    updatePayload.savedCardExpMonth = newMethod.expMonth;
+                    updatePayload.savedCardExpYear = newMethod.expYear;
+                  }
+                  if (clientData?.stripeCustomerId) {
+                    try {
+                      await stripe.customers.update(clientData.stripeCustomerId, {
+                        invoice_settings: { default_payment_method: paidPmId },
+                      });
+                    } catch (custErr: any) {
+                      console.warn('[webhook] Could not set default PM on Stripe customer:', custErr?.message);
+                    }
+                  }
+                }
+                await updateDoc(clientRef, updatePayload);
+                console.log(`[webhook] Auto-saved ${isCard ? 'card' : 'bank'} ${paidPmId} for client ${clientId} from hosted-invoice payment`);
+              }
+            }
+          }
+        }
+      } catch (pmErr) {
+        console.warn('[webhook] Failed to auto-save payment method from hosted-invoice payment:', pmErr);
+      }
+    }
+
     // 1-step completion for the RWO flow: when an auto-charged invoice
     // tied to a work order is paid, mark that workOrder completed too.
     // This is the "cron fires → invoice generated → client charged →

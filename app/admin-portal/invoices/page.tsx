@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { formatMoney } from '@/lib/money';
@@ -889,6 +889,7 @@ function InvoicesManagementInner() {
               <tbody className="bg-card divide-y divide-border">
                 {filteredInvoices.map((invoice) => {
                   const dueDate = invoice.dueDate?.toDate ? invoice.dueDate.toDate() : invoice.dueDate ? new Date(invoice.dueDate) : null;
+                  const hasSavedCardRow = invoice.status === 'sent' && clientBillingMap[invoice.clientId]?.defaultPaymentMethodId;
                   return (
                     <tr key={invoice.id} className="hover:bg-muted/50 transition-colors">
                       <td className="px-4 py-3 text-sm font-medium text-foreground">{invoice.invoiceNumber}</td>
@@ -907,16 +908,30 @@ function InvoicesManagementInner() {
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
-                          <Link href={`/admin-portal/invoices/${invoice.id}`}>
-                            <Button size="sm" variant="outline"><Eye className="h-4 w-4" /></Button>
-                          </Link>
-                          <Button size="sm" variant="outline" onClick={() => handleOpenEdit(invoice)}>
+                          <Button asChild size="sm" variant="outline" title="View">
+                            <Link href={`/admin-portal/invoices/${invoice.id}`} aria-label="View invoice">
+                              <Eye className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleOpenEdit(invoice)} title="Edit">
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => downloadInvoice(invoice)}>
+                          <Button size="sm" variant="outline" onClick={() => downloadInvoice(invoice)} title="Download PDF">
                             <Download className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => handleDeleteInvoice(invoice)}>
+                          {hasSavedCardRow && !invoice.autoChargeAttempted && (
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                              onClick={() => handleAutoCharge(invoice)}
+                              disabled={chargingInvoice === invoice.id}
+                              title={`Auto-charge ${clientBillingMap[invoice.clientId]?.savedCardBrand || 'card'} ···${clientBillingMap[invoice.clientId]?.savedCardLast4 || ''}`}
+                            >
+                              {chargingInvoice === invoice.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                              <span className="text-xs font-semibold">Auto Charge</span>
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50" onClick={() => handleDeleteInvoice(invoice)} title="Delete">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -997,6 +1012,26 @@ function InvoicesManagementInner() {
                     {invoice.status === 'draft' && invoice.stripePaymentLink && (
                       <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => markAsSent(invoice.id)} title="Mark as Sent">
                         <Send className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {/*
+                      Auto Charge — only renders for sent invoices where the
+                      client has a saved payment method (defaultPaymentMethodId).
+                      Hides itself once auto-charge has already been attempted
+                      so admin doesn't double-charge. Calls handleAutoCharge,
+                      which posts to /api/stripe/charge-saved-card; webhook
+                      then enriches the invoice with charge ID + receipt URL.
+                    */}
+                    {hasSavedCard && !invoice.autoChargeAttempted && (
+                      <Button
+                        size="sm"
+                        className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                        onClick={() => handleAutoCharge(invoice)}
+                        disabled={chargingInvoice === invoice.id}
+                        title={`Auto-charge ${clientBillingMap[invoice.clientId]?.savedCardBrand || 'card'} ···${clientBillingMap[invoice.clientId]?.savedCardLast4 || ''}`}
+                      >
+                        {chargingInvoice === invoice.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                        {chargingInvoice === invoice.id ? 'Charging…' : 'Auto Charge'}
                       </Button>
                     )}
                     {/*

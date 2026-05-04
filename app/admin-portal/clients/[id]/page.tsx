@@ -43,6 +43,7 @@ interface Client {
   phone: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
+  address?: { street?: string; city?: string; state?: string; zip?: string; country?: string };
   // Stripe billing
   stripeCustomerId?: string;
   defaultPaymentMethodId?: string;
@@ -60,6 +61,12 @@ interface Client {
   paymentTermsDays?: number;
   autoChargeThreshold?: number;
   assignedLocations?: string[];
+  /**
+   * Per-client internal-approval gate (admin-side review). When true,
+   * every invoice generated for this client lands in pending_approval
+   * with no client email until an admin clicks "Approve & notify".
+   */
+  requireInvoiceApproval?: boolean;
 }
 
 interface WorkOrder {
@@ -254,13 +261,22 @@ export default function ClientDetailPage() {
   const [editAutoChargeThreshold, setEditAutoChargeThreshold] = useState('');
   const [savingBillingTerms, setSavingBillingTerms] = useState(false);
 
-  // Edit client info modal
+  // Edit client info modal — single source of truth for ALL client fields
   const [showEditClientModal, setShowEditClientModal] = useState(false);
   const [editFullName, setEditFullName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editOriginalEmail, setEditOriginalEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editCompanyId, setEditCompanyId] = useState('');
   const [editStatus, setEditStatus] = useState<'pending' | 'approved' | 'rejected'>('approved');
   const [editAssignedLocations, setEditAssignedLocations] = useState<string[]>([]);
+  const [editPaymentTermsDays, setEditPaymentTermsDays] = useState('');
+  const [editAutoChargeThresholdMain, setEditAutoChargeThresholdMain] = useState('');
+  const [editRequireInvoiceApproval, setEditRequireInvoiceApproval] = useState(false);
+  const [editStreet, setEditStreet] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editStateRegion, setEditStateRegion] = useState('');
+  const [editZip, setEditZip] = useState('');
   const [savingClientInfo, setSavingClientInfo] = useState(false);
 
   // Delete work order
@@ -948,28 +964,89 @@ export default function ClientDetailPage() {
   const handleOpenEditClientModal = () => {
     if (!client) return;
     setEditFullName(client.fullName || '');
+    setEditEmail(client.email || '');
+    setEditOriginalEmail(client.email || '');
     setEditPhone(client.phone || '');
     setEditCompanyId(client.companyId || '');
     setEditStatus(client.status || 'approved');
     setEditAssignedLocations(client.assignedLocations || []);
+    setEditPaymentTermsDays(client.paymentTermsDays ? String(client.paymentTermsDays) : '');
+    setEditAutoChargeThresholdMain(client.autoChargeThreshold ? String(client.autoChargeThreshold) : '');
+    setEditRequireInvoiceApproval(client.requireInvoiceApproval === true);
+    setEditStreet(client.address?.street || '');
+    setEditCity(client.address?.city || '');
+    setEditStateRegion(client.address?.state || '');
+    setEditZip(client.address?.zip || '');
     setShowEditClientModal(true);
   };
 
   const handleSaveClientInfo = async () => {
-    if (!client || !editFullName || !editPhone) { toast.error('Name and phone are required'); return; }
+    if (!client || !editFullName || !editPhone || !editEmail) {
+      toast.error('Name, email and phone are required');
+      return;
+    }
     setSavingClientInfo(true);
     try {
       const selectedCompany = companies.find((c) => c.id === editCompanyId);
-      await updateDoc(doc(db, 'clients', client.uid), {
+      const paymentTermsDaysVal = editPaymentTermsDays ? parseInt(editPaymentTermsDays) : null;
+      const autoChargeThresholdVal = editAutoChargeThresholdMain ? parseFloat(editAutoChargeThresholdMain) : null;
+
+      const emailChanged =
+        !!editOriginalEmail &&
+        editEmail.trim().toLowerCase() !== editOriginalEmail.trim().toLowerCase();
+
+      // Email change requires the migrate-client-email API: it deletes the
+      // old Auth user, creates a new one, copies Firestore docs to the new
+      // uid and migrates every collection that references the old uid.
+      let targetClientId = client.uid;
+      if (emailChanged) {
+        const res = await fetch('/api/auth/migrate-client-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: client.uid,
+            newEmail: editEmail.trim(),
+            fullName: editFullName,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to migrate client to new email');
+        }
+        const result = await res.json();
+        if (!result.newUid) throw new Error('Migration response missing newUid');
+        targetClientId = result.newUid;
+      }
+
+      await updateDoc(doc(db, 'clients', targetClientId), {
         fullName: editFullName,
         phone: editPhone,
         companyId: editCompanyId || null,
         companyName: selectedCompany?.name || null,
         status: editStatus,
         assignedLocations: editAssignedLocations,
+        paymentTermsDays: paymentTermsDaysVal,
+        autoChargeThreshold: autoChargeThresholdVal,
+        requireInvoiceApproval: editRequireInvoiceApproval === true,
+        address: {
+          street: editStreet.trim(),
+          city: editCity.trim(),
+          state: editStateRegion.trim(),
+          zip: editZip.trim(),
+        },
+        updatedAt: serverTimestamp(),
       });
-      toast.success('Client updated');
+
+      toast.success(
+        emailChanged
+          ? `Client migrated to ${editEmail}. Invitation email sent.`
+          : 'Client updated'
+      );
       setShowEditClientModal(false);
+      if (emailChanged && targetClientId !== client.uid) {
+        // Old uid is gone; route to the new one so the page keeps working.
+        router.replace(`/admin-portal/clients/${targetClientId}`);
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to save client info');
     } finally {
@@ -2562,87 +2639,207 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* ── Edit Client Info Modal ────────────────────────────────────────── */}
+      {/* ── Edit Client Info Modal — single source of truth ─────────────── */}
       {showEditClientModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-card rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl p-6 space-y-5 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Edit Client</h2>
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Edit Client</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">All client fields. Changing the email will migrate the auth account.</p>
+              </div>
               <button onClick={() => setShowEditClientModal(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Email (read-only) */}
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">Email (cannot be changed)</label>
-              <input
-                type="email"
-                value={client?.email || ''}
-                disabled
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-muted text-muted-foreground cursor-default"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* ── Identity ─────────────────────────────────────────────── */}
+            <section className="space-y-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Identity</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    value={editFullName}
+                    onChange={(e) => setEditFullName(e.target.value)}
+                    placeholder="Full name"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Phone *</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="(555) 123-4567"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
               <div>
-                <label className="text-xs font-semibold text-muted-foreground block mb-1">Full Name *</label>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Email *</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="client@example.com"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {editEmail && editOriginalEmail && editEmail.trim().toLowerCase() !== editOriginalEmail.trim().toLowerCase() && (
+                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md mt-1.5 px-2 py-1.5">
+                    Email will change from <strong>{editOriginalEmail}</strong> to <strong>{editEmail}</strong>. The existing sign-in will be replaced and a fresh invitation email will be sent. Work orders, invoices, quotes and payment methods are kept.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            {/* ── Company + Status ────────────────────────────────────── */}
+            <section className="space-y-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Company & Status</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Company</label>
+                  <SearchableSelect
+                    className="w-full"
+                    value={editCompanyId}
+                    onValueChange={(v) => { setEditCompanyId(v); setEditAssignedLocations([]); }}
+                    options={[
+                      { value: '', label: 'No company' },
+                      ...companies.map((c) => ({ value: c.id, label: c.name })),
+                    ]}
+                    placeholder="Select company"
+                    aria-label="Company"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Status</label>
+                  <SearchableSelect
+                    className="w-full"
+                    value={editStatus}
+                    onValueChange={(v) => setEditStatus(v as 'pending' | 'approved' | 'rejected')}
+                    options={[
+                      { value: 'approved', label: 'Approved' },
+                      { value: 'pending', label: 'Pending' },
+                      { value: 'rejected', label: 'Rejected' },
+                    ]}
+                    placeholder="Status"
+                    aria-label="Status"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* ── Address ─────────────────────────────────────────────── */}
+            <section className="space-y-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Billing Address</h3>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">Street</label>
                 <input
                   type="text"
-                  value={editFullName}
-                  onChange={(e) => setEditFullName(e.target.value)}
-                  placeholder="Full name"
+                  value={editStreet}
+                  onChange={(e) => setEditStreet(e.target.value)}
+                  placeholder="123 Main St"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground block mb-1">Phone *</label>
-                <input
-                  type="tel"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  placeholder="(555) 123-4567"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">City</label>
+                  <input
+                    type="text"
+                    value={editCity}
+                    onChange={(e) => setEditCity(e.target.value)}
+                    placeholder="City"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">State / Region</label>
+                  <input
+                    type="text"
+                    value={editStateRegion}
+                    onChange={(e) => setEditStateRegion(e.target.value)}
+                    placeholder="State"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">ZIP</label>
+                  <input
+                    type="text"
+                    value={editZip}
+                    onChange={(e) => setEditZip(e.target.value)}
+                    placeholder="ZIP"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground block mb-1">Company</label>
-                <SearchableSelect
-                  className="w-full"
-                  value={editCompanyId}
-                  onValueChange={(v) => { setEditCompanyId(v); setEditAssignedLocations([]); }}
-                  options={[
-                    { value: '', label: 'No company' },
-                    ...companies.map((c) => ({ value: c.id, label: c.name })),
-                  ]}
-                  placeholder="Select company"
-                  aria-label="Company"
-                />
+            {/* ── Billing Behavior ────────────────────────────────────── */}
+            <section className="space-y-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Billing Behavior</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Payment Terms (days)</label>
+                  <SearchableSelect
+                    className="w-full"
+                    value={editPaymentTermsDays}
+                    onValueChange={setEditPaymentTermsDays}
+                    options={[
+                      { value: '', label: 'Not set' },
+                      { value: '7', label: 'Net 7' },
+                      { value: '15', label: 'Net 15' },
+                      { value: '30', label: 'Net 30' },
+                      { value: '45', label: 'Net 45' },
+                      { value: '60', label: 'Net 60' },
+                    ]}
+                    placeholder="Net X"
+                    aria-label="Payment terms"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Auto-Charge Threshold</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editAutoChargeThresholdMain}
+                      onChange={(e) => setEditAutoChargeThresholdMain(e.target.value)}
+                      placeholder="e.g. 500.00"
+                      className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground block mb-1">Status</label>
-                <SearchableSelect
-                  className="w-full"
-                  value={editStatus}
-                  onValueChange={(v) => setEditStatus(v as 'pending' | 'approved' | 'rejected')}
-                  options={[
-                    { value: 'approved', label: 'Approved' },
-                    { value: 'pending', label: 'Pending' },
-                    { value: 'rejected', label: 'Rejected' },
-                  ]}
-                  placeholder="Status"
-                  aria-label="Status"
-                />
-              </div>
-            </div>
+              <label className={`block rounded-lg border-2 p-3 cursor-pointer transition-all ${
+                editRequireInvoiceApproval
+                  ? 'border-amber-300 bg-amber-50'
+                  : 'border-border bg-card hover:border-amber-200'
+              }`}>
+                <div className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={editRequireInvoiceApproval}
+                    onChange={(e) => setEditRequireInvoiceApproval(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 text-amber-600 rounded border-input"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Require admin approval before sending invoices</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">When enabled, every invoice for this client lands in a pending_approval state with no client email until an admin clicks "Approve & notify".</p>
+                  </div>
+                </div>
+              </label>
+            </section>
 
-            {/* Assigned Locations */}
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">Assigned Locations</label>
-              <div className="border border-border rounded-lg p-3 bg-card">
+            {/* ── Assigned Locations ──────────────────────────────────── */}
+            <section className="space-y-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Assigned Locations</h3>
+              <div className="border border-border rounded-lg p-3 bg-card max-h-56 overflow-y-auto">
                 {(() => {
                   const locPool = editCompanyId
                     ? allLocations.filter((l) => l.companyId === editCompanyId)
@@ -2666,7 +2863,7 @@ export default function ClientDetailPage() {
                   ));
                 })()}
               </div>
-            </div>
+            </section>
 
             <div className="flex gap-2 pt-2 border-t border-border">
               <Button variant="outline" onClick={() => setShowEditClientModal(false)} className="flex-1" disabled={savingClientInfo}>Cancel</Button>
