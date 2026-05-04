@@ -1,77 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { getServerDb } from '@/lib/firebase-server';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
-});
+import { NextResponse } from 'next/server';
 
 /**
- * Creates a Stripe Checkout session in "setup" mode.
- * Supports both client-portal flow and admin-initiated flow.
+ * DEPRECATED — was the legacy Stripe Checkout-based "setup" flow for
+ * collecting payment methods. Replaced by the PaymentElement modal at
+ * components/billing/add-payment-method-modal.tsx, which uses the same
+ * widget customers see on invoice.stripe.com.
  *
- * Body: { clientId, adminInitiated?: boolean }
+ * The new flow:
+ *   1. POST /api/stripe/create-setup-intent  → returns SetupIntent
+ *      client_secret + customer + publishable key.
+ *   2. Stripe.js PaymentElement mounted with the clientSecret renders
+ *      Card and US bank account tabs.
+ *   3. stripe.confirmSetup() inline (no redirect for cards).
+ *   4. POST /api/stripe/save-payment-method  → mirrors the PM into
+ *      Firestore client.paymentMethods, sets default if first.
+ *
+ * Kept as a 410 Gone responder so any cached client bundle that still
+ * fetches this route gets a clear error instead of a silent Checkout
+ * redirect that won't auto-save the PM.
  */
-export async function POST(request: NextRequest) {
-  const db = await getServerDb();
-  try {
-    const { clientId, adminInitiated } = await request.json();
-
-    if (!clientId) {
-      return NextResponse.json({ error: 'Missing clientId' }, { status: 400 });
-    }
-
-    const clientDoc = await getDoc(doc(db, 'clients', clientId));
-    if (!clientDoc.exists()) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 });
-    }
-    const clientData = clientDoc.data();
-
-    // Ensure Stripe customer exists
-    let stripeCustomerId = clientData.stripeCustomerId;
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: clientData.email,
-        name: clientData.fullName,
-        metadata: { clientId, companyName: clientData.companyName || '' },
-      });
-      stripeCustomerId = customer.id;
-      await updateDoc(doc(db, 'clients', clientId), {
-        stripeCustomerId,
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
-
-    // Determine redirect URLs based on who initiated
-    const successUrl = adminInitiated
-      ? `${baseUrl}/admin-portal/clients/${clientId}?card_added=success`
-      : `${baseUrl}/client-portal/payment-methods?setup=success&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = adminInitiated
-      ? `${baseUrl}/admin-portal/clients/${clientId}?card_added=cancelled`
-      : `${baseUrl}/client-portal/payment-methods?setup=cancelled`;
-
-    // Create Checkout session in setup mode
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'setup',
-      customer: stripeCustomerId,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      metadata: {
-        clientId,
-        type: 'save_card',
-      },
-    });
-
-    return NextResponse.json({ sessionId: session.id, url: session.url });
-  } catch (error: any) {
-    console.error('Error creating setup session:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to create setup session' },
-      { status: 500 }
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    {
+      error:
+        'This endpoint is deprecated. The admin Add Payment Method flow now uses the PaymentElement-based SetupIntent at /api/stripe/create-setup-intent. Reload the admin portal to pick up the new flow.',
+      replacedBy: '/api/stripe/create-setup-intent',
+    },
+    { status: 410 },
+  );
 }

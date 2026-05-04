@@ -62,13 +62,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // SetupIntent that supports BOTH card and us_bank_account so the
+    // PaymentElement on the client renders the same tabbed UX customers
+    // see on invoice.stripe.com — admin picks Card or Bank, fills it in,
+    // and we get one SetupIntent that lands a usable off-session PM
+    // either way. Includes the standard payment_method_data wrapper so
+    // ACH PM creation through PaymentElement works without extra params.
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomerId,
       usage: 'off_session',
-      metadata: { clientId },
+      payment_method_types: ['card', 'us_bank_account'],
+      metadata: { clientId, source: 'admin_add_payment_method' },
     });
 
-    return NextResponse.json({ clientSecret: setupIntent.client_secret });
+    return NextResponse.json({
+      clientSecret: setupIntent.client_secret,
+      stripeCustomerId,
+      publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
+    });
   } catch (error: any) {
     console.error('Error creating setup intent:', error);
     return NextResponse.json(

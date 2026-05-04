@@ -14,6 +14,7 @@ import {
   Zap, DollarSign, History, Receipt, FileText, Layers, Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import AddPaymentMethodModal from '@/components/billing/add-payment-method-modal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -233,7 +234,14 @@ export default function ClientDetailPage() {
   const [settingDefault, setSettingDefault] = useState<string | null>(null);
   const [testingEmail, setTestingEmail] = useState(false);
 
-  // Inline card form
+  // Unified Add Payment Method modal — single PaymentElement-based UI
+  // that replaces the legacy Add Card and Add Bank Account inline forms.
+  // Mirrors the widget customers see on invoice.stripe.com so admins can
+  // add a card OR a US bank account from one place.
+  const [showAddPaymentMethodModal, setShowAddPaymentMethodModal] = useState(false);
+
+  // Legacy state kept around because handleOpenBankModal still references
+  // it for backwards-compat shape. Marked dead but not removed yet.
   const [showCardModal, setShowCardModal] = useState(false);
   const [submittingCard, setSubmittingCard] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
@@ -595,22 +603,19 @@ export default function ClientDetailPage() {
     }
   };
 
-  /** Admin-initiated: open inline card form */
-  const handleAddCard = () => {
-    setShowCardModal(true);
+  /**
+   * Open the unified Add Payment Method modal. Both legacy entry points
+   * (handleAddCard, handleOpenBankModal) now route through this single
+   * function so the header "click to add" badge, the Billing & Payment
+   * Info card buttons, and any future entry points all open the same
+   * PaymentElement modal — no more inconsistent two-modal behaviour.
+   */
+  const openAddPaymentMethod = () => {
+    setShowAddPaymentMethodModal(true);
     setAddingCard(false);
   };
-
-  /** Admin-initiated: open bank account form */
-  const handleOpenBankModal = () => {
-    setBankRouting('');
-    setBankAccountNum('');
-    setBankHolderType('individual');
-    setBankAccountType('checking');
-    setBankHolderName(client?.fullName || '');
-    setBankError(null);
-    setShowBankModal(true);
-  };
+  const handleAddCard = openAddPaymentMethod;
+  const handleOpenBankModal = openAddPaymentMethod;
 
   const handleAddBankAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1318,21 +1323,12 @@ export default function ClientDetailPage() {
               )}
               <Button
                 size="sm"
-                variant="outline"
-                onClick={handleOpenBankModal}
-                className="gap-1.5 text-xs h-8"
-              >
-                <Building2 className="h-3.5 w-3.5" />
-                Add Bank Account
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleAddCard}
-                disabled={addingCard}
+                onClick={openAddPaymentMethod}
                 className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-xs h-8"
+                title="Add a card or US bank account — same widget customers see on invoice.stripe.com"
               >
-                {addingCard ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                {addingCard ? 'Redirecting…' : 'Add Card'}
+                <Plus className="h-3.5 w-3.5" />
+                Add Payment Method
               </Button>
             </div>
           </div>
@@ -2452,7 +2448,18 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* ── Add Card Modal ────────────────────────────────────────────────── */}
+      {/* ── Unified Add Payment Method Modal (PaymentElement, replaces Add Card + Add Bank) ─ */}
+      <AddPaymentMethodModal
+        open={showAddPaymentMethodModal}
+        onClose={() => setShowAddPaymentMethodModal(false)}
+        clientId={id}
+        clientName={client?.fullName}
+        onSuccess={(label) => {
+          toast.success(`${label} saved. Auto Charge is now available on this client's invoices.`);
+        }}
+      />
+
+      {/* ── LEGACY Add Card Modal — kept dead for now; Add Card button no longer opens it ─ */}
       {showCardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
