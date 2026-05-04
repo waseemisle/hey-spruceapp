@@ -41,27 +41,37 @@ export type StatusSlot =
 
 export interface StatusColor {
   slot: StatusSlot;
+  /** Solid accent for dots, indicators, and timeline markers. */
   bg: string;
+  /** Stronger accent for hover, borders, focus rings. */
   border: string;
+  /** Foreground when the event chip uses the bg as background. */
   text: string;
+  /** Tinted background for the soft "card-style" event chip. */
+  softBg: string;
+  /** Foreground text for the soft chip. */
+  softText: string;
 }
 
 /**
- * Single source of truth for event colors. Tuned for both light and dark
- * backgrounds — the bg is solid enough to read white text on either theme.
+ * Single source of truth for event colors. Refined Linear / Vercel-grade
+ * palette with a softer secondary tint per slot. The soft variants are
+ * what the calendar event tiles actually render — solid bg-blocks felt
+ * loud and clashy at scale; soft tints with a colored left bar read as
+ * intentional hierarchy at a glance.
  */
 export const STATUS_PALETTE: Record<StatusSlot, StatusColor> = {
-  scheduled:  { slot: 'scheduled',  bg: '#3b82f6', border: '#2563eb', text: '#ffffff' },
-  assigned:   { slot: 'assigned',   bg: '#06b6d4', border: '#0891b2', text: '#ffffff' },
-  pending:    { slot: 'pending',    bg: '#f59e0b', border: '#d97706', text: '#ffffff' },
-  bidding:    { slot: 'bidding',    bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' },
-  completed:  { slot: 'completed',  bg: '#10b981', border: '#059669', text: '#ffffff' },
-  rejected:   { slot: 'rejected',   bg: '#ef4444', border: '#dc2626', text: '#ffffff' },
-  recurring:  { slot: 'recurring',  bg: '#7c3aed', border: '#6d28d9', text: '#ffffff' },
-  execution:  { slot: 'execution',  bg: '#f97316', border: '#ea580c', text: '#ffffff' },
-  diagnostic: { slot: 'diagnostic', bg: '#6366f1', border: '#4f46e5', text: '#ffffff' },
-  quote:      { slot: 'quote',      bg: '#14b8a6', border: '#0d9488', text: '#ffffff' },
-  neutral:    { slot: 'neutral',    bg: '#6b7280', border: '#4b5563', text: '#ffffff' },
+  scheduled:  { slot: 'scheduled',  bg: '#2563eb', border: '#1d4ed8', text: '#ffffff', softBg: '#eff6ff', softText: '#1e40af' },
+  assigned:   { slot: 'assigned',   bg: '#0891b2', border: '#0e7490', text: '#ffffff', softBg: '#ecfeff', softText: '#155e75' },
+  pending:    { slot: 'pending',    bg: '#d97706', border: '#b45309', text: '#ffffff', softBg: '#fffbeb', softText: '#92400e' },
+  bidding:    { slot: 'bidding',    bg: '#7c3aed', border: '#6d28d9', text: '#ffffff', softBg: '#f5f3ff', softText: '#5b21b6' },
+  completed:  { slot: 'completed',  bg: '#059669', border: '#047857', text: '#ffffff', softBg: '#ecfdf5', softText: '#065f46' },
+  rejected:   { slot: 'rejected',   bg: '#dc2626', border: '#b91c1c', text: '#ffffff', softBg: '#fef2f2', softText: '#991b1b' },
+  recurring:  { slot: 'recurring',  bg: '#9333ea', border: '#7e22ce', text: '#ffffff', softBg: '#faf5ff', softText: '#6b21a8' },
+  execution:  { slot: 'execution',  bg: '#ea580c', border: '#c2410c', text: '#ffffff', softBg: '#fff7ed', softText: '#9a3412' },
+  diagnostic: { slot: 'diagnostic', bg: '#4f46e5', border: '#4338ca', text: '#ffffff', softBg: '#eef2ff', softText: '#3730a3' },
+  quote:      { slot: 'quote',      bg: '#0d9488', border: '#0f766e', text: '#ffffff', softBg: '#f0fdfa', softText: '#115e59' },
+  neutral:    { slot: 'neutral',    bg: '#475569', border: '#334155', text: '#ffffff', softBg: '#f8fafc', softText: '#334155' },
 };
 
 export function statusToSlot(status: string | undefined): StatusSlot {
