@@ -44,13 +44,61 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
     const inv = snap.data() as any;
+    const stripeInvoiceId = inv.stripeInvoiceId as string | undefined;
 
-    // Already paid in Firestore → nothing to do.
+    // ───────────────────────────────────────────────────────────────
+    // Already-paid in Firestore but the linked Stripe Invoice is still
+    // 'open'. This happens when an admin clicked Auto Charge under the
+    // OLD code path that created a stand-alone PaymentIntent instead
+    // of paying the existing Stripe Invoice — money was collected via
+    // our PI, but the Stripe Invoice's own incomplete PI is sitting
+    // there making the invoice look unpaid in the Stripe dashboard.
+    // Fix it by marking the Stripe Invoice paid_out_of_band: tells
+    // Stripe "yes we got paid, just not through this invoice's PI".
+    // No double-charge — paid_out_of_band closes the invoice without
+    // running a second charge.
+    // ───────────────────────────────────────────────────────────────
     if (inv.status === 'paid') {
+      if (stripeInvoiceId) {
+        try {
+          const stripeInvoice = await stripe.invoices.retrieve(stripeInvoiceId);
+          if (stripeInvoice.status === 'open' || stripeInvoice.status === 'draft') {
+            const closed = await stripe.invoices.pay(stripeInvoiceId, { paid_out_of_band: true });
+            const closeEvent = createInvoiceTimelineEvent({
+              type: 'paid',
+              userId: 'system',
+              userName: 'Payment System (Reconcile)',
+              userRole: 'system',
+              details: `Reconciled orphan Stripe Invoice ${stripeInvoiceId} (was 'open', now closed paid_out_of_band) — money was already collected via PaymentIntent ${inv.stripePaymentIntentId || 'unknown'}.`,
+              metadata: {
+                stripeInvoiceId: closed.id,
+                hostedInvoiceUrl: closed.hosted_invoice_url || '',
+                source: 'reconcile_endpoint',
+              },
+            });
+            await updateDoc(ref, {
+              stripeInvoicePdf: closed.invoice_pdf || inv.stripeInvoicePdf || null,
+              stripeHostedInvoiceUrl: closed.hosted_invoice_url || inv.stripeHostedInvoiceUrl || null,
+              timeline: [...(inv.timeline || []), closeEvent],
+              updatedAt: serverTimestamp(),
+            });
+            console.log(`[sync-invoice] Reconciled orphan Stripe Invoice ${stripeInvoiceId} → paid_out_of_band`);
+            return NextResponse.json({
+              ok: true,
+              status: 'paid',
+              synced: true,
+              reconciled: true,
+              reason: 'closed_orphan_stripe_invoice',
+              stripeStatus: closed.status,
+            });
+          }
+        } catch (recErr: any) {
+          console.warn('[sync-invoice] Reverse-drift reconcile failed:', recErr?.message);
+        }
+      }
       return NextResponse.json({ ok: true, status: 'paid', synced: false });
     }
 
-    const stripeInvoiceId = inv.stripeInvoiceId as string | undefined;
     if (!stripeInvoiceId) {
       return NextResponse.json({ ok: true, synced: false, reason: 'no_stripe_invoice_id' });
     }
