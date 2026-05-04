@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -250,7 +251,9 @@ export default function CompanyDetailPage() {
       <AdminLayout>
         <div className="text-center py-16">
           <p className="text-muted-foreground mb-4">Company not found.</p>
-          <Button onClick={() => router.push('/admin-portal/subsidiaries')}>Go Back</Button>
+          <Button asChild>
+            <Link href="/admin-portal/subsidiaries">Go Back</Link>
+          </Button>
         </div>
       </AdminLayout>
     );
@@ -271,12 +274,14 @@ export default function CompanyDetailPage() {
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
         {/* Back */}
         <Button
+          asChild
           variant="ghost"
           className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
-          onClick={() => router.push('/admin-portal/subsidiaries')}
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Companies
+          <Link href="/admin-portal/subsidiaries">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Companies
+          </Link>
         </Button>
 
         {/* Company Header */}
@@ -370,13 +375,15 @@ export default function CompanyDetailPage() {
                     </p>
                   </div>
                   <Button
+                    asChild
                     size="sm"
                     variant="outline"
                     className="h-7 text-xs gap-1"
-                    onClick={() => router.push(`/admin-portal/clients/${client.uid}`)}
                   >
-                    <ExternalLink className="h-3 w-3" />
-                    View
+                    <Link href={`/admin-portal/clients/${client.uid}`}>
+                      <ExternalLink className="h-3 w-3" />
+                      View
+                    </Link>
                   </Button>
                 </div>
               ))}
@@ -486,13 +493,15 @@ export default function CompanyDetailPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         <Button
+                          asChild
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1"
-                          onClick={() => router.push(`/admin-portal/work-orders/${wo.id}`)}
                         >
-                          <ExternalLink className="h-3 w-3" />
-                          View
+                          <Link href={`/admin-portal/work-orders/${wo.id}`}>
+                            <ExternalLink className="h-3 w-3" />
+                            View
+                          </Link>
                         </Button>
                       </td>
                     </tr>

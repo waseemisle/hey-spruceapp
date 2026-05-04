@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc, getDoc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -528,8 +529,10 @@ export default function SubcontractorsManagement() {
                   )}
                   {/* Row 4: actions */}
                   <div className="flex items-center gap-1.5 pt-1 border-t border-border">
-                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => router.push(`/admin-portal/subcontractors/${sub.uid}`)}>
-                      <Eye className="h-3.5 w-3.5" /> View
+                    <Button asChild size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1">
+                      <Link href={`/admin-portal/subcontractors/${sub.uid}`}>
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Link>
                     </Button>
                     <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(sub)}>
                       <Edit2 className="h-3.5 w-3.5" />
@@ -636,8 +639,10 @@ export default function SubcontractorsManagement() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-2">
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => router.push(`/admin-portal/subcontractors/${sub.uid}`)}>
-                            <Eye className="h-4 w-4" />
+                          <Button asChild size="sm" variant="ghost" className="h-8 w-8 p-0" title="View">
+                            <Link href={`/admin-portal/subcontractors/${sub.uid}`} aria-label="View subcontractor">
+                              <Eye className="h-4 w-4" />
+                            </Link>
                           </Button>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleOpenEdit(sub)}>
                             <Edit2 className="h-4 w-4" />

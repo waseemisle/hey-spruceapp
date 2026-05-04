@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { US_STATES } from '@/lib/us-states';
 
 interface Company {
@@ -624,12 +625,14 @@ export default function CompaniesPermissions() {
                       </div>
                     </div>
                     <Button
+                      asChild
                       size="sm"
                       variant="outline"
                       className="gap-1.5"
-                      onClick={() => router.push(`/admin-portal/subsidiaries/${selectedCompany.id}`)}
                     >
-                      <Eye className="h-4 w-4" /> View Company
+                      <Link href={`/admin-portal/subsidiaries/${selectedCompany.id}`}>
+                        <Eye className="h-4 w-4" /> View Company
+                      </Link>
                     </Button>
                   </div>
 

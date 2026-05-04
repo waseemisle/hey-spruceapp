@@ -5,6 +5,7 @@ import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firesto
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { subscribeSubcontractorSupportTickets } from '@/lib/support-ticket-snapshots';
+import Link from 'next/link';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
@@ -302,10 +303,10 @@ export default function SubcontractorSupportTicketsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {pageSlice.map((t) => (
-              <div
+              <Link
                 key={t.id}
+                href={`/subcontractor-portal/support-tickets/${t.id}`}
                 className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => { window.location.href = `/subcontractor-portal/support-tickets/${t.id}`; }}
               >
                 {/* Row 1: title + status badge */}
                 <div className="flex items-start justify-between gap-2">
@@ -332,17 +333,14 @@ export default function SubcontractorSupportTicketsPage() {
 
                 {/* Actions row */}
                 <div className="border-t border-border pt-1 flex gap-2 mt-auto">
-                  <button
-                    className="flex-1 h-8 text-xs gap-1 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors"
-                    onClick={(e) => { e.stopPropagation(); window.location.href = `/subcontractor-portal/support-tickets/${t.id}`; }}
-                  >
+                  <span className="flex-1 h-8 text-xs gap-1 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground font-medium">
                     View Ticket
-                  </button>
+                  </span>
                   <span className={`shrink-0 self-center px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityClass(t.priority)}`}>
                     {t.priority}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

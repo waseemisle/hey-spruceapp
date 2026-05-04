@@ -11,6 +11,7 @@ import { Building2, Plus, Save, X, Search, Edit2, Trash2, Eye, Upload, Mail, Pho
 import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageContainer } from '@/components/ui/page-container';
@@ -266,8 +267,10 @@ export default function AdminCompanies() {
 
                   {/* Actions row */}
                   <div className="flex items-center gap-1.5 pt-1 border-t border-border">
-                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => router.push(`/admin-portal/subsidiaries/${c.id}`)}>
-                      <Eye className="h-3.5 w-3.5" /> View
+                    <Button asChild size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1">
+                      <Link href={`/admin-portal/subsidiaries/${c.id}`}>
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Link>
                     </Button>
                     <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(c)}>
                       <Edit2 className="h-3.5 w-3.5" />
@@ -331,8 +334,10 @@ export default function AdminCompanies() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-2">
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => router.push(`/admin-portal/subsidiaries/${c.id}`)}>
-                            <Eye className="h-4 w-4" />
+                          <Button asChild size="sm" variant="ghost" className="h-8 w-8 p-0" title="View">
+                            <Link href={`/admin-portal/subsidiaries/${c.id}`} aria-label="View subsidiary">
+                              <Eye className="h-4 w-4" />
+                            </Link>
                           </Button>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleOpenEdit(c)}>
                             <Edit2 className="h-4 w-4" />

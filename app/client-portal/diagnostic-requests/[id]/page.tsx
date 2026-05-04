@@ -206,9 +206,11 @@ export default function ClientDiagnosticRequestDetail() {
       <ClientLayout>
         <div className="space-y-4 max-w-3xl mx-auto py-12 text-center">
           <p className="text-muted-foreground">Diagnostic request not found.</p>
-          <Button variant="outline" onClick={() => router.push('/client-portal/diagnostic-requests')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Diagnostic Requests
+          <Button asChild variant="outline">
+            <Link href="/client-portal/diagnostic-requests">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Diagnostic Requests
+            </Link>
           </Button>
         </div>
       </ClientLayout>
@@ -235,9 +237,11 @@ export default function ClientDiagnosticRequestDetail() {
     <ClientLayout>
       <div className="space-y-4 max-w-4xl">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => router.push('/client-portal/diagnostic-requests')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+          <Button asChild variant="outline" size="sm">
+            <Link href="/client-portal/diagnostic-requests">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Link>
           </Button>
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[quote.status] || 'bg-muted text-foreground'}`}>
             {statusLabels[quote.status] || quote.status}

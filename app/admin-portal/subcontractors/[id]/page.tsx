@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -289,7 +290,9 @@ export default function SubcontractorDetailPage() {
       <AdminLayout>
         <div className="text-center py-16">
           <p className="text-muted-foreground mb-4">Subcontractor not found.</p>
-          <Button onClick={() => router.push('/admin-portal/subcontractors')}>Go Back</Button>
+          <Button asChild>
+            <Link href="/admin-portal/subcontractors">Go Back</Link>
+          </Button>
         </div>
       </AdminLayout>
     );
@@ -311,12 +314,14 @@ export default function SubcontractorDetailPage() {
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
         {/* Back */}
         <Button
+          asChild
           variant="ghost"
           className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
-          onClick={() => router.push('/admin-portal/subcontractors')}
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Subcontractors
+          <Link href="/admin-portal/subcontractors">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Subcontractors
+          </Link>
         </Button>
 
         {/* Entity Header */}

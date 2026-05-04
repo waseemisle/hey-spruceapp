@@ -5,6 +5,7 @@ import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { formatMoney } from '@/lib/money';
 import AdminLayout from '@/components/admin-layout';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { XCircle, Search, Eye, Calendar, User } from 'lucide-react';
@@ -184,13 +185,11 @@ export default function RejectedWorkOrders() {
 
                 {/* Actions */}
                 <div className="border-t border-border pt-1 flex items-center gap-1">
-                  <Button
-                    className="flex-1 h-8 text-xs gap-1"
-                    variant="outline"
-                    onClick={() => window.location.href = `/admin-portal/work-orders/${workOrder.id}`}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    View Details
+                  <Button asChild className="flex-1 h-8 text-xs gap-1" variant="outline">
+                    <Link href={`/admin-portal/work-orders/${workOrder.id}`}>
+                      <Eye className="h-3.5 w-3.5" />
+                      View Details
+                    </Link>
                   </Button>
                 </div>
               </div>

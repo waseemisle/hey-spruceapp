@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 interface Notification {
   id: string;
@@ -208,12 +209,12 @@ export default function NotificationBell() {
         </div>
         {notifications.length > 0 && getMessagesPath() && (
           <div className="px-4 py-2 border-t bg-muted">
-            <button
-              onClick={() => router.push(getMessagesPath()!)}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium w-full text-center"
+            <Link
+              href={getMessagesPath()!}
+              className="block text-xs text-blue-600 hover:text-blue-800 font-medium w-full text-center"
             >
               View All Notifications
-            </button>
+            </Link>
           </div>
         )}
       </DropdownMenuContent>

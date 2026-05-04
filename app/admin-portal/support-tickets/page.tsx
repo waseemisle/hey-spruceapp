@@ -432,11 +432,8 @@ export default function AdminSupportTicketsPage() {
 
                 {/* Actions */}
                 <div className="border-t border-border pt-1 flex items-center gap-1">
-                  <Button
-                    className="flex-1 h-8 text-xs gap-1"
-                    onClick={() => { window.location.href = `/admin-portal/support-tickets/${t.id}`; }}
-                  >
-                    View
+                  <Button asChild className="flex-1 h-8 text-xs gap-1">
+                    <Link href={`/admin-portal/support-tickets/${t.id}`}>View</Link>
                   </Button>
                 </div>
               </div>

@@ -6,6 +6,7 @@ import { collection, query, getDocs, getDoc, doc, updateDoc, serverTimestamp, wh
 import { db, auth } from '@/lib/firebase';
 import { formatMoney } from '@/lib/money';
 import AdminLayout from '@/components/admin-layout';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -520,8 +521,10 @@ export default function ClientsManagement() {
                   )}
                   {/* Row 4: actions */}
                   <div className="flex items-center gap-1.5 pt-1 border-t border-border">
-                    <Button size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1" onClick={() => router.push(`/admin-portal/clients/${client.uid}`)}>
-                      <Eye className="h-3.5 w-3.5" /> View
+                    <Button asChild size="sm" variant="outline" className="flex-1 h-8 text-xs gap-1">
+                      <Link href={`/admin-portal/clients/${client.uid}`}>
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </Link>
                     </Button>
                     <Button size="sm" variant="outline" className="h-8 px-2" title="Edit" onClick={() => handleOpenEdit(client)}>
                       <Edit2 className="h-3.5 w-3.5" />
@@ -599,8 +602,10 @@ export default function ClientsManagement() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-2">
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => router.push(`/admin-portal/clients/${client.uid}`)}>
-                            <Eye className="h-4 w-4" />
+                          <Button asChild size="sm" variant="ghost" className="h-8 w-8 p-0" title="View">
+                            <Link href={`/admin-portal/clients/${client.uid}`} aria-label="View client">
+                              <Eye className="h-4 w-4" />
+                            </Link>
                           </Button>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleOpenEdit(client)}>
                             <Edit2 className="h-4 w-4" />
