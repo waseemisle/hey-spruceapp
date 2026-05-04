@@ -219,11 +219,16 @@ export async function POST(request: Request) {
       status: 'pending_acceptance',
     });
 
-    // Also update assignedTo on the work order for consistency with manual assignment flow
+    // Also update assignedTo on the work order for consistency with manual assignment flow.
+    // Bumping updatedAt here too keeps any downstream consumers that key off
+    // updatedAt (sidebar badges, lastViewedAt diffing) honest — the previous
+    // omission left this write effectively invisible to anything watching
+    // the workOrder for "freshly assigned" signals.
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
       assignedTo: resolvedSubId,
       assignedToName: quoteData.subcontractorName,
       assignedToEmail: quoteData.subcontractorEmail,
+      updatedAt: serverTimestamp(),
     });
 
     return NextResponse.json({

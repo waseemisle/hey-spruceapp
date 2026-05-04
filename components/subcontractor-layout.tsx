@@ -190,21 +190,41 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
                 recompute();
               }, (error) => console.error('Quotes badge listener error:', error));
 
-              // Assigned work orders — anything actively in flight (excluding terminal states).
-              const assignedQuery = query(
+              // Assigned jobs — listen to the same `assignedJobs` collection
+              // the /subcontractor-portal/assigned page reads, so the badge
+              // count matches what the user sees on that page exactly.
+              // Driving this off `workOrders.assignedTo` previously caused
+              // missed updates because the quote-approve route writes
+              // `status`+`updatedAt` and `assignedTo` in two separate
+              // updateDoc calls — the snapshot can fire before the doc
+              // enters the filter.
+              const assignedJobsQuery = query(
+                collection(instances.dbInstance, 'assignedJobs'),
+                where('subcontractorId', '==', firebaseUser.uid),
+              );
+              unsubscribeAssigned = onSnapshot(assignedJobsQuery, (snapshot) => {
+                itemsStore.assigned = snapshot.docs
+                  .map(d => ({ id: d.id, ...(d.data() as any) }))
+                  // Sub already declined — no longer needs attention.
+                  .filter(it => String(it.status || '') !== 'rejected')
+                  // Map `assignedAt` into the `updatedAt` slot so the
+                  // shared isItemUnviewed comparator picks it up.
+                  .map(it => ({ id: it.id, updatedAt: it.assignedAt, createdAt: it.assignedAt || it.createdAt }));
+                recompute();
+              }, (error) => console.error('Assigned badge listener error:', error));
+
+              // Completed jobs — needs WO status, so still listens on
+              // workOrders. Independent of the assigned listener above.
+              const completedQuery = query(
                 collection(instances.dbInstance, 'workOrders'),
                 where('assignedTo', '==', firebaseUser.uid),
               );
-              const TERMINAL = new Set(['completed', 'pending_invoice', 'cancelled', 'rejected']);
-              unsubscribeAssigned = onSnapshot(assignedQuery, (snapshot) => {
-                itemsStore.assigned = snapshot.docs
-                  .map(d => ({ id: d.id, ...(d.data() as any) }))
-                  .filter(it => !TERMINAL.has(String(it.status || '')));
+              unsubscribeCompleted = onSnapshot(completedQuery, (snapshot) => {
                 itemsStore.completedJobs = snapshot.docs
                   .map(d => ({ id: d.id, ...(d.data() as any) }))
                   .filter(it => it.status === 'completed' || it.status === 'pending_invoice');
                 recompute();
-              }, (error) => console.error('Assigned badge listener error:', error));
+              }, (error) => console.error('Completed badge listener error:', error));
 
               // Messages — chats this sub participates in. Count chats whose
               // lastMessageTimestamp is newer than lastViewedAt.messages.
