@@ -32,6 +32,13 @@ interface PaymentMethod {
   accountHolderType?: string;
   accountType?: string;
   verificationStatus?: 'pending' | 'verified';
+  // Provenance — how this PM ended up on the client. 'admin_added' means
+  // the admin entered it via the Add Card / Add Bank modal here.
+  // 'invoice_payment' means the customer paid a hosted Stripe invoice
+  // and the webhook auto-saved it for future auto-charging.
+  source?: 'admin_added' | 'invoice_payment' | 'subscription_setup';
+  sourceInvoiceId?: string;
+  sourceInvoiceNumber?: string;
 }
 
 interface Client {
@@ -1402,6 +1409,26 @@ export default function ClientDetailPage() {
                             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
                               <CheckCircle className="h-3 w-3" />
                               Subscription Card
+                            </span>
+                          )}
+                          {/*
+                            Provenance badge — proves the auto-save loop is
+                            working. 'invoice_payment' means the customer
+                            paid a Stripe hosted invoice and the webhook
+                            saved the PM here for future auto-charging.
+                            'admin_added' is the manual Add Card / Add Bank
+                            entry. Only renders when a source tag exists so
+                            historical PMs without it don't show "unknown".
+                          */}
+                          {pm.source === 'invoice_payment' && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200" title="Auto-saved when client paid a hosted Stripe invoice">
+                              <Zap className="h-3 w-3" />
+                              From invoice {pm.sourceInvoiceNumber || 'payment'}
+                            </span>
+                          )}
+                          {pm.source === 'admin_added' && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200" title="Manually added by admin">
+                              Admin added
                             </span>
                           )}
                         </div>

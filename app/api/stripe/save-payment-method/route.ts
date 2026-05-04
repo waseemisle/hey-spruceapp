@@ -53,12 +53,17 @@ export async function POST(request: NextRequest) {
 
     const newCard = {
       id: paymentMethodId,
+      type: 'card',
       last4: card?.last4 || '',
       brand: card?.brand || '',
       expMonth: card?.exp_month || null,
       expYear: card?.exp_year || null,
       isDefault: true,
       createdAt: Timestamp.now(),
+      // Provenance tag — admin manually added this card (not auto-saved
+      // from an invoice payment). Lets the UI show "Added by admin" vs
+      // "Auto-saved from invoice INV-XXXX" on the saved PM row.
+      source: 'admin_added' as const,
     };
 
     // New card becomes default; all existing cards are non-default

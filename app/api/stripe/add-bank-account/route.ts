@@ -117,6 +117,7 @@ export async function POST(request: NextRequest) {
       isDefault: isFirstMethod,
       verificationStatus: 'pending',
       createdAt: Timestamp.now(),
+      source: 'admin_added' as const,
     };
 
     const updatedMethods = [

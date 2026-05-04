@@ -497,6 +497,15 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
 
               const isCard = pmObj.type === 'card';
               const isBank = pmObj.type === 'us_bank_account';
+              // Provenance tag — distinguishes "auto-saved from a paid
+              // invoice" from "admin added via the client detail page" so
+              // we can show a clear badge on the saved PM row and the
+              // admin can verify the auto-save loop is working.
+              const sourceMeta = {
+                source: 'invoice_payment' as const,
+                sourceInvoiceId: invoiceId,
+                sourceInvoiceNumber: invData?.invoiceNumber || '',
+              };
               const newMethod = isCard ? {
                 id: paidPmId,
                 type: 'card',
@@ -506,6 +515,7 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
                 expYear: pmObj.card?.exp_year || null,
                 isDefault: !clientData?.defaultPaymentMethodId,
                 createdAt: Timestamp.now(),
+                ...sourceMeta,
               } : isBank ? {
                 id: paidPmId,
                 type: 'us_bank_account',
@@ -518,6 +528,7 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
                 isDefault: !clientData?.defaultPaymentMethodId,
                 verificationStatus: 'verified',
                 createdAt: Timestamp.now(),
+                ...sourceMeta,
               } : null;
 
               if (newMethod) {
@@ -529,10 +540,10 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
                   updatePayload.defaultPaymentMethodId = paidPmId;
                   updatePayload.autoPayEnabled = true;
                   if (isCard) {
-                    updatePayload.savedCardLast4 = newMethod.last4;
-                    updatePayload.savedCardBrand = newMethod.brand;
-                    updatePayload.savedCardExpMonth = newMethod.expMonth;
-                    updatePayload.savedCardExpYear = newMethod.expYear;
+                    updatePayload.savedCardLast4 = pmObj.card?.last4 || '';
+                    updatePayload.savedCardBrand = pmObj.card?.brand || '';
+                    updatePayload.savedCardExpMonth = pmObj.card?.exp_month || null;
+                    updatePayload.savedCardExpYear = pmObj.card?.exp_year || null;
                   }
                   if (clientData?.stripeCustomerId) {
                     try {
