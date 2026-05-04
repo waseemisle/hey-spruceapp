@@ -86,7 +86,13 @@ export default function GuidedWorkOrderCreate() {
   }, [companies, clientId]);
 
   const filteredLocations = useMemo(() => {
-    if (companyId) return locations.filter((l) => l.companyId === companyId);
+    if (companyId) {
+      return locations.filter((l) => {
+        if (l.companyId) return l.companyId === companyId;
+        // Legacy locations without companyId — accept if tied to the client
+        return clientId ? l.clientId === clientId : false;
+      });
+    }
     if (clientId) return locations.filter((l) => l.clientId === clientId);
     return locations;
   }, [locations, companyId, clientId]);

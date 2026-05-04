@@ -2398,16 +2398,43 @@ const handleLocationSelect = (locationId: string) => {
     }
   };
 
-// Filter companies by search query (show all companies, not filtered by client)
+// Locations dropdown filter — forgiving to avoid the "empty list" failure
+// mode when a user picks a company that has legacy/unlinked locations:
+//   • If a company is picked, accept locations that strictly match that
+//     companyId, OR locations that are missing companyId entirely but are
+//     tied to the same client (legacy rows where companyId was never set).
+//   • If only a client is picked, show every location the client owns
+//     across all their companies.
+//   • If neither is picked, show all (debug visibility).
 const filteredLocationsForForm = locations.filter((location) => {
   if (formData.companyId) {
-    return location.companyId === formData.companyId;
+    if (location.companyId) return location.companyId === formData.companyId;
+    return formData.clientId ? location.clientId === formData.clientId : false;
   }
   if (formData.clientId) {
     return location.clientId === formData.clientId;
   }
   return true;
 });
+
+// Companies dropdown — when a client is selected, narrow to companies that
+// have at least one location tied to that client (or are directly linked to
+// them). Falls back to ALL companies if the derived set is empty so a
+// legacy client with no location->company links can still pick something.
+const companiesForSelectedClient = (() => {
+  if (!formData.clientId) return companies;
+  const validIds = new Set<string>();
+  for (const loc of locations) {
+    if (loc.clientId === formData.clientId && loc.companyId) {
+      validIds.add(loc.companyId);
+    }
+  }
+  for (const comp of companies) {
+    if (comp.clientId === formData.clientId) validIds.add(comp.id);
+  }
+  if (validIds.size === 0) return companies;
+  return companies.filter((c) => validIds.has(c.id));
+})();
 
   return (
     <AdminLayout>
@@ -2854,13 +2881,15 @@ const filteredLocationsForForm = locations.filter((location) => {
                       }}
                       options={[
                         { value: '', label: 'Choose a company...' },
-                        ...companies.map((company) => ({ value: company.id, label: company.name })),
+                        ...companiesForSelectedClient.map((company) => ({ value: company.id, label: company.name })),
                       ]}
                       placeholder="Choose a company..."
                     />
-                    {!formData.companyId && companies.length === 0 && (
+                    {!formData.companyId && companiesForSelectedClient.length === 0 && (
                       <p className="text-xs text-yellow-600 mt-1">
-                        No companies found. Please add companies first.
+                        {formData.clientId
+                          ? 'This client is not linked to any company yet. Add a location for this client first.'
+                          : 'No companies found. Please add companies first.'}
                       </p>
                     )}
                   </div>
@@ -2883,7 +2912,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                     />
                     {formData.companyId && filteredLocationsForForm.length === 0 && (
                       <p className="text-xs text-yellow-600 mt-1">
-                        No locations found for the selected company.
+                        No locations found for this company. Open the Locations page and add one (or check that existing locations have this company assigned).
                       </p>
                     )}
                   </div>

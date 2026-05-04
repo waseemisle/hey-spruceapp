@@ -573,7 +573,12 @@ export default function CreateRecurringWorkOrder() {
 
   const filteredLocations = (() => {
     if (formData.companyId) {
-      const matched = locations.filter(l => l.companyId === formData.companyId);
+      // Strict companyId match, with forgiving fallback for legacy
+      // locations missing companyId but tied to the same client.
+      const matched = locations.filter((l) => {
+        if (l.companyId) return l.companyId === formData.companyId;
+        return formData.clientId ? l.clientId === formData.clientId : false;
+      });
       return matched.length > 0 ? matched : locations;
     }
     if (formData.clientId) {

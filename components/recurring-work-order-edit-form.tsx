@@ -547,9 +547,28 @@ export default function RecurringWorkOrderEditForm({ id, onSaved, onCancel }: Re
 
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  const filteredCompanies = companies;
+  // When a client is selected, narrow the Companies dropdown to companies
+  // that actually have a location for that client (or are directly linked
+  // to the client). Falls back to all companies if no derived match exists.
+  const filteredCompanies = (() => {
+    if (!formData.clientId) return companies;
+    const validIds = new Set<string>();
+    for (const loc of locations) {
+      if (loc.clientId === formData.clientId && loc.companyId) validIds.add(loc.companyId);
+    }
+    for (const c of companies) {
+      if ((c as any).clientId === formData.clientId) validIds.add(c.id);
+    }
+    if (validIds.size === 0) return companies;
+    return companies.filter((c) => validIds.has(c.id));
+  })();
+  // Locations filter — forgiving so legacy locations missing companyId
+  // still surface when their clientId matches the selected client.
   const filteredLocations = locations.filter((location) => {
-    if (formData.companyId) return location.companyId === formData.companyId;
+    if (formData.companyId) {
+      if (location.companyId) return location.companyId === formData.companyId;
+      return formData.clientId ? location.clientId === formData.clientId : false;
+    }
     if (formData.clientId) return location.clientId === formData.clientId;
     return true;
   });
