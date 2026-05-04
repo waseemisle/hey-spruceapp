@@ -417,36 +417,17 @@ export default function CreateWorkOrder() {
           <p className="text-muted-foreground mt-2">Submit a new maintenance request</p>
         </div>
 
-        {checkingCompany ? (
-          <Card>
-            <CardContent className="py-12">
-              <div className="text-center text-muted-foreground">Checking your company access…</div>
-            </CardContent>
-          </Card>
-        ) : !companyInfo ? (
-          <Card>
-            <CardContent className="py-12">
-              <div className="text-center">
-                <p className="text-red-600">
-                  No company is assigned to your profile yet. Please contact an administrator for access before creating work orders.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : locations.length === 0 ? (
-          <Card>
-            <CardContent className="py-12">
-              <div className="text-center">
-                <p className="text-muted-foreground mb-4">
-                  You need at least one approved location before creating a work order.
-                </p>
-                <Link href="/client-portal/locations/create">
-                  <Button disabled={!companyInfo}>Create Location First</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
+        {/*
+          Always render the form. Previously we gated the entire page behind
+          a "Checking your company access…" / "No company assigned" / "No
+          locations" screen, which (a) made even-the-simple-case feel slow
+          and (b) flashed the wrong "no company" warning whenever the
+          first getDoc lost the auth-token race. The form now renders
+          immediately; the location picker shows skeleton text until
+          locations resolve, and the submit handler validates everything
+          before saving.
+        */}
+        {(
           <Card>
             <CardHeader>
               <CardTitle>Work Order Details</CardTitle>
@@ -462,13 +443,25 @@ export default function CreateWorkOrder() {
                       value={formData.locationId}
                       onValueChange={(v) => setFormData((prev) => ({ ...prev, locationId: v }))}
                       options={[
-                        { value: '', label: 'Select a location' },
+                        { value: '', label: checkingCompany
+                          ? 'Loading locations…'
+                          : locations.length === 0
+                            ? 'No approved locations yet — contact your admin'
+                            : 'Select a location' },
                         ...locations.map((location) => ({ value: location.id, label: location.name })),
                       ]}
-                      placeholder="Select a location"
+                      placeholder={checkingCompany ? 'Loading locations…' : 'Select a location'}
                       aria-label="Location"
-                      disabled={checkingCompany}
+                      disabled={checkingCompany || locations.length === 0}
                     />
+                    {!checkingCompany && locations.length === 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        No approved locations are linked to your company. {' '}
+                        <Link href="/client-portal/locations" className="text-blue-600 underline">
+                          Add a location
+                        </Link>{' '}or contact your administrator.
+                      </p>
+                    )}
                   </div>
 
                   <div>
