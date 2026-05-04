@@ -56,6 +56,24 @@ interface Client {
   email: string;
 }
 
+interface ClientPaymentMethod {
+  id: string;
+  type?: 'card' | 'us_bank_account';
+  last4?: string;
+  brand?: string;
+  bankName?: string;
+  verificationStatus?: 'pending' | 'verified';
+  isDefault?: boolean;
+}
+
+const labelForPaymentMethod = (pm: ClientPaymentMethod): string => {
+  if (pm.type === 'us_bank_account') {
+    return `${pm.bankName || pm.brand || 'Bank'} ••${pm.last4 || ''}`;
+  }
+  const brand = pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card';
+  return `${brand} ••${pm.last4 || ''}`;
+};
+
 interface Category {
   id: string;
   name: string;
@@ -183,6 +201,14 @@ function CreateInvoiceContent() {
     { description: '', quantity: 1, unitPrice: 0, amount: 0 },
   ]);
 
+  // Auto-charge PM picker — populated when a client is selected so the
+  // admin can pin which saved method this invoice should bill against.
+  // Defaults to the client's defaultPaymentMethodId; the admin can flip
+  // it (e.g. "this invoice goes on the bank, not the card").
+  const [clientPaymentMethods, setClientPaymentMethods] = useState<ClientPaymentMethod[]>([]);
+  const [autoChargePmId, setAutoChargePmId] = useState<string>('');
+  const [pmLoading, setPmLoading] = useState(false);
+
   // ── Fetch data ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
@@ -227,6 +253,71 @@ function CreateInvoiceContent() {
     };
     load();
   }, [preselectedWorkOrderId]);
+
+  // ── Load client's saved PMs whenever the selected client changes ────────────
+  // We can't bake this into the clients-list query because that view only
+  // pulls id/fullName/email. The picker needs the full paymentMethods array
+  // to know which methods to surface (and to filter out pending ACH banks).
+  useEffect(() => {
+    let cancelled = false;
+    const cid = formData.clientId;
+    if (!cid) {
+      setClientPaymentMethods([]);
+      setAutoChargePmId('');
+      return;
+    }
+    setPmLoading(true);
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'clients', cid));
+        if (cancelled) return;
+        if (!snap.exists()) {
+          setClientPaymentMethods([]);
+          setAutoChargePmId('');
+          return;
+        }
+        const cd = snap.data() as any;
+        const raw: any[] = Array.isArray(cd.paymentMethods) ? cd.paymentMethods : [];
+        const chargeable: ClientPaymentMethod[] = raw
+          .filter((m: any) => m && m.id && m.verificationStatus !== 'pending')
+          .map((m: any) => ({
+            id: m.id,
+            type: m.type,
+            last4: m.last4,
+            brand: m.brand,
+            bankName: m.bankName,
+            verificationStatus: m.verificationStatus,
+            isDefault: !!m.isDefault,
+          }));
+        // Legacy fallback for clients that have no paymentMethods array but
+        // do have savedCard* + defaultPaymentMethodId.
+        if (chargeable.length === 0 && cd.defaultPaymentMethodId && cd.savedCardLast4) {
+          chargeable.push({
+            id: cd.defaultPaymentMethodId,
+            type: 'card',
+            last4: cd.savedCardLast4,
+            brand: cd.savedCardBrand || 'card',
+            isDefault: true,
+          });
+        }
+        setClientPaymentMethods(chargeable);
+        const defaultId =
+          cd.defaultPaymentMethodId && chargeable.some((m) => m.id === cd.defaultPaymentMethodId)
+            ? cd.defaultPaymentMethodId
+            : chargeable[0]?.id || '';
+        setAutoChargePmId(defaultId);
+      } catch (err) {
+        console.warn('[invoices/new] Could not load client payment methods:', err);
+        if (!cancelled) {
+          setClientPaymentMethods([]);
+          setAutoChargePmId('');
+        }
+      } finally {
+        if (!cancelled) setPmLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [formData.clientId]);
 
   // ── Auto-fill from work order ────────────────────────────────────────────────
   const handleWorkOrderSelect = async (workOrderId: string) => {
@@ -348,6 +439,12 @@ function CreateInvoiceContent() {
 
       const invoiceNumber = generateInvoiceNumber();
 
+      // Persist the admin's per-invoice PM choice so the detail page +
+      // Auto-Charge button respect it (instead of falling back to the
+      // client's default). Stored on the invoice doc so changing the
+      // client's default later doesn't silently re-route this invoice.
+      const selectedPm = clientPaymentMethods.find((m) => m.id === autoChargePmId);
+
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
         clientId: formData.clientId,
@@ -364,6 +461,10 @@ function CreateInvoiceContent() {
         dueDate: new Date(formData.dueDate),
         notes: formData.notes,
         terms: formData.terms,
+        ...(autoChargePmId ? {
+          autoChargePaymentMethodId: autoChargePmId,
+          autoChargeMethodLabel: selectedPm ? labelForPaymentMethod(selectedPm) : '',
+        } : {}),
         createdBy: currentUser.uid,
         createdByName,
         creationSource: 'admin_portal_ui',
@@ -606,6 +707,46 @@ function CreateInvoiceContent() {
                   />
                 </div>
               </div>
+
+              {/*
+                Auto-charge payment method picker. Only renders once a client
+                with at least one chargeable saved PM is selected. Pre-seeded
+                with the client's defaultPaymentMethodId, but the admin can
+                flip it so a single invoice can target the bank instead of
+                the card. Stored on the invoice doc as
+                autoChargePaymentMethodId — the detail page and the Auto-
+                Charge button read from there, so the choice sticks for the
+                life of the invoice.
+              */}
+              {formData.clientId && (
+                <div>
+                  <Label>Auto-Charge Payment Method</Label>
+                  {pmLoading ? (
+                    <p className="mt-1 text-xs text-muted-foreground">Loading client's saved methods…</p>
+                  ) : clientPaymentMethods.length === 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Client has no saved payment method. Auto Charge will be disabled on this invoice — you can still send a Stripe pay link.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={autoChargePmId}
+                        onChange={(e) => setAutoChargePmId(e.target.value)}
+                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {clientPaymentMethods.map((pm) => (
+                          <option key={pm.id} value={pm.id}>
+                            {labelForPaymentMethod(pm)}{pm.isDefault ? ' (client default)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        This is the saved method the Auto Charge button on the invoice will bill.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div>
                 <Label>Invoice Title *</Label>

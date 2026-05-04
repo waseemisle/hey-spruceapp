@@ -164,6 +164,18 @@ export default function ViewWorkOrder() {
     discountAmount: '',
   });
   const [invoiceLineItems, setInvoiceLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([]);
+  // Auto-charge picker state for the inline invoice modal — populated when
+  // the modal opens so the admin can pin which saved method this invoice
+  // bills against. Stored on the invoice doc as autoChargePaymentMethodId.
+  const [invoiceClientPms, setInvoiceClientPms] = useState<Array<{
+    id: string;
+    type?: 'card' | 'us_bank_account';
+    last4?: string;
+    brand?: string;
+    bankName?: string;
+    isDefault?: boolean;
+  }>>([]);
+  const [invoiceAutoChargePmId, setInvoiceAutoChargePmId] = useState<string>('');
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -1396,6 +1408,49 @@ export default function ViewWorkOrder() {
         terms: 'Payment due within 30 days of invoice date.',
         discountAmount: '',
       });
+
+      // Load the client's saved PMs so the modal can render the picker.
+      // Filter pending banks since they can't be charged until verified.
+      try {
+        const clientSnap = await getDoc(doc(db, 'clients', workOrder.clientId));
+        if (clientSnap.exists()) {
+          const cd = clientSnap.data() as any;
+          const raw: any[] = Array.isArray(cd.paymentMethods) ? cd.paymentMethods : [];
+          const chargeable = raw
+            .filter((m: any) => m && m.id && m.verificationStatus !== 'pending')
+            .map((m: any) => ({
+              id: m.id,
+              type: m.type,
+              last4: m.last4,
+              brand: m.brand,
+              bankName: m.bankName,
+              isDefault: !!m.isDefault,
+            }));
+          if (chargeable.length === 0 && cd.defaultPaymentMethodId && cd.savedCardLast4) {
+            chargeable.push({
+              id: cd.defaultPaymentMethodId,
+              type: 'card' as const,
+              last4: cd.savedCardLast4,
+              brand: cd.savedCardBrand || 'card',
+              bankName: undefined,
+              isDefault: true,
+            });
+          }
+          setInvoiceClientPms(chargeable);
+          const defaultId =
+            cd.defaultPaymentMethodId && chargeable.some((m: any) => m.id === cd.defaultPaymentMethodId)
+              ? cd.defaultPaymentMethodId
+              : chargeable[0]?.id || '';
+          setInvoiceAutoChargePmId(defaultId);
+        } else {
+          setInvoiceClientPms([]);
+          setInvoiceAutoChargePmId('');
+        }
+      } catch {
+        setInvoiceClientPms([]);
+        setInvoiceAutoChargePmId('');
+      }
+
       setShowInvoiceModal(true);
     } catch (error) {
       console.error('Error preparing invoice:', error);
@@ -1441,6 +1496,16 @@ export default function ViewWorkOrder() {
 
       const invoiceWoData = (await getDoc(doc(db, 'workOrders', workOrder.id))).data();
 
+      // Pin the admin's per-invoice auto-charge PM choice so the detail
+      // page + Auto-Charge button respect it. Falls through cleanly when
+      // the client has no saved methods (autoChargePaymentMethodId omitted).
+      const selectedInvoicePm = invoiceClientPms.find((m) => m.id === invoiceAutoChargePmId);
+      const selectedInvoicePmLabel = selectedInvoicePm
+        ? (selectedInvoicePm.type === 'us_bank_account'
+            ? `${selectedInvoicePm.bankName || selectedInvoicePm.brand || 'Bank'} ••${selectedInvoicePm.last4 || ''}`
+            : `${(selectedInvoicePm.brand || 'Card').replace(/^./, (c) => c.toUpperCase())} ••${selectedInvoicePm.last4 || ''}`)
+        : '';
+
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
         clientId: workOrder.clientId,
@@ -1458,6 +1523,10 @@ export default function ViewWorkOrder() {
         dueDate,
         notes: invoiceForm.notes,
         terms: invoiceForm.terms,
+        ...(invoiceAutoChargePmId ? {
+          autoChargePaymentMethodId: invoiceAutoChargePmId,
+          autoChargeMethodLabel: selectedInvoicePmLabel,
+        } : {}),
         ...(invoiceWoData?.completionDetails && { completionDetails: invoiceWoData.completionDetails }),
         ...(invoiceWoData?.completionNotes && { completionNotes: invoiceWoData.completionNotes }),
         ...(invoiceWoData?.completionImages?.length && { completionImages: invoiceWoData.completionImages }),
@@ -1493,11 +1562,17 @@ export default function ViewWorkOrder() {
             const hasFixedPlan = cd.stripeSubscriptionId && cd.subscriptionStatus === 'active';
             const planAmount = Number(cd.subscriptionAmount);
             const amountsMatch = Number.isFinite(planAmount) && planAmount > 0 && Math.abs(totalAmount - planAmount) < 0.01;
-            if (hasFixedPlan && amountsMatch && cd.defaultPaymentMethodId) {
+            if (hasFixedPlan && amountsMatch && (invoiceAutoChargePmId || cd.defaultPaymentMethodId)) {
               const chargeRes = await fetch('/api/stripe/charge-saved-card', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ invoiceId: invoiceRef.id, clientId: workOrder.clientId }),
+                body: JSON.stringify({
+                  invoiceId: invoiceRef.id,
+                  clientId: workOrder.clientId,
+                  // Honor the per-invoice picker. Falls through to
+                  // defaultPaymentMethodId server-side when omitted.
+                  ...(invoiceAutoChargePmId ? { paymentMethodId: invoiceAutoChargePmId } : {}),
+                }),
               });
               const chargeData = await chargeRes.json();
               if (chargeRes.ok && chargeData.status === 'succeeded') {
@@ -2205,6 +2280,45 @@ export default function ViewWorkOrder() {
                       {formatMoney(Math.max(0, invoiceLineItems.reduce((s, li) => s + (li.amount || 0), 0) - (Number(invoiceForm.discountAmount || 0) || 0)))}
                     </div>
                   </div>
+                </div>
+
+                {/*
+                  Auto-charge PM picker. Pinning the choice on the invoice
+                  doc means the Auto Charge button on the invoice detail
+                  page (and the email-sent flow) bills against THIS method,
+                  not whatever happens to be the client's default at
+                  charge time. Hidden when the client has no saved PMs —
+                  the invoice still gets a Stripe pay link in that case.
+                */}
+                <div>
+                  <Label>Auto-Charge Payment Method</Label>
+                  {invoiceClientPms.length === 0 ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Client has no saved payment method. Auto Charge will be unavailable on this invoice — a Stripe pay link will still be sent.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        value={invoiceAutoChargePmId}
+                        onChange={(e) => setInvoiceAutoChargePmId(e.target.value)}
+                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {invoiceClientPms.map((pm) => {
+                          const label = pm.type === 'us_bank_account'
+                            ? `${pm.bankName || pm.brand || 'Bank'} ••${pm.last4 || ''}`
+                            : `${(pm.brand || 'Card').replace(/^./, (c) => c.toUpperCase())} ••${pm.last4 || ''}`;
+                          return (
+                            <option key={pm.id} value={pm.id}>
+                              {label}{pm.isDefault ? ' (client default)' : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        The Auto Charge button on this invoice will bill this saved method.
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Notes */}

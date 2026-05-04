@@ -233,6 +233,9 @@ export default function ClientDetailPage() {
   const [removingCard, setRemovingCard] = useState<string | null>(null);
   const [settingDefault, setSettingDefault] = useState<string | null>(null);
   const [testingEmail, setTestingEmail] = useState(false);
+  // Per-row spinner state for the Verify Bank action so two simultaneous
+  // verify clicks on different pending banks don't fight over a single flag.
+  const [verifyingBankId, setVerifyingBankId] = useState<string | null>(null);
 
   // Unified Add Payment Method modal — single PaymentElement-based UI
   // that replaces the legacy Add Card and Add Bank Account inline forms.
@@ -672,6 +675,41 @@ export default function ClientDetailPage() {
       toast.error(error.message || 'Failed to set default card');
     } finally {
       setSettingDefault(null);
+    }
+  };
+
+  /**
+   * Look up the Stripe-hosted micro-deposit verification URL for a pending
+   * bank account and open it in a new tab. The verify endpoint also self-
+   * heals the Firestore row when Stripe says the SetupIntent already
+   * succeeded (e.g. someone verified it in Stripe Dashboard) — that case
+   * shows a "Already verified" toast instead of opening a tab.
+   */
+  const handleVerifyBank = async (pmId: string) => {
+    if (!client) return;
+    setVerifyingBankId(pmId);
+    try {
+      const res = await fetch('/api/stripe/verify-bank-microdeposits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: client.uid, paymentMethodId: pmId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load verification URL');
+      if (data.alreadyVerified) {
+        toast.success('Bank already verified — refreshing.');
+        return;
+      }
+      if (data.hostedVerificationUrl) {
+        window.open(data.hostedVerificationUrl, '_blank', 'noopener,noreferrer');
+        toast.info(
+          'Opened Stripe verification page. Enter the two small deposit amounts that appear in the bank statement to finish verification.'
+        );
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not start bank verification');
+    } finally {
+      setVerifyingBankId(null);
     }
   };
 
@@ -1395,8 +1433,11 @@ export default function ClientDetailPage() {
                             </span>
                           )}
                           {isBankAccount && pm.verificationStatus === 'pending' && (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                              Pending Verification
+                            <span
+                              className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200"
+                              title="Stripe sent two small test deposits. Click 'Verify Bank' to enter the amounts and finish verification."
+                            >
+                              Pending Verification · Micro-deposit (1-2 days)
                             </span>
                           )}
                           {client.stripeSubscriptionId &&
@@ -1446,23 +1487,44 @@ export default function ClientDetailPage() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setChargeCardId(pm.id);
-                            setChargeInvoiceId('');
-                            setChargeAmount(String(client.subscriptionAmount || ''));
-                            setChargeDesc('');
-                            setChargeResult(null);
-                            setShowChargeModal(true);
-                          }}
-                          className="h-7 text-xs gap-1 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50"
-                          title="Charge this card now"
-                        >
-                          <Zap className="h-3 w-3" />
-                          Charge
-                        </Button>
+                        {isBankAccount && pm.verificationStatus === 'pending' ? (
+                          // Pending banks can't be charged until the two
+                          // micro-deposits are confirmed. Surface the
+                          // verification action front-and-center instead
+                          // of the Charge button so admins know what to
+                          // do next instead of staring at a stuck pill.
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleVerifyBank(pm.id)}
+                            disabled={verifyingBankId === pm.id}
+                            className="h-7 text-xs gap-1 text-amber-700 border-amber-300 hover:border-amber-500 hover:bg-amber-50"
+                            title="Open Stripe-hosted page to enter the two small deposit amounts"
+                          >
+                            {verifyingBankId === pm.id
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <ShieldCheck className="h-3 w-3" />}
+                            Verify Bank
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setChargeCardId(pm.id);
+                              setChargeInvoiceId('');
+                              setChargeAmount(String(client.subscriptionAmount || ''));
+                              setChargeDesc('');
+                              setChargeResult(null);
+                              setShowChargeModal(true);
+                            }}
+                            className="h-7 text-xs gap-1 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50"
+                            title="Charge this card now"
+                          >
+                            <Zap className="h-3 w-3" />
+                            Charge
+                          </Button>
+                        )}
                         {!pm.isDefault && (
                           <Button
                             size="sm"

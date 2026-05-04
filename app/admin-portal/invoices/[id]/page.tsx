@@ -63,6 +63,13 @@ interface Invoice {
   autoChargeAttempted?: boolean;
   autoChargeStatus?: 'pending' | 'succeeded' | 'failed' | 'requires_action';
   autoChargeError?: string;
+  // Per-invoice auto-charge target. Pinned at create time from the picker
+  // on /invoices/new + the WO invoice modal so the Auto Charge button
+  // doesn't silently re-route to whatever happens to be the client's
+  // current default. Falls back to client.defaultPaymentMethodId when
+  // missing (legacy invoices created before this field existed).
+  autoChargePaymentMethodId?: string;
+  autoChargeMethodLabel?: string;
   attachments?: Array<{ name: string; url: string }>;
   completionDetails?: string;
   completionNotes?: string;
@@ -321,9 +328,20 @@ export default function AdminInvoiceDetail() {
               subscriptionAmount: cd.subscriptionAmount,
               subscriptionBillingDay: cd.subscriptionBillingDay,
             });
-            // Pre-seed the per-invoice picker with the default PM so the
-            // admin can just hit Auto Charge if they don't want to override.
-            if (explicitDefaultId) setSelectedChargePmId(explicitDefaultId);
+            // Pre-seed the per-invoice picker. Priority order:
+            //   1. The PM pinned on the invoice doc at creation time
+            //      (autoChargePaymentMethodId from /invoices/new picker).
+            //   2. The client's current default.
+            //   3. The first chargeable PM as a last resort.
+            // The pinned PM only wins when it's still chargeable — if the
+            // admin removed that method between creation and now, we fall
+            // through so the button isn't pointing at a dead pm_id.
+            const pinnedPmId = (data as any).autoChargePaymentMethodId as string | undefined;
+            const seedPmId =
+              pinnedPmId && chargeable.some((m) => m.id === pinnedPmId)
+                ? pinnedPmId
+                : explicitDefaultId;
+            if (seedPmId) setSelectedChargePmId(seedPmId);
 
             // Resolve the parent company's Margin Edge flag so the ME UI on
             // this invoice can be gated. We default to false on any miss
@@ -1186,23 +1204,42 @@ export default function AdminInvoiceDetail() {
                   Completed: {toDate(invoice.completedDate)?.toLocaleDateString() ?? 'N/A'}
                 </p>
               )}
-              {/* Client billing info */}
-              {clientBilling && (clientBilling.defaultPaymentMethodId || clientBilling.stripeSubscriptionId) && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {clientBilling.defaultPaymentMethodId && clientBilling.defaultMethodLabel && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                      <CreditCard className="h-3 w-3" />
-                      Saved payment: {clientBilling.defaultMethodLabel}
-                    </span>
-                  )}
-                  {clientBilling.stripeSubscriptionId && clientBilling.subscriptionStatus === 'active' && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                      <span>⚡</span>
-                      Client has Fixed Recurring Plan: {formatMoney(clientBilling.subscriptionAmount)}/month
-                    </span>
-                  )}
-                </div>
-              )}
+              {/*
+                Auto-charge target pill. Shows the PM that THIS invoice will
+                bill against — the per-invoice pinned method if one was
+                chosen at creation, otherwise the client's current default.
+                Replaces the old "Saved payment: <client default>" pill
+                which misled admins into thinking every invoice always
+                charged the default card. The label is derived from the
+                live paymentMethods array so a pinned-but-removed PM falls
+                back to the live default instead of showing a stale label.
+              */}
+              {clientBilling && (() => {
+                const targetPm = clientBilling.paymentMethods?.find(
+                  (m) => m.id === selectedChargePmId
+                );
+                const targetLabel = targetPm
+                  ? labelForPaymentMethod(targetPm)
+                  : (invoice.autoChargeMethodLabel || clientBilling.defaultMethodLabel || '');
+                const showPill = !!targetLabel || (clientBilling.stripeSubscriptionId && clientBilling.subscriptionStatus === 'active');
+                if (!showPill) return null;
+                return (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {targetLabel && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                        <CreditCard className="h-3 w-3" />
+                        Auto-charge target: {targetLabel}
+                      </span>
+                    )}
+                    {clientBilling.stripeSubscriptionId && clientBilling.subscriptionStatus === 'active' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                        <span>⚡</span>
+                        Client has Fixed Recurring Plan: {formatMoney(clientBilling.subscriptionAmount)}/month
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </CardHeader>
           <CardContent>
