@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, getDoc, getDocs, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
@@ -62,10 +62,13 @@ export default function ClientMaintenanceRequests() {
               const locationIds = new Set(locationsSnap.docs.map(d => d.id));
               setClientLocationIds(locationIds);
 
-              // Fetch maintenance requests
+              // Fetch maintenance requests — capped to bound first-paint cost.
+              // Page filters client-side by company / location, so a server-side
+              // composite-index filter would be ideal, but cap is the cheap fix.
               const maintRequestsQuery = query(
                 collection(db, 'maint_requests'),
-                orderBy('createdAt', 'desc')
+                orderBy('createdAt', 'desc'),
+                limit(300),
               );
 
               const unsubscribe = onSnapshot(maintRequestsQuery, (snapshot) => {

@@ -116,21 +116,29 @@ export default function ClientQuotes() {
                 const workOrdersMap = new Map<string, any>();
 
                 if (workOrderIds.length > 0) {
+                  // Fire all batch lookups in PARALLEL — was sequential
+                  // awaits, which made the page wait N×roundtrip on N
+                  // batches before painting filtered quotes.
                   const batchSize = 10;
+                  const batches: string[][] = [];
                   for (let i = 0; i < workOrderIds.length; i += batchSize) {
-                    const batch = workOrderIds.slice(i, i + batchSize);
-                    const workOrdersQuery = query(
-                      collection(db, 'workOrders'),
-                      where(documentId(), 'in', batch)
-                    );
-                    try {
-                      const workOrdersSnapshot = await getDocs(workOrdersQuery);
-                      workOrdersSnapshot.docs.forEach(doc => {
-                        workOrdersMap.set(doc.id, doc.data());
-                      });
-                    } catch {
-                      // Permission denied for some work orders — show all quotes for this client
+                    batches.push(workOrderIds.slice(i, i + batchSize));
+                  }
+                  const results = await Promise.allSettled(
+                    batches.map((batch) =>
+                      getDocs(query(
+                        collection(db, 'workOrders'),
+                        where(documentId(), 'in', batch),
+                      )),
+                    ),
+                  );
+                  for (const r of results) {
+                    if (r.status === 'fulfilled') {
+                      r.value.docs.forEach((doc) => workOrdersMap.set(doc.id, doc.data()));
                     }
+                    // Permission denied / network errors are non-fatal here —
+                    // unmatched workOrderIds fall through and the quote is
+                    // shown by default below.
                   }
                 }
 

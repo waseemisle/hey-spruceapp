@@ -71,10 +71,8 @@ export default function CreateWorkOrder() {
       // Read the client doc with retry-on-permission-error. Right after a
       // fresh login or App Router remount, the Firebase Auth token sometimes
       // hasn't propagated to Firestore yet, so the first getDoc rejects with
-      // permission-denied even though the user is genuinely authenticated.
-      // Without retry, the catch block flips checkingCompany=false and
-      // paints the wrong "No company assigned" warning. Retrying with short
-      // backoff lets the token catch up — second try almost always succeeds.
+      // permission-denied. Retry with TIGHT backoff (100/200/400ms ≈ 700ms
+      // worst case) so we don't keep the user staring at the spinner.
       const readClientDoc = async () => {
         let lastErr: any = null;
         for (let i = 0; i < 4; i++) {
@@ -89,7 +87,7 @@ export default function CreateWorkOrder() {
               code === 'unauthenticated' ||
               /permission|insufficient|unauthenticated/i.test(msg);
             if (!isAuthRace || i === 3) throw err;
-            await new Promise((r) => setTimeout(r, 250 * (i + 1)));
+            await new Promise((r) => setTimeout(r, 100 * Math.pow(2, i))); // 100, 200, 400
             try { await user.getIdToken(true); } catch {}
           }
         }
@@ -116,37 +114,38 @@ export default function CreateWorkOrder() {
           return;
         }
 
-        try {
-          const companyDoc = await getDoc(doc(db, 'companies', companyId));
-          if (companyDoc.exists()) {
-            const data = companyDoc.data() as { name?: string };
-            setCompanyInfo({ id: companyDoc.id, name: data.name || 'Assigned Company' });
-          } else {
-            setCompanyInfo({ id: companyId, name: 'Assigned Company' });
-          }
-        } catch {
-          setCompanyInfo({ id: companyId, name: 'Assigned Company' });
-        }
-        // Mark the company-check phase done now that companyInfo is set —
-        // this is the only success path that flips checkingCompany to false
-        // with companyInfo populated, so the "no company" render condition
-        // can never match here.
+        // Render the form immediately with placeholder company info — don't
+        // block the UI on the company doc lookup or the locations query.
+        // The user wants to start typing; the location picker can populate
+        // a moment later.
+        setCompanyInfo({ id: companyId, name: 'Assigned Company' });
         setCheckingCompany(false);
 
-        const locationsQuery = query(
-          collection(db, 'locations'),
-          where('companyId', '==', companyId),
-          where('status', '==', 'approved')
-        );
-
-        const snapshot = await getDocs(locationsQuery);
-        const locationsData = snapshot.docs.map(docSnap => ({
-          id: docSnap.id,
-          name: docSnap.data().locationName || docSnap.data().name,
-          address: docSnap.data().address,
-        }));
-
-        setLocations(locationsData);
+        // Run company info + locations queries in parallel (both are
+        // non-blocking from the user's perspective at this point).
+        void Promise.all([
+          getDoc(doc(db, 'companies', companyId))
+            .then((companyDoc) => {
+              if (companyDoc.exists()) {
+                const data = companyDoc.data() as { name?: string };
+                setCompanyInfo({ id: companyDoc.id, name: data.name || 'Assigned Company' });
+              }
+            })
+            .catch(() => { /* keep placeholder */ }),
+          getDocs(query(
+            collection(db, 'locations'),
+            where('companyId', '==', companyId),
+            where('status', '==', 'approved'),
+          ))
+            .then((snapshot) => {
+              setLocations(snapshot.docs.map(docSnap => ({
+                id: docSnap.id,
+                name: docSnap.data().locationName || docSnap.data().name,
+                address: docSnap.data().address,
+              })));
+            })
+            .catch((err) => console.error('Failed to load locations:', err)),
+        ]);
       } catch (error) {
         // Transient Firestore failure (network blip, exhausted retries on
         // post-login JWT race, rules layer hiccup). Do NOT conclude "no

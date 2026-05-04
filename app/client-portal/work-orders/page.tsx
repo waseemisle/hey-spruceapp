@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, updateDoc, serverTimestamp, addDoc, Timestamp, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc, getDocs, updateDoc, serverTimestamp, addDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyBiddingOpportunity } from '@/lib/notifications';
@@ -183,7 +183,8 @@ function ClientWorkOrdersContent() {
               const workOrdersQuery = query(
                 collection(db, 'workOrders'),
                 where('locationId', 'in', batch),
-                orderBy('createdAt', 'desc')
+                orderBy('createdAt', 'desc'),
+                limit(200), // bound first-paint cost; UI is search/filter-driven anyway
               );
 
               const unsubscribe = onSnapshot(
@@ -214,7 +215,8 @@ function ClientWorkOrdersContent() {
             const clientIdQuery = query(
               collection(db, 'workOrders'),
               where('clientId', '==', user.uid),
-              orderBy('createdAt', 'desc')
+              orderBy('createdAt', 'desc'),
+              limit(200),
             );
             const clientIdUnsubscribe = onSnapshot(
               clientIdQuery,
@@ -240,7 +242,8 @@ function ClientWorkOrdersContent() {
               const companyWorkOrdersQuery = query(
                 collection(db, 'workOrders'),
                 where('companyId', '==', clientCompanyId),
-                orderBy('createdAt', 'desc')
+                orderBy('createdAt', 'desc'),
+                limit(200),
               );
               const companyUnsubscribe = onSnapshot(
                 companyWorkOrdersQuery,
@@ -281,7 +284,8 @@ function ClientWorkOrdersContent() {
             const workOrdersQuery = query(
               collection(db, 'workOrders'),
               where('clientId', '==', user.uid),
-              orderBy('createdAt', 'desc')
+              orderBy('createdAt', 'desc'),
+              limit(200),
             );
 
             unsubscribeWorkOrders = onSnapshot(

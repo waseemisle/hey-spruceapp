@@ -5,13 +5,13 @@ import { collection, query, getDocs, doc, getDoc, where } from 'firebase/firesto
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   RotateCcw, Edit2, Search, Eye,
-  Calendar, Clock, CheckCircle, XCircle, AlertCircle, MapPin, Plus
+  AlertCircle, Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder } from '@/types';
@@ -27,158 +27,94 @@ export default function ClientRecurringWorkOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [hasPermission, setHasPermission] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
-  const [assignedLocations, setAssignedLocations] = useState<string[]>([]);
+  const [, setAssignedLocations] = useState<string[]>([]);
 
   useEffect(() => {
+    /**
+     * Map a Firestore recurringWorkOrder doc → typed value with all
+     * Timestamp fields converted. Inlined helper so we don't repeat the
+     * same conversion three times for the three query branches.
+     */
+    const mapRwo = (d: any): RecurringWorkOrder => {
+      const data = d.data();
+      const nextServiceDates = Array.isArray(data.nextServiceDates)
+        ? data.nextServiceDates.map((x: any) => {
+            if (x instanceof Date) return x;
+            if (x?.toDate) return x.toDate();
+            return new Date(x);
+          })
+        : undefined;
+      return {
+        id: d.id,
+        ...data,
+        createdAt: data.createdAt?.toDate(),
+        updatedAt: data.updatedAt?.toDate(),
+        nextExecution: data.nextExecution?.toDate(),
+        lastExecution: data.lastExecution?.toDate(),
+        lastServiced: data.lastServiced?.toDate(),
+        nextServiceDates,
+      } as RecurringWorkOrder;
+    };
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          // Fetch client document to get assigned locations and permissions
-          const clientDoc = await getDoc(doc(db, 'clients', user.uid));
-          if (clientDoc.exists() && clientDoc.data().status === 'approved') {
-            const clientData = clientDoc.data();
-            const assignedLocationsList = clientData?.assignedLocations || [];
-            setAssignedLocations(assignedLocationsList);
-            setCanCreate(!!(clientData?.permissions?.createRecurringWorkOrders));
-
-            setHasPermission(true);
-
-            // Fetch recurring work orders for assigned locations
-            if (assignedLocationsList.length > 0) {
-              // Firestore 'in' query has a limit of 10 items, so we need to batch
-              const batches = [];
-              for (let i = 0; i < assignedLocationsList.length; i += 10) {
-                const batch = assignedLocationsList.slice(i, i + 10);
-                batches.push(batch);
-              }
-
-              const allRecurringWorkOrders: RecurringWorkOrder[] = [];
-
-              // Fetch for each batch
-              for (const batch of batches) {
-                const recurringWorkOrdersQuery = query(
-                  collection(db, 'recurringWorkOrders'),
-                  where('locationId', 'in', batch)
-                );
-                const snapshot = await getDocs(recurringWorkOrdersQuery);
-                const recurringWorkOrdersData = snapshot.docs.map(doc => {
-                  const data = doc.data();
-                  const nextServiceDates = data.nextServiceDates
-                    ? (Array.isArray(data.nextServiceDates)
-                        ? data.nextServiceDates.map((d: any) => {
-                            if (d instanceof Date) return d;
-                            if (d?.toDate) return d.toDate();
-                            return new Date(d);
-                          })
-                        : [])
-                    : undefined;
-                  
-                  return {
-                    id: doc.id,
-                    ...data,
-                    createdAt: data.createdAt?.toDate(),
-                    updatedAt: data.updatedAt?.toDate(),
-                    nextExecution: data.nextExecution?.toDate(),
-                    lastExecution: data.lastExecution?.toDate(),
-                    lastServiced: data.lastServiced?.toDate(),
-                    nextServiceDates: nextServiceDates,
-                  } as RecurringWorkOrder;
-                });
-                allRecurringWorkOrders.push(...recurringWorkOrdersData);
-              }
-
-              // Also get recurring work orders where clientId matches
-              const clientRecurringQuery = query(
-                collection(db, 'recurringWorkOrders'),
-                where('clientId', '==', user.uid)
-              );
-              const clientSnapshot = await getDocs(clientRecurringQuery);
-              const clientRecurringData = clientSnapshot.docs.map(doc => {
-                const data = doc.data();
-                const nextServiceDates = data.nextServiceDates
-                  ? (Array.isArray(data.nextServiceDates)
-                      ? data.nextServiceDates.map((d: any) => {
-                          if (d instanceof Date) return d;
-                          if (d?.toDate) return d.toDate();
-                          return new Date(d);
-                        })
-                      : [])
-                  : undefined;
-                
-                return {
-                  id: doc.id,
-                  ...data,
-                  createdAt: data.createdAt?.toDate(),
-                  updatedAt: data.updatedAt?.toDate(),
-                  nextExecution: data.nextExecution?.toDate(),
-                  lastExecution: data.lastExecution?.toDate(),
-                  lastServiced: data.lastServiced?.toDate(),
-                  nextServiceDates: nextServiceDates,
-                } as RecurringWorkOrder;
-              });
-
-              // Combine and remove duplicates
-              const combined = [...allRecurringWorkOrders, ...clientRecurringData];
-              const unique = combined.filter((rwo, index, self) =>
-                index === self.findIndex((r) => r.id === rwo.id)
-              );
-
-              setRecurringWorkOrders(unique);
-            } else {
-              // If no assigned locations, fetch by clientId only
-              const clientRecurringQuery = query(
-                collection(db, 'recurringWorkOrders'),
-                where('clientId', '==', user.uid)
-              );
-              const snapshot = await getDocs(clientRecurringQuery);
-              const recurringWorkOrdersData = snapshot.docs.map(doc => {
-                const data = doc.data();
-                const nextServiceDates = data.nextServiceDates
-                  ? (Array.isArray(data.nextServiceDates)
-                      ? data.nextServiceDates.map((d: any) => {
-                          if (d instanceof Date) return d;
-                          if (d?.toDate) return d.toDate();
-                          return new Date(d);
-                        })
-                      : [])
-                  : undefined;
-                
-                return {
-                  id: doc.id,
-                  ...data,
-                  createdAt: data.createdAt?.toDate(),
-                  updatedAt: data.updatedAt?.toDate(),
-                  nextExecution: data.nextExecution?.toDate(),
-                  lastExecution: data.lastExecution?.toDate(),
-                  lastServiced: data.lastServiced?.toDate(),
-                  nextServiceDates: nextServiceDates,
-                } as RecurringWorkOrder;
-              });
-              setRecurringWorkOrders(recurringWorkOrdersData);
-            }
-
-            setLoading(false);
-          } else {
-            if (!auth.currentUser) router.push('/portal-login');
-          }
-        } catch (error: any) {
-          console.error('Error fetching recurring work orders:', error);
-          toast.error(error.message || 'Failed to load recurring work orders');
-          setLoading(false);
-        }
-      } else {
+      if (!user) {
         if (!auth.currentUser) router.push('/portal-login');
+        return;
+      }
+
+      try {
+        const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+        if (!clientDoc.exists() || clientDoc.data().status !== 'approved') {
+          if (!auth.currentUser) router.push('/portal-login');
+          return;
+        }
+
+        const clientData = clientDoc.data();
+        const assignedLocationsList: string[] = clientData?.assignedLocations || [];
+        setAssignedLocations(assignedLocationsList);
+        setCanCreate(!!(clientData?.permissions?.createRecurringWorkOrders));
+        setHasPermission(true);
+
+        // Fire all queries in PARALLEL — was sequential awaits before, which
+        // made first paint take N×roundtrip on N location batches plus one
+        // more roundtrip for the clientId query. Now everything runs at once.
+        const queries: Promise<RecurringWorkOrder[]>[] = [];
+
+        for (let i = 0; i < assignedLocationsList.length; i += 10) {
+          const batch = assignedLocationsList.slice(i, i + 10);
+          queries.push(
+            getDocs(query(
+              collection(db, 'recurringWorkOrders'),
+              where('locationId', 'in', batch),
+            )).then((snap) => snap.docs.map(mapRwo)),
+          );
+        }
+
+        // Plus the clientId-keyed query (also fires in parallel)
+        queries.push(
+          getDocs(query(
+            collection(db, 'recurringWorkOrders'),
+            where('clientId', '==', user.uid),
+          )).then((snap) => snap.docs.map(mapRwo)),
+        );
+
+        const all = (await Promise.all(queries)).flat();
+        // Dedupe by id (a doc can match both location and clientId queries)
+        const unique = Array.from(new Map(all.map((rwo) => [rwo.id, rwo])).values());
+        setRecurringWorkOrders(unique);
+        setLoading(false);
+      } catch (error: any) {
+        console.error('Error fetching recurring work orders:', error);
+        toast.error(error.message || 'Failed to load recurring work orders');
+        setLoading(false);
       }
     });
 
     return () => unsubscribeAuth();
   }, [auth, db, router]);
 
-  const filteredRecurringWorkOrders = recurringWorkOrders.filter(rwo => {
-    // Filter by status
+  const filteredRecurringWorkOrders = recurringWorkOrders.filter((rwo) => {
     const statusMatch = filter === 'all' || rwo.status === filter;
-
-    // Filter by search query
     const searchLower = searchQuery.toLowerCase();
     const searchMatch = !searchQuery ||
       rwo.title.toLowerCase().includes(searchLower) ||
@@ -186,7 +122,6 @@ export default function ClientRecurringWorkOrders() {
       rwo.workOrderNumber.toLowerCase().includes(searchLower) ||
       rwo.category.toLowerCase().includes(searchLower) ||
       (rwo.locationName && rwo.locationName.toLowerCase().includes(searchLower));
-
     return statusMatch && searchMatch;
   });
 
@@ -195,15 +130,6 @@ export default function ClientRecurringWorkOrders() {
       case 'active': return 'text-green-600 bg-green-50';
       case 'paused': return 'text-yellow-600 bg-yellow-50';
       case 'cancelled': return 'text-red-600 bg-red-50';
-      default: return 'text-muted-foreground bg-muted';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'text-red-600 bg-red-50';
-      case 'medium': return 'text-orange-600 bg-orange-50';
-      case 'low': return 'text-green-600 bg-green-50';
       default: return 'text-muted-foreground bg-muted';
     }
   };
