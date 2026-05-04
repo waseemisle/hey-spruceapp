@@ -483,8 +483,8 @@ export interface Invoice {
   createdBy: string;
   timeline?: InvoiceTimelineEvent[];
   systemInformation?: InvoiceSystemInformation;
-  /** How this invoice was created (e.g. admin_portal, from_quote, upload) */
-  creationSource?: 'admin_portal' | 'from_quote' | 'upload' | 'scheduled';
+  /** How this invoice was created (e.g. admin_portal, from_quote, upload, recurring) */
+  creationSource?: 'admin_portal' | 'from_quote' | 'upload' | 'scheduled' | 'recurring';
   // Auto-charge fields
   autoChargeAttempted?: boolean;
   autoChargeStatus?: 'pending' | 'succeeded' | 'failed' | 'requires_action';

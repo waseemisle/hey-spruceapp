@@ -58,6 +58,11 @@ interface Invoice {
   marginEdgeMessageId?: string;
   marginEdgeSentTo?: string;
   marginEdgeError?: string;
+  // Auto-charge audit (set when create-payment-link/charge-saved-card
+  // attempts an off-session charge against the client's saved card)
+  autoChargeAttempted?: boolean;
+  autoChargeStatus?: 'pending' | 'succeeded' | 'failed' | 'requires_action';
+  autoChargeError?: string;
   attachments?: Array<{ name: string; url: string }>;
   completionDetails?: string;
   completionNotes?: string;
@@ -909,6 +914,46 @@ export default function AdminInvoiceDetail() {
               </>
             ) : (
               <span>Send failed: {invoice.marginEdgeError}</span>
+            )}
+          </div>
+        )}
+
+        {/*
+          Auto-charge audit pill. Renders only when an auto-charge was
+          attempted against this invoice (recurring cron path, or admin
+          explicitly chose auto-charge from the send dialog). Color
+          tracks the outcome: green=succeeded, amber=requires_action,
+          red=failed, neutral=pending.
+        */}
+        {invoice.autoChargeAttempted && (
+          <div className={`rounded-xl border px-3 py-2 text-xs flex items-center gap-2 flex-wrap ${
+            invoice.autoChargeStatus === 'succeeded'
+              ? 'border-emerald-200 bg-emerald-50/60 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200'
+              : invoice.autoChargeStatus === 'failed'
+                ? 'border-red-200 bg-red-50/60 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200'
+                : invoice.autoChargeStatus === 'requires_action'
+                  ? 'border-amber-200 bg-amber-50/60 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200'
+                  : 'border-border bg-muted/40 text-foreground'
+          }`}>
+            <span className="font-semibold">Auto-charge:</span>
+            <span>
+              {invoice.autoChargeStatus === 'succeeded'
+                ? 'Saved card charged successfully'
+                : invoice.autoChargeStatus === 'failed'
+                  ? `Card declined${invoice.autoChargeError ? ` — ${invoice.autoChargeError}` : ''}`
+                  : invoice.autoChargeStatus === 'requires_action'
+                    ? 'Requires customer authentication (3DS)'
+                    : 'Pending — waiting for Stripe to confirm'}
+            </span>
+            {invoice.autoChargeStatus === 'failed' && invoice.stripePaymentLink && (
+              <a
+                href={invoice.stripePaymentLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto inline-flex items-center gap-1 text-xs font-medium underline"
+              >
+                Open hosted invoice ↗
+              </a>
             )}
           </div>
         )}

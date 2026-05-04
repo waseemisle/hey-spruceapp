@@ -428,6 +428,13 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
       console.warn('Could not resolve charge receipt for paid invoice:', rcErr);
     }
 
+    // If this was an auto-charged invoice (created with
+    // collection_method=charge_automatically), Stripe set
+    // metadata.autoCharge='true' on the invoice. Capture the auto-charge
+    // success state on the Firestore doc so the admin UI's status pill
+    // stays accurate.
+    const wasAutoCharge = stripeInvoice.metadata?.autoCharge === 'true';
+
     await updateDoc(doc(db, 'invoices', invoiceId), {
       status: 'paid',
       paidAt: serverTimestamp(),
@@ -439,6 +446,7 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
       stripeReceiptUrl: receiptUrl,
       stripeInvoicePdf: stripeInvoice.invoice_pdf || null,
       stripeHostedInvoiceUrl: stripeInvoice.hosted_invoice_url || null,
+      ...(wasAutoCharge ? { autoChargeAttempted: true, autoChargeStatus: 'succeeded' } : {}),
       timeline: [...existingTimeline, paidEvent],
       systemInformation: {
         ...existingSysInfo,
@@ -447,6 +455,33 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
       },
       updatedAt: serverTimestamp(),
     });
+
+    // 1-step completion for the RWO flow: when an auto-charged invoice
+    // tied to a work order is paid, mark that workOrder completed too.
+    // This is the "cron fires → invoice generated → client charged →
+    // work order closed" loop the recurring billing spec asks for.
+    // Limited to auto-charge so manual customer payments don't silently
+    // close out a work order admin still wanted to mark complete by hand.
+    if (wasAutoCharge && invData?.workOrderId) {
+      try {
+        const woRef = doc(db, 'workOrders', invData.workOrderId);
+        const woSnap = await getDoc(woRef);
+        if (woSnap.exists()) {
+          const wo = woSnap.data();
+          const status = String(wo.status || '').toLowerCase();
+          if (status !== 'completed' && status !== 'cancelled' && status !== 'archived') {
+            await updateDoc(woRef, {
+              status: 'completed',
+              completedAt: serverTimestamp(),
+              autoCompletedFromInvoicePayment: true,
+              updatedAt: serverTimestamp(),
+            });
+          }
+        }
+      } catch (woErr) {
+        console.warn('[webhook] Failed to mark WO completed after auto-charge paid:', woErr);
+      }
+    }
 
     console.log(`Hosted invoice ${invoiceId} marked as paid (Stripe invoice: ${stripeInvoice.id})`);
   } catch (error) {

@@ -11,7 +11,22 @@ export async function POST(request: NextRequest) {
   const db = await getServerDb();
   try {
     const body = await request.json();
-    const { invoiceId, invoiceNumber: bodyInvoiceNumber, amount: bodyAmount, customerEmail: bodyCustomerEmail, clientName: bodyClientName, clientId: bodyClientId } = body;
+    const {
+      invoiceId,
+      invoiceNumber: bodyInvoiceNumber,
+      amount: bodyAmount,
+      customerEmail: bodyCustomerEmail,
+      clientName: bodyClientName,
+      clientId: bodyClientId,
+      // ── Auto-pay flag — when true AND the client has a saved
+      // defaultPaymentMethodId, we create the Stripe invoice with
+      // collection_method=charge_automatically and Stripe attempts to
+      // charge the saved card off-session at finalize time. When false
+      // (default) or the client has no saved card, we keep the existing
+      // collection_method=send_invoice flow so Stripe emails the
+      // hosted payment link.
+      autoCharge: bodyAutoCharge,
+    } = body;
 
     if (!invoiceId) {
       return NextResponse.json({ error: 'Missing required field: invoiceId' }, { status: 400 });
@@ -51,11 +66,17 @@ export async function POST(request: NextRequest) {
     // Stripe Invoices require a Customer object. If no clientId is on the
     // invoice we still need an ad-hoc customer keyed off the email.
     let stripeCustomerId: string | undefined;
+    // Saved payment method id for auto-pay routing. Resolved alongside the
+    // Stripe customer lookup so we don't pay an extra round-trip later.
+    let clientDefaultPaymentMethodId: string | undefined;
+    let clientAutoPayEnabled = false;
     if (clientId) {
       const clientDoc = await getDoc(doc(db, 'clients', clientId));
       if (clientDoc.exists()) {
         const clientData = clientDoc.data();
         stripeCustomerId = clientData.stripeCustomerId;
+        clientDefaultPaymentMethodId = clientData.defaultPaymentMethodId || undefined;
+        clientAutoPayEnabled = clientData.autoPayEnabled === true;
         if (!stripeCustomerId) {
           const customer = await stripe.customers.create({
             email: clientData.email || customerEmail,
@@ -163,6 +184,19 @@ export async function POST(request: NextRequest) {
 
     const fallbackLineDescription = `Invoice ${invoiceNumber}`;
 
+    // ── Auto-charge routing ─────────────────────────────────────────────
+    // The caller decides when to request auto-charge (cron RWO execute
+    // always asks; admin "Send Invoice" may ask if the UI surfaces the
+    // option). We honour it only when the client has a saved default
+    // payment method — otherwise there's nothing to charge and we
+    // silently fall back to send_invoice. The clientAutoPayEnabled flag
+    // is read for audit/visibility but does not gate cron because
+    // recurring billing is opt-in at the RWO level, not at the per-
+    // invoice level.
+    void clientAutoPayEnabled; // referenced for clarity; not gating
+    const autoChargeRequested = bodyAutoCharge === true;
+    const willAutoCharge = autoChargeRequested && !!clientDefaultPaymentMethodId;
+
     // 1) Create the empty Stripe Invoice first (draft) so we can attach
     //    InvoiceItems directly to it via the `invoice` parameter. Earlier
     //    versions of the Stripe API auto-pulled pending invoice items for
@@ -180,20 +214,39 @@ export async function POST(request: NextRequest) {
     //    as a "Memo" at the top of the hosted page and was duplicating the
     //    line items. Memo intentionally omitted; per-item descriptions are
     //    enough.
-    const baseInvoiceParams: Stripe.InvoiceCreateParams = {
-      customer: stripeCustomerId,
-      collection_method: 'send_invoice',
-      days_until_due: 30,
-      auto_advance: false,
-      pending_invoice_items_behavior: 'exclude',
-      footer: `Invoice ${invoiceNumber}`,
-      metadata: {
-        invoiceId,
-        invoiceNumber,
-        clientName: clientName || '',
-        clientId: clientId || '',
-      },
-    };
+    const baseInvoiceParams: Stripe.InvoiceCreateParams = willAutoCharge
+      ? {
+          // Auto-pay path: Stripe finalizes + charges off-session using the
+          // default_payment_method we set below. invoice.paid webhook fires
+          // on success → handleHostedInvoicePaid marks Firestore paid.
+          customer: stripeCustomerId,
+          collection_method: 'charge_automatically',
+          auto_advance: true,
+          default_payment_method: clientDefaultPaymentMethodId,
+          pending_invoice_items_behavior: 'exclude',
+          footer: `Invoice ${invoiceNumber}`,
+          metadata: {
+            invoiceId,
+            invoiceNumber,
+            clientName: clientName || '',
+            clientId: clientId || '',
+            autoCharge: 'true',
+          },
+        }
+      : {
+          customer: stripeCustomerId,
+          collection_method: 'send_invoice',
+          days_until_due: 30,
+          auto_advance: false,
+          pending_invoice_items_behavior: 'exclude',
+          footer: `Invoice ${invoiceNumber}`,
+          metadata: {
+            invoiceId,
+            invoiceNumber,
+            clientName: clientName || '',
+            clientId: clientId || '',
+          },
+        };
 
     let stripeInvoice: Stripe.Invoice;
     try {
@@ -246,12 +299,16 @@ export async function POST(request: NextRequest) {
     }
 
     // 3) Finalize → produces hosted_invoice_url, with the line items now
-    //    locked in.
+    //    locked in. For auto-charge invoices, finalize triggers an
+    //    immediate off-session charge attempt against the saved card; the
+    //    invoice transitions straight from draft → paid (or open / failed
+    //    if the card was declined).
     const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
-    if (typeof finalized.amount_due === 'number' && finalized.amount_due <= 0) {
+    if (typeof finalized.amount_due === 'number' && finalized.amount_due <= 0 && finalized.status !== 'paid') {
       // Defensive: the invoice should have a non-zero amount due here. If
-      // Stripe returns 0 (e.g. all line items were rejected) void it so
-      // we don't ship a paid-\$0 link, then surface the error.
+      // Stripe returns 0 AND it's not because we just paid it (the
+      // amount_due=0 + status=paid case is the auto-charge happy path),
+      // void it so we don't ship a paid-\$0 link, then surface the error.
       try { await stripe.invoices.voidInvoice(stripeInvoice.id); } catch {}
       throw new Error(`Stripe invoice finalized at \$0 (amount_due=${finalized.amount_due}) — line items did not attach`);
     }
@@ -260,17 +317,44 @@ export async function POST(request: NextRequest) {
       throw new Error('Stripe invoice did not return a hosted URL');
     }
 
+    // For auto-charge invoices, capture the Stripe state immediately so
+    // the caller knows whether to wait for the webhook (paid) or surface
+    // a manual-payment fallback (failed). Stripe sets the invoice status
+    // to 'paid' synchronously when the off-session charge succeeds.
+    let autoChargeOutcome: 'succeeded' | 'failed' | 'requires_action' | 'pending' | null = null;
+    if (willAutoCharge) {
+      if (finalized.status === 'paid') {
+        autoChargeOutcome = 'succeeded';
+      } else if (finalized.status === 'open') {
+        // Card was declined or requires action; the customer can still
+        // pay via the hosted invoice URL.
+        autoChargeOutcome = 'failed';
+      } else {
+        autoChargeOutcome = 'pending';
+      }
+    }
+
     // Always write the fresh hosted URL back to the Firestore invoice so
     // every consumer (admin detail page, client portal, emails) sees the
-    // new link immediately. Without this, callers had to remember to
-    // update the doc themselves and legacy checkout.stripe.com links
-    // could be regenerated yet still saved as the old value.
+    // new link immediately. Auto-charge invoices also get
+    // autoChargeAttempted/autoChargeStatus flagged immediately so the
+    // admin UI can show a status pill before the webhook lands. The
+    // webhook handler (handleHostedInvoicePaid) is still the canonical
+    // marker for status:'paid' — these fields are the visible audit trail.
     try {
-      await updateDoc(doc(db, 'invoices', invoiceId), {
+      const persistFields: Record<string, unknown> = {
         stripePaymentLink: hostedUrl,
         stripeInvoiceId: finalized.id,
         updatedAt: serverTimestamp(),
-      });
+      };
+      if (willAutoCharge) {
+        persistFields.autoChargeAttempted = true;
+        persistFields.autoChargeStatus = autoChargeOutcome || 'pending';
+        if (autoChargeOutcome === 'failed' && finalized.last_finalization_error?.message) {
+          persistFields.autoChargeError = finalized.last_finalization_error.message;
+        }
+      }
+      await updateDoc(doc(db, 'invoices', invoiceId), persistFields);
     } catch (persistErr) {
       console.warn('[create-payment-link] Failed to persist hosted URL on invoice:', persistErr);
     }
@@ -282,6 +366,9 @@ export async function POST(request: NextRequest) {
       // Retained for backwards compatibility with callers that previously
       // persisted the Checkout Session id; this is now the Stripe Invoice id.
       sessionId: finalized.id,
+      autoCharge: willAutoCharge
+        ? { attempted: true, outcome: autoChargeOutcome, status: finalized.status }
+        : { attempted: false, reason: autoChargeRequested ? 'no_saved_payment_method' : 'not_requested' },
     });
   } catch (error: any) {
     console.error('Stripe error:', error);
