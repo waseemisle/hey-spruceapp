@@ -5,6 +5,7 @@ import { getServerDb } from '@/lib/firebase-server';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
+import { enrichFromPaymentIntent } from '@/lib/stripe-invoice-enrichment';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -120,6 +121,12 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
 
     const invSnap = await getDoc(doc(db, 'invoices', invoiceId));
     const invData = invSnap.data();
+    // Idempotency — webhook may retry, and a separate confirm-payment poll
+    // can race the webhook. Skip if we already enriched.
+    if (invData?.status === 'paid' && invData?.stripeChargeId) {
+      console.log(`Invoice ${invoiceId} already paid + enriched — skipping`);
+      return;
+    }
     const existingTimeline = invData?.timeline || [];
     const existingSysInfo = invData?.systemInformation || {};
 
@@ -132,11 +139,28 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
       metadata: { stripeSessionId: session.id },
     });
 
+    // Resolve PI + charge details. Failure here MUST NOT block marking the
+    // invoice paid — the customer's money already moved.
+    const paymentIntentId = typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent?.id || null;
+    const enrichment = paymentIntentId
+      ? await enrichFromPaymentIntent(stripe, paymentIntentId)
+      : { fields: {}, error: 'No payment_intent on checkout session' };
+
+    // Customer email from the session beats nothing; charge email beats both
+    // (set by enrichment above when present).
+    const sessionCustomerEmail = session.customer_details?.email || session.customer_email || null;
+    const customerEmail = enrichment.fields.stripeCustomerEmail || sessionCustomerEmail || null;
+
     await updateDoc(doc(db, 'invoices', invoiceId), {
       status: 'paid',
       paidAt: serverTimestamp(),
       stripeSessionId: session.id,
-      stripePaymentIntentId: session.payment_intent,
+      stripePaymentIntentId: paymentIntentId,
+      ...enrichment.fields,
+      ...(customerEmail ? { stripeCustomerEmail: customerEmail } : {}),
+      ...(enrichment.error ? { stripeEnrichmentError: enrichment.error } : {}),
       timeline: [...existingTimeline, paidEvent],
       systemInformation: {
         ...existingSysInfo,
@@ -146,7 +170,7 @@ async function handleSuccessfulPayment(session: Stripe.Checkout.Session) {
       updatedAt: serverTimestamp(),
     });
 
-    console.log(`Invoice ${invoiceId} marked as paid (checkout)`);
+    console.log(`Invoice ${invoiceId} marked as paid (checkout)${enrichment.fields.stripeReceiptUrl ? ' with receipt' : ''}`);
 
     // If session used setup_future_usage, save the payment method to the client
     const clientId = session.metadata?.clientId;
@@ -286,7 +310,8 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
     if (!invSnap.exists()) return;
     const invData = invSnap.data();
 
-    if (invData.status === 'paid') return; // Already handled
+    // Idempotency — already paid + enriched, nothing to do
+    if (invData.status === 'paid' && invData.stripeChargeId) return;
 
     const existingTimeline = invData.timeline || [];
     const existingSysInfo = invData.systemInformation || {};
@@ -300,12 +325,18 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
       metadata: { stripePaymentIntentId: pi.id },
     });
 
+    // Same enrichment as the checkout flow — pull charge, receipt URL,
+    // card brand/last4, balance txn, and amount received from Stripe.
+    const enrichment = await enrichFromPaymentIntent(stripe, pi.id);
+
     await updateDoc(doc(db, 'invoices', invoiceId), {
       status: 'paid',
       paidAt: serverTimestamp(),
       stripePaymentIntentId: pi.id,
       autoChargeAttempted: true,
       autoChargeStatus: 'succeeded',
+      ...enrichment.fields,
+      ...(enrichment.error ? { stripeEnrichmentError: enrichment.error } : {}),
       timeline: [...existingTimeline, paidEvent],
       systemInformation: {
         ...existingSysInfo,
@@ -315,7 +346,7 @@ async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent) {
       updatedAt: serverTimestamp(),
     });
 
-    console.log(`Invoice ${invoiceId} marked as paid via PaymentIntent ${pi.id}`);
+    console.log(`Invoice ${invoiceId} marked as paid via PaymentIntent ${pi.id}${enrichment.fields.stripeReceiptUrl ? ' with receipt' : ''}`);
   } catch (error) {
     console.error('Error handling payment_intent.succeeded:', error);
   }

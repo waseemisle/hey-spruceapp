@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/money';
-import { CheckCircle, ArrowLeft, Receipt, Download } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Receipt, Download, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import type { InvoiceData } from '@/lib/pdf-generator';
@@ -272,14 +272,32 @@ function PaymentSuccessContent() {
           )}
 
           <div className="pt-4 space-y-3">
-            <Button 
+            <Button
               onClick={handleBackToPortal}
               className="w-full"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Portal
             </Button>
-            
+
+            {/*
+              Stripe-hosted receipt link — populated by the webhook /
+              confirm-payment route via enrichFromPaymentIntent. Falls
+              back to the local PDF generator below when not available.
+            */}
+            {invoiceRecord && typeof (invoiceRecord as any).stripeReceiptUrl === 'string' && (
+              <Button variant="outline" asChild className="w-full">
+                <a
+                  href={String((invoiceRecord as any).stripeReceiptUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open Stripe Receipt
+                </a>
+              </Button>
+            )}
+
             <Button
               variant="outline"
               onClick={handleDownloadReceipt}
@@ -287,7 +305,7 @@ function PaymentSuccessContent() {
               disabled={!invoiceId || receiptDownloading}
             >
               <Download className="h-4 w-4 mr-2" />
-              {receiptDownloading ? 'Preparing…' : 'Download Receipt'}
+              {receiptDownloading ? 'Preparing…' : 'Download Receipt PDF'}
             </Button>
             
             <Link href="/portal-login" className="block">

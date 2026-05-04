@@ -9,7 +9,7 @@ import { formatMoney } from '@/lib/money';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
-import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye, Zap, AlertCircle } from 'lucide-react';
+import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye, Zap, AlertCircle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
@@ -41,6 +41,13 @@ interface Invoice {
   dueDate: any;
   stripePaymentLink?: string;
   stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  stripeChargeId?: string;
+  stripeReceiptUrl?: string;
+  stripeAmountReceived?: number;
+  stripeCurrency?: string;
+  stripeCardBrand?: string;
+  stripeCardLast4?: string;
   autoChargeAttempted?: boolean;
   autoChargeStatus?: string;
   autoChargeError?: string;
@@ -335,6 +342,71 @@ function ClientInvoicesInner() {
                       </div>
                     )}
                   </div>
+
+                  {/*
+                    Stripe payment details — populated by the webhook
+                    (handleSuccessfulPayment / handlePaymentIntentSucceeded)
+                    so finance + clients can audit a payment without opening
+                    the Stripe Dashboard. Only renders for paid invoices that
+                    actually have Stripe references attached.
+                  */}
+                  {invoice.status === 'paid' && (invoice.stripeReceiptUrl || invoice.stripeChargeId) && (
+                    <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Payment details
+                        </p>
+                        {invoice.stripeReceiptUrl && (
+                          <a
+                            href={invoice.stripeReceiptUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                          >
+                            Open receipt <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+                        {invoice.stripeCardBrand && invoice.stripeCardLast4 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Card</span>
+                            <span className="font-medium text-foreground capitalize">
+                              {invoice.stripeCardBrand} ····{invoice.stripeCardLast4}
+                            </span>
+                          </div>
+                        )}
+                        {typeof invoice.stripeAmountReceived === 'number' && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Amount received</span>
+                            <span className="font-medium text-foreground">
+                              {formatMoney(invoice.stripeAmountReceived)}
+                              {invoice.stripeCurrency && invoice.stripeCurrency !== 'USD'
+                                ? ` ${invoice.stripeCurrency}`
+                                : ''}
+                            </span>
+                          </div>
+                        )}
+                        {invoice.stripeChargeId && (
+                          <div className="flex items-center justify-between sm:col-span-2">
+                            <span className="text-muted-foreground">Charge ID</span>
+                            <code className="font-mono text-[10px] text-foreground select-all truncate ml-2">
+                              {invoice.stripeChargeId}
+                            </code>
+                          </div>
+                        )}
+                        {invoice.stripePaymentIntentId && (
+                          <div className="flex items-center justify-between sm:col-span-2">
+                            <span className="text-muted-foreground">Payment Intent</span>
+                            <code className="font-mono text-[10px] text-foreground select-all truncate ml-2">
+                              {invoice.stripePaymentIntentId}
+                            </code>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {/* Auto-charge status */}
                   {invoice.autoChargeAttempted && (
                     <div className={`text-xs flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg ${

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { enrichFromPaymentIntent } from '@/lib/stripe-invoice-enrichment';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -40,39 +41,56 @@ export async function POST(request: NextRequest) {
         const invSnap = await getDoc(doc(db, 'invoices', metaInvoiceId));
         if (invSnap.exists()) {
           const invData = invSnap.data();
-          if (invData.status !== 'paid') {
-            const paymentType = session.metadata?.paymentType || 'card';
-            const paymentLabel = paymentType === 'ach_bank_transfer' ? 'ACH bank transfer' : 'Stripe';
-
-            await updateDoc(doc(db, 'invoices', metaInvoiceId), {
-              status: 'paid',
-              paidAt: serverTimestamp(),
-              stripeSessionId: session.id,
-              stripePaymentIntentId: session.payment_intent || null,
-              timeline: [
-                ...(invData.timeline || []),
-                {
-                  id: `paid_${Date.now()}`,
-                  timestamp: new Date(),
-                  type: 'paid',
-                  userId: 'system',
-                  userName: 'Payment System',
-                  userRole: 'system',
-                  details: `Payment received via ${paymentLabel}`,
-                  metadata: { stripeSessionId: session.id },
-                },
-              ],
-              systemInformation: {
-                ...(invData.systemInformation || {}),
-                paidAt: Timestamp.now(),
-                paidBy: { id: 'system', name: 'Payment System', timestamp: Timestamp.now() },
-              },
-              updatedAt: serverTimestamp(),
-            });
-
-            return NextResponse.json({ success: true, updated: true, status: 'paid' });
+          // If the webhook already wrote AND enriched, just report success.
+          if (invData.status === 'paid' && invData.stripeChargeId) {
+            return NextResponse.json({ success: true, updated: false, status: 'already_paid' });
           }
-          return NextResponse.json({ success: true, updated: false, status: 'already_paid' });
+
+          const paymentType = session.metadata?.paymentType || 'card';
+          const paymentLabel = paymentType === 'ach_bank_transfer' ? 'ACH bank transfer' : 'Stripe';
+
+          // Resolve charge / receipt / card details from Stripe so the
+          // success-page redirect (which calls this route) lands on a fully
+          // enriched invoice even if the webhook is delayed or never fires.
+          const paymentIntentId = typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : session.payment_intent?.id || null;
+          const enrichment = paymentIntentId
+            ? await enrichFromPaymentIntent(stripe, paymentIntentId)
+            : { fields: {}, error: null };
+          const sessionCustomerEmail = session.customer_details?.email || session.customer_email || null;
+          const customerEmail = enrichment.fields.stripeCustomerEmail || sessionCustomerEmail || null;
+
+          await updateDoc(doc(db, 'invoices', metaInvoiceId), {
+            status: 'paid',
+            paidAt: serverTimestamp(),
+            stripeSessionId: session.id,
+            stripePaymentIntentId: paymentIntentId,
+            ...enrichment.fields,
+            ...(customerEmail ? { stripeCustomerEmail: customerEmail } : {}),
+            ...(enrichment.error ? { stripeEnrichmentError: enrichment.error } : {}),
+            timeline: [
+              ...(invData.timeline || []),
+              {
+                id: `paid_${Date.now()}`,
+                timestamp: new Date(),
+                type: 'paid',
+                userId: 'system',
+                userName: 'Payment System',
+                userRole: 'system',
+                details: `Payment received via ${paymentLabel}`,
+                metadata: { stripeSessionId: session.id },
+              },
+            ],
+            systemInformation: {
+              ...(invData.systemInformation || {}),
+              paidAt: Timestamp.now(),
+              paidBy: { id: 'system', name: 'Payment System', timestamp: Timestamp.now() },
+            },
+            updatedAt: serverTimestamp(),
+          });
+
+          return NextResponse.json({ success: true, updated: true, status: 'paid' });
         }
       }
 
