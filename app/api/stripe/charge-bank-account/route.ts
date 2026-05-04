@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { getBaseUrl } from '@/lib/base-url';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -63,7 +64,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app';
+    // Use the canonical resolver — was hard-coded to NEXT_PUBLIC_BASE_URL
+    // only. Other server routes use NEXT_PUBLIC_APP_URL; deployments
+    // that set the latter but not the former landed users on the wrong
+    // host after Stripe checkout.
+    const baseUrl = getBaseUrl();
 
     // ── Create Stripe Checkout Session with ACH ──
     const sessionParams: Stripe.Checkout.SessionCreateParams = {

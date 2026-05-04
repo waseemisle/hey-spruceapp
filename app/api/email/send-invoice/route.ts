@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, infoCard, infoRow, ctaButton, emailTotalsSummaryCard } from '@/lib/email-template';
 import { sendInvoiceToMarginEdge } from '@/lib/margin-edge';
+import { getBaseUrl } from '@/lib/base-url';
 
 /**
  * Resolve the subcontractor's BUSINESS name for display on invoice emails.
@@ -275,7 +276,7 @@ export async function POST(request: Request) {
           { label: 'Amount Due', amount: `$${finalTotal.toFixed(2)}`, variant: 'emphasis' },
         ])}
         ${stripePaymentLink ? ctaButton('Pay Now (Card)', stripePaymentLink) : ''}
-        ${invoiceId ? ctaButton('Pay from Bank (ACH)', `${process.env.NEXT_PUBLIC_BASE_URL || 'https://groundopscos.vercel.app'}/pay-bank/${invoiceId}`) : ''}
+        ${invoiceId ? ctaButton('Pay from Bank (ACH)', `${getBaseUrl()}/pay-bank/${invoiceId}`) : ''}
       `,
     });
 

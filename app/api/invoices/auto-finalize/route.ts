@@ -16,6 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { getBaseUrl } from '@/lib/base-url';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { getAllAdminUserIds, createNotifications, createNotification } from '@/lib/notifications';
 
@@ -56,8 +57,7 @@ export async function GET(request: NextRequest) {
     ));
 
     const candidates = snap.docs.slice(0, MAX_PER_RUN);
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const baseUrl = getBaseUrl();
 
     for (const d of candidates) {
       const inv = d.data() as any;

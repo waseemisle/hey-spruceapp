@@ -391,7 +391,18 @@ export interface Invoice {
   subcontractorId: string;
   subcontractorName: string;
   subcontractorEmail: string;
-  status: 'draft' | 'pending_approval' | 'sent' | 'paid' | 'overdue' | 'disputed';
+  /**
+   * Invoice lifecycle. Note for filters / UI:
+   *  - 'expired'   set by the Stripe webhook when a Checkout session expires
+   *                without payment (handleExpiredPayment).
+   *  - 'cancelled' / 'void' reserved for explicit admin-initiated kill of an
+   *                invoice (no UI for this yet — included in the union so
+   *                future code paths and rule-based filters compile cleanly).
+   *  - The duplicate-invoice guard in handleSendInvoice / executeNow
+   *    treats expired / cancelled / void as terminal and ALLOWS a new
+   *    invoice to be created against the same work order or schedule.
+   */
+  status: 'draft' | 'pending_approval' | 'sent' | 'paid' | 'overdue' | 'disputed' | 'expired' | 'cancelled' | 'void';
   totalAmount: number;
   laborCost: number;
   materialCost: number;

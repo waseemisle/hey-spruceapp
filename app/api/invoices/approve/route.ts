@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { getBaseUrl } from '@/lib/base-url';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { getAllAdminUserIds, createNotifications } from '@/lib/notifications';
@@ -73,8 +74,7 @@ export async function POST(request: NextRequest) {
     // Send the customer-facing invoice email — idempotent via invoiceEmailSentAt.
     if (!inv.invoiceEmailSentAt) {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
-          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+        const baseUrl = getBaseUrl();
         const emailRes = await fetch(`${baseUrl}/api/email/send-invoice`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

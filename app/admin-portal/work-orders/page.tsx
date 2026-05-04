@@ -531,16 +531,39 @@ const handleLocationSelect = (locationId: string) => {
       return;
     }
 
-    // Check if invoice already exists
+    // Block when ANY non-terminal invoice already exists for this WO.
+    // Previously only 'sent' / 'paid' were blocked, so re-clicking after
+    // a half-failed first attempt (Stripe link errored, email failed)
+    // duplicated the Firestore invoice row + invoice number for the
+    // same WO. Draft / pending_approval are now blocked too with a
+    // pointer back to the existing row so the admin can finish or
+    // delete it instead of creating a parallel one.
     const existingInvoiceQuery = query(
       collection(db, 'invoices'),
-      where('workOrderId', '==', workOrder.id)
+      where('workOrderId', '==', workOrder.id),
     );
     const existingInvoiceSnapshot = await getDocs(existingInvoiceQuery);
     if (!existingInvoiceSnapshot.empty) {
-      const existingInvoice = existingInvoiceSnapshot.docs[0].data();
-      if (existingInvoice.status === 'sent' || existingInvoice.status === 'paid') {
-        toast.error('Invoice already sent for this work order');
+      // Pick the most recent non-terminal one as the reference.
+      const TERMINAL = new Set(['cancelled', 'expired', 'void']);
+      const existing = existingInvoiceSnapshot.docs
+        .map((d) => ({ id: d.id, ...(d.data() as any) }))
+        .filter((inv) => !TERMINAL.has(String(inv.status || '').toLowerCase()))
+        .sort((a, b) => {
+          const aMs = a.createdAt?.toMillis?.() ?? 0;
+          const bMs = b.createdAt?.toMillis?.() ?? 0;
+          return bMs - aMs;
+        })[0];
+
+      if (existing) {
+        const status = String(existing.status || 'draft');
+        const num = existing.invoiceNumber || existing.id;
+        if (status === 'sent' || status === 'paid' || status === 'overdue' || status === 'disputed') {
+          toast.error(`Invoice ${num} already ${status} for this work order. Open it from /admin-portal/invoices.`);
+        } else {
+          // draft / pending_approval — guide the admin to the existing row.
+          toast.warning(`A ${status} invoice (${num}) already exists for this work order. Finish or delete it from /admin-portal/invoices before generating a new one.`);
+        }
         return;
       }
     }

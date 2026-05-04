@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -212,6 +212,29 @@ export default function ScheduledInvoicesManagement() {
   const executeNow = async (schedule: ScheduledInvoice) => {
     setExecuting(schedule.id);
     try {
+      // Idempotency guard — block when a non-terminal invoice already
+      // exists for this schedule. Prevents duplicate Firestore rows +
+      // duplicate invoice numbers when the admin re-clicks "Execute now"
+      // after a partial failure (Stripe link errored or email skipped on
+      // the first attempt).
+      const existingForSchedule = await getDocs(query(
+        collection(db, 'invoices'),
+        where('scheduledInvoiceId', '==', schedule.id),
+      ));
+      const TERMINAL = new Set(['cancelled', 'expired', 'void']);
+      const liveExisting = existingForSchedule.docs
+        .map((d) => ({ id: d.id, ...(d.data() as any) }))
+        .filter((inv) => !TERMINAL.has(String(inv.status || '').toLowerCase()))
+        .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0];
+      if (liveExisting) {
+        const num = liveExisting.invoiceNumber || liveExisting.id;
+        toast.error(
+          `Invoice ${num} (${liveExisting.status || 'draft'}) was already created from this schedule. Open it from /admin-portal/invoices to finish or delete first.`,
+        );
+        setExecuting(null);
+        return;
+      }
+
       // Step 1: Create invoice in database
       const invoiceNumber = generateInvoiceNumber();
       const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
