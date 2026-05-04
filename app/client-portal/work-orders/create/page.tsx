@@ -54,29 +54,68 @@ export default function CreateWorkOrder() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        setCompanyInfo(null);
-        setLocations([]);
-        setCheckingCompany(false);
+        // Don't touch state on null callbacks — Firebase Auth's first emission
+        // after a fresh page mount (or App Router remount on nav) can be null
+        // both as the callback arg AND `auth.currentUser` while the persisted
+        // user is being restored from IndexedDB. Any state change here flashes
+        // the "No company assigned" warning before the next callback (~150ms
+        // later) arrives with the real user. The layout's auth handler is the
+        // single source of truth for the "user is genuinely signed out →
+        // redirect" decision; this page just stays in loading state until a
+        // real user arrives.
         return;
       }
 
       setCheckingCompany(true);
+
+      // Read the client doc with retry-on-permission-error. Right after a
+      // fresh login or App Router remount, the Firebase Auth token sometimes
+      // hasn't propagated to Firestore yet, so the first getDoc rejects with
+      // permission-denied even though the user is genuinely authenticated.
+      // Without retry, the catch block flips checkingCompany=false and
+      // paints the wrong "No company assigned" warning. Retrying with short
+      // backoff lets the token catch up — second try almost always succeeds.
+      const readClientDoc = async () => {
+        let lastErr: any = null;
+        for (let i = 0; i < 4; i++) {
+          try {
+            return await getDoc(doc(db, 'clients', user.uid));
+          } catch (err: any) {
+            lastErr = err;
+            const code = err?.code || '';
+            const msg = String(err?.message || '');
+            const isAuthRace =
+              code === 'permission-denied' ||
+              code === 'unauthenticated' ||
+              /permission|insufficient|unauthenticated/i.test(msg);
+            if (!isAuthRace || i === 3) throw err;
+            await new Promise((r) => setTimeout(r, 250 * (i + 1)));
+            try { await user.getIdToken(true); } catch {}
+          }
+        }
+        throw lastErr;
+      };
+
       try {
-        const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+        const clientDoc = await readClientDoc();
         if (!clientDoc.exists()) {
+          // POSITIVELY confirmed: there is no client doc for this uid.
           setCompanyInfo(null);
           setLocations([]);
+          setCheckingCompany(false);
           return;
         }
 
         const clientData = clientDoc.data();
-        if (!clientData.companyId) {
+        const companyId = clientData.companyId as string | undefined;
+        if (!companyId) {
+          // POSITIVELY confirmed: client doc exists but has no companyId.
           setCompanyInfo(null);
           setLocations([]);
+          setCheckingCompany(false);
           return;
         }
 
-        const companyId = clientData.companyId as string;
         try {
           const companyDoc = await getDoc(doc(db, 'companies', companyId));
           if (companyDoc.exists()) {
@@ -88,6 +127,11 @@ export default function CreateWorkOrder() {
         } catch {
           setCompanyInfo({ id: companyId, name: 'Assigned Company' });
         }
+        // Mark the company-check phase done now that companyInfo is set —
+        // this is the only success path that flips checkingCompany to false
+        // with companyInfo populated, so the "no company" render condition
+        // can never match here.
+        setCheckingCompany(false);
 
         const locationsQuery = query(
           collection(db, 'locations'),
@@ -104,12 +148,18 @@ export default function CreateWorkOrder() {
 
         setLocations(locationsData);
       } catch (error) {
-        console.error('Error fetching locations for work order', error);
-        setCompanyInfo(null);
-        setLocations([]);
-      } finally {
-        setCheckingCompany(false);
+        // Transient Firestore failure (network blip, exhausted retries on
+        // post-login JWT race, rules layer hiccup). Do NOT conclude "no
+        // company" — that's the bug that paints the wrong warning. Stay in
+        // loading state. The next auth callback or a manual refresh will
+        // retry the read; we'd rather show a spinner a moment longer than
+        // a wrong empty state.
+        console.error('Error loading work-order create context (will not flash "no company"):', error);
       }
+      // No finally block — checkingCompany stays true unless one of the
+      // positive-answer branches above explicitly turned it off. This
+      // guarantees the "no company" warning is only ever shown when we
+      // POSITIVELY confirmed the client doc has no companyId.
     });
 
     return () => unsubscribe();

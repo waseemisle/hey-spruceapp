@@ -58,21 +58,48 @@ export default function CreateLocation() {
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        if (isMounted) {
-          setAssignedCompany(null);
-          setFormData(prev => ({ ...prev, companyId: '' }));
-          setCheckingCompany(false);
-        }
+        // Don't touch state on null callbacks — the first auth emission
+        // after a fresh mount / App Router remount can be null while the
+        // persisted user is being restored from IndexedDB. Resetting state
+        // here flashes the "No company assigned" warning before the next
+        // callback (~150ms later) arrives with the real user.
         return;
       }
 
+      if (isMounted) setCheckingCompany(true);
+
+      // Read the client doc with retry on auth-token race. Right after
+      // login or a remount the token can briefly fail Firestore rules.
+      const readClientDoc = async () => {
+        let lastErr: any = null;
+        for (let i = 0; i < 4; i++) {
+          try {
+            return await getDoc(doc(db, 'clients', user.uid));
+          } catch (err: any) {
+            lastErr = err;
+            const code = err?.code || '';
+            const msg = String(err?.message || '');
+            const isAuthRace =
+              code === 'permission-denied' ||
+              code === 'unauthenticated' ||
+              /permission|insufficient|unauthenticated/i.test(msg);
+            if (!isAuthRace || i === 3) throw err;
+            await new Promise((r) => setTimeout(r, 250 * (i + 1)));
+            try { await user.getIdToken(true); } catch {}
+          }
+        }
+        throw lastErr;
+      };
+
       // Get the client's companyId from their profile
       try {
-        const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+        const clientDoc = await readClientDoc();
         if (!clientDoc.exists()) {
+          // POSITIVELY confirmed: no client doc for this uid.
           if (isMounted) {
             setAssignedCompany(null);
             setFormData(prev => ({ ...prev, companyId: '' }));
+            setCheckingCompany(false);
           }
           return;
         }
@@ -89,9 +116,11 @@ export default function CreateLocation() {
         const clientCompanyId = clientData.companyId;
 
         if (!clientCompanyId) {
+          // POSITIVELY confirmed: client doc exists but has no companyId.
           if (isMounted) {
             setAssignedCompany(null);
             setFormData(prev => ({ ...prev, companyId: '' }));
+            setCheckingCompany(false);
           }
           return;
         }
@@ -104,23 +133,24 @@ export default function CreateLocation() {
             name: data.name || 'Unnamed Company',
           };
           setAssignedCompany(companyInfo);
-          // Auto-select the company
           setFormData(prev => ({ ...prev, companyId: companyDoc.id }));
         } else if (isMounted) {
-          setAssignedCompany(null);
-          setFormData(prev => ({ ...prev, companyId: '' }));
+          // Company doc missing — treat as "assigned company" with placeholder
+          // name rather than flashing "no company". The rules-level read on
+          // companies isn't the same surface as the client doc.
+          setAssignedCompany({ id: clientCompanyId, name: 'Assigned Company' });
+          setFormData(prev => ({ ...prev, companyId: clientCompanyId }));
         }
+        if (isMounted) setCheckingCompany(false);
       } catch (error) {
-        console.error('Error fetching companies for client portal', error);
-        if (isMounted) {
-          setAssignedCompany(null);
-          setFormData(prev => ({ ...prev, companyId: '' }));
-        }
-      } finally {
-        if (isMounted) {
-          setCheckingCompany(false);
-        }
+        // Transient Firestore failure (network blip, exhausted retries on
+        // post-login JWT race). Do NOT conclude "no company" — that's the
+        // bug. Stay in loading state; the next auth callback or a refresh
+        // will retry. Better a spinner moment longer than a wrong empty.
+        console.error('Error loading client company (will not flash "no company"):', error);
       }
+      // No finally block — checkingCompany stays true unless one of the
+      // positive-answer branches above explicitly turned it off.
     });
 
     return () => {
