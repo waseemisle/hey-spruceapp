@@ -1,59 +1,27 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import listPlugin from '@fullcalendar/list';
-import { collection, query, where, onSnapshot, Timestamp, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { RecurringWorkOrder } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { formatAddress } from '@/lib/utils';
 import { toast } from 'sonner';
-import { buildQuoteCalendarEvent, QuoteLikeForCalendar } from '@/lib/calendar-utils';
-import { useIsMobile } from '@/lib/use-is-mobile';
-
-interface WorkOrder {
-  id: string;
-  workOrderNumber?: string;
-  title: string;
-  locationName: string;
-  locationAddress?: string;
-  clientName: string;
-  status: string;
-  scheduledServiceDate?: Timestamp | Date;
-  scheduledServiceTime?: string;
-  category: string;
-}
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end?: Date;
-  backgroundColor: string;
-  borderColor: string;
-  textColor: string;
-  editable?: boolean;
-  url?: string;
-  extendedProps: {
-    workOrderId: string;
-    workOrderNumber: string;
-    locationName?: string;
-    locationAddress?: string;
-    clientName?: string;
-    status: string;
-    category?: string;
-    isRecurring?: boolean;
-    isRecurringTemplate?: boolean;
-    isQuoteEvent?: boolean;
-    isDiagnosticQuote?: boolean;
-    quoteId?: string;
-  };
-}
+import {
+  buildQuoteCalendarEvent,
+  type QuoteLikeForCalendar,
+  type QuoteCalendarEvent,
+} from '@/lib/calendar-utils';
+import {
+  buildWorkOrderEvent,
+  suppressTemplateOccurrencesWithChildren,
+  suppressQuotesWithScheduledWO,
+  dedupeEventsByJobDay,
+  STATUS_PALETTE,
+  type WorkOrderForCalendar,
+} from '@/lib/calendar-events';
+import CalendarShell, { type CalendarLegendItem } from './calendar-shell';
+import { formatAddress } from '@/lib/utils';
 
 interface AdminCalendarProps {
   selectedClients?: string[];
@@ -64,59 +32,59 @@ interface AdminCalendarProps {
   companyClientIds?: string[];
 }
 
-export default function AdminCalendar({ selectedClients, selectedLocations, selectedStatuses, onEventClick, companyId, companyClientIds }: AdminCalendarProps) {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+const LEGEND: CalendarLegendItem[] = [
+  { slot: 'scheduled',  label: 'Scheduled' },
+  { slot: 'assigned',   label: 'Assigned' },
+  { slot: 'pending',    label: 'Pending' },
+  { slot: 'bidding',    label: 'Bidding' },
+  { slot: 'completed',  label: 'Completed' },
+  { slot: 'rejected',   label: 'Rejected' },
+  { slot: 'recurring',  label: 'Recurring template' },
+  { slot: 'execution',  label: 'Recurring execution' },
+  { slot: 'diagnostic', label: 'Diagnostic' },
+  { slot: 'quote',      label: 'Quote' },
+];
+
+export default function AdminCalendar({
+  selectedClients,
+  selectedLocations,
+  selectedStatuses,
+  onEventClick,
+  companyId,
+  companyClientIds,
+}: AdminCalendarProps) {
+  const [workOrders, setWorkOrders] = useState<WorkOrderForCalendar[]>([]);
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
   const [quotes, setQuotes] = useState<QuoteLikeForCalendar[]>([]);
-  const isMobile = useIsMobile();
-  const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek'>('dayGridMonth');
-  const calendarRef = useRef<FullCalendar>(null);
 
+  /* ------------------------- Firestore subscriptions ------------------- */
   useEffect(() => {
-    if (!calendarRef.current) return;
-    const targetView = isMobile ? 'listWeek' : 'dayGridMonth';
-    calendarRef.current.getApi().changeView(targetView);
-    setView(targetView);
-  }, [isMobile]);
-
-  useEffect(() => {
-    // Listen to all work orders
-    const workOrdersQuery = query(collection(db, 'workOrders'));
-
-    const unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
-      const workOrdersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as WorkOrder[];
-
-      setWorkOrders(workOrdersData);
-    });
-
-    // Listen to active recurring work orders
-    const recurringWorkOrdersQuery = query(
-      collection(db, 'recurringWorkOrders'),
-      where('status', '==', 'active')
+    const unsubscribeWorkOrders = onSnapshot(
+      query(collection(db, 'workOrders')),
+      (snapshot) => {
+        setWorkOrders(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as WorkOrderForCalendar[]);
+      },
     );
 
-    const unsubscribeRecurring = onSnapshot(recurringWorkOrdersQuery, (snapshot) => {
-      const recurringData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        nextExecution: doc.data().nextExecution?.toDate(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-      })) as RecurringWorkOrder[];
+    const unsubscribeRecurring = onSnapshot(
+      query(collection(db, 'recurringWorkOrders'), where('status', '==', 'active')),
+      (snapshot) => {
+        setRecurringWorkOrders(snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+          nextExecution: d.data().nextExecution?.toDate(),
+          createdAt: d.data().createdAt?.toDate(),
+          updatedAt: d.data().updatedAt?.toDate(),
+        })) as RecurringWorkOrder[]);
+      },
+    );
 
-      setRecurringWorkOrders(recurringData);
-    });
-
-    // Listen to all quotes (diagnostic requests + regular quotes)
-    const quotesQuery = query(collection(db, 'quotes'));
-    const unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
-      const quotesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[];
-      setQuotes(quotesData);
-    });
+    const unsubscribeQuotes = onSnapshot(
+      query(collection(db, 'quotes')),
+      (snapshot) => {
+        setQuotes(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[]);
+      },
+    );
 
     return () => {
       unsubscribeWorkOrders();
@@ -125,274 +93,45 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
     };
   }, []);
 
-  useEffect(() => {
-    // Exclude archived work orders from the calendar
+  /* ------------------------- Build deduped event list ------------------ */
+  const events = useMemo(() => {
     let filteredWorkOrders = workOrders.filter(wo => wo.status !== 'archived');
 
-    // Apply company filter
     if (companyId) {
       filteredWorkOrders = filteredWorkOrders.filter(wo => (wo as any).companyId === companyId);
     }
-
     if (selectedClients && selectedClients.length > 0) {
       filteredWorkOrders = filteredWorkOrders.filter(wo =>
-        selectedClients.includes(wo.clientName)
+        selectedClients.includes(wo.clientName || ''),
       );
     }
-
     if (selectedLocations && selectedLocations.length > 0) {
       filteredWorkOrders = filteredWorkOrders.filter(wo =>
-        selectedLocations.includes(wo.locationName)
+        selectedLocations.includes(wo.locationName || ''),
       );
     }
-
     if (selectedStatuses && selectedStatuses.length > 0) {
       filteredWorkOrders = filteredWorkOrders.filter(wo =>
-        selectedStatuses.includes(wo.status)
+        selectedStatuses.includes(wo.status),
       );
     }
 
-    // Convert work orders to calendar events
-    const workOrderEvents: CalendarEvent[] = filteredWorkOrders
-      .filter(wo => {
-        // Show scheduled work orders and other statuses with dates
-        return wo.scheduledServiceDate || wo.status === 'scheduled' || wo.status === 'accepted_by_subcontractor' || wo.status === 'assigned';
-      })
-      .map(wo => {
-        const isRecurringExecution = !!(wo as any).isMaintenanceRequestOrder || !!(wo as any).recurringWorkOrderId;
-        const scheduledDate = wo.scheduledServiceDate instanceof Timestamp
-          ? wo.scheduledServiceDate.toDate()
-          : wo.scheduledServiceDate instanceof Date
-          ? wo.scheduledServiceDate
-          : null;
+    // 1. Work order events
+    const workOrderEvents = filteredWorkOrders
+      .map(wo => buildWorkOrderEvent(wo, 'admin'))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
 
-        const colors = isRecurringExecution
-          ? { bg: '#f97316', border: '#ea580c', text: '#ffffff' } // Orange for recurring executions
-          : getStatusColor(wo.status);
-
-        const titlePrefix = isRecurringExecution ? '⚡ ' : '';
-
-        if (!scheduledDate) {
-          const createdDate = (wo as any).createdAt instanceof Timestamp
-            ? (wo as any).createdAt.toDate()
-            : new Date();
-          return {
-            id: wo.id,
-            title: `${titlePrefix}${wo.title} - ${wo.clientName}`,
-            start: createdDate,
-            backgroundColor: colors.bg,
-            borderColor: colors.border,
-            textColor: colors.text,
-            url: `/admin-portal/work-orders/${wo.id}`,
-            extendedProps: {
-              workOrderId: wo.id,
-              workOrderNumber: wo.workOrderNumber || wo.id.slice(-8).toUpperCase(),
-              locationName: wo.locationName,
-              locationAddress: formatAddress(wo.locationAddress),
-              clientName: wo.clientName,
-              status: wo.status,
-              category: wo.category,
-              isRecurring: isRecurringExecution,
-            },
-          };
-        }
-
-        // Parse time if available
-        let startDateTime = new Date(scheduledDate);
-        if (wo.scheduledServiceTime) {
-          const [hours, minutes] = wo.scheduledServiceTime.split(':').map(Number);
-          startDateTime.setHours(hours, minutes, 0, 0);
-        }
-
-        // Estimate end time (default 2 hours)
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 2);
-
-        return {
-          id: wo.id,
-          title: `${titlePrefix}${wo.title} - ${wo.clientName}`,
-          start: startDateTime,
-          end: endDateTime,
-          backgroundColor: colors.bg,
-          borderColor: colors.border,
-          textColor: colors.text,
-          url: `/admin-portal/work-orders/${wo.id}`,
-          extendedProps: {
-            workOrderId: wo.id,
-            workOrderNumber: wo.workOrderNumber || wo.id.slice(-8).toUpperCase(),
-            locationName: wo.locationName,
-            locationAddress: formatAddress(wo.locationAddress),
-            clientName: wo.clientName,
-            status: wo.status,
-            category: wo.category,
-            isRecurring: isRecurringExecution,
-          },
-        };
-      });
-
-    // Convert recurring work orders to calendar events
-    const recurringEvents: CalendarEvent[] = [];
-
-    const filteredRecurring = recurringWorkOrders.filter(rwo => {
+    // 2. Recurring template events — expanded over a window
+    const filteredRecurring = recurringWorkOrders.filter((rwo) => {
       if (companyClientIds && companyClientIds.length > 0 && !companyClientIds.includes(rwo.clientId)) return false;
       if (selectedClients && selectedClients.length > 0 && !selectedClients.includes(rwo.clientName)) return false;
       if (selectedLocations && selectedLocations.length > 0 && !selectedLocations.includes(rwo.locationName || '')) return false;
       return true;
     });
 
-    for (const rwo of filteredRecurring) {
-      const daysOfWeek: number[] | undefined = (rwo.recurrencePattern as any)?.daysOfWeek;
-      const patternStartDate: any = (rwo.recurrencePattern as any)?.startDate;
+    const recurringTemplateEvents = expandRecurringTemplates(filteredRecurring);
 
-      if (daysOfWeek && daysOfWeek.length > 0) {
-        // DAILY pattern — generate one event per matching day for the next 90 days from start date
-        const start = patternStartDate
-          ? (patternStartDate instanceof Date ? patternStartDate : patternStartDate?.toDate?.() ?? new Date(patternStartDate))
-          : (rwo.nextExecution instanceof Date ? rwo.nextExecution : new Date(rwo.nextExecution));
-
-        const windowStart = new Date(start);
-        windowStart.setHours(0, 0, 0, 0);
-
-        const endDate: any = (rwo.recurrencePattern as any)?.endDate;
-        const windowEnd = endDate
-          ? (endDate instanceof Date ? endDate : endDate?.toDate?.() ?? new Date(endDate))
-          : (() => { const d = new Date(); d.setDate(d.getDate() + 90); return d; })();
-
-        const cursor = new Date(windowStart);
-        let occurrenceIdx = 0;
-
-        while (cursor <= windowEnd) {
-          if (daysOfWeek.includes(cursor.getDay())) {
-            const eventStart = new Date(cursor);
-            eventStart.setHours(9, 0, 0, 0);
-            const eventEnd = new Date(eventStart);
-            eventEnd.setHours(11, 0, 0, 0);
-
-            recurringEvents.push({
-              id: `recurring-${rwo.id}-${occurrenceIdx}`,
-              title: `🔄 ${rwo.title} - ${rwo.clientName}`,
-              start: eventStart,
-              end: eventEnd,
-              backgroundColor: '#7c3aed',
-              borderColor: '#6d28d9',
-              textColor: '#ffffff',
-              editable: false,
-              url: `/admin-portal/recurring-work-orders/${rwo.id}`,
-              extendedProps: {
-                workOrderId: rwo.id,
-                workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
-                locationName: rwo.locationName || 'Unknown Location',
-                locationAddress: formatAddress(rwo.locationAddress),
-                clientName: rwo.clientName,
-                status: 'recurring',
-                category: rwo.category,
-                isRecurring: true,
-                isRecurringTemplate: true,
-              },
-            });
-            occurrenceIdx++;
-          }
-          cursor.setDate(cursor.getDate() + 1);
-        }
-      } else {
-        // Non-daily: generate events between startDate and endDate if available
-        const patternStart: any = (rwo.recurrencePattern as any)?.startDate;
-        const patternEnd: any = (rwo.recurrencePattern as any)?.endDate;
-        const interval: number = (rwo.recurrencePattern as any)?.interval || 1;
-        const type: string = (rwo.recurrencePattern as any)?.type || 'monthly';
-        const dayOfMonth: number = (rwo.recurrencePattern as any)?.dayOfMonth || 1;
-
-        const toDate = (val: any): Date => {
-          if (val instanceof Date) return val;
-          if (typeof val?.toDate === 'function') return val.toDate();
-          return new Date(val);
-        };
-
-        const makeEvent = (idx: number, eventStart: Date): CalendarEvent => {
-          const eventEnd = new Date(eventStart);
-          eventEnd.setHours(11, 0, 0, 0);
-          return {
-            id: `recurring-${rwo.id}-${idx}`,
-            title: `🔄 ${rwo.title} - ${rwo.clientName}`,
-            start: new Date(eventStart),
-            end: eventEnd,
-            backgroundColor: '#7c3aed',
-            borderColor: '#6d28d9',
-            textColor: '#ffffff',
-            editable: false,
-            url: `/admin-portal/recurring-work-orders/${rwo.id}`,
-            extendedProps: {
-              workOrderId: rwo.id,
-              workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
-              locationName: rwo.locationName || 'Unknown Location',
-              locationAddress: formatAddress(rwo.locationAddress),
-              clientName: rwo.clientName,
-              status: 'recurring',
-              category: rwo.category,
-              isRecurring: true,
-              isRecurringTemplate: true,
-            },
-          };
-        };
-
-        if (patternStart && patternEnd) {
-          const startDate = toDate(patternStart);
-          const endDate = toDate(patternEnd);
-          let occurrenceIdx = 0;
-
-          if (type === 'monthly') {
-            // First occurrence at dayOfMonth on/after startDate
-            let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), dayOfMonth, 9, 0, 0);
-            if (cursor < startDate) {
-              cursor = new Date(cursor.getFullYear(), cursor.getMonth() + interval, dayOfMonth, 9, 0, 0);
-            }
-            while (cursor <= endDate) {
-              recurringEvents.push(makeEvent(occurrenceIdx, cursor));
-              cursor = new Date(cursor.getFullYear(), cursor.getMonth() + interval, dayOfMonth, 9, 0, 0);
-              occurrenceIdx++;
-            }
-          } else if (type === 'weekly') {
-            let cursor = new Date(startDate);
-            cursor.setHours(9, 0, 0, 0);
-            while (cursor <= endDate) {
-              recurringEvents.push(makeEvent(occurrenceIdx, cursor));
-              cursor = new Date(cursor);
-              cursor.setDate(cursor.getDate() + interval * 7);
-              occurrenceIdx++;
-            }
-          }
-        } else if (rwo.nextExecution) {
-          // Fallback: single nextExecution event
-          const nextExec = rwo.nextExecution instanceof Date ? rwo.nextExecution : new Date(rwo.nextExecution);
-          const startDateTime = new Date(nextExec);
-          startDateTime.setHours(9, 0, 0, 0);
-          recurringEvents.push({
-            id: `recurring-${rwo.id}`,
-            title: `🔄 ${rwo.title} - ${rwo.clientName} (Recurring)`,
-            start: startDateTime,
-            end: (() => { const e = new Date(startDateTime); e.setHours(11, 0, 0, 0); return e; })(),
-            backgroundColor: '#7c3aed',
-            borderColor: '#6d28d9',
-            textColor: '#ffffff',
-            editable: false,
-            url: `/admin-portal/recurring-work-orders/${rwo.id}`,
-            extendedProps: {
-              workOrderId: rwo.id,
-              workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
-              locationName: rwo.locationName || 'Unknown Location',
-              locationAddress: formatAddress(rwo.locationAddress),
-              clientName: rwo.clientName,
-              status: 'recurring',
-              category: rwo.category,
-              isRecurring: true,
-              isRecurringTemplate: true,
-            },
-          });
-        }
-      }
-    }
-
-    // Quote / Diagnostic Request events from the quotes collection
+    // 3. Quote events — suppressed when WO is already scheduled / quote was approved
     let filteredQuotes = quotes;
     if (companyClientIds && companyClientIds.length > 0) {
       const allowed = new Set(companyClientIds);
@@ -401,103 +140,80 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
     if (selectedClients && selectedClients.length > 0) {
       filteredQuotes = filteredQuotes.filter(q => q.clientName && selectedClients.includes(q.clientName));
     }
-
-    const quoteEvents: CalendarEvent[] = filteredQuotes
+    const rawQuoteEvents: QuoteCalendarEvent[] = filteredQuotes
       .map(q => buildQuoteCalendarEvent(q, 'admin'))
-      .filter((e): e is NonNullable<typeof e> => e !== null)
-      .map(e => ({
-        id: e.id,
-        title: e.title,
-        start: e.start,
-        end: e.end,
-        backgroundColor: e.backgroundColor,
-        borderColor: e.borderColor,
-        textColor: e.textColor,
-        url: e.url,
-        editable: false,
-        extendedProps: {
-          workOrderId: e.extendedProps.workOrderId,
-          workOrderNumber: e.extendedProps.workOrderNumber,
-          status: e.extendedProps.status,
-          isQuoteEvent: true,
-          isDiagnosticQuote: e.extendedProps.isDiagnosticQuote,
-          quoteId: e.extendedProps.quoteId,
-          clientName: e.extendedProps.clientName,
-        },
-      }));
+      .filter((e): e is QuoteCalendarEvent => e !== null);
+    const quoteEvents = suppressQuotesWithScheduledWO(rawQuoteEvents, filteredWorkOrders).map((e) => ({
+      id: e.id,
+      title: e.title,
+      start: e.start,
+      end: e.end,
+      backgroundColor: e.backgroundColor,
+      borderColor: e.borderColor,
+      textColor: e.textColor,
+      url: e.url,
+      editable: false,
+      extendedProps: {
+        ...e.extendedProps,
+        kind: 'quote' as const,
+        statusSlot: e.extendedProps.isDiagnosticQuote ? ('diagnostic' as const) : ('quote' as const),
+      },
+    }));
 
-    // Combine all event types
-    setEvents([...workOrderEvents, ...recurringEvents, ...quoteEvents]);
+    // 4. Suppress template events that already have a child WO at the same date
+    const dedupedTemplates = suppressTemplateOccurrencesWithChildren(
+      recurringTemplateEvents,
+      filteredWorkOrders,
+    );
+
+    // 5. Final safety pass — dedupe by (workOrderId, day)
+    return dedupeEventsByJobDay([
+      ...workOrderEvents,
+      ...dedupedTemplates,
+      ...quoteEvents,
+    ]);
   }, [workOrders, recurringWorkOrders, quotes, selectedClients, selectedLocations, selectedStatuses, companyId, companyClientIds]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-      case 'accepted_by_subcontractor':
-        return { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' }; // Blue
-      case 'pending':
-      case 'approved':
-        return { bg: '#fbbf24', border: '#f59e0b', text: '#ffffff' }; // Yellow
-      case 'completed':
-        return { bg: '#10b981', border: '#059669', text: '#ffffff' }; // Green
-      case 'bidding':
-        return { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }; // Purple
-      case 'rejected':
-      case 'overdue':
-        return { bg: '#ef4444', border: '#dc2626', text: '#ffffff' }; // Red
-      case 'assigned':
-        return { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' }; // Cyan
-      default:
-        return { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }; // Gray
-    }
-  };
-
-  // FullCalendar renders each event as an <a> when `url` is set, so Ctrl/Cmd+Click
-  // and middle-click open in a new tab natively. We only intercept the click when a
-  // custom onEventClick handler is provided (e.g. to trigger an in-app drawer).
+  /* ------------------------- Click handler ----------------------------- */
   const handleEventClick = (clickInfo: any) => {
+    const props = clickInfo.event.extendedProps || {};
+    const kind = props.kind;
+    if (kind === 'recurringTemplate') {
+      // Open the recurring series detail page
+      window.location.href = `/admin-portal/recurring-work-orders/${props.workOrderId}`;
+      clickInfo.jsEvent.preventDefault();
+      return;
+    }
     if (onEventClick) {
       clickInfo.jsEvent.preventDefault();
-      const { workOrderId } = clickInfo.event.extendedProps;
-      onEventClick(workOrderId);
+      onEventClick(props.workOrderId);
     }
   };
 
-  // Persist a drag-reschedule back to Firestore. Recurring template events are marked
-  // editable:false per-event, so this handler only fires for real workOrders docs
-  // (including executions of recurring WOs, which are themselves standard work orders).
+  /* ------------------------- Drag-to-reschedule ------------------------ */
   const handleEventDrop = async (dropInfo: any) => {
-    const eventId = String(dropInfo.event.id || '');
-    const isRecurringTemplateEvent = eventId.startsWith('recurring-') || dropInfo.event.extendedProps?.isRecurringTemplate;
-    const isQuoteEvent = eventId.startsWith('quote-') || dropInfo.event.extendedProps?.isQuoteEvent;
-
-    if (isRecurringTemplateEvent) {
+    const props = dropInfo.event.extendedProps || {};
+    const kind = props.kind;
+    if (kind === 'recurringTemplate') {
       dropInfo.revert();
       toast.error('Recurring work orders cannot be rescheduled from the calendar. Edit the recurrence pattern instead.');
       return;
     }
-
-    if (isQuoteEvent) {
+    if (kind === 'quote') {
       dropInfo.revert();
       toast.error('Quote / Diagnostic Request times cannot be rescheduled from the calendar.');
       return;
     }
 
     const newStart: Date | null = dropInfo.event.start;
-    if (!newStart) {
-      dropInfo.revert();
-      return;
-    }
+    if (!newStart) { dropInfo.revert(); return; }
 
-    // Also sync scheduledServiceTime (HH:mm) so the calendar's render logic — which
-    // prefers the time string over the timestamp's hours — stays aligned when a
-    // week/day view drag also changes the time.
     const hh = String(newStart.getHours()).padStart(2, '0');
     const mm = String(newStart.getMinutes()).padStart(2, '0');
     const newTimeStr = `${hh}:${mm}`;
 
     try {
-      await updateDoc(doc(db, 'workOrders', eventId), {
+      await updateDoc(doc(db, 'workOrders', String(dropInfo.event.id)), {
         scheduledServiceDate: newStart,
         scheduledServiceTime: newTimeStr,
         updatedAt: serverTimestamp(),
@@ -511,144 +227,116 @@ export default function AdminCalendar({ selectedClients, selectedLocations, sele
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>All Work Orders Calendar</CardTitle>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <Button
-              variant={view === 'dayGridMonth' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('dayGridMonth');
-                calendarRef.current?.getApi().changeView('dayGridMonth');
-              }}
-            >
-              Month
-            </Button>
-            <Button
-              variant={view === 'timeGridWeek' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('timeGridWeek');
-                calendarRef.current?.getApi().changeView('timeGridWeek');
-              }}
-            >
-              Week
-            </Button>
-            <Button
-              variant={view === 'timeGridDay' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('timeGridDay');
-                calendarRef.current?.getApi().changeView('timeGridDay');
-              }}
-            >
-              Day
-            </Button>
-            <Button
-              variant={view === 'listWeek' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('listWeek');
-                calendarRef.current?.getApi().changeView('listWeek');
-              }}
-            >
-              List
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-          initialView="dayGridMonth"
-          events={events}
-          eventClick={handleEventClick}
-          eventDrop={handleEventDrop}
-          editable={true}
-          eventStartEditable={true}
-          eventDurationEditable={false}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: '',
-          }}
-          height="auto"
-          eventDisplay="block"
-          displayEventTime={false}
-          eventContent={(arg) => (
-            <div className="px-1 py-0.5 text-xs leading-tight whitespace-normal break-words">
-              {arg.event.title}
-            </div>
-          )}
-        />
-        </div>
-        <style jsx global>{`
-          /* Let event titles wrap onto multiple lines instead of truncating */
-          .fc .fc-event,
-          .fc .fc-daygrid-event,
-          .fc .fc-daygrid-block-event,
-          .fc .fc-daygrid-block-event .fc-event-main,
-          .fc .fc-timegrid-event,
-          .fc .fc-timegrid-event .fc-event-main,
-          .fc .fc-event-main,
-          .fc .fc-event-main-frame,
-          .fc .fc-event-title,
-          .fc .fc-event-title-container {
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
-          }
-          .fc .fc-daygrid-event-harness,
-          .fc .fc-daygrid-day-events,
-          .fc .fc-daygrid-day-frame {
-            overflow: visible !important;
-          }
-          /* Allow the day cell itself to grow to fit wrapped event text */
-          .fc .fc-daygrid-day-frame {
-            min-height: unset !important;
-          }
-        `}</style>
-        {/* Legend */}
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#7c3aed' }} />
-            <span>🔄 Recurring WO Template</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#f97316' }} />
-            <span>⚡ Recurring WO Execution</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#3b82f6' }} />
-            <span>Scheduled / Accepted</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#06b6d4' }} />
-            <span>Assigned</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#10b981' }} />
-            <span>Completed</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#fbbf24' }} />
-            <span>Pending / Approved</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#8b5cf6' }} />
-            <span>Bidding</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
-            <span>Rejected / Overdue</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <CalendarShell
+      title="All Work Orders Calendar"
+      subtitle="Drag any scheduled work order tile to reschedule"
+      events={events}
+      onEventClick={handleEventClick}
+      onEventDrop={handleEventDrop}
+      editable
+      legend={LEGEND}
+    />
   );
 }
 
+/* ====================================================================== */
+/*  Recurring template expansion                                           */
+/* ====================================================================== */
+
+function expandRecurringTemplates(filteredRecurring: RecurringWorkOrder[]) {
+  const events: any[] = [];
+  const palette = STATUS_PALETTE.recurring;
+
+  const baseEvent = (rwo: RecurringWorkOrder, idx: number, eventStart: Date) => {
+    const eventEnd = new Date(eventStart); eventEnd.setHours(11, 0, 0, 0);
+    return {
+      id: `recurring-${rwo.id}-${idx}`,
+      title: `${rwo.title} — ${rwo.clientName}`,
+      start: new Date(eventStart),
+      end: eventEnd,
+      backgroundColor: palette.bg,
+      borderColor: palette.border,
+      textColor: palette.text,
+      editable: false,
+      url: `/admin-portal/recurring-work-orders/${rwo.id}`,
+      extendedProps: {
+        kind: 'recurringTemplate' as const,
+        workOrderId: rwo.id,
+        workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
+        locationName: rwo.locationName || 'Unknown Location',
+        locationAddress: formatAddress(rwo.locationAddress),
+        clientName: rwo.clientName,
+        status: 'recurring',
+        statusSlot: 'recurring' as const,
+        category: rwo.category,
+        isRecurringTemplate: true,
+      },
+    };
+  };
+
+  const toJsDate = (val: any): Date => {
+    if (val instanceof Date) return val;
+    if (typeof val?.toDate === 'function') return val.toDate();
+    return new Date(val);
+  };
+
+  for (const rwo of filteredRecurring) {
+    const pattern = (rwo.recurrencePattern as any) || {};
+    const daysOfWeek: number[] | undefined = pattern.daysOfWeek;
+    const patternStart: any = pattern.startDate;
+    const patternEnd: any = pattern.endDate;
+    const interval: number = pattern.interval || 1;
+    const type: string = pattern.type || 'monthly';
+    const dayOfMonth: number = pattern.dayOfMonth || 1;
+
+    if (daysOfWeek && daysOfWeek.length > 0) {
+      // Daily / weekly-by-DOW
+      const start = patternStart
+        ? toJsDate(patternStart)
+        : (rwo.nextExecution ? toJsDate(rwo.nextExecution) : new Date());
+      const windowStart = new Date(start); windowStart.setHours(0, 0, 0, 0);
+      const windowEnd = patternEnd
+        ? toJsDate(patternEnd)
+        : (() => { const d = new Date(); d.setDate(d.getDate() + 90); return d; })();
+
+      const cursor = new Date(windowStart);
+      let occurrenceIdx = 0;
+      while (cursor <= windowEnd) {
+        if (daysOfWeek.includes(cursor.getDay())) {
+          const eventStart = new Date(cursor); eventStart.setHours(9, 0, 0, 0);
+          events.push(baseEvent(rwo, occurrenceIdx, eventStart));
+          occurrenceIdx++;
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    } else if (patternStart && patternEnd) {
+      const startDate = toJsDate(patternStart);
+      const endDate = toJsDate(patternEnd);
+      let occurrenceIdx = 0;
+      if (type === 'monthly') {
+        let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), dayOfMonth, 9, 0, 0);
+        if (cursor < startDate) {
+          cursor = new Date(cursor.getFullYear(), cursor.getMonth() + interval, dayOfMonth, 9, 0, 0);
+        }
+        while (cursor <= endDate) {
+          events.push(baseEvent(rwo, occurrenceIdx, cursor));
+          cursor = new Date(cursor.getFullYear(), cursor.getMonth() + interval, dayOfMonth, 9, 0, 0);
+          occurrenceIdx++;
+        }
+      } else if (type === 'weekly') {
+        let cursor = new Date(startDate); cursor.setHours(9, 0, 0, 0);
+        while (cursor <= endDate) {
+          events.push(baseEvent(rwo, occurrenceIdx, cursor));
+          cursor = new Date(cursor); cursor.setDate(cursor.getDate() + interval * 7);
+          occurrenceIdx++;
+        }
+      }
+    } else if (rwo.nextExecution) {
+      const nextExec = toJsDate(rwo.nextExecution);
+      const start = new Date(nextExec); start.setHours(9, 0, 0, 0);
+      events.push(baseEvent(rwo, 0, start));
+    }
+  }
+
+  return events;
+}

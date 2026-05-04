@@ -1,143 +1,104 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import listPlugin from '@fullcalendar/list';
-import { collection, query, where, onSnapshot, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { RecurringWorkOrder } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import {
+  buildQuoteCalendarEvent,
+  type QuoteLikeForCalendar,
+  type QuoteCalendarEvent,
+} from '@/lib/calendar-utils';
+import {
+  buildWorkOrderEvent,
+  suppressTemplateOccurrencesWithChildren,
+  suppressQuotesWithScheduledWO,
+  dedupeEventsByJobDay,
+  STATUS_PALETTE,
+  type WorkOrderForCalendar,
+} from '@/lib/calendar-events';
+import CalendarShell, { type CalendarLegendItem } from './calendar-shell';
 import { formatAddress } from '@/lib/utils';
-import { buildQuoteCalendarEvent, QuoteLikeForCalendar } from '@/lib/calendar-utils';
-import { useIsMobile } from '@/lib/use-is-mobile';
-
-interface WorkOrder {
-  id: string;
-  workOrderNumber?: string;
-  title: string;
-  locationId?: string;
-  locationName: string;
-  locationAddress?: string;
-  status: string;
-  scheduledServiceDate?: Timestamp | Date;
-  scheduledServiceTime?: string;
-  category: string;
-  clientId: string;
-  companyId?: string;
-}
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end?: Date;
-  backgroundColor: string;
-  borderColor: string;
-  textColor: string;
-  url?: string;
-  extendedProps: {
-    workOrderId: string;
-    workOrderNumber: string;
-    locationName?: string;
-    locationAddress?: string;
-    status: string;
-    category?: string;
-    isRecurring?: boolean;
-    isQuoteEvent?: boolean;
-    isDiagnosticQuote?: boolean;
-    quoteId?: string;
-  };
-}
 
 interface ClientCalendarProps {
   selectedLocations?: string[];
   onEventClick?: (workOrderId: string) => void;
 }
 
+const LEGEND: CalendarLegendItem[] = [
+  { slot: 'scheduled',  label: 'Scheduled' },
+  { slot: 'pending',    label: 'Pending' },
+  { slot: 'completed',  label: 'Completed' },
+  { slot: 'recurring',  label: 'Recurring' },
+  { slot: 'execution',  label: 'Recurring run' },
+  { slot: 'diagnostic', label: 'Diagnostic' },
+  { slot: 'quote',      label: 'Quote' },
+];
+
 export default function ClientCalendar({ selectedLocations, onEventClick }: ClientCalendarProps) {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrderForCalendar[]>([]);
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
   const [quotes, setQuotes] = useState<QuoteLikeForCalendar[]>([]);
-  const isMobile = useIsMobile();
-  const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek'>('dayGridMonth');
-  const calendarRef = useRef<FullCalendar>(null);
 
-  useEffect(() => {
-    if (!calendarRef.current) return;
-    const targetView = isMobile ? 'listWeek' : 'dayGridMonth';
-    calendarRef.current.getApi().changeView(targetView);
-    setView(targetView);
-  }, [isMobile]);
-
+  /* ------------------------- Firestore subscriptions ------------------- */
   useEffect(() => {
     let unsubscribeWorkOrders: (() => void) | null = null;
     let unsubscribeRecurring: (() => void) | null = null;
+    let unsubscribeQuotes: (() => void) | null = null;
 
-    // Fetch client's assigned locations first
     const setupListeners = async (currentUser: { uid: string }) => {
       try {
         const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
         const clientData = clientDoc.data();
-        const assignedLocations = clientData?.assignedLocations || [];
+        const assignedLocations = (clientData?.assignedLocations || []) as string[];
         const clientCompanyId = clientData?.companyId as string | undefined;
 
         if (assignedLocations.length > 0) {
-          // Firestore 'in' query limited to 10 items, so we need to batch
           const batchSize = 10;
-          const allWorkOrders: WorkOrder[] = [];
-          const allRecurringWorkOrders: RecurringWorkOrder[] = [];
-
-          // Set up listeners for each batch
           const unsubscribes: (() => void)[] = [];
 
           for (let i = 0; i < assignedLocations.length; i += batchSize) {
             const batch = assignedLocations.slice(i, i + batchSize);
-            
-            // Work orders query
+
             const workOrdersQuery = query(
               collection(db, 'workOrders'),
-              where('locationId', 'in', batch)
+              where('locationId', 'in', batch),
             );
-
             const unsubscribeWO = onSnapshot(workOrdersQuery, (snapshot) => {
-              const batchWorkOrders = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-              })) as WorkOrder[];
+              const batchWorkOrders = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data(),
+              })) as WorkOrderForCalendar[];
 
-              // Collect all work orders from all batches
-              setWorkOrders(prev => {
-                const combined = [...prev.filter(wo => !batch.some((locId: string) => wo.locationId === locId)), ...batchWorkOrders];
-                // Remove duplicates
+              setWorkOrders((prev) => {
+                const combined = [
+                  ...prev.filter(wo => !batch.some(locId => (wo as any).locationId === locId)),
+                  ...batchWorkOrders,
+                ];
                 return Array.from(new Map(combined.map(wo => [wo.id, wo])).values());
               });
             });
 
-            // Recurring work orders query
-            const recurringWorkOrdersQuery = query(
+            const recurringQuery = query(
               collection(db, 'recurringWorkOrders'),
               where('locationId', 'in', batch),
-              where('status', '==', 'active')
+              where('status', '==', 'active'),
             );
-
-            const unsubscribeRWO = onSnapshot(recurringWorkOrdersQuery, (snapshot) => {
-              const batchRecurring = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                nextExecution: doc.data().nextExecution?.toDate(),
-                createdAt: doc.data().createdAt?.toDate(),
-                updatedAt: doc.data().updatedAt?.toDate(),
+            const unsubscribeRWO = onSnapshot(recurringQuery, (snapshot) => {
+              const batchRecurring = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data(),
+                nextExecution: d.data().nextExecution?.toDate(),
+                createdAt: d.data().createdAt?.toDate(),
+                updatedAt: d.data().updatedAt?.toDate(),
               })) as RecurringWorkOrder[];
 
-              setRecurringWorkOrders(prev => {
-                const combined = [...prev.filter(rwo => !batch.some((locId: string) => rwo.locationId === locId)), ...batchRecurring];
-                // Remove duplicates
+              setRecurringWorkOrders((prev) => {
+                const combined = [
+                  ...prev.filter(rwo => !batch.some(locId => rwo.locationId === locId)),
+                  ...batchRecurring,
+                ];
                 return Array.from(new Map(combined.map(rwo => [rwo.id, rwo])).values());
               });
             });
@@ -149,65 +110,54 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
             const assignedSet = new Set(assignedLocations);
             const companyWorkOrdersQuery = query(
               collection(db, 'workOrders'),
-              where('companyId', '==', clientCompanyId)
+              where('companyId', '==', clientCompanyId),
             );
             const unsubscribeCompanyWO = onSnapshot(companyWorkOrdersQuery, (snapshot) => {
-              const companyWos = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-              })) as WorkOrder[];
+              const companyWos = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data(),
+              })) as WorkOrderForCalendar[];
               const filtered = companyWos.filter(
-                wo => wo.locationId && assignedSet.has(wo.locationId)
+                wo => (wo as any).locationId && assignedSet.has((wo as any).locationId),
               );
-              setWorkOrders(prev => {
-                const withoutPeersAtSharedLocs = prev.filter(wo => {
+              setWorkOrders((prev) => {
+                const withoutPeers = prev.filter((wo: any) => {
                   if (wo.clientId === currentUser.uid) return true;
                   if (!clientCompanyId || wo.companyId !== clientCompanyId) return true;
                   if (!wo.locationId || !assignedSet.has(wo.locationId)) return true;
                   return false;
                 });
-                const combined = [...withoutPeersAtSharedLocs, ...filtered];
+                const combined = [...withoutPeers, ...filtered];
                 return Array.from(new Map(combined.map(wo => [wo.id, wo])).values());
               });
             });
             unsubscribes.push(unsubscribeCompanyWO);
           }
 
-          unsubscribeWorkOrders = () => {
-            unsubscribes.forEach(unsub => unsub());
-          };
+          unsubscribeWorkOrders = () => unsubscribes.forEach((u) => u());
         } else {
-          // Fallback to clientId for backward compatibility
+          // Backward-compat: filter by clientId
           const workOrdersQuery = query(
             collection(db, 'workOrders'),
-            where('clientId', '==', currentUser.uid)
+            where('clientId', '==', currentUser.uid),
           );
-
           unsubscribeWorkOrders = onSnapshot(workOrdersQuery, (snapshot) => {
-            const workOrdersData = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data(),
-            })) as WorkOrder[];
-
-            setWorkOrders(workOrdersData);
+            setWorkOrders(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as WorkOrderForCalendar[]);
           });
 
-          const recurringWorkOrdersQuery = query(
+          const recurringQuery = query(
             collection(db, 'recurringWorkOrders'),
             where('clientId', '==', currentUser.uid),
-            where('status', '==', 'active')
+            where('status', '==', 'active'),
           );
-
-          unsubscribeRecurring = onSnapshot(recurringWorkOrdersQuery, (snapshot) => {
-            const recurringData = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data(),
-              nextExecution: doc.data().nextExecution?.toDate(),
-              createdAt: doc.data().createdAt?.toDate(),
-              updatedAt: doc.data().updatedAt?.toDate(),
-            })) as RecurringWorkOrder[];
-
-            setRecurringWorkOrders(recurringData);
+          unsubscribeRecurring = onSnapshot(recurringQuery, (snapshot) => {
+            setRecurringWorkOrders(snapshot.docs.map(d => ({
+              id: d.id,
+              ...d.data(),
+              nextExecution: d.data().nextExecution?.toDate(),
+              createdAt: d.data().createdAt?.toDate(),
+              updatedAt: d.data().updatedAt?.toDate(),
+            })) as RecurringWorkOrder[]);
           });
         }
       } catch (error) {
@@ -215,16 +165,12 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
       }
     };
 
-    let unsubscribeQuotes: (() => void) | null = null;
-
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         setupListeners(firebaseUser);
-
         const quotesQuery = query(collection(db, 'quotes'), where('clientId', '==', firebaseUser.uid));
         unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
-          const quotesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[];
-          setQuotes(quotesData);
+          setQuotes(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[]);
         });
       }
     });
@@ -237,289 +183,120 @@ export default function ClientCalendar({ selectedLocations, onEventClick }: Clie
     };
   }, []);
 
-  useEffect(() => {
-    // Exclude archived work orders from the calendar
+  /* ------------------------- Build deduped event list ------------------ */
+  const events = useMemo(() => {
     let filteredWorkOrders = workOrders.filter(wo => wo.status !== 'archived');
     let filteredRecurring = recurringWorkOrders;
 
     if (selectedLocations && selectedLocations.length > 0) {
       filteredWorkOrders = filteredWorkOrders.filter(wo =>
-        selectedLocations.includes(wo.locationName)
+        selectedLocations.includes(wo.locationName || ''),
       );
       filteredRecurring = recurringWorkOrders.filter(rwo =>
-        selectedLocations.includes(rwo.locationName || '')
+        selectedLocations.includes(rwo.locationName || ''),
       );
     }
 
-    // Convert work orders to calendar events
-    const workOrderEvents: CalendarEvent[] = filteredWorkOrders
-      .filter(wo => {
-        // Only show work orders with scheduled dates or recurring work orders
-        return wo.scheduledServiceDate || wo.status === 'scheduled' || wo.status === 'accepted_by_subcontractor';
-      })
-      .map(wo => {
-        const scheduledDate = wo.scheduledServiceDate instanceof Timestamp 
-          ? wo.scheduledServiceDate.toDate()
-          : wo.scheduledServiceDate instanceof Date
-          ? wo.scheduledServiceDate
-          : null;
+    // 1. Work order events — one per WO doc, no createdAt fallback
+    const workOrderEvents = filteredWorkOrders
+      .map(wo => buildWorkOrderEvent(wo, 'client'))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
 
-        if (!scheduledDate) {
-          // If no scheduled date, use created date as fallback
-          const createdDate = (wo as any).createdAt instanceof Timestamp
-            ? (wo as any).createdAt.toDate()
-            : new Date();
-          return {
-            id: wo.id,
-            title: wo.title,
-            start: createdDate,
-            backgroundColor: getStatusColor(wo.status).bg,
-            borderColor: getStatusColor(wo.status).border,
-            textColor: getStatusColor(wo.status).text,
-            extendedProps: {
-              workOrderId: wo.id,
-              workOrderNumber: wo.workOrderNumber || wo.id.slice(-8).toUpperCase(),
-              locationName: wo.locationName,
-              locationAddress: formatAddress(wo.locationAddress),
-              status: wo.status,
-              category: wo.category,
-            },
-          };
-        }
-
-        // Parse time if available
-        let startDateTime = new Date(scheduledDate);
-        if (wo.scheduledServiceTime) {
-          const [hours, minutes] = wo.scheduledServiceTime.split(':').map(Number);
-          startDateTime.setHours(hours, minutes, 0, 0);
-        }
-
-        // Estimate end time (default 2 hours)
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 2);
-
-        return {
-          id: wo.id,
-          title: wo.title,
-          start: startDateTime,
-          end: endDateTime,
-          backgroundColor: getStatusColor(wo.status).bg,
-          borderColor: getStatusColor(wo.status).border,
-          textColor: getStatusColor(wo.status).text,
-          extendedProps: {
-            workOrderId: wo.id,
-            workOrderNumber: wo.workOrderNumber || wo.id.slice(-8).toUpperCase(),
-            locationName: wo.locationName,
-            locationAddress: formatAddress(wo.locationAddress),
-            status: wo.status,
-            category: wo.category,
-          },
-        };
-      });
-
-    // Convert recurring work orders to calendar events
-    const recurringEvents: CalendarEvent[] = filteredRecurring
+    // 2. Recurring template events — single nextExecution per template
+    const recurringTemplateEvents = filteredRecurring
       .filter(rwo => rwo.nextExecution)
       .map(rwo => {
-        const nextExec = rwo.nextExecution instanceof Date ? rwo.nextExecution : new Date(rwo.nextExecution);
-        
-        // Create event for next execution
-        const startDateTime = new Date(nextExec);
-        startDateTime.setHours(9, 0, 0, 0); // Default 9 AM
-
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 2);
-
+        const nextExec = rwo.nextExecution instanceof Date ? rwo.nextExecution : new Date(rwo.nextExecution as any);
+        const start = new Date(nextExec); start.setHours(9, 0, 0, 0);
+        const end = new Date(start); end.setHours(11, 0, 0, 0);
+        const palette = STATUS_PALETTE.recurring;
         return {
           id: `recurring-${rwo.id}`,
-          title: `🔄 ${rwo.title} (Recurring)`,
-          start: startDateTime,
-          end: endDateTime,
-          backgroundColor: '#fbbf24', // Yellow for recurring
-          borderColor: '#f59e0b',
-          textColor: '#ffffff',
+          title: `${rwo.title} (Recurring)`,
+          start,
+          end,
+          backgroundColor: palette.bg,
+          borderColor: palette.border,
+          textColor: palette.text,
+          editable: false,
           extendedProps: {
+            kind: 'recurringTemplate' as const,
             workOrderId: rwo.id,
             workOrderNumber: rwo.workOrderNumber || rwo.id.slice(-8).toUpperCase(),
             locationName: rwo.locationName || 'Unknown Location',
             locationAddress: formatAddress(rwo.locationAddress),
             status: 'recurring',
+            statusSlot: 'recurring' as const,
             category: rwo.category,
-            isRecurring: true,
+            isRecurringTemplate: true,
           },
         };
       });
 
-    // Quote / Diagnostic Request events from the quotes collection
-    const quoteEvents: CalendarEvent[] = quotes
+    // 3. Quote events — only when no scheduled WO already represents them
+    const rawQuoteEvents: QuoteCalendarEvent[] = quotes
       .map(q => buildQuoteCalendarEvent(q, 'client'))
-      .filter((e): e is NonNullable<typeof e> => e !== null)
-      .map(e => ({
-        id: e.id,
-        title: e.title,
-        start: e.start,
-        end: e.end,
-        backgroundColor: e.backgroundColor,
-        borderColor: e.borderColor,
-        textColor: e.textColor,
-        url: e.url,
-        extendedProps: {
-          workOrderId: e.extendedProps.workOrderId,
-          workOrderNumber: e.extendedProps.workOrderNumber,
-          status: e.extendedProps.status,
-          isQuoteEvent: true,
-          isDiagnosticQuote: e.extendedProps.isDiagnosticQuote,
-          quoteId: e.extendedProps.quoteId,
-        },
-      }));
+      .filter((e): e is QuoteCalendarEvent => e !== null);
+    const quoteEvents = suppressQuotesWithScheduledWO(rawQuoteEvents, filteredWorkOrders).map((e) => ({
+      id: e.id,
+      title: e.title,
+      start: e.start,
+      end: e.end,
+      backgroundColor: e.backgroundColor,
+      borderColor: e.borderColor,
+      textColor: e.textColor,
+      url: e.url,
+      extendedProps: {
+        ...e.extendedProps,
+        kind: 'quote' as const,
+        statusSlot: e.extendedProps.isDiagnosticQuote ? ('diagnostic' as const) : ('quote' as const),
+      },
+    }));
 
-    // Combine both event types
-    setEvents([...workOrderEvents, ...recurringEvents, ...quoteEvents]);
+    // 4. Suppress template events that already have a child WO at the same date
+    const dedupedTemplates = suppressTemplateOccurrencesWithChildren(
+      recurringTemplateEvents,
+      filteredWorkOrders,
+    );
+
+    // 5. Final safety pass — dedupe by (workOrderId, day)
+    return dedupeEventsByJobDay([
+      ...workOrderEvents,
+      ...dedupedTemplates,
+      ...quoteEvents,
+    ]);
   }, [workOrders, recurringWorkOrders, quotes, selectedLocations]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-      case 'accepted_by_subcontractor':
-        return { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' }; // Blue
-      case 'pending':
-      case 'approved':
-        return { bg: '#fbbf24', border: '#f59e0b', text: '#ffffff' }; // Yellow
-      case 'completed':
-        return { bg: '#10b981', border: '#059669', text: '#ffffff' }; // Green
-      case 'bidding':
-        return { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }; // Purple
-      case 'rejected':
-      case 'overdue':
-        return { bg: '#ef4444', border: '#dc2626', text: '#ffffff' }; // Red
-      default:
-        return { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }; // Gray
-    }
-  };
-
+  /* ------------------------- Click handler ----------------------------- */
   const handleEventClick = (clickInfo: any) => {
-    const { workOrderId, isQuoteEvent, isDiagnosticQuote, quoteId } = clickInfo.event.extendedProps;
-    const eventId = String(clickInfo.event.id || '');
-    const isRecurringTemplateEvent = eventId.startsWith('recurring-');
-    if (isQuoteEvent) {
-      const target = isDiagnosticQuote
+    const props = clickInfo.event.extendedProps || {};
+    const { workOrderId, kind, isDiagnosticQuote, quoteId } = props;
+    if (kind === 'quote') {
+      window.location.href = isDiagnosticQuote
         ? `/client-portal/diagnostic-requests/${quoteId}`
         : workOrderId
           ? `/client-portal/work-orders/${workOrderId}`
           : '/client-portal/quotes';
-      window.location.href = target;
+      return;
+    }
+    if (kind === 'recurringTemplate') {
+      window.location.href = `/client-portal/recurring-work-orders/${workOrderId}`;
       return;
     }
     if (onEventClick) {
       onEventClick(workOrderId);
     } else {
-      if (isRecurringTemplateEvent) {
-        window.location.href = `/client-portal/recurring-work-orders/${workOrderId}`;
-      } else {
-        window.location.href = `/client-portal/work-orders/${workOrderId}`;
-      }
+      window.location.href = `/client-portal/work-orders/${workOrderId}`;
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>Calendar</CardTitle>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <Button
-              variant={view === 'dayGridMonth' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('dayGridMonth');
-                calendarRef.current?.getApi().changeView('dayGridMonth');
-              }}
-            >
-              Month
-            </Button>
-            <Button
-              variant={view === 'timeGridWeek' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('timeGridWeek');
-                calendarRef.current?.getApi().changeView('timeGridWeek');
-              }}
-            >
-              Week
-            </Button>
-            <Button
-              variant={view === 'timeGridDay' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('timeGridDay');
-                calendarRef.current?.getApi().changeView('timeGridDay');
-              }}
-            >
-              Day
-            </Button>
-            <Button
-              variant={view === 'listWeek' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('listWeek');
-                calendarRef.current?.getApi().changeView('listWeek');
-              }}
-            >
-              List
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-          initialView="dayGridMonth"
-          events={events}
-          eventClick={handleEventClick}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: '',
-          }}
-          height="auto"
-          eventDisplay="block"
-          displayEventTime={false}
-          eventContent={(arg) => (
-            <div className="px-1 py-0.5 text-xs leading-tight whitespace-normal break-words">
-              {arg.event.title}
-            </div>
-          )}
-        />
-        </div>
-        <style jsx global>{`
-          /* Let event titles wrap onto multiple lines instead of truncating */
-          .fc .fc-event,
-          .fc .fc-daygrid-event,
-          .fc .fc-daygrid-block-event,
-          .fc .fc-daygrid-block-event .fc-event-main,
-          .fc .fc-timegrid-event,
-          .fc .fc-timegrid-event .fc-event-main,
-          .fc .fc-event-main,
-          .fc .fc-event-main-frame,
-          .fc .fc-event-title,
-          .fc .fc-event-title-container {
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
-          }
-          .fc .fc-daygrid-event-harness,
-          .fc .fc-daygrid-day-events,
-          .fc .fc-daygrid-day-frame {
-            overflow: visible !important;
-          }
-          .fc .fc-daygrid-day-frame {
-            min-height: unset !important;
-          }
-        `}</style>
-      </CardContent>
-    </Card>
+    <CalendarShell
+      title="Calendar"
+      subtitle="Your scheduled work orders and recurring jobs"
+      events={events}
+      onEventClick={handleEventClick}
+      legend={LEGEND}
+    />
   );
 }
-

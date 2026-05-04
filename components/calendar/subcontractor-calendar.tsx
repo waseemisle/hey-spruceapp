@@ -1,19 +1,23 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import listPlugin from '@fullcalendar/list';
-import { collection, query, where, onSnapshot, Timestamp, documentId } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  collection, query, where, onSnapshot, documentId, Timestamp,
+} from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { formatAddress } from '@/lib/utils';
-import { buildQuoteCalendarEvent, QuoteLikeForCalendar } from '@/lib/calendar-utils';
-import { useIsMobile } from '@/lib/use-is-mobile';
+import {
+  buildQuoteCalendarEvent,
+  type QuoteLikeForCalendar,
+  type QuoteCalendarEvent,
+} from '@/lib/calendar-utils';
+import {
+  buildWorkOrderEvent,
+  suppressQuotesWithScheduledWO,
+  dedupeEventsByJobDay,
+  type WorkOrderForCalendar,
+} from '@/lib/calendar-events';
+import CalendarShell, { type CalendarLegendItem } from './calendar-shell';
 
 interface AssignedJob {
   id: string;
@@ -22,105 +26,72 @@ interface AssignedJob {
   status: string;
   scheduledServiceDate?: Timestamp | Date;
   scheduledServiceTime?: string;
+  assignedAt?: Timestamp | Date;
 }
 
-interface WorkOrder {
-  id: string;
-  workOrderNumber?: string;
-  title: string;
-  locationName: string;
-  locationAddress?: string;
-  clientName: string;
-  status: string;
-  scheduledServiceDate?: Timestamp | Date;
-  scheduledServiceTime?: string;
-  category: string;
-}
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end?: Date;
-  backgroundColor: string;
-  borderColor: string;
-  textColor: string;
-  url?: string;
-  extendedProps: {
-    workOrderId: string;
-    workOrderNumber: string;
-    locationName?: string;
-    locationAddress?: string;
-    clientName?: string;
-    status: string;
-    category?: string;
-    isQuoteEvent?: boolean;
-    isDiagnosticQuote?: boolean;
-    quoteId?: string;
-  };
-}
+const LEGEND: CalendarLegendItem[] = [
+  { slot: 'scheduled',  label: 'Scheduled' },
+  { slot: 'assigned',   label: 'Assigned' },
+  { slot: 'pending',    label: 'Pending' },
+  { slot: 'completed',  label: 'Completed' },
+  { slot: 'diagnostic', label: 'Diagnostic request' },
+  { slot: 'quote',      label: 'My quote' },
+];
 
 export default function SubcontractorCalendar() {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [assignedJobs, setAssignedJobs] = useState<AssignedJob[]>([]);
-  const [workOrders, setWorkOrders] = useState<Map<string, WorkOrder>>(new Map());
+  const [workOrders, setWorkOrders] = useState<Map<string, WorkOrderForCalendar>>(new Map());
   const [quotes, setQuotes] = useState<QuoteLikeForCalendar[]>([]);
-  const isMobile = useIsMobile();
-  const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek'>('dayGridMonth');
-  const calendarRef = useRef<FullCalendar>(null);
 
-  useEffect(() => {
-    if (!calendarRef.current) return;
-    const targetView = isMobile ? 'listWeek' : 'dayGridMonth';
-    calendarRef.current.getApi().changeView(targetView);
-    setView(targetView);
-  }, [isMobile]);
-
+  /* ------------------------- Firestore subscriptions ------------------- */
   useEffect(() => {
     let unsubscribeAssigned: (() => void) | null = null;
     let unsubscribeQuotes: (() => void) | null = null;
+    const woUnsubs: (() => void)[] = [];
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (!user) return;
 
-      // Listen to assigned jobs for this subcontractor
       const assignedQuery = query(
         collection(db, 'assignedJobs'),
         where('subcontractorId', '==', user.uid),
-        where('status', 'in', ['pending_acceptance', 'accepted'])
+        where('status', 'in', ['pending_acceptance', 'accepted']),
       );
 
       unsubscribeAssigned = onSnapshot(assignedQuery, (snapshot) => {
-        const assignedData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as AssignedJob[];
-
+        const assignedData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as AssignedJob[];
         setAssignedJobs(assignedData);
 
-        // Listen to work orders
-        const workOrderIds = [...new Set(assignedData.map(job => job.workOrderId))];
-        if (workOrderIds.length > 0) {
-          const workOrdersQuery = query(
-            collection(db, 'workOrders'),
-            where(documentId(), 'in', workOrderIds.slice(0, 10)) // Firestore limit
-          );
+        // Tear down previous WO listeners and re-subscribe in chunks of 10
+        woUnsubs.forEach((u) => u());
+        woUnsubs.length = 0;
 
-          onSnapshot(workOrdersQuery, (woSnapshot) => {
-            const workOrdersMap = new Map<string, WorkOrder>();
-            woSnapshot.docs.forEach(woDoc => {
-              workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
+        const allIds = Array.from(new Set(assignedData.map(j => j.workOrderId).filter(Boolean)));
+        for (let i = 0; i < allIds.length; i += 10) {
+          const chunk = allIds.slice(i, i + 10);
+          if (chunk.length === 0) continue;
+          const woQuery = query(
+            collection(db, 'workOrders'),
+            where(documentId(), 'in', chunk),
+          );
+          const unsub = onSnapshot(woQuery, (woSnapshot) => {
+            setWorkOrders((prev) => {
+              const next = new Map(prev);
+              // Drop WOs from this chunk that aren't in the new snapshot
+              chunk.forEach((id) => next.delete(id));
+              woSnapshot.docs.forEach((doc) => {
+                next.set(doc.id, { id: doc.id, ...doc.data() } as WorkOrderForCalendar);
+              });
+              return next;
             });
-            setWorkOrders(workOrdersMap);
           });
+          woUnsubs.push(unsub);
         }
       });
 
-      // Listen to this subcontractor's submitted quotes / diagnostic requests
       const quotesQuery = query(collection(db, 'quotes'), where('subcontractorId', '==', user.uid));
       unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
-        const quotesData = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[];
-        setQuotes(quotesData);
+        setQuotes(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as QuoteLikeForCalendar[]);
       });
     });
 
@@ -128,233 +99,74 @@ export default function SubcontractorCalendar() {
       unsubscribeAuth();
       unsubscribeAssigned?.();
       unsubscribeQuotes?.();
+      woUnsubs.forEach((u) => u());
     };
   }, []);
 
-  useEffect(() => {
-    // Convert assigned jobs to calendar events
-    const calendarEvents: CalendarEvent[] = assignedJobs
-      .map((job): CalendarEvent | null => {
-        const workOrder = workOrders.get(job.workOrderId);
-        if (!workOrder) return null;
-        // Exclude archived work orders from the calendar
-        if (workOrder.status === 'archived') return null;
+  /* ------------------------- Build deduped event list ------------------ */
+  const events = useMemo(() => {
+    // 1) Build a working list of work orders the sub is assigned to. If the
+    //    assignedJobs row carries its own scheduled date/time (sub set it
+    //    when accepting the assignment), prefer that over the WO's date.
+    const assignedWorkOrders: WorkOrderForCalendar[] = [];
+    const seenWoIds = new Set<string>();
+    for (const job of assignedJobs) {
+      const wo = workOrders.get(job.workOrderId);
+      if (!wo) continue;
+      if (seenWoIds.has(wo.id)) continue; // multiple jobs for same WO → dedupe
+      seenWoIds.add(wo.id);
 
-        const scheduledDate = job.scheduledServiceDate instanceof Timestamp
-          ? job.scheduledServiceDate.toDate()
-          : job.scheduledServiceDate instanceof Date
-          ? job.scheduledServiceDate
-          : workOrder.scheduledServiceDate instanceof Timestamp
-          ? workOrder.scheduledServiceDate.toDate()
-          : workOrder.scheduledServiceDate instanceof Date
-          ? workOrder.scheduledServiceDate
-          : null;
+      assignedWorkOrders.push({
+        ...wo,
+        scheduledServiceDate: job.scheduledServiceDate || wo.scheduledServiceDate,
+        scheduledServiceTime: job.scheduledServiceTime || wo.scheduledServiceTime,
+      });
+    }
 
-        if (!scheduledDate) {
-          // If no scheduled date, use assigned date as fallback
-          const assignedDate = (job as any).assignedAt instanceof Timestamp
-            ? (job as any).assignedAt.toDate()
-            : new Date();
-          return {
-            id: workOrder.id,
-            title: workOrder.title,
-            start: assignedDate,
-            backgroundColor: getStatusColor(workOrder.status).bg,
-            borderColor: getStatusColor(workOrder.status).border,
-            textColor: getStatusColor(workOrder.status).text,
-            extendedProps: {
-              workOrderId: workOrder.id,
-              workOrderNumber: workOrder.workOrderNumber || workOrder.id.slice(-8).toUpperCase(),
-              locationName: workOrder.locationName,
-              locationAddress: formatAddress(workOrder.locationAddress),
-              clientName: workOrder.clientName,
-              status: workOrder.status,
-              category: workOrder.category,
-            },
-          };
-        }
+    // 2) Map → events (drops WOs without a scheduledServiceDate)
+    const workOrderEvents = assignedWorkOrders
+      .map(wo => buildWorkOrderEvent(wo, 'subcontractor'))
+      .filter((e): e is NonNullable<typeof e> => e !== null);
 
-        // Parse time if available
-        let startDateTime = new Date(scheduledDate);
-        const serviceTime = job.scheduledServiceTime || workOrder.scheduledServiceTime;
-        if (serviceTime) {
-          const [hours, minutes] = serviceTime.split(':').map(Number);
-          startDateTime.setHours(hours, minutes, 0, 0);
-        }
-
-        // Estimate end time (default 2 hours)
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 2);
-
-        return {
-          id: workOrder.id,
-          title: workOrder.title,
-          start: startDateTime,
-          end: endDateTime,
-          backgroundColor: getStatusColor(workOrder.status).bg,
-          borderColor: getStatusColor(workOrder.status).border,
-          textColor: getStatusColor(workOrder.status).text,
-          extendedProps: {
-            workOrderId: workOrder.id,
-            workOrderNumber: workOrder.workOrderNumber || workOrder.id.slice(-8).toUpperCase(),
-            locationName: workOrder.locationName,
-            locationAddress: formatAddress(workOrder.locationAddress),
-            clientName: workOrder.clientName,
-            status: workOrder.status,
-            category: workOrder.category,
-          },
-        };
-      })
-      .filter((event): event is CalendarEvent => event !== null);
-
-    const quoteEvents: CalendarEvent[] = quotes
+    // 3) Quote events — suppressed when WO is scheduled / quote was approved
+    const rawQuoteEvents: QuoteCalendarEvent[] = quotes
       .map(q => buildQuoteCalendarEvent(q, 'subcontractor'))
-      .filter((e): e is NonNullable<typeof e> => e !== null)
-      .map(e => ({
-        id: e.id,
-        title: e.title,
-        start: e.start,
-        end: e.end,
-        backgroundColor: e.backgroundColor,
-        borderColor: e.borderColor,
-        textColor: e.textColor,
-        url: e.url,
-        extendedProps: {
-          workOrderId: e.extendedProps.workOrderId,
-          workOrderNumber: e.extendedProps.workOrderNumber,
-          status: e.extendedProps.status,
-          isQuoteEvent: true,
-          isDiagnosticQuote: e.extendedProps.isDiagnosticQuote,
-          quoteId: e.extendedProps.quoteId,
-        },
-      }));
+      .filter((e): e is QuoteCalendarEvent => e !== null);
+    const quoteEvents = suppressQuotesWithScheduledWO(rawQuoteEvents, assignedWorkOrders).map((e) => ({
+      id: e.id,
+      title: e.title,
+      start: e.start,
+      end: e.end,
+      backgroundColor: e.backgroundColor,
+      borderColor: e.borderColor,
+      textColor: e.textColor,
+      url: e.url,
+      extendedProps: {
+        ...e.extendedProps,
+        kind: 'quote' as const,
+        statusSlot: e.extendedProps.isDiagnosticQuote ? ('diagnostic' as const) : ('quote' as const),
+      },
+    }));
 
-    setEvents([...calendarEvents, ...quoteEvents]);
+    return dedupeEventsByJobDay([...workOrderEvents, ...quoteEvents]);
   }, [assignedJobs, workOrders, quotes]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-      case 'accepted_by_subcontractor':
-        return { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' }; // Blue
-      case 'pending':
-      case 'pending_acceptance':
-        return { bg: '#fbbf24', border: '#f59e0b', text: '#ffffff' }; // Yellow
-      case 'completed':
-        return { bg: '#10b981', border: '#059669', text: '#ffffff' }; // Green
-      case 'assigned':
-        return { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' }; // Cyan
-      default:
-        return { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }; // Gray
-    }
-  };
-
   const handleEventClick = (clickInfo: any) => {
-    const { isQuoteEvent } = clickInfo.event.extendedProps || {};
-    window.location.href = isQuoteEvent
-      ? '/subcontractor-portal/bidding'
-      : '/subcontractor-portal/assigned';
+    const props = clickInfo.event.extendedProps || {};
+    if (props.kind === 'quote') {
+      window.location.href = '/subcontractor-portal/bidding';
+      return;
+    }
+    window.location.href = '/subcontractor-portal/assigned';
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>My Schedule</CardTitle>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <Button
-              variant={view === 'dayGridMonth' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('dayGridMonth');
-                calendarRef.current?.getApi().changeView('dayGridMonth');
-              }}
-            >
-              Month
-            </Button>
-            <Button
-              variant={view === 'timeGridWeek' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('timeGridWeek');
-                calendarRef.current?.getApi().changeView('timeGridWeek');
-              }}
-            >
-              Week
-            </Button>
-            <Button
-              variant={view === 'timeGridDay' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('timeGridDay');
-                calendarRef.current?.getApi().changeView('timeGridDay');
-              }}
-            >
-              Day
-            </Button>
-            <Button
-              variant={view === 'listWeek' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setView('listWeek');
-                calendarRef.current?.getApi().changeView('listWeek');
-              }}
-            >
-              List
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-          initialView="dayGridMonth"
-          events={events}
-          eventClick={handleEventClick}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: '',
-          }}
-          height="auto"
-          eventDisplay="block"
-          displayEventTime={false}
-          eventContent={(arg) => (
-            <div className="px-1 py-0.5 text-xs leading-tight whitespace-normal break-words">
-              {arg.event.title}
-            </div>
-          )}
-        />
-        </div>
-        <style jsx global>{`
-          /* Let event titles wrap onto multiple lines instead of truncating */
-          .fc .fc-event,
-          .fc .fc-daygrid-event,
-          .fc .fc-daygrid-block-event,
-          .fc .fc-daygrid-block-event .fc-event-main,
-          .fc .fc-timegrid-event,
-          .fc .fc-timegrid-event .fc-event-main,
-          .fc .fc-event-main,
-          .fc .fc-event-main-frame,
-          .fc .fc-event-title,
-          .fc .fc-event-title-container {
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
-          }
-          .fc .fc-daygrid-event-harness,
-          .fc .fc-daygrid-day-events,
-          .fc .fc-daygrid-day-frame {
-            overflow: visible !important;
-          }
-          .fc .fc-daygrid-day-frame {
-            min-height: unset !important;
-          }
-        `}</style>
-      </CardContent>
-    </Card>
+    <CalendarShell
+      title="My Schedule"
+      subtitle="Your accepted assignments and active quotes"
+      events={events}
+      onEventClick={handleEventClick}
+      legend={LEGEND}
+    />
   );
 }
-
