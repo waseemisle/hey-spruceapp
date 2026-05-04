@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { RecurringWorkOrder } from '@/types';
 import Link from 'next/link';
+import { syncRwoDescriptionToActiveWorkOrders } from '@/lib/sync-rwo-description';
 
 interface Category {
   id: string;
@@ -161,6 +162,15 @@ export default function ClientEditRecurringWorkOrder() {
       };
 
       await updateDoc(doc(db, 'recurringWorkOrders', id), updateData);
+
+      const descriptionChanged = (recurringWorkOrder?.description || '') !== formData.description;
+      if (descriptionChanged) {
+        try {
+          await syncRwoDescriptionToActiveWorkOrders(db, id, formData.description);
+        } catch (syncError) {
+          console.error('Failed to propagate description to active work orders:', syncError);
+        }
+      }
 
       toast.success('Recurring work order updated successfully');
       router.push(`/client-portal/recurring-work-orders/${id}`);

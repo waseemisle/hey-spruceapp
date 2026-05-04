@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurrencePattern, InvoiceSchedule } from '@/types';
+import { syncRwoDescriptionToActiveWorkOrders } from '@/lib/sync-rwo-description';
 
 interface Client {
   id: string;
@@ -446,6 +447,15 @@ export default function RecurringWorkOrderEditForm({ id, onSaved, onCancel }: Re
       }
 
       await updateDoc(doc(db, 'recurringWorkOrders', id), updateData);
+
+      const descriptionChanged = (recurringWorkOrder?.description || '') !== formData.description;
+      if (descriptionChanged) {
+        try {
+          await syncRwoDescriptionToActiveWorkOrders(db, id, formData.description);
+        } catch (syncError) {
+          console.error('Failed to propagate description to active work orders:', syncError);
+        }
+      }
 
       // Clean up stale pending executions when the pattern changes
       const originalLabel = (recurringWorkOrder as any)?.recurrencePatternLabel;
