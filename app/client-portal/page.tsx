@@ -6,11 +6,13 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
 import ProposalsSection from '@/components/dashboard/proposals-section';
 import DiagnosticRequestsSection from '@/components/dashboard/diagnostic-requests-section';
 import InvoicesSection from '@/components/dashboard/invoices-section';
 import ClientCalendar from '@/components/calendar/client-calendar';
+import { LayoutDashboard, ClipboardList, FileText, Stethoscope, Receipt } from 'lucide-react';
 import {
   calculateWorkOrdersData,
   calculateProposalsData,
@@ -205,12 +207,34 @@ export default function ClientDashboard() {
     );
   }
 
+  // Top-level rollups for the hero stat tiles. Computed from the section
+  // data we're already loading, so no extra fetches.
+  const totalWorkOrders =
+    workOrdersData.workRequired.total +
+    workOrdersData.inProgress.total +
+    workOrdersData.awaitingAction.total;
+  const openProposals = proposalsData.pendingApproval.total + proposalsData.onHold;
+  const openInvoices = invoicesData.openReviewed.count + invoicesData.onHold.count;
+  const openDiagnostics = diagnosticData.pendingReview;
+
   return (
     <ClientLayout>
-      <div className="min-h-screen bg-muted">
+      <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         <DashboardSearchBar portalType="client" onSearch={handleSearch} />
 
         <div className="p-4 sm:p-6 space-y-6">
+          <DashboardHero
+            greeting="Welcome back"
+            subtitle="Here's a snapshot of what needs your attention today."
+            icon={LayoutDashboard}
+            accent="blue"
+            stats={[
+              { label: 'Active work orders', value: totalWorkOrders,  icon: ClipboardList, iconClass: 'text-blue-600 dark:text-blue-400',     iconBg: 'bg-blue-50 dark:bg-blue-950/40' },
+              { label: 'Open proposals',     value: openProposals,    icon: FileText,      iconClass: 'text-amber-600 dark:text-amber-400',   iconBg: 'bg-amber-50 dark:bg-amber-950/40' },
+              { label: 'Diagnostic reviews', value: openDiagnostics,  icon: Stethoscope,   iconClass: 'text-purple-600 dark:text-purple-400', iconBg: 'bg-purple-50 dark:bg-purple-950/40' },
+              { label: 'Invoices to review', value: openInvoices,     icon: Receipt,       iconClass: 'text-emerald-600 dark:text-emerald-400', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
+            ]}
+          />
           <ClientCalendar />
           <WorkOrdersSection data={workOrdersData} portalType="client" />
           <ProposalsSection data={proposalsData} portalType="client" items={quoteItems} />

@@ -6,11 +6,13 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import SubcontractorLayout from '@/components/subcontractor-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
 import BiddingWorkOrdersSection from '@/components/dashboard/bidding-work-orders-section';
 import MyQuotesSection from '@/components/dashboard/my-quotes-section';
 import AssignedJobsSection from '@/components/dashboard/assigned-jobs-section';
 import CompletedJobsSection from '@/components/dashboard/completed-jobs-section';
 import SubcontractorCalendar from '@/components/calendar/subcontractor-calendar';
+import { Wrench, ClipboardList, FileText, CheckSquare, ClipboardCheck } from 'lucide-react';
 import {
   calculateBiddingWorkOrdersData,
   calculateMyQuotesData,
@@ -166,10 +168,22 @@ export default function SubcontractorDashboard() {
 
   return (
     <SubcontractorLayout>
-      <div className="min-h-screen bg-muted">
+      <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         <DashboardSearchBar portalType="subcontractor" onSearch={handleSearch} />
 
         <div className="p-4 sm:p-6 space-y-6">
+          <DashboardHero
+            greeting="Your workspace"
+            subtitle="Bidding opportunities, active jobs, and outstanding quotes at a glance."
+            icon={Wrench}
+            accent="emerald"
+            stats={[
+              { label: 'Bidding open',     value: biddingWorkOrdersData.pending,         icon: ClipboardList,  iconClass: 'text-violet-600 dark:text-violet-400', iconBg: 'bg-violet-50 dark:bg-violet-950/40' },
+              { label: 'My quotes',        value: myQuotesData.total,                     icon: FileText,       iconClass: 'text-amber-600 dark:text-amber-400',   iconBg: 'bg-amber-50 dark:bg-amber-950/40' },
+              { label: 'Active jobs',      value: assignedJobsData.accepted + assignedJobsData.inProgress, icon: CheckSquare, iconClass: 'text-blue-600 dark:text-blue-400', iconBg: 'bg-blue-50 dark:bg-blue-950/40' },
+              { label: 'Completed jobs',   value: completedJobsData.completed,            icon: ClipboardCheck, iconClass: 'text-emerald-600 dark:text-emerald-400', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
+            ]}
+          />
           <SubcontractorCalendar />
           <BiddingWorkOrdersSection data={biddingWorkOrdersData} items={biddingItems} />
           <MyQuotesSection data={myQuotesData} items={quotesItems} />

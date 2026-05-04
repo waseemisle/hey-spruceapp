@@ -12,8 +12,9 @@ import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
+import ProfileMenu from '@/components/profile-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, LogOut, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones, Stethoscope, Settings } from 'lucide-react';
+import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones, Stethoscope } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 import ClientGlobalSearchDialog from '@/components/client-global-search-dialog';
@@ -411,31 +412,26 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <Logo href="/client-portal" size="sm" />
-            <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Client Portal</span>
+            <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:inline border-l border-border pl-3 ml-3">Client</span>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
             {user?.uid && <ClientGlobalSearchDialog dbInstance={firebaseInstances.dbInstance} userId={user.uid} />}
             <ThemeToggle />
             <NotificationBell />
-            <div className="hidden md:flex flex-col items-end">
-              <span className="text-sm text-foreground">{user?.email}</span>
-              {user?.companyName && (
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Building2 className="h-3 w-3" />
-                  {user.companyName}
-                </span>
-              )}
-            </div>
-            <Link href="/client-portal/account-settings">
-              <Button variant="outline" size="sm" className="px-2 md:px-3" aria-label="Account Settings">
-                <Settings className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Account Settings</span>
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" className="px-2 md:px-3" onClick={handleLogout} aria-label="Logout">
-              <LogOut className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Logout</span>
-            </Button>
+            {user?.companyName && (
+              <span className="hidden lg:inline-flex items-center gap-1 text-xs text-muted-foreground border border-border rounded-full px-2 py-1 bg-card">
+                <Building2 className="h-3 w-3" />
+                {user.companyName}
+              </span>
+            )}
+            <ProfileMenu
+              name={user?.fullName || user?.displayName}
+              email={user?.email}
+              photoUrl={user?.profileImageUrl || user?.photoURL}
+              accountSettingsHref="/client-portal/account-settings"
+              onLogout={handleLogout}
+              accent="blue"
+            />
           </div>
         </div>
       </header>

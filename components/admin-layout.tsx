@@ -8,13 +8,14 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
+import ProfileMenu from '@/components/profile-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
 import Link from 'next/link';
 import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
-  Calendar, MessageSquare, LogOut, Menu, X, ShieldCheck, RotateCcw,
+  Calendar, MessageSquare, Menu, X, ShieldCheck, RotateCcw,
   Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail, Headphones,
-  Database, FlaskConical, BookOpen, Archive, Clock, Settings,
+  Database, FlaskConical, BookOpen, Archive, Clock,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -331,7 +332,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             </button>
             <a href="/admin-portal" className="flex items-center gap-2 no-underline">
               <Logo href="/admin-portal" size="sm" />
-              <span className="text-sm text-muted-foreground hidden sm:inline hover:text-foreground transition-colors">Admin Portal</span>
+              <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:inline border-l border-border pl-3 hover:text-foreground transition-colors">Admin</span>
             </a>
           </div>
 
@@ -343,17 +344,14 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             <EstClock />
             <ThemeToggle />
             <NotificationBell />
-            <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
-            <Link href="/admin-portal/account-settings">
-              <Button variant="outline" size="sm" className="px-2 md:px-3" aria-label="Account Settings">
-                <Settings className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Account Settings</span>
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" className="px-2 md:px-3" onClick={handleLogout} aria-label="Logout">
-              <LogOut className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Logout</span>
-            </Button>
+            <ProfileMenu
+              name={user?.fullName || user?.displayName}
+              email={user?.email}
+              photoUrl={user?.profileImageUrl || user?.photoURL}
+              accountSettingsHref="/admin-portal/account-settings"
+              onLogout={handleLogout}
+              accent="amber"
+            />
           </div>
         </div>
 

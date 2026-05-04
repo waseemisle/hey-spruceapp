@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { onSnapshot, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
 import ProposalsSection from '@/components/dashboard/proposals-section';
 import InvoicesSection from '@/components/dashboard/invoices-section';
@@ -13,7 +14,7 @@ import {
   calculateProposalsData,
   calculateInvoicesData,
 } from '@/lib/dashboard-utils';
-import { Building2, ChevronDown, X } from 'lucide-react';
+import { Building2, ChevronDown, X, ShieldCheck, ClipboardList, FileText, Receipt, AlertTriangle } from 'lucide-react';
 
 interface Company {
   id: string;
@@ -209,20 +210,42 @@ export default function AdminDashboard() {
     c.name.toLowerCase().includes(companySearch.toLowerCase())
   );
 
+  // Top-level rollups for the hero stat tiles. Computed from the section
+  // data we're already loading, so no extra fetches.
+  const totalWorkOrders =
+    workOrdersData.workRequired.total +
+    workOrdersData.inProgress.total +
+    workOrdersData.awaitingAction.total;
+  const openProposals = proposalsData.pendingApproval.total + proposalsData.onHold;
+  const openInvoices = invoicesData.openReviewed.count + invoicesData.onHold.count;
+  const urgent =
+    workOrdersData.workRequired.dispatchNotConfirmed.urgent +
+    workOrdersData.workRequired.declinedByProvider.urgent +
+    workOrdersData.workRequired.lateToArrive.urgent +
+    workOrdersData.inProgress.partsOnOrder.urgent +
+    workOrdersData.inProgress.waitingForQuote.urgent +
+    proposalsData.pendingApproval.urgent;
+
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-muted">
+      <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         {/* Main Content */}
         <div className="p-4 sm:p-6 space-y-6">
-          {/* Header + Company Selector */}
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-              <p className="text-muted-foreground mt-1">Welcome to your GroundOps admin portal</p>
-            </div>
-
-            {/* Company Selector */}
-            <div className="relative w-full sm:w-auto" ref={companyDropdownRef}>
+          <DashboardHero
+            greeting={selectedCompany ? `${selectedCompany.name}` : 'Operations Overview'}
+            subtitle={selectedCompany
+              ? `Filtered to ${selectedCompany.name} — clear the filter to see every company.`
+              : 'Live snapshot across all companies. Use the filter on the right to focus on one.'}
+            icon={ShieldCheck}
+            accent="purple"
+            stats={[
+              { label: 'Active work orders', value: totalWorkOrders, icon: ClipboardList, iconClass: 'text-blue-600 dark:text-blue-400',     iconBg: 'bg-blue-50 dark:bg-blue-950/40' },
+              { label: 'Open proposals',     value: openProposals,   icon: FileText,      iconClass: 'text-amber-600 dark:text-amber-400',   iconBg: 'bg-amber-50 dark:bg-amber-950/40' },
+              { label: 'Invoices to review', value: openInvoices,    icon: Receipt,       iconClass: 'text-emerald-600 dark:text-emerald-400', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
+              { label: 'Urgent items',       value: urgent,          icon: AlertTriangle, iconClass: 'text-red-600 dark:text-red-400',       iconBg: 'bg-red-50 dark:bg-red-950/40' },
+            ]}
+            action={
+              <div className="relative w-full sm:w-auto" ref={companyDropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsCompanyDropdownOpen(v => !v)}
@@ -296,22 +319,8 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Active company banner */}
-          {selectedCompany && (
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-              <Building2 className="h-4 w-4 shrink-0" />
-              <span>Showing data for <strong>{selectedCompany.name}</strong></span>
-              <button
-                type="button"
-                onClick={() => setSelectedCompanyId(null)}
-                className="ml-auto text-blue-500 hover:text-blue-700 text-xs underline"
-              >
-                Clear
-              </button>
-            </div>
-          )}
+            }
+          />
 
           {/* Calendar Section */}
           <AdminCalendar

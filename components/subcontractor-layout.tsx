@@ -12,7 +12,8 @@ import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
-import { Home, ClipboardList, FileText, CheckSquare, ClipboardCheck, MessageSquare, LogOut, Menu, X, Headphones, Settings } from 'lucide-react';
+import ProfileMenu from '@/components/profile-menu';
+import { Home, ClipboardList, FileText, CheckSquare, ClipboardCheck, MessageSquare, Menu, X, Headphones } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
@@ -387,23 +388,20 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
             <Logo href="/subcontractor-portal" size="sm" />
-            <span className="ml-3 text-sm text-muted-foreground hidden sm:inline">Subcontractor Portal</span>
+            <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:inline border-l border-border pl-3 ml-3">Subcontractor</span>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
             {user?.uid && <SubcontractorGlobalSearchDialog dbInstance={firebaseInstances.dbInstance} userId={user.uid} />}
             <ThemeToggle />
             <NotificationBell />
-            <span className="text-sm text-muted-foreground hidden md:inline">{user?.email}</span>
-            <Link href="/subcontractor-portal/account-settings">
-              <Button variant="outline" size="sm" className="px-2 md:px-3" aria-label="Account Settings">
-                <Settings className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Account Settings</span>
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" className="px-2 md:px-3" onClick={handleLogout} aria-label="Logout">
-              <LogOut className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Logout</span>
-            </Button>
+            <ProfileMenu
+              name={user?.fullName || user?.businessName || user?.displayName}
+              email={user?.email}
+              photoUrl={user?.profileImageUrl || user?.photoURL}
+              accountSettingsHref="/subcontractor-portal/account-settings"
+              onLogout={handleLogout}
+              accent="emerald"
+            />
           </div>
         </div>
       </header>
