@@ -6,6 +6,7 @@ import { createTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
+import { formatUsd2 } from '@/lib/format-currency';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1263,7 +1264,7 @@ export default function ViewClientWorkOrder() {
                                 {req.notes && <p className="text-sm text-muted-foreground mt-1">{req.notes}</p>}
                               </div>
                               <div className="text-right">
-                                <p className="text-2xl font-bold text-indigo-700">${amt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                                <p className="text-2xl font-bold text-indigo-700">{formatUsd2(amt)}</p>
                                 <p className="text-xs text-indigo-700">Diagnostic fee</p>
                                 <p className="text-xs text-muted-foreground capitalize">{req.status.replace(/_/g, ' ')}</p>
                               </div>
@@ -1325,7 +1326,7 @@ export default function ViewClientWorkOrder() {
                               </div>
                               <div className="text-right">
                                 <p className="text-2xl font-bold text-primary">
-                                  ${(quote.clientAmount || quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  {formatUsd2(quote.clientAmount || quote.totalAmount || 0)}
                                 </p>
                                 <p className="text-xs text-muted-foreground capitalize">{quote.status.replace(/_/g, ' ')}</p>
                                 <Link href={`/client-portal/quotes/${quote.id}`} className="text-xs text-primary underline mt-1 inline-block">View Details</Link>
@@ -1378,7 +1379,7 @@ export default function ViewClientWorkOrder() {
                             </div>
                             <div className="text-right">
                               <p className="font-bold text-primary">
-                                ${(inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {formatUsd2(inv.totalAmount || 0)}
                               </p>
                               <span
                                 className={`text-xs capitalize px-2 py-0.5 rounded-full ${

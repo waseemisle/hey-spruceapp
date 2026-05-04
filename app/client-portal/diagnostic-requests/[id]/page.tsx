@@ -6,6 +6,7 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
+import { formatUsd2 } from '@/lib/format-currency';
 import { createNotification } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -273,7 +274,7 @@ export default function ClientDiagnosticRequestDetail() {
                 <DollarSign className="h-6 w-6 text-indigo-700" />
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">Diagnostic Fee</p>
-                  <p className="text-3xl font-bold text-indigo-700">${displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-3xl font-bold text-indigo-700">{formatUsd2(displayAmount)}</p>
                 </div>
               </div>
             </div>

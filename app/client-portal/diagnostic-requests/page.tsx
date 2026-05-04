@@ -6,11 +6,12 @@ import type { QuoteTimelineEvent } from '@/types';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { createNotification } from '@/lib/notifications';
+import { formatUsd2 } from '@/lib/format-currency';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Stethoscope, Check, X, Calendar, DollarSign, Eye } from 'lucide-react';
+import { Stethoscope, Check, X, Calendar, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -285,8 +286,7 @@ export default function ClientDiagnosticRequests() {
                       Diagnostic Fee
                     </span>
                     <span className="flex items-center gap-1 text-lg font-bold text-foreground">
-                      <DollarSign className="h-4 w-4 shrink-0" />
-                      {displayAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatUsd2(displayAmount)}
                     </span>
                     {quote.workOrderNumber && (
                       quote.workOrderId ? (
