@@ -94,6 +94,11 @@ export default function AdminInvoiceDetail() {
   const [activeTab, setActiveTab] = useState<InvoiceTab>('charges');
   const [relatedInvoices, setRelatedInvoices] = useState<Invoice[]>([]);
   const [clientBilling, setClientBilling] = useState<ClientBilling | null>(null);
+  // Per-company Margin Edge integration flag — when false, the ME UI on
+  // this invoice (Approve & Forward button + future-actions) is hidden.
+  // Resolved from the client's parent company doc; defaults to false so
+  // a missing/loading flag never accidentally exposes the integration.
+  const [companyMarginEdgeEnabled, setCompanyMarginEdgeEnabled] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ status: '', notes: '', terms: '', discountAmount: '' });
   const [editLineItems, setEditLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([]);
@@ -257,6 +262,22 @@ export default function AdminInvoiceDetail() {
               subscriptionAmount: cd.subscriptionAmount,
               subscriptionBillingDay: cd.subscriptionBillingDay,
             });
+
+            // Resolve the parent company's Margin Edge flag so the ME UI on
+            // this invoice can be gated. We default to false on any miss
+            // (no companyId, missing company doc, fetch error) so the ME
+            // button never accidentally renders for a company that hasn't
+            // explicitly opted in.
+            if (cd.companyId) {
+              try {
+                const companySnap = await getDoc(doc(db, 'companies', cd.companyId));
+                if (companySnap.exists() && companySnap.data()?.marginEdgeEnabled === true) {
+                  setCompanyMarginEdgeEnabled(true);
+                }
+              } catch (companyErr) {
+                console.warn('[invoice-detail] Could not resolve company.marginEdgeEnabled:', companyErr);
+              }
+            }
           }
         }
         if (data.workOrderId) {
@@ -830,14 +851,16 @@ export default function AdminInvoiceDetail() {
             )}
 
             {/*
-              Approve & Forward to Margin Edge — only renders when the
-              ME forward hasn't happened yet (so we don't tempt the admin
-              to "re-approve" something already pushed). The route itself
-              is idempotent (skips when marginEdgeSentAt is already set)
-              and refuses (400) when the company doesn't have ME enabled,
-              so this is just UI gating; the source of truth is server-side.
+              Approve & Forward to Margin Edge — strictly gated on the
+              client's parent company having marginEdgeEnabled=true. Without
+              the flag the action is invisible (was previously surfaced for
+              every invoice, which let admins try to forward invoices for
+              non-ME customers). Also hides once marginEdgeSentAt is set so
+              admins aren't tempted to "re-approve" an already-pushed item.
+              The server route is idempotent and re-checks the flag, so this
+              gate is just UX hygiene — the source of truth is server-side.
             */}
-            {!invoice.marginEdgeSentAt && (
+            {companyMarginEdgeEnabled && !invoice.marginEdgeSentAt && (
               <Button
                 size="sm"
                 variant="outline"
