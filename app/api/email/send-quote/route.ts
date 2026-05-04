@@ -11,6 +11,28 @@ export async function POST(request: Request) {
     const { toEmail, toName, quoteNumber, workOrderTitle, totalAmount, clientAmount, markupPercentage, lineItems, notes } = body;
     const displayAmount = clientAmount || totalAmount;
 
+    // Guardrail: missing recipient is a real product-level event (admin
+    // shared a quote but the client has no email on file). Log it as
+    // 'skipped' so the email-logs page captures the gap instead of
+    // throwing into the generic 500 path that the caller would have
+    // surfaced as a vague "failed to send" toast. Returns 200 so the
+    // calling UI can distinguish skipped from failed.
+    if (!toEmail || typeof toEmail !== 'string' || !toEmail.trim()) {
+      await logEmail({
+        type: 'quote',
+        to: '',
+        subject: `Quote #${quoteNumber || ''} - ${workOrderTitle || ''}`,
+        status: 'skipped',
+        context: { reason: 'missing_recipient', toName, quoteNumber, workOrderTitle, totalAmount, clientAmount, markupPercentage },
+      });
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: 'missing_recipient',
+        message: 'No client email on file — email skipped, quote still forwarded in-app.',
+      });
+    }
+
     // Separate line items into services and materials
     const serviceItems: any[] = [];
     const materialItems: any[] = [];
@@ -84,14 +106,20 @@ export async function POST(request: Request) {
       `,
     });
 
-    await sendEmail({
+    const result = await sendEmail({
       to: toEmail,
       subject: `Quote #${quoteNumber} - ${workOrderTitle}`,
       html: emailHtml,
     });
-    await logEmail({ type: 'quote', to: toEmail, subject: `Quote #${quoteNumber} - ${workOrderTitle}`, status: 'sent', context: { toName, quoteNumber, workOrderTitle, totalAmount, clientAmount, markupPercentage, notes } });
+    await logEmail({
+      type: 'quote',
+      to: toEmail,
+      subject: `Quote #${quoteNumber} - ${workOrderTitle}`,
+      status: 'sent',
+      context: { toName, quoteNumber, workOrderTitle, totalAmount, clientAmount, markupPercentage, notes, messageId: result?.id || null },
+    });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, messageId: result?.id || null });
   } catch (error: any) {
     console.error('❌ Error sending quote email:', error);
     console.error('❌ Error details:', error.message || error);

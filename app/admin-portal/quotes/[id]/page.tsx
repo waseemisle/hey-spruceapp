@@ -213,13 +213,17 @@ export default function AdminQuoteDetail() {
         await notifyClientOfQuoteSent(quote.clientId, quote.workOrderId, quote.workOrderNumber, clientAmount);
       }
 
-      // Email — fire-and-forget per the no-stuck-buttons rule.
-      if (quote.clientEmail) {
-        fetch('/api/email/send-quote', {
+      // Email — always call the route so it can write a `skipped` row to
+      // emailLogs when no client email is on file. Awaited so the toast
+      // can distinguish sent vs skipped vs failed (no silent skip).
+      let emailOutcome: 'sent' | 'skipped' | 'failed' = 'failed';
+      let emailMessage = '';
+      try {
+        const emailRes = await fetch('/api/email/send-quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            toEmail: quote.clientEmail,
+            toEmail: quote.clientEmail || '',
             toName: quote.clientName,
             quoteNumber: quote.workOrderNumber || quote.id,
             workOrderTitle: quote.workOrderTitle,
@@ -229,10 +233,31 @@ export default function AdminQuoteDetail() {
             lineItems: clientLineItems,
             notes: quote.notes,
           }),
-        }).catch((err) => console.error('Failed to send quote email to client:', err));
+        });
+        const data = await emailRes.json().catch(() => ({}));
+        if (emailRes.ok) {
+          emailOutcome = data?.skipped ? 'skipped' : 'sent';
+          emailMessage = data?.message || '';
+        } else {
+          emailOutcome = 'failed';
+          emailMessage = data?.details || data?.error || `HTTP ${emailRes.status}`;
+        }
+      } catch (err: any) {
+        emailOutcome = 'failed';
+        emailMessage = err?.message || String(err);
+        console.error('Failed to send quote email to client:', err);
       }
 
-      toast.success(isResend ? `Quote resent to client (${markup}% markup)` : `Quote sent to client (${markup}% markup)`);
+      const baseMsg = isResend
+        ? `Quote resent to client (${markup}% markup)`
+        : `Quote sent to client (${markup}% markup)`;
+      if (emailOutcome === 'sent') {
+        toast.success(`${baseMsg} — email sent`);
+      } else if (emailOutcome === 'skipped') {
+        toast.warning(`${baseMsg} — email skipped (no client email on file)`);
+      } else {
+        toast.warning(`${baseMsg} — email failed: ${emailMessage}`);
+      }
       // Re-read to reflect new state.
       const fresh = await getDoc(doc(db, 'quotes', quote.id));
       if (fresh.exists()) setQuote({ id: fresh.id, ...fresh.data() } as Quote);

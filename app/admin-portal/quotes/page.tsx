@@ -238,15 +238,19 @@ function QuotesContent() {
         );
       }
 
-      // Send the quote email to the client. Fire-and-forget so the toast/UX
-      // doesn't block on Mailgun — failures get logged via /api/email/send-quote
-      // and surface in the admin email logs page.
-      if (quote.clientEmail) {
-        fetch('/api/email/send-quote', {
+      // Send the quote email to the client. We always call the route —
+      // even when clientEmail is missing — so the route can write a
+      // `skipped` row to emailLogs and the admin email-logs page reflects
+      // every attempt. We AWAIT the response (instead of fire-and-forget)
+      // so the admin's toast can distinguish sent vs. skipped vs. failed.
+      let emailOutcome: 'sent' | 'skipped' | 'failed' = 'failed';
+      let emailMessage = '';
+      try {
+        const emailRes = await fetch('/api/email/send-quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            toEmail: quote.clientEmail,
+            toEmail: quote.clientEmail || '',
             toName: quote.clientName,
             quoteNumber: quote.workOrderNumber || quote.id,
             workOrderTitle: quote.workOrderTitle,
@@ -256,12 +260,31 @@ function QuotesContent() {
             lineItems: clientLineItems,
             notes: quote.notes,
           }),
-        }).catch((err) => console.error('Failed to send quote email to client:', err));
-      } else {
-        console.warn(`[share-quote] Quote ${quote.id} has no clientEmail — email skipped, in-app notification still sent.`);
+        });
+        const data = await emailRes.json().catch(() => ({}));
+        if (emailRes.ok) {
+          emailOutcome = data?.skipped ? 'skipped' : 'sent';
+          emailMessage = data?.message || '';
+        } else {
+          emailOutcome = 'failed';
+          emailMessage = data?.details || data?.error || `HTTP ${emailRes.status}`;
+        }
+      } catch (err: any) {
+        emailOutcome = 'failed';
+        emailMessage = err?.message || String(err);
+        console.error('Failed to send quote email to client:', err);
       }
 
-      toast.success(isResend ? `Quote resent to client with ${markup}% markup` : `Quote forwarded to client with ${markup}% markup`);
+      const baseMsg = isResend
+        ? `Quote resent to client with ${markup}% markup`
+        : `Quote forwarded to client with ${markup}% markup`;
+      if (emailOutcome === 'sent') {
+        toast.success(`${baseMsg} — email sent`);
+      } else if (emailOutcome === 'skipped') {
+        toast.warning(`${baseMsg} — email skipped (no client email on file)`);
+      } else {
+        toast.warning(`${baseMsg} — email failed: ${emailMessage}`);
+      }
       setSelectedQuote(null);
       fetchQuotes();
     } catch (error) {

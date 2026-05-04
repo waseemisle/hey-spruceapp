@@ -43,8 +43,13 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        let sent = 0;
-        for (const admin of adminEmails) {
+        // Build per-admin send tasks and fire them in parallel via
+        // Promise.allSettled. Was a sequential `for ... of` await,
+        // serializing N admins behind N round-trips. Each result row
+        // also gets its own emailLogs entry (sent or failed) so the
+        // admin email-logs page captures the full fan-out.
+        const subject = `New Quote Received: ${workOrderTitle || workOrderNumber}`;
+        const tasks = adminEmails.map(async (admin) => {
           try {
             const emailHtml = emailLayout({
               title: 'New Quote Received',
@@ -66,14 +71,47 @@ export async function POST(request: NextRequest) {
                 ${ctaButton('Review Quote', APP_URL + '/admin-portal/work-orders')}
               `,
             });
-            await sendEmail({ to: admin.email, subject: `New Quote Received: ${workOrderTitle || workOrderNumber}`, html: emailHtml });
-            await logEmail({ type: 'quote-notification', to: admin.email, subject: `New Quote Received: ${workOrderTitle || workOrderNumber}`, status: 'sent', context: { toName: admin.name, workOrderNumber, workOrderTitle, subcontractorName, quoteAmount } });
-            sent++;
+            const result = await sendEmail({ to: admin.email, subject, html: emailHtml });
+            await logEmail({
+              type: 'quote-notification',
+              to: admin.email,
+              subject,
+              status: 'sent',
+              context: { toName: admin.name, workOrderNumber, workOrderTitle, subcontractorName, quoteAmount, messageId: result?.id || null },
+            });
+            return { email: admin.email, ok: true, messageId: result?.id || null };
           } catch (e: any) {
-            await logEmail({ type: 'quote-notification', to: admin.email, subject: '', status: 'failed', context: {}, error: e.message }).catch(() => {});
+            await logEmail({ type: 'quote-notification', to: admin.email, subject, status: 'failed', context: { workOrderNumber, workOrderTitle }, error: e?.message || String(e) }).catch(() => {});
+            return { email: admin.email, ok: false, error: e?.message || String(e) };
           }
+        });
+
+        const settled = await Promise.allSettled(tasks);
+        const results = settled.map((r) =>
+          r.status === 'fulfilled' ? r.value : { email: '', ok: false, error: String(r.reason) },
+        );
+        const sent = results.filter((r) => r.ok).length;
+        const failed = results.length - sent;
+
+        if (adminEmails.length === 0) {
+          // No-admin fan-out is itself worth a log row so we can spot
+          // misconfiguration (zero adminUsers with email/notif pref on).
+          await logEmail({
+            type: 'quote-notification',
+            to: '',
+            subject,
+            status: 'skipped',
+            context: { reason: 'no_admin_recipients', workOrderNumber, workOrderTitle, subcontractorName },
+          }).catch(() => {});
         }
-        return NextResponse.json({ success: true, adminsSent: sent });
+
+        return NextResponse.json({
+          success: true,
+          adminsSent: sent,
+          adminsFailed: failed,
+          adminsTotal: adminEmails.length,
+          results,
+        });
       } catch (e: any) {
         console.error('Error notifying admins:', e);
         return NextResponse.json({ success: true, adminsSent: 0, error: e.message });
@@ -81,8 +119,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Standard single-recipient flow
-    if (!toEmail || !workOrderNumber || !subcontractorName || !quoteAmount) {
+    if (!workOrderNumber || !subcontractorName || !quoteAmount) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    // Recipient missing → log skipped + return 200 (audit captures the gap;
+    // caller's UX doesn't see a phantom 400 for what's a product-level event).
+    if (!toEmail || typeof toEmail !== 'string' || !toEmail.trim()) {
+      await logEmail({
+        type: 'quote-notification',
+        to: '',
+        subject: `New Quote Received for Work Order ${workOrderNumber}`,
+        status: 'skipped',
+        context: { reason: 'missing_recipient', workOrderNumber, workOrderTitle, subcontractorName, quoteAmount },
+      });
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: 'missing_recipient',
+        message: 'No recipient email — notification email skipped.',
+      });
     }
 
     // Format date if provided
@@ -114,16 +169,20 @@ export async function POST(request: NextRequest) {
     });
 
     // Send email via Mailgun
-    await sendEmail({
+    const result = await sendEmail({
       to: toEmail,
       subject: `New Quote Received for Work Order ${workOrderNumber}`,
       html: emailHtml,
     });
-    await logEmail({ type: 'quote-notification', to: toEmail, subject: `New Quote Received for Work Order ${workOrderNumber}`, status: 'sent', context: { toName, workOrderNumber, workOrderTitle, subcontractorName, quoteAmount, proposedServiceDate, proposedServiceTime } });
-
-    return NextResponse.json({
-      success: true,
+    await logEmail({
+      type: 'quote-notification',
+      to: toEmail,
+      subject: `New Quote Received for Work Order ${workOrderNumber}`,
+      status: 'sent',
+      context: { toName, workOrderNumber, workOrderTitle, subcontractorName, quoteAmount, proposedServiceDate, proposedServiceTime, messageId: result?.id || null },
     });
+
+    return NextResponse.json({ success: true, messageId: result?.id || null });
   } catch (error: any) {
     console.error('❌ Error sending quote notification email:', error);
     console.error('❌ Error details:', error.message || error);

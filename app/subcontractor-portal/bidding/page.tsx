@@ -606,23 +606,47 @@ export default function SubcontractorBidding() {
         total,
       );
 
-      // Fire-and-forget admin email
-      fetch('/api/email/send-quote-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        keepalive: true,
-        body: JSON.stringify({
-          notifyAdmins: true,
-          workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
-          workOrderTitle: selectedBidding.workOrderTitle,
-          subcontractorName: subData.fullName || subData.businessName,
-          quoteAmount: total,
-          category: selectedBidding.category || '',
-          locationName: selectedBidding.locationName || '',
-          priority: selectedBidding.priority || '',
-          description: selectedBidding.workOrderDescription || '',
-        }),
-      }).catch(console.error);
+      // Admin email fan-out — kicked off here, but explicitly NOT awaited
+      // on the critical path (per the no-stuck-buttons rule the rest of
+      // the app uses). Using keepalive so the request survives the page
+      // navigation that follows the success toast. Detailed per-recipient
+      // outcomes land in the emailLogs collection (admin email-logs page)
+      // so audits aren't blocked by us not awaiting here.
+      void (async () => {
+        try {
+          const res = await fetch('/api/email/send-quote-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
+            body: JSON.stringify({
+              notifyAdmins: true,
+              workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+              workOrderTitle: selectedBidding.workOrderTitle,
+              subcontractorName: subData.fullName || subData.businessName,
+              quoteAmount: total,
+              category: selectedBidding.category || '',
+              locationName: selectedBidding.locationName || '',
+              priority: selectedBidding.priority || '',
+              description: selectedBidding.workOrderDescription || '',
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          // Soft notice (no toast disruption) when the admin fan-out
+          // partially or completely failed, so the sub knows the system
+          // logged it and isn't silently dropping their submission.
+          if (data && typeof data.adminsTotal === 'number') {
+            if (data.adminsTotal === 0) {
+              console.warn('[bidding] Admin notification skipped — no admin recipients configured.');
+            } else if (data.adminsFailed > 0) {
+              console.warn(
+                `[bidding] Admin notification partial: ${data.adminsSent}/${data.adminsTotal} sent, ${data.adminsFailed} failed. See emailLogs.`,
+              );
+            }
+          }
+        } catch (err) {
+          console.error('[bidding] Admin notification fetch failed:', err);
+        }
+      })();
 
       // Update work order status + quotesReceived (best effort)
       try {
