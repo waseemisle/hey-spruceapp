@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, addDoc, deleteDoc, getDoc, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { db, auth } from '@/lib/firebase';
 import { formatMoney } from '@/lib/money';
@@ -96,7 +96,7 @@ function QuotesContent() {
     try {
       const quotesQuery = workOrderIdFilter
         ? query(collection(db, 'quotes'), where('workOrderId', '==', workOrderIdFilter))
-        : query(collection(db, 'quotes'));
+        : query(collection(db, 'quotes'), orderBy('createdAt', 'desc'), limit(500));
       const snapshot = await getDocs(quotesQuery);
       const quotesData = snapshot.docs.map(doc => ({
         id: doc.id,

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   collection, query, getDocs, doc, updateDoc,
-  addDoc, serverTimestamp, deleteDoc, orderBy,
+  addDoc, serverTimestamp, deleteDoc, orderBy, limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -76,7 +76,7 @@ export default function ResourcesPage() {
 
   const fetchResources = async () => {
     try {
-      const snap = await getDocs(query(collection(db, 'resources'), orderBy('createdAt', 'desc')));
+      const snap = await getDocs(query(collection(db, 'resources'), orderBy('createdAt', 'desc'), limit(300)));
       setResources(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Resource[]);
     } catch (err) {
       console.error(err);

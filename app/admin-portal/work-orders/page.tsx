@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, writeBatch, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService, notifyClientOfWorkOrderRejection } from '@/lib/notifications';
 import AdminLayout from '@/components/admin-layout';
@@ -165,12 +165,14 @@ function WorkOrdersContent() {
     try {
       setLoading(true);
 
-      // Fetch work orders, quotes, and invoices fully in parallel — eliminates the
-      // previous waterfall where quotes/invoices couldn't start until all WO IDs arrived.
+      // Fetch work orders, quotes, and invoices fully in parallel — eliminates
+      // the previous waterfall where quotes/invoices couldn't start until all
+      // WO IDs arrived. Each capped at 500 most-recent to bound first-paint
+      // cost on big tenants — pagination is in-page anyway.
       const [woSnap, quotesSnap, invoicesSnap] = await Promise.all([
-        getDocs(query(collection(db, 'workOrders'), orderBy('createdAt', 'desc'))),
-        getDocs(collection(db, 'quotes')),
-        getDocs(collection(db, 'invoices')),
+        getDocs(query(collection(db, 'workOrders'), orderBy('createdAt', 'desc'), limit(500))),
+        getDocs(query(collection(db, 'quotes'), orderBy('createdAt', 'desc'), limit(500))),
+        getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(500))),
       ]);
 
       const quoteCountByWoId = new Map<string, number>();

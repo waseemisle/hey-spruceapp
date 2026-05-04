@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, serverTimestamp, getDoc, Timestamp, getDocs, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit, updateDoc, doc, serverTimestamp, getDoc, Timestamp, getDocs, addDoc, documentId } from 'firebase/firestore';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -130,7 +130,8 @@ export default function SubcontractorAssignedJobs() {
         const assignedQuery = query(
           collection(db, 'assignedJobs'),
           where('subcontractorId', '==', user.uid),
-          orderBy('assignedAt', 'desc')
+          orderBy('assignedAt', 'desc'),
+          limit(200),
         );
 
         const unsubscribeSnapshot = onSnapshot(assignedQuery, async (snapshot) => {
@@ -145,17 +146,25 @@ export default function SubcontractorAssignedJobs() {
 
           if (workOrderIds.length > 0) {
             const workOrdersMap = new Map<string, WorkOrder>();
-            const fetchPromises = workOrderIds.map(async (woId) => {
-              try {
-                const woDoc = await getDoc(doc(db, 'workOrders', woId));
-                if (woDoc.exists()) {
-                  workOrdersMap.set(woDoc.id, { id: woDoc.id, ...woDoc.data() } as WorkOrder);
-                }
-              } catch (err) {
-                console.warn(`Could not fetch work order ${woId}:`, err);
+            // Batch into chunks of 10 (Firestore 'in' limit) and fire all
+            // batches in parallel — was N individual getDoc roundtrips for
+            // N assigned jobs, now ⌈N/10⌉ parallel queries.
+            const batches: string[][] = [];
+            for (let i = 0; i < workOrderIds.length; i += 10) {
+              batches.push(workOrderIds.slice(i, i + 10));
+            }
+            const batchResults = await Promise.allSettled(
+              batches.map((b) =>
+                getDocs(query(collection(db, 'workOrders'), where(documentId(), 'in', b))),
+              ),
+            );
+            for (const r of batchResults) {
+              if (r.status === 'fulfilled') {
+                r.value.docs.forEach((d) => {
+                  workOrdersMap.set(d.id, { id: d.id, ...d.data() } as WorkOrder);
+                });
               }
-            });
-            await Promise.all(fetchPromises);
+            }
             setWorkOrders(workOrdersMap);
 
             // Load which WOs this sub already submitted a repair quote for
@@ -163,6 +172,7 @@ export default function SubcontractorAssignedJobs() {
               const quotesSnap = await getDocs(query(
                 collection(db, 'quotes'),
                 where('subcontractorId', '==', user.uid),
+                limit(500),
               ));
               const repairSet = new Set<string>();
               quotesSnap.docs.forEach(d => {

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useViewControls } from '@/contexts/view-controls-context';
-import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc, deleteDoc, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import AdminLayout from '@/components/admin-layout';
@@ -140,7 +140,11 @@ function InvoicesManagementInner() {
 
   const fetchInvoices = async () => {
     try {
-      const invoicesQuery = query(collection(db, 'invoices'));
+      const invoicesQuery = query(
+        collection(db, 'invoices'),
+        orderBy('createdAt', 'desc'),
+        limit(500),
+      );
       const snapshot = await getDocs(invoicesQuery);
       const invoicesData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -211,11 +215,16 @@ function InvoicesManagementInner() {
 
   const fetchAcceptedQuotes = async () => {
     try {
-      const quotesQuery = query(collection(db, 'quotes'));
+      // Filter server-side to "accepted" — was scanning the entire quotes
+      // collection and filtering client-side, downloading every quote in
+      // the system on every visit.
+      const quotesQuery = query(
+        collection(db, 'quotes'),
+        where('status', '==', 'accepted'),
+        limit(500),
+      );
       const snapshot = await getDocs(quotesQuery);
-      const acceptedQuotes = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as Quote))
-        .filter(q => q.status === 'accepted');
+      const acceptedQuotes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Quote));
       setQuotes(acceptedQuotes);
     } catch (error) {
       console.error('Error fetching quotes:', error);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -75,7 +75,8 @@ export default function MaintRequestsPage() {
   useEffect(() => {
     const maintRequestsQuery = query(
       collection(db, 'maint_requests'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(500),
     );
 
     const unsubscribe = onSnapshot(

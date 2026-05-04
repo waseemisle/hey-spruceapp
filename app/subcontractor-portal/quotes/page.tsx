@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
@@ -50,7 +50,8 @@ export default function SubcontractorQuotes() {
         const quotesQuery = query(
           collection(db, 'quotes'),
           where('subcontractorId', '==', user.uid),
-          orderBy('createdAt', 'desc')
+          orderBy('createdAt', 'desc'),
+          limit(200),
         );
 
         const unsubscribeSnapshot = onSnapshot(quotesQuery, (snapshot) => {

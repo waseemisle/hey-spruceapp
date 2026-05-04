@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, limit, onSnapshot, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,10 +91,12 @@ export default function MessagesManagement() {
   useEffect(() => {
     if (!selectedChat) return;
 
-    // Listen to messages in selected chat
+    // Listen to messages in selected chat — most-recent 200, then reversed
+    // client-side for chronological display.
     const messagesQuery = query(
       collection(db, 'chats', selectedChat, 'messages'),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'desc'),
+      limit(200),
     );
 
     const unsubscribe = onSnapshot(
@@ -103,7 +105,7 @@ export default function MessagesManagement() {
         const messagesData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-        })) as Message[];
+        })).reverse() as Message[];
         setMessages(messagesData);
       },
       (err) => console.error('Messages listener error:', err),

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot, where, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, limit, onSnapshot, where, updateDoc, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { markBadgeViewed } from '@/lib/sidebar-badges';
@@ -81,17 +81,19 @@ export default function SubcontractorMessages() {
   useEffect(() => {
     if (!selectedChat) return;
 
-    // Listen to messages in selected chat
+    // Listen to messages in selected chat — most-recent 200, then reversed
+    // client-side for chronological display.
     const messagesQuery = query(
       collection(db, 'chats', selectedChat, 'messages'),
-      orderBy('createdAt', 'asc')
+      orderBy('createdAt', 'desc'),
+      limit(200),
     );
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
       const messagesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-      })) as Message[];
+      })).reverse() as Message[];
       setMessages(messagesData);
     }, (error) => {
       console.error('Messages listener error:', error);
