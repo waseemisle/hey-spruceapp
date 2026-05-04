@@ -161,7 +161,12 @@ export default function SubcontractorAssignedJobs() {
             return bMs - aMs;
           });
 
-          setAssignedJobs(assignedData);
+          // We delay setAssignedJobs until AFTER the workOrders fetch so we
+          // can drop assignments whose WO is unreadable (deleted, rules-
+          // denied, or stale ref). User asked: don't show those rows at all,
+          // and don't count them in the stats. Doing the filter here keeps
+          // stats + the rendered list in lockstep — both compute off the
+          // same filtered array.
 
           const workOrderIds = [...new Set(assignedData.map(job => job.workOrderId).filter(Boolean))];
 
@@ -210,6 +215,17 @@ export default function SubcontractorAssignedJobs() {
 
             setWorkOrders(workOrdersMap);
 
+            // Drop assignments whose WO is unreadable so the stats counts
+            // (Total / Pending / In Progress / Completed) and the rendered
+            // grid stay in lockstep. Without this filter, we'd count the
+            // orphan in stats but never render a card for it (the render
+            // returns null when workOrder is undefined), producing the
+            // "stats say 19 but list is empty" mismatch the user reported.
+            const visibleAssigned = assignedData.filter(
+              (j) => j.workOrderId && workOrdersMap.has(j.workOrderId),
+            );
+            setAssignedJobs(visibleAssigned);
+
             // Load which WOs this sub already submitted a repair quote for
             try {
               const quotesSnap = await getDocs(query(
@@ -231,6 +247,9 @@ export default function SubcontractorAssignedJobs() {
 
             setLoading(false);
           } else {
+            // No workOrderIds at all — clear any stale state.
+            setAssignedJobs([]);
+            setWorkOrders(new Map());
             setLoading(false);
           }
         }, (error) => {
@@ -1022,38 +1041,10 @@ export default function SubcontractorAssignedJobs() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredJobs.map((job) => {
               const workOrder = workOrders.get(job.workOrderId);
-              if (!workOrder) {
-                // Render a degraded card instead of silently dropping the
-                // row. Previously this `return null` made the page LOOK
-                // empty even when stats showed 19 jobs — if the WO doc
-                // was deleted, the rules denied a read, or the
-                // workOrderId was stale, the sub had no way to see the
-                // assignment existed at all. Now they see at minimum the
-                // assignedJobs row + a clear "details unavailable" hint
-                // so they know to ping admin.
-                return (
-                  <div key={job.id} className="bg-card border border-amber-200 rounded-lg p-4 flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Assigned · WO ref</p>
-                        <p className="text-sm font-semibold text-foreground truncate">
-                          {String(job.workOrderId || '').slice(0, 12) || 'Unknown work order'}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Status on this assignment: <span className="font-medium">{job.status || 'unknown'}</span>
-                        </p>
-                      </div>
-                      <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border border-amber-300 bg-amber-50 text-amber-700">
-                        <AlertCircle className="h-3 w-3" />
-                        Details unavailable
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground bg-amber-50 border border-amber-100 rounded-md px-3 py-2">
-                      The work order this assignment points to could not be loaded — it may have been deleted, archived, or your access to it was revoked. If you expected to see job details here, ping admin with the WO ref above.
-                    </div>
-                  </div>
-                );
-              }
+              // assignedJobs is already pre-filtered to only include rows
+              // whose work order loaded successfully (see the setAssignedJobs
+              // call in the snapshot handler). This guard is a safety net.
+              if (!workOrder) return null;
 
               const eff = effectiveStatusFor(job, workOrder);
               const jobStatusCfg = JOB_STATUS_CONFIG[eff] || JOB_STATUS_CONFIG['pending_acceptance'];
