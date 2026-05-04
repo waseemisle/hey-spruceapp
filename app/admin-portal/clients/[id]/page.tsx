@@ -1525,7 +1525,16 @@ export default function ClientDetailPage() {
                             Charge
                           </Button>
                         )}
-                        {!pm.isDefault && (
+                        {/*
+                          Hide the "Set as default" action while a bank is
+                          pending micro-deposit verification — manual-ACH
+                          PMs aren't attached to the Stripe customer until
+                          verified, so Stripe rejects the
+                          customers.update with "payment method must be
+                          attached to the customer". Re-appears once the
+                          row flips to verified.
+                        */}
+                        {!pm.isDefault && !(isBankAccount && pm.verificationStatus === 'pending') && (
                           <Button
                             size="sm"
                             variant="outline"

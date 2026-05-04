@@ -33,6 +33,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment method not found on this client' }, { status: 404 });
     }
 
+    // Block setting a not-yet-verified bank as default. Manual-ACH banks
+    // aren't attached to the Stripe customer until micro-deposit
+    // verification clears, so stripe.customers.update would otherwise
+    // fail with the cryptic "customer does not have a payment method
+    // with the ID pm_… The payment method must be attached to the
+    // customer." Surface a clear next-step instead.
+    if (
+      targetCard.type === 'us_bank_account' &&
+      targetCard.verificationStatus === 'pending'
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'This bank account is still pending micro-deposit verification, so it cannot be set as the default payment method yet. Click "Verify Bank" on the row to enter the two test-deposit amounts first.',
+        },
+        { status: 422 }
+      );
+    }
+
     // Update isDefault flag in the array
     const updatedMethods = paymentMethods.map((m: any) => ({
       ...m,
