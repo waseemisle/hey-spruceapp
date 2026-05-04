@@ -44,6 +44,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     invoiceId = body.invoiceId;
     clientId = body.clientId;
+    // Optional per-invoice override — admin picked a specific saved PM
+    // (e.g. ACH bank instead of the default Mastercard) from the picker on
+    // the invoice detail page. We validate it against the client's saved
+    // methods below; an unknown PM id is rejected so we never charge a
+    // stranger's card via a forged request.
+    const requestedPaymentMethodId: string | undefined =
+      typeof body.paymentMethodId === 'string' && body.paymentMethodId.trim().length > 0
+        ? body.paymentMethodId.trim()
+        : undefined;
 
     if (!invoiceId || !clientId) {
       return NextResponse.json(
@@ -68,7 +77,42 @@ export async function POST(request: NextRequest) {
     }
     const clientData = clientDoc.data();
 
-    if (!clientData.stripeCustomerId || !clientData.defaultPaymentMethodId) {
+    // Resolve which PM to charge. Order of preference:
+    //   1. Explicit override from request body — must match an entry in the
+    //      client's saved paymentMethods array (verified, not pending).
+    //   2. Client's defaultPaymentMethodId.
+    //   3. First chargeable PM in the array (handles clients whose default
+    //      pointer somehow got cleared while methods are still on file).
+    // We hard-fail with a 400 only when none of the above resolve, instead
+    // of the old "no defaultPaymentMethodId" gate which falsely blocked
+    // clients that had PMs but no default flag.
+    const savedMethods: any[] = Array.isArray(clientData.paymentMethods) ? clientData.paymentMethods : [];
+    const chargeableMethods = savedMethods.filter(
+      (m: any) => m && m.id && m.verificationStatus !== 'pending'
+    );
+
+    let pmId: string | undefined;
+    if (requestedPaymentMethodId) {
+      const match = chargeableMethods.find((m: any) => m.id === requestedPaymentMethodId);
+      if (!match) {
+        return NextResponse.json(
+          { error: 'Selected payment method is not on file for this client (or is pending verification).' },
+          { status: 400 }
+        );
+      }
+      pmId = match.id;
+    } else if (clientData.defaultPaymentMethodId
+        && chargeableMethods.some((m: any) => m.id === clientData.defaultPaymentMethodId)) {
+      pmId = clientData.defaultPaymentMethodId;
+    } else if (clientData.defaultPaymentMethodId && chargeableMethods.length === 0) {
+      // Legacy clients with no paymentMethods array but a savedCard*. Trust
+      // the default pointer in that case.
+      pmId = clientData.defaultPaymentMethodId;
+    } else if (chargeableMethods.length > 0) {
+      pmId = chargeableMethods[0].id;
+    }
+
+    if (!clientData.stripeCustomerId || !pmId) {
       return NextResponse.json(
         { error: 'Client has no saved payment method. Add a card or bank from the client detail page first.' },
         { status: 400 }
@@ -83,7 +127,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pmId = clientData.defaultPaymentMethodId;
     const linkedStripeInvoiceId = (invoiceData.stripeInvoiceId as string | undefined) || undefined;
 
     const existingTimeline = invoiceData.timeline || [];
@@ -97,6 +140,29 @@ export async function POST(request: NextRequest) {
     if (linkedStripeInvoiceId) {
       let paidStripeInvoice: Stripe.Invoice;
 
+      // If the admin selected an ACH PM, ensure the Stripe Invoice allows
+      // 'us_bank_account' as a payment method type. Invoices created via
+      // the standard send_invoice flow only have card enabled, so calling
+      // invoices.pay({payment_method: bank_pm}) would otherwise fail with
+      // "this payment method is not allowed for this invoice".
+      let pmType: 'card' | 'us_bank_account' = 'card';
+      try {
+        const pmObj = await stripe.paymentMethods.retrieve(pmId);
+        if (pmObj.type === 'us_bank_account') pmType = 'us_bank_account';
+      } catch {
+        /* fall through — assume card */
+      }
+      if (pmType === 'us_bank_account') {
+        try {
+          await stripe.invoices.update(linkedStripeInvoiceId, {
+            payment_settings: { payment_method_types: ['us_bank_account', 'card'] },
+            default_payment_method: pmId,
+          });
+        } catch (e) {
+          console.warn('[charge-saved-card] Could not widen invoice PM types for ACH:', e);
+        }
+      }
+
       try {
         paidStripeInvoice = await stripe.invoices.pay(
           linkedStripeInvoiceId,
@@ -104,10 +170,12 @@ export async function POST(request: NextRequest) {
             off_session: true,
             payment_method: pmId,
           },
-          // Idempotency tied to the invoice — Stripe will return the
-          // same response if this is retried after a network blip
-          // instead of double-charging.
-          { idempotencyKey: `pay-invoice-${linkedStripeInvoiceId}` },
+          // Idempotency keyed on invoice + PM. Stripe returns the cached
+          // response on a retry of the SAME PM (network blip safety) but
+          // treats a different PM choice as a fresh attempt — important
+          // when a previous attempt failed and the admin retries against
+          // a different saved method.
+          { idempotencyKey: `pay-invoice-${linkedStripeInvoiceId}-${pmId}` },
         );
       } catch (err: any) {
         // .pay() throws on already-paid / void / uncollectible. Fetch
@@ -262,7 +330,7 @@ export async function POST(request: NextRequest) {
     }
 
     const paymentIntent = await stripe.paymentIntents.create(piParams, {
-      idempotencyKey: `charge-invoice-legacy-${invoiceId}`,
+      idempotencyKey: `charge-invoice-legacy-${invoiceId}-${pmId}`,
     });
 
     if (paymentIntent.status === 'succeeded') {

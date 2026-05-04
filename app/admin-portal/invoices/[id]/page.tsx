@@ -71,6 +71,16 @@ interface Invoice {
 
 type InvoiceTab = 'charges' | 'completion' | 'history' | 'attachments';
 
+interface ClientPaymentMethod {
+  id: string;
+  type?: 'card' | 'us_bank_account';
+  last4?: string;
+  brand?: string;
+  bankName?: string;
+  verificationStatus?: 'pending' | 'verified';
+  isDefault?: boolean;
+}
+
 interface ClientBilling {
   savedCardLast4?: string;
   savedCardBrand?: string;
@@ -78,11 +88,23 @@ interface ClientBilling {
   savedCardExpYear?: number;
   defaultPaymentMethodId?: string;
   defaultMethodLabel?: string; // e.g. "Visa ••1234" or "Bank ••5678"
+  // Full list of saved PMs so the admin can pick which one to auto-charge
+  // on a per-invoice basis. Pending banks are filtered out at render time
+  // because they can't be charged until micro-deposit verification clears.
+  paymentMethods?: ClientPaymentMethod[];
   stripeSubscriptionId?: string;
   subscriptionStatus?: string;
   subscriptionAmount?: number;
   subscriptionBillingDay?: number;
 }
+
+const labelForPaymentMethod = (pm: ClientPaymentMethod): string => {
+  if (pm.type === 'us_bank_account') {
+    return `${pm.bankName || pm.brand || 'Bank'} ••${pm.last4 || ''}`;
+  }
+  const brand = pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card';
+  return `${brand} ••${pm.last4 || ''}`;
+};
 
 export default function AdminInvoiceDetail() {
   const params = useParams();
@@ -111,6 +133,11 @@ export default function AdminInvoiceDetail() {
   const [charging, setCharging] = useState(false);
   const [resharing, setResharing] = useState(false);
   const [openingPayLink, setOpeningPayLink] = useState(false);
+  // Per-invoice override for which saved PM to auto-charge. Initialized
+  // from the client's defaultPaymentMethodId once billing data loads, but
+  // an admin can flip it via the picker so a single invoice can be charged
+  // to the bank account while another goes on the card.
+  const [selectedChargePmId, setSelectedChargePmId] = useState<string>('');
 
   const handleOpenPayLink = async () => {
     if (!invoice) return;
@@ -239,37 +266,64 @@ export default function AdminInvoiceDetail() {
           const clientSnap = await getDoc(doc(db, 'clients', data.clientId));
           if (clientSnap.exists()) {
             const cd = clientSnap.data();
-            // Build a display label for the default payment method
-            let defaultMethodLabel = '';
-            const pmId = cd.defaultPaymentMethodId;
-            if (pmId && Array.isArray(cd.paymentMethods)) {
-              const pm = cd.paymentMethods.find((m: any) => m.id === pmId);
-              if (pm) {
-                if (pm.type === 'us_bank_account') {
-                  defaultMethodLabel = `${pm.bankName || 'Bank'} ••${pm.last4 || ''}`;
-                } else {
-                  const brand = pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card';
-                  defaultMethodLabel = `${brand} ••${pm.last4 || ''}`;
-                }
-              }
+            // Normalize the saved-method array. Filter out unverified banks —
+            // they can't be auto-charged until micro-deposit verification
+            // clears, so they shouldn't appear in the picker.
+            const rawMethods: any[] = Array.isArray(cd.paymentMethods) ? cd.paymentMethods : [];
+            const chargeable: ClientPaymentMethod[] = rawMethods
+              .filter((m: any) => m && m.id && m.verificationStatus !== 'pending')
+              .map((m: any) => ({
+                id: m.id,
+                type: m.type,
+                last4: m.last4,
+                brand: m.brand,
+                bankName: m.bankName,
+                verificationStatus: m.verificationStatus,
+                isDefault: !!m.isDefault,
+              }));
+
+            // Backwards compat: legacy clients have no paymentMethods array
+            // but do have a defaultPaymentMethodId + savedCard* fields.
+            // Synthesize a single entry so the picker / auto-charge UI still
+            // works for them.
+            if (chargeable.length === 0 && cd.defaultPaymentMethodId && cd.savedCardLast4) {
+              chargeable.push({
+                id: cd.defaultPaymentMethodId,
+                type: 'card',
+                last4: cd.savedCardLast4,
+                brand: cd.savedCardBrand || 'card',
+                isDefault: true,
+              });
             }
-            if (!defaultMethodLabel && cd.savedCardLast4) {
-              const brand = cd.savedCardBrand ? cd.savedCardBrand.charAt(0).toUpperCase() + cd.savedCardBrand.slice(1) : 'Card';
-              defaultMethodLabel = `${brand} ••${cd.savedCardLast4}`;
-            }
+
+            // Resolve a default to highlight in the picker. Prefer the doc's
+            // explicit defaultPaymentMethodId; if that's missing or stale,
+            // fall back to the first chargeable method so the button never
+            // ends up with an empty selection.
+            const explicitDefaultId =
+              cd.defaultPaymentMethodId && chargeable.some((m) => m.id === cd.defaultPaymentMethodId)
+                ? cd.defaultPaymentMethodId
+                : chargeable[0]?.id;
+
+            const defaultPm = chargeable.find((m) => m.id === explicitDefaultId);
+            const defaultMethodLabel = defaultPm ? labelForPaymentMethod(defaultPm) : '';
 
             setClientBilling({
               savedCardLast4: cd.savedCardLast4,
               savedCardBrand: cd.savedCardBrand,
               savedCardExpMonth: cd.savedCardExpMonth,
               savedCardExpYear: cd.savedCardExpYear,
-              defaultPaymentMethodId: cd.defaultPaymentMethodId,
+              defaultPaymentMethodId: explicitDefaultId,
               defaultMethodLabel,
+              paymentMethods: chargeable,
               stripeSubscriptionId: cd.stripeSubscriptionId,
               subscriptionStatus: cd.subscriptionStatus,
               subscriptionAmount: cd.subscriptionAmount,
               subscriptionBillingDay: cd.subscriptionBillingDay,
             });
+            // Pre-seed the per-invoice picker with the default PM so the
+            // admin can just hit Auto Charge if they don't want to override.
+            if (explicitDefaultId) setSelectedChargePmId(explicitDefaultId);
 
             // Resolve the parent company's Margin Edge flag so the ME UI on
             // this invoice can be gated. We default to false on any miss
@@ -714,17 +768,31 @@ export default function AdminInvoiceDetail() {
 
   const handleAutoCharge = async () => {
     if (!invoice || !clientBilling) return;
+    // Resolve the PM to charge — admin's per-invoice override wins, but we
+    // fall back to the client's default so a "single saved PM" client can
+    // still auto-charge without the admin touching the picker.
+    const pmId = selectedChargePmId || clientBilling.defaultPaymentMethodId;
+    if (!pmId) {
+      toast.error('No saved payment method available to charge.');
+      return;
+    }
+    const pm = clientBilling.paymentMethods?.find((m) => m.id === pmId);
+    const pmLabel = pm ? labelForPaymentMethod(pm) : 'saved payment method';
     setCharging(true);
     try {
       const res = await fetch('/api/stripe/charge-saved-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: invoice.id, clientId: invoice.clientId }),
+        body: JSON.stringify({
+          invoiceId: invoice.id,
+          clientId: invoice.clientId,
+          paymentMethodId: pmId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Charge failed');
       if (data.status === 'succeeded') {
-        toast.success(`Charged ${formatMoney(invoice.totalAmount)} successfully!`);
+        toast.success(`Charged ${formatMoney(invoice.totalAmount)} to ${pmLabel}.`);
         setInvoice(prev => prev ? { ...prev, status: 'paid' } : prev);
       } else {
         toast.warning(`Charge status: ${data.status}. Client may need to authenticate.`);
@@ -931,24 +999,49 @@ export default function AdminInvoiceDetail() {
               </Button>
             )}
             {/*
-              Auto Charge — only renders for sent invoices when the client
-              actually has a saved PM AND we haven't already attempted a
-              charge for this invoice. Hides itself after the first attempt
-              so an admin can't accidentally double-charge. Calls
-              /api/stripe/charge-saved-card; the webhook then enriches the
-              invoice with charge ID + receipt URL.
+              Auto Charge — renders for sent invoices when the client has at
+              least one chargeable saved PM AND we haven't already attempted
+              a charge. When the client has multiple PMs, an inline picker
+              lets the admin override which one this specific invoice is
+              charged against (e.g. card vs ACH). The picker is pre-seeded
+              with the client's default so the common case is one click.
+              Hides itself after the first attempt so an admin can't
+              accidentally double-charge.
             */}
-            {invoice.status === 'sent' && clientBilling?.defaultPaymentMethodId && !invoice.autoChargeAttempted && (
-              <Button
-                size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                onClick={handleAutoCharge}
-                disabled={charging}
-                title={`Auto-charge ${clientBilling.defaultMethodLabel || 'saved payment method'}`}
-              >
-                <Zap className="h-4 w-4" />
-                {charging ? 'Charging…' : `Auto Charge ${formatMoney(invoice.totalAmount)}`}
-              </Button>
+            {invoice.status === 'sent'
+              && (clientBilling?.paymentMethods?.length ?? 0) > 0
+              && !invoice.autoChargeAttempted && (
+              <div className="flex items-center gap-1.5">
+                {(clientBilling?.paymentMethods?.length ?? 0) > 1 && (
+                  <select
+                    value={selectedChargePmId}
+                    onChange={(e) => setSelectedChargePmId(e.target.value)}
+                    disabled={charging}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    aria-label="Select payment method to auto-charge"
+                  >
+                    {clientBilling!.paymentMethods!.map((pm) => (
+                      <option key={pm.id} value={pm.id}>
+                        {labelForPaymentMethod(pm)}{pm.id === clientBilling?.defaultPaymentMethodId ? ' (default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <Button
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                  onClick={handleAutoCharge}
+                  disabled={charging || !(selectedChargePmId || clientBilling?.defaultPaymentMethodId)}
+                  title={(() => {
+                    const pmId = selectedChargePmId || clientBilling?.defaultPaymentMethodId;
+                    const pm = clientBilling?.paymentMethods?.find((m) => m.id === pmId);
+                    return `Auto-charge ${pm ? labelForPaymentMethod(pm) : 'saved payment method'}`;
+                  })()}
+                >
+                  <Zap className="h-4 w-4" />
+                  {charging ? 'Charging…' : `Auto Charge ${formatMoney(invoice.totalAmount)}`}
+                </Button>
+              </div>
             )}
             {invoice.status !== 'paid' && (
               <Button size="sm" variant="outline" onClick={handleOpenPayLink} disabled={openingPayLink}>
