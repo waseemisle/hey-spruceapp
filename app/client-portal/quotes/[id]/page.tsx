@@ -7,7 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { createQuoteTimelineEvent } from '@/lib/timeline';
-import { notifySubcontractorAssignment, notifyQuoteRejection } from '@/lib/notifications';
+import { notifyQuoteRejection } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -166,16 +166,8 @@ export default function QuoteDetail() {
             const result = await res.json();
             const workOrderData = result.workOrderData;
 
-            // Notify subcontractor of assignment (in-app notification)
-            try {
-              await notifySubcontractorAssignment(
-                quote.subcontractorId,
-                workOrderData.workOrderId,
-                workOrderData.workOrderNumber || workOrderData.workOrderId
-              );
-            } catch (notifyError) {
-              console.error('Failed to create assignment notification:', notifyError);
-            }
+            // Subcontractor assignment notification now fires server-side
+            // from /api/quotes/approve to avoid duplicate bell entries.
 
             // Send email notification to subcontractor
             try {

@@ -180,11 +180,15 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
                 recompute();
               }, (error) => console.error('Bidding badge listener error:', error));
 
-              // Quotes the client has acted on (accepted/rejected) — sub needs follow-through.
+              // My Quotes badge: per product spec, count REJECTED quotes
+              // only. Accepted quotes drive the Assigned Jobs badge instead
+              // (because acceptance creates an assignedJobs row), so
+              // counting them here would double-badge the same event. Sub
+              // needs to revisit My Quotes to see why a quote was rejected.
               const quotesQuery = query(
                 collection(instances.dbInstance, 'quotes'),
                 where('subcontractorId', '==', firebaseUser.uid),
-                where('status', 'in', ['accepted', 'rejected'])
+                where('status', '==', 'rejected'),
               );
               unsubscribeQuotes = onSnapshot(quotesQuery, (snapshot) => {
                 itemsStore.quotes = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }));

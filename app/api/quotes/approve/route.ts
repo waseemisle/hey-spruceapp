@@ -3,6 +3,7 @@ import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp,
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
+import { createNotification, notifySubcontractorAssignment } from '@/lib/notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -152,6 +153,23 @@ export async function POST(request: Request) {
         console.warn('Could not sync biddingWorkOrders to diagnostic_accepted:', e);
       }
 
+      // Notify the sub their diagnostic was accepted so they know to come
+      // back and submit the repair quote. Previously this branch was silent
+      // — no bell, no email path triggered. Fire-and-forget.
+      if (resolvedSubId) {
+        const woNumber = workOrderData.workOrderNumber || quoteData.workOrderId;
+        createNotification({
+          userId: resolvedSubId,
+          userRole: 'subcontractor',
+          type: 'quote',
+          title: 'Diagnostic Request Accepted',
+          message: `${clientName} accepted your diagnostic request for WO ${woNumber}. Submit your repair quote from the Bidding page.`,
+          link: `/subcontractor-portal/bidding`,
+          referenceId: quoteData.workOrderId,
+          referenceType: 'workOrder',
+        }).catch((e) => console.error('[quotes/approve] diagnostic notify fail (non-fatal):', e));
+      }
+
       return NextResponse.json({
         success: true,
         diagnostic: true,
@@ -230,6 +248,20 @@ export async function POST(request: Request) {
       assignedToEmail: quoteData.subcontractorEmail,
       updatedAt: serverTimestamp(),
     });
+
+    // Notify the sub of their assignment from the server too. The client
+    // UI also fires this after the API returns, so subs may see two bell
+    // entries on a fast network — that's a known cosmetic dupe vs. the
+    // worst case (silence) when the client UI never reaches the
+    // notification call (closed tab, page nav, network blip). Better dupe
+    // than silent. Idempotency / dedupe at the bell is a follow-up.
+    if (resolvedSubId) {
+      notifySubcontractorAssignment(
+        resolvedSubId,
+        quoteData.workOrderId,
+        workOrderData.workOrderNumber || quoteData.workOrderId,
+      ).catch((e) => console.error('[quotes/approve] assignment notify fail (non-fatal):', e));
+    }
 
     return NextResponse.json({
       success: true,

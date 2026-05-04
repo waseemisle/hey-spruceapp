@@ -7,7 +7,7 @@ import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
-import { notifySubcontractorAssignment, notifyQuoteRejection } from '@/lib/notifications';
+import { notifyQuoteRejection } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -209,16 +209,8 @@ export default function ClientQuotes() {
             const result = await res.json();
             const workOrderData = result.workOrderData;
 
-            // Notify subcontractor of assignment (best effort)
-            try {
-              await notifySubcontractorAssignment(
-                quote.subcontractorId,
-                workOrderData.workOrderId,
-                workOrderData.workOrderNumber || workOrderData.workOrderId
-              );
-            } catch (notifyError) {
-              console.error('Failed to create assignment notification:', notifyError);
-            }
+            // Subcontractor assignment notification now fires server-side
+            // from /api/quotes/approve to avoid duplicate bell entries.
 
             // Send email notification to subcontractor
             try {
@@ -318,7 +310,12 @@ export default function ClientQuotes() {
               });
             }
 
-            // Fire-and-forget notification to admins + the sub
+            // Reject notifications now fire server-side from
+            // /api/quotes/reject (admin + sub bell). The regular client
+            // /quotes UI does its rejects via direct Firestore writes
+            // (not the API), so this client-side fire is the only path
+            // and stays — kept for parity with the diagnostic flow which
+            // is now server-side.
             notifyQuoteRejection(
               quote.workOrderId || '',
               quote.workOrderNumber || quote.workOrderId || '',

@@ -3,6 +3,7 @@ import { doc, getDoc, updateDoc, collection, serverTimestamp, Timestamp, query, 
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
+import { notifyQuoteRejection } from '@/lib/notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -119,6 +120,21 @@ export async function POST(request: Request) {
         console.warn('Could not sync biddingWorkOrders to diagnostic_rejected:', e);
       }
     }
+
+    // Fire notifications — fan-out to admins (audit) AND the affected
+    // subcontractor's bell so they see the rejection in real time and the
+    // My Quotes nav badge ticks up. This route was previously silent on
+    // the diagnostic-reject path (the regular-quote reject in the
+    // client/quotes UI fires this client-side, but the diagnostic page
+    // calls the API only). Fire-and-forget so it never blocks the
+    // response.
+    notifyQuoteRejection(
+      quoteData.workOrderId || '',
+      quoteData.workOrderNumber || quoteData.workOrderId || '',
+      quoteData.subcontractorId || null,
+      quoteData.subcontractorName || 'Subcontractor',
+      reason || undefined,
+    ).catch((e) => console.error('[quotes/reject] notify fail (non-fatal):', e));
 
     return NextResponse.json({ success: true, diagnostic: quoteIsDiagnostic });
   } catch (error: any) {
