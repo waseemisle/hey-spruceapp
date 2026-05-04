@@ -331,7 +331,15 @@ export default function ClientDetailPage() {
       const snap = await getDocs(collection(db, 'locations'));
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Location));
       setAllLocations(all);
-      setLocations(all.filter((l) => l.clientId === id || (client?.companyId && l.companyId === client.companyId)));
+      // Assigned Locations card on this page must reflect what the admin
+      // actually checked in the Edit Client modal — i.e. the IDs in
+      // client.assignedLocations. The previous filter ALSO accepted any
+      // location whose company matched the client's companyId, which
+      // surfaced every sibling location under the parent company even
+      // when only 2 were actually assigned (e.g. The h.wood Group showed
+      // all 10 of its restaurants, not the 2 the admin checked).
+      const assigned = new Set(client?.assignedLocations || []);
+      setLocations(all.filter((l) => l.clientId === id || assigned.has(l.id)));
     };
     const fetchCompanies = async () => {
       const snap = await getDocs(collection(db, 'companies'));
@@ -339,7 +347,9 @@ export default function ClientDetailPage() {
     };
     fetchLocations();
     fetchCompanies();
-  }, [id, client?.companyId]);
+    // Re-run when the assignments array changes (e.g. admin edits via the
+    // Edit Client modal) so the Assigned Locations card stays in sync.
+  }, [id, client?.companyId, client?.assignedLocations?.join(',')]);
 
   // Real-time work orders
   useEffect(() => {
