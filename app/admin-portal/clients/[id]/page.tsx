@@ -2454,6 +2454,7 @@ export default function ClientDetailPage() {
         onClose={() => setShowAddPaymentMethodModal(false)}
         clientId={id}
         clientName={client?.fullName}
+        clientEmail={client?.email}
         onSuccess={(label) => {
           toast.success(`${label} saved. Auto Charge is now available on this client's invoices.`);
         }}

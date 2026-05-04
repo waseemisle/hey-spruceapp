@@ -21,7 +21,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export async function POST(request: NextRequest) {
   const db = await getServerDb();
   try {
-    const { clientId, paymentMethodId } = await request.json();
+    const { clientId, paymentMethodId, setupIntentId, pendingMicrodeposits } = await request.json();
     if (!clientId || !paymentMethodId) {
       return NextResponse.json({ error: 'Missing clientId or paymentMethodId' }, { status: 400 });
     }
@@ -56,19 +56,41 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // For us_bank_account collected via routing + account number (manual
+    // ACH), the PaymentMethod is NOT yet attached to the customer — the
+    // SetupIntent sits in `requires_action` (verify_with_microdeposits)
+    // until the customer confirms the $0.01 deposits 1-2 days later.
+    // Trying to attach now fails with: "PaymentMethods of type
+    // us_bank_account must be verified before they can be attached to a
+    // customer." So we skip the attach and save the row in Firestore as
+    // pending; Stripe attaches it automatically on verification, and our
+    // webhook flips verificationStatus to 'verified' at that point.
+    const isPendingBankVerification =
+      isBank && (pendingMicrodeposits === true || pm.customer === null);
+
     // Attach to the Stripe customer if Stripe didn't already do it during
     // SetupIntent confirmation. Tolerates "already attached" + cross-mode
     // mismatches so we never block the Firestore write.
-    if (clientData.stripeCustomerId && pm.customer !== clientData.stripeCustomerId) {
+    if (
+      !isPendingBankVerification &&
+      clientData.stripeCustomerId &&
+      pm.customer !== clientData.stripeCustomerId
+    ) {
       try {
         await stripe.paymentMethods.attach(paymentMethodId, {
           customer: clientData.stripeCustomerId,
         });
       } catch (e: any) {
         const msg = String(e?.message || '');
-        if (!msg.includes('already been attached') && e?.code !== 'resource_missing') {
+        const needsVerification = isBank && msg.includes('must be verified');
+        if (
+          !msg.includes('already been attached') &&
+          e?.code !== 'resource_missing' &&
+          !needsVerification
+        ) {
           throw e;
         }
+        // Fall through into the pending path for unverified banks.
       }
     }
 
@@ -80,9 +102,13 @@ export async function POST(request: NextRequest) {
 
     // First PM becomes default automatically. Otherwise we honour any
     // existing default — admin can flip it via the Default button on the
-    // saved-method row.
+    // saved-method row. Pending banks are never made default: they can't
+    // be charged until verification completes, and we don't want auto-pay
+    // routed to an unusable PM.
     const isFirstMethod = existingMethods.length === 0;
-    const becomesDefault = isFirstMethod || !clientData.defaultPaymentMethodId;
+    const becomesDefault =
+      !isPendingBankVerification &&
+      (isFirstMethod || !clientData.defaultPaymentMethodId);
 
     const newMethod = isCard
       ? {
@@ -109,12 +135,14 @@ export async function POST(request: NextRequest) {
           expMonth: null,
           expYear: null,
           isDefault: becomesDefault,
-          // PaymentElement + Financial Connections returns verified PMs
-          // immediately; manual ACH-by-routing might still be pending. We
-          // optimistically mark verified here since the SetupIntent was
-          // already confirmed; downstream charge calls will surface any
-          // verification gap if it exists.
-          verificationStatus: 'verified' as const,
+          // Manual ACH (routing + account number) → pending micro-deposit
+          // verification; Financial Connections / instant verification →
+          // already verified. The webhook flips pending → verified once
+          // the customer confirms the $0.01 deposit amounts.
+          verificationStatus: (isPendingBankVerification ? 'pending' : 'verified') as
+            | 'pending'
+            | 'verified',
+          ...(setupIntentId ? { setupIntentId } : {}),
           createdAt: Timestamp.now(),
           source: 'admin_added' as const,
         };
@@ -162,13 +190,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const baseLabel = isBank
+      ? `${bank?.bank_name || 'Bank'} ···${bank?.last4 || ''}`
+      : `${(card?.brand || 'card').replace(/^./, (c) => c.toUpperCase())} ···${card?.last4 || ''}`;
+
     return NextResponse.json({
       success: true,
       type: pm.type,
-      label: isBank
-        ? `${bank?.bank_name || 'Bank'} ···${bank?.last4 || ''}`
-        : `${(card?.brand || 'card').replace(/^./, (c) => c.toUpperCase())} ···${card?.last4 || ''}`,
+      label: isPendingBankVerification
+        ? `${baseLabel} — pending micro-deposit verification`
+        : baseLabel,
       isDefault: becomesDefault,
+      pendingVerification: isPendingBankVerification,
     });
   } catch (error: any) {
     console.error('[save-payment-method] Error:', error);

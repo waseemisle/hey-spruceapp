@@ -9,6 +9,7 @@ interface AddPaymentMethodModalProps {
   onClose: () => void;
   clientId: string;
   clientName?: string;
+  clientEmail?: string;
   /** Called after the PM is saved on the server. Use to refetch payment methods. */
   onSuccess?: (label: string) => void;
 }
@@ -48,6 +49,7 @@ export default function AddPaymentMethodModal({
   onClose,
   clientId,
   clientName,
+  clientEmail,
   onSuccess,
 }: AddPaymentMethodModalProps) {
   const elementContainerRef = useRef<HTMLDivElement>(null);
@@ -125,11 +127,28 @@ export default function AddPaymentMethodModal({
         });
         elementsRef.current = elements;
 
+        // Suppress Stripe Link's "saved card" autofill banner. PaymentElement
+        // detects a Link cookie in the admin's browser (e.g. waseemisle@gmail.com
+        // signed into Link from another site) and prefills THAT person's saved
+        // card across every client — wrong customer, wrong card. Pinning the
+        // billing email to the actual client and turning off all wallets
+        // (Link / Apple Pay / Google Pay) keeps the form focused on what the
+        // admin is typing for THIS client. `link: 'never'` is accepted by
+        // current stripe-js but isn't yet in the published TS types, hence the
+        // cast.
         const paymentElement = elements.create('payment', {
           layout: { type: 'tabs', defaultCollapsed: false },
-          // Default to the customer's most-likely choice. Admins typically
-          // type a card so leading with that is fine. ACH tab still appears.
-          defaultValues: { billingDetails: { name: clientName || '' } },
+          defaultValues: {
+            billingDetails: {
+              name: clientName || '',
+              email: clientEmail || '',
+            },
+          },
+          wallets: {
+            applePay: 'never',
+            googlePay: 'never',
+            link: 'never',
+          } as any,
         });
         paymentElementRef.current = paymentElement;
 
@@ -155,7 +174,7 @@ export default function AddPaymentMethodModal({
     return () => {
       cancelled = true;
     };
-  }, [open, clientId, clientName]);
+  }, [open, clientId, clientName, clientEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,16 +206,29 @@ export default function AddPaymentMethodModal({
           : setupIntent?.payment_method?.id;
 
       if (!pmId) {
-        // ACH micro-deposit case sometimes returns processing without a
-        // PM id yet. Still call the save endpoint with the SetupIntent
-        // ID so the server can handle it. For now show a helpful message.
         throw new Error('Payment method saved but pending verification. Refresh in a moment.');
       }
+
+      // Manual ACH (routing + account number) returns SetupIntent in
+      // `requires_action` with next_action `verify_with_microdeposits`.
+      // The PaymentMethod exists but is NOT yet attached to the customer
+      // — Stripe will attach it automatically once the customer enters
+      // the deposit amounts. Tell the server it's a pending bank so it
+      // saves the row without trying to attach (which would fail with
+      // "must be verified before they can be attached").
+      const isPendingMicrodeposits =
+        setupIntent?.status === 'requires_action' &&
+        (setupIntent as any)?.next_action?.type === 'verify_with_microdeposits';
 
       const saveRes = await fetch('/api/stripe/save-payment-method', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, paymentMethodId: pmId }),
+        body: JSON.stringify({
+          clientId,
+          paymentMethodId: pmId,
+          setupIntentId: setupIntent?.id,
+          pendingMicrodeposits: isPendingMicrodeposits,
+        }),
       });
       const saveData = await saveRes.json();
       if (!saveRes.ok) {
