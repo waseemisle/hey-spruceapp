@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, orderBy, limit, updateDoc, doc, serverTimestamp, getDoc, Timestamp, getDocs, addDoc, documentId } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit, updateDoc, doc, serverTimestamp, getDoc, Timestamp, getDocs, addDoc, documentId } from 'firebase/firestore';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -127,18 +127,39 @@ export default function SubcontractorAssignedJobs() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // No orderBy on the server query — Firestore's orderBy silently
+        // excludes docs that are missing the field. We had legacy
+        // assignedJobs rows whose assignedAt was either never written or
+        // got nulled out by a partial update, and they were getting
+        // dropped here even though the sidebar badge listener (which has
+        // no orderBy) counted them. Result: badge said "1" but the page
+        // was empty. Now we sort client-side after fetch so every doc
+        // surfaces regardless of timestamp shape.
         const assignedQuery = query(
           collection(db, 'assignedJobs'),
           where('subcontractorId', '==', user.uid),
-          orderBy('assignedAt', 'desc'),
           limit(200),
         );
 
         const unsubscribeSnapshot = onSnapshot(assignedQuery, async (snapshot) => {
-          const assignedData = snapshot.docs.map(doc => ({
+          const raw = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
           })) as AssignedJob[];
+
+          // Client-side desc sort by assignedAt with createdAt fallback.
+          const tsToMs = (v: any): number => {
+            if (!v) return 0;
+            if (typeof v?.toMillis === 'function') return v.toMillis();
+            if (typeof v?.seconds === 'number') return v.seconds * 1000;
+            const d = new Date(v);
+            return isNaN(d.getTime()) ? 0 : d.getTime();
+          };
+          const assignedData = [...raw].sort((a, b) => {
+            const aMs = tsToMs((a as any).assignedAt) || tsToMs((a as any).createdAt);
+            const bMs = tsToMs((b as any).assignedAt) || tsToMs((b as any).createdAt);
+            return bMs - aMs;
+          });
 
           setAssignedJobs(assignedData);
 
