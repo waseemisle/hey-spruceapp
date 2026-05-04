@@ -433,6 +433,17 @@ export interface Invoice {
   stripeCardLast4?: string;
   /** Set when the post-payment Stripe API enrichment failed; helps support. */
   stripeEnrichmentError?: string;
+  // ── Margin Edge auto-forward (per-company gated by
+  // companies/{id}.marginEdgeEnabled). Populated by the
+  // /api/email/send-invoice route after the customer email succeeds.
+  /** When the invoice was forwarded to Margin Edge. Idempotency key. */
+  marginEdgeSentAt?: Date;
+  /** Provider message id for the Margin Edge send. */
+  marginEdgeMessageId?: string;
+  /** Margin Edge inbox the invoice was forwarded to (for audit). */
+  marginEdgeSentTo?: string;
+  /** Set when the Margin Edge send failed; cleared on next success. */
+  marginEdgeError?: string;
   pdfUrl?: string;
   notes: string;
   terms: string;

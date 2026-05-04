@@ -53,6 +53,11 @@ interface Invoice {
   stripeReceiptUrl?: string;
   stripeInvoicePdf?: string;
   stripeHostedInvoiceUrl?: string;
+  // Margin Edge auto-forward audit (per-company opt-in)
+  marginEdgeSentAt?: any;
+  marginEdgeMessageId?: string;
+  marginEdgeSentTo?: string;
+  marginEdgeError?: string;
   attachments?: Array<{ name: string; url: string }>;
   completionDetails?: string;
   completionNotes?: string;
@@ -819,6 +824,39 @@ export default function AdminInvoiceDetail() {
             )}
           </div>
         </div>
+
+        {/*
+          Margin Edge auto-forward audit. Renders only when the invoice
+          has actually attempted ME forwarding (success or failure) — for
+          companies without ME enabled this stays hidden, no clutter.
+        */}
+        {(invoice.marginEdgeSentAt || invoice.marginEdgeError) && (
+          <div className={`rounded-xl border px-3 py-2 text-xs flex items-center gap-2 flex-wrap ${
+            invoice.marginEdgeSentAt
+              ? 'border-emerald-200 bg-emerald-50/60 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200'
+              : 'border-red-200 bg-red-50/60 text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200'
+          }`}>
+            <span className="font-semibold">Margin Edge:</span>
+            {invoice.marginEdgeSentAt ? (
+              <>
+                <span>
+                  Forwarded to{' '}
+                  <code className="font-mono text-[11px]">{invoice.marginEdgeSentTo || 'configured inbox'}</code>
+                </span>
+                {invoice.marginEdgeSentAt?.toDate && (
+                  <span className="opacity-75">
+                    · {invoice.marginEdgeSentAt.toDate().toLocaleString()}
+                  </span>
+                )}
+                {invoice.marginEdgeMessageId && (
+                  <span className="opacity-60">· msg <code className="font-mono">{invoice.marginEdgeMessageId}</code></span>
+                )}
+              </>
+            ) : (
+              <span>Send failed: {invoice.marginEdgeError}</span>
+            )}
+          </div>
+        )}
 
         <Card>
           <CardHeader>

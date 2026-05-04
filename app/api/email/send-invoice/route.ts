@@ -4,6 +4,7 @@ import { getServerDb } from '@/lib/firebase-server';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, infoCard, infoRow, ctaButton, emailTotalsSummaryCard } from '@/lib/email-template';
+import { sendInvoiceToMarginEdge } from '@/lib/margin-edge';
 
 /**
  * Resolve the subcontractor's BUSINESS name for display on invoice emails.
@@ -318,7 +319,26 @@ export async function POST(request: Request) {
     });
     await logEmail({ type: 'invoice', to: Array.isArray(recipients) ? recipients.join(', ') : recipients, subject: `Invoice #${invoiceNumber} - Payment Due`, status: 'sent', context: { toName, invoiceNumber, workOrderTitle, totalAmount, dueDate, notes, hasAttachment: !!pdfBase64, hasWorkOrderAttachment: !!workOrderPdfBase64, locationCcEmail: locationCcEmail || undefined } });
 
-    return NextResponse.json({ success: true, locationCcEmail: locationCcEmail || null });
+    // Margin Edge auto-forward — fires AFTER the customer email succeeds.
+    // Idempotent (skips when invoices/{id}.marginEdgeSentAt is already
+    // set), fail-soft (errors land on invoices/{id}.marginEdgeError +
+    // emailLogs and never block the response). Only triggers when the
+    // company has marginEdgeEnabled + marginEdgeInvoiceEmail configured.
+    const marginEdgeResult = await sendInvoiceToMarginEdge({
+      invoiceId,
+      invoiceNumber,
+      pdfBase64,
+      workOrderTitle,
+      totalAmount,
+      dueDate,
+      vendorName: businessName || undefined,
+    });
+
+    return NextResponse.json({
+      success: true,
+      locationCcEmail: locationCcEmail || null,
+      marginEdge: marginEdgeResult,
+    });
   } catch (error: any) {
     console.error('❌ Error sending invoice email:', error);
     console.error('❌ Error details:', error.message || error);

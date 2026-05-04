@@ -31,6 +31,12 @@ interface Company {
   allowedSubcontractorStates?: string[];
   invoiceApprovalRequired?: boolean;
   invoiceLocationEmailEnabled?: boolean;
+  // Margin Edge integration — when enabled, every invoice for this
+  // company's clients is auto-forwarded to their Margin Edge AP inbox
+  // with the invoice PDF attached. Configured per-company so others
+  // can opt in without code changes.
+  marginEdgeEnabled?: boolean;
+  marginEdgeInvoiceEmail?: string;
 }
 
 interface Client {
@@ -217,6 +223,10 @@ export default function CompaniesPermissions() {
   const [companyApprovalSaving, setCompanyApprovalSaving] = useState<string | null>(null);
   const [companyLocationEmail, setCompanyLocationEmail] = useState<Record<string, boolean>>({});
   const [companyLocationEmailSaving, setCompanyLocationEmailSaving] = useState<string | null>(null);
+  // Margin Edge per-company integration — toggle + email config + save state.
+  const [companyMarginEdgeEnabled, setCompanyMarginEdgeEnabled] = useState<Record<string, boolean>>({});
+  const [companyMarginEdgeEmail, setCompanyMarginEdgeEmail] = useState<Record<string, string>>({});
+  const [companyMarginEdgeSaving, setCompanyMarginEdgeSaving] = useState<string | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -237,14 +247,20 @@ export default function CompaniesPermissions() {
       const allowedStatesMap: Record<string, string[]> = {};
       const invoiceApprovalMap: Record<string, boolean> = {};
       const locationEmailMap: Record<string, boolean> = {};
+      const marginEdgeEnabledMap: Record<string, boolean> = {};
+      const marginEdgeEmailMap: Record<string, string> = {};
       comps.forEach((c) => {
         allowedStatesMap[c.id] = Array.isArray(c.allowedSubcontractorStates) ? c.allowedSubcontractorStates : [];
         invoiceApprovalMap[c.id] = c.invoiceApprovalRequired === true;
         locationEmailMap[c.id] = c.invoiceLocationEmailEnabled === true;
+        marginEdgeEnabledMap[c.id] = c.marginEdgeEnabled === true;
+        marginEdgeEmailMap[c.id] = c.marginEdgeInvoiceEmail || '';
       });
       setCompanyAllowedStates(allowedStatesMap);
       setCompanyInvoiceApproval(invoiceApprovalMap);
       setCompanyLocationEmail(locationEmailMap);
+      setCompanyMarginEdgeEnabled(marginEdgeEnabledMap);
+      setCompanyMarginEdgeEmail(marginEdgeEmailMap);
 
       const permissionsMap: Record<string, Client['permissions']> = {};
       cls.forEach((client) => {
@@ -338,6 +354,43 @@ export default function CompaniesPermissions() {
       toast.error(e?.message || 'Failed to save Invoice Location Email setting');
     } finally {
       setCompanyLocationEmailSaving(null);
+    }
+  };
+
+  // --- Margin Edge integration -----------------------------------------
+  // Toggle + email together. Validates email format when enabled so we
+  // don't ship "enabled but blank" config that silently no-ops the
+  // forwarder.
+  const handleSaveMarginEdge = async (companyId: string) => {
+    const enabled = companyMarginEdgeEnabled[companyId] === true;
+    const email = (companyMarginEdgeEmail[companyId] || '').trim();
+    if (enabled && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Enter a valid Margin Edge invoice email address before enabling.');
+      return;
+    }
+    setCompanyMarginEdgeSaving(companyId);
+    try {
+      await updateDoc(doc(db, 'companies', companyId), {
+        marginEdgeEnabled: enabled,
+        marginEdgeInvoiceEmail: enabled ? email : '',
+        updatedAt: serverTimestamp(),
+      });
+      toast.success(
+        enabled
+          ? `Margin Edge enabled — invoices will auto-forward to ${email}`
+          : 'Margin Edge disabled — invoices will no longer be forwarded',
+      );
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.id === companyId
+            ? { ...c, marginEdgeEnabled: enabled, marginEdgeInvoiceEmail: enabled ? email : '' }
+            : c,
+        ),
+      );
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save Margin Edge setting');
+    } finally {
+      setCompanyMarginEdgeSaving(null);
     }
   };
 
@@ -632,6 +685,13 @@ export default function CompaniesPermissions() {
                     onSetLocationEmail={(v) => setCompanyLocationEmail((prev) => ({ ...prev, [selectedCompany.id]: v }))}
                     onSaveLocationEmail={() => handleSaveLocationEmailPerm(selectedCompany.id)}
                     locationEmailSaving={companyLocationEmailSaving === selectedCompany.id}
+
+                    marginEdgeEnabled={companyMarginEdgeEnabled[selectedCompany.id] === true}
+                    marginEdgeEmail={companyMarginEdgeEmail[selectedCompany.id] || ''}
+                    onSetMarginEdgeEnabled={(v) => setCompanyMarginEdgeEnabled((prev) => ({ ...prev, [selectedCompany.id]: v }))}
+                    onSetMarginEdgeEmail={(v) => setCompanyMarginEdgeEmail((prev) => ({ ...prev, [selectedCompany.id]: v }))}
+                    onSaveMarginEdge={() => handleSaveMarginEdge(selectedCompany.id)}
+                    marginEdgeSaving={companyMarginEdgeSaving === selectedCompany.id}
                   />
                 )}
 
@@ -676,12 +736,21 @@ function SettingsTab(props: {
   onSetLocationEmail: (v: boolean) => void;
   onSaveLocationEmail: () => void;
   locationEmailSaving: boolean;
+
+  marginEdgeEnabled: boolean;
+  marginEdgeEmail: string;
+  onSetMarginEdgeEnabled: (v: boolean) => void;
+  onSetMarginEdgeEmail: (v: string) => void;
+  onSaveMarginEdge: () => void;
+  marginEdgeSaving: boolean;
 }) {
   const {
     company,
     companyAllowedStates, onToggleState, onSelectAllStates, onSaveStates, statesSaving,
     invoiceApprovalEnabled, onSetInvoiceApproval, onSaveInvoiceApproval, invoiceApprovalSaving,
     locationEmailEnabled, onSetLocationEmail, onSaveLocationEmail, locationEmailSaving,
+    marginEdgeEnabled, marginEdgeEmail, onSetMarginEdgeEnabled, onSetMarginEdgeEmail,
+    onSaveMarginEdge, marginEdgeSaving,
   } = props;
 
   const allStates = companyAllowedStates.length === 0;
@@ -690,6 +759,9 @@ function SettingsTab(props: {
 
   const apprDirty = invoiceApprovalEnabled !== (company.invoiceApprovalRequired === true);
   const emailDirty = locationEmailEnabled !== (company.invoiceLocationEmailEnabled === true);
+  const marginEdgeDirty =
+    marginEdgeEnabled !== (company.marginEdgeEnabled === true) ||
+    (marginEdgeEmail || '').trim() !== (company.marginEdgeInvoiceEmail || '').trim();
 
   return (
     <div className="space-y-4">
@@ -810,6 +882,65 @@ function SettingsTab(props: {
             <p className="font-medium text-foreground">Email invoices to per-location address on generation</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Adds a "Location Email Address" field on each location for this company.
+            </p>
+          </div>
+        </div>
+      </SettingCard>
+
+      {/* Margin Edge Integration */}
+      <SettingCard
+        accent="emerald"
+        icon={Receipt}
+        title="Margin Edge Integration"
+        description="When enabled, every invoice generated for this company is auto-forwarded to their Margin Edge AP inbox with the invoice PDF attached. Idempotent — webhook retries and repeated sends never duplicate to Margin Edge."
+        statusBadge={<StatusPill on={marginEdgeEnabled} />}
+        footer={
+          <Button
+            size="sm"
+            onClick={onSaveMarginEdge}
+            disabled={marginEdgeSaving || !marginEdgeDirty}
+            className="gap-1.5"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {marginEdgeSaving ? 'Saving…' : marginEdgeDirty ? 'Save Margin Edge' : 'Saved'}
+          </Button>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex items-start gap-4 p-3 rounded-lg bg-muted/30 border border-border">
+            <Switch
+              checked={marginEdgeEnabled}
+              onCheckedChange={onSetMarginEdgeEnabled}
+            />
+            <div className="text-sm">
+              <p className="font-medium text-foreground">Auto-forward invoices to Margin Edge</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Fires after each customer-facing invoice email succeeds. PDF
+                attached, plain subject, parser-friendly body.
+              </p>
+            </div>
+          </div>
+
+          {/* Email field — only meaningful when enabled, but visible while
+              disabled so admin can configure ahead of time. */}
+          <div className={marginEdgeEnabled ? '' : 'opacity-60'}>
+            <Label htmlFor="margin-edge-email" className="text-xs font-semibold text-muted-foreground">
+              Margin Edge invoice email
+            </Label>
+            <Input
+              id="margin-edge-email"
+              type="email"
+              placeholder="invoices+xxxx@margin-edge.com"
+              value={marginEdgeEmail}
+              onChange={(e) => onSetMarginEdgeEmail(e.target.value)}
+              className="mt-1 font-mono text-sm"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">
+              Find this in the Margin Edge admin under{' '}
+              <span className="font-medium text-foreground">Orders → Orders Setup → Invoice Email</span>.
+              {' '}Required when toggled on.
             </p>
           </div>
         </div>
