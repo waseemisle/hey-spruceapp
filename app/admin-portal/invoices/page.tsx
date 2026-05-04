@@ -59,6 +59,15 @@ interface Invoice {
 
 interface ClientBilling {
   defaultPaymentMethodId?: string;
+  /**
+   * Pretty label for the default PM — "Visa ···4242" for a card,
+   * "Chase Bank ···6789" for a bank. Derived from the paymentMethods
+   * array entry whose id matches defaultPaymentMethodId, falling back
+   * to the legacy savedCardBrand/savedCardLast4 fields when older
+   * clients haven't been migrated yet.
+   */
+  defaultMethodLabel?: string;
+  defaultMethodType?: 'card' | 'us_bank_account';
   savedCardLast4?: string;
   savedCardBrand?: string;
   autoPayEnabled?: boolean;
@@ -157,7 +166,9 @@ function InvoicesManagementInner() {
       })) as Invoice[];
       setInvoices(invoicesData);
 
-      // Load billing info for unique clients that have unpaid invoices
+      // Load billing info for unique clients that have unpaid invoices.
+      // We fetch the paymentMethods[] array too so we can build a clean
+      // human label for the Auto Charge button regardless of card vs bank.
       const unpaidClientIds = [...new Set(
         invoicesData
           .filter(inv => inv.status === 'sent')
@@ -170,8 +181,28 @@ function InvoicesManagementInner() {
             const clientSnap = await getDoc(doc(db, 'clients', clientId));
             if (clientSnap.exists()) {
               const d = clientSnap.data();
+              const methods: any[] = Array.isArray(d.paymentMethods) ? d.paymentMethods : [];
+              const defaultPm = methods.find((m: any) => m.id === d.defaultPaymentMethodId);
+              let label = '';
+              let type: 'card' | 'us_bank_account' | undefined;
+              if (defaultPm) {
+                if (defaultPm.type === 'us_bank_account') {
+                  type = 'us_bank_account';
+                  label = `${defaultPm.bankName || defaultPm.brand || 'Bank'} ···${defaultPm.last4 || ''}`;
+                } else {
+                  type = 'card';
+                  const brand = (defaultPm.brand || 'Card').replace(/^./, (c: string) => c.toUpperCase());
+                  label = `${brand} ···${defaultPm.last4 || ''}`;
+                }
+              } else if (d.savedCardBrand && d.savedCardLast4) {
+                type = 'card';
+                const brand = String(d.savedCardBrand).replace(/^./, (c: string) => c.toUpperCase());
+                label = `${brand} ···${d.savedCardLast4}`;
+              }
               billingMap[clientId] = {
                 defaultPaymentMethodId: d.defaultPaymentMethodId,
+                defaultMethodLabel: label || undefined,
+                defaultMethodType: type,
                 savedCardLast4: d.savedCardLast4,
                 savedCardBrand: d.savedCardBrand,
                 autoPayEnabled: d.autoPayEnabled,
@@ -192,10 +223,11 @@ function InvoicesManagementInner() {
   const handleAutoCharge = async (invoice: Invoice) => {
     const billing = clientBillingMap[invoice.clientId];
     if (!billing?.defaultPaymentMethodId) {
-      toast.error('This client has no saved card. Ask them to add one via their portal.');
+      toast.error('This client has no saved card or bank account. Ask them to add one or add it from the client detail page.');
       return;
     }
-    if (!confirm(`Auto-charge ${formatMoney(invoice.totalAmount)} from ${invoice.clientName}'s saved ${billing.savedCardBrand || 'card'} ending in ${billing.savedCardLast4}?`)) return;
+    const methodLabel = billing.defaultMethodLabel || 'saved payment method';
+    if (!confirm(`Auto-charge ${formatMoney(invoice.totalAmount)} from ${invoice.clientName}'s ${methodLabel}?`)) return;
     setChargingInvoice(invoice.id);
     try {
       const res = await fetch('/api/stripe/charge-saved-card', {
@@ -925,7 +957,7 @@ function InvoicesManagementInner() {
                               className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
                               onClick={() => handleAutoCharge(invoice)}
                               disabled={chargingInvoice === invoice.id}
-                              title={`Auto-charge ${clientBillingMap[invoice.clientId]?.savedCardBrand || 'card'} ···${clientBillingMap[invoice.clientId]?.savedCardLast4 || ''}`}
+                              title={`Auto-charge ${clientBillingMap[invoice.clientId]?.defaultMethodLabel || 'saved payment method'}`}
                             >
                               {chargingInvoice === invoice.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                               <span className="text-xs font-semibold">Auto Charge</span>
@@ -976,7 +1008,7 @@ function InvoicesManagementInner() {
                     {hasSavedCard && (
                       <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 font-medium">
                         <CreditCard className="h-3 w-3" />
-                        {clientBillingMap[invoice.clientId]?.savedCardBrand} ···{clientBillingMap[invoice.clientId]?.savedCardLast4}
+                        {clientBillingMap[invoice.clientId]?.defaultMethodLabel || 'On file'}
                       </span>
                     )}
                     {invoice.autoChargeAttempted && (
@@ -1028,7 +1060,7 @@ function InvoicesManagementInner() {
                         className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
                         onClick={() => handleAutoCharge(invoice)}
                         disabled={chargingInvoice === invoice.id}
-                        title={`Auto-charge ${clientBillingMap[invoice.clientId]?.savedCardBrand || 'card'} ···${clientBillingMap[invoice.clientId]?.savedCardLast4 || ''}`}
+                        title={`Auto-charge ${clientBillingMap[invoice.clientId]?.defaultMethodLabel || 'saved payment method'}`}
                       >
                         {chargingInvoice === invoice.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                         {chargingInvoice === invoice.id ? 'Charging…' : 'Auto Charge'}

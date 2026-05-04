@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, ArrowLeft, History, Paperclip, CreditCard, Edit2, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Send } from 'lucide-react';
+import { Receipt, Download, ArrowLeft, History, Paperclip, CreditCard, Edit2, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Send, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { formatMoney } from '@/lib/money';
@@ -858,6 +858,26 @@ export default function AdminInvoiceDetail() {
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 {markingPaid ? 'Marking…' : 'Mark as Paid'}
+              </Button>
+            )}
+            {/*
+              Auto Charge — only renders for sent invoices when the client
+              actually has a saved PM AND we haven't already attempted a
+              charge for this invoice. Hides itself after the first attempt
+              so an admin can't accidentally double-charge. Calls
+              /api/stripe/charge-saved-card; the webhook then enriches the
+              invoice with charge ID + receipt URL.
+            */}
+            {invoice.status === 'sent' && clientBilling?.defaultPaymentMethodId && !invoice.autoChargeAttempted && (
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                onClick={handleAutoCharge}
+                disabled={charging}
+                title={`Auto-charge ${clientBilling.defaultMethodLabel || 'saved payment method'}`}
+              >
+                <Zap className="h-4 w-4" />
+                {charging ? 'Charging…' : `Auto Charge ${formatMoney(invoice.totalAmount)}`}
               </Button>
             )}
             {invoice.status !== 'paid' && (

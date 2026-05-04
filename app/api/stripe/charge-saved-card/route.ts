@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
+import { enrichFromPaymentIntent } from '@/lib/stripe-invoice-enrichment';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -105,13 +106,27 @@ export async function POST(request: NextRequest) {
     const existingSysInfo = invoiceData.systemInformation || {};
 
     if (paymentIntent.status === 'succeeded') {
+      // Enrich SYNCHRONOUSLY so the admin sees the receipt URL + charge ID
+      // + card brand/last4 + balance txn the moment the request returns.
+      // Without this we'd depend on the webhook firing seconds later and
+      // the admin would see "paid" but no receipt link until refresh.
+      const enrichment = await enrichFromPaymentIntent(stripe, paymentIntent.id);
+
+      const cardLabel = enrichment.fields.stripeCardBrand && enrichment.fields.stripeCardLast4
+        ? `${enrichment.fields.stripeCardBrand} ···${enrichment.fields.stripeCardLast4}`
+        : 'saved payment method';
+
       const paidEvent = createInvoiceTimelineEvent({
         type: 'paid',
         userId: 'system',
         userName: 'Auto-Pay System',
         userRole: 'system',
-        details: 'Payment charged automatically via saved card',
-        metadata: { stripePaymentIntentId: paymentIntent.id },
+        details: `Auto-charged ${cardLabel}`,
+        metadata: {
+          stripePaymentIntentId: paymentIntent.id,
+          ...(enrichment.fields.stripeChargeId ? { stripeChargeId: enrichment.fields.stripeChargeId } : {}),
+          ...(enrichment.fields.stripeReceiptUrl ? { stripeReceiptUrl: enrichment.fields.stripeReceiptUrl } : {}),
+        },
       });
 
       await updateDoc(doc(db, 'invoices', invoiceId), {
@@ -120,6 +135,10 @@ export async function POST(request: NextRequest) {
         stripePaymentIntentId: paymentIntent.id,
         autoChargeAttempted: true,
         autoChargeStatus: 'succeeded',
+        autoChargeAt: serverTimestamp(),
+        autoChargeMethodLabel: cardLabel,
+        ...enrichment.fields,
+        ...(enrichment.error ? { stripeEnrichmentError: enrichment.error } : {}),
         timeline: [...existingTimeline, paidEvent],
         systemInformation: {
           ...existingSysInfo,
@@ -134,6 +153,8 @@ export async function POST(request: NextRequest) {
         try {
           await updateDoc(doc(db, 'workOrders', invoiceData.workOrderId), {
             status: 'completed',
+            completedAt: serverTimestamp(),
+            autoCompletedFromInvoicePayment: true,
             updatedAt: serverTimestamp(),
           });
         } catch (woErr) {
@@ -141,7 +162,14 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return NextResponse.json({ success: true, status: 'succeeded', paymentIntentId: paymentIntent.id });
+      return NextResponse.json({
+        success: true,
+        status: 'succeeded',
+        paymentIntentId: paymentIntent.id,
+        chargeId: enrichment.fields.stripeChargeId,
+        receiptUrl: enrichment.fields.stripeReceiptUrl,
+        cardLabel,
+      });
     } else {
       // Requires action (3D Secure, etc.)
       await updateDoc(doc(db, 'invoices', invoiceId), {

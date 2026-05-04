@@ -1182,14 +1182,46 @@ export default function ClientDetailPage() {
               {client.phone && <span>📞 {client.phone}</span>}
               <span>✉️ {client.email}</span>
             </div>
-            {client.stripeSubscriptionId && client.subscriptionStatus === 'active' && client.subscriptionAmount && (
-              <div className="mt-2 inline-flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
-                <DollarSign className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                <span className="text-xs font-semibold text-blue-800">
-                  Fixed Auto-Charge Plan Amount: <span className="text-blue-700">{fmtMoney(client.subscriptionAmount)}</span>/mo
+            {/*
+              Auto-pay readiness ribbon: shows the saved default PM and "ready
+              for one-click charging" when one exists, OR a clear CTA to add
+              one if not. This is the user-facing answer to "can I auto-charge
+              this client right now?" so admins don't have to scroll down to
+              the Billing & Payment Info card to find out.
+            */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {(() => {
+                const defaultMethod = displayMethods.find((m) => m.isDefault) || displayMethods[0];
+                if (defaultMethod) {
+                  const isBank = defaultMethod.type === 'us_bank_account';
+                  const brandLabel = isBank
+                    ? (defaultMethod.bankName || 'Bank')
+                    : (defaultMethod.brand ? defaultMethod.brand.charAt(0).toUpperCase() + defaultMethod.brand.slice(1) : 'Card');
+                  return (
+                    <span className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-emerald-800">
+                      <Zap className="h-3.5 w-3.5 text-emerald-600" />
+                      Auto-Pay Ready · {brandLabel} ···{defaultMethod.last4}
+                    </span>
+                  );
+                }
+                return (
+                  <button
+                    type="button"
+                    onClick={handleAddCard}
+                    className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors"
+                  >
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                    No saved payment method · Click to add
+                  </button>
+                );
+              })()}
+              {client.stripeSubscriptionId && client.subscriptionStatus === 'active' && client.subscriptionAmount && (
+                <span className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-800">
+                  <DollarSign className="h-3.5 w-3.5 text-blue-600" />
+                  Fixed Plan: <span className="text-blue-700">{fmtMoney(client.subscriptionAmount)}</span>/mo
                 </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <div className="ml-auto flex-shrink-0 flex items-center gap-3">
             <Button
