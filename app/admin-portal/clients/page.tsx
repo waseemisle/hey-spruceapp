@@ -664,7 +664,7 @@ export default function ClientsManagement() {
 
                   <div className="md:col-span-2">
                     <Label className="text-sm font-medium text-foreground">Assigned Locations *</Label>
-                    <div className="mt-1 border border-border rounded-lg p-3 max-h-52 overflow-y-auto bg-card">
+                    <div className="mt-1 border border-border rounded-lg p-3 bg-card">
                       {formData.companyId ? (
                         locations.filter(loc => loc.companyId === formData.companyId).length > 0 ? (
                           locations.filter(loc => loc.companyId === formData.companyId).map((location) => (

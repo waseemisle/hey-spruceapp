@@ -187,7 +187,7 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
                           <FileText className="h-3 w-3" />
                           Line Items ({quote.lineItems.length})
                         </p>
-                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                        <div className="space-y-1">
                           {quote.lineItems.map((item, idx) => {
                             const m = getMarkup(quote);
                             const displayPrice = isClient ? Math.round(item.unitPrice * m * 100) / 100 : item.unitPrice;

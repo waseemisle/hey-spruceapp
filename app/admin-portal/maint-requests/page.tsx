@@ -349,7 +349,7 @@ export default function MaintRequestsPage() {
       </div>
       {/* Raw JSON (collapsible) */}
       {expandedJsonCards.has(request.id) && (
-        <pre className="p-3 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-60 overflow-y-auto font-mono">
+        <pre className="p-3 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto font-mono">
           {JSON.stringify(request.rawData, null, 2)}
         </pre>
       )}
@@ -576,7 +576,7 @@ export default function MaintRequestsPage() {
                     <Code className="h-4 w-4 text-muted-foreground" />
                     <Label className="text-muted-foreground font-semibold">Raw JSON Response (Firebase)</Label>
                   </div>
-                  <pre className="p-4 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto max-h-80 overflow-y-auto font-mono">
+                  <pre className="p-4 bg-gray-900 text-green-400 text-xs rounded-lg overflow-x-auto font-mono">
                     {JSON.stringify(selectedRequest.rawData, null, 2)}
                   </pre>
                 </div>

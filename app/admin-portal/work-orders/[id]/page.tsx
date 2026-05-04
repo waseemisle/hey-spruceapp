@@ -2913,7 +2913,7 @@ export default function ViewWorkOrder() {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+                <div className="p-6 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label>Work order</Label>
@@ -3509,7 +3509,7 @@ export default function ViewWorkOrder() {
                 </div>
                 <div className="text-sm text-muted-foreground">{selectedSubcontractors.length} selected</div>
               </div>
-              <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
+              <div className="space-y-2 border rounded-lg p-4">
                 {subcontractors.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">No approved subcontractors found</p>
                 ) : (
@@ -3633,7 +3633,7 @@ export default function ViewWorkOrder() {
                 <Button variant="outline" size="sm" onClick={() => setViewQuoteDetail(null)}><X className="h-4 w-4" /></Button>
               </div>
             </div>
-            <div className="p-5 space-y-5 max-h-[75vh] overflow-y-auto">
+            <div className="p-5 space-y-5">
               {/* Amounts */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">{formatMoney(viewQuoteDetail.totalAmount)}</p></div>
@@ -3739,7 +3739,7 @@ export default function ViewWorkOrder() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+            <div className="p-5 space-y-4">
               <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                 Sharing quote from <strong>{shareQuote.subcontractorName}</strong> — subcontractor total: <strong>${(shareQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
               </div>

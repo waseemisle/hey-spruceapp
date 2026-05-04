@@ -1469,7 +1469,7 @@ export default function ViewClientWorkOrder() {
                 </div>
                 <div className="text-sm text-muted-foreground">{selectedSubcontractors.length} selected</div>
               </div>
-              <div className="space-y-2 max-h-96 overflow-y-auto border border-border rounded-xl p-4">
+              <div className="space-y-2 border border-border rounded-xl p-4">
                 {subcontractors.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">No approved subcontractors found</p>
                 ) : (

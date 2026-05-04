@@ -148,19 +148,24 @@ export default function SubcontractorMessages() {
 
   return (
     <SubcontractorLayout>
-      <div className="space-y-6">
-        <div>
+      {/*
+        Locked to viewport — chat is a single-screen workspace, the page
+        itself does not scroll. Only the messages list scrolls inside the
+        right pane.
+      */}
+      <div className="flex flex-col h-[calc(100vh-9rem)] gap-4">
+        <div className="flex-shrink-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Messages</h1>
-          <p className="text-muted-foreground mt-2">Chat with admin team</p>
+          <p className="text-muted-foreground mt-1">Chat with admin team</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Chats List — hidden on mobile when a chat is open */}
-          <Card className={`md:col-span-1 ${selectedChat ? 'hidden md:block' : ''}`}>
-            <CardHeader>
+          <Card className={`md:col-span-1 flex flex-col min-h-0 ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
+            <CardHeader className="flex-shrink-0">
               <CardTitle>Conversations</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 min-h-0 overflow-y-auto">
               {chats.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
@@ -191,8 +196,8 @@ export default function SubcontractorMessages() {
           </Card>
 
           {/* Chat Window */}
-          <Card className={`md:col-span-2 ${!selectedChat ? 'hidden md:block' : ''}`}>
-            <CardHeader>
+          <Card className={`md:col-span-2 flex flex-col min-h-0 ${!selectedChat ? 'hidden md:flex' : 'flex'}`}>
+            <CardHeader className="flex-shrink-0">
               <CardTitle className="flex items-center gap-2">
                 {selectedChat && (
                   <button
@@ -211,16 +216,16 @@ export default function SubcontractorMessages() {
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 min-h-0 flex flex-col">
               {!selectedChat ? (
-                <div className="text-center py-12">
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
                   <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">Select a conversation to start chatting</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {/* Messages */}
-                  <div className="h-96 overflow-y-auto space-y-3 p-4 bg-muted rounded-lg">
+                <div className="flex-1 min-h-0 flex flex-col gap-4">
+                  {/* Messages — single scroll surface for the page */}
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-3 p-4 bg-muted rounded-lg">
                     {messages.map(message => (
                       <div
                         key={message.id}
@@ -243,7 +248,7 @@ export default function SubcontractorMessages() {
                   </div>
 
                   {/* Input */}
-                  <div className="flex gap-2">
+                  <div className="flex-shrink-0 flex gap-2">
                     <Input
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}

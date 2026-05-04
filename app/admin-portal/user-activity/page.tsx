@@ -246,7 +246,7 @@ export default function UserActivityPage() {
                           {userLogs.length === 0 ? (
                             <p className="text-sm text-muted-foreground py-2">No login records yet</p>
                           ) : (
-                            <div className="space-y-1.5 max-h-80 overflow-y-auto">
+                            <div className="space-y-1.5">
                               <div className="grid grid-cols-4 gap-2 text-[10px] font-semibold text-muted-foreground uppercase px-3 pb-1">
                                 <span>Login (EST)</span>
                                 <span>Logout (EST)</span>

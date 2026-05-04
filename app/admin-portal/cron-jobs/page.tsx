@@ -345,7 +345,7 @@ export default function CronJobsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 max-h-72 overflow-y-auto">
+              <div className="space-y-2">
                 {overdueRWOs.map(rwo => (
                   <div key={rwo.id} className="flex items-center justify-between p-2.5 rounded-lg bg-orange-50 border border-orange-100 text-sm">
                     <div className="min-w-0">
@@ -520,7 +520,7 @@ export default function CronJobsPage() {
                           {run.results.length === 0 ? (
                             <p className="text-sm text-muted-foreground">{run.totalEligible === 0 ? 'No eligible RWOs' : 'No details'}</p>
                           ) : (
-                            <div className="space-y-1.5 max-h-80 overflow-y-auto">
+                            <div className="space-y-1.5">
                               {run.results.map((r, i) => (
                                 <div key={i} className="flex items-center justify-between p-2 rounded bg-card border border-border text-sm">
                                   <div className="flex items-center gap-2 min-w-0">

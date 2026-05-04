@@ -1769,7 +1769,7 @@ export default function ClientDetailPage() {
                     </button>
                   </div>
                 </div>
-                <div className="border border-border rounded-lg divide-y divide-border max-h-60 overflow-y-auto">
+                <div className="border border-border rounded-lg divide-y divide-border">
                   {eligibleInvoices.length === 0 ? (
                     <p className="text-sm text-muted-foreground italic p-4 text-center">No eligible invoices</p>
                   ) : (
@@ -2635,7 +2635,7 @@ export default function ClientDetailPage() {
             {/* Assigned Locations */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground block mb-1">Assigned Locations</label>
-              <div className="border border-border rounded-lg p-3 max-h-48 overflow-y-auto bg-card">
+              <div className="border border-border rounded-lg p-3 bg-card">
                 {(() => {
                   const locPool = editCompanyId
                     ? allLocations.filter((l) => l.companyId === editCompanyId)

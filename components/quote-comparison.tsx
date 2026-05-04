@@ -243,7 +243,7 @@ export default function QuoteComparison({ quotes, workOrderId, onAcceptQuote, on
                 {quote.lineItems && quote.lineItems.length > 0 && (
                   <div className="border-t pt-3">
                     <p className="text-xs font-semibold text-foreground mb-2">Line Items ({quote.lineItems.length})</p>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                    <div className="space-y-1">
                       {quote.lineItems.slice(0, 3).map((item, idx) => (
                         <div key={idx} className="text-xs flex justify-between">
                           <span className="text-muted-foreground truncate">{item.description}</span>

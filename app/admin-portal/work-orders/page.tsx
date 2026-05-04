@@ -2907,7 +2907,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                   </div>
                 </div>
 
-                <div className="space-y-2 max-h-96 overflow-y-auto border rounded-lg p-4">
+                <div className="space-y-2 border rounded-lg p-4">
                   {subcontractors.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8">No approved subcontractors found</p>
                   ) : (
@@ -3237,7 +3237,7 @@ const filteredLocationsForForm = locations.filter((location) => {
                 </div>
 
                 {importPreview.length > 0 && importPreview[0] && Object.keys(importPreview[0]).length > 0 && (
-                  <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-2">Preview ({importPreview.length} rows)</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm border-collapse">

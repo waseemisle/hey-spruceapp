@@ -437,8 +437,15 @@ export default function CompaniesPermissions() {
         {/* Master-Detail */}
         <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-4">
           {/* ================= Left Rail: Companies List ================= */}
+          {/*
+            No inner overflow anywhere on this page. The page (document)
+            is the single scroll surface — having both a page scrollbar
+            AND a panel scrollbar is the "two vertical scrollbars"
+            anti-pattern. Long company lists or long detail panels just
+            extend the page; users scroll once.
+          */}
           <aside className={`${selectedCompany ? 'hidden lg:block' : 'block'}`}>
-            <div className="sticky top-4 bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+            <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-muted/30">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -459,7 +466,7 @@ export default function CompaniesPermissions() {
                 </div>
               </div>
 
-              <div className="max-h-[calc(100vh-22rem)] overflow-y-auto p-2 space-y-1">
+              <div className="p-2 space-y-1">
                 {filteredCompanies.length === 0 ? (
                   <div className="text-center py-10">
                     <Building2 className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />

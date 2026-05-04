@@ -187,7 +187,7 @@ export default function AssetManagementPage() {
           <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3">
             <p className="text-sm font-semibold text-foreground">WO Detailed History</p>
             <p className="text-muted-foreground text-sm">Work orders by category (recent first).</p>
-            <ul className="divide-y max-h-96 overflow-y-auto">
+            <ul className="divide-y">
               {workOrders
                 .sort((a, b) => (toDate(b.createdAt)?.getTime() ?? 0) - (toDate(a.createdAt)?.getTime() ?? 0))
                 .slice(0, 50)

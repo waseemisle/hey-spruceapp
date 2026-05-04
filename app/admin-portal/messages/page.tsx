@@ -307,16 +307,21 @@ export default function MessagesManagement() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
+      {/*
+        Locked to viewport — chat is a single-screen workspace, the page
+        itself does not scroll. Only the messages list scrolls inside the
+        right pane.
+      */}
+      <div className="flex flex-col h-[calc(100vh-9rem)] gap-4">
+        <div className="flex-shrink-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Messages</h1>
-          <p className="text-muted-foreground mt-2">Chat with clients and subcontractors</p>
+          <p className="text-muted-foreground mt-1">Chat with clients and subcontractors</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Chats List — hidden on mobile when a chat is open */}
-          <Card className={`md:col-span-1 ${selectedChat ? 'hidden md:block' : ''}`}>
-            <CardHeader>
+          <Card className={`md:col-span-1 flex flex-col min-h-0 ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
+            <CardHeader className="flex-shrink-0">
               <div className="flex justify-between items-center">
                 <CardTitle>Conversations</CardTitle>
                 <Button
@@ -331,9 +336,9 @@ export default function MessagesManagement() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 min-h-0 flex flex-col overflow-hidden">
               {/* Search Bar */}
-              <div className="relative mb-4">
+              <div className="relative mb-4 flex-shrink-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search conversations..."
@@ -343,6 +348,7 @@ export default function MessagesManagement() {
                 />
               </div>
 
+              <div className="flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
               {filteredChats.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
@@ -369,12 +375,13 @@ export default function MessagesManagement() {
                   })}
                 </div>
               )}
+              </div>
             </CardContent>
           </Card>
 
           {/* Chat Window */}
-          <Card className={`md:col-span-2 ${!selectedChat ? 'hidden md:block' : ''}`}>
-            <CardHeader>
+          <Card className={`md:col-span-2 flex flex-col min-h-0 ${!selectedChat ? 'hidden md:flex' : 'flex'}`}>
+            <CardHeader className="flex-shrink-0">
               <div className="flex justify-between items-center gap-2">
                 <CardTitle className="flex items-center gap-2 min-w-0">
                   {selectedChat && (
@@ -405,16 +412,16 @@ export default function MessagesManagement() {
                 )}
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 min-h-0 flex flex-col">
               {!selectedChat ? (
-                <div className="text-center py-12">
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
                   <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">Select a conversation to start chatting</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {/* Messages */}
-                  <div className="h-96 overflow-y-auto space-y-3 p-4 bg-muted rounded-lg">
+                <div className="flex-1 min-h-0 flex flex-col gap-4">
+                  {/* Messages — single scroll surface for the page */}
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-3 p-4 bg-muted rounded-lg">
                     {messages.map(message => (
                       <div
                         key={message.id}
@@ -457,7 +464,7 @@ export default function MessagesManagement() {
                   </div>
 
                   {/* Input */}
-                  <div className="flex gap-2">
+                  <div className="flex-shrink-0 flex gap-2">
                     <Input
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}

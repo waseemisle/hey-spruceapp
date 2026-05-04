@@ -1881,7 +1881,7 @@ export default function RecurringWorkOrdersImportModal({
               {invalidRows.length > 0 && (
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <h4 className="font-semibold text-red-800 mb-2">Errors Found:</h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                  <div className="space-y-2">
                     {invalidRows.slice(0, 10).map((row) => (
                       <div key={row.rowNumber} className="text-sm">
                         <span className="font-medium">Row {row.rowNumber}:</span>
