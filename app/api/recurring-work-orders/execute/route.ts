@@ -84,6 +84,39 @@ export async function POST(request: NextRequest) {
       // Fall back to the Firestore nextExecution field, then today
       nextExecution = scheduledDateStr ? new Date(scheduledDateStr)
         : recurringWorkOrder.nextExecution?.toDate() || now;
+
+      // ── Idempotency guard ──
+      // Block when an execution for this RWO + same scheduled date is
+      // already in 'executed' state. Prevents duplicate Firestore
+      // invoices + duplicate Stripe charges when:
+      //   • Cron retries on the same day (rare — the cron has its own
+      //     23h lock — but still defensive)
+      //   • Admin clicks "Execute Now" after cron already ran today
+      //   • Manual "Execute Now" is double-clicked
+      const sameDayExisting = existingExecsSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as any))
+        .find((ex) => {
+          if (ex.status !== 'executed') return false;
+          const exDate = ex.executedDate?.toDate?.() || ex.scheduledDate?.toDate?.();
+          if (!exDate) return false;
+          return exDate.getFullYear() === nextExecution.getFullYear()
+            && exDate.getMonth() === nextExecution.getMonth()
+            && exDate.getDate() === nextExecution.getDate();
+        });
+      if (sameDayExisting) {
+        console.log(
+          `[rwo-execute] Skipping ${recurringWorkOrderId} — execution #${sameDayExisting.executionNumber} already ran on ${nextExecution.toDateString()}`,
+        );
+        return NextResponse.json({
+          success: true,
+          skipped: true,
+          reason: 'already_executed_today',
+          existingExecutionId: sameDayExisting.id,
+          existingInvoiceId: sameDayExisting.invoiceId || null,
+          message: `Execution #${sameDayExisting.executionNumber} already ran on ${nextExecution.toDateString()}; skipped to avoid duplicate invoice.`,
+        });
+      }
+
       const executionData = {
         recurringWorkOrderId: recurringWorkOrderId,
         executionNumber,
@@ -442,41 +475,88 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // TODO(invoice-approval): recurring executions currently send the invoice
-      // email immediately even when the client's company has
-      // invoiceApprovalRequired=true. Recurring runs are pre-arranged so
-      // bypassing the 72h gate may be intentional — confirm with product before
-      // routing through the approval workflow. See /lib/invoice-approval.ts.
-      // Send email with attachments using the existing email service
-      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/email/send-invoice`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          toEmail: recurringWorkOrder.clientEmail,
-          toName: recurringWorkOrder.clientName,
-          invoiceNumber: invoiceData.invoiceNumber,
-          workOrderTitle: recurringWorkOrder.title,
-          totalAmount: invoiceData.totalAmount,
-          dueDate: invoiceData.dueDate,
-          lineItems: invoiceData.lineItems,
-          notes: invoiceData.notes,
-          stripePaymentLink,
-          pdfBase64: invoicePdfBase64,
-          workOrderPdfBase64: workOrderPdfBase64,
-          subcontractorId: recurringWorkOrder.subcontractorId || undefined,
-        }),
-      });
+      // ── Customer email routing — skip on auto-charge success ──
+      // If the saved card was auto-charged successfully, sending the
+      // standard "Payment Due" email would confuse the client (their
+      // card already moved). Stripe sends its own receipt email for
+      // paid invoices when the customer object has email set. So:
+      //   • auto-charge SUCCEEDED → skip our send-invoice email
+      //     (Stripe receipt covers the customer comms)
+      //   • auto-charge FAILED → send our email with the hosted
+      //     payment link so the customer can finish the payment
+      //   • auto-charge NOT ATTEMPTED (no saved card) → send our email
+      //     with the link as before (existing behavior)
+      // Admins are notified separately on failure so ops can intervene.
+      // ──────────────────────────────────────────────────────────────
+      const autoChargeSucceeded = autoChargeOutcome.attempted && autoChargeOutcome.outcome === 'succeeded';
+      const autoChargeFailed = autoChargeOutcome.attempted && (autoChargeOutcome.outcome === 'failed' || autoChargeOutcome.outcome === 'requires_action');
+      let emailResponse: Response | null = null;
 
-      if (!emailResponse.ok) {
-        console.error('Failed to send email:', await emailResponse.text());
-        // Continue execution even if email fails
+      if (!autoChargeSucceeded) {
+        // TODO(invoice-approval): recurring executions currently send the invoice
+        // email immediately even when the client's company has
+        // invoiceApprovalRequired=true. Recurring runs are pre-arranged so
+        // bypassing the 72h gate may be intentional — confirm with product before
+        // routing through the approval workflow. See /lib/invoice-approval.ts.
+        emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/email/send-invoice`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            toEmail: recurringWorkOrder.clientEmail,
+            toName: recurringWorkOrder.clientName,
+            invoiceNumber: invoiceData.invoiceNumber,
+            workOrderTitle: recurringWorkOrder.title,
+            totalAmount: invoiceData.totalAmount,
+            dueDate: invoiceData.dueDate,
+            lineItems: invoiceData.lineItems,
+            notes: invoiceData.notes,
+            stripePaymentLink,
+            invoiceId: firestoreInvoiceRef.id,
+            pdfBase64: invoicePdfBase64,
+            workOrderPdfBase64: workOrderPdfBase64,
+            subcontractorId: recurringWorkOrder.subcontractorId || undefined,
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          console.error('Failed to send email:', await emailResponse.text());
+          // Continue execution even if email fails
+        }
+      } else {
+        console.log(`[rwo-execute] Skipped customer email — invoice ${invoiceData.invoiceNumber} was auto-charged successfully; Stripe will send receipt.`);
+      }
+
+      // ── Admin notification on auto-charge failure ──
+      // When the saved card declines (or 3DS challenge), ops needs to
+      // know so they can call/email the client or update the card on
+      // file. Fire-and-forget — don't block execution.
+      if (autoChargeFailed) {
+        try {
+          const { createNotification, getAllAdminUserIds } = await import('@/lib/notifications');
+          const adminIds = await getAllAdminUserIds();
+          if (adminIds.length > 0) {
+            await createNotification({
+              recipientIds: adminIds,
+              userRole: 'admin',
+              type: 'invoice',
+              title: 'Auto-charge failed',
+              message: `Recurring invoice ${invoiceData.invoiceNumber} for ${recurringWorkOrder.clientName} (${recurringWorkOrder.title}) — card ${autoChargeOutcome.outcome === 'requires_action' ? 'requires authentication' : 'was declined'}. Customer was emailed the hosted payment link.`,
+              link: `/admin-portal/invoices/${firestoreInvoiceRef.id}`,
+              referenceId: firestoreInvoiceRef.id,
+              referenceType: 'invoice',
+            });
+          }
+        } catch (notifyErr) {
+          console.warn('[rwo-execute] Failed to notify admins of auto-charge failure (non-fatal):', notifyErr);
+        }
       }
 
       // Update execution with email sent status
       await updateDoc(executionRef, {
-        emailSent: true,
+        emailSent: !autoChargeSucceeded && emailResponse?.ok === true,
+        emailSkippedReason: autoChargeSucceeded ? 'auto_charged_stripe_sends_receipt' : null,
         emailSentAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
