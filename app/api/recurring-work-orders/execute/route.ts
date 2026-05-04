@@ -5,6 +5,7 @@ import { createTimelineEvent } from '@/lib/timeline';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import Stripe from 'stripe';
 import { generateInvoicePDF, getInvoicePDFBase64, getWorkOrderPDFBase64 } from '@/lib/pdf-generator';
+import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -374,6 +375,13 @@ export async function POST(request: NextRequest) {
       // or falls back to send_invoice (emailed hosted link) otherwise.
       // ────────────────────────────────────────────────────────────────
       const dueDateTimestamp = Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+      // Per-client INTERNAL admin-approval gate — when on, the cron-
+      // generated invoice is born in pending_approval and the customer
+      // email at the end of this function is short-circuited (the same
+      // way auto-charge success short-circuits it). Admin must click
+      // Approve & notify on the invoices page to release the email.
+      const adminApprovalNeeded = await shouldRequireAdminApproval(db, recurringWorkOrder.clientId);
+
       const firestoreInvoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber: invoiceData.invoiceNumber,
         clientId: recurringWorkOrder.clientId || '',
@@ -384,7 +392,8 @@ export async function POST(request: NextRequest) {
         workOrderDescription: recurringWorkOrder.description || '',
         category: recurringWorkOrder.category || '',
         priority: recurringWorkOrder.priority || '',
-        status: 'sent',
+        status: adminApprovalNeeded ? 'pending_approval' : 'sent',
+        adminApprovalRequired: adminApprovalNeeded || false,
         totalAmount: Number(invoiceData.totalAmount) || 0,
         lineItems: invoiceData.lineItems,
         dueDate: dueDateTimestamp,
@@ -492,7 +501,13 @@ export async function POST(request: NextRequest) {
       const autoChargeFailed = autoChargeOutcome.attempted && (autoChargeOutcome.outcome === 'failed' || autoChargeOutcome.outcome === 'requires_action');
       let emailResponse: Response | null = null;
 
-      if (!autoChargeSucceeded) {
+      // Skip the customer email when:
+      //   • auto-charge succeeded (Stripe sends its own receipt), OR
+      //   • the per-client admin-approval gate is on (admin will release
+      //     the email by clicking "Approve & notify client")
+      const skipCustomerEmail = autoChargeSucceeded || adminApprovalNeeded;
+
+      if (!skipCustomerEmail) {
         // TODO(invoice-approval): recurring executions currently send the invoice
         // email immediately even when the client's company has
         // invoiceApprovalRequired=true. Recurring runs are pre-arranged so
@@ -525,7 +540,10 @@ export async function POST(request: NextRequest) {
           // Continue execution even if email fails
         }
       } else {
-        console.log(`[rwo-execute] Skipped customer email — invoice ${invoiceData.invoiceNumber} was auto-charged successfully; Stripe will send receipt.`);
+        const reason = autoChargeSucceeded
+          ? 'auto-charged successfully; Stripe will send receipt'
+          : 'pending internal admin approval — admin will release the email';
+        console.log(`[rwo-execute] Skipped customer email — invoice ${invoiceData.invoiceNumber}: ${reason}.`);
       }
 
       // ── Admin notification on auto-charge failure ──

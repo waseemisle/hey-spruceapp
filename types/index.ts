@@ -40,6 +40,15 @@ export interface Client {
   // Consolidated billing
   paymentTermsDays?: number; // billing cycle in days (e.g. 15, 30)
   autoChargeThreshold?: number; // auto-charge when consolidated invoice exceeds this
+  /**
+   * Per-client internal-approval gate. When true, every invoice generated
+   * for this client is created in 'pending_approval' state with NO client
+   * email or notification. An admin must click "Approve & notify client"
+   * on the admin invoices page before the customer is contacted. Distinct
+   * from the company-level invoiceApprovalRequired (72h client-side
+   * approval window) — this is admin-side review.
+   */
+  requireInvoiceApproval?: boolean;
 }
 
 export interface SubcontractorBankAccount {
@@ -406,6 +415,13 @@ export interface Invoice {
   subcontractorEmail: string;
   /**
    * Invoice lifecycle. Note for filters / UI:
+   *  - 'pending_approval' is overloaded: covers BOTH the company-level 72h
+   *                client-side approval (gated by company.invoiceApprovalRequired)
+   *                AND the per-client internal admin approval (gated by
+   *                client.requireInvoiceApproval). The two are distinguished
+   *                by the audit fields below — clientApprovalStatus tracks
+   *                client side, adminApprovalRequired/adminApprovedAt track
+   *                admin side.
    *  - 'approved'  set when an admin clicks "Approve & Forward" on a draft.
    *                Triggers the Margin Edge forward (per-location address
    *                with company-level fallback) when the company has
@@ -425,6 +441,17 @@ export interface Invoice {
   approvedForMarginEdgeAt?: Date;
   /** Admin user id who approved (audit). */
   approvedForMarginEdgeBy?: string;
+  // ── Per-client internal admin approval (clients/{id}.requireInvoiceApproval)
+  /**
+   * Snapshot of the client's requireInvoiceApproval flag at invoice creation
+   * time. We snapshot rather than read live so toggling the client flag
+   * mid-cycle doesn't retroactively unblock or block existing invoices.
+   */
+  adminApprovalRequired?: boolean;
+  /** When an admin clicked "Approve & notify client" on this invoice. */
+  adminApprovedAt?: Date;
+  /** Admin user id who approved + sent to the client. */
+  adminApprovedBy?: string;
   totalAmount: number;
   laborCost: number;
   materialCost: number;

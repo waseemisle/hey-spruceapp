@@ -91,7 +91,17 @@ function ClientInvoicesInner() {
             id: doc.id,
             ...doc.data(),
           })) as Invoice[];
-          setInvoices(invoicesData);
+          // Hide invoices that are still gated behind internal admin
+          // approval — the per-client requireInvoiceApproval flow keeps
+          // these out of the client's view until an admin clicks
+          // "Approve & notify client" on the admin invoices page.
+          // Existing 72h CLIENT-side pending_approval invoices DO show up
+          // (the client is the one who needs to approve them); we
+          // distinguish via the adminApprovalRequired field.
+          const visible = invoicesData.filter((inv: any) =>
+            !(inv.status === 'pending_approval' && inv.adminApprovalRequired === true && !inv.adminApprovedAt),
+          );
+          setInvoices(visible);
           setLoading(false);
         }, (error) => {
           console.error('Invoices listener error:', error);

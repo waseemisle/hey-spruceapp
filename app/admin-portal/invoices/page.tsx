@@ -6,6 +6,7 @@ import { useViewControls } from '@/contexts/view-controls-context';
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc, deleteDoc, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
+import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,10 @@ interface Invoice {
   clientEmail: string;
   subcontractorId?: string;
   subcontractorName?: string;
-  status: 'draft' | 'sent' | 'paid';
+  status: 'draft' | 'pending_approval' | 'sent' | 'paid';
+  adminApprovalRequired?: boolean;
+  adminApprovedAt?: any;
+  adminApprovedBy?: string;
   totalAmount: number;
   lineItems: Array<{
     description: string;
@@ -68,10 +72,11 @@ function InvoicesManagementInner() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [clientBillingMap, setClientBillingMap] = useState<Record<string, ClientBilling>>({});
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'paid'>('all');
+  const [filter, setFilter] = useState<'all' | 'draft' | 'pending_approval' | 'sent' | 'paid'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [chargingInvoice, setChargingInvoice] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -356,33 +361,60 @@ function InvoicesManagementInner() {
           const invData = invSnap.data();
           const existingTimeline = invData?.timeline || [];
           const existingSysInfo = invData?.systemInformation || {};
-          await updateDoc(doc(db, 'invoices', invoiceRef.id), {
-            stripePaymentLink: stripeData.paymentLink,
-            stripeSessionId: stripeData.sessionId,
-            status: 'sent',
-            sentAt: serverTimestamp(),
-            timeline: [...existingTimeline, sentEvent],
-            systemInformation: {
-              ...existingSysInfo,
-              sentBy: {
-                id: currentUser.uid,
-                name: adminName,
-                timestamp: Timestamp.now(),
+
+          // Per-client admin-approval gate. When the client has the
+          // requireInvoiceApproval flag on, the invoice is born in
+          // 'pending_approval' with NO client email or notification —
+          // admin must explicitly Approve & notify on the invoices page.
+          const adminApprovalNeeded = await shouldRequireAdminApproval(db, quote.clientId);
+
+          if (adminApprovalNeeded) {
+            await updateDoc(doc(db, 'invoices', invoiceRef.id), {
+              stripePaymentLink: stripeData.paymentLink,
+              stripeSessionId: stripeData.sessionId,
+              status: 'pending_approval',
+              adminApprovalRequired: true,
+              timeline: [...existingTimeline, createInvoiceTimelineEvent({
+                type: 'created',
+                userId: currentUser.uid,
+                userName: adminName,
+                userRole: 'admin',
+                details: 'Invoice generated from quote — awaiting internal admin approval before client is notified',
+                metadata: { invoiceNumber, source: 'from_quote' },
+              })],
+              systemInformation: existingSysInfo,
+              updatedAt: serverTimestamp(),
+            });
+            toast.success(`Invoice ${invoiceNumber} created — pending internal admin approval. Client not notified yet.`);
+          } else {
+            await updateDoc(doc(db, 'invoices', invoiceRef.id), {
+              stripePaymentLink: stripeData.paymentLink,
+              stripeSessionId: stripeData.sessionId,
+              status: 'sent',
+              sentAt: serverTimestamp(),
+              timeline: [...existingTimeline, sentEvent],
+              systemInformation: {
+                ...existingSysInfo,
+                sentBy: {
+                  id: currentUser.uid,
+                  name: adminName,
+                  timestamp: Timestamp.now(),
+                },
               },
-            },
-            updatedAt: serverTimestamp(),
-          });
+              updatedAt: serverTimestamp(),
+            });
 
-          // Notify client of invoice
-          await notifyClientOfInvoice(
-            quote.clientId,
-            invoiceRef.id,
-            invoiceNumber,
-            quote.workOrderNumber || quote.workOrderId || '',
-            invoiceData.totalAmount
-          );
+            // Notify client of invoice
+            await notifyClientOfInvoice(
+              quote.clientId,
+              invoiceRef.id,
+              invoiceNumber,
+              quote.workOrderNumber || quote.workOrderId || '',
+              invoiceData.totalAmount
+            );
 
-          toast.success(`Invoice ${invoiceNumber} generated, payment link created, and sent to client`);
+            toast.success(`Invoice ${invoiceNumber} generated, payment link created, and sent to client`);
+          }
         } else {
           toast.success(`Invoice ${invoiceNumber} created successfully. Create payment link to send.`);
         }
@@ -576,6 +608,23 @@ function InvoicesManagementInner() {
       if (!currentUser) return;
       const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
       const adminName = adminDoc.exists() ? adminDoc.data()?.fullName : 'Admin';
+
+      // Per-client admin-approval gate. If the client has the
+      // requireInvoiceApproval flag on, "Mark as Sent" is disallowed
+      // here — the admin must use "Approve & notify client" on a
+      // pending_approval row, which is the canonical first-touch with
+      // the customer.
+      const adminApprovalNeeded = await shouldRequireAdminApproval(db, invoice.clientId);
+      if (adminApprovalNeeded) {
+        const stamped = (invoice as any).adminApprovalRequired === true;
+        if (stamped) {
+          toast.error(
+            `${invoice.invoiceNumber} requires internal admin approval. Use "Approve & notify client" to send.`,
+          );
+          return;
+        }
+      }
+
       const sentEvent = createInvoiceTimelineEvent({
         type: 'sent',
         userId: currentUser.uid,
@@ -615,6 +664,33 @@ function InvoicesManagementInner() {
     } catch (error) {
       console.error('Error marking invoice as sent:', error);
       toast.error('Failed to update invoice status');
+    }
+  };
+
+  const approveAndNotifyClient = async (invoiceId: string) => {
+    setApprovingId(invoiceId);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/invoices/${invoiceId}/admin-approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error || `Approval failed: HTTP ${res.status}`);
+      } else if (data?.skipped) {
+        toast.info(data.message || 'Already approved.');
+      } else {
+        toast.success(data.message || 'Approved — client notified.');
+      }
+      fetchInvoices();
+    } catch (err: any) {
+      toast.error(err?.message || 'Approval request failed');
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -755,15 +831,20 @@ function InvoicesManagementInner() {
 
         {/* Filter Tabs */}
         <div className="flex gap-2 flex-wrap">
-          {['all', 'draft', 'sent', 'paid'].map((filterOption) => (
+          {([
+            { value: 'all',              label: 'All' },
+            { value: 'draft',            label: 'Draft' },
+            { value: 'pending_approval', label: 'Pending Approval' },
+            { value: 'sent',             label: 'Sent' },
+            { value: 'paid',             label: 'Paid' },
+          ] as const).map(({ value, label }) => (
             <Button
-              key={filterOption}
-              variant={filter === filterOption ? 'default' : 'outline'}
-              onClick={() => setFilter(filterOption as typeof filter)}
-              className="capitalize"
+              key={value}
+              variant={filter === value ? 'default' : 'outline'}
+              onClick={() => setFilter(value)}
               size="sm"
             >
-              {filterOption} ({invoices.filter(i => filterOption === 'all' || i.status === filterOption).length})
+              {label} ({invoices.filter(i => value === 'all' || i.status === value).length})
             </Button>
           ))}
         </div>
@@ -917,6 +998,38 @@ function InvoicesManagementInner() {
                       <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => markAsSent(invoice.id)} title="Mark as Sent">
                         <Send className="h-3.5 w-3.5" />
                       </Button>
+                    )}
+                    {/*
+                      Approve & notify client — only renders for invoices
+                      that are admin-pending AND already have a Stripe link
+                      (otherwise the customer email would have no way to
+                      pay). The button asks the server to flip status to
+                      'sent' + send the email + fire the in-app notification
+                      atomically. See /api/invoices/[id]/admin-approve.
+                    */}
+                    {invoice.status === 'pending_approval' && (invoice as any).adminApprovalRequired && (
+                      invoice.stripePaymentLink ? (
+                        <Button
+                          size="sm"
+                          className="h-8 px-3 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                          onClick={() => approveAndNotifyClient(invoice.id)}
+                          disabled={approvingId === invoice.id}
+                          title="Approve & notify client"
+                        >
+                          <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                          {approvingId === invoice.id ? 'Approving…' : 'Approve & notify'}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2"
+                          onClick={() => createStripePaymentLink(invoice)}
+                          title="Generate payment link before approving"
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                        </Button>
+                      )
                     )}
                     <Button size="sm" variant="outline" className="h-8 px-2 text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleDeleteInvoice(invoice)} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />

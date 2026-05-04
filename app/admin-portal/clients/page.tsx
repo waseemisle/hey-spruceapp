@@ -30,6 +30,7 @@ interface Client {
   createdAt: any;
   paymentTermsDays?: number;
   autoChargeThreshold?: number;
+  requireInvoiceApproval?: boolean;
 }
 
 interface Company {
@@ -101,6 +102,7 @@ export default function ClientsManagement() {
     status: 'approved' as 'pending' | 'approved' | 'rejected',
     paymentTermsDays: '',
     autoChargeThreshold: '',
+    requireInvoiceApproval: false,
   });
 
   const fetchClients = async () => {
@@ -195,7 +197,7 @@ export default function ClientsManagement() {
   };
 
   const resetForm = () => {
-    setFormData({ email: '', fullName: '', companyId: '', phone: '', assignedLocations: [], password: '', status: 'approved', paymentTermsDays: '', autoChargeThreshold: '' });
+    setFormData({ email: '', fullName: '', companyId: '', phone: '', assignedLocations: [], password: '', status: 'approved', paymentTermsDays: '', autoChargeThreshold: '', requireInvoiceApproval: false });
     setOriginalEmail('');
     setEditingId(null);
     setShowModal(false);
@@ -211,6 +213,7 @@ export default function ClientsManagement() {
       status: client.status, password: client.password || '',
       paymentTermsDays: client.paymentTermsDays ? String(client.paymentTermsDays) : '',
       autoChargeThreshold: client.autoChargeThreshold ? String(client.autoChargeThreshold) : '',
+      requireInvoiceApproval: (client as any).requireInvoiceApproval === true,
     });
     setOriginalEmail(client.email);
     setEditingId(client.uid);
@@ -269,6 +272,7 @@ export default function ClientsManagement() {
           companyName, phone: formData.phone,
           assignedLocations: formData.assignedLocations, status: formData.status, updatedAt: serverTimestamp(),
           paymentTermsDays, autoChargeThreshold,
+          requireInvoiceApproval: formData.requireInvoiceApproval === true,
         });
 
         toast.success(
@@ -282,7 +286,7 @@ export default function ClientsManagement() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email, role: 'client', sendInvitation: true,
-            userData: { fullName: formData.fullName, companyId: formData.companyId || null, companyName, phone: formData.phone, assignedLocations: formData.assignedLocations, status: formData.status, paymentTermsDays, autoChargeThreshold },
+            userData: { fullName: formData.fullName, companyId: formData.companyId || null, companyName, phone: formData.phone, assignedLocations: formData.assignedLocations, status: formData.status, paymentTermsDays, autoChargeThreshold, requireInvoiceApproval: formData.requireInvoiceApproval === true },
           }),
         });
         if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to create client'); }
@@ -495,7 +499,7 @@ export default function ClientsManagement() {
                     </div>
                   )}
                   {/* Row 3b: billing terms */}
-                  {(client.paymentTermsDays || client.autoChargeThreshold) && (
+                  {(client.paymentTermsDays || client.autoChargeThreshold || (client as any).requireInvoiceApproval) && (
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {client.paymentTermsDays && (
                         <span className="text-xs bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded-full">
@@ -505,6 +509,11 @@ export default function ClientsManagement() {
                       {client.autoChargeThreshold && (
                         <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full">
                           Threshold {formatMoney(client.autoChargeThreshold)}
+                        </span>
+                      )}
+                      {(client as any).requireInvoiceApproval && (
+                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full" title="Every invoice for this client must be admin-approved before the customer is notified">
+                          Invoice Approval Required
                         </span>
                       )}
                     </div>
@@ -773,6 +782,42 @@ export default function ClientsManagement() {
                     <p className="text-xs text-muted-foreground mt-1">Auto-charge when consolidated invoice total reaches this amount</p>
                   </div>
                 </div>
+
+                {/*
+                  Per-client internal admin-approval gate. When ON, every
+                  invoice generated for this client is born in
+                  pending_approval — admin must explicitly Approve & notify
+                  on the invoices page. Distinct from the company 72h
+                  client-side approval (companies.invoiceApprovalRequired).
+                */}
+                <label
+                  htmlFor="requireInvoiceApproval"
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                    formData.requireInvoiceApproval
+                      ? 'border-amber-300 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/30'
+                      : 'border-border bg-muted/30 hover:bg-muted/50'
+                  }`}
+                >
+                  <input
+                    id="requireInvoiceApproval"
+                    type="checkbox"
+                    checked={formData.requireInvoiceApproval === true}
+                    onChange={(e) => setFormData({ ...formData, requireInvoiceApproval: e.target.checked })}
+                    className="mt-0.5 h-4 w-4"
+                  />
+                  <div className="text-sm flex-1 min-w-0">
+                    <p className="font-semibold text-foreground">
+                      Require internal invoice approval
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      When on, every invoice for this client lands in{' '}
+                      <span className="font-medium">Pending Approval</span> — no client email
+                      or notification fires until an admin clicks{' '}
+                      <span className="font-medium">Approve &amp; notify client</span> on the
+                      invoices page.
+                    </p>
+                  </div>
+                </label>
 
                 {editingId && (
                   <div className="flex justify-end">

@@ -23,6 +23,7 @@ import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { isInvoiceApprovalRequiredForClient, computeApprovalDeadline, APPROVAL_WINDOW_HOURS } from '@/lib/invoice-approval';
 import { formatMoney } from '@/lib/money';
 import { canAddBidders, hasBeenSharedForBidding } from '@/lib/bidding-eligibility';
+import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
 
 interface WorkOrder {
   id: string;
@@ -777,16 +778,66 @@ const handleLocationSelect = (locationId: string) => {
 
       const stripePaymentLink = stripeData.paymentLink;
 
+      // ── Per-client INTERNAL admin approval gate ─────────────────────────
+      // Distinct from the company 72h CLIENT-side gate below. When the
+      // client has requireInvoiceApproval=true, the invoice is born in
+      // pending_approval with NO client email or notification — admin
+      // must explicitly click "Approve & notify client" on the admin
+      // invoices page. We snapshot adminApprovalRequired on the doc so a
+      // mid-cycle toggle on the client doesn't retroactively unblock
+      // already-sitting invoices.
+      const adminApprovalNeeded = await shouldRequireAdminApproval(db, workOrder.clientId);
+      const invSnap = await getDoc(invoiceRef);
+      const invData = invSnap.data();
+      const existingTimeline = invData?.timeline || [];
+      const existingSysInfo = invData?.systemInformation || {};
+
+      if (adminApprovalNeeded) {
+        const pendingEvent = createInvoiceTimelineEvent({
+          type: 'created',
+          userId: currentUser?.uid || 'system',
+          userName: adminName,
+          userRole: 'admin',
+          details: 'Invoice generated — awaiting internal admin approval before client is notified',
+          metadata: { invoiceNumber },
+        });
+        await updateDoc(invoiceRef, {
+          stripePaymentLink,
+          status: 'pending_approval',
+          adminApprovalRequired: true,
+          timeline: [...existingTimeline, pendingEvent],
+          systemInformation: existingSysInfo,
+          updatedAt: serverTimestamp(),
+        });
+
+        // Mirror onto the work order timeline (no client comms here).
+        if (currentUser) {
+          const woDoc = await getDoc(doc(db, 'workOrders', workOrder.id));
+          const woData = woDoc.data();
+          await updateDoc(doc(db, 'workOrders', workOrder.id), {
+            hasInvoice: true,
+            timeline: [...(woData?.timeline || []), createTimelineEvent({
+              type: 'invoice_pending_approval',
+              userId: currentUser.uid,
+              userName: adminName,
+              userRole: 'admin',
+              details: `Invoice ${invoiceNumber} generated — pending internal admin approval`,
+              metadata: { invoiceNumber, totalAmount: invoiceData.totalAmount, gate: 'admin' },
+            })],
+          });
+        }
+
+        toast.success('Invoice created — pending internal admin approval. Client not notified yet.');
+        fetchWorkOrders();
+        return;
+      }
+
       // ── Invoice Approval (72h) gate ─────────────────────────────────────
       // If the client's company has invoiceApprovalRequired=true, the invoice
       // enters a pending_approval state instead of `sent`. The customer-facing
       // email is deferred until the client approves OR the auto-finalize cron
       // ages it past approvalDeadlineAt.
       const approval = await isInvoiceApprovalRequiredForClient(workOrder.clientId, db);
-      const invSnap = await getDoc(invoiceRef);
-      const invData = invSnap.data();
-      const existingTimeline = invData?.timeline || [];
-      const existingSysInfo = invData?.systemInformation || {};
 
       if (approval.required) {
         const approvalDeadline = computeApprovalDeadline();

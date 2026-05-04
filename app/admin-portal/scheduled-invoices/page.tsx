@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -254,6 +255,12 @@ export default function ScheduledInvoicesManagement() {
       // invoiceApprovalRequired=true. Decision deferred — scheduled invoices
       // are typically pre-arranged contracts; revisit if Ggiata wants the
       // approval gate applied here too. See /lib/invoice-approval.ts.
+      // Per-client INTERNAL admin approval IS respected here — when the
+      // client has requireInvoiceApproval=true, the schedule's invoice
+      // is created in pending_approval and the customer email at the end
+      // of this function is short-circuited.
+      const adminApprovalNeeded = await shouldRequireAdminApproval(db, schedule.clientId);
+
       const invoiceDocRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
         scheduledInvoiceId: schedule.id,
@@ -262,7 +269,8 @@ export default function ScheduledInvoicesManagement() {
         clientEmail: schedule.clientEmail,
         workOrderTitle: schedule.title,
         totalAmount: schedule.amount,
-        status: 'sent',
+        status: adminApprovalNeeded ? 'pending_approval' : 'sent',
+        adminApprovalRequired: adminApprovalNeeded || false,
         lineItems: invoiceLineItems,
         dueDate: dueDate,
         notes: schedule.description || '',
@@ -318,6 +326,15 @@ export default function ScheduledInvoicesManagement() {
         dueDate: dueDate.toLocaleDateString(),
         notes: schedule.description,
       });
+
+      // Per-client admin-approval gate — when on, skip the customer
+      // email here. Client comms wait for "Approve & notify client" on
+      // the admin invoices page.
+      if (adminApprovalNeeded) {
+        toast.success(`Invoice ${invoiceNumber} created — pending internal admin approval. Client not notified yet.`);
+        setExecuting(null);
+        return;
+      }
 
       toast.success('PDF generated, sending email...');
 
