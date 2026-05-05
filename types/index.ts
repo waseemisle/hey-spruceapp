@@ -765,6 +765,166 @@ export interface ScheduledInvoiceExecution {
   updatedAt: Date;
 }
 
+/**
+ * Payment Log — single row capturing one payment-relevant Stripe event
+ * OR one server-initiated payment action (auto-charge, hosted-link
+ * finalize, manual mark-as-paid). Lives in the `paymentLogs` collection
+ * and is the authoritative audit trail the admin Payment Logs page
+ * reads. Built so an operator can answer:
+ *   • What happened? (status, type, amount, payment method)
+ *   • Which Firestore record(s) got updated as a result?
+ *   • If it failed, why and what to do next?
+ *   • What was Stripe's full payload at the time?
+ */
+export interface PaymentLog {
+  id: string;
+
+  // ── Stripe-side identity ───────────────────────────────────────
+  /** evt_... — present when the row was written from a webhook. Null
+   *  for server-initiated actions (those rows are written before the
+   *  webhook arrives; the webhook will dedupe by stripeObjectId). */
+  stripeEventId?: string;
+  /** pi_..., ch_..., in_..., seti_..., cs_..., re_..., dp_... */
+  stripeObjectId: string;
+  stripeObjectType:
+    | 'payment_intent'
+    | 'charge'
+    | 'invoice'
+    | 'setup_intent'
+    | 'checkout_session'
+    | 'subscription'
+    | 'refund'
+    | 'dispute';
+
+  status:
+    | 'succeeded'
+    | 'failed'
+    | 'requires_action'
+    | 'processing'
+    | 'canceled'
+    | 'refunded'
+    | 'disputed'
+    | 'pending';
+
+  // ── Money ──────────────────────────────────────────────────────
+  /** Dollars (display-friendly). Always derived from amountCents. */
+  amount?: number;
+  /** Cents (Stripe canonical). */
+  amountCents?: number;
+  currency?: string;
+  /** Stripe fee in cents (from balance txn). */
+  feeAmount?: number;
+  /** amount - fee, in cents. */
+  netAmount?: number;
+  balanceTransactionId?: string;
+
+  // ── Payment method ─────────────────────────────────────────────
+  paymentMethodId?: string;
+  paymentMethodType?: 'card' | 'us_bank_account' | 'link' | 'cashapp' | 'other';
+  cardBrand?: string;
+  cardLast4?: string;
+  cardExpMonth?: number;
+  cardExpYear?: number;
+  cardCountry?: string;
+  cardFunding?: 'credit' | 'debit' | 'prepaid' | 'unknown';
+  bankName?: string;
+  bankLast4?: string;
+  bankAccountType?: string;
+
+  // ── Customer ───────────────────────────────────────────────────
+  stripeCustomerId?: string;
+  customerEmail?: string;
+  customerName?: string;
+
+  // ── Output artifacts ───────────────────────────────────────────
+  receiptUrl?: string;
+  hostedInvoiceUrl?: string;
+  invoicePdfUrl?: string;
+  chargeId?: string;
+
+  // ── Risk (cards only) ──────────────────────────────────────────
+  riskScore?: number;
+  riskLevel?: 'normal' | 'elevated' | 'highest';
+  outcomeType?: string; // 'authorized' | 'manual_review' | 'issuer_declined' | etc.
+  outcomeReason?: string;
+  outcomeNetwork?: string;
+
+  // ── Failure-specific ───────────────────────────────────────────
+  /** Stripe machine-readable code (e.g. 'card_declined'). */
+  failureCode?: string;
+  /** More-specific decline code from the issuer (e.g. 'insufficient_funds'). */
+  declineCode?: string;
+  /** Human message Stripe sends (often safe to show to admins). */
+  failureMessage?: string;
+  /** Our categorisation derived from declineCode + failureCode. */
+  declineCategory?:
+    | 'insufficient_funds'
+    | 'authentication_required'
+    | 'fraudulent'
+    | 'lost_or_stolen'
+    | 'expired_card'
+    | 'incorrect_data'
+    | 'card_velocity'
+    | 'currency_unsupported'
+    | 'processing_error'
+    | 'generic_decline'
+    | 'bank_declined'
+    | 'unknown';
+  /** Plain-English candidates for what went wrong. */
+  possibleCauses?: string[];
+  /** Concrete next-step suggestions for the admin. */
+  nextSteps?: string[];
+
+  // ── Linkage to Firestore records ───────────────────────────────
+  linkedInvoiceId?: string;
+  linkedInvoiceNumber?: string;
+  linkedClientId?: string;
+  linkedClientName?: string;
+  linkedScheduledInvoiceId?: string;
+  linkedRecurringWorkOrderId?: string;
+  linkedSubcontractorId?: string;
+
+  // ── Audit / provenance ────────────────────────────────────────
+  /** Where this row came from. */
+  source:
+    | 'webhook'
+    | 'auto_charge_route'
+    | 'hosted_link_finalize'
+    | 'manual_admin'
+    | 'backfill';
+  /** Friendly label of the originating webhook event ('charge.failed'). */
+  rawEventType?: string;
+  /** uid of the admin who triggered a manual action (when source != webhook). */
+  triggeredByUid?: string;
+  triggeredByName?: string;
+
+  /** Append-only record-mutation log: every Firestore doc this event
+   *  caused us to update. Lets the admin trace the cascade — e.g.
+   *  invoice.paid → invoices/X status:'sent'→'paid' + workOrders/Y
+   *  status:'pending_invoice'→'completed'. */
+  recordMutations?: PaymentLogMutation[];
+
+  /** Full Stripe object JSON, for forensics. Trimmed when over ~50KB
+   *  to avoid Firestore's 1MB doc limit. */
+  rawPayload?: any;
+
+  // ── Timestamps ─────────────────────────────────────────────────
+  /** Stripe's `created` (unix seconds × 1000). */
+  stripeCreatedAt?: any;
+  createdAt: any;
+}
+
+export interface PaymentLogMutation {
+  collection: string;
+  docId: string;
+  field?: string;
+  from?: string;
+  to?: string;
+  at: any;
+  /** One-line human description for the admin UI. */
+  summary: string;
+}
+
 // Support Tickets
 export type SupportTicketCategory =
   | 'billing'
