@@ -14,31 +14,42 @@ export const dynamic = 'force-dynamic';
  * Called by the client portal when a client approves a quote.
  */
 export async function POST(request: Request) {
+  // Step tracker — updates as we move through the handler so that a
+  // surprise throw lands a JSON response telling the client *exactly*
+  // which step blew up instead of a useless generic 500. Previously the
+  // route hit a Vercel HTML 500 page in production and the operator
+  // couldn't tell whether it was auth, the quote read, the workOrder
+  // read, the workOrder write, or the assignedJobs insert.
+  let step: string = 'init';
   try {
+    step = 'verify-bearer';
     const uid = await getBearerUid(request);
     if (!uid) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized', step }, { status: 401 });
     }
 
+    step = 'parse-body';
     const { quoteId } = await request.json();
     if (!quoteId) {
-      return NextResponse.json({ error: 'Missing quoteId' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing quoteId', step }, { status: 400 });
     }
 
+    step = 'get-server-db';
     const db = await getServerDb();
 
     // Fetch quote and verify the requesting user is the client
+    step = 'fetch-quote';
     const quoteDoc = await getDoc(doc(db, 'quotes', quoteId));
     if (!quoteDoc.exists()) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Quote not found', step }, { status: 404 });
     }
     const quoteData = quoteDoc.data();
 
     if (quoteData.clientId !== uid) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden', step }, { status: 403 });
     }
     if (!quoteData.workOrderId) {
-      return NextResponse.json({ error: 'Quote has no associated work order' }, { status: 400 });
+      return NextResponse.json({ error: 'Quote has no associated work order', step }, { status: 400 });
     }
     // Idempotency guard — if this quote is already accepted (user double-
     // clicked, slow network retried, etc.) short-circuit with success
@@ -64,6 +75,7 @@ export async function POST(request: Request) {
     }
 
     // Get client's display name
+    step = 'fetch-client';
     let clientName: string = quoteData.clientName || 'Client';
     const clientDoc = await getDoc(doc(db, 'clients', uid));
     if (clientDoc.exists()) {
@@ -71,9 +83,10 @@ export async function POST(request: Request) {
     }
 
     // Fetch work order
+    step = 'fetch-work-order';
     const workOrderDoc = await getDoc(doc(db, 'workOrders', quoteData.workOrderId));
     if (!workOrderDoc.exists()) {
-      return NextResponse.json({ error: 'Work order not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Work order not found', step }, { status: 404 });
     }
     const workOrderData = workOrderDoc.data();
 
@@ -92,6 +105,7 @@ export async function POST(request: Request) {
         : `Quote approved by ${clientName}. Work order assigned to ${quoteData.subcontractorName}.`,
       metadata: quoteData.workOrderNumber ? { workOrderNumber: quoteData.workOrderNumber } : undefined,
     });
+    step = 'update-quote-accepted';
     await updateDoc(doc(db, 'quotes', quoteId), {
       status: 'accepted',
       acceptedAt: serverTimestamp(),
@@ -108,6 +122,7 @@ export async function POST(request: Request) {
     });
 
     // Resolve the subcontractor's auth UID for consistent ID usage
+    step = 'resolve-subcontractor-uid';
     let resolvedSubId = quoteData.subcontractorId;
     try {
       const subDoc = await getDoc(doc(db, 'subcontractors', quoteData.subcontractorId));
@@ -127,6 +142,7 @@ export async function POST(request: Request) {
     // submits a regular repair quote from /bidding. Just pin the fee and
     // move the WO to 'diagnostic_accepted'.
     if (quoteIsDiagnostic) {
+      step = 'update-wo-diagnostic-accepted';
       const diagFee = Number(quoteData.diagnosticFee ?? quoteData.totalAmount ?? 0);
       await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
         status: 'diagnostic_accepted',
@@ -230,8 +246,22 @@ export async function POST(request: Request) {
     const safeSubName = String(quoteData.subcontractorName || '');
     const safeSubEmail = String(quoteData.subcontractorEmail || '');
     const safeSubId = String(resolvedSubId || quoteData.subcontractorId || '');
-    const safeLineItems = Array.isArray(quoteData.lineItems) ? quoteData.lineItems : [];
+    // Sanitize line items individually — Firestore rejects updateDoc payloads
+    // containing any `undefined` field, and previously the route copied
+    // quoteData.lineItems through unchanged. A line item shaped like
+    // `{description, quantity: undefined, unitPrice: 5, amount: undefined}`
+    // would nuke the entire write with a generic "invalid data" error which
+    // the platform sometimes surfaced as an HTML 500 instead of our JSON.
+    const safeLineItems = (Array.isArray(quoteData.lineItems) ? quoteData.lineItems : []).map(
+      (li: any) => ({
+        description: String(li?.description || ''),
+        quantity: Number(li?.quantity ?? 0) || 0,
+        unitPrice: Number(li?.unitPrice ?? 0) || 0,
+        amount: Number(li?.amount ?? 0) || 0,
+      }),
+    );
 
+    step = 'update-wo-assigned';
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
       ...(shouldSetAssigned ? { status: 'assigned' } : {}),
       assignedSubcontractor: safeSubId,
@@ -269,6 +299,7 @@ export async function POST(request: Request) {
     });
 
     // Create assignedJobs record using resolved auth UID
+    step = 'add-assigned-job';
     await addDoc(collection(db, 'assignedJobs'), {
       workOrderId: quoteData.workOrderId,
       subcontractorId: safeSubId,
@@ -279,6 +310,7 @@ export async function POST(request: Request) {
     // Also update assignedTo on the work order for consistency with manual
     // assignment flow. Bumping updatedAt here too keeps downstream consumers
     // that key off updatedAt (sidebar badges, lastViewedAt diffing) honest.
+    step = 'update-wo-assigned-to';
     await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
       assignedTo: safeSubId,
       assignedToName: safeSubName,
@@ -319,13 +351,15 @@ export async function POST(request: Request) {
     // Surface the underlying error so the client toast actually says what
     // broke instead of a generic "Failed to approve quote". Includes the
     // Firestore error code (e.g. 'invalid-argument', 'permission-denied')
-    // when present, which is the difference between "I'll fix the data"
-    // and "I have no idea".
+    // and the step we were on when it threw. The step makes the
+    // difference between "the quote read failed" and "the assignedJobs
+    // insert failed" — same generic Firestore error message, totally
+    // different debug paths.
     const message = error?.message || String(error) || 'Failed to approve quote';
     const code = error?.code ? ` [${error.code}]` : '';
-    console.error('[quotes/approve] failed:', message, error?.stack);
+    console.error(`[quotes/approve] failed at step=${step}:`, message, error?.stack);
     return NextResponse.json(
-      { error: `${message}${code}` },
+      { error: `${message}${code} (step: ${step})`, step },
       { status: 500 },
     );
   }

@@ -14,20 +14,26 @@ export const dynamic = 'force-dynamic';
  * card to 'diagnostic_rejected' so the bidding page reflects the outcome.
  */
 export async function POST(request: Request) {
+  let step: string = 'init';
   try {
+    step = 'verify-bearer';
     const uid = await getBearerUid(request);
-    if (!uid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!uid) return NextResponse.json({ error: 'Unauthorized', step }, { status: 401 });
 
+    step = 'parse-body';
     const { quoteId, reason } = await request.json();
-    if (!quoteId) return NextResponse.json({ error: 'Missing quoteId' }, { status: 400 });
+    if (!quoteId) return NextResponse.json({ error: 'Missing quoteId', step }, { status: 400 });
 
+    step = 'get-server-db';
     const db = await getServerDb();
+    step = 'fetch-quote';
     const quoteDoc = await getDoc(doc(db, 'quotes', quoteId));
-    if (!quoteDoc.exists()) return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    if (!quoteDoc.exists()) return NextResponse.json({ error: 'Quote not found', step }, { status: 404 });
     const quoteData = quoteDoc.data();
 
-    if (quoteData.clientId !== uid) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (quoteData.clientId !== uid) return NextResponse.json({ error: 'Forbidden', step }, { status: 403 });
 
+    step = 'fetch-client';
     let clientName: string = quoteData.clientName || 'Client';
     const clientDoc = await getDoc(doc(db, 'clients', uid));
     if (clientDoc.exists()) clientName = clientDoc.data().fullName || clientName;
@@ -36,6 +42,7 @@ export async function POST(request: Request) {
     const label = quoteIsDiagnostic ? 'Diagnostic Request' : 'Quote';
 
     // Mark the quote rejected
+    step = 'update-quote-rejected';
     const existingQuoteTimeline = quoteData.timeline || [];
     const existingQuoteSysInfo = quoteData.systemInformation || {};
     await updateDoc(doc(db, 'quotes', quoteId), {
@@ -59,7 +66,9 @@ export async function POST(request: Request) {
           id: uid,
           name: clientName,
           timestamp: Timestamp.now(),
-          reason: reason || undefined,
+          // Coalesce to '' — Firestore rejects payloads with any undefined
+          // field with "invalid data" + sometimes surfaces as platform 500.
+          reason: typeof reason === 'string' ? reason : '',
         },
       },
       updatedAt: serverTimestamp(),
@@ -138,7 +147,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, diagnostic: quoteIsDiagnostic });
   } catch (error: any) {
-    console.error('Error rejecting quote server-side:', error);
-    return NextResponse.json({ error: error.message || 'Failed to reject quote' }, { status: 500 });
+    const message = error?.message || String(error) || 'Failed to reject quote';
+    const code = error?.code ? ` [${error.code}]` : '';
+    console.error(`[quotes/reject] failed at step=${step}:`, message, error?.stack);
+    return NextResponse.json(
+      { error: `${message}${code} (step: ${step})`, step },
+      { status: 500 },
+    );
   }
 }

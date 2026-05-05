@@ -664,7 +664,14 @@ export default function ViewClientWorkOrder() {
     try { parsed = raw ? JSON.parse(raw) : null; } catch { /* not JSON */ }
     const apiMsg = parsed?.error || parsed?.message;
     if (apiMsg) return String(apiMsg);
-    if (raw) return `${fallbackLabel} (HTTP ${res.status}): ${raw.slice(0, 200)}`;
+    // HTML 500 page from the platform layer — strip tags / DOCTYPE noise
+    // so the toast surfaces something readable instead of raw markup.
+    const cleaned = raw
+      .replace(/<!DOCTYPE[^>]*>/i, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleaned) return `${fallbackLabel} (HTTP ${res.status}): ${cleaned.slice(0, 300)}`;
     return `${fallbackLabel} (HTTP ${res.status})`;
   };
 
