@@ -88,6 +88,27 @@ export default function ClientDiagnosticRequests() {
     };
   }, [auth, db]);
 
+  /**
+   * Pull the most useful error message we can from a failed response.
+   * The deployed surface sometimes returns non-JSON 500s from the
+   * runtime layer (e.g. when the route file crashes pre-handler) — in
+   * that case res.json() throws and the old error toast just said
+   * "Failed to approve diagnostic request" with no clue why. This
+   * helper reads the body once as text, tries to parse, and falls back
+   * to the raw body + status code so the toast actually surfaces the
+   * underlying cause.
+   */
+  const readErrorFromResponse = async (res: Response, fallbackLabel: string) => {
+    let raw = '';
+    try { raw = await res.text(); } catch { /* swallow */ }
+    let parsed: any = null;
+    try { parsed = raw ? JSON.parse(raw) : null; } catch { /* not JSON */ }
+    const apiMsg = parsed?.error || parsed?.message;
+    if (apiMsg) return String(apiMsg);
+    if (raw) return `${fallbackLabel} (HTTP ${res.status}): ${raw.slice(0, 200)}`;
+    return `${fallbackLabel} (HTTP ${res.status})`;
+  };
+
   const handleApprove = async (quoteId: string) => {
     const quote = quotes.find(q => q.id === quoteId);
     if (!quote) return;
@@ -107,8 +128,8 @@ export default function ClientDiagnosticRequests() {
               body: JSON.stringify({ quoteId }),
             });
             if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              throw new Error(err.error || 'Failed to approve diagnostic request');
+              const msg = await readErrorFromResponse(res, 'Failed to approve diagnostic request');
+              throw new Error(msg);
             }
 
             const result = await res.json();
@@ -162,8 +183,8 @@ export default function ClientDiagnosticRequests() {
               body: JSON.stringify({ quoteId, reason: reason || '' }),
             });
             if (!res.ok) {
-              const err = await res.json().catch(() => ({}));
-              throw new Error(err.error || 'Failed to reject diagnostic request');
+              const msg = await readErrorFromResponse(res, 'Failed to reject diagnostic request');
+              throw new Error(msg);
             }
 
             try {

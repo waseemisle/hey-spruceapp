@@ -11,13 +11,13 @@ import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive, Upload, Loader2, Stethoscope, Eye } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive, Upload, Loader2, Stethoscope, Eye, Check } from 'lucide-react';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
 import { toast } from 'sonner';
-import { notifyBiddingOpportunity } from '@/lib/notifications';
+import { notifyBiddingOpportunity, createNotification } from '@/lib/notifications';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
@@ -640,6 +640,144 @@ export default function ViewClientWorkOrder() {
   };
 
   const selectedQuotes = quotes.filter(q => selectedQuoteIds.includes(q.id));
+
+  // ── Quote / Diagnostic approve+reject (inline on the WO detail tabs) ──
+  // Same /api/quotes/approve and /api/quotes/reject endpoints the
+  // dedicated detail pages use; the route handles the diagnostic vs
+  // regular-quote branching server-side based on quote.isDiagnosticQuote
+  // so the only client-side difference is the toast copy + the
+  // notification we fire after the call returns.
+  const [actioningQuoteId, setActioningQuoteId] = useState<string | null>(null);
+
+  /**
+   * Read the API response defensively. We've seen the deployed surface
+   * return non-JSON 500s from the runtime layer (e.g. when a route file
+   * crashes pre-handler), in which case res.json() throws and the
+   * caller used to surface a useless "Failed to approve" toast. This
+   * pulls the raw text first, tries to parse, and falls back to the
+   * raw body + status code so the toast actually tells you what broke.
+   */
+  const readErrorFromResponse = async (res: Response, fallbackLabel: string) => {
+    let raw = '';
+    try { raw = await res.text(); } catch { /* swallow */ }
+    let parsed: any = null;
+    try { parsed = raw ? JSON.parse(raw) : null; } catch { /* not JSON */ }
+    const apiMsg = parsed?.error || parsed?.message;
+    if (apiMsg) return String(apiMsg);
+    if (raw) return `${fallbackLabel} (HTTP ${res.status}): ${raw.slice(0, 200)}`;
+    return `${fallbackLabel} (HTTP ${res.status})`;
+  };
+
+  const callApproveQuote = async (quote: Quote, opts: { isDiagnostic: boolean }) => {
+    setActioningQuoteId(quote.id);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/quotes/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({ quoteId: quote.id }),
+      });
+      if (!res.ok) {
+        const msg = await readErrorFromResponse(
+          res,
+          opts.isDiagnostic ? 'Failed to approve diagnostic request' : 'Failed to approve quote',
+        );
+        throw new Error(msg);
+      }
+      const result = await res.json().catch(() => ({} as any));
+      const woData = result?.workOrderData || {};
+      // Fire-and-forget notify the sub. Best-effort — failure here doesn't
+      // block the success toast (admin can re-notify if needed).
+      try {
+        await createNotification({
+          userId: woData.subcontractorId || quote.subcontractorId,
+          userRole: 'subcontractor',
+          type: opts.isDiagnostic ? 'diagnostic_request' : 'quote',
+          title: opts.isDiagnostic ? 'Diagnostic Request Accepted' : 'Quote Approved',
+          message: opts.isDiagnostic
+            ? `Your Diagnostic Request for WO ${woData.workOrderNumber || ''} was accepted. Submit your repair quote from the Bidding page.`
+            : `Your quote for WO ${woData.workOrderNumber || ''} was approved. The work order has been assigned to you.`,
+          link: opts.isDiagnostic ? '/subcontractor-portal/bidding' : '/subcontractor-portal/work-orders',
+          referenceId: woData.workOrderId || quote.workOrderId || '',
+          referenceType: 'workOrder',
+        });
+      } catch (e) {
+        console.error('[wo-detail] notify sub failed (non-fatal):', e);
+      }
+      toast.success(opts.isDiagnostic ? 'Diagnostic fee approved.' : 'Quote approved.');
+    } catch (err: any) {
+      console.error('[wo-detail] approve failed:', err);
+      toast.error(err?.message || 'Approve failed');
+    } finally {
+      setActioningQuoteId(null);
+    }
+  };
+
+  const callRejectQuote = async (quote: Quote, opts: { isDiagnostic: boolean }) => {
+    const reason = prompt('Reason for rejection (optional):');
+    if (reason === null) return;
+    setActioningQuoteId(quote.id);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/quotes/reject', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({ quoteId: quote.id, reason: reason || '' }),
+      });
+      if (!res.ok) {
+        const msg = await readErrorFromResponse(
+          res,
+          opts.isDiagnostic ? 'Failed to reject diagnostic request' : 'Failed to reject quote',
+        );
+        throw new Error(msg);
+      }
+      try {
+        await createNotification({
+          userId: quote.subcontractorId,
+          userRole: 'subcontractor',
+          type: opts.isDiagnostic ? 'diagnostic_request' : 'quote',
+          title: opts.isDiagnostic ? 'Diagnostic Request Rejected' : 'Quote Rejected',
+          message: `${opts.isDiagnostic ? 'Your Diagnostic Request' : 'Your quote'} for WO ${quote.workOrderNumber || ''} was rejected${reason ? `. Reason: ${reason}` : ''}.`,
+          link: opts.isDiagnostic ? '/subcontractor-portal/bidding' : '/subcontractor-portal/work-orders',
+          referenceId: quote.workOrderId || '',
+          referenceType: 'workOrder',
+        });
+      } catch (e) {
+        console.error('[wo-detail] notify sub of reject failed (non-fatal):', e);
+      }
+      toast.success(opts.isDiagnostic ? 'Diagnostic request rejected.' : 'Quote rejected.');
+    } catch (err: any) {
+      console.error('[wo-detail] reject failed:', err);
+      toast.error(err?.message || 'Reject failed');
+    } finally {
+      setActioningQuoteId(null);
+    }
+  };
+
+  const confirmApproveQuote = (quote: Quote, isDiagnostic: boolean) => {
+    const amt = Number((quote as any).diagnosticFee ?? quote.clientAmount ?? quote.totalAmount ?? 0);
+    toast(
+      isDiagnostic
+        ? `Approve diagnostic fee of ${formatUsd2(amt)}?`
+        : `Approve quote of ${formatUsd2(amt)}?`,
+      {
+        description: isDiagnostic
+          ? 'Subcontractor will be notified to submit the repair quote.'
+          : 'Work order will be assigned to the subcontractor.',
+        action: {
+          label: 'Approve',
+          onClick: () => { void callApproveQuote(quote, { isDiagnostic }); },
+        },
+        cancel: { label: 'Cancel', onClick: () => {} },
+      },
+    );
+  };
 
   const handleApproveWorkOrder = async () => {
     if (!hasApproveRejectPermission) {
@@ -1269,13 +1407,38 @@ export default function ViewClientWorkOrder() {
                                 <p className="text-xs text-muted-foreground capitalize">{req.status.replace(/_/g, ' ')}</p>
                               </div>
                             </div>
-                            <div className="mt-3 pt-3 border-t">
-                              <Link href={`/client-portal/diagnostic-requests/${req.id}`}>
+                            <div className="mt-3 pt-3 border-t flex items-center gap-2">
+                              <Link href={`/client-portal/diagnostic-requests/${req.id}`} className="flex-1">
                                 <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1">
                                   <Eye className="h-3.5 w-3.5" />
                                   View Details
                                 </Button>
                               </Link>
+                              {req.status === 'sent_to_client' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => confirmApproveQuote(req, true)}
+                                    disabled={actioningQuoteId === req.id}
+                                    className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white text-xs gap-1"
+                                    title="Approve diagnostic fee"
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => callRejectQuote(req, { isDiagnostic: true })}
+                                    disabled={actioningQuoteId === req.id}
+                                    className="h-8 px-3 text-red-600 border-red-300 hover:bg-red-50 text-xs gap-1"
+                                    title="Reject diagnostic request"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         );
@@ -1329,9 +1492,41 @@ export default function ViewClientWorkOrder() {
                                   {formatUsd2(quote.clientAmount || quote.totalAmount || 0)}
                                 </p>
                                 <p className="text-xs text-muted-foreground capitalize">{quote.status.replace(/_/g, ' ')}</p>
-                                <Link href={`/client-portal/quotes/${quote.id}`} className="text-xs text-primary underline mt-1 inline-block">View Details</Link>
                               </div>
                             </div>
+                          </div>
+                          <div className="mt-3 pt-3 border-t flex items-center gap-2">
+                            <Link href={`/client-portal/quotes/${quote.id}`} className="flex-1">
+                              <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1">
+                                <Eye className="h-3.5 w-3.5" />
+                                View Details
+                              </Button>
+                            </Link>
+                            {quote.status === 'sent_to_client' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => confirmApproveQuote(quote, false)}
+                                  disabled={actioningQuoteId === quote.id}
+                                  className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white text-xs gap-1"
+                                  title="Approve quote"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => callRejectQuote(quote, { isDiagnostic: false })}
+                                  disabled={actioningQuoteId === quote.id}
+                                  className="h-8 px-3 text-red-600 border-red-300 hover:bg-red-50 text-xs gap-1"
+                                  title="Reject quote"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                  Reject
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       ))}
