@@ -130,12 +130,25 @@ export default function CronJobsPage() {
     return () => clearInterval(interval);
   }, [loading, fetchData]);
 
-  // Compute next run and time left
+  // Compute next run and time left for the RWO cron.
   const nextRunAt = lastCronRunAt
     ? new Date(lastCronRunAt.getTime() + scheduleInterval * 60000)
     : null;
   const timeLeftMs = nextRunAt ? Math.max(0, nextRunAt.getTime() - now.getTime()) : 0;
   const isOverdue = nextRunAt ? now > nextRunAt : false;
+
+  // Same math for the Scheduled Invoices cron. Vercel fires both
+  // crons on the same schedule (see vercel.json — both crons use
+  // `0 9 * * *`), so the SI countdown ticks alongside the RWO one
+  // and the operator sees a single shared timer for both feature
+  // areas. Falls back to the RWO last-run timestamp if Stripe has
+  // not yet ticked the SI lock — keeps the countdown live on first
+  // deploy before the SI cron has fired.
+  const siNextRunAt = (siLastRunAt || lastCronRunAt)
+    ? new Date(((siLastRunAt || lastCronRunAt) as Date).getTime() + scheduleInterval * 60000)
+    : null;
+  const siTimeLeftMs = siNextRunAt ? Math.max(0, siNextRunAt.getTime() - now.getTime()) : 0;
+  const siIsOverdue = siNextRunAt ? now > siNextRunAt : false;
 
   const fmtCountdown = (ms: number) => {
     if (ms <= 0) return 'Now';
@@ -308,7 +321,10 @@ export default function CronJobsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Cron Job Monitor</h1>
-            <p className="text-muted-foreground mt-1">Track recurring work order auto-execution</p>
+            <p className="text-muted-foreground mt-1">
+              One shared timer drives both Recurring Work Orders and Scheduled Invoices.
+              Sections below show each feature&apos;s eligible items and run history.
+            </p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={fetchData} disabled={dataLoading} size="sm">
@@ -478,6 +494,10 @@ export default function CronJobsPage() {
               <Settings className="h-5 w-5" />
               Cron Schedule
             </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              This single interval drives BOTH the Recurring Work Orders cron
+              and the Scheduled Invoices cron — they fire together at each tick.
+            </p>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-2">
@@ -609,8 +629,9 @@ export default function CronJobsPage() {
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-foreground">Scheduled Invoices</h2>
               <p className="text-sm text-muted-foreground mt-0.5">
-                Daily cron at 9:15am UTC creates invoices from active schedules whose nextExecution
-                falls within the lead-time window above.
+                Fires on the same schedule as Recurring Work Orders (see the timer above)
+                and creates invoices from active schedules whose nextExecution falls
+                within the lead-time window.
               </p>
             </div>
             <Button onClick={handleTriggerSiCron} disabled={triggeringSi} className="bg-blue-600 hover:bg-blue-700 gap-2">
@@ -619,8 +640,12 @@ export default function CronJobsPage() {
             </Button>
           </div>
 
-          {/* SI status cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+          {/* SI status cards — same shape as the RWO grid above so both
+              feature areas surface identical info: Health, Last Run,
+              Last Result, Eligible Now, Schedule, Next Run, and the
+              live "Time Left" countdown driven by the same shared
+              schedule interval. */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">Health</p>
@@ -662,8 +687,30 @@ export default function CronJobsPage() {
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Last Cron Lock</p>
-                <p className="font-bold text-sm">{siLastRunAt ? fmtTime(siLastRunAt) : 'Never'}</p>
+                <p className="text-xs text-muted-foreground mb-1">Schedule</p>
+                <p className="font-bold text-sm">
+                  {scheduleInterval < 60 ? `Every ${scheduleInterval}m` : scheduleInterval === 60 ? 'Hourly' : `Every ${scheduleInterval / 60}h`}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Next Run</p>
+                <p className="font-bold text-sm">
+                  {!siNextRunAt ? 'Pending' : siIsOverdue ? 'Overdue' : siNextRunAt.toLocaleTimeString('en-US', { timeZone: EST_TZ, hour: '2-digit', minute: '2-digit' }) + ' EST'}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className={siIsOverdue && siNextRunAt ? 'border-red-300 bg-red-50/30' : ''}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Time Left</p>
+                <p className={`font-bold tabular-nums ${siIsOverdue ? 'text-red-600 text-sm' : 'text-teal-700 text-lg'}`}>
+                  {!siNextRunAt
+                    ? '—'
+                    : siIsOverdue
+                      ? fmtOverdue(now.getTime() - siNextRunAt.getTime())
+                      : fmtCountdown(siTimeLeftMs)}
+                </p>
               </CardContent>
             </Card>
           </div>

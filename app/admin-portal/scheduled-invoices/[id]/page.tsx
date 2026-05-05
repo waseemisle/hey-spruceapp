@@ -56,6 +56,36 @@ function Countdown({ target }: CountdownProps) {
   return <span>{m}m {s}s</span>;
 }
 
+/**
+ * Live HH:MM:SS-style countdown that returns a string instead of JSX
+ * so callers can colour / style it inline. Mirrors the RWO detail
+ * page's countdown so both surfaces feel identical.
+ */
+function useLiveCountdown(target: Date | null): string {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    if (!target) { setText(''); return; }
+    const tick = () => {
+      const diff = target.getTime() - Date.now();
+      if (diff <= 0) { setText('Now'); return; }
+      const days = Math.floor(diff / 86_400_000);
+      const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+      const minutes = Math.floor((diff % 3_600_000) / 60_000);
+      const seconds = Math.floor((diff % 60_000) / 1000);
+      const parts: string[] = [];
+      if (days > 0) parts.push(`${days}d`);
+      parts.push(`${hours}h`);
+      parts.push(`${minutes}m`);
+      parts.push(`${seconds}s`);
+      setText(parts.join(' '));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [target?.getTime()]);
+  return text;
+}
+
 export default function ScheduledInvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -65,6 +95,25 @@ export default function ScheduledInvoiceDetailPage() {
   const [executions, setExecutions] = useState<ScheduledInvoiceExecution[]>([]);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<string | null>(null);
+
+  // Global cron lead-time — the cron actually fires this many days
+  // BEFORE the schedule's nextExecution so the admin has time to
+  // review/cancel before billing the client. Same source of truth
+  // (cron-monitor) the RWO detail page reads from, so the countdown
+  // here matches the cron-jobs admin view.
+  const [leadTimeDays, setLeadTimeDays] = useState(7);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/cron-monitor')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data) return;
+        const lt = typeof data.schedule?.leadTimeDays === 'number' ? data.schedule.leadTimeDays : 7;
+        setLeadTimeDays(lt);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Live subscription on the parent doc + executions audit collection.
   useEffect(() => {
@@ -225,6 +274,20 @@ export default function ScheduledInvoiceDetailPage() {
   const next = toDate(invoice.nextExecution);
   const last = toDate(invoice.lastExecution);
 
+  // Lead-time-aware fire date — when the cron will actually create
+  // the invoice. Computed as nextExecution - leadTimeDays. The
+  // countdown panel below targets this date (matching the RWO
+  // page's "Time Left for Next Execution" semantics) so admins see
+  // when the invoice will actually be billed, not the iteration date
+  // displayed elsewhere on the page.
+  const nextLeadDate = (() => {
+    if (!next) return null;
+    const d = new Date(next);
+    d.setDate(d.getDate() - leadTimeDays);
+    return d;
+  })();
+  const countdown = useLiveCountdown(nextLeadDate);
+
   return (
     <AdminLayout>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -354,6 +417,56 @@ export default function ScheduledInvoiceDetailPage() {
               <div className="mt-4 pt-4 border-t">
                 <p className="text-xs text-muted-foreground uppercase mb-1">Description</p>
                 <p className="text-sm">{invoice.description}</p>
+              </div>
+            )}
+
+            {/*
+              Execution info panel — mirrors the equivalent block on the
+              RWO detail page so admins see the same three pieces of
+              data on both surfaces:
+                1. Next Execution — the iteration date displayed in
+                   the recurrence.
+                2. Next Execution Before (X Days) — the date the cron
+                   will actually fire (iteration date minus the
+                   lead-time configured on the cron-jobs page).
+                3. Time Left for Next Execution — live countdown to
+                   that fire date, prominent enough to read at a
+                   glance.
+              Only renders when the schedule is active and we have a
+              next iteration; paused/cancelled schedules don't have a
+              meaningful countdown.
+            */}
+            {invoice.status === 'active' && next && (
+              <div className="mt-4 pt-4 border-t space-y-2 text-sm">
+                <div>
+                  <span className="font-semibold">Next Execution:</span>
+                  <span className="ml-2">
+                    {next.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-semibold">
+                    Next Execution Before ({leadTimeDays} Day{leadTimeDays === 1 ? '' : 's'}):
+                  </span>
+                  <span className="ml-2">
+                    {nextLeadDate ? nextLeadDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2">
+                    (cron fires on this date)
+                  </span>
+                </div>
+                {countdown && (
+                  <div>
+                    <span className="font-semibold">Time Left for Next Execution:</span>
+                    <span className={`ml-2 font-mono text-sm px-2 py-0.5 rounded tabular-nums ${
+                      countdown === 'Now'
+                        ? 'bg-green-100 text-green-700 animate-pulse'
+                        : 'bg-blue-50 text-blue-700'
+                    }`}>
+                      {countdown}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
