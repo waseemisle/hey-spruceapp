@@ -7,6 +7,15 @@ import { createNotification, notifySubcontractorAssignment } from '@/lib/notific
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// The handler does up to 8 sequential Firestore round-trips plus a
+// signed-in cold-start. On a slow cold lambda that totalled >10s and
+// Vercel killed the function with its generic HTML 500 page — bypassing
+// our catch block entirely so the operator never saw a real error
+// message. The reads are now parallelised (see Promise.all batches
+// below) and the duplicate workOrder updates merged, but we also bump
+// maxDuration as a safety net so a momentarily-slow cold start can't
+// silently truncate the response.
+export const maxDuration = 30;
 
 /**
  * Approves a quote server-side (using admin credentials) to bypass Firestore
@@ -74,21 +83,39 @@ export async function POST(request: Request) {
       });
     }
 
-    // Get client's display name
-    step = 'fetch-client';
+    // Parallelise the next three reads — client, work order, and the
+    // subcontractor's profile (for resolving their auth uid). Doing
+    // them sequentially used to add ~600-1000ms to the wall-clock and
+    // was the main contributor to cold-start lambdas exceeding the
+    // 10s function timeout (which surfaces as Vercel's HTML 500 page,
+    // bypassing our catch block — *exactly* the symptom the operator
+    // reported in production).
+    step = 'parallel-reads';
+    const [clientDoc, workOrderDoc, subDoc] = await Promise.all([
+      getDoc(doc(db, 'clients', uid)),
+      getDoc(doc(db, 'workOrders', quoteData.workOrderId)),
+      quoteData.subcontractorId
+        ? getDoc(doc(db, 'subcontractors', quoteData.subcontractorId)).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
     let clientName: string = quoteData.clientName || 'Client';
-    const clientDoc = await getDoc(doc(db, 'clients', uid));
     if (clientDoc.exists()) {
       clientName = clientDoc.data().fullName || clientName;
     }
 
-    // Fetch work order
-    step = 'fetch-work-order';
-    const workOrderDoc = await getDoc(doc(db, 'workOrders', quoteData.workOrderId));
     if (!workOrderDoc.exists()) {
       return NextResponse.json({ error: 'Work order not found', step }, { status: 404 });
     }
     const workOrderData = workOrderDoc.data();
+
+    // Resolve subcontractor auth uid up-front from the parallel read so
+    // we don't have to re-fetch it later.
+    let resolvedSubId = quoteData.subcontractorId;
+    if (subDoc && subDoc.exists()) {
+      const subData = subDoc.data();
+      resolvedSubId = (subData.uid && String(subData.uid).trim()) || subDoc.id;
+    }
 
     const quoteIsDiagnostic = quoteData.isDiagnosticQuote === true;
 
@@ -120,19 +147,6 @@ export async function POST(request: Request) {
       },
       updatedAt: serverTimestamp(),
     });
-
-    // Resolve the subcontractor's auth UID for consistent ID usage
-    step = 'resolve-subcontractor-uid';
-    let resolvedSubId = quoteData.subcontractorId;
-    try {
-      const subDoc = await getDoc(doc(db, 'subcontractors', quoteData.subcontractorId));
-      if (subDoc.exists()) {
-        const subData = subDoc.data();
-        resolvedSubId = (subData.uid && String(subData.uid).trim()) || subDoc.id;
-      }
-    } catch (e) {
-      console.warn('Could not resolve subcontractor auth UID, using quote subcontractorId:', e);
-    }
 
     const existingTimeline = workOrderData.timeline || [];
     const existingSysInfo = workOrderData.systemInformation || {};
@@ -261,62 +275,59 @@ export async function POST(request: Request) {
       }),
     );
 
-    step = 'update-wo-assigned';
-    await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
-      ...(shouldSetAssigned ? { status: 'assigned' } : {}),
-      assignedSubcontractor: safeSubId,
-      assignedSubcontractorName: safeSubName,
-      assignedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      approvedQuoteId: quoteId,
-      approvedQuoteAmount: safeAmount,
-      approvedQuoteLaborCost: safeLabor,
-      approvedQuoteMaterialCost: safeMaterial,
-      approvedQuoteLineItems: safeLineItems,
-      timeline: [
-        ...existingTimeline,
-        createTimelineEvent({
-          type: 'quote_approved_by_client',
-          userId: uid,
-          userName: clientName,
-          userRole: 'client',
-          details: `Quote from ${safeSubName || 'subcontractor'} approved by ${clientName}. Work order assigned.`,
-          metadata: {
+    // Combined workOrder write — previously the route fired TWO sequential
+    // updateDoc calls against the same workOrder doc (assigned-with-line-
+    // items + assignedTo), adding ~200-400ms of unnecessary serial wall
+    // time. Both payloads touch the same document so they can land in a
+    // single update. The assignedJobs insert touches a different doc and
+    // can run in parallel.
+    step = 'parallel-writes';
+    await Promise.all([
+      updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
+        ...(shouldSetAssigned ? { status: 'assigned' } : {}),
+        assignedSubcontractor: safeSubId,
+        assignedSubcontractorName: safeSubName,
+        assignedTo: safeSubId,
+        assignedToName: safeSubName,
+        assignedToEmail: safeSubEmail,
+        assignedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        approvedQuoteId: quoteId,
+        approvedQuoteAmount: safeAmount,
+        approvedQuoteLaborCost: safeLabor,
+        approvedQuoteMaterialCost: safeMaterial,
+        approvedQuoteLineItems: safeLineItems,
+        timeline: [
+          ...existingTimeline,
+          createTimelineEvent({
+            type: 'quote_approved_by_client',
+            userId: uid,
+            userName: clientName,
+            userRole: 'client',
+            details: `Quote from ${safeSubName || 'subcontractor'} approved by ${clientName}. Work order assigned.`,
+            metadata: {
+              quoteId,
+              subcontractorName: safeSubName,
+              amount: safeAmount,
+            },
+          }),
+        ],
+        systemInformation: {
+          ...existingSysInfo,
+          quoteApprovalByClient: {
             quoteId,
-            subcontractorName: safeSubName,
-            amount: safeAmount,
+            approvedBy: { id: uid, name: clientName },
+            timestamp: Timestamp.now(),
           },
-        }),
-      ],
-      systemInformation: {
-        ...existingSysInfo,
-        quoteApprovalByClient: {
-          quoteId,
-          approvedBy: { id: uid, name: clientName },
-          timestamp: Timestamp.now(),
         },
-      },
-    });
-
-    // Create assignedJobs record using resolved auth UID
-    step = 'add-assigned-job';
-    await addDoc(collection(db, 'assignedJobs'), {
-      workOrderId: quoteData.workOrderId,
-      subcontractorId: safeSubId,
-      assignedAt: serverTimestamp(),
-      status: 'pending_acceptance',
-    });
-
-    // Also update assignedTo on the work order for consistency with manual
-    // assignment flow. Bumping updatedAt here too keeps downstream consumers
-    // that key off updatedAt (sidebar badges, lastViewedAt diffing) honest.
-    step = 'update-wo-assigned-to';
-    await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
-      assignedTo: safeSubId,
-      assignedToName: safeSubName,
-      assignedToEmail: safeSubEmail,
-      updatedAt: serverTimestamp(),
-    });
+      }),
+      addDoc(collection(db, 'assignedJobs'), {
+        workOrderId: quoteData.workOrderId,
+        subcontractorId: safeSubId,
+        assignedAt: serverTimestamp(),
+        status: 'pending_acceptance',
+      }),
+    ]);
 
     // Notify the sub of their assignment from the server too. The client
     // UI also fires this after the API returns, so subs may see two bell

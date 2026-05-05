@@ -7,6 +7,10 @@ import { notifyQuoteRejection } from '@/lib/notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Same defensive timeout bump as /api/quotes/approve — a slow cold
+// start on Hobby/Pro can otherwise exceed the 10s default and Vercel
+// returns its generic HTML 500 page that bypasses our catch block.
+export const maxDuration = 30;
 
 /**
  * Client-side quote rejection — used for both regular quotes and Diagnostic
