@@ -105,7 +105,18 @@ export default function ClientCreateRecurringWorkOrder() {
         ]);
 
         setCategories(categoriesSnap.docs.map(d => ({ id: d.id, name: d.data().name })));
-        const locs = locationsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Location[];
+        // Restrict to locations the admin assigned to this client. Without
+        // this filter the company-scoped query above leaked every sibling
+        // location under the parent company. Legacy locations directly
+        // owned by this client (location.clientId === uid) are still
+        // included as a fallback for pre-multi-assignment data.
+        const assignedLocationIds = new Set<string>(
+          Array.isArray(clientData.assignedLocations) ? clientData.assignedLocations : []
+        );
+        const allLocs = locationsSnap.docs.map(d => ({ id: d.id, ...d.data() })) as Location[];
+        const locs = cId
+          ? allLocs.filter((l) => assignedLocationIds.has(l.id) || (l as any).clientId === user.uid)
+          : allLocs;
         setLocations(locs);
 
         if (locs.length === 1) {

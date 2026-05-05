@@ -140,6 +140,15 @@ export default function ClientLocations() {
         const clientData = clientDoc.data();
         const permissions = clientData.permissions || {};
         setCanCreateLocation(!!permissions.createLocation);
+        // The admin curates which subset of the parent company's locations
+        // this client is allowed to see/work with via the Edit Client
+        // modal. Capture that list now so the locations subscription
+        // below can filter the company-wide query down to only the
+        // assigned ones (instead of leaking every sibling location).
+        const assignedLocationIds = new Set<string>(
+          Array.isArray(clientData.assignedLocations) ? clientData.assignedLocations : []
+        );
+        const clientUid = user.uid;
         const clientCompanyId = clientData.companyId;
         if (!clientCompanyId) {
           // POSITIVELY confirmed: client doc exists but has no companyId.
@@ -178,11 +187,27 @@ export default function ClientLocations() {
         unsubscribeSnapshot = onSnapshot(
           locationsQuery,
           (snapshot) => {
-            const locationsData = snapshot.docs.map(docSnap => ({
+            const all = snapshot.docs.map(docSnap => ({
               id: docSnap.id,
               ...docSnap.data(),
             })) as Location[];
-            setLocations(locationsData);
+
+            // Filter to only locations the admin actually assigned to
+            // this client. Mirrors the filter on the admin-side
+            // "Assigned Locations" card (clients/[id]/page.tsx) so the
+            // two views stay in lockstep instead of the client portal
+            // leaking every sibling location under the parent company.
+            // Two acceptance paths:
+            //   1. Location id is in client.assignedLocations (the
+            //      admin's curated list from the Edit Client modal).
+            //   2. Legacy direct ownership — location.clientId equals
+            //      this user's uid (older locations were tied 1:1 to a
+            //      single client before assignment was multi-select).
+            const visible = all.filter((loc) =>
+              assignedLocationIds.has(loc.id) || loc.clientId === clientUid
+            );
+
+            setLocations(visible);
             setLoading(false);
           },
           (error) => {

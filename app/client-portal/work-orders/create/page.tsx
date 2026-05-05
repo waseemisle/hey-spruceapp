@@ -105,6 +105,13 @@ export default function CreateWorkOrder() {
         }
 
         const clientData = clientDoc.data();
+        // Capture the admin-curated assigned-location list so the picker
+        // below shows only those locations, not every sibling location
+        // under the parent company.
+        const assignedLocationIds = new Set<string>(
+          Array.isArray(clientData.assignedLocations) ? clientData.assignedLocations : []
+        );
+        const clientUid = user.uid;
         const companyId = clientData.companyId as string | undefined;
         if (!companyId) {
           // POSITIVELY confirmed: client doc exists but has no companyId.
@@ -138,7 +145,17 @@ export default function CreateWorkOrder() {
             where('status', '==', 'approved'),
           ))
             .then((snapshot) => {
-              setLocations(snapshot.docs.map(docSnap => ({
+              // Restrict the location picker to the locations the admin
+              // assigned to this client (or legacy direct-ownership rows
+              // where location.clientId === uid). Without this filter
+              // the picker leaked every sibling location under the
+              // parent company, even ones the client wasn't supposed to
+              // see — and matches the behavior on /client-portal/locations.
+              const visible = snapshot.docs.filter((docSnap) => {
+                const data = docSnap.data() as any;
+                return assignedLocationIds.has(docSnap.id) || data.clientId === clientUid;
+              });
+              setLocations(visible.map(docSnap => ({
                 id: docSnap.id,
                 name: docSnap.data().locationName || docSnap.data().name,
                 address: docSnap.data().address,
