@@ -571,33 +571,8 @@ export interface VendorPayment {
   updatedBy?: { uid: string; email?: string; name?: string };
 }
 
-export interface ScheduledInvoice {
-  id: string;
-  clientId: string;
-  clientName: string;
-  clientEmail: string;
-  title: string;
-  description: string;
-  subcontractorAmount: number;
-  spruceAmount: number;
-  amount: number;
-  categoryId: string;
-  categoryName: string;
-  frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-  dayOfWeek?: number;
-  dayOfMonth?: number;
-  time: string;
-  timezone: string;
-  isActive: boolean;
-  nextExecution: Date;
-  lastExecution?: Date;
-  notes: string;
-  invoiceNumber: string;
-  invoiceStatus: 'open' | 'paid';
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+// (ScheduledInvoice has moved further down — kept near RecurringWorkOrder
+// because they share lib/recurrence.ts scheduling math.)
 
 // Chat Types
 export interface Chat {
@@ -711,6 +686,81 @@ export interface RecurringWorkOrderExecution {
   emailSent: boolean;
   emailSentAt?: Date;
   failureReason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Scheduled Invoice — recurring billing schedule. Mirrors the
+ * RecurringWorkOrder shape so the same `lib/recurrence.ts` math works
+ * for both. The cron route (/api/scheduled-invoices/cron) creates
+ * concrete Invoice docs + Stripe payment links from these on each
+ * matching iteration date.
+ */
+export interface ScheduledInvoice {
+  id: string;
+  /** Stable display id, e.g. "SI-A1B2C3D4". */
+  scheduledInvoiceNumber: string;
+  clientId: string;
+  clientName: string;
+  clientEmail: string;
+  /** Optional location for invoices tied to a recurring service. */
+  locationId?: string;
+  locationName?: string;
+  locationAddress?: string;
+  title: string;
+  description?: string;
+  notes?: string;
+  terms?: string;
+  /** Sum of lineItems[].amount; persisted so list views don't have to recompute. */
+  totalAmount: number;
+  lineItems: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
+  status: 'active' | 'paused' | 'cancelled';
+  recurrencePattern: RecurrencePattern;
+  recurrencePatternLabel?: 'DAILY' | 'WEEKLY' | 'BI-WEEKLY' | 'MONTHLY' | 'BI-MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY';
+  /** Next iteration the cron will fire (computed via lib/recurrence). */
+  nextExecution: Date;
+  lastExecution?: Date;
+  /** Optional auto-charge — when true the cron tries the client's saved PM after creating the invoice. */
+  autoCharge?: boolean;
+  /** Optional admin override pinning a specific saved PM. Falls back to client default. */
+  autoChargePaymentMethodId?: string;
+  totalExecutions: number;
+  successfulExecutions: number;
+  failedExecutions: number;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  createdByName?: string;
+  creationSource?: 'admin_portal_ui' | 'csv_import';
+  systemInformation?: WorkOrderSystemInformation;
+  timeline?: WorkOrderTimelineEvent[];
+}
+
+export interface ScheduledInvoiceExecution {
+  id: string;
+  scheduledInvoiceId: string;
+  /** Reference to the invoice this run created. */
+  invoiceId?: string;
+  invoiceNumber?: string;
+  executionNumber: number;
+  scheduledDate: Date;
+  executedDate?: Date;
+  status: 'pending' | 'executed' | 'failed' | 'skipped';
+  totalAmount?: number;
+  stripePaymentLink?: string;
+  emailSent: boolean;
+  emailSentAt?: Date;
+  failureReason?: string;
+  /** Outcome of the auto-charge attempt (if autoCharge was set on the parent). */
+  autoChargeAttempted?: boolean;
+  autoChargeStatus?: 'succeeded' | 'failed' | 'requires_action' | 'pending';
+  autoChargeError?: string;
   createdAt: Date;
   updatedAt: Date;
 }
