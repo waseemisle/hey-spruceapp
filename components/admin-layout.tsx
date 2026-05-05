@@ -68,6 +68,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { name: 'Standard Invoices', href: '/admin-portal/invoices/standard', icon: Receipt },
       { name: 'Scheduled Invoices', href: '/admin-portal/scheduled-invoices', icon: Calendar },
+      { name: 'Payment Logs', href: '/admin-portal/payment-logs', icon: FileText },
     ],
   },
   {
