@@ -287,18 +287,19 @@ export default function AddPaymentMethodModal({
           </div>
 
           {/*
-            ACH heads-up. Admins who type a routing + account number land
-            on the slow path: Stripe sends two $0.01 deposits and the bank
-            stays "Pending Verification" for 1-2 business days. The fast
-            path is "Login with bank" (Financial Connections) which
-            instantly verifies. Surfaced here so the choice is informed
-            instead of a surprise on the client detail page.
+            ACH heads-up. SetupIntent is now configured with
+            verification_method='instant', so the only ACH path Stripe
+            offers in the bank tab is Financial Connections. The admin
+            signs into the client's bank, Stripe verifies through the
+            bank's API in real-time, and the PM is immediately
+            chargeable — no micro-deposits, no Pending Verification
+            state. Tiny number of banks (mostly small credit unions)
+            don't support FC and will surface a clear error.
           */}
-          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800 flex items-start gap-2">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-800 flex items-start gap-2">
             <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
             <span>
-              <strong>Adding a US bank account?</strong> Pick <strong>"Login with bank"</strong> for instant verification.
-              Entering routing + account number manually triggers a 1-2 day micro-deposit verification — the bank shows up as <em>Pending Verification</em> until two small deposits are confirmed via the <em>Verify Bank</em> button on the client page.
+              <strong>Adding a US bank account?</strong> The bank tab will only offer <strong>"Login with bank"</strong> — sign into the client's bank inside Stripe's secure popup and the account is verified instantly. No micro-deposits, no 1-2 day wait. (A small number of banks don't support instant verification; adding those will fail with a clear error so you can use a card instead.)
             </span>
           </div>
 

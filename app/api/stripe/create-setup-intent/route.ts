@@ -66,12 +66,41 @@ export async function POST(request: NextRequest) {
     // PaymentElement on the client renders the same tabbed UX customers
     // see on invoice.stripe.com — admin picks Card or Bank, fills it in,
     // and we get one SetupIntent that lands a usable off-session PM
-    // either way. Includes the standard payment_method_data wrapper so
-    // ACH PM creation through PaymentElement works without extra params.
+    // either way.
+    //
+    // For us_bank_account we force verification_method='instant' so the
+    // ONLY path Stripe offers is Financial Connections ("Login with
+    // bank"). That eliminates the 1-2 day micro-deposit wait that the
+    // manual routing+account flow incurs — the customer/admin signs into
+    // the bank inside Stripe's iframe, Stripe verifies the account
+    // through the bank's API in real-time, and the SetupIntent comes
+    // back 'succeeded' with a fully chargeable PM (no Pending
+    // Verification state, no follow-up step).
+    //
+    // Trade-off — a small minority of US banks don't support Financial
+    // Connections; for those, adding the bank fails with a clear error
+    // and the admin must use a different bank or a card. Almost all
+    // major US banks support FC. Prerequisite: Financial Connections
+    // must be enabled on the Stripe account (Settings → Connect →
+    // Financial Connections); default-on for most accounts.
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomerId,
       usage: 'off_session',
       payment_method_types: ['card', 'us_bank_account'],
+      payment_method_options: {
+        us_bank_account: {
+          verification_method: 'instant',
+          financial_connections: {
+            // 'payment_method' is the minimum permission needed to
+            // create a chargeable PM. We deliberately don't request
+            // 'transactions' / 'balances' / 'ownership' — those are
+            // for richer integrations (cash-flow underwriting,
+            // co-pilot views) and asking for more permissions than
+            // we use just makes the consent screen scarier.
+            permissions: ['payment_method'],
+          },
+        },
+      },
       metadata: { clientId, source: 'admin_add_payment_method' },
     });
 
