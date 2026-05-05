@@ -2231,13 +2231,13 @@ export default function ViewWorkOrder() {
                         <Input value={li.description} onChange={e => updateInvoiceLineItem(i, 'description', e.target.value)} placeholder="Description" />
                       </div>
                       <div className="col-span-4 md:col-span-2">
-                        <Input type="number" min="0" step="0.01" value={li.quantity} onChange={e => updateInvoiceLineItem(i, 'quantity', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                        <Input type="number" min="0" step="0.01" value={li.quantity || ''} placeholder="Qty" onChange={e => updateInvoiceLineItem(i, 'quantity', e.target.value)} onWheel={e => e.currentTarget.blur()} />
                       </div>
                       <div className="col-span-4 md:col-span-2">
-                        <Input type="number" min="0" step="0.01" value={li.unitPrice} onChange={e => updateInvoiceLineItem(i, 'unitPrice', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                        <Input type="number" min="0" step="0.01" value={li.unitPrice || ''} placeholder="Unit $" onChange={e => updateInvoiceLineItem(i, 'unitPrice', e.target.value)} onWheel={e => e.currentTarget.blur()} />
                       </div>
                       <div className="col-span-3 md:col-span-2">
-                        <Input type="number" min="0" step="0.01" value={li.amount} onChange={e => updateInvoiceLineItem(i, 'amount', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                        <Input type="number" min="0" step="0.01" value={li.amount || ''} placeholder="Amount" onChange={e => updateInvoiceLineItem(i, 'amount', e.target.value)} onWheel={e => e.currentTarget.blur()} />
                       </div>
                       <div className="col-span-1 flex justify-center">
                         {invoiceLineItems.length > 1 && (

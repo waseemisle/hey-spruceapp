@@ -851,7 +851,7 @@ function CreateInvoiceContent() {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={li.quantity}
+                      value={li.quantity || ''}
                       onChange={e => updateLineItem(i, 'quantity', e.target.value)}
                       onWheel={e => e.currentTarget.blur()}
                       placeholder="Qty"
@@ -862,7 +862,7 @@ function CreateInvoiceContent() {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={li.unitPrice}
+                      value={li.unitPrice || ''}
                       onChange={e => updateLineItem(i, 'unitPrice', e.target.value)}
                       onWheel={e => e.currentTarget.blur()}
                       placeholder="Unit $"
@@ -873,7 +873,7 @@ function CreateInvoiceContent() {
                       type="number"
                       min="0"
                       step="0.01"
-                      value={li.amount}
+                      value={li.amount || ''}
                       onChange={e => updateLineItem(i, 'amount', e.target.value)}
                       onWheel={e => e.currentTarget.blur()}
                       placeholder="Amount"

@@ -15,11 +15,15 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 interface CronRunResult {
-  rwoId: string;
-  rwoTitle: string;
-  status: 'success' | 'error';
+  rwoId?: string;
+  rwoTitle?: string;
+  siId?: string;
+  siNumber?: string;
+  title?: string;
+  status: 'success' | 'error' | 'skipped';
   message: string;
   executionId?: string;
+  invoiceNumber?: string;
   nextExecution?: string;
 }
 
@@ -31,10 +35,20 @@ interface CronRun {
   totalEligible: number;
   totalSucceeded: number;
   totalFailed: number;
-  status: 'completed' | 'failed' | 'partial' | 'error';
+  totalSkipped?: number;
+  status: 'completed' | 'failed' | 'partial' | 'error' | 'idle';
   triggeredBy: 'vercel_cron' | 'manual_api';
   results: CronRunResult[];
   error?: string;
+}
+
+interface ScheduledInvoiceOverdue {
+  id: string;
+  scheduledInvoiceNumber: string;
+  title: string;
+  nextExecution: string;
+  clientName: string;
+  totalAmount: number;
 }
 
 export default function CronJobsPage() {
@@ -51,6 +65,15 @@ export default function CronJobsPage() {
   const [savingLeadTime, setSavingLeadTime] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [overdueRWOs, setOverdueRWOs] = useState<Array<{ id: string; title: string; nextExecution: string; clientName: string; locationName: string }>>([]);
+  // Scheduled Invoices counterparts — same shape as RWO so the panel
+  // below can render with identical styling. Lock + run history come
+  // from the same /api/cron-monitor endpoint, just under a separate
+  // top-level key so RWO + SI never collide.
+  const [siRuns, setSiRuns] = useState<CronRun[]>([]);
+  const [siOverdue, setSiOverdue] = useState<ScheduledInvoiceOverdue[]>([]);
+  const [siLastRunAt, setSiLastRunAt] = useState<Date | null>(null);
+  const [triggeringSi, setTriggeringSi] = useState(false);
+  const [expandedSiRun, setExpandedSiRun] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
 
   // Tick every second for live countdown
@@ -85,6 +108,15 @@ export default function CronJobsPage() {
         setLastCronRunAt(new Date(data.schedule.lastRunAt));
       } else if (data.runs?.length > 0) {
         setLastCronRunAt(new Date(data.runs[0].completedAt || data.runs[0].startedAt));
+      }
+      if (data.scheduledInvoices) {
+        setSiRuns(data.scheduledInvoices.runs || []);
+        setSiOverdue(data.scheduledInvoices.overdue || []);
+        if (data.scheduledInvoices.lastRunAt) {
+          setSiLastRunAt(new Date(data.scheduledInvoices.lastRunAt));
+        } else if (data.scheduledInvoices.runs?.length > 0) {
+          setSiLastRunAt(new Date(data.scheduledInvoices.runs[0].completedAt || data.scheduledInvoices.runs[0].startedAt));
+        }
       }
     } catch {}
     setDataLoading(false);
@@ -188,6 +220,25 @@ export default function CronJobsPage() {
       toast.error(err.message || 'Failed');
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const handleTriggerSiCron = async () => {
+    setTriggeringSi(true);
+    try {
+      const res = await fetch('/api/cron-monitor?target=scheduled_invoices', { method: 'PUT' });
+      const data = await res.json();
+      if (res.ok) {
+        const skipped = data.totalSkipped ? ` (${data.totalSkipped} skipped)` : '';
+        toast.success(`SI cron executed: ${data.totalSucceeded}/${data.totalEligible} succeeded${skipped}`);
+        await fetchData();
+      } else {
+        toast.error(data.error || 'SI cron failed');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed');
+    } finally {
+      setTriggeringSi(false);
     }
   };
 
@@ -545,6 +596,202 @@ export default function CronJobsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* ──────────────────────────────────────────────────────────
+            Scheduled Invoices panel — parallel surface to the RWO
+            panel above. Same layout (status banner + overdue list +
+            run history) for operator muscle-memory. Lock + history
+            come from /api/cron-monitor's `scheduledInvoices` block;
+            manual run via PUT /api/cron-monitor?target=scheduled_invoices.
+            ────────────────────────────────────────────────────── */}
+        <div className="border-t border-border pt-6 mt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground">Scheduled Invoices</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Daily cron at 9:15am UTC creates invoices from active schedules whose nextExecution
+                falls within the lead-time window above.
+              </p>
+            </div>
+            <Button onClick={handleTriggerSiCron} disabled={triggeringSi} className="bg-blue-600 hover:bg-blue-700 gap-2">
+              {triggeringSi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {triggeringSi ? 'Running…' : 'Run SI Cron Now'}
+            </Button>
+          </div>
+
+          {/* SI status cards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Health</p>
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const last = siRuns[0];
+                    const cls = !last
+                      ? 'text-gray-400'
+                      : last.status === 'completed' || last.status === 'idle'
+                        ? 'text-emerald-600'
+                        : last.status === 'partial'
+                          ? 'text-yellow-600'
+                          : 'text-red-600';
+                    const txt = !last ? 'No data' : last.status === 'completed' ? 'Healthy' : last.status === 'idle' ? 'Idle' : last.status === 'partial' ? 'Degraded' : 'Failing';
+                    return <><Activity className={`h-4 w-4 ${cls}`} /><span className="font-bold text-sm">{txt}</span></>;
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Last Run</p>
+                <p className="font-bold text-sm">{siRuns[0] ? fmtAgo(siRuns[0].startedAt) : 'Never'}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Last Result</p>
+                <p className="font-bold text-sm">{siRuns[0] ? `${siRuns[0].totalSucceeded}/${siRuns[0].totalEligible} OK` : '—'}</p>
+              </CardContent>
+            </Card>
+            <Card className={siOverdue.length > 0 ? 'border-orange-300' : ''}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Eligible Now</p>
+                <p className={`font-bold text-sm ${siOverdue.length > 0 ? 'text-orange-600' : ''}`}>
+                  {dataLoading ? '...' : `${siOverdue.length} SIs`}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Last Cron Lock</p>
+                <p className="font-bold text-sm">{siLastRunAt ? fmtTime(siLastRunAt) : 'Never'}</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {siOverdue.length > 0 && (
+            <Card className="border-orange-200 mb-4">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-orange-700 text-base">
+                  <AlertTriangle className="h-5 w-5" />
+                  Eligible for Next Execution ({siOverdue.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {siOverdue.map(si => (
+                    <div key={si.id} className="flex items-center justify-between p-2.5 rounded-lg bg-orange-50 border border-orange-100 text-sm">
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground truncate">{si.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-mono">{si.scheduledInvoiceNumber}</span> &mdash; {si.clientName}
+                        </div>
+                      </div>
+                      <div className="text-xs text-orange-700 font-medium shrink-0 ml-2 tabular-nums">
+                        {(() => {
+                          const ms = Math.max(0, new Date(si.nextExecution).getTime() - now.getTime());
+                          return ms <= 0 ? 'Now' : fmtCountdown(ms);
+                        })()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Hash className="h-5 w-5" />
+                SI Run History ({siRuns.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dataLoading ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+              ) : siRuns.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Clock className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p>No scheduled-invoice cron runs recorded yet.</p>
+                  <p className="text-sm mt-1">Click &ldquo;Run SI Cron Now&rdquo; to trigger manually, or wait for the next scheduled run.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {siRuns.map((run) => {
+                    const isExpanded = expandedSiRun === run.id;
+                    return (
+                      <div key={run.id} className="border border-border rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setExpandedSiRun(isExpanded ? null : run.id)}
+                          className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {statusIcon(run.status)}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-sm">{fmtTime(run.startedAt)}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border ${statusColor(run.status)}`}>
+                                  {run.status}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                  run.triggeredBy === 'vercel_cron'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-purple-50 text-purple-700 border-purple-200'
+                                }`}>
+                                  {run.triggeredBy === 'vercel_cron' ? 'CRON' : 'MANUAL'}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {run.totalEligible} eligible &bull; {run.totalSucceeded} succeeded &bull; {run.totalFailed} failed
+                                {typeof run.totalSkipped === 'number' && run.totalSkipped > 0 ? ` • ${run.totalSkipped} skipped` : ''}
+                                {' • '}{fmtDuration(run.durationMs)}
+                              </div>
+                            </div>
+                          </div>
+                          {isExpanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="border-t border-border bg-muted/30 p-3">
+                            {run.error && (
+                              <div className="mb-3 p-2 bg-red-50 rounded text-sm text-red-700">Error: {run.error}</div>
+                            )}
+                            {run.results.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">{run.totalEligible === 0 ? 'No eligible scheduled invoices' : 'No details'}</p>
+                            ) : (
+                              <div className="space-y-1.5">
+                                {run.results.map((r, i) => (
+                                  <div key={i} className="flex items-center justify-between p-2 rounded bg-card border border-border text-sm">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {r.status === 'success'
+                                        ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                        : r.status === 'skipped'
+                                          ? <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                                          : <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />}
+                                      <span className="truncate">{r.title || r.siNumber || r.siId}</span>
+                                      {r.invoiceNumber && (
+                                        <span className="text-xs text-muted-foreground font-mono ml-1">→ {r.invoiceNumber}</span>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                                      {r.status === 'success' || r.status === 'skipped'
+                                        ? r.message
+                                        : <span className="text-red-600">{r.message}</span>}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </AdminLayout>
   );

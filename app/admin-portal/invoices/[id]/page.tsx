@@ -1387,13 +1387,13 @@ export default function AdminInvoiceDetail() {
                       <Input value={li.description} onChange={e => updateEditLineItem(i, 'description', e.target.value)} placeholder="Description" />
                     </div>
                     <div className="col-span-4 md:col-span-2">
-                      <Input type="number" min="0" step="0.01" value={li.quantity} onChange={e => updateEditLineItem(i, 'quantity', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                      <Input type="number" min="0" step="0.01" value={li.quantity || ''} placeholder="Qty" onChange={e => updateEditLineItem(i, 'quantity', e.target.value)} onWheel={e => e.currentTarget.blur()} />
                     </div>
                     <div className="col-span-4 md:col-span-2">
-                      <Input type="number" min="0" step="0.01" value={li.unitPrice} onChange={e => updateEditLineItem(i, 'unitPrice', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                      <Input type="number" min="0" step="0.01" value={li.unitPrice || ''} placeholder="Unit $" onChange={e => updateEditLineItem(i, 'unitPrice', e.target.value)} onWheel={e => e.currentTarget.blur()} />
                     </div>
                     <div className="col-span-3 md:col-span-2">
-                      <Input type="number" min="0" step="0.01" value={li.amount} onChange={e => updateEditLineItem(i, 'amount', e.target.value)} onWheel={e => e.currentTarget.blur()} />
+                      <Input type="number" min="0" step="0.01" value={li.amount || ''} placeholder="Amount" onChange={e => updateEditLineItem(i, 'amount', e.target.value)} onWheel={e => e.currentTarget.blur()} />
                     </div>
                     <div className="col-span-1 flex justify-center">
                       {editLineItems.length > 1 && (

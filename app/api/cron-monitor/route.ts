@@ -57,6 +57,48 @@ export async function GET() {
       }
     } catch {}
 
+    // Scheduled Invoices cron history + last-run lock. Same shape as the
+    // RWO `runs` block above so the cron-jobs admin page can render an
+    // identical-looking panel without a parallel data fetch.
+    let scheduledInvoiceRuns: any[] = [];
+    let scheduledInvoiceLastRunAt: string | null = null;
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'emailLogs'),
+        where('type', '==', 'cron_run_scheduled_invoices'),
+      ));
+      scheduledInvoiceRuns = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          startedAt: data.startedAt?.toDate?.()?.toISOString() || data.startedAt,
+          completedAt: data.completedAt?.toDate?.()?.toISOString() || data.completedAt,
+          durationMs: data.durationMs,
+          totalEligible: data.totalEligible,
+          totalSucceeded: data.totalSucceeded,
+          totalFailed: data.totalFailed,
+          totalSkipped: data.totalSkipped,
+          status: data.status,
+          triggeredBy: data.triggeredBy,
+          results: data.results || [],
+          error: data.error,
+        };
+      });
+      scheduledInvoiceRuns.sort((a: any, b: any) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+      scheduledInvoiceRuns = scheduledInvoiceRuns.slice(0, 50);
+    } catch (e: any) {
+      console.log('emailLogs SI cron query error:', e.message);
+    }
+    try {
+      const siSettingsSnap = await getDoc(doc(db, 'emailLogs', '_schedule_si'));
+      if (siSettingsSnap.exists()) {
+        const data = siSettingsSnap.data();
+        scheduledInvoiceLastRunAt = data.lastRunAt?.toDate?.()?.toISOString() || null;
+      } else if (scheduledInvoiceRuns.length > 0) {
+        scheduledInvoiceLastRunAt = scheduledInvoiceRuns[0].completedAt || scheduledInvoiceRuns[0].startedAt || null;
+      }
+    } catch {}
+
     // Eligible = RWOs whose nextExecution falls within the lead-time window from today.
     // The cron fires leadTimeDays BEFORE the scheduled iteration date so admins have
     // time to assign the resulting work order to a subcontractor before the service date.
@@ -85,7 +127,44 @@ export async function GET() {
       overdue.sort((a, b) => new Date(a.nextExecution).getTime() - new Date(b.nextExecution).getTime());
     } catch {}
 
-    return NextResponse.json({ runs, schedule, overdue });
+    // Eligible scheduled invoices — same lead-time window as RWO so the
+    // operator's "due soon" view stays consistent across both crons.
+    let scheduledInvoiceOverdue: any[] = [];
+    try {
+      const now2 = new Date();
+      const cutoff2 = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate(), 23, 59, 59);
+      cutoff2.setDate(cutoff2.getDate() + schedule.leadTimeDays);
+      const siSnap = await getDocs(query(
+        collection(db, 'scheduledInvoices'),
+        where('status', '==', 'active'),
+      ));
+      siSnap.docs.forEach(d => {
+        const data = d.data();
+        const next = data.nextExecution?.toDate?.();
+        if (next && next <= cutoff2) {
+          scheduledInvoiceOverdue.push({
+            id: d.id,
+            scheduledInvoiceNumber: data.scheduledInvoiceNumber || '',
+            title: data.title || 'Untitled',
+            nextExecution: next.toISOString(),
+            clientName: data.clientName || '',
+            totalAmount: data.totalAmount || 0,
+          });
+        }
+      });
+      scheduledInvoiceOverdue.sort((a, b) => new Date(a.nextExecution).getTime() - new Date(b.nextExecution).getTime());
+    } catch {}
+
+    return NextResponse.json({
+      runs,
+      schedule,
+      overdue,
+      scheduledInvoices: {
+        runs: scheduledInvoiceRuns,
+        lastRunAt: scheduledInvoiceLastRunAt,
+        overdue: scheduledInvoiceOverdue,
+      },
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -126,10 +205,21 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PUT — Manually trigger the cron logic (no CRON_SECRET needed)
- * This is called by the "Run Cron Now" button on the admin page.
+ * PUT — Manually trigger a cron from the admin "Run Cron Now" button.
+ *
+ * `target` query param picks which feature's cron to run:
+ *   • absent / 'recurring_work_orders' — RWO cron (legacy default)
+ *   • 'scheduled_invoices' — Scheduled Invoices cron
+ *
+ * Manual triggers do NOT update the corresponding lastRunAt lock — the
+ * Vercel cron ping is the only thing that should advance that. If we
+ * updated it here, a manual run mid-day would silence the next
+ * scheduled firing.
  */
 export async function PUT(request: NextRequest) {
+  const target = (request.nextUrl.searchParams.get('target') || 'recurring_work_orders').toLowerCase();
+  const isScheduledInvoices = target === 'scheduled_invoices';
+
   const startedAt = new Date();
   let db: any;
   try {
@@ -155,71 +245,116 @@ export async function PUT(request: NextRequest) {
     const cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
     cutoff.setDate(cutoff.getDate() + leadTimeDays);
 
+    const collectionName = isScheduledInvoices ? 'scheduledInvoices' : 'recurringWorkOrders';
+    const executeRoute = isScheduledInvoices
+      ? '/api/scheduled-invoices/execute'
+      : '/api/recurring-work-orders/execute';
+    const idField = isScheduledInvoices ? 'scheduledInvoiceId' : 'recurringWorkOrderId';
+    const titleField = isScheduledInvoices ? 'scheduledInvoiceNumber' : 'title';
+    const logType = isScheduledInvoices ? 'cron_run_scheduled_invoices' : 'cron_run';
+
     const snapshot = await getDocs(query(
-      collection(db, 'recurringWorkOrders'),
+      collection(db, collectionName),
       where('status', '==', 'active'),
       where('nextExecution', '<=', cutoff),
     ));
 
-    const recurringWorkOrders = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-    const totalEligible = recurringWorkOrders.length;
+    const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+    const totalEligible = items.length;
 
     const results: any[] = [];
     let totalSucceeded = 0;
     let totalFailed = 0;
+    let totalSkipped = 0;
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
 
-    for (let i = 0; i < recurringWorkOrders.length; i++) {
-      const rwo = recurringWorkOrders[i];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       if (i > 0) await new Promise(r => setTimeout(r, 5000)); // 5s gap to avoid rate limits
       try {
-        const res = await fetch(`${baseUrl}/api/recurring-work-orders/execute`, {
+        const res = await fetch(`${baseUrl}${executeRoute}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recurringWorkOrderId: rwo.id, triggeredBy: 'manual_admin' }),
+          body: JSON.stringify({ [idField]: item.id, triggeredBy: 'manual_admin' }),
         });
         const data = await res.json();
-        if (res.ok) {
-          totalSucceeded++;
-          results.push({ rwoId: rwo.id, rwoTitle: (rwo as any).title || rwo.id, status: 'success', message: data.message || 'OK', executionId: data.executionId });
-        } else {
+        if (!res.ok) {
           totalFailed++;
-          results.push({ rwoId: rwo.id, rwoTitle: (rwo as any).title || rwo.id, status: 'error', message: data.error || data.details || 'Failed' });
+          results.push({
+            ...(isScheduledInvoices
+              ? { siId: item.id, siNumber: item[titleField], title: item.title }
+              : { rwoId: item.id, rwoTitle: item[titleField] || item.id }),
+            status: 'error',
+            message: data.error || data.details || 'Failed',
+          });
+          continue;
         }
+        if (data.alreadyExecuted) {
+          totalSkipped++;
+          results.push({
+            ...(isScheduledInvoices
+              ? { siId: item.id, siNumber: item[titleField], title: item.title }
+              : { rwoId: item.id, rwoTitle: item[titleField] || item.id }),
+            status: 'skipped',
+            message: data.message || 'Already executed',
+            invoiceNumber: data.invoiceNumber,
+          });
+          continue;
+        }
+        totalSucceeded++;
+        results.push({
+          ...(isScheduledInvoices
+            ? { siId: item.id, siNumber: item[titleField], title: item.title }
+            : { rwoId: item.id, rwoTitle: item[titleField] || item.id }),
+          status: 'success',
+          message: data.message || 'OK',
+          executionId: data.executionId,
+          invoiceNumber: data.invoiceNumber,
+          nextExecution: data.nextExecution,
+        });
       } catch (e: any) {
         totalFailed++;
-        results.push({ rwoId: rwo.id, rwoTitle: (rwo as any).title || rwo.id, status: 'error', message: e.message });
+        results.push({
+          ...(isScheduledInvoices
+            ? { siId: item.id, siNumber: item[titleField], title: item.title }
+            : { rwoId: item.id, rwoTitle: item[titleField] || item.id }),
+          status: 'error',
+          message: e.message,
+        });
       }
     }
 
     const completedAt = new Date();
     const durationMs = completedAt.getTime() - startedAt.getTime();
-    const runStatus = totalFailed === 0 ? 'completed' : totalSucceeded === 0 ? 'failed' : 'partial';
+    const runStatus = totalFailed === 0
+      ? (totalSucceeded === 0 && totalSkipped === 0 ? 'idle' : 'completed')
+      : totalSucceeded === 0
+        ? 'failed'
+        : 'partial';
 
-    // Log to Firestore
     await addDoc(collection(db, 'emailLogs'), {
-      type: 'cron_run',
+      type: logType,
       startedAt, completedAt, durationMs,
-      totalEligible, totalSucceeded, totalFailed,
+      totalEligible, totalSucceeded, totalFailed, totalSkipped,
       status: runStatus, triggeredBy: 'manual_api',
       results, createdAt: serverTimestamp(),
     });
 
-    // NOTE: Do NOT update _schedule.lastRunAt here.
-    // Only the Vercel cron route updates lastRunAt.
-    // If we update it here, the next Vercel cron trigger will see
-    // "ran recently" and skip, pushing execution out another full day.
-
     return NextResponse.json({
-      message: `Processed ${totalEligible} recurring work orders`,
-      status: runStatus, totalEligible, totalSucceeded, totalFailed, durationMs, results,
+      message: `Processed ${totalEligible} ${isScheduledInvoices ? 'scheduled invoices' : 'recurring work orders'}`,
+      status: runStatus,
+      totalEligible,
+      totalSucceeded,
+      totalFailed,
+      totalSkipped,
+      durationMs,
+      results,
     });
   } catch (error: any) {
-    // Log failure
     try {
       await addDoc(collection(db, 'emailLogs'), {
-        type: 'cron_run',
+        type: isScheduledInvoices ? 'cron_run_scheduled_invoices' : 'cron_run',
         startedAt, completedAt: new Date(), durationMs: Date.now() - startedAt.getTime(),
         totalEligible: 0, totalSucceeded: 0, totalFailed: 0,
         status: 'error', triggeredBy: 'manual_api',
