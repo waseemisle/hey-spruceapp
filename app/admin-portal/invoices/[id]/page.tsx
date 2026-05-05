@@ -670,7 +670,9 @@ export default function AdminInvoiceDetail() {
     }
     setSendingToClient(true);
     try {
-      // 1) Mint a fresh hosted Stripe invoice URL.
+      // 1) Mint a fresh hosted Stripe invoice URL. This MUST be awaited
+      //    because we embed the URL in the email body and persist it on
+      //    the Firestore invoice doc.
       const stripeRes = await fetch('/api/stripe/create-payment-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -698,30 +700,11 @@ export default function AdminInvoiceDetail() {
         terms: invoice.terms || '',
       });
 
-      // 3) Email the client with PDF + Stripe link.
-      const emailRes = await fetch('/api/email/send-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toEmail: invoice.clientEmail,
-          toName: invoice.clientName,
-          invoiceNumber: invoice.invoiceNumber,
-          workOrderTitle: invoice.workOrderTitle,
-          totalAmount: invoice.totalAmount,
-          dueDate: invoice.dueDate?.toDate?.()?.toLocaleDateString?.() || 'Net 10',
-          lineItems: invoice.lineItems || [],
-          notes: invoice.notes || '',
-          stripePaymentLink: stripeData.paymentLink,
-          invoiceId: invoice.id,
-          pdfBase64,
-        }),
-      });
-      const emailData = await emailRes.json();
-      if (!emailRes.ok) {
-        throw new Error(emailData.details || emailData.error || 'Failed to send invoice email');
-      }
-
-      // 4) Flip status → sent + timeline event.
+      // 3) Flip the Firestore invoice to 'sent' + timeline event BEFORE
+      //    firing the email. The button's "Sending…" state was hanging
+      //    on Mailgun (rate-limit + attachment upload can take 30s+);
+      //    per the project's "No Stuck Buttons Ever" rule, email sends
+      //    in UI flows must be fire-and-forget.
       const currentUser = auth.currentUser;
       const adminDoc = currentUser ? await getDoc(doc(db, 'adminUsers', currentUser.uid)) : null;
       const adminName = adminDoc?.exists() ? (adminDoc.data() as any).fullName : 'Admin';
@@ -749,7 +732,30 @@ export default function AdminInvoiceDetail() {
         stripeInvoiceId: stripeData.stripeInvoiceId || stripeData.sessionId,
         timeline: [...((prev.timeline as any) || []), sentEvent],
       } : prev);
-      toast.success('Invoice emailed to client.');
+
+      // 4) Fire-and-forget the email — failures are logged server-side
+      //    via /api/email/send-invoice's own logEmail call, so the admin
+      //    can see deliveries on the Email Logs page without the button
+      //    waiting on Mailgun.
+      fetch('/api/email/send-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: invoice.clientEmail,
+          toName: invoice.clientName,
+          invoiceNumber: invoice.invoiceNumber,
+          workOrderTitle: invoice.workOrderTitle,
+          totalAmount: invoice.totalAmount,
+          dueDate: invoice.dueDate?.toDate?.()?.toLocaleDateString?.() || 'Net 10',
+          lineItems: invoice.lineItems || [],
+          notes: invoice.notes || '',
+          stripePaymentLink: stripeData.paymentLink,
+          invoiceId: invoice.id,
+          pdfBase64,
+        }),
+      }).catch((err) => console.error('Send invoice email (background) failed:', err));
+
+      toast.success('Invoice marked as sent — email is delivering in the background.');
     } catch (err: any) {
       console.error('Send to Client error:', err);
       toast.error(err?.message || 'Failed to send invoice');

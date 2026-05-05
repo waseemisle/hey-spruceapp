@@ -220,18 +220,24 @@ export async function POST(request: NextRequest) {
       }
 
       try {
+        // Idempotency key MUST change between admin-initiated retries.
+        // Stripe caches every response under an idempotency key for 24h
+        // — including 402 card_declined. With a stable invoice+pm key,
+        // a single real decline (fraud hold, insufficient funds at the
+        // moment, etc.) gets pinned in Stripe's cache and every retry
+        // replays the same "card_declined" even after the underlying
+        // issue is resolved. The UI lock (`setCharging`) and the route
+        // having no auto-retry mean concurrent requests for the same
+        // logical attempt aren't a real risk; the per-call timestamp
+        // suffix forces Stripe to make a fresh charge attempt each time
+        // the admin clicks Auto Charge.
         paidStripeInvoice = await stripe.invoices.pay(
           linkedStripeInvoiceId,
           {
             off_session: true,
             payment_method: pmId,
           },
-          // Idempotency keyed on invoice + PM. Stripe returns the cached
-          // response on a retry of the SAME PM (network blip safety) but
-          // treats a different PM choice as a fresh attempt — important
-          // when a previous attempt failed and the admin retries against
-          // a different saved method.
-          { idempotencyKey: `pay-invoice-${linkedStripeInvoiceId}-${pmId}` },
+          { idempotencyKey: `pay-invoice-${linkedStripeInvoiceId}-${pmId}-${Date.now()}` },
         );
       } catch (err: any) {
         // .pay() throws on already-paid / void / uncollectible. Fetch
@@ -464,8 +470,12 @@ export async function POST(request: NextRequest) {
       piParams.off_session = true;
     }
 
+    // Per-call idempotency key (timestamp suffix) — see the matching
+    // comment in the invoice.pay() path above. Stripe caches every
+    // response (including card_declined) for 24h per key, so a stable
+    // key would pin a transient decline as a permanent failure.
     const paymentIntent = await stripe.paymentIntents.create(piParams, {
-      idempotencyKey: `charge-invoice-legacy-${invoiceId}-${pmId}`,
+      idempotencyKey: `charge-invoice-legacy-${invoiceId}-${pmId}-${Date.now()}`,
     });
 
     if (paymentIntent.status === 'succeeded') {
