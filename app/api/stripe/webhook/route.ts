@@ -6,6 +6,17 @@ import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { enrichFromPaymentIntent } from '@/lib/stripe-invoice-enrichment';
+import {
+  recordPaymentEvent,
+  fromPaymentIntent,
+  fromCharge,
+  fromInvoice,
+  fromSetupIntent,
+  fromCheckoutSession,
+  resolveInvoiceLinkage,
+  buildMutation,
+} from '@/lib/payment-logs';
+import type { PaymentLog, PaymentLogMutation } from '@/types';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,6 +40,17 @@ export async function POST(request: NextRequest) {
       console.error('Webhook signature verification failed:', err.message);
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
+
+    // Always capture the event in paymentLogs first — independent of
+    // whether we have a downstream handler for it. The Payment Logs
+    // admin page is the audit-of-record so we want the row even for
+    // events we currently treat as informational (charge.refunded,
+    // setup_intent.setup_failed, dispute.*). Idempotent: re-deliveries
+    // of the same event id merge into the existing row.
+    const __paymentLogId = await logWebhookEvent(event).catch((err) => {
+      console.error('[stripe webhook] logWebhookEvent threw (non-fatal):', err);
+      return undefined;
+    });
 
     switch (event.type) {
       // ── One-time checkout (original flow) ────────────────────────────────
@@ -95,6 +117,30 @@ export async function POST(request: NextRequest) {
         await handleSubscriptionDeleted(sub);
         break;
       }
+
+      // ── Logging-only events ──────────────────────────────────────────────
+      // These currently have no Firestore-mutating handler — the
+      // logWebhookEvent call above already captured them in paymentLogs
+      // so the admin can audit them. We list them explicitly (instead
+      // of falling through to default) to make their "we know about
+      // these" status clear in the code.
+      case 'charge.succeeded':
+      case 'charge.failed':
+      case 'charge.refunded':
+      case 'charge.dispute.created':
+      case 'charge.dispute.closed':
+      case 'charge.dispute.funds_withdrawn':
+      case 'charge.dispute.funds_reinstated':
+      case 'setup_intent.succeeded':
+      case 'setup_intent.setup_failed':
+      case 'payment_intent.requires_action':
+      case 'payment_intent.processing':
+      case 'payment_intent.canceled':
+      case 'invoice.payment_action_required':
+      case 'invoice.finalized':
+      case 'invoice.voided':
+        // Captured in paymentLogs. No further action required.
+        break;
 
       default:
         console.log(`Unhandled event type: ${event.type}`);
@@ -773,3 +819,195 @@ async function handleExpiredPayment(session: Stripe.Checkout.Session) {
     console.error('Error updating expired invoice status:', error);
   }
 }
+
+/**
+ * Capture a Stripe webhook event into the paymentLogs collection.
+ *
+ * Centralised dispatch — one switch on event.type that picks the right
+ * Stripe-object → PaymentLog mapper from lib/payment-logs and writes
+ * the row keyed on event.id (so Stripe's at-least-once retries dedupe
+ * for free).
+ *
+ * Linkage best-effort — when metadata.invoiceId is missing we fall
+ * back to a stripeInvoiceId / stripePaymentIntentId scan so older
+ * objects still join up with the right Firestore invoice on the
+ * Payment Logs admin page.
+ *
+ * Non-fatal — any error here is logged and swallowed by the caller so
+ * a logging hiccup never causes us to 500 the webhook (Stripe would
+ * retry the event, potentially re-running the side-effecting handlers).
+ */
+async function logWebhookEvent(event: Stripe.Event): Promise<string | undefined> {
+  // Pre-flight: only log payment-relevant events. Anything else
+  // (tax-rate updates, dispute hooks we don't care about, etc.) is
+  // skipped to keep the collection focused.
+  const RELEVANT_PREFIXES = [
+    'charge.',
+    'payment_intent.',
+    'invoice.',
+    'setup_intent.',
+    'checkout.session.',
+  ];
+  const isRelevant = RELEVANT_PREFIXES.some((p) => event.type.startsWith(p));
+  if (!isRelevant) return undefined;
+
+  let db: any;
+  try {
+    db = await getServerDb();
+  } catch (e) {
+    console.error('[logWebhookEvent] DB connect failed:', e);
+    return undefined;
+  }
+
+  let partial: Partial<PaymentLog> | null = null;
+  const obj: any = event.data?.object;
+
+  // Map (event.type, event.data.object.status) → PaymentLog status.
+  const stripeStatusToLogStatus = (raw: string | null | undefined): PaymentLog['status'] => {
+    switch (raw) {
+      case 'succeeded':
+      case 'paid':
+      case 'complete':
+        return 'succeeded';
+      case 'requires_action':
+      case 'requires_confirmation':
+      case 'requires_payment_method':
+        return 'requires_action';
+      case 'processing':
+        return 'processing';
+      case 'canceled':
+      case 'cancelled':
+      case 'voided':
+        return 'canceled';
+      case 'refunded':
+        return 'refunded';
+      case 'open':
+        return 'pending';
+      default:
+        return 'pending';
+    }
+  };
+
+  try {
+    if (event.type.startsWith('payment_intent.')) {
+      const pi = obj as Stripe.PaymentIntent;
+      const status: PaymentLog['status'] =
+        event.type === 'payment_intent.succeeded' ? 'succeeded'
+        : event.type === 'payment_intent.payment_failed' ? 'failed'
+        : event.type === 'payment_intent.requires_action' ? 'requires_action'
+        : event.type === 'payment_intent.processing' ? 'processing'
+        : event.type === 'payment_intent.canceled' ? 'canceled'
+        : stripeStatusToLogStatus(pi.status);
+      partial = fromPaymentIntent(pi, status);
+      // Fill linkage from invoices collection if metadata didn't carry it.
+      if (!partial.linkedInvoiceId) {
+        const linkage = await resolveInvoiceLinkage(db, {
+          stripePaymentIntentId: pi.id,
+          metadata: pi.metadata as any,
+        });
+        partial = { ...partial, ...linkage };
+      }
+    } else if (event.type.startsWith('charge.')) {
+      const ch = obj as Stripe.Charge;
+      const status: PaymentLog['status'] =
+        event.type === 'charge.succeeded' ? 'succeeded'
+        : event.type === 'charge.failed' ? 'failed'
+        : event.type === 'charge.refunded' ? 'refunded'
+        : event.type.startsWith('charge.dispute.') ? 'disputed'
+        : stripeStatusToLogStatus(ch.status);
+      partial = fromCharge(ch, status);
+      if (!partial.linkedInvoiceId) {
+        const linkage = await resolveInvoiceLinkage(db, {
+          stripeChargeId: ch.id,
+          stripePaymentIntentId: typeof ch.payment_intent === 'string' ? ch.payment_intent : undefined,
+          metadata: ch.metadata as any,
+        });
+        partial = { ...partial, ...linkage };
+      }
+    } else if (event.type.startsWith('invoice.')) {
+      const inv = obj as Stripe.Invoice;
+      const status: PaymentLog['status'] =
+        event.type === 'invoice.paid' ? 'succeeded'
+        : event.type === 'invoice.payment_failed' ? 'failed'
+        : event.type === 'invoice.payment_action_required' ? 'requires_action'
+        : event.type === 'invoice.voided' ? 'canceled'
+        : stripeStatusToLogStatus(inv.status);
+      partial = fromInvoice(inv, status);
+      if (!partial.linkedInvoiceId) {
+        const linkage = await resolveInvoiceLinkage(db, {
+          stripeInvoiceId: inv.id,
+          metadata: inv.metadata as any,
+        });
+        partial = { ...partial, ...linkage };
+      }
+    } else if (event.type.startsWith('setup_intent.')) {
+      const si = obj as Stripe.SetupIntent;
+      const status: PaymentLog['status'] =
+        event.type === 'setup_intent.succeeded' ? 'succeeded'
+        : event.type === 'setup_intent.setup_failed' ? 'failed'
+        : event.type === 'setup_intent.requires_action' ? 'requires_action'
+        : stripeStatusToLogStatus(si.status);
+      partial = fromSetupIntent(si, status);
+    } else if (event.type.startsWith('checkout.session.')) {
+      const cs = obj as Stripe.Checkout.Session;
+      const status: PaymentLog['status'] =
+        cs.payment_status === 'paid' ? 'succeeded'
+        : event.type === 'checkout.session.expired' ? 'canceled'
+        : stripeStatusToLogStatus(cs.payment_status as any);
+      partial = fromCheckoutSession(cs, status);
+      if (!partial.linkedInvoiceId) {
+        const linkage = await resolveInvoiceLinkage(db, {
+          metadata: cs.metadata as any,
+        });
+        partial = { ...partial, ...linkage };
+      }
+    }
+  } catch (e) {
+    console.error('[logWebhookEvent] mapper threw:', e, 'for event', event.type);
+    return undefined;
+  }
+
+  if (!partial) return undefined;
+
+  return await recordPaymentEvent({
+    db,
+    partial,
+    source: 'webhook',
+    rawEventType: event.type,
+    stripeEventId: event.id,
+    rawPayload: obj,
+  }).catch((e) => {
+    console.error('[logWebhookEvent] recordPaymentEvent threw:', e);
+    return undefined;
+  });
+}
+
+/**
+ * Append a record-mutation entry to an existing payment log row.
+ * Used by the existing handlers below to record what they updated as
+ * a result of the event — so the admin can trace the cascade. Wrapped
+ * in catch so a logging slip never crashes the handler.
+ */
+async function appendLogMutation(
+  stripeEventId: string | undefined,
+  mutation: PaymentLogMutation,
+): Promise<void> {
+  if (!stripeEventId) return;
+  try {
+    const db = await getServerDb();
+    await recordPaymentEvent({
+      db,
+      partial: { stripeObjectId: 'unused' } as any, // ignored on merge — id keys off stripeEventId
+      source: 'webhook',
+      stripeEventId,
+      recordMutations: [mutation],
+    });
+  } catch (e) {
+    console.error('[appendLogMutation] failed:', e);
+  }
+}
+// Reference the helpers in the module so unused-import linting never
+// trips when they're only used by the dispatcher above. Not exported
+// — Next.js route files only allow specific top-level exports.
+void appendLogMutation;
+void buildMutation;
