@@ -142,17 +142,25 @@ export default function CreateWorkOrder() {
           getDocs(query(
             collection(db, 'locations'),
             where('companyId', '==', companyId),
-            where('status', '==', 'approved'),
           ))
             .then((snapshot) => {
-              // Restrict the location picker to the locations the admin
-              // assigned to this client (or legacy direct-ownership rows
-              // where location.clientId === uid). Without this filter
-              // the picker leaked every sibling location under the
-              // parent company, even ones the client wasn't supposed to
-              // see — and matches the behavior on /client-portal/locations.
+              // Visibility for the WO create picker:
+              //   • The location must be either explicitly assigned to
+              //     this client OR directly owned (legacy clientId
+              //     match). This matches the /client-portal/locations
+              //     filter so the picker can't show locations the
+              //     client doesn't see on the locations page.
+              //   • Rejected locations are excluded (admin's reject
+              //     decision is honored).
+              //   • Pending IS allowed — locations clients create
+               //    arrive as 'pending' and an admin assignment is the
+              //     trust signal we need; without this, assigning a
+              //     pending location to a client did nothing useful
+              //     because the picker still excluded it.
               const visible = snapshot.docs.filter((docSnap) => {
                 const data = docSnap.data() as any;
+                const status = (data.status || '').toLowerCase();
+                if (status === 'rejected') return false;
                 return assignedLocationIds.has(docSnap.id) || data.clientId === clientUid;
               });
               setLocations(visible.map(docSnap => ({
@@ -463,7 +471,7 @@ export default function CreateWorkOrder() {
                         { value: '', label: checkingCompany
                           ? 'Loading locations…'
                           : locations.length === 0
-                            ? 'No approved locations yet — contact your admin'
+                            ? 'No locations assigned yet — contact your admin'
                             : 'Select a location' },
                         ...locations.map((location) => ({ value: location.id, label: location.name })),
                       ]}
@@ -473,10 +481,10 @@ export default function CreateWorkOrder() {
                     />
                     {!checkingCompany && locations.length === 0 && (
                       <p className="text-xs text-muted-foreground mt-1.5">
-                        No approved locations are linked to your company. {' '}
+                        No locations are assigned to you. {' '}
                         <Link href="/client-portal/locations" className="text-blue-600 underline">
                           Add a location
-                        </Link>{' '}or contact your administrator.
+                        </Link>{' '}or ask your administrator to assign one.
                       </p>
                     )}
                   </div>
