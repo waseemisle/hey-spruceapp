@@ -345,6 +345,24 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isAdmin();
     }
 
+    // Payment Logs - admin-only audit trail of every Stripe payment event
+    // (webhook) + every server-initiated charge (auto-charge route, hosted-
+    // link finalize). Server-side routes write via getServerDb (bypasses
+    // these rules); admins read from /admin-portal/payment-logs.
+    match /paymentLogs/{logId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+
+    // Scheduled Invoice Executions - admin-only execution audit (parallel
+    // to recurringWorkOrderExecutions). Cron / execute routes write via
+    // getServerDb; admins read on the SI detail page.
+    match /scheduledInvoices/{scheduledInvoiceId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+    match /scheduledInvoiceExecutions/{executionId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+
     // Client Charges (transaction history for manual/subscription charges)
     // Admins can read/write; clients can read their own charges
     match /clientCharges/{chargeId} {

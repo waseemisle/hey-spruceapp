@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { doc, getDoc } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { getBearerUid } from '@/lib/api-verify-firebase';
 import {
   recordPaymentEvent,
   fromCharge,
@@ -29,25 +31,41 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
  * after the phase-2/3 webhook + route changes ship.
  */
 async function handle(request: NextRequest) {
-  // Auth: admin-only via the same admin Bearer pattern other admin
-  // routes use, OR the CRON_SECRET so the backfill can be triggered
-  // from a Vercel cron / curl by the operator.
+  // Auth: accept either
+  //   • CRON_SECRET bearer (so the operator can trigger via curl /
+  //     Vercel cron without going through the admin portal), OR
+  //   • a Firebase ID token that resolves to a row in `adminUsers`
+  //     (the admin-portal "Backfill 90 days" button uses this path).
+  // A generic Bearer is no longer enough — the previous gate let any
+  // signed token through, which was too loose for an endpoint that
+  // walks Stripe history.
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = request.headers.get('authorization') || '';
   const cronAuthorised = !!cronSecret && (
     authHeader === `Bearer ${cronSecret}` || authHeader === cronSecret
   );
-  // For now we only require either CRON_SECRET or admin bearer; tighten
-  // later if needed.
-  if (cronSecret && !cronAuthorised && !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const db = await getServerDb();
+
+  if (!cronAuthorised) {
+    // Fall back to admin-bearer auth.
+    const uid = await getBearerUid(request).catch(() => null);
+    if (!uid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    try {
+      const adminSnap = await getDoc(doc(db, 'adminUsers', uid));
+      if (!adminSnap.exists()) {
+        return NextResponse.json({ error: 'Forbidden — admin only' }, { status: 403 });
+      }
+    } catch (e: any) {
+      return NextResponse.json({ error: 'Auth lookup failed: ' + (e?.message || 'unknown') }, { status: 500 });
+    }
   }
 
   const daysParam = Number(request.nextUrl.searchParams.get('days') || '90');
   const days = Number.isFinite(daysParam) && daysParam > 0 ? Math.min(daysParam, 365) : 90;
   const sinceUnix = Math.floor(Date.now() / 1000) - days * 86_400;
-
-  const db = await getServerDb();
 
   // ── Charges (covers card + ACH, both succeeded + failed) ──────
   let chargesProcessed = 0;

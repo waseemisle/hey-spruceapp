@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { collection, onSnapshot, query } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -189,7 +189,14 @@ export default function PaymentLogsListPage() {
     if (!confirm('Pull the last 90 days of Stripe charges + invoices into paymentLogs? Idempotent — safe to re-run.')) return;
     setBackfilling(true);
     try {
-      const res = await fetch('/api/payment-logs/backfill?days=90', { method: 'POST' });
+      // Send the admin's Firebase ID token so the route can verify
+      // they're authorised. The backfill endpoint accepts either
+      // CRON_SECRET or an authenticated admin Bearer.
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/payment-logs/backfill?days=90', {
+        method: 'POST',
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Backfill failed');
       toast.success(`Backfilled ${data.chargesProcessed} charges + ${data.invoicesProcessed} invoices.`);
