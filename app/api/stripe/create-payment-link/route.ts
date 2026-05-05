@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { recordPaymentEvent, fromInvoice, buildMutation } from '@/lib/payment-logs';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -357,6 +358,43 @@ export async function POST(request: NextRequest) {
       await updateDoc(doc(db, 'invoices', invoiceId), persistFields);
     } catch (persistErr) {
       console.warn('[create-payment-link] Failed to persist hosted URL on invoice:', persistErr);
+    }
+
+    // Log the auto-charge outcome to paymentLogs so the admin's
+    // Payment Logs page captures synchronously-resolved auto-charges
+    // (the matching invoice.paid / payment_intent.succeeded webhook
+    // arrives later and merges richer fields into the same row).
+    if (willAutoCharge) {
+      try {
+        const status: 'succeeded' | 'failed' | 'requires_action' | 'pending' =
+          autoChargeOutcome || 'pending';
+        const partial = fromInvoice(finalized, status);
+        partial.linkedInvoiceId = invoiceId;
+        partial.linkedInvoiceNumber = invoiceNumber;
+        partial.linkedClientId = clientId || undefined;
+        partial.linkedClientName = clientName || undefined;
+        if (status === 'failed' && finalized.last_finalization_error?.message) {
+          partial.failureMessage = finalized.last_finalization_error.message;
+          partial.failureCode = (finalized.last_finalization_error as any).code;
+        }
+        await recordPaymentEvent({
+          db,
+          partial,
+          source: 'hosted_link_finalize',
+          rawPayload: finalized,
+          recordMutations: [
+            buildMutation({
+              collection: 'invoices',
+              docId: invoiceId,
+              field: 'autoChargeStatus',
+              to: status,
+              summary: `Auto-charge at finalize: ${status} (${invoiceNumber})`,
+            }),
+          ],
+        });
+      } catch (logErr) {
+        console.warn('[create-payment-link] paymentLogs write failed (non-fatal):', logErr);
+      }
     }
 
     return NextResponse.json({

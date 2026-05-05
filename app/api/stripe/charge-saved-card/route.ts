@@ -4,6 +4,14 @@ import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/fir
 import { getServerDb } from '@/lib/firebase-server';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { enrichFromPaymentIntent } from '@/lib/stripe-invoice-enrichment';
+import {
+  recordPaymentEvent,
+  fromPaymentIntent,
+  fromInvoice,
+  buildMutation,
+  classifyDecline,
+} from '@/lib/payment-logs';
+import type { PaymentLogMutation } from '@/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -137,6 +145,54 @@ export async function POST(request: NextRequest) {
        Pay the invoice itself with the saved PM. Stripe charges the
        customer using the invoice's own PI and flips it to 'paid'.
     ───────────────────────────────────────────────────────────────── */
+    /**
+     * Helper — write a paymentLogs row for whatever outcome this route
+     * just produced. Centralised so each branch can log in one line
+     * without repeating the source / mutation-array boilerplate.
+     */
+    const logOutcome = async (args: {
+      stripeObject: Stripe.PaymentIntent | Stripe.Invoice;
+      objectKind: 'payment_intent' | 'invoice';
+      status: 'succeeded' | 'failed' | 'requires_action' | 'processing';
+      mutations?: PaymentLogMutation[];
+      failureMessage?: string;
+      failureCode?: string;
+      declineCode?: string;
+    }) => {
+      try {
+        const partial = args.objectKind === 'payment_intent'
+          ? fromPaymentIntent(args.stripeObject as Stripe.PaymentIntent, args.status)
+          : fromInvoice(args.stripeObject as Stripe.Invoice, args.status);
+        // Hand-craft failure metadata if the helper didn't pick it up
+        // (e.g. the route caught an exception before Stripe attached
+        // last_payment_error).
+        if (args.status === 'failed' && (args.failureMessage || args.failureCode || args.declineCode)) {
+          partial.failureMessage = args.failureMessage || partial.failureMessage;
+          if (args.failureCode) partial.failureCode = args.failureCode;
+          if (args.declineCode) partial.declineCode = args.declineCode;
+          const cls = classifyDecline(args.declineCode || partial.declineCode, args.failureCode || partial.failureCode);
+          partial.declineCategory = cls.declineCategory;
+          partial.possibleCauses = cls.possibleCauses;
+          partial.nextSteps = cls.nextSteps;
+        }
+        // Always pin the linked invoice — caller has it in scope, much
+        // cheaper than the resolveInvoiceLinkage scan the webhook does.
+        partial.linkedInvoiceId = invoiceId;
+        partial.linkedInvoiceNumber = invoiceData.invoiceNumber;
+        partial.linkedClientId = clientId;
+        partial.linkedClientName = invoiceData.clientName;
+        await recordPaymentEvent({
+          db,
+          partial,
+          source: 'auto_charge_route',
+          rawPayload: args.stripeObject,
+          recordMutations: args.mutations,
+        });
+      } catch (e) {
+        console.error('[charge-saved-card] logOutcome failed (non-fatal):', e);
+      }
+    };
+
     if (linkedStripeInvoiceId) {
       let paidStripeInvoice: Stripe.Invoice;
 
@@ -194,6 +250,48 @@ export async function POST(request: NextRequest) {
             autoChargeError: err?.message || 'Stripe invoice.pay failed',
             updatedAt: serverTimestamp(),
           });
+          // Log the failure with whatever Stripe context we have. Best
+          // effort to retrieve the PI for richer payload before the
+          // throw — admin Payment Logs page wants the decline code.
+          let failingPi: Stripe.PaymentIntent | null = null;
+          try {
+            const fetchedInv = await stripe.invoices.retrieve(linkedStripeInvoiceId, { expand: ['payment_intent'] });
+            failingPi = (fetchedInv?.payment_intent as Stripe.PaymentIntent) || null;
+          } catch { /* fall back to invoice payload */ }
+          await logOutcome(failingPi
+            ? {
+                stripeObject: failingPi,
+                objectKind: 'payment_intent',
+                status: 'failed',
+                failureMessage: err?.message,
+                failureCode: err?.code,
+                declineCode: err?.decline_code || err?.raw?.decline_code,
+                mutations: [
+                  buildMutation({
+                    collection: 'invoices',
+                    docId: invoiceId,
+                    field: 'autoChargeStatus',
+                    to: 'failed',
+                    summary: `Auto-charge failed for invoice ${invoiceData.invoiceNumber}`,
+                  }),
+                ],
+              }
+            : {
+                stripeObject: { id: linkedStripeInvoiceId } as Stripe.Invoice,
+                objectKind: 'invoice',
+                status: 'failed',
+                failureMessage: err?.message,
+                failureCode: err?.code,
+                mutations: [
+                  buildMutation({
+                    collection: 'invoices',
+                    docId: invoiceId,
+                    field: 'autoChargeStatus',
+                    to: 'failed',
+                    summary: `Auto-charge failed for invoice ${invoiceData.invoiceNumber}`,
+                  }),
+                ],
+              });
           throw err;
         }
       }
@@ -211,6 +309,20 @@ export async function POST(request: NextRequest) {
           autoChargeStatus: 'requires_action',
           stripePaymentIntentId: piId || null,
           updatedAt: serverTimestamp(),
+        });
+        await logOutcome({
+          stripeObject: paidStripeInvoice,
+          objectKind: 'invoice',
+          status: 'requires_action',
+          mutations: [
+            buildMutation({
+              collection: 'invoices',
+              docId: invoiceId,
+              field: 'autoChargeStatus',
+              to: 'requires_action',
+              summary: `Auto-charge ${invoiceData.invoiceNumber} processing — awaiting bank/card confirmation`,
+            }),
+          ],
         });
         return NextResponse.json({
           success: false,
@@ -278,6 +390,29 @@ export async function POST(request: NextRequest) {
           console.warn('[charge-saved-card] WO close failed:', woErr);
         }
       }
+
+      await logOutcome({
+        stripeObject: paidStripeInvoice,
+        objectKind: 'invoice',
+        status: 'succeeded',
+        mutations: [
+          buildMutation({
+            collection: 'invoices',
+            docId: invoiceId,
+            field: 'status',
+            from: invoiceData.status as string,
+            to: 'paid',
+            summary: `Invoice ${invoiceData.invoiceNumber} marked paid via auto-charge (${cardLabel})`,
+          }),
+          ...(invoiceData.workOrderId ? [buildMutation({
+            collection: 'workOrders',
+            docId: invoiceData.workOrderId,
+            field: 'status',
+            to: 'completed',
+            summary: 'Linked work order auto-completed on invoice payment',
+          })] : []),
+        ],
+      });
 
       return NextResponse.json({
         success: true,
@@ -386,6 +521,29 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      await logOutcome({
+        stripeObject: paymentIntent,
+        objectKind: 'payment_intent',
+        status: 'succeeded',
+        mutations: [
+          buildMutation({
+            collection: 'invoices',
+            docId: invoiceId,
+            field: 'status',
+            from: invoiceData.status as string,
+            to: 'paid',
+            summary: `Invoice ${invoiceData.invoiceNumber} marked paid via legacy PI auto-charge (${cardLabel})`,
+          }),
+          ...(invoiceData.workOrderId ? [buildMutation({
+            collection: 'workOrders',
+            docId: invoiceData.workOrderId,
+            field: 'status',
+            to: 'completed',
+            summary: 'Linked work order auto-completed on invoice payment',
+          })] : []),
+        ],
+      });
+
       return NextResponse.json({
         success: true,
         status: 'succeeded',
@@ -401,6 +559,21 @@ export async function POST(request: NextRequest) {
         autoChargeStatus: 'requires_action',
         stripePaymentIntentId: paymentIntent.id,
         updatedAt: serverTimestamp(),
+      });
+
+      await logOutcome({
+        stripeObject: paymentIntent,
+        objectKind: 'payment_intent',
+        status: 'requires_action',
+        mutations: [
+          buildMutation({
+            collection: 'invoices',
+            docId: invoiceId,
+            field: 'autoChargeStatus',
+            to: 'requires_action',
+            summary: `Invoice ${invoiceData.invoiceNumber} requires customer authentication (3DS)`,
+          }),
+        ],
       });
 
       return NextResponse.json({
@@ -421,6 +594,39 @@ export async function POST(request: NextRequest) {
           autoChargeError: error?.message || 'Charge failed',
           updatedAt: serverTimestamp(),
         });
+        // Best-effort log of the failure even though we don't have a
+        // Stripe object in scope. Synthesises a minimal partial so the
+        // admin still sees an entry on the Payment Logs page.
+        try {
+          const db2 = await getServerDb();
+          const cls = classifyDecline(error?.decline_code, error?.code);
+          await recordPaymentEvent({
+            db: db2,
+            partial: {
+              stripeObjectId: error?.payment_intent?.id || `auto-charge-${invoiceId}-${Date.now()}`,
+              stripeObjectType: 'payment_intent',
+              status: 'failed',
+              failureMessage: error?.message,
+              failureCode: error?.code,
+              declineCode: error?.decline_code,
+              ...cls,
+              linkedInvoiceId: invoiceId,
+              linkedClientId: clientId,
+            },
+            source: 'auto_charge_route',
+            recordMutations: [
+              buildMutation({
+                collection: 'invoices',
+                docId: invoiceId,
+                field: 'autoChargeStatus',
+                to: 'failed',
+                summary: `Auto-charge failed (route catch): ${error?.message || 'unknown error'}`,
+              }),
+            ],
+          });
+        } catch (logErr) {
+          console.error('[charge-saved-card] catch-block log failed:', logErr);
+        }
       } catch {}
     }
 
