@@ -366,7 +366,22 @@ export function fromPaymentIntent(
   pi: Stripe.PaymentIntent,
   status: PaymentLog['status'],
 ): Partial<PaymentLog> {
-  const charge = (pi as any).charges?.data?.[0] as Stripe.Charge | undefined;
+  // Stripe API ≥ 2022-11-15 (incl. our pinned 2023-10-16) removed
+  // `pi.charges.data[]`; the canonical access path is `pi.latest_charge`
+  // (a string id by default, expanded charge object when the caller
+  // passed `expand: ['latest_charge']`). Reading `pi.charges` here
+  // returned undefined silently — every PI logged via this helper
+  // was missing card brand/last4/decline reason/fee. Read both fields
+  // for backwards-compat with any leftover older-API callers.
+  const latestChargeRaw =
+    (pi as any).latest_charge ?? (pi as any).charges?.data?.[0] ?? undefined;
+  const charge: Stripe.Charge | undefined =
+    latestChargeRaw && typeof latestChargeRaw === 'object'
+      ? (latestChargeRaw as Stripe.Charge)
+      : undefined;
+  const chargeIdFromString =
+    typeof latestChargeRaw === 'string' ? latestChargeRaw : undefined;
+
   const pm = pi.payment_method;
   const pmFromCharge = charge ? pmFieldsFromCharge(charge) : null;
   const pmFromPm = !pmFromCharge ? pmFieldsFromPaymentMethod(pm) : null;
@@ -391,7 +406,7 @@ export function fromPaymentIntent(
     amount: moneyFromCents(pi.amount_received || pi.amount),
     amountCents: pi.amount_received || pi.amount,
     currency: pi.currency,
-    chargeId: typeof charge?.id === 'string' ? charge.id : undefined,
+    chargeId: charge?.id || chargeIdFromString || undefined,
     receiptUrl: charge?.receipt_url || undefined,
     feeAmount: typeof (charge as any)?.balance_transaction === 'object'
       ? (charge as any)?.balance_transaction?.fee : undefined,

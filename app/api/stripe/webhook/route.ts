@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { collection, doc, addDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, getDoc, getDocs, query, where, limit as fsLimit, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { sendAutoChargeReceiptEmail } from '@/lib/auto-charge-email';
@@ -57,10 +57,38 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.mode === 'payment') {
-          await handleSuccessfulPayment(session);
+          // For ACH (us_bank_account) checkout, this event fires when the
+          // customer authorizes — `payment_status` is still 'unpaid' until
+          // the bank confirms settlement (1–4 business days). The canonical
+          // settlement event for delayed payment methods is
+          // `checkout.session.async_payment_succeeded`, handled below.
+          // Only flip the invoice to paid when Stripe says the money is
+          // actually in.
+          if (session.payment_status === 'paid') {
+            await handleSuccessfulPayment(session);
+          } else {
+            console.log(
+              `checkout.session.completed for ${session.id} with payment_status=${session.payment_status} — waiting for async settlement event`,
+            );
+          }
         } else if (session.mode === 'setup') {
           await handleSetupCompleted(session);
         }
+        break;
+      }
+
+      // ── Async payment outcome (ACH / delayed payment methods) ────────────
+      // For us_bank_account / SEPA / OXXO etc., `checkout.session.completed`
+      // arrives before settlement. These events are the truth.
+      case 'checkout.session.async_payment_succeeded': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleSuccessfulPayment(session);
+        break;
+      }
+
+      case 'checkout.session.async_payment_failed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleAsyncPaymentFailed(session);
         break;
       }
 
@@ -112,6 +140,12 @@ export async function POST(request: NextRequest) {
       }
 
       // ── Subscription lifecycle ────────────────────────────────────────────
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as Stripe.Subscription;
+        await handleSubscriptionUpdated(sub);
+        break;
+      }
+
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription;
         await handleSubscriptionDeleted(sub);
@@ -408,14 +442,29 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
       return;
     }
 
+    // Capture full decline metadata so the admin Payment Logs page sees
+    // the same level of detail the synchronous charge route produces.
+    // Previously this handler only wrote `autoChargeError: <message>` —
+    // when the failure arrived via webhook (e.g. ACH bouncing 4 days
+    // later) the Firestore invoice was missing decline_code, failure
+    // code, and the timestamp of the failure entirely.
+    const failureMessage = pi.last_payment_error?.message || 'Payment failed';
+    const failureCode = pi.last_payment_error?.code as string | undefined;
+    const declineCode = (pi.last_payment_error as any)?.decline_code as string | undefined;
+
     await updateDoc(doc(db, 'invoices', invoiceId), {
       autoChargeAttempted: true,
       autoChargeStatus: 'failed',
-      autoChargeError: pi.last_payment_error?.message || 'Payment failed',
+      autoChargeError: failureMessage,
+      autoChargeFailedAt: serverTimestamp(),
+      ...(failureCode ? { autoChargeFailureCode: failureCode } : {}),
+      ...(declineCode ? { autoChargeDeclineCode: declineCode } : {}),
       updatedAt: serverTimestamp(),
     });
 
-    console.log(`Invoice ${invoiceId} auto-charge failed`);
+    console.log(
+      `Invoice ${invoiceId} auto-charge failed${failureCode ? ` [${failureCode}]` : ''}${declineCode ? ` decline=${declineCode}` : ''}: ${failureMessage}`,
+    );
   } catch (error) {
     console.error('Error handling payment_intent.payment_failed:', error);
   }
@@ -675,6 +724,26 @@ async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
     // Skip $0 invoices (e.g. trial or setup invoice)
     if (!stripeInvoice.amount_paid || stripeInvoice.amount_paid === 0) return;
 
+    // Idempotency — Stripe webhook delivery is at-least-once. A re-delivery
+    // of the same `invoice.paid` event would otherwise call addDoc again
+    // and create a duplicate Firestore invoice + send a duplicate receipt
+    // email. Look up by stripeInvoiceId before writing.
+    if (stripeInvoice.id) {
+      const dupSnap = await getDocs(
+        query(
+          collection(db, 'invoices'),
+          where('stripeInvoiceId', '==', stripeInvoice.id),
+          fsLimit(1),
+        ),
+      );
+      if (!dupSnap.empty) {
+        console.log(
+          `Subscription invoice ${stripeInvoice.id} already recorded as Firestore invoice ${dupSnap.docs[0].id} — skipping duplicate`,
+        );
+        return;
+      }
+    }
+
     // Get clientId from subscription metadata (invoice metadata may be empty)
     let clientId = stripeInvoice.metadata?.clientId;
     let subscriptionId: string | undefined;
@@ -713,6 +782,7 @@ async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
     });
 
     await addDoc(collection(db, 'invoices'), {
+      stripeInvoiceId: stripeInvoice.id,
       invoiceNumber,
       clientId,
       clientName: clientData.fullName || '',
@@ -771,13 +841,69 @@ async function handleSubscriptionInvoicePaid(stripeInvoice: Stripe.Invoice) {
   }
 }
 
-/** Subscription invoice payment failed */
+/**
+ * Subscription invoice payment failed. Stripe will retry per its dunning
+ * settings, but the admin needs to know NOW that the recurring charge
+ * failed. Flip the client's subscription status to past_due (the matching
+ * `customer.subscription.updated` event fires too — both paths land on
+ * the same field) and capture the failure reason.
+ */
 async function handleSubscriptionInvoiceFailed(stripeInvoice: Stripe.Invoice) {
   try {
-    const clientId = stripeInvoice.metadata?.clientId;
-    if (clientId) {
-      console.log(`Subscription invoice payment failed for client ${clientId}: ${stripeInvoice.id}`);
+    const db = await getServerDb();
+
+    // Resolve clientId from invoice metadata, falling back to the
+    // subscription's own metadata (old subs may not have it duplicated
+    // onto the invoice).
+    let clientId = stripeInvoice.metadata?.clientId;
+    let subscriptionId: string | undefined;
+    if (!clientId && stripeInvoice.subscription) {
+      subscriptionId = typeof stripeInvoice.subscription === 'string'
+        ? stripeInvoice.subscription
+        : stripeInvoice.subscription.id;
+      try {
+        const sub = await stripe.subscriptions.retrieve(subscriptionId);
+        clientId = sub.metadata?.clientId;
+      } catch (subErr) {
+        console.warn('[Webhook] could not retrieve subscription for failed invoice:', subErr);
+      }
     }
+
+    if (!clientId) {
+      console.log(`Subscription invoice payment failed but no clientId resolvable: ${stripeInvoice.id}`);
+      return;
+    }
+
+    // Pull the PI to get the actual decline reason / code.
+    let failureMessage: string | undefined;
+    let failureCode: string | undefined;
+    let declineCode: string | undefined;
+    const piId = typeof stripeInvoice.payment_intent === 'string'
+      ? stripeInvoice.payment_intent
+      : stripeInvoice.payment_intent?.id;
+    if (piId) {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(piId);
+        failureMessage = pi.last_payment_error?.message;
+        failureCode = pi.last_payment_error?.code as string | undefined;
+        declineCode = (pi.last_payment_error as any)?.decline_code;
+      } catch (piErr) {
+        console.warn('[Webhook] could not retrieve PI for failed sub invoice:', piErr);
+      }
+    }
+
+    await updateDoc(doc(db, 'clients', clientId), {
+      subscriptionStatus: 'past_due',
+      subscriptionPastDueAt: serverTimestamp(),
+      subscriptionLastFailureReason: failureMessage || 'Subscription invoice payment failed',
+      ...(failureCode ? { subscriptionLastFailureCode: failureCode } : {}),
+      ...(declineCode ? { subscriptionLastDeclineCode: declineCode } : {}),
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(
+      `Subscription invoice payment failed for client ${clientId}: ${stripeInvoice.id}${failureCode ? ` [${failureCode}]` : ''}`,
+    );
   } catch (error) {
     console.error('Error handling invoice.payment_failed (subscription):', error);
   }
@@ -790,15 +916,71 @@ async function handleSubscriptionDeleted(sub: Stripe.Subscription) {
     const clientId = sub.metadata?.clientId;
     if (!clientId) return;
 
+    // Keep stripeSubscriptionId on the doc — it remains the canonical
+    // pointer for any late events (final invoice, refunds, disputes
+    // related to the cancelled period) and for audit trail. Only flip
+    // status. If you ever need to start a new sub for this client, the
+    // /api/stripe/update-subscription route will overwrite the field
+    // with the new id.
     await updateDoc(doc(db, 'clients', clientId), {
       subscriptionStatus: 'cancelled',
-      stripeSubscriptionId: null,
+      subscriptionCancelledAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
-    console.log(`Subscription cancelled for client ${clientId}`);
+    console.log(`Subscription cancelled for client ${clientId} (id retained: ${sub.id})`);
   } catch (error) {
     console.error('Error handling subscription deleted:', error);
+  }
+}
+
+/**
+ * Subscription updated — covers Stripe-side state transitions:
+ *   • Stripe's dunning flips status to `past_due` when a renewal invoice
+ *     fails. Without surfacing this, recurring billing failures are
+ *     completely silent in the admin UI.
+ *   • `cancel_at_period_end: true` echoes back so we can confirm the
+ *     pending cancellation landed on Stripe's side.
+ *   • `unpaid` / `incomplete_expired` are terminal failure states.
+ */
+async function handleSubscriptionUpdated(sub: Stripe.Subscription) {
+  try {
+    const db = await getServerDb();
+    const clientId = sub.metadata?.clientId;
+    if (!clientId) return;
+
+    const fields: Record<string, any> = { updatedAt: serverTimestamp() };
+
+    // Map Stripe's subscription.status → our denormalised field.
+    // 'active' | 'past_due' | 'unpaid' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'canceled' | 'paused'
+    if (sub.status === 'past_due') {
+      fields.subscriptionStatus = 'past_due';
+      fields.subscriptionPastDueAt = serverTimestamp();
+    } else if (sub.status === 'unpaid' || sub.status === 'incomplete_expired') {
+      fields.subscriptionStatus = 'unpaid';
+    } else if (sub.status === 'active' && !sub.cancel_at_period_end) {
+      fields.subscriptionStatus = 'active';
+      fields.subscriptionPastDueAt = null;
+    }
+
+    if (sub.cancel_at_period_end) {
+      fields.subscriptionStatus = 'pending_cancellation';
+      fields.subscriptionCancelAtPeriodEnd = true;
+      if (sub.current_period_end) {
+        fields.subscriptionEndsAt = Timestamp.fromMillis(sub.current_period_end * 1000);
+      }
+    } else if (sub.status === 'active') {
+      // The admin un-cancelled (re-activated). Clear the pending flag.
+      fields.subscriptionCancelAtPeriodEnd = false;
+      fields.subscriptionEndsAt = null;
+    }
+
+    await updateDoc(doc(db, 'clients', clientId), fields);
+    console.log(
+      `[Webhook] subscription.updated client=${clientId} status=${sub.status} cancel_at_period_end=${sub.cancel_at_period_end}`,
+    );
+  } catch (error) {
+    console.error('Error handling subscription.updated:', error);
   }
 }
 
@@ -817,6 +999,53 @@ async function handleExpiredPayment(session: Stripe.Checkout.Session) {
     console.log(`Invoice ${invoiceId} marked as expired`);
   } catch (error) {
     console.error('Error updating expired invoice status:', error);
+  }
+}
+
+/**
+ * ACH / delayed-payment-method failure. The customer authorized the
+ * checkout, the bank later rejected (insufficient funds, closed
+ * account, etc.). Roll the Firestore invoice back from any optimistic
+ * paid state and surface a failure timeline event so the admin can
+ * follow up.
+ */
+async function handleAsyncPaymentFailed(session: Stripe.Checkout.Session) {
+  try {
+    const db = await getServerDb();
+    const invoiceId = session.metadata?.invoiceId;
+    if (!invoiceId) {
+      console.log(`async_payment_failed with no invoiceId: ${session.id}`);
+      return;
+    }
+
+    const invSnap = await getDoc(doc(db, 'invoices', invoiceId));
+    if (!invSnap.exists()) return;
+    const invData = invSnap.data();
+
+    const failedEvent = createInvoiceTimelineEvent({
+      type: 'paid', // closest type — timeline schema doesn't have 'failed_async'
+      userId: 'system',
+      userName: 'Payment System',
+      userRole: 'system',
+      details: 'ACH payment failed at the bank — invoice reverted to unpaid',
+      metadata: { stripeSessionId: session.id, paymentStatus: session.payment_status || 'unpaid' },
+    });
+
+    await updateDoc(doc(db, 'invoices', invoiceId), {
+      // Don't blindly overwrite — only revert if we had optimistically
+      // marked paid. A fresh failure on an already-unpaid invoice just
+      // appends a timeline note.
+      ...(invData.status === 'paid' ? { status: 'sent', paidAt: null } : {}),
+      autoChargeAttempted: true,
+      autoChargeStatus: 'failed',
+      autoChargeError: 'ACH payment failed at the customer\'s bank',
+      timeline: [...(invData.timeline || []), failedEvent],
+      updatedAt: serverTimestamp(),
+    });
+
+    console.log(`Invoice ${invoiceId} reverted — async ACH payment failed`);
+  } catch (error) {
+    console.error('Error handling async_payment_failed:', error);
   }
 }
 

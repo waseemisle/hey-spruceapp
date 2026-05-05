@@ -92,6 +92,45 @@ export async function POST(request: NextRequest) {
         updateData.savedCardExpMonth = null;
         updateData.savedCardExpYear = null;
         updateData.autoPayEnabled = false;
+
+        // ALSO clear Stripe's customer default. Without this, Stripe's
+        // `customer.invoice_settings.default_payment_method` keeps
+        // pointing at the now-detached PM. The next
+        // collection_method='charge_automatically' invoice we create
+        // for that customer fails at finalize/pay time with
+        // "payment_method_unattached" (the PM is gone but Stripe
+        // inherits it as the default). Set it to null explicitly.
+        if (clientData.stripeCustomerId) {
+          try {
+            await stripe.customers.update(clientData.stripeCustomerId, {
+              invoice_settings: { default_payment_method: '' },
+            });
+          } catch (e) {
+            console.warn('Failed to clear Stripe customer default after removing last PM:', e);
+          }
+        }
+      }
+    }
+
+    // If the removed PM is pinned to an active subscription, the
+    // subscription will keep trying to charge it on its next renewal
+    // and fail with `payment_method_unattached`. Repoint the
+    // subscription to whatever the new client default is (which we
+    // just resolved above), or null it out if no PMs remain. Either
+    // way Stripe's invoice flow then falls back to
+    // `customer.invoice_settings.default_payment_method`, which we
+    // also just updated.
+    if (
+      clientData.stripeSubscriptionId &&
+      clientData.subscriptionPaymentMethodId === paymentMethodId
+    ) {
+      try {
+        await stripe.subscriptions.update(clientData.stripeSubscriptionId, {
+          default_payment_method: updateData.defaultPaymentMethodId || '',
+        });
+        updateData.subscriptionPaymentMethodId = updateData.defaultPaymentMethodId || null;
+      } catch (e) {
+        console.warn('Failed to repoint subscription default after removing PM:', e);
       }
     }
 

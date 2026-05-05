@@ -814,8 +814,34 @@ export default function AdminInvoiceDetail() {
     }
     const pm = clientBilling.paymentMethods?.find((m) => m.id === pmId);
     const pmLabel = pm ? labelForPaymentMethod(pm) : 'saved payment method';
+
+    // If retrying a failed attempt, confirm so the admin doesn't
+    // accidentally re-charge a card that's already been declined for
+    // a real reason (insufficient funds, fraud hold, etc.). The
+    // server uses a fresh idempotency key per attemptId so the cached
+    // decline is bypassed and Stripe runs a real new attempt.
+    const isRetry = invoice.autoChargeStatus === 'failed';
+    if (isRetry) {
+      const ok = confirm(
+        `Retry auto-charge of ${formatMoney(invoice.totalAmount)} to ${pmLabel}?\n\nThe previous attempt failed with: "${invoice.autoChargeError || 'Card declined'}".\n\nThis will run a fresh charge attempt against Stripe.`,
+      );
+      if (!ok) return;
+    }
+
     setCharging(true);
     try {
+      // Generate one UUID per click. Stripe caches every response under
+      // the idempotency key for 24h (incl. card_declined), so a stable
+      // key would replay yesterday's decline forever. A fresh UUID per
+      // admin click forces Stripe to run a new charge attempt; if THIS
+      // exact request is retried (network blip, function timeout) the
+      // SAME UUID is sent, so Stripe correctly dedupes — no double
+      // charge.
+      const attemptId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `attempt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
       const res = await fetch('/api/stripe/charge-saved-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -823,18 +849,29 @@ export default function AdminInvoiceDetail() {
           invoiceId: invoice.id,
           clientId: invoice.clientId,
           paymentMethodId: pmId,
+          attemptId,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Charge failed');
       if (data.status === 'succeeded') {
         toast.success(`Charged ${formatMoney(invoice.totalAmount)} to ${pmLabel}.`);
-        setInvoice(prev => prev ? { ...prev, status: 'paid' } : prev);
+        setInvoice(prev => prev ? { ...prev, status: 'paid', autoChargeStatus: 'succeeded' } : prev);
+      } else if (data.status === 'requires_action') {
+        toast.warning('Charge needs customer authentication (3DS). Send the hosted invoice link to the client.');
+        setInvoice(prev => prev ? { ...prev, autoChargeAttempted: true, autoChargeStatus: 'requires_action' } : prev);
       } else {
-        toast.warning(`Charge status: ${data.status}. Client may need to authenticate.`);
+        toast.warning(`Charge status: ${data.status}. ${data.message || ''}`.trim());
+        setInvoice(prev => prev ? { ...prev, autoChargeAttempted: true, autoChargeStatus: data.status } : prev);
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to charge');
+      // Re-fetch the invoice so the failed status pill renders even on
+      // exception paths (the server has already persisted the failure).
+      try {
+        const fresh = await getDoc(doc(db, 'invoices', invoice.id));
+        if (fresh.exists()) setInvoice({ id: fresh.id, ...fresh.data() } as Invoice);
+      } catch { /* non-fatal */ }
     } finally {
       setCharging(false);
     }
@@ -996,18 +1033,23 @@ export default function AdminInvoiceDetail() {
               </Button>
             )}
             {/*
-              Auto Charge — renders for sent invoices when the client has at
-              least one chargeable saved PM AND we haven't already attempted
-              a charge. When the client has multiple PMs, an inline picker
-              lets the admin override which one this specific invoice is
-              charged against (e.g. card vs ACH). The picker is pre-seeded
-              with the client's default so the common case is one click.
-              Hides itself after the first attempt so an admin can't
-              accidentally double-charge.
+              Auto Charge — renders for unpaid invoices when the client
+              has at least one chargeable saved PM. Visibility rules:
+                • Hidden if invoice is already paid (nothing to charge).
+                • Hidden if a charge is currently in flight on Stripe's
+                  side (autoChargeStatus === 'pending' / 'requires_action')
+                  to prevent overlapping attempts.
+                • RENDERS as "Re-Auto Charge" when the previous attempt
+                  failed (autoChargeStatus === 'failed') so the admin
+                  can retry against a freshly funded card without
+                  needing a code change. The retry uses a fresh
+                  idempotency UUID per click — Stripe runs a real new
+                  attempt instead of replaying the cached decline.
             */}
             {invoice.status === 'sent'
               && (clientBilling?.paymentMethods?.length ?? 0) > 0
-              && !invoice.autoChargeAttempted && (
+              && invoice.autoChargeStatus !== 'pending'
+              && invoice.autoChargeStatus !== 'requires_action' && (
               <div className="flex items-center gap-1.5">
                 {(clientBilling?.paymentMethods?.length ?? 0) > 1 && (
                   <select
@@ -1026,17 +1068,26 @@ export default function AdminInvoiceDetail() {
                 )}
                 <Button
                   size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                  className={
+                    invoice.autoChargeStatus === 'failed'
+                      ? 'bg-amber-600 hover:bg-amber-700 text-white gap-1.5'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5'
+                  }
                   onClick={handleAutoCharge}
                   disabled={charging || !(selectedChargePmId || clientBilling?.defaultPaymentMethodId)}
                   title={(() => {
                     const pmId = selectedChargePmId || clientBilling?.defaultPaymentMethodId;
                     const pm = clientBilling?.paymentMethods?.find((m) => m.id === pmId);
-                    return `Auto-charge ${pm ? labelForPaymentMethod(pm) : 'saved payment method'}`;
+                    const verb = invoice.autoChargeStatus === 'failed' ? 'Retry auto-charge against' : 'Auto-charge';
+                    return `${verb} ${pm ? labelForPaymentMethod(pm) : 'saved payment method'}`;
                   })()}
                 >
                   <Zap className="h-4 w-4" />
-                  {charging ? 'Charging…' : `Auto Charge ${formatMoney(invoice.totalAmount)}`}
+                  {charging
+                    ? 'Charging…'
+                    : invoice.autoChargeStatus === 'failed'
+                      ? `Re-Auto Charge ${formatMoney(invoice.totalAmount)}`
+                      : `Auto Charge ${formatMoney(invoice.totalAmount)}`}
                 </Button>
               </div>
             )}

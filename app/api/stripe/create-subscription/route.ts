@@ -69,27 +69,38 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Calculate billing_cycle_anchor: next occurrence of billingDay
+    // Calculate billing_cycle_anchor: next occurrence of billingDay.
+    // Compare day-of-month, not full instants, so submitting
+    // billingDay = today bills the customer today rather than skipping
+    // a month (the previous `<=` against the same instant would push
+    // the anchor to next month → free first month).
     const now = new Date();
+    const todayDayOfMonth = now.getDate();
     let anchor = new Date(now.getFullYear(), now.getMonth(), billingDay);
-    // If that day is in the past (or today), move to next month
-    if (anchor <= now) {
+    if (billingDay < todayDayOfMonth) {
       anchor = new Date(now.getFullYear(), now.getMonth() + 1, billingDay);
     }
     const anchorTimestamp = Math.floor(anchor.getTime() / 1000);
 
-    // Create subscription
-    const subscription = await stripe.subscriptions.create({
-      customer: clientData.stripeCustomerId,
-      items: [{ price: price.id }],
-      billing_cycle_anchor: anchorTimestamp,
-      proration_behavior: 'none',
-      default_payment_method: cardToUse,
-      metadata: {
-        clientId,
-        type: 'fixed_recurring',
+    // Create subscription. Idempotency keyed on (client, price) — a
+    // network blip retry of this exact request returns the cached
+    // subscription instead of creating a duplicate one. Each manual
+    // "create subscription" admin click produces a fresh Price object
+    // above, so different clicks naturally have different keys.
+    const subscription = await stripe.subscriptions.create(
+      {
+        customer: clientData.stripeCustomerId,
+        items: [{ price: price.id }],
+        billing_cycle_anchor: anchorTimestamp,
+        proration_behavior: 'none',
+        default_payment_method: cardToUse,
+        metadata: {
+          clientId,
+          type: 'fixed_recurring',
+        },
       },
-    });
+      { idempotencyKey: `sub-create-${clientId}-${price.id}` },
+    );
 
     // Save subscription info to client
     await updateDoc(doc(db, 'clients', clientId), {

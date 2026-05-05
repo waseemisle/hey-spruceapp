@@ -62,6 +62,23 @@ export async function POST(request: NextRequest) {
         ? body.paymentMethodId.trim()
         : undefined;
 
+    // Per-attempt idempotency token. The UI generates a fresh UUID on
+    // each Auto Charge / Re-Auto Charge click and passes it through;
+    // we suffix it on the Stripe idempotency key so:
+    //   • A retry of the SAME logical click (network blip / function
+    //     timeout) reuses the same token → Stripe returns the cached
+    //     response → no double charge.
+    //   • A NEW click after a previous failure produces a fresh token
+    //     → Stripe runs a new charge attempt → cached `card_declined`
+    //     from a transient prior decline doesn't poison subsequent
+    //     retries (which is what was happening with a stable key).
+    // Falls back to a timestamp suffix if the caller doesn't supply
+    // a token (legacy callers). The cron path always supplies one.
+    const attemptId: string =
+      typeof body.attemptId === 'string' && body.attemptId.trim().length > 0
+        ? body.attemptId.trim().slice(0, 64)
+        : `srv-${Date.now()}`;
+
     if (!invoiceId || !clientId) {
       return NextResponse.json(
         { error: 'Missing required fields: invoiceId, clientId' },
@@ -237,7 +254,7 @@ export async function POST(request: NextRequest) {
             off_session: true,
             payment_method: pmId,
           },
-          { idempotencyKey: `pay-invoice-${linkedStripeInvoiceId}-${pmId}-${Date.now()}` },
+          { idempotencyKey: `pay-invoice-${linkedStripeInvoiceId}-${pmId}-${attemptId}` },
         );
       } catch (err: any) {
         // .pay() throws on already-paid / void / uncollectible. Fetch
@@ -475,7 +492,7 @@ export async function POST(request: NextRequest) {
     // response (including card_declined) for 24h per key, so a stable
     // key would pin a transient decline as a permanent failure.
     const paymentIntent = await stripe.paymentIntents.create(piParams, {
-      idempotencyKey: `charge-invoice-legacy-${invoiceId}-${pmId}-${Date.now()}`,
+      idempotencyKey: `charge-invoice-legacy-${invoiceId}-${pmId}-${attemptId}`,
     });
 
     if (paymentIntent.status === 'succeeded') {

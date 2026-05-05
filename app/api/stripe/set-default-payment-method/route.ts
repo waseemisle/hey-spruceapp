@@ -58,11 +58,36 @@ export async function POST(request: NextRequest) {
       isDefault: m.id === paymentMethodId,
     }));
 
-    // Update Stripe customer default
+    // Update Stripe customer default — used as the fallback when an
+    // invoice / subscription doesn't pin its own PM.
     if (clientData.stripeCustomerId) {
       await stripe.customers.update(clientData.stripeCustomerId, {
         invoice_settings: { default_payment_method: paymentMethodId },
       });
+    }
+
+    // Stripe has TWO defaults: customer.invoice_settings.default_payment_method
+    // (above) and subscription.default_payment_method. The subscription
+    // default takes priority for that subscription's invoices, so if
+    // the client has an active sub, repoint it too — otherwise the
+    // admin clicks "Set Default", expects auto-pay to use the new
+    // card, but the next subscription invoice still charges the OLD
+    // card. Silent expectation failure.
+    const subFields: Record<string, any> = {};
+    if (
+      clientData.stripeSubscriptionId &&
+      ['active', 'past_due', 'trialing', 'pending_cancellation'].includes(
+        clientData.subscriptionStatus,
+      )
+    ) {
+      try {
+        await stripe.subscriptions.update(clientData.stripeSubscriptionId, {
+          default_payment_method: paymentMethodId,
+        });
+        subFields.subscriptionPaymentMethodId = paymentMethodId;
+      } catch (subErr) {
+        console.warn('Failed to update subscription default after set-default:', subErr);
+      }
     }
 
     await updateDoc(doc(db, 'clients', clientId), {
@@ -72,6 +97,7 @@ export async function POST(request: NextRequest) {
       savedCardBrand: targetCard.brand,
       savedCardExpMonth: targetCard.expMonth,
       savedCardExpYear: targetCard.expYear,
+      ...subFields,
       updatedAt: serverTimestamp(),
     });
 

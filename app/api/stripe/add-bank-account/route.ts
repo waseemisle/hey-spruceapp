@@ -79,18 +79,34 @@ export async function POST(request: NextRequest) {
     const bankAccount = pm.us_bank_account as any;
 
     // us_bank_account PMs cannot be attached directly — Stripe requires going
-    // through a SetupIntent with an offline mandate to satisfy the
-    // "must be verified before they can be attached" requirement.
+    // through a SetupIntent with a mandate to satisfy the "must be
+    // verified before they can be attached" rule.
+    //
+    // The admin entered the routing/account number on the customer's
+    // behalf with verbal/written authorisation, so the mandate
+    // acceptance is OFFLINE. Stripe's API requires `accepted_at` for
+    // offline mandates (a Unix timestamp); the previous version omitted
+    // it and Stripe was inconsistent about whether it accepted the
+    // call. Set it explicitly to "now" — the moment the admin clicked
+    // Add — and persist it so audits can prove when authorisation
+    // happened.
+    const mandateAcceptedAt = Math.floor(Date.now() / 1000);
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomerId,
       payment_method: pm.id,
       payment_method_types: ['us_bank_account'],
+      // Pin usage so this PM is chargeable off-session for future
+      // auto-pay invoices (Stripe defaults to on_session for setup
+      // intents that don't say otherwise, which makes the PM unusable
+      // for cron-triggered charges).
+      usage: 'off_session',
     });
 
     await (stripe.setupIntents.confirm as any)(setupIntent.id, {
       mandate_data: {
         customer_acceptance: {
           type: 'offline',
+          accepted_at: mandateAcceptedAt,
         },
       },
     });
@@ -100,8 +116,6 @@ export async function POST(request: NextRequest) {
     if (existingMethods.some((m: any) => m.id === pm.id)) {
       return NextResponse.json({ success: true, message: 'Bank account already saved' });
     }
-
-    const isFirstMethod = existingMethods.length === 0;
 
     const newBankAccount = {
       id: pm.id,
@@ -114,26 +128,39 @@ export async function POST(request: NextRequest) {
       accountType: accountType || 'checking',
       expMonth: null,
       expYear: null,
-      isDefault: isFirstMethod,
+      // Manual-ACH banks are never default at add-time — they need
+      // micro-deposit verification first. The /verify-bank-microdeposits
+      // route promotes them to verified once Stripe confirms the
+      // amounts; only then should set-default-payment-method become
+      // available. Setting a *pending* PM as default would crash the
+      // next charge_automatically invoice with payment_method_unattached
+      // (the PM isn't actually attached to the customer yet).
+      isDefault: false,
       verificationStatus: 'pending',
+      // Persist the SetupIntent id so /verify-bank-microdeposits can
+      // resolve the hosted verification URL later — without this, the
+      // verify route rejects the row with the "added before
+      // verification links were tracked" error.
+      setupIntentId: setupIntent.id,
+      mandateAcceptedAt: Timestamp.fromMillis(mandateAcceptedAt * 1000),
       createdAt: Timestamp.now(),
       source: 'admin_added' as const,
     };
 
-    const updatedMethods = [
-      ...existingMethods.map((m: any) => ({ ...m, isDefault: isFirstMethod ? false : m.isDefault })),
-      newBankAccount,
-    ];
+    // Don't reshuffle existing defaults — the new bank is pending
+    // verification and can't be charged yet. Other methods (cards,
+    // already-verified banks) keep their isDefault flag so the
+    // client's saved-card auto-pay continues to work while the new
+    // bank is being verified.
+    const updatedMethods = [...existingMethods, newBankAccount];
 
     const updateData: any = {
       paymentMethods: updatedMethods,
       updatedAt: serverTimestamp(),
     };
-
-    if (isFirstMethod) {
-      updateData.defaultPaymentMethodId = pm.id;
-      updateData.autoPayEnabled = true;
-    }
+    // Note: do NOT set defaultPaymentMethodId or autoPayEnabled here.
+    // The verify-bank-microdeposits route is responsible for
+    // promoting a verified bank to default if the admin chooses.
 
     await updateDoc(doc(db, 'clients', clientId), updateData);
 
