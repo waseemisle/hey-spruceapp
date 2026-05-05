@@ -1,1003 +1,251 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
-import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
+/**
+ * Admin → Scheduled Invoices (list)
+ *
+ * Lean replacement for the previous inline-form list page. Now mirrors
+ * the Recurring Work Orders list shape: status filter + search + create
+ * button + cards linking to a detail page. The actual create flow lives
+ * at /admin-portal/scheduled-invoices/create, the detail flow at
+ * /admin-portal/scheduled-invoices/[id]. Cron execution is wired up in
+ * /api/scheduled-invoices/cron and surfaced on /admin-portal/cron-jobs.
+ */
+
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Calendar, Play, Trash2, ToggleLeft, ToggleRight, Edit2, Save, X, Search, Plus } from 'lucide-react';
-import { toast } from 'sonner';
-import { getInvoicePDFBase64 } from '@/lib/pdf-generator';
-import { useViewControls } from '@/contexts/view-controls-context';
-import { generateInvoiceNumber } from '@/lib/invoice-number';
+import { Plus, Search, Calendar, Receipt, Zap, Pause, X, CheckCircle } from 'lucide-react';
 import { formatMoney } from '@/lib/money';
+import type { ScheduledInvoice } from '@/types';
 
-interface LineItem {
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  amount: number;
-}
+type FilterKey = 'all' | 'active' | 'paused' | 'cancelled';
 
-interface ScheduledInvoice {
-  id: string;
-  clientId: string;
-  clientName: string;
-  clientEmail: string;
-  title: string;
-  description: string;
-  amount: number;
-  lineItems?: LineItem[];
-  frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-  dayOfMonth?: number;
-  isActive: boolean;
-  nextExecution: any;
-  lastExecution?: any;
-  createdAt: any;
-}
+const FILTERS: Array<{ key: FilterKey; label: string }> = [
+  { key: 'all',       label: 'All' },
+  { key: 'active',    label: 'Active' },
+  { key: 'paused',    label: 'Paused' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
 
-export default function ScheduledInvoicesManagement() {
-  const [scheduledInvoices, setScheduledInvoices] = useState<ScheduledInvoice[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
+const toDate = (v: any): Date | null => {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  if (typeof v?.toDate === 'function') return v.toDate();
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+export default function ScheduledInvoicesListPage() {
+  const [invoices, setInvoices] = useState<(ScheduledInvoice & { id: string })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [executing, setExecuting] = useState<string | null>(null);
-  const { viewMode, sortOption } = useViewControls();
-  const [formData, setFormData] = useState({
-    clientId: '',
-    title: '',
-    description: '',
-    amount: '',
-    frequency: 'monthly' as 'weekly' | 'monthly' | 'quarterly' | 'yearly',
-    dayOfMonth: '1',
-  });
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: '', quantity: 1, unitPrice: 0, amount: 0 }
-  ]);
-
-  const fetchScheduledInvoices = async () => {
-    try {
-      const q = query(collection(db, 'scheduled_invoices'));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as ScheduledInvoice[];
-      setScheduledInvoices(data);
-    } catch (error) {
-      console.error('Error fetching scheduled invoices:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchClients = async () => {
-    try {
-      const q = query(collection(db, 'clients'));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setClients(data.filter((c: any) => c.status === 'approved'));
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
-  };
 
   useEffect(() => {
-    fetchScheduledInvoices();
-    fetchClients();
+    // Live subscription so status flips (pause / cancel / new run) appear
+    // without requiring a refresh — same pattern the RWO list uses.
+    const unsub = onSnapshot(
+      query(collection(db, 'scheduledInvoices')),
+      (snap) => {
+        const all = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as (ScheduledInvoice & { id: string })[];
+        setInvoices(all);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('[scheduled-invoices/list] snapshot error:', err);
+        setLoading(false);
+      },
+    );
+    return () => unsub();
   }, []);
 
-  const calculateNextExecution = (frequency: string, dayOfMonth: number) => {
-    const now = new Date();
-    const next = new Date();
+  const counts = useMemo(() => ({
+    all: invoices.length,
+    active: invoices.filter(i => i.status === 'active').length,
+    paused: invoices.filter(i => i.status === 'paused').length,
+    cancelled: invoices.filter(i => i.status === 'cancelled').length,
+  }), [invoices]);
 
-    switch (frequency) {
-      case 'weekly':
-        next.setDate(now.getDate() + 7);
-        break;
-      case 'monthly':
-        next.setMonth(now.getMonth() + 1);
-        next.setDate(dayOfMonth);
-        break;
-      case 'quarterly':
-        next.setMonth(now.getMonth() + 3);
-        next.setDate(dayOfMonth);
-        break;
-      case 'yearly':
-        next.setFullYear(now.getFullYear() + 1);
-        next.setDate(dayOfMonth);
-        break;
-    }
-
-    return next;
-  };
-
-  const addLineItem = () => {
-    setLineItems([...lineItems, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
-  };
-
-  const removeLineItem = (index: number) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
-    const updated = [...lineItems];
-    updated[index] = { ...updated[index], [field]: value };
-
-    // Calculate amount
-    if (field === 'quantity' || field === 'unitPrice') {
-      updated[index].amount = updated[index].quantity * updated[index].unitPrice;
-    }
-
-    setLineItems(updated);
-  };
-
-  const calculateTotal = () => {
-    return lineItems.reduce((sum, item) => sum + item.amount, 0);
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      const selectedClient = clients.find(c => c.id === formData.clientId);
-      if (!selectedClient) {
-        toast.error('Please select a client');
-        return;
-      }
-
-      const totalAmount = calculateTotal();
-      const nextExecution = calculateNextExecution(formData.frequency, parseInt(formData.dayOfMonth));
-
-      await addDoc(collection(db, 'scheduled_invoices'), {
-        clientId: formData.clientId,
-        clientName: selectedClient.fullName,
-        clientEmail: selectedClient.email,
-        title: formData.title,
-        description: formData.description,
-        amount: totalAmount,
-        lineItems: lineItems.filter(item => item.description && item.amount > 0),
-        frequency: formData.frequency,
-        dayOfMonth: parseInt(formData.dayOfMonth),
-        isActive: true,
-        nextExecution: nextExecution,
-        createdBy: currentUser.uid,
-        createdAt: serverTimestamp(),
+  const filtered = useMemo(() => {
+    const ql = searchQuery.trim().toLowerCase();
+    return invoices
+      .filter(inv => filter === 'all' ? true : inv.status === filter)
+      .filter(inv => {
+        if (!ql) return true;
+        return [
+          inv.scheduledInvoiceNumber,
+          inv.title,
+          inv.clientName,
+          inv.clientEmail,
+        ].some(v => (v || '').toString().toLowerCase().includes(ql));
+      })
+      .sort((a, b) => {
+        const an = toDate(a.nextExecution)?.getTime() || 0;
+        const bn = toDate(b.nextExecution)?.getTime() || 0;
+        // Active soonest-first; paused/cancelled sink to the bottom.
+        const aw = a.status === 'active' ? 0 : a.status === 'paused' ? 1 : 2;
+        const bw = b.status === 'active' ? 0 : b.status === 'paused' ? 1 : 2;
+        if (aw !== bw) return aw - bw;
+        return an - bn;
       });
-
-      toast.success('Scheduled invoice created successfully');
-      setShowCreateForm(false);
-      setFormData({
-        clientId: '',
-        title: '',
-        description: '',
-        amount: '',
-        frequency: 'monthly',
-        dayOfMonth: '1',
-      });
-      setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
-      fetchScheduledInvoices();
-    } catch (error) {
-      console.error('Error creating scheduled invoice:', error);
-      toast.error('Failed to create scheduled invoice');
-    }
-  };
-
-  const toggleActive = async (id: string, currentStatus: boolean) => {
-    try {
-      await updateDoc(doc(db, 'scheduled_invoices', id), {
-        isActive: !currentStatus,
-        updatedAt: serverTimestamp(),
-      });
-      fetchScheduledInvoices();
-    } catch (error) {
-      console.error('Error toggling status:', error);
-      toast.error('Failed to update status');
-    }
-  };
-
-  const executeNow = async (schedule: ScheduledInvoice) => {
-    setExecuting(schedule.id);
-    try {
-      // Idempotency guard — block when a non-terminal invoice already
-      // exists for this schedule. Prevents duplicate Firestore rows +
-      // duplicate invoice numbers when the admin re-clicks "Execute now"
-      // after a partial failure (Stripe link errored or email skipped on
-      // the first attempt).
-      const existingForSchedule = await getDocs(query(
-        collection(db, 'invoices'),
-        where('scheduledInvoiceId', '==', schedule.id),
-      ));
-      const TERMINAL = new Set(['cancelled', 'expired', 'void']);
-      const liveExisting = existingForSchedule.docs
-        .map((d) => ({ id: d.id, ...(d.data() as any) }))
-        .filter((inv) => !TERMINAL.has(String(inv.status || '').toLowerCase()))
-        .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0];
-      if (liveExisting) {
-        const num = liveExisting.invoiceNumber || liveExisting.id;
-        toast.error(
-          `Invoice ${num} (${liveExisting.status || 'draft'}) was already created from this schedule. Open it from /admin-portal/invoices to finish or delete first.`,
-        );
-        setExecuting(null);
-        return;
-      }
-
-      // Step 1: Create invoice in database
-      const invoiceNumber = generateInvoiceNumber();
-      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-      // Use line items if available, otherwise create a single line item from description
-      const invoiceLineItems = schedule.lineItems && schedule.lineItems.length > 0
-        ? schedule.lineItems
-        : [{
-            description: schedule.description || 'Service',
-            quantity: 1,
-            unitPrice: schedule.amount,
-            amount: schedule.amount,
-          }];
-
-      // TODO(invoice-approval): scheduled invoices currently bypass the 72h
-      // approval workflow even when the client's company has
-      // invoiceApprovalRequired=true. Decision deferred — scheduled invoices
-      // are typically pre-arranged contracts; revisit if Ggiata wants the
-      // approval gate applied here too. See /lib/invoice-approval.ts.
-      // Per-client INTERNAL admin approval IS respected here — when the
-      // client has requireInvoiceApproval=true, the schedule's invoice
-      // is created in pending_approval and the customer email at the end
-      // of this function is short-circuited.
-      const adminApprovalNeeded = await shouldRequireAdminApproval(db, schedule.clientId);
-
-      const invoiceDocRef = await addDoc(collection(db, 'invoices'), {
-        invoiceNumber,
-        scheduledInvoiceId: schedule.id,
-        clientId: schedule.clientId,
-        clientName: schedule.clientName,
-        clientEmail: schedule.clientEmail,
-        workOrderTitle: schedule.title,
-        totalAmount: schedule.amount,
-        status: adminApprovalNeeded ? 'pending_approval' : 'sent',
-        adminApprovalRequired: adminApprovalNeeded || false,
-        lineItems: invoiceLineItems,
-        dueDate: dueDate,
-        notes: schedule.description || '',
-        createdAt: serverTimestamp(),
-      });
-
-      toast.success('Invoice created, generating payment link...');
-
-      // Step 2: Create Stripe payment link
-      let stripePaymentLink = '';
-      try {
-        const stripeResponse = await fetch('/api/stripe/create-payment-link', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            invoiceId: invoiceDocRef.id,
-            invoiceNumber: invoiceNumber,
-            amount: schedule.amount,
-            customerEmail: schedule.clientEmail,
-            clientName: schedule.clientName,
-            clientId: schedule.clientId,
-          }),
-        });
-
-        if (stripeResponse.ok) {
-          const stripeData = await stripeResponse.json();
-          stripePaymentLink = stripeData.paymentLink;
-
-          // Update invoice with payment link
-          await updateDoc(doc(db, 'invoices', invoiceDocRef.id), {
-            stripePaymentLink: stripeData.paymentLink,
-            stripeSessionId: stripeData.sessionId,
-          });
-
-          toast.success('Payment link created, generating PDF...');
-        }
-      } catch (stripeError) {
-        console.error('Error creating payment link:', stripeError);
-        // Continue even if Stripe fails
-      }
-
-      // Step 3: Generate PDF as base64
-      const pdfBase64 = getInvoicePDFBase64({
-        invoiceNumber,
-        clientName: schedule.clientName,
-        clientEmail: schedule.clientEmail,
-        workOrderName: schedule.title,
-        serviceDescription: schedule.description,
-        lineItems: invoiceLineItems,
-        subtotal: schedule.amount,
-        discountAmount: 0,
-        totalAmount: schedule.amount,
-        dueDate: dueDate.toLocaleDateString(),
-        notes: schedule.description,
-      });
-
-      // Per-client admin-approval gate — when on, skip the customer
-      // email here. Client comms wait for "Approve & notify client" on
-      // the admin invoices page.
-      if (adminApprovalNeeded) {
-        toast.success(`Invoice ${invoiceNumber} created — pending internal admin approval. Client not notified yet.`);
-        setExecuting(null);
-        return;
-      }
-
-      toast.success('PDF generated, sending email...');
-
-      // Step 4: Send email with PDF and payment link
-      try {
-        const emailResponse = await fetch('/api/email/send-invoice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toEmail: schedule.clientEmail,
-            toName: schedule.clientName,
-            invoiceNumber: invoiceNumber,
-            workOrderTitle: schedule.title,
-            totalAmount: schedule.amount,
-            dueDate: dueDate.toLocaleDateString(),
-            lineItems: invoiceLineItems,
-            notes: schedule.description,
-            stripePaymentLink: stripePaymentLink,
-            pdfBase64: pdfBase64,
-          }),
-        });
-
-        const emailResult = await emailResponse.json();
-
-        if (emailResult.success) {
-          toast.success('Invoice created and email sent successfully!');
-        } else if (emailResult.testMode) {
-          toast.info('Invoice created (Email in test mode - check console)');
-        } else {
-          console.error('Email failed:', emailResult.error);
-          console.log('Troubleshooting:', emailResult.details);
-          toast.warning('Invoice created successfully, but email notification failed. Client can view it in their portal.');
-        }
-      } catch (emailError) {
-        console.error('Error sending email:', emailError);
-        toast.warning('Invoice created successfully, but email notification failed. Client can view it in their portal.');
-      }
-
-      // Step 5: Update scheduled invoice execution dates
-      const nextExecution = calculateNextExecution(schedule.frequency, schedule.dayOfMonth || 1);
-      await updateDoc(doc(db, 'scheduled_invoices', schedule.id), {
-        lastExecution: serverTimestamp(),
-        nextExecution: nextExecution,
-      });
-
-      fetchScheduledInvoices();
-    } catch (error) {
-      console.error('Error executing schedule:', error);
-      toast.error('Failed to execute scheduled invoice');
-    } finally {
-      setExecuting(null);
-    }
-  };
-
-  const deleteSchedule = async (id: string) => {
-    toast('Delete this scheduled invoice?', {
-      description: 'This action cannot be undone.',
-      action: {
-        label: 'Delete',
-        onClick: async () => {
-          await performDeleteSchedule(id);
-        }
-      },
-      cancel: {
-        label: 'Cancel',
-        onClick: () => {}
-      }
-    });
-  };
-
-  const performDeleteSchedule = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'scheduled_invoices', id));
-      toast.success('Scheduled invoice deleted');
-      fetchScheduledInvoices();
-    } catch (error) {
-      console.error('Error deleting:', error);
-      toast.error('Failed to delete');
-    }
-  };
-
-  const getTimestampValue = (value: any) => {
-    if (!value) return 0;
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const parsed = new Date(value);
-      return isNaN(parsed.getTime()) ? 0 : parsed.getTime();
-    }
-    if (value instanceof Date) return value.getTime();
-    if (typeof value === 'object' && value?.toDate) {
-      const dateValue = value.toDate();
-      return dateValue instanceof Date ? dateValue.getTime() : 0;
-    }
-    return 0;
-  };
-
-  const handleOpenEdit = (schedule: ScheduledInvoice) => {
-    setFormData({
-      clientId: schedule.clientId,
-      title: schedule.title,
-      description: schedule.description,
-      amount: schedule.amount.toString(),
-      frequency: schedule.frequency,
-      dayOfMonth: schedule.dayOfMonth?.toString() || '1',
-    });
-    // Load line items if available, otherwise create default
-    if (schedule.lineItems && schedule.lineItems.length > 0) {
-      setLineItems(schedule.lineItems);
-    } else {
-      setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
-    }
-    setEditingId(schedule.id);
-    setShowEditModal(true);
-  };
-
-  const resetEditForm = () => {
-    setFormData({
-      clientId: '',
-      title: '',
-      description: '',
-      amount: '',
-      frequency: 'monthly',
-      dayOfMonth: '1',
-    });
-    setLineItems([{ description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
-    setEditingId(null);
-    setShowEditModal(false);
-  };
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingId) return;
-
-    setSubmitting(true);
-
-    try {
-      const totalAmount = calculateTotal();
-      const nextExecution = calculateNextExecution(formData.frequency, parseInt(formData.dayOfMonth));
-
-      await updateDoc(doc(db, 'scheduled_invoices', editingId), {
-        title: formData.title,
-        description: formData.description,
-        amount: totalAmount,
-        lineItems: lineItems.filter(item => item.description && item.amount > 0),
-        frequency: formData.frequency,
-        dayOfMonth: parseInt(formData.dayOfMonth),
-        nextExecution: nextExecution,
-        updatedAt: serverTimestamp(),
-      });
-
-      toast.success('Scheduled invoice updated successfully');
-      resetEditForm();
-      fetchScheduledInvoices();
-    } catch (error) {
-      console.error('Error updating scheduled invoice:', error);
-      toast.error('Failed to update scheduled invoice');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const filteredScheduledInvoices = scheduledInvoices.filter(schedule => {
-    // Filter by search query
-    const searchLower = searchQuery.toLowerCase();
-    const searchMatch = !searchQuery ||
-      schedule.title.toLowerCase().includes(searchLower) ||
-      schedule.clientName.toLowerCase().includes(searchLower) ||
-      schedule.description.toLowerCase().includes(searchLower) ||
-      schedule.frequency.toLowerCase().includes(searchLower);
-
-    return searchMatch;
-  });
-
-  const sortedScheduledInvoices = [...filteredScheduledInvoices].sort((a, b) => {
-    switch (sortOption) {
-      case 'updatedAt':
-        return (
-          getTimestampValue((b as any).updatedAt || b.lastExecution || b.createdAt) -
-          getTimestampValue((a as any).updatedAt || a.lastExecution || a.createdAt)
-        );
-      case 'createdAt':
-      default:
-        return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
-    }
-  });
+  }, [invoices, filter, searchQuery]);
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Scheduled Invoices</h1>
-            <p className="text-muted-foreground mt-2">Manage recurring invoice schedules</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">Scheduled Invoices</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Recurring billing schedules. The cron creates a real invoice + Stripe pay link on
+              each iteration date.
+            </p>
           </div>
-          <Button onClick={() => setShowCreateForm(!showCreateForm)}>
-            {showCreateForm ? 'Cancel' : 'Create New Schedule'}
-          </Button>
+          <Link href="/admin-portal/scheduled-invoices/create">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Scheduled Invoice
+            </Button>
+          </Link>
         </div>
 
-        {/* Create Form */}
-        {showCreateForm && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Create Scheduled Invoice</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleCreate} className="space-y-4">
-                <div>
-                  <Label>Client</Label>
-                  <SearchableSelect
-                    className="mt-1 w-full"
-                    value={formData.clientId}
-                    onValueChange={(v) => setFormData({ ...formData, clientId: v })}
-                    options={[
-                      { value: '', label: 'Select Client' },
-                      ...clients.map((client) => ({ value: client.id, label: client.fullName })),
-                    ]}
-                    placeholder="Select Client"
-                    aria-label="Client"
-                  />
-                </div>
-                <div>
-                  <Label>Title</Label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Description / Notes</Label>
-                  <textarea
-                    className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="General description or notes about this recurring invoice..."
-                  />
-                </div>
+        <div className="flex flex-wrap items-center gap-2 border-b border-border">
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                filter === f.key
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {f.label}
+              <span className="ml-2 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-muted text-xs">
+                {counts[f.key]}
+              </span>
+            </button>
+          ))}
+        </div>
 
-                {/* Line Items */}
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <Label>Line Items</Label>
-                    <Button type="button" size="sm" variant="outline" onClick={addLineItem}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Item
-                    </Button>
-                  </div>
-
-                  <div className="space-y-3">
-                    {lineItems.map((item, index) => (
-                      <div key={index} className="border border-border rounded-lg p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                          <div className="md:col-span-6">
-                            <Label className="text-xs">Description</Label>
-                            <Input
-                              placeholder="Service description"
-                              value={item.description}
-                              onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label className="text-xs">Quantity</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => updateLineItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label className="text-xs">Unit Price ($)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.unitPrice}
-                              onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                            />
-                          </div>
-                          <div className="md:col-span-2 flex items-end gap-2">
-                            <div className="flex-1">
-                              <Label className="text-xs">Amount</Label>
-                              <div className="text-lg font-bold text-blue-600">
-                                {formatMoney(item.amount)}
-                              </div>
-                            </div>
-                            {lineItems.length > 1 && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => removeLineItem(index)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Total */}
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold">Total Amount:</span>
-                      <span className="text-2xl font-bold text-blue-600">
-                        {formatMoney(calculateTotal())}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <Label>Frequency</Label>
-                  <SearchableSelect
-                    className="mt-1 w-full"
-                    value={formData.frequency}
-                    onValueChange={(v) => setFormData({ ...formData, frequency: v as typeof formData.frequency })}
-                    options={[
-                      { value: 'weekly', label: 'Weekly' },
-                      { value: 'monthly', label: 'Monthly' },
-                      { value: 'quarterly', label: 'Quarterly' },
-                      { value: 'yearly', label: 'Yearly' },
-                    ]}
-                    placeholder="Frequency"
-                    aria-label="Frequency"
-                  />
-                </div>
-                {formData.frequency !== 'weekly' && (
-                  <div>
-                    <Label>Day of Month (1-31)</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={formData.dayOfMonth}
-                      onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
-                    />
-                  </div>
-                )}
-                <Button type="submit" className="w-full">Create Schedule</Button>
-              </form>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search scheduled invoices by title, client, description, or frequency..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by SI number, title, client…"
+            className="pl-9"
           />
         </div>
 
-        {/* Scheduled Invoices Grid/List */}
-        {sortedScheduledInvoices.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="p-12 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No scheduled invoices found</p>
+        {loading ? (
+          <div className="flex items-center justify-center h-48">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 flex flex-col items-center gap-2 text-center">
+              <Calendar className="h-10 w-10 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {invoices.length === 0
+                  ? 'No scheduled invoices yet — create your first one to start recurring billing.'
+                  : 'No scheduled invoices match the current filter.'}
+              </p>
+              {invoices.length === 0 && (
+                <Link href="/admin-portal/scheduled-invoices/create">
+                  <Button className="mt-2">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Scheduled Invoice
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
-        ) : viewMode === 'list' ? (
-          <div className="border rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead className="bg-muted border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Frequency</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Next Execution</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-card divide-y divide-gray-200">
-                {sortedScheduledInvoices.map((schedule) => (
-                  <tr key={schedule.id} className="hover:bg-muted transition-colors">
-                    <td className="px-4 py-3 text-sm">
-                      <div className="font-medium text-foreground">{schedule.title}</div>
-                      {schedule.description && (
-                        <div className="text-muted-foreground text-xs mt-1 line-clamp-1">{schedule.description}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{schedule.clientName}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{formatMoney(schedule.amount)}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{schedule.frequency}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        schedule.isActive ? 'text-green-600 bg-green-50' : 'text-muted-foreground bg-muted'
-                      }`}>
-                        {schedule.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {schedule.nextExecution?.toDate?.()?.toLocaleDateString() || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleOpenEdit(schedule)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => executeNow(schedule)}
-                          disabled={executing === schedule.id}
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => toggleActive(schedule.id, schedule.isActive)}
-                        >
-                          {schedule.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => deleteSchedule(schedule.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortedScheduledInvoices.map((schedule) => (
-              <div
-                key={schedule.id}
-                className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
-              >
-                {/* Row 1: title + status badge */}
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium text-foreground text-sm leading-snug line-clamp-2 flex-1">{schedule.title}</span>
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                    schedule.isActive ? 'bg-green-50 text-green-700' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {schedule.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-
-                {/* Row 2: secondary info */}
-                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                  <div>{schedule.clientName}</div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-foreground">{formatMoney(schedule.amount)}</span>
-                    <span className="capitalize">{schedule.frequency}</span>
-                  </div>
-                  {schedule.nextExecution && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      <span>Next: {schedule.nextExecution.toDate?.()?.toLocaleDateString?.() || 'N/A'}</span>
-                    </div>
-                  )}
-                  {schedule.lastExecution && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      <span>Last: {schedule.lastExecution.toDate?.()?.toLocaleDateString?.() || 'N/A'}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div className="border-t border-border pt-1 flex items-center gap-1">
-                  <Button
-                    className="flex-1 h-8 text-xs gap-1"
-                    onClick={() => executeNow(schedule)}
-                    disabled={executing === schedule.id}
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                    {executing === schedule.id ? 'Running…' : 'Execute'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-8 px-2"
-                    onClick={() => handleOpenEdit(schedule)}
-                    title="Edit"
-                  >
-                    <Edit2 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-8 px-2"
-                    onClick={() => toggleActive(schedule.id, schedule.isActive)}
-                    title={schedule.isActive ? 'Deactivate' : 'Activate'}
-                  >
-                    {schedule.isActive ? <ToggleRight className="h-3.5 w-3.5 text-green-600" /> : <ToggleLeft className="h-3.5 w-3.5" />}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    className="h-8 px-2"
-                    onClick={() => deleteSchedule(schedule.id)}
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Edit Modal */}
-        {showEditModal && editingId && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl sm:text-2xl font-bold">Edit Scheduled Invoice</h2>
-                  <Button variant="outline" size="sm" onClick={resetEditForm}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="p-4 sm:p-6">
-                <form onSubmit={handleUpdate} className="space-y-4">
-                  <div>
-                    <Label>Title *</Label>
-                    <Input
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label>Description / Notes</Label>
-                    <textarea
-                      className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="General description or notes about this recurring invoice..."
-                    />
-                  </div>
-
-                  {/* Line Items */}
-                  <div>
-                    <div className="flex justify-between items-center mb-3">
-                      <Label>Line Items *</Label>
-                      <Button type="button" size="sm" variant="outline" onClick={addLineItem}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Item
-                      </Button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {lineItems.map((item, index) => (
-                        <div key={index} className="border border-border rounded-lg p-4">
-                          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                            <div className="md:col-span-6">
-                              <Label className="text-xs">Description</Label>
-                              <Input
-                                placeholder="Service description"
-                                value={item.description}
-                                onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                              />
-                            </div>
-                            <div className="md:col-span-2">
-                              <Label className="text-xs">Quantity</Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) => updateLineItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                              />
-                            </div>
-                            <div className="md:col-span-2">
-                              <Label className="text-xs">Unit Price ($)</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.unitPrice}
-                                onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                              />
-                            </div>
-                            <div className="md:col-span-2 flex items-end gap-2">
-                              <div className="flex-1">
-                                <Label className="text-xs">Amount</Label>
-                                <div className="text-lg font-bold text-blue-600">
-                                  {formatMoney(item.amount)}
-                                </div>
-                              </div>
-                              {lineItems.length > 1 && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => removeLineItem(index)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
+          <div className="grid gap-3">
+            {filtered.map(inv => {
+              const next = toDate(inv.nextExecution);
+              const last = toDate(inv.lastExecution);
+              return (
+                <Link
+                  key={inv.id}
+                  href={`/admin-portal/scheduled-invoices/${inv.id}`}
+                  className="block"
+                >
+                  <Card className="hover:border-blue-300 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Receipt className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {inv.scheduledInvoiceNumber}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border inline-flex items-center gap-1 ${
+                              inv.status === 'active'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : inv.status === 'paused'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-red-50 text-red-700 border-red-200'
+                            }`}>
+                              {inv.status === 'active' && <CheckCircle className="h-3 w-3" />}
+                              {inv.status === 'paused' && <Pause className="h-3 w-3" />}
+                              {inv.status === 'cancelled' && <X className="h-3 w-3" />}
+                              {inv.status}
+                            </span>
+                            {inv.recurrencePatternLabel && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                {inv.recurrencePatternLabel}
+                              </span>
+                            )}
+                            {inv.autoCharge && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200 inline-flex items-center gap-1">
+                                <Zap className="h-3 w-3" />
+                                Auto-charge
+                              </span>
+                            )}
                           </div>
+                          <p className="font-semibold mt-1.5 truncate">{inv.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {inv.clientName} · {inv.clientEmail}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-
-                    {/* Total */}
-                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold">Total Amount:</span>
-                        <span className="text-2xl font-bold text-blue-600">
-                          {formatMoney(calculateTotal())}
-                        </span>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xl font-bold">{formatMoney(inv.totalAmount || 0)}</p>
+                          <p className="text-xs text-muted-foreground">per iteration</p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Frequency *</Label>
-                    <SearchableSelect
-                      className="mt-1 w-full"
-                      value={formData.frequency}
-                      onValueChange={(v) => setFormData({ ...formData, frequency: v as typeof formData.frequency })}
-                      options={[
-                        { value: 'weekly', label: 'Weekly' },
-                        { value: 'monthly', label: 'Monthly' },
-                        { value: 'quarterly', label: 'Quarterly' },
-                        { value: 'yearly', label: 'Yearly' },
-                      ]}
-                      placeholder="Frequency"
-                      aria-label="Frequency"
-                    />
-                  </div>
-                  {formData.frequency !== 'weekly' && (
-                    <div>
-                      <Label>Day of Month (1-31)</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={formData.dayOfMonth}
-                        onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
-                      />
-                    </div>
-                  )}
-                  <div className="flex gap-3 pt-4 border-t">
-                    <Button type="submit" className="flex-1" loading={submitting} disabled={submitting}>
-                      <Save className="h-4 w-4 mr-2" />
-                      {submitting ? 'Saving...' : 'Update Schedule'}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={resetEditForm} loading={submitting} disabled={submitting}>
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
+                      <div className="mt-3 pt-3 border-t flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          Next run:{' '}
+                          <strong className="text-foreground">
+                            {next ? next.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                          </strong>
+                        </span>
+                        {last && (
+                          <span>
+                            Last run: <strong className="text-foreground">{last.toLocaleDateString()}</strong>
+                          </span>
+                        )}
+                        <span>
+                          Total runs: <strong className="text-foreground">{inv.totalExecutions || 0}</strong>
+                        </span>
+                        {(inv.failedExecutions || 0) > 0 && (
+                          <span className="text-red-600">
+                            Failed: <strong>{inv.failedExecutions}</strong>
+                          </span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
