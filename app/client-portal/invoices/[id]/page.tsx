@@ -142,8 +142,19 @@ export default function ClientInvoiceDetail() {
     return () => unsubscribeAuth();
   }, [auth, db, params.id, router]);
 
+  /**
+   * Prefer the Stripe-hosted invoice PDF (carries the "Pay online" link
+   * and Stripe-formatted layout). Cross-origin so we can't trigger a
+   * download programmatically — open in a new tab and let the user
+   * download from there. Falls back to the local generator only when
+   * the Stripe PDF isn't ready yet (draft / link still being created).
+   */
   const handleDownloadPDF = async () => {
     if (!invoice) return;
+    if (invoice.stripeInvoicePdf) {
+      window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
+      return;
+    }
     try {
       await downloadInvoicePDF({
         invoiceNumber: invoice.invoiceNumber,

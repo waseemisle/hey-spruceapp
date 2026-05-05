@@ -49,6 +49,7 @@ interface Invoice {
   stripePaymentLink?: string;
   stripeSessionId?: string;
   stripePaymentIntentId?: string;
+  stripeInvoicePdf?: string;
   autoChargeAttempted?: boolean;
   autoChargeStatus?: 'pending' | 'succeeded' | 'failed' | 'requires_action';
   autoChargeError?: string;
@@ -531,8 +532,17 @@ function InvoicesManagementInner() {
     }
   };
 
+  /**
+   * Prefer Stripe's hosted invoice PDF when available (carries pay-online
+   * link + Stripe layout). Falls back to the local generator only when
+   * the Stripe PDF isn't ready (draft / Stripe link still pending).
+   */
   const downloadInvoice = (invoice: Invoice) => {
     try {
+      if (invoice.stripeInvoicePdf) {
+        window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
+        return;
+      }
       downloadInvoicePDF({
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.clientName,

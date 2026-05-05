@@ -374,8 +374,25 @@ export default function AdminInvoiceDetail() {
     fetchInvoice();
   }, [params.id, router]);
 
+  /**
+   * Prefer the Stripe-hosted invoice PDF when one exists. Stripe finalizes
+   * the invoice (with line items + "Pay online" link + bill-to/from blocks
+   * + Stripe-formatted layout) and exposes it at invoice.stripeInvoicePdf.
+   * That's the canonical document we want admins and clients to share —
+   * not our locally-generated PDF, which doesn't carry the pay link.
+   *
+   * Stripe's PDF is on a cross-origin host so browsers block programmatic
+   * downloads; opening in a new tab lets the user trigger the download
+   * from there (or Save / Print). When the Stripe PDF isn't ready yet
+   * (draft invoice, Stripe link still pending) we fall back to the
+   * locally-generated layout so the button never silently does nothing.
+   */
   const handleDownloadPDF = () => {
     if (!invoice) return;
+    if (invoice.stripeInvoicePdf) {
+      window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
+      return;
+    }
     const subtotal = (invoice.lineItems || []).reduce((s, li) => s + (li.amount || 0), 0);
     downloadInvoicePDF({
       invoiceNumber: invoice.invoiceNumber,

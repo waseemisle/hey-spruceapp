@@ -42,6 +42,7 @@ interface Invoice {
   stripePaymentLink?: string;
   stripeSessionId?: string;
   stripePaymentIntentId?: string;
+  stripeInvoicePdf?: string;
   stripeChargeId?: string;
   stripeReceiptUrl?: string;
   stripeAmountReceived?: number;
@@ -117,7 +118,16 @@ function ClientInvoicesInner() {
     return () => unsubscribeAuth();
   }, [auth, db]);
 
+  /**
+   * Prefer the Stripe-hosted invoice PDF (carries pay-online link +
+   * Stripe layout). Falls back to the local generator only when the
+   * Stripe PDF isn't ready yet.
+   */
   const handleDownloadPDF = async (invoice: Invoice) => {
+    if (invoice.stripeInvoicePdf) {
+      window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
+      return;
+    }
     try {
       const invoiceData = {
         invoiceNumber: invoice.invoiceNumber,
