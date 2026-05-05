@@ -10,6 +10,10 @@
         "schedule": "0 9 * * *"
       },
       {
+        "path": "/api/scheduled-invoices/cron",
+        "schedule": "15 9 * * *"
+      },
+      {
         "path": "/api/sync/firebase-to-supabase",
         "schedule": "55 23 * * *"
       },
@@ -24,6 +28,14 @@
         "memory": 1024
       },
       "app/api/recurring-work-orders/execute/route.ts": {
+        "maxDuration": 120,
+        "memory": 1024
+      },
+      "app/api/scheduled-invoices/cron/route.ts": {
+        "maxDuration": 300,
+        "memory": 1024
+      },
+      "app/api/scheduled-invoices/execute/route.ts": {
         "maxDuration": 120,
         "memory": 1024
       },
