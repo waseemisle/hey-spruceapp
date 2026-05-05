@@ -40,6 +40,12 @@ export default function CreateWorkOrder() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [companyInfo, setCompanyInfo] = useState<{ id: string; name?: string } | null>(null);
   const [checkingCompany, setCheckingCompany] = useState(true);
+  // Separate loading flag for the locations query so we don't flash the
+  // "No locations assigned" empty-state during the half-second window
+  // between checkingCompany flipping false and the locations query
+  // resolving. The picker only commits to the empty-state once we've
+  // actually heard back from Firestore.
+  const [loadingLocations, setLoadingLocations] = useState(true);
 
   const [formData, setFormData] = useState({
     locationId: '',
@@ -101,6 +107,7 @@ export default function CreateWorkOrder() {
           setCompanyInfo(null);
           setLocations([]);
           setCheckingCompany(false);
+          setLoadingLocations(false);
           return;
         }
 
@@ -118,6 +125,7 @@ export default function CreateWorkOrder() {
           setCompanyInfo(null);
           setLocations([]);
           setCheckingCompany(false);
+          setLoadingLocations(false);
           return;
         }
 
@@ -169,7 +177,8 @@ export default function CreateWorkOrder() {
                 address: docSnap.data().address,
               })));
             })
-            .catch((err) => console.error('Failed to load locations:', err)),
+            .catch((err) => console.error('Failed to load locations:', err))
+            .finally(() => setLoadingLocations(false)),
         ]);
       } catch (error) {
         // Transient Firestore failure (network blip, exhausted retries on
@@ -468,18 +477,18 @@ export default function CreateWorkOrder() {
                       value={formData.locationId}
                       onValueChange={(v) => setFormData((prev) => ({ ...prev, locationId: v }))}
                       options={[
-                        { value: '', label: checkingCompany
+                        { value: '', label: (checkingCompany || loadingLocations)
                           ? 'Loading locations…'
                           : locations.length === 0
                             ? 'No locations assigned yet — contact your admin'
                             : 'Select a location' },
                         ...locations.map((location) => ({ value: location.id, label: location.name })),
                       ]}
-                      placeholder={checkingCompany ? 'Loading locations…' : 'Select a location'}
+                      placeholder={(checkingCompany || loadingLocations) ? 'Loading locations…' : 'Select a location'}
                       aria-label="Location"
-                      disabled={checkingCompany || locations.length === 0}
+                      disabled={checkingCompany || loadingLocations || locations.length === 0}
                     />
-                    {!checkingCompany && locations.length === 0 && (
+                    {!checkingCompany && !loadingLocations && locations.length === 0 && (
                       <p className="text-xs text-muted-foreground mt-1.5">
                         No locations are assigned to you. {' '}
                         <Link href="/client-portal/locations" className="text-blue-600 underline">
