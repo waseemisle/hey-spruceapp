@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, ArrowLeft, History, Paperclip, CreditCard, Edit2, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Send, Zap, RefreshCw } from 'lucide-react';
+import { Receipt, Download, ArrowLeft, History, Paperclip, CreditCard, Edit2, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Send, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { formatMoney } from '@/lib/money';
@@ -128,11 +128,6 @@ export default function AdminInvoiceDetail() {
   // Resolved from the client's parent company doc; defaults to false so
   // a missing/loading flag never accidentally exposes the integration.
   const [companyMarginEdgeEnabled, setCompanyMarginEdgeEnabled] = useState(false);
-  // Reconcile-with-Stripe action state — fires the bidirectional sync
-  // route on demand and reports the outcome to the admin via toast so
-  // they can immediately see whether an orphan Stripe Invoice got
-  // closed or whether a webhook gap got filled.
-  const [reconciling, setReconciling] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ status: '', notes: '', terms: '', discountAmount: '' });
   const [editLineItems, setEditLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([]);
@@ -822,45 +817,6 @@ export default function AdminInvoiceDetail() {
     }
   };
 
-  /**
-   * Force a bidirectional sync with Stripe. Calls /api/stripe/sync-invoice
-   * which:
-   *   • If Stripe says paid + Firestore says not → mirrors paid into Firestore.
-   *   • If Firestore says paid + the linked Stripe Invoice is still 'open'
-   *     (the dual-PI orphan-invoice bug from the legacy auto-charge path)
-   *     → marks the Stripe Invoice paid_out_of_band so it closes cleanly
-   *     in the dashboard. No second charge — money was already collected.
-   * Surfaces the outcome via toast so the admin can see exactly what
-   * was reconciled instead of having to refresh and check Stripe by hand.
-   */
-  const handleReconcileWithStripe = async () => {
-    if (!invoice) return;
-    setReconciling(true);
-    try {
-      const res = await fetch('/api/stripe/sync-invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: invoice.id }),
-      });
-      const out = await res.json();
-      if (!res.ok) throw new Error(out?.error || 'Reconcile failed');
-      if (out?.reconciled) {
-        toast.success('Stripe Invoice closed (paid_out_of_band). The orphan Open invoice is now resolved.');
-      } else if (out?.synced) {
-        toast.success('Firestore updated from Stripe — invoice now shows Paid.');
-      } else {
-        toast.info('Already in sync — no changes needed.');
-      }
-      // Re-read the doc so any timeline/PDF/hosted URL updates surface.
-      const fresh = await getDoc(doc(db, 'invoices', invoice.id));
-      if (fresh.exists()) setInvoice({ ...fresh.data(), id: fresh.id } as Invoice);
-    } catch (err: any) {
-      toast.error(err?.message || 'Reconcile with Stripe failed');
-    } finally {
-      setReconciling(false);
-    }
-  };
-
   const toDate = (val: any) => {
     if (!val) return null;
     if (val?.toDate) return val.toDate();
@@ -1073,27 +1029,6 @@ export default function AdminInvoiceDetail() {
                   <Receipt className="h-4 w-4 mr-2" />
                   View Receipt
                 </a>
-              </Button>
-            )}
-            {/*
-              Reconcile with Stripe — manual force-sync. Renders only when
-              the invoice has a linked Stripe Invoice so we have something
-              to reconcile against. Fires bidirectional sync; shows the
-              outcome via toast (closed orphan / mirrored paid / already
-              in sync). Used to clean up the dual-PI orphan-Open-invoice
-              bug from the legacy auto-charge path on existing invoices.
-            */}
-            {invoice.stripeInvoiceId && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleReconcileWithStripe}
-                disabled={reconciling}
-                className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                title="Force-sync this invoice's status with Stripe and close any orphan Open invoice"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${reconciling ? 'animate-spin' : ''}`} />
-                {reconciling ? 'Reconciling…' : 'Reconcile with Stripe'}
               </Button>
             )}
             {invoice.status === 'paid' && invoice.stripeInvoicePdf && (
