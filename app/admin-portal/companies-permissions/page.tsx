@@ -55,6 +55,7 @@ interface Client {
     viewSubcontractors?: boolean;
     compareQuotes?: boolean;
     viewRecurringWorkOrders?: boolean;
+    editRecurringWorkOrders?: boolean;
     viewTimeline?: boolean;
     createSubcontractors?: boolean;
     createLocation?: boolean;
@@ -76,7 +77,8 @@ const PERMISSION_DEFS: {
   { key: 'viewMaintenanceRequests',            label: 'Maintenance Requests',           desc: 'View incoming maintenance requests in the client portal.',                                       category: 'visibility', icon: ListChecks },
   { key: 'viewMaintenanceRequestsWorkOrders',  label: 'Maintenance Request Work Orders',desc: 'See work orders that originated from maintenance requests.',                                     category: 'visibility', icon: FileText },
   { key: 'viewSubcontractors',                 label: 'View Subcontractors',            desc: 'Read-only view of all subcontractors in the platform.',                                          category: 'visibility', icon: Users },
-  { key: 'viewRecurringWorkOrders',            label: 'Recurring Work Orders',          desc: 'View and edit recurring work orders for owned locations.',                                       category: 'visibility', icon: Repeat },
+  { key: 'viewRecurringWorkOrders',            label: 'View Recurring Work Orders',     desc: 'View recurring work orders for owned locations.',                                                category: 'visibility', icon: Repeat },
+  { key: 'editRecurringWorkOrders',            label: 'Edit Recurring Work Orders',     desc: 'Edit recurring work orders for owned locations.',                                                category: 'visibility', icon: Repeat },
   { key: 'rejectedWorkOrders',                 label: 'Rejected Work Orders',           desc: 'Show rejected work orders in the client portal.',                                                category: 'visibility', icon: XCircle },
   { key: 'viewTimeline',                       label: 'Timeline',                       desc: 'Show the activity timeline on work orders, quotes and invoices.',                                category: 'visibility', icon: Clock },
 
