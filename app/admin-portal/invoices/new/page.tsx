@@ -201,6 +201,28 @@ function CreateInvoiceContent() {
     { description: '', quantity: 1, unitPrice: 0, amount: 0 },
   ]);
 
+  // ── Markup state ──────────────────────────────────────────────────
+  // Three modes the markup field can be in:
+  //   • 'editable'  — admin may enter a percentage; applied to line
+  //                   items at submit time. Used when the source quote
+  //                   wasn't yet shared with the client (status
+  //                   'pending' / no clientLineItems), or when there is
+  //                   no source quote at all.
+  //   • 'locked'    — the source quote was already shared with the
+  //                   client at a markup. The pulled lineItems already
+  //                   reflect that markup (clientLineItems), so we
+  //                   display the % for transparency but DON'T apply
+  //                   it again at submit.
+  //   • 'diagnostic' — the source is a diagnostic visit. Per business
+  //                   rule, diagnostic fees never carry a markup. The
+  //                   field is hidden / forced to 0.
+  const [markupContext, setMarkupContext] =
+    useState<'editable' | 'locked' | 'diagnostic'>('editable');
+  const [markupPercent, setMarkupPercent] = useState<string>('');
+  // Source quote id captured during work-order selection — used in the
+  // submit logging only (helps trace where the line items came from).
+  const [sourceQuoteId, setSourceQuoteId] = useState<string | null>(null);
+
   // Auto-charge PM picker — populated when a client is selected so the
   // admin can pin which saved method this invoice should bill against.
   // Defaults to the client's defaultPaymentMethodId; the admin can flip
@@ -227,22 +249,15 @@ function CreateInvoiceContent() {
         })));
         setCategories(catSnap.docs.map(d => ({ id: d.id, name: d.data().name })));
 
-        // Auto-select work order from URL param
+        // Auto-select work order from URL param. Route through
+        // handleWorkOrderSelect (passing the freshly loaded list so the
+        // lookup doesn't miss before React commits state) so the quote
+        // auto-pull, markup detection, and diagnostic detection all
+        // run identically to a manual select.
         if (preselectedWorkOrderId) {
           const wo = loadedWorkOrders.find(w => w.id === preselectedWorkOrderId);
           if (wo) {
-            setSelectedWorkOrderId(wo.id);
-            setFormData(prev => ({
-              ...prev,
-              clientId: wo.clientId || '',
-              clientName: wo.clientName || '',
-              clientEmail: wo.clientEmail || '',
-              workOrderId: wo.id,
-              workOrderTitle: wo.title || '',
-              workOrderDescription: wo.description || '',
-              category: wo.category || prev.category,
-              priority: wo.priority || prev.priority,
-            }));
+            await handleWorkOrderSelect(wo.id, loadedWorkOrders);
           }
         }
       } catch (err) {
@@ -320,7 +335,11 @@ function CreateInvoiceContent() {
   }, [formData.clientId]);
 
   // ── Auto-fill from work order ────────────────────────────────────────────────
-  const handleWorkOrderSelect = async (workOrderId: string) => {
+  // `availableWos` lets the URL-preselect path on initial load pass in
+  // the freshly-loaded work-orders list before React commits it to
+  // `workOrders` state — without it, the lookup below would miss when
+  // the page is opened directly via /invoices/new?workOrderId=...
+  const handleWorkOrderSelect = async (workOrderId: string, availableWos?: WorkOrder[]) => {
     setSelectedWorkOrderId(workOrderId);
     if (!workOrderId) {
       setFormData(prev => ({
@@ -334,9 +353,13 @@ function CreateInvoiceContent() {
         category: '',
         priority: '',
       }));
+      setSourceQuoteId(null);
+      setMarkupContext('editable');
+      setMarkupPercent('');
       return;
     }
-    const wo = workOrders.find(w => w.id === workOrderId);
+    const list = availableWos || workOrders;
+    const wo = list.find(w => w.id === workOrderId);
     if (!wo) return;
     setFormData(prev => ({
       ...prev,
@@ -350,27 +373,68 @@ function CreateInvoiceContent() {
       priority: wo.priority ?? '',
     }));
 
-    // Pull the most recent client-facing quote and copy its line items in.
-    // Prefer 'accepted' (the one that was approved) > 'sent_to_client' >
-    // anything else. Skip diagnostic quotes — the invoice should reflect
-    // the repair quote the client approved.
+    // Diagnostic detection on the WO itself — set early so even if no
+    // quote is found we still suppress the markup field. Triggered by
+    // any of: explicit diagnostic billing phase, a non-zero
+    // diagnosticFee, or a diagnostic creation source.
+    const woIsDiagnostic =
+      wo.billingPhase === 'diagnostic' ||
+      (typeof (wo as any).diagnosticFee === 'number' && (wo as any).diagnosticFee > 0 && wo.billingPhase !== 'repair');
+
+    // Pull the most relevant quote and seed line items + markup state.
+    //   • prefer non-diagnostic over diagnostic so a repair quote wins
+    //     when both exist;
+    //   • among repair quotes, prefer accepted > sent_to_client >
+    //     pending so the most "advanced" candidate seeds the form.
+    // The markup field's mode is determined by which quote we picked:
+    //   • shared with client (clientLineItems present) → markup 'locked'
+    //   • diagnostic → markup 'diagnostic' (hidden)
+    //   • otherwise → markup 'editable' (admin enters %)
     try {
       const qSnap = await getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', wo.id)));
       const allQuotes = qSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-      const repairQuotes = allQuotes.filter(q => q.isDiagnosticQuote !== true);
-      const rank = (s: string | undefined) => s === 'accepted' ? 0 : s === 'sent_to_client' ? 1 : s === 'pending' ? 2 : 3;
-      const candidates = repairQuotes.sort((a, b) => {
-        const r = rank(a.status) - rank(b.status);
+      const rank = (q: any) => {
+        let r = q.status === 'accepted' ? 0 : q.status === 'sent_to_client' ? 1 : q.status === 'pending' ? 2 : 3;
+        if (q.isDiagnosticQuote) r += 10;
+        return r;
+      };
+      const candidates = allQuotes.sort((a, b) => {
+        const r = rank(a) - rank(b);
         if (r !== 0) return r;
         const am = (a.acceptedAt?.toMillis?.() ?? a.updatedAt?.toMillis?.() ?? a.createdAt?.toMillis?.() ?? 0);
         const bm = (b.acceptedAt?.toMillis?.() ?? b.updatedAt?.toMillis?.() ?? b.createdAt?.toMillis?.() ?? 0);
         return bm - am;
       });
       const chosen = candidates[0];
+
       if (chosen) {
-        const sourceLineItems = Array.isArray(chosen.clientLineItems) && chosen.clientLineItems.length > 0
+        setSourceQuoteId(chosen.id);
+        const isDiagnosticQuote = !!chosen.isDiagnosticQuote;
+        const hasClientLineItems = Array.isArray(chosen.clientLineItems) && chosen.clientLineItems.length > 0;
+        const hasMarkupBaked =
+          !isDiagnosticQuote &&
+          ((chosen.markupPercentage > 0 && hasClientLineItems) ||
+            (chosen.markupPercentage > 0 && Number(chosen.clientAmount) > 0 && Number(chosen.clientAmount) !== Number(chosen.totalAmount)));
+
+        if (woIsDiagnostic || isDiagnosticQuote) {
+          setMarkupContext('diagnostic');
+          setMarkupPercent('0');
+        } else if (hasMarkupBaked) {
+          setMarkupContext('locked');
+          setMarkupPercent(String(chosen.markupPercentage ?? 0));
+        } else {
+          setMarkupContext('editable');
+          setMarkupPercent('');
+        }
+
+        // Seed line items. For the LOCKED (markup-already-applied)
+        // path, prefer clientLineItems (they're the marked-up version).
+        // For EDITABLE / DIAGNOSTIC paths, use raw lineItems — markup
+        // (if any) gets applied at submit by handleSubmit.
+        const sourceLineItems = hasMarkupBaked && hasClientLineItems
           ? chosen.clientLineItems
           : Array.isArray(chosen.lineItems) ? chosen.lineItems : [];
+
         if (sourceLineItems.length > 0) {
           setLineItems(sourceLineItems.map((li: any) => ({
             description: String(li.description || ''),
@@ -379,15 +443,33 @@ function CreateInvoiceContent() {
             amount: Number(li.amount ?? (Number(li.quantity ?? 1) * Number(li.unitPrice ?? 0))),
           })));
         } else {
-          // Fallback: a single line for the marked-up clientAmount or totalAmount.
-          const total = Number(chosen.clientAmount ?? chosen.totalAmount ?? 0);
+          // Fallback: a single line. Use the marked-up clientAmount when
+          // the quote was shared with client, else the raw subcontractor
+          // total (which the markup field will scale at submit).
+          const total = Number(
+            hasMarkupBaked ? (chosen.clientAmount ?? chosen.totalAmount) : (chosen.totalAmount ?? chosen.clientAmount) ?? 0
+          );
           if (total > 0) {
             setLineItems([{ description: wo.title || 'Service', quantity: 1, unitPrice: total, amount: total }]);
           }
         }
+      } else {
+        // No quote on the WO. Markup is editable unless the WO itself
+        // says this is a diagnostic visit.
+        setSourceQuoteId(null);
+        if (woIsDiagnostic) {
+          setMarkupContext('diagnostic');
+          setMarkupPercent('0');
+        } else {
+          setMarkupContext('editable');
+          setMarkupPercent('');
+        }
       }
     } catch (qErr) {
       console.warn('Could not auto-fill line items from quote:', qErr);
+      setSourceQuoteId(null);
+      setMarkupContext(woIsDiagnostic ? 'diagnostic' : 'editable');
+      setMarkupPercent(woIsDiagnostic ? '0' : '');
     }
   };
 
@@ -417,7 +499,18 @@ function CreateInvoiceContent() {
   const removeLineItem = (i: number) =>
     setLineItems(prev => prev.filter((_, idx) => idx !== i));
 
-  const totalAmount = lineItems.reduce((sum, li) => sum + (li.amount || 0), 0);
+  // Subtotal of currently-displayed line items. The markup field — when
+  // 'editable' — multiplies this by (1 + markup/100) at submit time.
+  // 'locked' / 'diagnostic' modes don't apply markup in handleSubmit.
+  const subtotalBeforeMarkup = lineItems.reduce((sum, li) => sum + (li.amount || 0), 0);
+  const markupNum = (() => {
+    const n = parseFloat(markupPercent);
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return n;
+  })();
+  const markupApplies = markupContext === 'editable' && markupNum > 0;
+  const markupAmount = markupApplies ? subtotalBeforeMarkup * (markupNum / 100) : 0;
+  const totalAmount = subtotalBeforeMarkup + markupAmount;
 
   // ── Submit ───────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -445,6 +538,25 @@ function CreateInvoiceContent() {
       // client's default later doesn't silently re-route this invoice.
       const selectedPm = clientPaymentMethods.find((m) => m.id === autoChargePmId);
 
+      // Apply markup at submit time when the field is 'editable' and a
+      // non-zero percentage is set. The displayed line items are the
+      // raw subcontractor cost in this mode; we multiply each line by
+      // the factor so what gets persisted (and what the client is
+      // billed) reflects the marked-up amount. 'locked' (markup
+      // already baked into the pulled clientLineItems) and 'diagnostic'
+      // (no markup, ever) skip this — the displayed line items are
+      // already the final amounts.
+      const factor = markupApplies ? 1 + markupNum / 100 : 1;
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const persistedLineItems = markupApplies
+        ? lineItems.map(li => ({
+            ...li,
+            unitPrice: round2((li.unitPrice || 0) * factor),
+            amount: round2((li.amount || 0) * factor),
+          }))
+        : lineItems;
+      const persistedTotal = persistedLineItems.reduce((s, li) => s + (li.amount || 0), 0);
+
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
         clientId: formData.clientId,
@@ -456,8 +568,16 @@ function CreateInvoiceContent() {
         category: formData.category,
         priority: formData.priority,
         status: formData.status,
-        totalAmount,
-        lineItems,
+        totalAmount: persistedTotal,
+        lineItems: persistedLineItems,
+        // Audit fields — capture how the markup was decided so future
+        // debugging / dispute resolution can trace exactly what was
+        // billed and why. These also let the invoice detail page show
+        // the markup pill without re-deriving it.
+        markupPercentage: markupContext === 'editable' ? markupNum : (markupContext === 'locked' ? markupNum : 0),
+        markupAppliedAtCreate: markupApplies,
+        markupContext,
+        ...(sourceQuoteId ? { quoteId: sourceQuoteId } : {}),
         dueDate: new Date(formData.dueDate),
         notes: formData.notes,
         terms: formData.terms,
@@ -900,10 +1020,75 @@ function CreateInvoiceContent() {
                 Add Line Item
               </Button>
 
-              <div className="flex justify-end pt-2 border-t">
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-2xl font-bold text-foreground">{formatMoney(totalAmount)}</p>
+              {/*
+                Markup panel. Three visible states:
+                  • 'editable'   — admin enters %; line items are scaled
+                                   at submit. The breakdown shows
+                                   subtotal + markup amount + total.
+                  • 'locked'     — markup was already applied to the
+                                   pulled clientLineItems on the source
+                                   quote. Display the % for transparency
+                                   but disable input — re-applying would
+                                   double-charge.
+                  • 'diagnostic' — diagnostic visit. No markup, ever.
+                                   Field hidden, hint shown.
+              */}
+              <div className="pt-3 border-t space-y-3">
+                {markupContext === 'diagnostic' ? (
+                  <div className="rounded-md border border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2 text-xs text-blue-800 dark:text-blue-200">
+                    <span className="font-semibold">Diagnostic visit</span> — no markup is applied to diagnostic fees.
+                  </div>
+                ) : markupContext === 'locked' ? (
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-200">
+                    <span className="font-semibold">Markup already applied</span> ({markupPercent || '0'}%) — the line items above
+                    are the client-facing prices from the shared quote. The field is locked so the same markup isn&apos;t
+                    applied twice.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-2 items-start">
+                    <div>
+                      <Label htmlFor="markupPercent" className="text-xs">Markup %</Label>
+                      <Input
+                        id="markupPercent"
+                        type="number"
+                        min="0"
+                        max="500"
+                        step="0.1"
+                        className="mt-1 h-9"
+                        value={markupPercent}
+                        onChange={e => setMarkupPercent(e.target.value)}
+                        onWheel={e => e.currentTarget.blur()}
+                        placeholder="0"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground sm:mt-6">
+                      Optional. When set, every line item&apos;s unit price is multiplied by (1 + markup/100) at create time —
+                      this is what the client will be billed.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Totals breakdown — splits subtotal from markup so the
+                  admin can see exactly what the client will be charged. */}
+              <div className="flex justify-end pt-3 border-t">
+                <div className="text-right space-y-1 min-w-[220px]">
+                  {markupApplies && (
+                    <>
+                      <div className="flex justify-between gap-6 text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="tabular-nums">{formatMoney(subtotalBeforeMarkup)}</span>
+                      </div>
+                      <div className="flex justify-between gap-6 text-sm">
+                        <span className="text-muted-foreground">Markup ({markupNum}%)</span>
+                        <span className="tabular-nums text-amber-700 dark:text-amber-300">+{formatMoney(markupAmount)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between gap-6 pt-1 border-t">
+                    <span className="text-sm text-muted-foreground">Total</span>
+                    <span className="text-2xl font-bold text-foreground tabular-nums">{formatMoney(totalAmount)}</span>
+                  </div>
                 </div>
               </div>
             </CardContent>

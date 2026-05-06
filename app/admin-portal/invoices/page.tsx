@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw, Loader2, FileText, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { formatMoney } from '@/lib/money';
@@ -253,12 +253,13 @@ function InvoicesManagementInner() {
 
   const fetchAcceptedQuotes = async () => {
     try {
-      // Filter server-side to "accepted" — was scanning the entire quotes
-      // collection and filtering client-side, downloading every quote in
-      // the system on every visit.
+      // Pull every quote that has reached the client OR is sitting in the
+      // admin's queue — these are the candidates for invoice generation.
+      // Rejected / draft / invoiced quotes are skipped.
+      // Firestore's `where(... 'in' ...)` is capped at 10 values; we have 3.
       const quotesQuery = query(
         collection(db, 'quotes'),
-        where('status', '==', 'accepted'),
+        where('status', 'in', ['pending', 'sent_to_client', 'accepted']),
         limit(500),
       );
       const snapshot = await getDocs(quotesQuery);
@@ -273,6 +274,86 @@ function InvoicesManagementInner() {
     fetchInvoices();
     fetchAcceptedQuotes();
   }, []);
+
+  /**
+   * Work orders that have at least one received quote AND no invoice yet.
+   * Surfaced in a panel at the top of the page so admins see what's
+   * waiting to be billed instead of having to hunt for it on the work
+   * orders page.
+   *
+   * Selection rule per WO — pick the most useful quote to seed the
+   * invoice from:
+   *   • prefer status === 'accepted' (client said yes), then
+   *     'sent_to_client' (in client's hands), then 'pending' (admin
+   *     hasn't shared yet);
+   *   • prefer non-diagnostic over diagnostic so a repair quote wins
+   *     over the original diagnostic visit when both exist.
+   */
+  type PendingInvoiceItem = {
+    workOrderId: string;
+    workOrderTitle: string;
+    workOrderNumber?: string;
+    clientId: string;
+    clientName: string;
+    subcontractorName?: string;
+    quoteId: string;
+    quoteStatus: Quote['status'];
+    isDiagnostic: boolean;
+    /** True iff the source quote already has the markup baked into clientLineItems. */
+    markupAlreadyApplied: boolean;
+    /** Marked-up amount if applied, else raw subcontractor cost. */
+    amount: number;
+  };
+
+  const pendingInvoiceItems: PendingInvoiceItem[] = (() => {
+    if (loading || quotes.length === 0) return [];
+    const invoicedWoIds = new Set(invoices.map(i => i.workOrderId).filter(Boolean));
+    const byWo = new Map<string, Quote[]>();
+    for (const q of quotes) {
+      if (!q.workOrderId) continue;
+      if (invoicedWoIds.has(q.workOrderId)) continue;
+      const list = byWo.get(q.workOrderId) || [];
+      list.push(q);
+      byWo.set(q.workOrderId, list);
+    }
+    const rank = (q: Quote) => {
+      let r = q.status === 'accepted' ? 0 : q.status === 'sent_to_client' ? 1 : 2;
+      if (q.isDiagnosticQuote) r += 10;
+      return r;
+    };
+    return Array.from(byWo.entries())
+      .map(([woId, qs]) => {
+        const sorted = [...qs].sort((a, b) => rank(a) - rank(b));
+        const best = sorted[0];
+        const hasClientLineItems = Array.isArray((best as any).clientLineItems) && (best as any).clientLineItems.length > 0;
+        const markupAlreadyApplied =
+          !!best.markupPercentage && best.markupPercentage > 0 && (hasClientLineItems || (best.clientAmount > 0 && best.clientAmount !== best.totalAmount));
+        const displayAmount =
+          markupAlreadyApplied && best.clientAmount
+            ? best.clientAmount
+            : best.totalAmount || best.clientAmount || 0;
+        return {
+          workOrderId: woId,
+          workOrderTitle: best.workOrderTitle || 'Untitled',
+          workOrderNumber: (best as any).workOrderNumber,
+          clientId: best.clientId,
+          clientName: best.clientName,
+          subcontractorName: best.subcontractorName,
+          quoteId: best.id,
+          quoteStatus: best.status,
+          isDiagnostic: !!best.isDiagnosticQuote,
+          markupAlreadyApplied,
+          amount: displayAmount,
+        };
+      })
+      // Sort: not-yet-shared (admin still needs to do something) first,
+      // then ready-to-bill, with newest at the top within each group.
+      .sort((a, b) => {
+        const stage = (i: PendingInvoiceItem) =>
+          i.quoteStatus === 'pending' ? 0 : i.quoteStatus === 'sent_to_client' ? 1 : 2;
+        return stage(a) - stage(b);
+      });
+  })();
 
   const generateInvoiceFromQuote = async (quote: any) => {
     try {
@@ -870,6 +951,76 @@ function InvoicesManagementInner() {
             className="pl-10"
           />
         </div>
+
+        {/*
+          Pending Invoice Generation — work orders with received quotes
+          that don't have an invoice yet. Pinned at the top so admins
+          see what's waiting to be billed without having to scan the
+          work-orders page.
+          The "Add markup at create" / "Markup applied · ready" hint
+          tells the admin which mode the create flow will land in:
+            • markup already applied (quote was shared with client) →
+              the create page pulls the marked-up clientLineItems
+              and the markup field is locked / informational
+            • diagnostic visit → create page hides the markup field
+            • not yet shared → create page shows an editable Markup %
+              that scales the line items at submit time
+        */}
+        {pendingInvoiceItems.length > 0 && (
+          <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base text-amber-900 dark:text-amber-200">
+                <FileText className="h-5 w-5" />
+                Pending Invoice Generation ({pendingInvoiceItems.length})
+              </CardTitle>
+              <p className="text-xs text-amber-800/80 dark:text-amber-200/70 mt-1">
+                Work orders that have received quotes but no invoice yet. Click <span className="font-semibold">Create Invoice</span> to generate one — line items pre-fill from the quote.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {pendingInvoiceItems.map(item => (
+                  <div
+                    key={item.workOrderId}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-card border border-amber-100 dark:border-amber-900/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm text-foreground truncate">
+                        {item.workOrderNumber ? <span className="font-mono text-xs text-muted-foreground mr-2">{item.workOrderNumber}</span> : null}
+                        {item.workOrderTitle}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {item.clientName}
+                        {item.subcontractorName ? <> · Sub: {item.subcontractorName}</> : null}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        <div className="font-semibold text-sm tabular-nums">{formatMoney(item.amount)}</div>
+                        <div className="text-[11px]">
+                          {item.isDiagnostic ? (
+                            <span className="text-blue-700 dark:text-blue-300">Diagnostic visit</span>
+                          ) : item.markupAlreadyApplied ? (
+                            <span className="text-emerald-700 dark:text-emerald-300">Markup applied · ready</span>
+                          ) : (
+                            <span className="text-amber-700 dark:text-amber-300">Add markup at create</span>
+                          )}
+                        </div>
+                      </div>
+                      <Link href={`/admin-portal/invoices/new?workOrderId=${item.workOrderId}`}>
+                        <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                          <Plus className="h-3.5 w-3.5" />
+                          Create Invoice
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filter Tabs */}
         <div className="flex gap-2 flex-wrap">
