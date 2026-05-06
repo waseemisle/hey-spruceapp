@@ -277,6 +277,20 @@ function InvoicesManagementInner() {
   // stay focused.
   const [archivedWorkOrderIds, setArchivedWorkOrderIds] = useState<Set<string>>(new Set());
 
+  // Pending-panel in-page create state. `creatingForWoId` drives the
+  // spinner on the row that's currently being processed;
+  // `markupPromptItem` opens an inline modal before create when the
+  // source quote wasn't yet shared with the client at a markup, so
+  // the admin can supply the rate without leaving this page.
+  const [creatingForWoId, setCreatingForWoId] = useState<string | null>(null);
+  const [markupPromptItem, setMarkupPromptItem] = useState<{
+    workOrderId: string;
+    quoteId: string;
+    workOrderTitle: string;
+    clientName: string;
+  } | null>(null);
+  const [markupPromptValue, setMarkupPromptValue] = useState('20');
+
   const fetchArchivedWorkOrderIds = async () => {
     try {
       const snap = await getDocs(query(
@@ -379,6 +393,230 @@ function InvoicesManagementInner() {
         return stage(a) - stage(b);
       });
   })();
+
+  /**
+   * In-page invoice creation from the Pending panel — replaces the
+   * old navigate-to-/invoices/new flow so admins stay on the invoices
+   * list. Mirrors the work-orders page's one-click "Generate & Send
+   * Invoice" UX.
+   *
+   * Markup logic:
+   *   • markupAlreadyApplied (quote was shared with client at a
+   *     markup) → use the quote's clientLineItems / clientAmount
+   *     as-is. Don't re-apply markup.
+   *   • diagnostic → use raw lineItems with NO markup, ever.
+   *   • editable (quote not yet shared) → caller passes a markup %
+   *     gathered from the inline modal; we scale lineItems by
+   *     (1 + markup/100).
+   */
+  const createInvoiceForPendingItem = async (
+    item: PendingInvoiceItem,
+    markupPercent: number,
+  ) => {
+    setCreatingForWoId(item.workOrderId);
+    try {
+      const quote = quotes.find(q => q.id === item.quoteId);
+      if (!quote) {
+        toast.error('Source quote not found.');
+        return;
+      }
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        toast.error('You must be logged in.');
+        return;
+      }
+
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const factor = 1 + Math.max(0, markupPercent) / 100;
+
+      // Resolve final line items + total per the three modes.
+      let finalLineItems: Invoice['lineItems'] = [];
+      const clientLineItems = (quote as any).clientLineItems as any[] | undefined;
+      if (item.markupAlreadyApplied && Array.isArray(clientLineItems) && clientLineItems.length > 0) {
+        finalLineItems = clientLineItems.map((li: any) => ({
+          description: String(li.description || ''),
+          quantity: Number(li.quantity ?? 1),
+          unitPrice: Number(li.unitPrice ?? 0),
+          amount: Number(li.amount ?? (Number(li.quantity ?? 1) * Number(li.unitPrice ?? 0))),
+        }));
+      } else if (Array.isArray(quote.lineItems) && quote.lineItems.length > 0) {
+        finalLineItems = quote.lineItems.map((li: any) => ({
+          description: String(li.description || ''),
+          quantity: Number(li.quantity ?? 1),
+          unitPrice: round2(Number(li.unitPrice ?? 0) * factor),
+          amount: round2(Number(li.amount ?? (Number(li.quantity ?? 1) * Number(li.unitPrice ?? 0))) * factor),
+        }));
+      } else {
+        const baseTotal = Number(
+          item.markupAlreadyApplied
+            ? (quote.clientAmount ?? quote.totalAmount ?? 0)
+            : (quote.totalAmount ?? quote.clientAmount ?? 0),
+        );
+        const total = item.markupAlreadyApplied ? baseTotal : round2(baseTotal * factor);
+        finalLineItems = [{ description: quote.workOrderTitle || 'Service', quantity: 1, unitPrice: total, amount: total }];
+      }
+
+      const totalAmount = round2(finalLineItems.reduce((s, li) => s + (li.amount || 0), 0));
+      if (!totalAmount || totalAmount <= 0) {
+        toast.error('Cannot create invoice: total must be greater than 0.');
+        return;
+      }
+
+      // Resolve client email (quotes don't always carry it).
+      let clientEmail = quote.clientEmail || '';
+      if (!clientEmail && quote.clientId) {
+        const cd = await getDoc(doc(db, 'clients', quote.clientId));
+        if (cd.exists()) {
+          clientEmail = (cd.data() as any).email || (cd.data() as any).clientEmail || '';
+        }
+      }
+      if (!clientEmail) {
+        toast.error('Client has no email on file. Add one before invoicing.');
+        return;
+      }
+
+      const adminDoc = await getDoc(doc(db, 'adminUsers', currentUser.uid));
+      const adminName = adminDoc.exists() ? (adminDoc.data() as any).fullName || 'Admin' : 'Admin';
+
+      const invoiceNumber = generateInvoiceNumber();
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      const createdEvent = createInvoiceTimelineEvent({
+        type: 'created',
+        userId: currentUser.uid,
+        userName: adminName,
+        userRole: 'admin',
+        details: `Invoice created from quote ${quote.id}${
+          item.markupAlreadyApplied
+            ? ` (markup ${quote.markupPercentage || 0}% from shared quote)`
+            : item.isDiagnostic
+              ? ' (diagnostic visit, no markup)'
+              : markupPercent > 0
+                ? ` with ${markupPercent}% markup applied at create`
+                : ' with no markup'
+        }`,
+        metadata: {
+          source: 'pending_panel',
+          quoteId: quote.id,
+          workOrderId: quote.workOrderId,
+          markupPercentage: item.markupAlreadyApplied ? (quote.markupPercentage || 0) : markupPercent,
+        },
+      });
+
+      const markupContext: 'editable' | 'locked' | 'diagnostic' =
+        item.isDiagnostic ? 'diagnostic' : item.markupAlreadyApplied ? 'locked' : 'editable';
+
+      const invoiceRef = await addDoc(collection(db, 'invoices'), {
+        invoiceNumber,
+        quoteId: quote.id,
+        workOrderId: quote.workOrderId,
+        workOrderTitle: quote.workOrderTitle || '',
+        clientId: quote.clientId,
+        clientName: quote.clientName,
+        clientEmail,
+        subcontractorId: quote.subcontractorId,
+        subcontractorName: quote.subcontractorName,
+        status: 'draft',
+        totalAmount,
+        lineItems: finalLineItems,
+        discountAmount: 0,
+        dueDate,
+        notes: quote.notes || '',
+        terms: 'Payment due within 30 days. Late payments may incur additional fees.',
+        markupPercentage: item.markupAlreadyApplied ? (quote.markupPercentage || 0) : markupPercent,
+        markupAppliedAtCreate: !item.markupAlreadyApplied && !item.isDiagnostic && markupPercent > 0,
+        markupContext,
+        createdBy: currentUser.uid,
+        createdByName: adminName,
+        creationSource: 'pending_panel',
+        timeline: [createdEvent],
+        systemInformation: {
+          createdBy: {
+            id: currentUser.uid,
+            name: adminName,
+            role: 'admin',
+            timestamp: Timestamp.now(),
+          },
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Best-effort Stripe payment link in the background — keeps the
+      // UI responsive (per the No Stuck Buttons rule).
+      fetch('/api/stripe/create-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoiceId: invoiceRef.id,
+          invoiceNumber,
+          amount: totalAmount,
+          customerEmail: clientEmail,
+          clientName: quote.clientName,
+          clientId: quote.clientId,
+        }),
+      })
+        .then(async res => {
+          if (!res.ok) return;
+          const data = await res.json().catch(() => null);
+          if (data?.paymentLink) {
+            try {
+              await updateDoc(doc(db, 'invoices', invoiceRef.id), {
+                stripePaymentLink: data.paymentLink,
+                stripeInvoiceId: data.stripeInvoiceId || data.sessionId,
+              });
+            } catch (e) {
+              console.warn('Could not persist Stripe link on invoice:', e);
+            }
+          }
+        })
+        .catch(err => console.error('Stripe link (background) failed:', err));
+
+      toast.success(`Invoice ${invoiceNumber} created${
+        markupContext === 'editable' && markupPercent > 0 ? ` with ${markupPercent}% markup` : ''
+      }.`);
+
+      // Refresh the lists so the new invoice appears and the row falls
+      // out of the Pending panel.
+      fetchInvoices();
+    } catch (err: any) {
+      console.error('createInvoiceForPendingItem failed:', err);
+      toast.error(err?.message || 'Failed to create invoice');
+    } finally {
+      setCreatingForWoId(null);
+      setMarkupPromptItem(null);
+    }
+  };
+
+  const handlePanelCreateClick = (item: PendingInvoiceItem) => {
+    if (item.markupAlreadyApplied || item.isDiagnostic) {
+      // No markup decision needed — fire and forget.
+      createInvoiceForPendingItem(item, 0);
+      return;
+    }
+    // Quote wasn't shared with client at a markup. Surface the markup
+    // input inline before creating so the admin sets the rate.
+    setMarkupPromptItem({
+      workOrderId: item.workOrderId,
+      quoteId: item.quoteId,
+      workOrderTitle: item.workOrderTitle,
+      clientName: item.clientName,
+    });
+    setMarkupPromptValue('20');
+  };
+
+  const handleConfirmMarkupAndCreate = () => {
+    if (!markupPromptItem) return;
+    const item = pendingInvoiceItems.find(p => p.workOrderId === markupPromptItem.workOrderId);
+    if (!item) return;
+    const num = parseFloat(markupPromptValue);
+    if (!Number.isFinite(num) || num < 0) {
+      toast.error('Enter a valid markup % (0 or higher).');
+      return;
+    }
+    createInvoiceForPendingItem(item, num);
+  };
 
   const generateInvoiceFromQuote = async (quote: any) => {
     try {
@@ -1032,13 +1270,19 @@ function InvoicesManagementInner() {
                           )}
                         </div>
                       </div>
-                      <Link href={`/admin-portal/invoices/new?workOrderId=${item.workOrderId}`}>
-                        <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                      <Button
+                        size="sm"
+                        className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
+                        disabled={creatingForWoId === item.workOrderId}
+                        onClick={() => handlePanelCreateClick(item)}
+                      >
+                        {creatingForWoId === item.workOrderId ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
                           <Plus className="h-3.5 w-3.5" />
-                          Create Invoice
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </Button>
-                      </Link>
+                        )}
+                        {creatingForWoId === item.workOrderId ? 'Creating…' : 'Create Invoice'}
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -1445,6 +1689,76 @@ function InvoicesManagementInner() {
         )}
 
         {/* Upload PDF Modal */}
+        {/*
+          Markup-prompt modal — only opens for Pending-panel rows where
+          the source quote wasn't yet shared with the client at a
+          markup, so the admin needs to set the rate before the invoice
+          is created. Diagnostic and markup-already-applied rows skip
+          this entirely (one-click create).
+        */}
+        {markupPromptItem && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg max-w-md w-full p-6 shadow-xl">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Add markup before creating</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {markupPromptItem.workOrderTitle} · {markupPromptItem.clientName}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMarkupPromptItem(null)}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                The quote on this work order wasn&apos;t shared with the client at a markup,
+                so set the markup % to use for the invoice. Each line item&apos;s unit price
+                will be multiplied by (1 + markup/100) at create time.
+              </p>
+              <div>
+                <Label htmlFor="markupPromptValue" className="text-xs">Markup %</Label>
+                <Input
+                  id="markupPromptValue"
+                  type="number"
+                  min="0"
+                  max="500"
+                  step="0.1"
+                  className="mt-1"
+                  value={markupPromptValue}
+                  onChange={e => setMarkupPromptValue(e.target.value)}
+                  onWheel={e => e.currentTarget.blur()}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setMarkupPromptItem(null)}
+                  disabled={creatingForWoId === markupPromptItem.workOrderId}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={handleConfirmMarkupAndCreate}
+                  disabled={creatingForWoId === markupPromptItem.workOrderId}
+                >
+                  {creatingForWoId === markupPromptItem.workOrderId ? (
+                    <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Creating…</>
+                  ) : (
+                    <><Plus className="h-4 w-4 mr-1.5" /> Create Invoice</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showUploadModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
