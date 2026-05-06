@@ -74,6 +74,22 @@ interface ClientBilling {
   autoPayEnabled?: boolean;
 }
 
+type PendingInvoiceItem = {
+  workOrderId: string;
+  workOrderTitle: string;
+  workOrderNumber?: string;
+  clientId: string;
+  clientName: string;
+  subcontractorName?: string;
+  quoteId: string;
+  quoteStatus: Quote['status'];
+  isDiagnostic: boolean;
+  /** True iff the source quote already has the markup baked into clientLineItems. */
+  markupAlreadyApplied: boolean;
+  /** Marked-up amount if applied, else raw subcontractor cost. */
+  amount: number;
+};
+
 function InvoicesManagementInner() {
   const searchParams = useSearchParams();
   const workOrderIdFilter = searchParams.get('workOrderId');
@@ -278,18 +294,19 @@ function InvoicesManagementInner() {
   const [archivedWorkOrderIds, setArchivedWorkOrderIds] = useState<Set<string>>(new Set());
 
   // Pending-panel in-page create state. `creatingForWoId` drives the
-  // spinner on the row that's currently being processed;
-  // `markupPromptItem` opens an inline modal before create when the
-  // source quote wasn't yet shared with the client at a markup, so
-  // the admin can supply the rate without leaving this page.
+  // spinner on the row that's currently being processed; the rest is
+  // the edit-modal form state — opens when the admin clicks Create
+  // Invoice on a Pending row, pre-populated with the source quote's
+  // line items / amounts. Always shown (regardless of markup mode) so
+  // the admin can review every detail before the invoice is written.
   const [creatingForWoId, setCreatingForWoId] = useState<string | null>(null);
-  const [markupPromptItem, setMarkupPromptItem] = useState<{
-    workOrderId: string;
-    quoteId: string;
-    workOrderTitle: string;
-    clientName: string;
-  } | null>(null);
-  const [markupPromptValue, setMarkupPromptValue] = useState('20');
+  const [editingPendingItem, setEditingPendingItem] = useState<PendingInvoiceItem | null>(null);
+  const [editLineItems, setEditLineItems] = useState<Invoice['lineItems']>([]);
+  const [editMarkupContext, setEditMarkupContext] = useState<'editable' | 'locked' | 'diagnostic'>('editable');
+  const [editMarkupPercent, setEditMarkupPercent] = useState('20');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editStatus, setEditStatus] = useState<'draft' | 'sent'>('draft');
 
   const fetchArchivedWorkOrderIds = async () => {
     try {
@@ -322,23 +339,10 @@ function InvoicesManagementInner() {
    *     hasn't shared yet);
    *   • prefer non-diagnostic over diagnostic so a repair quote wins
    *     over the original diagnostic visit when both exist.
+   * Type lives at module scope (above InvoicesManagementInner) so the
+   * edit-modal state declared at the top of the component can also
+   * reference it.
    */
-  type PendingInvoiceItem = {
-    workOrderId: string;
-    workOrderTitle: string;
-    workOrderNumber?: string;
-    clientId: string;
-    clientName: string;
-    subcontractorName?: string;
-    quoteId: string;
-    quoteStatus: Quote['status'];
-    isDiagnostic: boolean;
-    /** True iff the source quote already has the markup baked into clientLineItems. */
-    markupAlreadyApplied: boolean;
-    /** Marked-up amount if applied, else raw subcontractor cost. */
-    amount: number;
-  };
-
   const pendingInvoiceItems: PendingInvoiceItem[] = (() => {
     if (loading || quotes.length === 0) return [];
     const invoicedWoIds = new Set(invoices.map(i => i.workOrderId).filter(Boolean));
@@ -409,10 +413,25 @@ function InvoicesManagementInner() {
    *     gathered from the inline modal; we scale lineItems by
    *     (1 + markup/100).
    */
-  const createInvoiceForPendingItem = async (
-    item: PendingInvoiceItem,
-    markupPercent: number,
-  ) => {
+  /**
+   * Persists an invoice using values the admin reviewed in the edit
+   * modal. Doesn't recompute from the quote — every field the user
+   * sees in the modal (line items, markup %, due date, notes, status)
+   * flows through here unmodified, so what the admin confirmed is
+   * what's written.
+   */
+  type CreateInvoiceParams = {
+    item: PendingInvoiceItem;
+    lineItems: Invoice['lineItems'];
+    markupPercent: number;
+    markupContext: 'editable' | 'locked' | 'diagnostic';
+    dueDate: Date;
+    notes: string;
+    status: 'draft' | 'sent';
+  };
+
+  const createInvoiceForPendingItem = async (params: CreateInvoiceParams) => {
+    const { item, lineItems: editedLineItems, markupPercent, markupContext, dueDate, notes, status } = params;
     setCreatingForWoId(item.workOrderId);
     try {
       const quote = quotes.find(q => q.id === item.quoteId);
@@ -427,38 +446,36 @@ function InvoicesManagementInner() {
       }
 
       const round2 = (n: number) => Math.round(n * 100) / 100;
-      const factor = 1 + Math.max(0, markupPercent) / 100;
 
-      // Resolve final line items + total per the three modes.
-      let finalLineItems: Invoice['lineItems'] = [];
-      const clientLineItems = (quote as any).clientLineItems as any[] | undefined;
-      if (item.markupAlreadyApplied && Array.isArray(clientLineItems) && clientLineItems.length > 0) {
-        finalLineItems = clientLineItems.map((li: any) => ({
-          description: String(li.description || ''),
-          quantity: Number(li.quantity ?? 1),
-          unitPrice: Number(li.unitPrice ?? 0),
-          amount: Number(li.amount ?? (Number(li.quantity ?? 1) * Number(li.unitPrice ?? 0))),
-        }));
-      } else if (Array.isArray(quote.lineItems) && quote.lineItems.length > 0) {
-        finalLineItems = quote.lineItems.map((li: any) => ({
-          description: String(li.description || ''),
-          quantity: Number(li.quantity ?? 1),
-          unitPrice: round2(Number(li.unitPrice ?? 0) * factor),
-          amount: round2(Number(li.amount ?? (Number(li.quantity ?? 1) * Number(li.unitPrice ?? 0))) * factor),
-        }));
-      } else {
-        const baseTotal = Number(
-          item.markupAlreadyApplied
-            ? (quote.clientAmount ?? quote.totalAmount ?? 0)
-            : (quote.totalAmount ?? quote.clientAmount ?? 0),
-        );
-        const total = item.markupAlreadyApplied ? baseTotal : round2(baseTotal * factor);
-        finalLineItems = [{ description: quote.workOrderTitle || 'Service', quantity: 1, unitPrice: total, amount: total }];
-      }
+      // The modal already let the admin edit line items directly. For
+      // the editable-markup path the displayed prices are the RAW
+      // sub-cost values; we apply the markup factor at submit time so
+      // what gets persisted matches what the totals breakdown showed.
+      // Locked/diagnostic skip this — admin saw the final numbers.
+      const factor = markupContext === 'editable' && markupPercent > 0
+        ? 1 + markupPercent / 100
+        : 1;
+      const finalLineItems: Invoice['lineItems'] = factor === 1
+        ? editedLineItems.map(li => ({
+            description: String(li.description || ''),
+            quantity: Number(li.quantity ?? 1),
+            unitPrice: round2(Number(li.unitPrice ?? 0)),
+            amount: round2(Number(li.amount ?? 0)),
+          }))
+        : editedLineItems.map(li => ({
+            description: String(li.description || ''),
+            quantity: Number(li.quantity ?? 1),
+            unitPrice: round2(Number(li.unitPrice ?? 0) * factor),
+            amount: round2(Number(li.amount ?? 0) * factor),
+          }));
 
       const totalAmount = round2(finalLineItems.reduce((s, li) => s + (li.amount || 0), 0));
       if (!totalAmount || totalAmount <= 0) {
         toast.error('Cannot create invoice: total must be greater than 0.');
+        return;
+      }
+      if (finalLineItems.some(li => !li.description?.trim())) {
+        toast.error('Every line item needs a description.');
         return;
       }
 
@@ -479,8 +496,6 @@ function InvoicesManagementInner() {
       const adminName = adminDoc.exists() ? (adminDoc.data() as any).fullName || 'Admin' : 'Admin';
 
       const invoiceNumber = generateInvoiceNumber();
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 30);
 
       const createdEvent = createInvoiceTimelineEvent({
         type: 'created',
@@ -488,9 +503,9 @@ function InvoicesManagementInner() {
         userName: adminName,
         userRole: 'admin',
         details: `Invoice created from quote ${quote.id}${
-          item.markupAlreadyApplied
+          markupContext === 'locked'
             ? ` (markup ${quote.markupPercentage || 0}% from shared quote)`
-            : item.isDiagnostic
+            : markupContext === 'diagnostic'
               ? ' (diagnostic visit, no markup)'
               : markupPercent > 0
                 ? ` with ${markupPercent}% markup applied at create`
@@ -500,12 +515,9 @@ function InvoicesManagementInner() {
           source: 'pending_panel',
           quoteId: quote.id,
           workOrderId: quote.workOrderId,
-          markupPercentage: item.markupAlreadyApplied ? (quote.markupPercentage || 0) : markupPercent,
+          markupPercentage: markupContext === 'locked' ? (quote.markupPercentage || 0) : markupPercent,
         },
       });
-
-      const markupContext: 'editable' | 'locked' | 'diagnostic' =
-        item.isDiagnostic ? 'diagnostic' : item.markupAlreadyApplied ? 'locked' : 'editable';
 
       const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber,
@@ -517,15 +529,15 @@ function InvoicesManagementInner() {
         clientEmail,
         subcontractorId: quote.subcontractorId,
         subcontractorName: quote.subcontractorName,
-        status: 'draft',
+        status,
         totalAmount,
         lineItems: finalLineItems,
         discountAmount: 0,
         dueDate,
-        notes: quote.notes || '',
+        notes,
         terms: 'Payment due within 30 days. Late payments may incur additional fees.',
-        markupPercentage: item.markupAlreadyApplied ? (quote.markupPercentage || 0) : markupPercent,
-        markupAppliedAtCreate: !item.markupAlreadyApplied && !item.isDiagnostic && markupPercent > 0,
+        markupPercentage: markupContext === 'locked' ? (quote.markupPercentage || 0) : markupPercent,
+        markupAppliedAtCreate: markupContext === 'editable' && markupPercent > 0,
         markupContext,
         createdBy: currentUser.uid,
         createdByName: adminName,
@@ -578,44 +590,145 @@ function InvoicesManagementInner() {
       }.`);
 
       // Refresh the lists so the new invoice appears and the row falls
-      // out of the Pending panel.
+      // out of the Pending panel. Close the edit modal here too —
+      // success path only; on error we leave the modal open so the
+      // admin can retry without re-entering everything.
       fetchInvoices();
+      setEditingPendingItem(null);
     } catch (err: any) {
       console.error('createInvoiceForPendingItem failed:', err);
       toast.error(err?.message || 'Failed to create invoice');
     } finally {
       setCreatingForWoId(null);
-      setMarkupPromptItem(null);
     }
   };
 
+  /**
+   * Open the edit modal pre-populated from the source quote. The
+   * modal lets the admin tweak line items, markup, due date, notes,
+   * and status before the invoice is written. Used for ALL three
+   * markup contexts (locked / diagnostic / editable) so the create
+   * flow is consistent — the admin always sees a preview first.
+   */
   const handlePanelCreateClick = (item: PendingInvoiceItem) => {
-    if (item.markupAlreadyApplied || item.isDiagnostic) {
-      // No markup decision needed — fire and forget.
-      createInvoiceForPendingItem(item, 0);
+    const quote = quotes.find(q => q.id === item.quoteId);
+    if (!quote) {
+      toast.error('Source quote not found.');
       return;
     }
-    // Quote wasn't shared with client at a markup. Surface the markup
-    // input inline before creating so the admin sets the rate.
-    setMarkupPromptItem({
-      workOrderId: item.workOrderId,
-      quoteId: item.quoteId,
-      workOrderTitle: item.workOrderTitle,
-      clientName: item.clientName,
-    });
-    setMarkupPromptValue('20');
+
+    // Resolve markup mode + initial line items.
+    const clientLineItems = (quote as any).clientLineItems as any[] | undefined;
+    const ctx: 'editable' | 'locked' | 'diagnostic' =
+      item.isDiagnostic ? 'diagnostic' : item.markupAlreadyApplied ? 'locked' : 'editable';
+
+    let seedLineItems: Invoice['lineItems'] = [];
+    if (ctx === 'locked' && Array.isArray(clientLineItems) && clientLineItems.length > 0) {
+      // Already-marked-up client-facing rows.
+      seedLineItems = clientLineItems.map((li: any) => ({
+        description: String(li.description || ''),
+        quantity: Number(li.quantity ?? 1),
+        unitPrice: Number(li.unitPrice ?? 0),
+        amount: Number(li.amount ?? (Number(li.quantity ?? 1) * Number(li.unitPrice ?? 0))),
+      }));
+    } else if (Array.isArray(quote.lineItems) && quote.lineItems.length > 0) {
+      // Raw subcontractor cost. For the editable path the markup field
+      // multiplies these at submit time; for diagnostic it's used as-is.
+      seedLineItems = quote.lineItems.map((li: any) => ({
+        description: String(li.description || ''),
+        quantity: Number(li.quantity ?? 1),
+        unitPrice: Number(li.unitPrice ?? 0),
+        amount: Number(li.amount ?? (Number(li.quantity ?? 1) * Number(li.unitPrice ?? 0))),
+      }));
+    } else {
+      // Fallback: a single line summarising the total.
+      const total = Number(
+        ctx === 'locked'
+          ? (quote.clientAmount ?? quote.totalAmount ?? 0)
+          : (quote.totalAmount ?? quote.clientAmount ?? 0),
+      );
+      if (total > 0) {
+        seedLineItems = [{ description: quote.workOrderTitle || 'Service', quantity: 1, unitPrice: total, amount: total }];
+      } else {
+        seedLineItems = [{ description: '', quantity: 1, unitPrice: 0, amount: 0 }];
+      }
+    }
+
+    // Initial markup value: existing % from the quote when locked,
+    // 0 for diagnostic, blank-default 20 for editable.
+    const initialMarkup =
+      ctx === 'locked'
+        ? String(quote.markupPercentage || 0)
+        : ctx === 'diagnostic'
+          ? '0'
+          : '20';
+
+    // Default due date: 30 days out, ISO yyyy-mm-dd for <input type="date">.
+    const due = new Date();
+    due.setDate(due.getDate() + 30);
+    const isoDue = due.toISOString().slice(0, 10);
+
+    setEditingPendingItem(item);
+    setEditLineItems(seedLineItems);
+    setEditMarkupContext(ctx);
+    setEditMarkupPercent(initialMarkup);
+    setEditDueDate(isoDue);
+    setEditNotes(quote.notes || '');
+    setEditStatus('draft');
   };
 
-  const handleConfirmMarkupAndCreate = () => {
-    if (!markupPromptItem) return;
-    const item = pendingInvoiceItems.find(p => p.workOrderId === markupPromptItem.workOrderId);
-    if (!item) return;
-    const num = parseFloat(markupPromptValue);
-    if (!Number.isFinite(num) || num < 0) {
+  /** Read-modify-write helpers for the modal's editable line items. */
+  const updateEditLineItem = (index: number, field: keyof Invoice['lineItems'][number], raw: string) => {
+    setEditLineItems(prev => {
+      const next = [...prev];
+      const item = { ...next[index] };
+      if (field === 'description') {
+        item.description = raw;
+      } else {
+        const num = parseFloat(raw) || 0;
+        (item as any)[field] = num;
+        if (field === 'quantity' || field === 'unitPrice') {
+          item.amount = (field === 'quantity' ? num : item.quantity) * (field === 'unitPrice' ? num : item.unitPrice);
+        }
+        if (field === 'amount') item.amount = num;
+      }
+      next[index] = item;
+      return next;
+    });
+  };
+
+  const addEditLineItem = () =>
+    setEditLineItems(prev => [...prev, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+
+  const removeEditLineItem = (i: number) =>
+    setEditLineItems(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
+
+  /** Submit handler — validates the modal form and persists the invoice. */
+  const handleConfirmEditAndCreate = () => {
+    if (!editingPendingItem) return;
+    const num = parseFloat(editMarkupPercent);
+    const markupNum = Number.isFinite(num) && num >= 0 ? num : 0;
+    if (editMarkupContext === 'editable' && (!Number.isFinite(num) || num < 0)) {
       toast.error('Enter a valid markup % (0 or higher).');
       return;
     }
-    createInvoiceForPendingItem(item, num);
+    if (!editDueDate) {
+      toast.error('Pick a due date.');
+      return;
+    }
+    if (editLineItems.length === 0 || editLineItems.every(li => !li.description.trim())) {
+      toast.error('Add at least one line item.');
+      return;
+    }
+    createInvoiceForPendingItem({
+      item: editingPendingItem,
+      lineItems: editLineItems,
+      markupPercent: markupNum,
+      markupContext: editMarkupContext,
+      dueDate: new Date(editDueDate),
+      notes: editNotes,
+      status: editStatus,
+    });
   };
 
   const generateInvoiceFromQuote = async (quote: any) => {
@@ -1688,76 +1801,230 @@ function InvoicesManagementInner() {
           </div>
         )}
 
-        {/* Upload PDF Modal */}
         {/*
-          Markup-prompt modal — only opens for Pending-panel rows where
-          the source quote wasn't yet shared with the client at a
-          markup, so the admin needs to set the rate before the invoice
-          is created. Diagnostic and markup-already-applied rows skip
-          this entirely (one-click create).
+          Pending-panel edit modal — full review of every field that
+          will be written before the invoice is created. Opens for all
+          three markup contexts (locked / diagnostic / editable) so the
+          flow is consistent and the admin always sees a preview.
         */}
-        {markupPromptItem && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg max-w-md w-full p-6 shadow-xl">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Add markup before creating</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {markupPromptItem.workOrderTitle} · {markupPromptItem.clientName}
-                  </p>
+        {editingPendingItem && (() => {
+          const round2 = (n: number) => Math.round(n * 100) / 100;
+          const subtotal = editLineItems.reduce((s, li) => s + (li.amount || 0), 0);
+          const markupNum = (() => {
+            const n = parseFloat(editMarkupPercent);
+            return Number.isFinite(n) && n >= 0 ? n : 0;
+          })();
+          const markupApplies = editMarkupContext === 'editable' && markupNum > 0;
+          const markupAmount = markupApplies ? subtotal * (markupNum / 100) : 0;
+          const previewTotal = round2(subtotal + markupAmount);
+          const isBusy = creatingForWoId === editingPendingItem.workOrderId;
+          return (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+              <div className="bg-card rounded-lg w-full max-w-3xl my-8 shadow-xl">
+                <div className="flex items-start justify-between p-5 border-b border-border">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Create Invoice</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {editingPendingItem.workOrderTitle} · {editingPendingItem.clientName}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingPendingItem(null)}
+                    disabled={isBusy}
+                    className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    aria-label="Close"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setMarkupPromptItem(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label="Close"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                The quote on this work order wasn&apos;t shared with the client at a markup,
-                so set the markup % to use for the invoice. Each line item&apos;s unit price
-                will be multiplied by (1 + markup/100) at create time.
-              </p>
-              <div>
-                <Label htmlFor="markupPromptValue" className="text-xs">Markup %</Label>
-                <Input
-                  id="markupPromptValue"
-                  type="number"
-                  min="0"
-                  max="500"
-                  step="0.1"
-                  className="mt-1"
-                  value={markupPromptValue}
-                  onChange={e => setMarkupPromptValue(e.target.value)}
-                  onWheel={e => e.currentTarget.blur()}
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-2 justify-end mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setMarkupPromptItem(null)}
-                  disabled={creatingForWoId === markupPromptItem.workOrderId}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
-                  onClick={handleConfirmMarkupAndCreate}
-                  disabled={creatingForWoId === markupPromptItem.workOrderId}
-                >
-                  {creatingForWoId === markupPromptItem.workOrderId ? (
-                    <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Creating…</>
+
+                <div className="p-5 space-y-5">
+                  {/* Line items editor */}
+                  <div>
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Line Items</Label>
+                    <div className="mt-2 space-y-2">
+                      <div className="hidden md:grid grid-cols-12 gap-2 text-[10px] font-semibold text-muted-foreground uppercase px-1">
+                        <div className="col-span-5">Description</div>
+                        <div className="col-span-2 text-right">Qty</div>
+                        <div className="col-span-2 text-right">Unit $</div>
+                        <div className="col-span-2 text-right">Amount</div>
+                        <div className="col-span-1" />
+                      </div>
+                      {editLineItems.map((li, i) => (
+                        <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-12 md:col-span-5">
+                            <Input
+                              value={li.description}
+                              onChange={e => updateEditLineItem(i, 'description', e.target.value)}
+                              placeholder="Description"
+                            />
+                          </div>
+                          <div className="col-span-4 md:col-span-2">
+                            <Input
+                              type="number" min="0" step="0.01"
+                              value={li.quantity || ''}
+                              onChange={e => updateEditLineItem(i, 'quantity', e.target.value)}
+                              onWheel={e => e.currentTarget.blur()}
+                              placeholder="Qty"
+                            />
+                          </div>
+                          <div className="col-span-4 md:col-span-2">
+                            <Input
+                              type="number" min="0" step="0.01"
+                              value={li.unitPrice || ''}
+                              onChange={e => updateEditLineItem(i, 'unitPrice', e.target.value)}
+                              onWheel={e => e.currentTarget.blur()}
+                              placeholder="Unit $"
+                            />
+                          </div>
+                          <div className="col-span-3 md:col-span-2">
+                            <Input
+                              type="number" min="0" step="0.01"
+                              value={li.amount || ''}
+                              onChange={e => updateEditLineItem(i, 'amount', e.target.value)}
+                              onWheel={e => e.currentTarget.blur()}
+                              placeholder="Amount"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-center">
+                            {editLineItems.length > 1 && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 h-auto"
+                                onClick={() => removeEditLineItem(i)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" size="sm" onClick={addEditLineItem}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Line Item
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Markup — context-aware */}
+                  {editMarkupContext === 'diagnostic' ? (
+                    <div className="rounded-md border border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2 text-xs text-blue-800 dark:text-blue-200">
+                      <span className="font-semibold">Diagnostic visit</span> — no markup is applied to diagnostic fees.
+                    </div>
+                  ) : editMarkupContext === 'locked' ? (
+                    <div className="rounded-md border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-200">
+                      <span className="font-semibold">Markup already applied</span> ({editMarkupPercent || '0'}%) — the line
+                      items above are the client-facing prices from the shared quote. Re-applying would double-charge,
+                      so the field is locked.
+                    </div>
                   ) : (
-                    <><Plus className="h-4 w-4 mr-1.5" /> Create Invoice</>
+                    <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-2 items-start">
+                      <div>
+                        <Label htmlFor="editMarkupPercent" className="text-xs">Markup %</Label>
+                        <Input
+                          id="editMarkupPercent"
+                          type="number" min="0" max="500" step="0.1"
+                          className="mt-1"
+                          value={editMarkupPercent}
+                          onChange={e => setEditMarkupPercent(e.target.value)}
+                          onWheel={e => e.currentTarget.blur()}
+                          autoFocus
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground sm:mt-6">
+                        Each line item&apos;s unit price will be multiplied by (1 + markup/100) at create time.
+                      </p>
+                    </div>
                   )}
-                </Button>
+
+                  {/* Status + Due Date */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="editStatus" className="text-xs">Status</Label>
+                      <select
+                        id="editStatus"
+                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={editStatus}
+                        onChange={e => setEditStatus(e.target.value as 'draft' | 'sent')}
+                      >
+                        <option value="draft">Draft</option>
+                        <option value="sent">Sent</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="editDueDate" className="text-xs">Due Date</Label>
+                      <Input
+                        id="editDueDate"
+                        type="date"
+                        className="mt-1"
+                        value={editDueDate}
+                        onChange={e => setEditDueDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <Label htmlFor="editNotes" className="text-xs">Notes</Label>
+                    <textarea
+                      id="editNotes"
+                      className="mt-1 w-full border border-input rounded-md p-2 min-h-[70px] text-sm bg-background"
+                      value={editNotes}
+                      onChange={e => setEditNotes(e.target.value)}
+                      placeholder="Optional notes for the invoice"
+                    />
+                  </div>
+
+                  {/* Totals breakdown */}
+                  <div className="flex justify-end pt-2 border-t border-border">
+                    <div className="text-right space-y-1 min-w-[220px]">
+                      {markupApplies && (
+                        <>
+                          <div className="flex justify-between gap-6 text-sm">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span className="tabular-nums">{formatMoney(subtotal)}</span>
+                          </div>
+                          <div className="flex justify-between gap-6 text-sm">
+                            <span className="text-muted-foreground">Markup ({markupNum}%)</span>
+                            <span className="tabular-nums text-amber-700 dark:text-amber-300">+{formatMoney(markupAmount)}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between gap-6 pt-1 border-t">
+                        <span className="text-sm text-muted-foreground">Total</span>
+                        <span className="text-2xl font-bold text-foreground tabular-nums">{formatMoney(previewTotal)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 justify-end p-5 border-t border-border">
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditingPendingItem(null)}
+                    disabled={isBusy}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                    onClick={handleConfirmEditAndCreate}
+                    disabled={isBusy}
+                  >
+                    {isBusy ? (
+                      <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Creating…</>
+                    ) : (
+                      <><Plus className="h-4 w-4 mr-1.5" /> Create Invoice</>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {showUploadModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
