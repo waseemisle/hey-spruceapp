@@ -432,6 +432,132 @@ export default function CronJobsPage() {
           </Card>
         )}
 
+        {/*
+          Scheduled Invoices — paired with the RWO panel above so the
+          operator sees both feature areas' status + eligible items
+          adjacent. Run histories for both live in their own section
+          further down the page.
+        */}
+        <div className="border-t border-border pt-6 mt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground">Scheduled Invoices</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Fires on the same schedule as Recurring Work Orders (see the timer above)
+                and creates invoices from active schedules whose nextExecution falls
+                within the lead-time window.
+              </p>
+            </div>
+            <Button onClick={handleTriggerSiCron} disabled={triggeringSi} className="bg-blue-600 hover:bg-blue-700 gap-2">
+              {triggeringSi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {triggeringSi ? 'Running…' : 'Run SI Cron Now'}
+            </Button>
+          </div>
+
+          {/* SI status cards — same shape as the RWO grid above. */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Health</p>
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const last = siRuns[0];
+                    const cls = !last
+                      ? 'text-gray-400'
+                      : last.status === 'completed' || last.status === 'idle'
+                        ? 'text-emerald-600'
+                        : last.status === 'partial'
+                          ? 'text-yellow-600'
+                          : 'text-red-600';
+                    const txt = !last ? 'No data' : last.status === 'completed' ? 'Healthy' : last.status === 'idle' ? 'Idle' : last.status === 'partial' ? 'Degraded' : 'Failing';
+                    return <><Activity className={`h-4 w-4 ${cls}`} /><span className="font-bold text-sm">{txt}</span></>;
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Last Run</p>
+                <p className="font-bold text-sm">{siRuns[0] ? fmtAgo(siRuns[0].startedAt) : 'Never'}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Last Result</p>
+                <p className="font-bold text-sm">{siRuns[0] ? `${siRuns[0].totalSucceeded}/${siRuns[0].totalEligible} OK` : '—'}</p>
+              </CardContent>
+            </Card>
+            <Card className={siOverdue.length > 0 ? 'border-orange-300' : ''}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Eligible Now</p>
+                <p className={`font-bold text-sm ${siOverdue.length > 0 ? 'text-orange-600' : ''}`}>
+                  {dataLoading ? '...' : `${siOverdue.length} SIs`}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Schedule</p>
+                <p className="font-bold text-sm">
+                  {scheduleInterval < 60 ? `Every ${scheduleInterval}m` : scheduleInterval === 60 ? 'Hourly' : `Every ${scheduleInterval / 60}h`}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Next Run</p>
+                <p className="font-bold text-sm">
+                  {!siNextRunAt ? 'Pending' : siIsOverdue ? 'Overdue' : siNextRunAt.toLocaleTimeString('en-US', { timeZone: EST_TZ, hour: '2-digit', minute: '2-digit' }) + ' EST'}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className={siIsOverdue && siNextRunAt ? 'border-red-300 bg-red-50/30' : ''}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground mb-1">Time Left</p>
+                <p className={`font-bold tabular-nums ${siIsOverdue ? 'text-red-600 text-sm' : 'text-teal-700 text-lg'}`}>
+                  {!siNextRunAt
+                    ? '—'
+                    : siIsOverdue
+                      ? fmtOverdue(now.getTime() - siNextRunAt.getTime())
+                      : fmtCountdown(siTimeLeftMs)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SI Eligible — sits next to the RWO Eligible above. */}
+          {siOverdue.length > 0 && (
+            <Card className="border-orange-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-orange-700 text-base">
+                  <AlertTriangle className="h-5 w-5" />
+                  Eligible for Next Execution ({siOverdue.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {siOverdue.map(si => (
+                    <div key={si.id} className="flex items-center justify-between p-2.5 rounded-lg bg-orange-50 border border-orange-100 text-sm">
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground truncate">{si.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          <span className="font-mono">{si.scheduledInvoiceNumber}</span> &mdash; {si.clientName}
+                        </div>
+                      </div>
+                      <div className="text-xs text-orange-700 font-medium shrink-0 ml-2 tabular-nums">
+                        {(() => {
+                          const ms = Math.max(0, new Date(si.nextExecution).getTime() - now.getTime());
+                          return ms <= 0 ? 'Now' : fmtCountdown(ms);
+                        })()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
         {/* Lead Time Settings */}
         <Card>
           <CardHeader className="pb-3">
@@ -532,12 +658,12 @@ export default function CronJobsPage() {
           </CardContent>
         </Card>
 
-        {/* Cron Run History */}
+        {/* Cron Run History — RWO */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Hash className="h-5 w-5" />
-              Run History ({cronRuns.length})
+              Recurring Work Orders — Run History ({cronRuns.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -617,142 +743,19 @@ export default function CronJobsPage() {
           </CardContent>
         </Card>
 
-        {/* ──────────────────────────────────────────────────────────
-            Scheduled Invoices panel — parallel surface to the RWO
-            panel above. Same layout (status banner + overdue list +
-            run history) for operator muscle-memory. Lock + history
-            come from /api/cron-monitor's `scheduledInvoices` block;
-            manual run via PUT /api/cron-monitor?target=scheduled_invoices.
-            ────────────────────────────────────────────────────── */}
-        <div className="border-t border-border pt-6 mt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-foreground">Scheduled Invoices</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Fires on the same schedule as Recurring Work Orders (see the timer above)
-                and creates invoices from active schedules whose nextExecution falls
-                within the lead-time window.
-              </p>
-            </div>
-            <Button onClick={handleTriggerSiCron} disabled={triggeringSi} className="bg-blue-600 hover:bg-blue-700 gap-2">
-              {triggeringSi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              {triggeringSi ? 'Running…' : 'Run SI Cron Now'}
-            </Button>
-          </div>
-
-          {/* SI status cards — same shape as the RWO grid above so both
-              feature areas surface identical info: Health, Last Run,
-              Last Result, Eligible Now, Schedule, Next Run, and the
-              live "Time Left" countdown driven by the same shared
-              schedule interval. */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-4">
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Health</p>
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const last = siRuns[0];
-                    const cls = !last
-                      ? 'text-gray-400'
-                      : last.status === 'completed' || last.status === 'idle'
-                        ? 'text-emerald-600'
-                        : last.status === 'partial'
-                          ? 'text-yellow-600'
-                          : 'text-red-600';
-                    const txt = !last ? 'No data' : last.status === 'completed' ? 'Healthy' : last.status === 'idle' ? 'Idle' : last.status === 'partial' ? 'Degraded' : 'Failing';
-                    return <><Activity className={`h-4 w-4 ${cls}`} /><span className="font-bold text-sm">{txt}</span></>;
-                  })()}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Last Run</p>
-                <p className="font-bold text-sm">{siRuns[0] ? fmtAgo(siRuns[0].startedAt) : 'Never'}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Last Result</p>
-                <p className="font-bold text-sm">{siRuns[0] ? `${siRuns[0].totalSucceeded}/${siRuns[0].totalEligible} OK` : '—'}</p>
-              </CardContent>
-            </Card>
-            <Card className={siOverdue.length > 0 ? 'border-orange-300' : ''}>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Eligible Now</p>
-                <p className={`font-bold text-sm ${siOverdue.length > 0 ? 'text-orange-600' : ''}`}>
-                  {dataLoading ? '...' : `${siOverdue.length} SIs`}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Schedule</p>
-                <p className="font-bold text-sm">
-                  {scheduleInterval < 60 ? `Every ${scheduleInterval}m` : scheduleInterval === 60 ? 'Hourly' : `Every ${scheduleInterval / 60}h`}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Next Run</p>
-                <p className="font-bold text-sm">
-                  {!siNextRunAt ? 'Pending' : siIsOverdue ? 'Overdue' : siNextRunAt.toLocaleTimeString('en-US', { timeZone: EST_TZ, hour: '2-digit', minute: '2-digit' }) + ' EST'}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className={siIsOverdue && siNextRunAt ? 'border-red-300 bg-red-50/30' : ''}>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Time Left</p>
-                <p className={`font-bold tabular-nums ${siIsOverdue ? 'text-red-600 text-sm' : 'text-teal-700 text-lg'}`}>
-                  {!siNextRunAt
-                    ? '—'
-                    : siIsOverdue
-                      ? fmtOverdue(now.getTime() - siNextRunAt.getTime())
-                      : fmtCountdown(siTimeLeftMs)}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {siOverdue.length > 0 && (
-            <Card className="border-orange-200 mb-4">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-orange-700 text-base">
-                  <AlertTriangle className="h-5 w-5" />
-                  Eligible for Next Execution ({siOverdue.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {siOverdue.map(si => (
-                    <div key={si.id} className="flex items-center justify-between p-2.5 rounded-lg bg-orange-50 border border-orange-100 text-sm">
-                      <div className="min-w-0">
-                        <div className="font-medium text-foreground truncate">{si.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="font-mono">{si.scheduledInvoiceNumber}</span> &mdash; {si.clientName}
-                        </div>
-                      </div>
-                      <div className="text-xs text-orange-700 font-medium shrink-0 ml-2 tabular-nums">
-                        {(() => {
-                          const ms = Math.max(0, new Date(si.nextExecution).getTime() - now.getTime());
-                          return ms <= 0 ? 'Now' : fmtCountdown(ms);
-                        })()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Hash className="h-5 w-5" />
-                SI Run History ({siRuns.length})
-              </CardTitle>
-            </CardHeader>
+        {/*
+          Scheduled-Invoice run history — matches the layout of the
+          RWO Run History card above. Sits at the bottom so the two
+          feature areas' history surfaces are stacked: RWO history,
+          then SI history.
+        */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Hash className="h-5 w-5" />
+              Scheduled Invoices — Run History ({siRuns.length})
+            </CardTitle>
+          </CardHeader>
             <CardContent>
               {dataLoading ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -838,7 +841,6 @@ export default function CronJobsPage() {
               )}
             </CardContent>
           </Card>
-        </div>
       </div>
     </AdminLayout>
   );
