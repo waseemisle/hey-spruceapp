@@ -193,13 +193,32 @@ service cloud.firestore {
          exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == resource.data.companyId)
       );
+      // Two valid client-create paths:
+      //   • Company flow (current /client-portal/locations/create) — the
+      //     new doc carries companyId and that company must match the
+      //     companyId on the client's own profile. This is what the
+      //     read rule above already keys off, so write parity is the
+      //     right model.
+      //   • Subsidiary flow (legacy) — subsidiaryId on the new doc is
+      //     a real subsidiary owned by this client. Kept for
+      //     backwards-compat.
+      // Either path requires clientId == auth uid so a client can't
+      // forge a location for someone else.
       allow create: if isSignedIn() && (
         isAdmin() || (
-          request.resource.data.clientId == request.auth.uid &&
-          request.resource.data.subsidiaryId is string &&
-          request.resource.data.subsidiaryId.size() > 0 &&
-          exists(/databases/$(database)/documents/subsidiaries/$(request.resource.data.subsidiaryId)) &&
-          get(/databases/$(database)/documents/subsidiaries/$(request.resource.data.subsidiaryId)).data.clientId == request.auth.uid
+          request.resource.data.clientId == request.auth.uid && (
+            (
+              request.resource.data.companyId is string &&
+              request.resource.data.companyId.size() > 0 &&
+              exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == request.resource.data.companyId
+            ) || (
+              request.resource.data.subsidiaryId is string &&
+              request.resource.data.subsidiaryId.size() > 0 &&
+              exists(/databases/$(database)/documents/subsidiaries/$(request.resource.data.subsidiaryId)) &&
+              get(/databases/$(database)/documents/subsidiaries/$(request.resource.data.subsidiaryId)).data.clientId == request.auth.uid
+            )
+          )
         )
       );
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
