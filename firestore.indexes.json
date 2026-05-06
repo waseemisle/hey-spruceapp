@@ -226,6 +226,15 @@
       ]
     },
     {
+      "collectionGroup": "scheduledInvoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "nextExecution", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "recurringWorkOrders",
       "queryScope": "COLLECTION",
       "fields": [
