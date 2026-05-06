@@ -270,9 +270,29 @@ function InvoicesManagementInner() {
     }
   };
 
+  // Set of WO ids whose status is 'archived'. Used to filter the
+  // Pending Invoice Generation panel — archived work orders shouldn't
+  // show up as billing candidates because they were intentionally
+  // shelved. Fetched separately so the existing invoice/quote queries
+  // stay focused.
+  const [archivedWorkOrderIds, setArchivedWorkOrderIds] = useState<Set<string>>(new Set());
+
+  const fetchArchivedWorkOrderIds = async () => {
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'workOrders'),
+        where('status', '==', 'archived'),
+      ));
+      setArchivedWorkOrderIds(new Set(snap.docs.map(d => d.id)));
+    } catch (error) {
+      console.error('Error fetching archived work order ids:', error);
+    }
+  };
+
   useEffect(() => {
     fetchInvoices();
     fetchAcceptedQuotes();
+    fetchArchivedWorkOrderIds();
   }, []);
 
   /**
@@ -312,6 +332,11 @@ function InvoicesManagementInner() {
     for (const q of quotes) {
       if (!q.workOrderId) continue;
       if (invoicedWoIds.has(q.workOrderId)) continue;
+      // Skip archived work orders — they were intentionally shelved and
+      // shouldn't appear as billing candidates. The set is empty until
+      // fetchArchivedWorkOrderIds resolves; once it does, the panel
+      // re-renders and these rows fall out.
+      if (archivedWorkOrderIds.has(q.workOrderId)) continue;
       const list = byWo.get(q.workOrderId) || [];
       list.push(q);
       byWo.set(q.workOrderId, list);
