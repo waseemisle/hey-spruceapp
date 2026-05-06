@@ -241,6 +241,27 @@ export default function ScheduledInvoiceDetailPage() {
     }
   };
 
+  // Lead-time-aware fire date — when the cron will actually create
+  // the invoice. Computed as nextExecution - leadTimeDays. The
+  // countdown panel below targets this date (matching the RWO
+  // page's "Time Left for Next Execution" semantics) so admins see
+  // when the invoice will actually be billed, not the iteration date
+  // displayed elsewhere on the page.
+  // IMPORTANT — must be computed (and the hook called) BEFORE the
+  // early-return branches below. React's rules-of-hooks require
+  // every hook to be called in the same order on every render, so
+  // useLiveCountdown can't sit after the `if (loading) return` /
+  // `if (!invoice) return` guards.
+  const next = toDate(invoice?.nextExecution);
+  const last = toDate(invoice?.lastExecution);
+  const nextLeadDate = (() => {
+    if (!next) return null;
+    const d = new Date(next);
+    d.setDate(d.getDate() - leadTimeDays);
+    return d;
+  })();
+  const countdown = useLiveCountdown(nextLeadDate);
+
   if (loading) {
     return (
       <AdminLayout>
@@ -270,23 +291,6 @@ export default function ScheduledInvoiceDetailPage() {
       </AdminLayout>
     );
   }
-
-  const next = toDate(invoice.nextExecution);
-  const last = toDate(invoice.lastExecution);
-
-  // Lead-time-aware fire date — when the cron will actually create
-  // the invoice. Computed as nextExecution - leadTimeDays. The
-  // countdown panel below targets this date (matching the RWO
-  // page's "Time Left for Next Execution" semantics) so admins see
-  // when the invoice will actually be billed, not the iteration date
-  // displayed elsewhere on the page.
-  const nextLeadDate = (() => {
-    if (!next) return null;
-    const d = new Date(next);
-    d.setDate(d.getDate() - leadTimeDays);
-    return d;
-  })();
-  const countdown = useLiveCountdown(nextLeadDate);
 
   return (
     <AdminLayout>
