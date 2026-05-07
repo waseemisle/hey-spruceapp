@@ -62,7 +62,7 @@ interface WorkOrder {
   isCombinedChild?: boolean;
   combinedPrimaryWorkOrderId?: string | null;
   combinedWorkOrderCount?: number;
-  approvedQuoteId?: string | null;
+  approvedQuoteId?: string;
 }
 
 interface Client {
@@ -2308,7 +2308,7 @@ const handleLocationSelect = (locationId: string) => {
           locationId: w.locationId ?? null,
           status: w.status ?? null,
           workOrderGroupId: w.workOrderGroupId ?? null,
-          approvedQuoteId: (w as any).approvedQuoteId ?? null,
+          approvedQuoteId: (w as any).approvedQuoteId ?? undefined,
         })),
       });
 

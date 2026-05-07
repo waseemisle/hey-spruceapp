@@ -466,7 +466,9 @@ export default function SubcontractorBidding() {
 
       // 2) Mirror onto the parent work order so admin + client see it
       try {
-        const workOrderRef = doc(db, 'workOrders', resultsBidding.workOrderId);
+        const primaryId = resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0];
+        if (!primaryId) throw new Error('Missing workOrderId');
+        const workOrderRef = doc(db, 'workOrders', primaryId);
         const workOrderSnap = await getDoc(workOrderRef);
         if (workOrderSnap.exists()) {
           const woData = workOrderSnap.data();
@@ -748,9 +750,10 @@ export default function SubcontractorBidding() {
         const subName = subDoc?.exists()
           ? ((subDoc.data() as any).fullName || (subDoc.data() as any).businessName || 'Subcontractor')
           : 'Subcontractor';
+        const primaryId = bidding.workOrderId || bidding.workOrderIds?.[0] || '';
         notifyAdminsOfBiddingRejection(
-          bidding.workOrderId,
-          bidding.workOrderNumber || bidding.workOrderId,
+          primaryId,
+          bidding.workOrderNumber || primaryId,
           bidding.workOrderTitle,
           subName,
         ).catch(console.error);
@@ -774,6 +777,11 @@ export default function SubcontractorBidding() {
       toast.error('Diagnostic Requests are not available for combined work order bundles. Please submit a quote instead.');
       return;
     }
+    if (!selectedBidding.workOrderId) {
+      toast.error('This bidding item is missing a work order reference.');
+      return;
+    }
+    const workOrderId = selectedBidding.workOrderId;
 
     if (!quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
       toast.error('Please fill in all required fields (including service date and time)');
@@ -827,7 +835,7 @@ export default function SubcontractorBidding() {
       });
       // Diagnostic Requests skip admin markup — send directly to the client.
       const quoteRef = await addDoc(collection(db, 'quotes'), {
-        workOrderId: selectedBidding.workOrderId,
+        workOrderId: workOrderId,
         workOrderNumber: selectedBidding.workOrderNumber,
         workOrderTitle: selectedBidding.workOrderTitle,
         subcontractorId: currentUser.uid,
