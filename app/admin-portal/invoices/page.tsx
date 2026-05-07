@@ -286,8 +286,34 @@ function InvoicesManagementInner() {
     }
   };
 
-  // Load the selected client's saved payment methods when the pending-item
-  // modal opens so the PM picker can show the right options.
+  // Set of WO ids whose status is 'archived'. Used to filter the
+  // Pending Invoice Generation panel — archived work orders shouldn't
+  // show up as billing candidates because they were intentionally
+  // shelved. Fetched separately so the existing invoice/quote queries
+  // stay focused.
+  const [archivedWorkOrderIds, setArchivedWorkOrderIds] = useState<Set<string>>(new Set());
+
+  // Pending-panel in-page create state. `creatingForWoId` drives the
+  // spinner on the row that's currently being processed; the rest is
+  // the edit-modal form state — opens when the admin clicks Create
+  // Invoice on a Pending row, pre-populated with the source quote's
+  // line items / amounts. Always shown (regardless of markup mode) so
+  // the admin can review every detail before the invoice is written.
+  const [creatingForWoId, setCreatingForWoId] = useState<string | null>(null);
+  const [editingPendingItem, setEditingPendingItem] = useState<PendingInvoiceItem | null>(null);
+  const [editLineItems, setEditLineItems] = useState<Invoice['lineItems']>([]);
+  const [editMarkupContext, setEditMarkupContext] = useState<'editable' | 'locked' | 'diagnostic'>('editable');
+  const [editMarkupPercent, setEditMarkupPercent] = useState('20');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editTerms, setEditTerms] = useState('Payment due within 30 days. Late payments may incur additional fees.');
+  const [editStatus, setEditStatus] = useState<'draft' | 'sent'>('draft');
+  const [editDiscountAmount, setEditDiscountAmount] = useState('0');
+  const [editClientPms, setEditClientPms] = useState<Array<{ id: string; type?: string; last4?: string; brand?: string; bankName?: string; isDefault?: boolean }>>([]);
+  const [editAutoChargePmId, setEditAutoChargePmId] = useState('');
+  const [editPmLoading, setEditPmLoading] = useState(false);
+
+  // Load the selected client's saved PMs when the pending-item modal opens.
   useEffect(() => {
     const clientId = editingPendingItem?.clientId;
     if (!clientId) { setEditClientPms([]); setEditAutoChargePmId(''); return; }
@@ -316,33 +342,6 @@ function InvoicesManagementInner() {
     })();
     return () => { cancelled = true; };
   }, [editingPendingItem?.clientId]);
-
-  // Set of WO ids whose status is 'archived'. Used to filter the
-  // Pending Invoice Generation panel — archived work orders shouldn't
-  // show up as billing candidates because they were intentionally
-  // shelved. Fetched separately so the existing invoice/quote queries
-  // stay focused.
-  const [archivedWorkOrderIds, setArchivedWorkOrderIds] = useState<Set<string>>(new Set());
-
-  // Pending-panel in-page create state. `creatingForWoId` drives the
-  // spinner on the row that's currently being processed; the rest is
-  // the edit-modal form state — opens when the admin clicks Create
-  // Invoice on a Pending row, pre-populated with the source quote's
-  // line items / amounts. Always shown (regardless of markup mode) so
-  // the admin can review every detail before the invoice is written.
-  const [creatingForWoId, setCreatingForWoId] = useState<string | null>(null);
-  const [editingPendingItem, setEditingPendingItem] = useState<PendingInvoiceItem | null>(null);
-  const [editLineItems, setEditLineItems] = useState<Invoice['lineItems']>([]);
-  const [editMarkupContext, setEditMarkupContext] = useState<'editable' | 'locked' | 'diagnostic'>('editable');
-  const [editMarkupPercent, setEditMarkupPercent] = useState('20');
-  const [editDueDate, setEditDueDate] = useState('');
-  const [editNotes, setEditNotes] = useState('');
-  const [editTerms, setEditTerms] = useState('Payment due within 30 days. Late payments may incur additional fees.');
-  const [editStatus, setEditStatus] = useState<'draft' | 'sent'>('draft');
-  const [editDiscountAmount, setEditDiscountAmount] = useState('0');
-  const [editClientPms, setEditClientPms] = useState<Array<{ id: string; type?: string; last4?: string; brand?: string; bankName?: string; isDefault?: boolean }>>([]);
-  const [editAutoChargePmId, setEditAutoChargePmId] = useState('');
-  const [editPmLoading, setEditPmLoading] = useState(false);
 
   const fetchArchivedWorkOrderIds = async () => {
     try {
