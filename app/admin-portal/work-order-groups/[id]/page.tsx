@@ -229,7 +229,7 @@ export default function AdminWorkOrderGroupDetail() {
   const totalQuotes = useMemo(() => bundles.reduce((s, b) => s + b.quotes.length, 0), [bundles]);
   const totalInvoices = useMemo(() => bundles.reduce((s, b) => s + b.invoices.length, 0), [bundles]);
   const totalAttachments = useMemo(() => bundles.reduce((s, b) => s + (b.wo.images?.length || 0) + (b.wo.completionImages?.length || 0), 0), [bundles]);
-  const totalVP = useMemo(() => bundles.filter((b) => b.vendorPayment).length, 0);
+  const totalVP = useMemo(() => bundles.filter((b) => b.vendorPayment).length, [bundles]);
   const allTimeline = useMemo(() => {
     const events: Array<{ event: any; bundle: WoBundle }> = [];
     for (const b of bundles) {
