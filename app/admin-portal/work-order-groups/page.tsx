@@ -3,13 +3,23 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  writeBatch,
+} from 'firebase/firestore';
 import AdminLayout from '@/components/admin-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Layers, ChevronRight, ClipboardList } from 'lucide-react';
+import { Layers, ChevronRight, ClipboardList, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { auth, db } from '@/lib/firebase';
 
 type GroupRow = {
@@ -23,6 +33,8 @@ type GroupRow = {
 export default function AdminWorkOrderGroupsList() {
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -41,6 +53,36 @@ export default function AdminWorkOrderGroupsList() {
     });
     return () => unsub();
   }, []);
+
+  const handleDelete = async (group: GroupRow) => {
+    setDeletingId(group.id);
+    try {
+      // Remove combined-group fields from every constituent work order
+      const batch = writeBatch(db);
+      for (const woId of group.workOrderIds) {
+        batch.update(doc(db, 'workOrders', woId), {
+          workOrderGroupId: deleteField(),
+          isCombinedPrimary: deleteField(),
+          isCombinedChild: deleteField(),
+          combinedPrimaryWorkOrderId: deleteField(),
+          combinedWorkOrderCount: deleteField(),
+        });
+      }
+      await batch.commit();
+
+      // Delete the group document itself
+      await deleteDoc(doc(db, 'workOrderGroups', group.id));
+
+      setGroups((prev) => prev.filter((g) => g.id !== group.id));
+      toast.success('Bundle deleted. Work orders are now independent.');
+    } catch (e: any) {
+      console.error('Failed to delete work order group:', e);
+      toast.error(e?.message || 'Failed to delete bundle');
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
+  };
 
   const formatDate = (ts: any) => {
     if (!ts) return '—';
@@ -90,7 +132,7 @@ export default function AdminWorkOrderGroupsList() {
                       <th className="text-left px-5 py-3 font-medium text-muted-foreground">Bundle</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Work Orders</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Created</th>
-                      <th className="text-right px-5 py-3 font-medium text-muted-foreground">Open</th>
+                      <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -116,11 +158,46 @@ export default function AdminWorkOrderGroupsList() {
                         </td>
                         <td className="px-4 py-3.5 text-muted-foreground">{formatDate(group.createdAt)}</td>
                         <td className="px-5 py-3.5 text-right">
-                          <Button size="sm" variant="outline" asChild className="h-8 gap-1">
-                            <Link href={`/admin-portal/work-order-groups/${group.id}`}>
-                              View <ChevronRight className="h-3.5 w-3.5" />
-                            </Link>
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {confirmId === group.id ? (
+                              <>
+                                <span className="text-xs text-muted-foreground mr-1">Delete bundle?</span>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-8"
+                                  disabled={deletingId === group.id}
+                                  onClick={() => handleDelete(group)}
+                                >
+                                  {deletingId === group.id ? 'Deleting…' : 'Yes, delete'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8"
+                                  onClick={() => setConfirmId(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button size="sm" variant="outline" asChild className="h-8 gap-1">
+                                  <Link href={`/admin-portal/work-order-groups/${group.id}`}>
+                                    View <ChevronRight className="h-3.5 w-3.5" />
+                                  </Link>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setConfirmId(group.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
