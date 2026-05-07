@@ -14,7 +14,7 @@ import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import ProfileMenu from '@/components/profile-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones, Stethoscope } from 'lucide-react';
+import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, Menu, X, Wrench, Users, RotateCcw, CreditCard, Headphones, Stethoscope, Layers } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 import ClientGlobalSearchDialog from '@/components/client-global-search-dialog';
@@ -389,6 +389,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: 'locations' },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
     { name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: 'recurringWorkOrders' },
+    { name: 'Combined Work Orders', href: '/client-portal/work-order-groups', icon: Layers, badgeKey: null },
     ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
     { name: 'Diagnostic Requests', href: '/client-portal/diagnostic-requests', icon: Stethoscope, badgeKey: 'diagnosticRequests' },
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },
