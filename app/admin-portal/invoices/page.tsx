@@ -303,7 +303,7 @@ function InvoicesManagementInner() {
           .filter((m: any) => m?.id && m.verificationStatus !== 'pending')
           .map((m: any) => ({ id: m.id, type: m.type, last4: m.last4, brand: m.brand, bankName: m.bankName, isDefault: !!m.isDefault }));
         if (chargeable.length === 0 && cd.defaultPaymentMethodId && cd.savedCardLast4) {
-          chargeable.push({ id: cd.defaultPaymentMethodId, type: 'card', last4: cd.savedCardLast4, brand: cd.savedCardBrand || 'card', isDefault: true });
+          chargeable.push({ id: cd.defaultPaymentMethodId, type: 'card', last4: cd.savedCardLast4, brand: cd.savedCardBrand || 'card', bankName: undefined, isDefault: true });
         }
         if (!cancelled) {
           setEditClientPms(chargeable);
