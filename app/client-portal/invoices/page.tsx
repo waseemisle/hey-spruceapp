@@ -13,11 +13,13 @@ import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye, Zap, AlertCi
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
-import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -229,6 +231,11 @@ function ClientInvoicesInner() {
   return (
     <ClientLayout>
       <PageContainer>
+        <PortalHero
+          title="Invoices"
+          subtitle=""
+          icon={Sparkles}
+        />
         <PageHeader
           title="Invoices"
           subtitle="View and pay your invoices"

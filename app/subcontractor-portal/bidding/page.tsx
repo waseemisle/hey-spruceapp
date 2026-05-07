@@ -16,12 +16,14 @@ import { ClipboardList, Calendar, MapPin, Search, Stethoscope, FileText, X, Plus
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
-import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 // Predefined service time slots the subcontractor picks from. The chosen
 // label is stored verbatim on the quote and shown to client + admin
 // (e.g. "Proposed Date Apr 25 at 8:00 AM - 10:00 AM").
@@ -1017,6 +1019,11 @@ export default function SubcontractorBidding() {
     return (
       <SubcontractorLayout>
         <PageContainer>
+        <PortalHero
+          title="Bidding"
+          subtitle=""
+          icon={Sparkles}
+        />
           <PageHeader
             title="Work Order Details"
             subtitle={viewWorkOrder.workOrderNumber ? `Work Order: ${viewWorkOrder.workOrderNumber}` : viewWorkOrder.workOrderTitle}

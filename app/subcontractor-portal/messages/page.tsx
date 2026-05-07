@@ -12,6 +12,9 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Chat {
   id: string;
   participants: string[];
@@ -141,10 +144,17 @@ export default function SubcontractorMessages() {
   if (loading) {
     return (
       <SubcontractorLayout>
+      <PageContainer>
+        <PortalHero
+          title="Messages"
+          subtitle=""
+          icon={Sparkles}
+        />
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
-      </SubcontractorLayout>
+            </PageContainer>
+    </SubcontractorLayout>
     );
   }
 

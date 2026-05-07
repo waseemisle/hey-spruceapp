@@ -13,6 +13,9 @@ import {
   LogIn, LogOut, Clock, RefreshCw,
 } from 'lucide-react';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface UserEntry {
   id: string;
   name: string;
@@ -141,7 +144,14 @@ export default function UserActivityPage() {
   };
 
   if (loading) {
-    return <AdminLayout><div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div></AdminLayout>;
+    return <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="User Activity"
+          subtitle=""
+          icon={Sparkles}
+        /><div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>      </PageContainer>
+    </AdminLayout>;
   }
 
   return (

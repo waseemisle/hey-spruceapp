@@ -14,10 +14,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { BookOpen, Plus, Edit2, Save, X, Search, Trash2, ExternalLink, FileText, Video, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/ui/page-header';
-import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
@@ -193,6 +195,11 @@ export default function ResourcesPage() {
   return (
     <AdminLayout>
       <PageContainer>
+        <PortalHero
+          title="Resources"
+          subtitle=""
+          icon={Sparkles}
+        />
 
         {/* ── Header ────────────────────────────────────────────────────────── */}
         <PageHeader

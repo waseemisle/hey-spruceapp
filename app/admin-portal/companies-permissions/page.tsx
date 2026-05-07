@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PageContainer } from '@/components/ui/page-container';
 import { StatCards } from '@/components/ui/stat-cards';
 import {
   Building2, Search, Users, CheckCircle2, XCircle, Save, Shield,
@@ -22,6 +21,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { US_STATES } from '@/lib/us-states';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
 interface Company {
   id: string;
   name: string;

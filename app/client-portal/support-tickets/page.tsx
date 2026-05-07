@@ -7,7 +7,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
 import { subscribeClientSupportTickets } from '@/lib/support-ticket-snapshots';
 import ClientLayout from '@/components/client-layout';
-import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +27,9 @@ import { SUPPORT_CATEGORY_LABELS, SUPPORT_STATUS_LABELS } from '@/lib/support-ti
 import { supportTicketPost } from '@/lib/support-ticket-api-client';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 const OPEN_STATUSES = ['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin'];
 const TERMINAL = ['resolved', 'closed'];
 
@@ -246,6 +248,11 @@ export default function ClientSupportTicketsPage() {
   return (
     <ClientLayout>
       <PageContainer>
+        <PortalHero
+          title="Support Tickets"
+          subtitle=""
+          icon={Sparkles}
+        />
         <PageHeader
           title="Support Tickets"
           subtitle="Get help from our team"

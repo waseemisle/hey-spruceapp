@@ -17,6 +17,9 @@ import { toast } from 'sonner';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { formatMoney } from '@/lib/money';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface WorkOrder {
@@ -752,10 +755,17 @@ function CreateInvoiceContent() {
   if (loading) {
     return (
       <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="New"
+          subtitle=""
+          icon={Sparkles}
+        />
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </AdminLayout>
+            </PageContainer>
+    </AdminLayout>
     );
   }
 

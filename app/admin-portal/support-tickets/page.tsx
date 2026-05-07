@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
-import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +28,9 @@ import {
 } from '@/lib/support-ticket-helpers';
 import { supportTicketPost } from '@/lib/support-ticket-api-client';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 const OPEN_STATUSES: SupportTicketStatus[] = [
   'open',
   'in-progress',
@@ -265,6 +267,11 @@ export default function AdminSupportTicketsPage() {
   return (
     <AdminLayout>
       <PageContainer>
+        <PortalHero
+          title="Support Tickets"
+          subtitle=""
+          icon={Sparkles}
+        />
         <PageHeader
           title="Support Tickets"
           subtitle="Track and respond to customer support requests"

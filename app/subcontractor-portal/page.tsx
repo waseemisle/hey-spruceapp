@@ -25,6 +25,9 @@ import {
   type RecentItemRow,
 } from '@/lib/dashboard-utils';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 export default function SubcontractorDashboard() {
   const { auth, db } = useFirebaseInstance();
   const [biddingWorkOrdersData, setBiddingWorkOrdersData] = useState({
@@ -156,13 +159,20 @@ export default function SubcontractorDashboard() {
   if (loading) {
     return (
       <SubcontractorLayout>
+      <PageContainer>
+        <PortalHero
+          title="Subcontractor Portal"
+          subtitle=""
+          icon={Sparkles}
+        />
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
           </div>
         </div>
-      </SubcontractorLayout>
+            </PageContainer>
+    </SubcontractorLayout>
     );
   }
 

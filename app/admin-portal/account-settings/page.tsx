@@ -23,6 +23,9 @@ import {
   User, Mail, Phone, Bell, Lock, Camera, Save, ArrowLeft, ShieldCheck,
 } from 'lucide-react';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 export default function AdminAccountSettings() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -166,6 +169,12 @@ export default function AdminAccountSettings() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Account Settings"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-16">
 
         {/* Header */}
@@ -363,6 +372,7 @@ export default function AdminAccountSettings() {
           </>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

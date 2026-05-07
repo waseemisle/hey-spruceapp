@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Users, Award } from 'lucide-react';
 import Link from 'next/link';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Subcontractor {
   id: string;
   uid: string;
@@ -87,6 +90,12 @@ export default function ContractorScorecardPage() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Contractor Scorecard"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6 max-w-4xl mx-auto">
         <div>
           <h1 className="text-2xl font-bold">Contractor Scorecard</h1>
@@ -144,6 +153,7 @@ export default function ContractorScorecardPage() {
           </Card>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

@@ -18,6 +18,8 @@ import {
 import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
 const US_STATES = [
   { value: 'AL', label: 'Alabama' },
   { value: 'AK', label: 'Alaska' },
@@ -390,6 +392,7 @@ export default function SubcontractorsManagement() {
 
   return (
     <AdminLayout>
+      <PageContainer>
       <div className="space-y-6">
 
         {/* Header */}
@@ -846,6 +849,7 @@ export default function SubcontractorsManagement() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { FileText, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface WorkOrder {
   id: string;
   workOrderNumber?: string;
@@ -45,6 +48,12 @@ export default function RFPsPage() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Rfps"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6 max-w-4xl mx-auto">
         <div>
           <h1 className="text-2xl font-bold">RFPs</h1>
@@ -95,6 +104,7 @@ export default function RFPsPage() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

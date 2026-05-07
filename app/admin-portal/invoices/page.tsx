@@ -22,6 +22,9 @@ import { toast } from 'sonner';
 import { notifyClientOfInvoice } from '@/lib/notifications';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -1330,6 +1333,12 @@ function InvoicesManagementInner() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Invoices"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -2270,6 +2279,7 @@ function InvoicesManagementInner() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

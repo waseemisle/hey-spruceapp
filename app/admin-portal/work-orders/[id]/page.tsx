@@ -29,6 +29,9 @@ import { toast } from 'sonner';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import type { VendorPayment, VendorPaymentAdjustment, VendorPaymentStatus } from '@/types';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 const WORK_ORDER_EDIT_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
@@ -1979,10 +1982,17 @@ export default function ViewWorkOrder() {
   if (loading) {
     return (
       <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Page"
+          subtitle=""
+          icon={Sparkles}
+        />
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
-      </AdminLayout>
+            </PageContainer>
+    </AdminLayout>
     );
   }
 

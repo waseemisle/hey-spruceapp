@@ -8,7 +8,6 @@ import { formatMoney } from '@/lib/money';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
-import { PageContainer } from '@/components/ui/page-container';
 import {
   CreditCard, ShieldCheck, Plus, Trash2, Zap, RefreshCw,
   CheckCircle, AlertCircle, Clock, X, Loader2, Building2,
@@ -16,6 +15,8 @@ import {
 import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
 interface ClientData {
   uid: string;
   fullName: string;

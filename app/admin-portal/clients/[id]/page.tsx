@@ -16,6 +16,8 @@ import {
 import { toast } from 'sonner';
 import AddPaymentMethodModal from '@/components/billing/add-payment-method-modal';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PaymentMethod {
@@ -1162,10 +1164,12 @@ export default function ClientDetailPage() {
   if (loading) {
     return (
       <AdminLayout>
+      <PageContainer>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
         </div>
-      </AdminLayout>
+            </PageContainer>
+    </AdminLayout>
     );
   }
 

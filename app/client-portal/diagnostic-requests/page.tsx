@@ -15,6 +15,9 @@ import { Stethoscope, Check, X, Calendar, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface DiagnosticQuote {
   id: string;
   workOrderId?: string;
@@ -248,10 +251,17 @@ export default function ClientDiagnosticRequests() {
   if (loading) {
     return (
       <ClientLayout>
+      <PageContainer>
+        <PortalHero
+          title="Diagnostic Requests"
+          subtitle=""
+          icon={Sparkles}
+        />
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
         </div>
-      </ClientLayout>
+            </PageContainer>
+    </ClientLayout>
     );
   }
 

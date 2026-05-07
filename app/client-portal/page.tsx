@@ -24,6 +24,9 @@ import {
   type RecentItemRow,
 } from '@/lib/dashboard-utils';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 export default function ClientDashboard() {
   const { auth, db } = useFirebaseInstance();
   const [workOrdersData, setWorkOrdersData] = useState({
@@ -197,13 +200,20 @@ export default function ClientDashboard() {
   if (loading) {
     return (
       <ClientLayout>
+      <PageContainer>
+        <PortalHero
+          title="Client Portal"
+          subtitle=""
+          icon={Sparkles}
+        />
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
           </div>
         </div>
-      </ClientLayout>
+            </PageContainer>
+    </ClientLayout>
     );
   }
 

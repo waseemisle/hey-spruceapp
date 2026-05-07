@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { SearchableSelect, SearchableMultiSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
+import { AuthShell } from '@/components/ui/auth-shell';
+import { UserPlus } from 'lucide-react';
 
 const US_STATES = [
   { value: 'AL', label: 'Alabama' },
@@ -196,8 +198,13 @@ export default function RegisterSubcontractor() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell
+      title="Subcontractor Registration"
+      subtitle="Create your subcontractor account to bid on work orders."
+      icon={UserPlus}
+      contentClassName="max-w-2xl"
+    >
+      <Card className="w-full">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Subcontractor Registration</CardTitle>
           <CardDescription className="text-center">
@@ -344,6 +351,6 @@ export default function RegisterSubcontractor() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

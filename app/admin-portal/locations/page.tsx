@@ -13,10 +13,12 @@ import { CheckCircle, XCircle, MapPin, Building, Building2, User, Phone, Plus, E
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { PageHeader } from '@/components/ui/page-header';
-import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Location {
   id: string;
   clientId: string;
@@ -506,6 +508,11 @@ export default function LocationsManagement() {
   return (
     <AdminLayout>
       <PageContainer>
+        <PortalHero
+          title="Locations"
+          subtitle=""
+          icon={Sparkles}
+        />
         <PageHeader
           title="Locations"
           subtitle="Manage client location requests and approvals"

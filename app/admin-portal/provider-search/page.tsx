@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Subcontractor {
   uid: string;
   email: string;
@@ -405,6 +408,12 @@ export default function ProviderSearchPage() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Provider Search"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         {/* Hero Header */}
         <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-primary/90 to-primary mb-6 sm:mb-8 p-5 sm:p-8 text-white">
@@ -561,6 +570,7 @@ export default function ProviderSearchPage() {
         {/* Compare Panel */}
         <ComparePanel subs={compareSubs} onClose={() => setCompareIds([])} />
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

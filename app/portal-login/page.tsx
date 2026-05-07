@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import Logo from '@/components/ui/logo';
+import { AuthShell } from '@/components/ui/auth-shell';
+import { ShieldCheck } from 'lucide-react';
 
 export default function PortalLogin() {
   const [email, setEmail] = useState('');
@@ -148,8 +150,12 @@ export default function PortalLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell
+      title="Portal Login"
+      subtitle="Enter your credentials to access your portal."
+      icon={ShieldCheck}
+    >
+      <Card className="w-full">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
             <Logo size="lg" href="/" />
@@ -213,6 +219,6 @@ export default function PortalLogin() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

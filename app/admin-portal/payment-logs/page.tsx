@@ -1,5 +1,8 @@
 'use client';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 /**
  * Admin → Payment Logs
  *
@@ -209,6 +212,12 @@ export default function PaymentLogsListPage() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Payment Logs"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -348,6 +357,7 @@ export default function PaymentLogsListPage() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

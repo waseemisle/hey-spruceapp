@@ -18,6 +18,8 @@ import {
 import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
 interface Client {
   uid: string;
   email: string;
@@ -373,6 +375,7 @@ export default function ClientsManagement() {
 
   return (
     <AdminLayout>
+      <PageContainer>
       <div className="space-y-6">
 
         {/* Header */}
@@ -906,6 +909,7 @@ export default function ClientsManagement() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

@@ -6,6 +6,8 @@ import { signInWithCustomToken, getAuth } from 'firebase/auth';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { useRouter } from 'next/navigation';
+import { AuthShell } from '@/components/ui/auth-shell';
+import { AlertCircle, Loader2, UserCheck } from 'lucide-react';
 
 // Force dynamic rendering for this page
 export const dynamic = 'force-dynamic';
@@ -142,43 +144,41 @@ function ImpersonateLoginContent() {
 
   if (status === 'loading') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900">Logging in...</h2>
-          <p className="text-gray-600 mt-2">Please wait while we sign you in.</p>
+      <AuthShell title="Impersonation Login" subtitle="Signing you in…" icon={Loader2}>
+        <div className="text-center py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
+          <h2 className="text-base font-semibold text-foreground">Logging in…</h2>
+          <p className="text-sm text-muted-foreground mt-2">Please wait while we sign you in.</p>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   if (status === 'error') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center max-w-md p-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-red-900 mb-2">Error</h2>
-            <p className="text-red-700 mb-4">{errorMessage}</p>
-            <a
-              href="/admin-portal"
-              className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              Return to Admin Portal
-            </a>
-          </div>
+      <AuthShell title="Impersonation Login" subtitle="Couldn’t complete impersonation." icon={AlertCircle}>
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-6 text-center space-y-4">
+          <h2 className="text-base font-semibold text-foreground">Error</h2>
+          <p className="text-sm text-muted-foreground">{errorMessage}</p>
+          <a
+            href="/admin-portal"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Return to Admin Portal
+          </a>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <h2 className="text-xl font-semibold text-gray-900">Login Successful</h2>
-        <p className="text-gray-600 mt-2">Redirecting...</p>
+    <AuthShell title="Impersonation Login" subtitle="Redirecting you to the portal…" icon={UserCheck}>
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-6 text-center space-y-2">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
+        <h2 className="text-base font-semibold text-foreground">Login Successful</h2>
+        <p className="text-sm text-muted-foreground">Redirecting…</p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
 
@@ -186,13 +186,13 @@ export default function ImpersonateLogin() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <h2 className="text-xl font-semibold text-gray-900">Loading...</h2>
-            <p className="text-gray-600 mt-2">Please wait...</p>
+        <AuthShell title="Impersonation Login" subtitle="Loading…" icon={Loader2}>
+          <div className="text-center py-10">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
+            <h2 className="text-base font-semibold text-foreground">Loading…</h2>
+            <p className="text-sm text-muted-foreground mt-2">Please wait…</p>
           </div>
-        </div>
+        </AuthShell>
       }
     >
       <ImpersonateLoginContent />

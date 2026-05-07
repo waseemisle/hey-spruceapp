@@ -14,6 +14,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface CronRunResult {
   rwoId?: string;
   rwoTitle?: string;
@@ -310,8 +313,15 @@ export default function CronJobsPage() {
   if (loading) {
     return (
       <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Cron Jobs"
+          subtitle=""
+          icon={Sparkles}
+        />
         <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
-      </AdminLayout>
+            </PageContainer>
+    </AdminLayout>
     );
   }
 

@@ -21,6 +21,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { User, Mail, Phone, Building2, Lock, Camera, Save, ArrowLeft } from 'lucide-react';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 export default function ClientAccountSettings() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -136,6 +139,12 @@ export default function ClientAccountSettings() {
 
   return (
     <ClientLayout>
+      <PageContainer>
+        <PortalHero
+          title="Account Settings"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-16 p-4 sm:p-6">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
@@ -245,6 +254,7 @@ export default function ClientAccountSettings() {
           </>
         )}
       </div>
+          </PageContainer>
     </ClientLayout>
   );
 }

@@ -18,6 +18,9 @@ import { createTimelineEvent } from '@/lib/timeline';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Location {
   id: string;
   name: string;
@@ -439,6 +442,12 @@ export default function CreateWorkOrder() {
 
   return (
     <ClientLayout>
+      <PageContainer>
+        <PortalHero
+          title="Create"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div>
           <Link href="/client-portal/work-orders">
@@ -634,6 +643,7 @@ export default function CreateWorkOrder() {
           </Card>
         )}
       </div>
+          </PageContainer>
     </ClientLayout>
   );
 }

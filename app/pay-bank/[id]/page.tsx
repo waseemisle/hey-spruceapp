@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import Logo from '@/components/ui/logo';
+import { AuthShell } from '@/components/ui/auth-shell';
 
 interface InvoiceInfo {
   invoiceNumber: string;
@@ -79,21 +80,26 @@ export default function PayBankPage() {
     }
   };
 
+  // Wrap the existing page UI in the shared shell for consistent layout.
+  // (The rest of the file already renders the full card-based experience.)
+
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
+      <AuthShell title="Pay by Bank" subtitle="Loading invoice…" icon={BanknoteIcon}>
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      </AuthShell>
     );
   }
 
   if (!invoice) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <Card className="max-w-md w-full">
+      <AuthShell title="Pay by Bank" subtitle="Invoice not found." icon={AlertCircle}>
+        <Card className="w-full">
           <CardContent className="p-8 text-center space-y-4">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
             <h2 className="text-lg font-semibold">Invoice Not Found</h2>
@@ -105,14 +111,14 @@ export default function PayBankPage() {
             </Link>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   if (invoice.status === 'paid') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <Card className="max-w-md w-full">
+      <AuthShell title="Pay by Bank" subtitle="This invoice is already paid." icon={CheckCircle}>
+        <Card className="w-full">
           <CardContent className="p-8 text-center space-y-4">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <h2 className="text-lg font-semibold">Invoice Already Paid</h2>
@@ -126,13 +132,13 @@ export default function PayBankPage() {
             </Link>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-md mx-auto space-y-6">
+    <AuthShell title="Pay by Bank" subtitle="ACH Direct Debit via Stripe" icon={BanknoteIcon}>
+      <div className="space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
           <Logo />
@@ -219,6 +225,6 @@ export default function PayBankPage() {
           Powered by <span className="font-medium">Stripe</span> &bull; Secure ACH Direct Debit
         </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

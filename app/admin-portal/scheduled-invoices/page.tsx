@@ -1,5 +1,8 @@
 'use client';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 /**
  * Admin → Scheduled Invoices (list)
  *
@@ -97,6 +100,12 @@ export default function ScheduledInvoicesListPage() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Scheduled Invoices"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -249,6 +258,7 @@ export default function ScheduledInvoicesListPage() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

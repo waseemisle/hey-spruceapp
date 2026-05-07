@@ -7,6 +7,9 @@ import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Package, TrendingUp, AlertCircle, Wrench, Clock } from 'lucide-react';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 type AssetTab = 'overview' | 'spend' | 'condition' | 'wo-history' | 'resolution';
 
 function toDate(val: any): Date | null {
@@ -73,6 +76,12 @@ export default function AssetManagementPage() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Assets"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6 max-w-5xl mx-auto">
         <div>
           <h1 className="text-2xl font-bold">Asset Management</h1>
@@ -228,6 +237,7 @@ export default function AssetManagementPage() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

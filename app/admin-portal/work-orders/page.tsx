@@ -26,6 +26,9 @@ import { canAddBidders, hasBeenSharedForBidding } from '@/lib/bidding-eligibilit
 import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
 import { createWorkOrderGroup } from '@/lib/work-order-groups';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface WorkOrder {
   id: string;
   workOrderNumber: string;
@@ -2523,6 +2526,12 @@ const companiesForSelectedClient = (() => {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Work Orders"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
@@ -3557,6 +3566,7 @@ const companiesForSelectedClient = (() => {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

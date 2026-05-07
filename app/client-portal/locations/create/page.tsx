@@ -17,6 +17,9 @@ import { ArrowLeft, Upload, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 export default function CreateLocation() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -274,6 +277,12 @@ export default function CreateLocation() {
 
   return (
     <ClientLayout>
+      <PageContainer>
+        <PortalHero
+          title="Create"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div>
           <Link href="/client-portal/locations">
@@ -440,6 +449,7 @@ export default function CreateLocation() {
           </CardContent>
         </Card>
       </div>
+          </PageContainer>
     </ClientLayout>
   );
 }

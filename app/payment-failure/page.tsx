@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { XCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { AuthShell } from '@/components/ui/auth-shell';
 
 function PaymentFailureContent() {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -32,15 +33,17 @@ function PaymentFailureContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-      </div>
+      <AuthShell title="Payment Failed" subtitle="Loading…" icon={XCircle}>
+        <div className="flex items-center justify-center py-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
+        </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell title="Payment Failed" subtitle="Your payment could not be processed." icon={XCircle}>
+      <Card className="w-full">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-red-100 p-3 rounded-full">
@@ -111,19 +114,19 @@ function PaymentFailureContent() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function PaymentFailure() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
+      <AuthShell title="Payment Failed" subtitle="Loading…" icon={XCircle}>
+        <div className="text-center py-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto" />
           <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
-      </div>
+      </AuthShell>
     }>
       <PaymentFailureContent />
     </Suspense>

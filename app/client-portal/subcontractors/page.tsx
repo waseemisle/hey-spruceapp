@@ -12,12 +12,13 @@ import { SearchableMultiSelect } from '@/components/ui/searchable-select';
 import { User, Mail, Phone, Building, Award, Search, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/ui/page-header';
-import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 import { Users } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
 interface Subcontractor {
   uid: string;
   email: string;

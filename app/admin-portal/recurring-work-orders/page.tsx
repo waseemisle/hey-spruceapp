@@ -21,6 +21,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import ViewControls from '@/components/view-controls';
 import { useViewControls } from '@/contexts/view-controls-context';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 export default function RecurringWorkOrdersManagement() {
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
   const [executionsByRWO, setExecutionsByRWO] = useState<Record<string, RecurringWorkOrderExecution[]>>({});
@@ -496,6 +499,12 @@ export default function RecurringWorkOrdersManagement() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Recurring Work Orders"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
@@ -938,6 +947,7 @@ export default function RecurringWorkOrdersManagement() {
           }}
         />
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

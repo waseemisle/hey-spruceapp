@@ -14,6 +14,9 @@ import { Wrench, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, P
 import { toast } from 'sonner';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 const MAINT_REQUEST_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'in-progress', label: 'In Progress' },
@@ -359,6 +362,12 @@ export default function MaintRequestsPage() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Maint Requests"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
@@ -725,6 +734,7 @@ export default function MaintRequestsPage() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

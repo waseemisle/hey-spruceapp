@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { AuthShell } from '@/components/ui/auth-shell';
+import { UserPlus } from 'lucide-react';
 
 export default function RegisterClient() {
   const [formData, setFormData] = useState({
@@ -105,8 +107,12 @@ export default function RegisterClient() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell
+      title="Client Registration"
+      subtitle="Create your client account to manage cleaning and maintenance."
+      icon={UserPlus}
+    >
+      <Card className="w-full">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Client Registration</CardTitle>
           <CardDescription className="text-center">
@@ -196,6 +202,6 @@ export default function RegisterClient() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

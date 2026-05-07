@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { AuthShell } from '@/components/ui/auth-shell';
 
 function ResetPasswordForm() {
   const [password, setPassword] = useState('');
@@ -128,8 +129,8 @@ function ResetPasswordForm() {
 
   if (verifying) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <AuthShell title="Reset Password" subtitle="Verifying reset link…" icon={AlertCircle}>
+        <Card className="w-full">
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
@@ -137,14 +138,14 @@ function ResetPasswordForm() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <AuthShell title="Reset Password" subtitle="This link can’t be used." icon={AlertCircle}>
+        <Card className="w-full">
           <CardHeader className="space-y-1 text-center">
             <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
               <AlertCircle className="w-8 h-8 text-red-600" />
@@ -161,14 +162,14 @@ function ResetPasswordForm() {
             </Link>
           </CardFooter>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <AuthShell title="Reset Password" subtitle="Password updated." icon={CheckCircle}>
+        <Card className="w-full">
           <CardHeader className="space-y-1 text-center">
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
               <CheckCircle className="w-8 h-8 text-green-600" />
@@ -188,27 +189,27 @@ function ResetPasswordForm() {
             </Link>
           </CardFooter>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   if (!verified) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <AuthShell title="Reset Password" subtitle="Preparing…" icon={AlertCircle}>
+        <Card className="w-full">
           <CardContent className="pt-6">
             <div className="text-center">
               <p className="text-muted-foreground">Please wait while we verify your reset link...</p>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell title="Reset Password" subtitle="Choose a new password." icon={CheckCircle}>
+      <Card className="w-full">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Set New Password</CardTitle>
           <CardDescription className="text-center">
@@ -259,15 +260,15 @@ function ResetPasswordForm() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function ResetPassword() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <AuthShell title="Reset Password" subtitle="Loading…" icon={AlertCircle}>
+        <Card className="w-full">
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
@@ -275,7 +276,7 @@ export default function ResetPassword() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     }>
       <ResetPasswordForm />
     </Suspense>

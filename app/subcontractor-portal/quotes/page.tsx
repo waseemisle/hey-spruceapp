@@ -10,6 +10,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { FileText, Calendar, DollarSign, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Quote {
   id: string;
   workOrderId: string;
@@ -116,10 +119,17 @@ export default function SubcontractorQuotes() {
   if (loading) {
     return (
       <SubcontractorLayout>
+      <PageContainer>
+        <PortalHero
+          title="Quotes"
+          subtitle=""
+          icon={Sparkles}
+        />
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
-      </SubcontractorLayout>
+            </PageContainer>
+    </SubcontractorLayout>
     );
   }
 

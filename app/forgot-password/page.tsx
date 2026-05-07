@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { ArrowLeft, Mail } from 'lucide-react';
+import { AuthShell } from '@/components/ui/auth-shell';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -73,8 +74,8 @@ export default function ForgotPassword() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <AuthShell title="Reset Password" subtitle="Check your email for instructions." icon={Mail}>
+        <Card className="w-full">
           <CardHeader className="space-y-1 text-center">
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
               <Mail className="w-8 h-8 text-green-600" />
@@ -106,13 +107,13 @@ export default function ForgotPassword() {
             </Link>
           </CardFooter>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <AuthShell title="Reset Password" subtitle="We’ll email you a reset link." icon={Mail}>
+      <Card className="w-full">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Reset Password</CardTitle>
           <CardDescription className="text-center">
@@ -164,6 +165,6 @@ export default function ForgotPassword() {
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

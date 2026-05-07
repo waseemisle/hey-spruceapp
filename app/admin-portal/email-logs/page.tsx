@@ -28,6 +28,9 @@ import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw, CheckCircle2, XC
 import { toast } from 'sonner';
 import { EmailType } from '@/lib/email-logger';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface EmailLog {
   id: string;
   type: EmailType;
@@ -409,6 +412,12 @@ export default function EmailLogsPage() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Email Logs"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -727,6 +736,7 @@ export default function EmailLogsPage() {
           )}
         </DialogContent>
       </Dialog>
+          </PageContainer>
     </AdminLayout>
   );
 }

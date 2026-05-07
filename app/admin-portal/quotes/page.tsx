@@ -18,6 +18,9 @@ import { useSearchParams } from 'next/navigation';
 import { notifyClientOfQuoteSent } from '@/lib/notifications';
 import { useViewControls } from '@/contexts/view-controls-context';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface LineItem {
   description: string;
   quantity: number;
@@ -568,6 +571,12 @@ function QuotesContent() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Quotes"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
@@ -1004,6 +1013,7 @@ function QuotesContent() {
           </div>
         )}
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

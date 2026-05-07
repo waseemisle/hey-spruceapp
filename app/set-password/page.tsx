@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { AuthShell } from '@/components/ui/auth-shell';
 
 /**
  * Decode a setup token in the browser.
@@ -147,8 +148,8 @@ function SetPasswordContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
-        <Card className="w-full max-w-md shadow-lg">
+      <AuthShell title="Set Password" subtitle="Account activation" icon={Lock}>
+        <Card className="w-full shadow-sm">
           <CardContent className="pt-12 pb-8 text-center">
             <div className="flex justify-center mb-6">
               <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
@@ -161,16 +162,16 @@ function SetPasswordContent() {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <AuthShell title="Set Password" subtitle="Create a password to activate your account." icon={Lock}>
+      <Card className="w-full shadow-sm">
         <CardHeader className="space-y-1 text-center pb-4">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
               <Lock className="w-8 h-8 text-white" />
             </div>
           </div>
@@ -264,19 +265,19 @@ function SetPasswordContent() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function SetPasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+      <AuthShell title="Set Password" subtitle="Loading…" icon={Lock}>
+        <div className="text-center py-10">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
           <p className="mt-2 text-muted-foreground">Loading...</p>
         </div>
-      </div>
+      </AuthShell>
     }>
       <SetPasswordContent />
     </Suspense>

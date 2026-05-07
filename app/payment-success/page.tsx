@@ -9,6 +9,7 @@ import { CheckCircle, ArrowLeft, Receipt, Download, ExternalLink } from 'lucide-
 import Link from 'next/link';
 import { toast } from 'sonner';
 import type { InvoiceData } from '@/lib/pdf-generator';
+import { AuthShell } from '@/components/ui/auth-shell';
 
 interface PaymentDetails {
   amount: number;
@@ -192,18 +193,18 @@ function PaymentSuccessContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+      <AuthShell title="Payment Successful" subtitle="Processing your payment…" icon={CheckCircle} contentClassName="max-w-lg">
+        <div className="text-center py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
           <p className="mt-4 text-muted-foreground">Processing your payment...</p>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-muted flex items-center justify-center p-4">
-      <Card className="w-full max-w-lg">
+    <AuthShell title="Payment Successful" subtitle="Your receipt is ready." icon={CheckCircle} contentClassName="max-w-lg">
+      <Card className="w-full">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-green-100 p-3 rounded-full">
@@ -323,19 +324,19 @@ function PaymentSuccessContent() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </AuthShell>
   );
 }
 
 export default function PaymentSuccess() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+      <AuthShell title="Payment Successful" subtitle="Loading…" icon={CheckCircle} contentClassName="max-w-lg">
+        <div className="text-center py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
           <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
-      </div>
+      </AuthShell>
     }>
       <PaymentSuccessContent />
     </Suspense>

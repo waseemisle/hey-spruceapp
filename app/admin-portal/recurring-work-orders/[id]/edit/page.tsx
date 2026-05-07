@@ -6,11 +6,20 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import RecurringWorkOrderEditForm from '@/components/recurring-work-order-edit-form';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 export default function EditRecurringWorkOrder({ params }: { params: { id: string } }) {
   const router = useRouter();
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Edit"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Button variant="outline" onClick={() => router.back()}>
@@ -29,6 +38,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           onCancel={() => router.back()}
         />
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }

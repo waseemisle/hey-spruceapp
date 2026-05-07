@@ -14,9 +14,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 import { PageHeader } from '@/components/ui/page-header';
-import { PageContainer } from '@/components/ui/page-container';
 import { EmptyState } from '@/components/ui/empty-state';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
 interface Company { id: string; clientId?: string; name: string; email?: string; phone?: string; logoUrl?: string }
 
 const AVATAR_COLORS = [

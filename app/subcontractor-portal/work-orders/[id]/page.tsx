@@ -11,11 +11,13 @@ import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ClipboardList, Calendar, MapPin, Stethoscope, FileText, Image as ImageIcon } from 'lucide-react';
-import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { formatAddress } from '@/lib/utils';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface WorkOrder {
   id: string;
   workOrderNumber?: string;
@@ -158,6 +160,11 @@ export default function SubWorkOrderDetail() {
     return (
       <SubcontractorLayout>
         <PageContainer>
+        <PortalHero
+          title="Page"
+          subtitle=""
+          icon={Sparkles}
+        />
           <Card className="rounded-2xl border border-border shadow-sm">
             <CardContent className="p-8 text-center">
               <ClipboardList className="h-10 w-10 text-muted-foreground mx-auto mb-3" />

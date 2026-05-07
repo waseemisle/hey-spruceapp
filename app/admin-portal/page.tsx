@@ -16,6 +16,9 @@ import {
 } from '@/lib/dashboard-utils';
 import { Building2, ChevronDown, X, ShieldCheck, ClipboardList, FileText, Receipt, AlertTriangle } from 'lucide-react';
 
+import { PageContainer } from '@/components/ui/page-container';
+import { PortalHero } from '@/components/ui/portal-hero';
+import { Sparkles } from 'lucide-react';
 interface Company {
   id: string;
   name: string;
@@ -228,6 +231,12 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout>
+      <PageContainer>
+        <PortalHero
+          title="Admin Portal"
+          subtitle=""
+          icon={Sparkles}
+        />
       <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         {/* Main Content */}
         <div className="p-4 sm:p-6 space-y-6">
@@ -338,6 +347,7 @@ export default function AdminDashboard() {
           <InvoicesSection data={invoicesData} portalType="admin" />
         </div>
       </div>
+          </PageContainer>
     </AdminLayout>
   );
 }
