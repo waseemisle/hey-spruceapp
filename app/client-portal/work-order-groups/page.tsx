@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import ClientLayout from '@/components/client-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
@@ -41,15 +41,21 @@ export default function ClientWorkOrderGroupsList() {
         }
         setPermitted(true);
 
-        // Query groups where clientId matches the logged-in user
+        // Query groups where clientId matches the logged-in user.
+        // No orderBy to avoid requiring a composite index; sort client-side.
         const snap = await getDocs(
-          query(
-            collection(db, 'workOrderGroups'),
-            where('clientId', '==', u.uid),
-            orderBy('createdAt', 'desc'),
-          ),
+          query(collection(db, 'workOrderGroups'), where('clientId', '==', u.uid)),
         );
-        setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() } as GroupRow)));
+        const rows = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as GroupRow))
+          .sort((a, b) => {
+            try {
+              const ta = a.createdAt?.toDate?.()?.getTime() ?? 0;
+              const tb = b.createdAt?.toDate?.()?.getTime() ?? 0;
+              return tb - ta;
+            } catch { return 0; }
+          });
+        setGroups(rows);
       } catch (e: any) {
         console.error('Failed to load work order groups:', e);
       } finally {
