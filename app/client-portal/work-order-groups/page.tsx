@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import ClientLayout from '@/components/client-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Layers, ChevronRight, ClipboardList } from 'lucide-react';
+import { Layers, ChevronRight, ClipboardList, ShieldOff } from 'lucide-react';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 
 type GroupRow = {
@@ -23,6 +23,7 @@ type GroupRow = {
 export default function ClientWorkOrderGroupsList() {
   const { auth, db } = useFirebaseInstance();
   const [loading, setLoading] = useState(true);
+  const [permitted, setPermitted] = useState(false);
   const [groups, setGroups] = useState<GroupRow[]>([]);
 
   useEffect(() => {
@@ -30,25 +31,27 @@ export default function ClientWorkOrderGroupsList() {
       if (!u) return;
       setLoading(true);
       try {
+        // Check permission
+        const clientSnap = await getDoc(doc(db, 'clients', u.uid));
+        const perms = clientSnap.exists() ? (clientSnap.data()?.permissions || {}) : {};
+        if (!perms.combineWorkOrders) {
+          setPermitted(false);
+          setLoading(false);
+          return;
+        }
+        setPermitted(true);
+
+        // Query groups where clientId matches the logged-in user
         const snap = await getDocs(
           query(
             collection(db, 'workOrderGroups'),
-            where('createdBy.uid', '==', u.uid),
+            where('clientId', '==', u.uid),
             orderBy('createdAt', 'desc'),
           ),
         );
-        // Fall back: also try clientId match if none found (admin-created groups)
-        let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() } as GroupRow));
-        setGroups(rows);
+        setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() } as GroupRow)));
       } catch (e: any) {
         console.error('Failed to load work order groups:', e);
-        // Try a simpler query without the compound filter if index is missing
-        try {
-          const snap2 = await getDocs(
-            query(collection(db, 'workOrderGroups'), orderBy('createdAt', 'desc')),
-          );
-          setGroups(snap2.docs.map((d) => ({ id: d.id, ...d.data() } as GroupRow)));
-        } catch {}
       } finally {
         setLoading(false);
       }
@@ -80,6 +83,13 @@ export default function ClientWorkOrderGroupsList() {
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
+        ) : !permitted ? (
+          <Card className="rounded-2xl border border-border shadow-sm">
+            <CardContent className="p-10 text-center">
+              <ShieldOff className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+              <p className="text-muted-foreground text-sm">You don&apos;t have permission to view combined work orders.</p>
+            </CardContent>
+          </Card>
         ) : groups.length === 0 ? (
           <Card className="rounded-2xl border border-border shadow-sm">
             <CardContent className="p-10 text-center">
@@ -108,25 +118,22 @@ export default function ClientWorkOrderGroupsList() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {groups.map((group, i) => (
+                    {groups.map((group) => (
                       <tr key={group.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
                             <Layers className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                            <div>
-                              <p className="font-semibold text-foreground">Bundle {i + 1}</p>
-                              <p className="text-xs text-muted-foreground font-mono">{group.id.slice(0, 12)}…</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-foreground font-medium">{group.workOrderIds.length}</span>
+                              <span className="text-muted-foreground">
+                                work order{group.workOrderIds.length === 1 ? '' : 's'} combined
+                              </span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
-                            <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-foreground font-medium">{group.workOrderIds.length}</span>
-                            <span className="text-muted-foreground">
-                              work order{group.workOrderIds.length === 1 ? '' : 's'}
-                            </span>
-                          </div>
+                        <td className="px-4 py-3.5 text-muted-foreground text-xs font-mono">
+                          {group.id.slice(0, 14)}…
                         </td>
                         <td className="px-4 py-3.5 text-muted-foreground">{formatDate(group.createdAt)}</td>
                         <td className="px-5 py-3.5 text-right">

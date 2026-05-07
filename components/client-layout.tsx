@@ -38,6 +38,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [hasMaintenanceRequestsWorkOrdersPermission, setHasMaintenanceRequestsWorkOrdersPermission] = useState(false);
   const [hasViewSubcontractorsPermission, setHasViewSubcontractorsPermission] = useState(false);
   const [hasRecurringWorkOrdersPermission, setHasRecurringWorkOrdersPermission] = useState(false);
+  const [hasCombineWorkOrdersPermission, setHasCombineWorkOrdersPermission] = useState(false);
   const [firebaseInstances, setFirebaseInstances] = useState({
     authInstance: auth,
     dbInstance: db,
@@ -175,6 +176,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               setHasMaintenanceRequestsWorkOrdersPermission(permissions.viewMaintenanceRequestsWorkOrders || false);
               setHasViewSubcontractorsPermission(permissions.viewSubcontractors || false);
               setHasRecurringWorkOrdersPermission(permissions.viewRecurringWorkOrders || false);
+              setHasCombineWorkOrdersPermission(permissions.combineWorkOrders || false);
               setLoading(false);
 
               // Live-track lastViewedAt from the user profile doc.
@@ -389,7 +391,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: 'locations' },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
     { name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: 'recurringWorkOrders' },
-    { name: 'Combined Work Orders', href: '/client-portal/work-order-groups', icon: Layers, badgeKey: null },
+    ...(hasCombineWorkOrdersPermission ? [{ name: 'Combined Work Orders', href: '/client-portal/work-order-groups', icon: Layers, badgeKey: null }] : []),
     ...(hasViewSubcontractorsPermission ? [{ name: 'Subcontractors', href: '/client-portal/subcontractors', icon: Users, badgeKey: null }] : []),
     { name: 'Diagnostic Requests', href: '/client-portal/diagnostic-requests', icon: Stethoscope, badgeKey: 'diagnosticRequests' },
     { name: 'Quotes', href: '/client-portal/quotes', icon: FileText, badgeKey: 'quotes' },

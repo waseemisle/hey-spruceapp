@@ -23,12 +23,15 @@ import { Layers, ChevronRight, ClipboardList, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { auth, db } from '@/lib/firebase';
 
+type WoSummary = { id: string; workOrderNumber?: string; title?: string };
+
 type GroupRow = {
   id: string;
   clientId: string;
   workOrderIds: string[];
   primaryWorkOrderId: string;
   createdAt?: any;
+  woSummaries: WoSummary[];
 };
 
 export default function AdminWorkOrderGroupsList() {
@@ -45,7 +48,29 @@ export default function AdminWorkOrderGroupsList() {
         const snap = await getDocs(
           query(collection(db, 'workOrderGroups'), orderBy('createdAt', 'desc')),
         );
-        setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() } as GroupRow)));
+        const raw = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any), woSummaries: [] as WoSummary[] } as GroupRow));
+
+        // Load WO summaries for each group (number + title)
+        const enriched = await Promise.all(
+          raw.map(async (g) => {
+            const ids = Array.isArray(g.workOrderIds) ? g.workOrderIds : [];
+            const summaries = await Promise.all(
+              ids.map(async (woId) => {
+                try {
+                  const woSnap = await getDoc(doc(db, 'workOrders', woId));
+                  if (!woSnap.exists()) return { id: woId };
+                  const d = woSnap.data() as any;
+                  return { id: woId, workOrderNumber: d.workOrderNumber, title: d.title };
+                } catch {
+                  return { id: woId };
+                }
+              }),
+            );
+            return { ...g, woSummaries: summaries };
+          }),
+        );
+
+        setGroups(enriched);
       } catch (e: any) {
         console.error('Failed to load work order groups:', e);
       } finally {
@@ -58,7 +83,6 @@ export default function AdminWorkOrderGroupsList() {
   const handleDelete = async (group: GroupRow) => {
     setDeletingId(group.id);
     try {
-      // Remove combined-group fields from each constituent WO (skip any that no longer exist)
       const woRefs = group.workOrderIds.map((id) => doc(db, 'workOrders', id));
       const woSnaps = await Promise.all(woRefs.map((ref) => getDoc(ref)));
       const batch = writeBatch(db);
@@ -73,10 +97,7 @@ export default function AdminWorkOrderGroupsList() {
         });
       });
       await batch.commit();
-
-      // Delete the group document itself
       await deleteDoc(doc(db, 'workOrderGroups', group.id));
-
       setGroups((prev) => prev.filter((g) => g.id !== group.id));
       toast.success('Bundle deleted. Work orders are now independent.');
     } catch (e: any) {
@@ -133,34 +154,44 @@ export default function AdminWorkOrderGroupsList() {
                 <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="border-b border-border bg-muted">
-                      <th className="text-left px-5 py-3 font-medium text-muted-foreground">Bundle</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Work Orders</th>
+                      <th className="text-left px-5 py-3 font-medium text-muted-foreground">Work Orders in Bundle</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Created</th>
                       <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {groups.map((group, i) => (
+                    {groups.map((group) => (
                       <tr key={group.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 mb-1.5">
                             <Layers className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                            <div>
-                              <p className="font-semibold text-foreground">Bundle {i + 1}</p>
-                              <p className="text-xs text-muted-foreground font-mono">{group.id.slice(0, 12)}…</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <div className="flex items-center gap-1.5">
-                            <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-foreground font-medium">{group.workOrderIds.length}</span>
-                            <span className="text-muted-foreground">
-                              work order{group.workOrderIds.length === 1 ? '' : 's'}
+                            <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                              {group.workOrderIds.length} combined
                             </span>
                           </div>
+                          <div className="flex flex-wrap gap-2">
+                            {group.woSummaries.map((wo) => (
+                              <Link
+                                key={wo.id}
+                                href={`/admin-portal/work-orders/${wo.id}`}
+                                className="inline-flex items-center gap-1 text-xs bg-muted border border-border rounded-lg px-2 py-1 hover:bg-accent hover:border-blue-300 transition-colors"
+                              >
+                                <ClipboardList className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <span className="font-semibold text-foreground">
+                                  {wo.workOrderNumber || wo.id.slice(0, 8)}
+                                </span>
+                                {wo.title && (
+                                  <span className="text-muted-foreground truncate max-w-[120px]">
+                                    · {wo.title}
+                                  </span>
+                                )}
+                              </Link>
+                            ))}
+                          </div>
                         </td>
-                        <td className="px-4 py-3.5 text-muted-foreground">{formatDate(group.createdAt)}</td>
+                        <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
+                          {formatDate(group.createdAt)}
+                        </td>
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-2">
                             {confirmId === group.id ? (
