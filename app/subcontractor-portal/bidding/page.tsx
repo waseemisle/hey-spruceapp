@@ -238,7 +238,9 @@ function SchedulePicker({
 
 interface BiddingWorkOrder {
   id: string;
-  workOrderId: string;
+  workOrderId?: string;
+  workOrderIds?: string[];
+  workOrderGroupId?: string;
   workOrderNumber?: string;
   workOrderTitle: string;
   workOrderDescription: string;
@@ -364,7 +366,9 @@ export default function SubcontractorBidding() {
     // Fetch from original work order
     const fetchImages = async () => {
       try {
-        const woDoc = await getDoc(doc(db, 'workOrders', viewWorkOrder.workOrderId));
+        const primaryId = viewWorkOrder.workOrderId || viewWorkOrder.workOrderIds?.[0];
+        if (!primaryId) return;
+        const woDoc = await getDoc(doc(db, 'workOrders', primaryId));
         if (woDoc.exists()) {
           const imgs = woDoc.data()?.images || [];
           setWorkOrderImages(imgs);
@@ -495,8 +499,8 @@ export default function SubcontractorBidding() {
 
       // Fire-and-forget: notify admins + client that results are in
       notifyDiagnosticResultsSubmitted(
-        resultsBidding.workOrderId,
-        resultsBidding.workOrderNumber || resultsBidding.workOrderId,
+        resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0] || '',
+        resultsBidding.workOrderNumber || resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0] || '',
         subName,
         resultsBidding.clientId || null,
       ).catch(console.error);
@@ -552,6 +556,12 @@ export default function SubcontractorBidding() {
       if (!subDoc.exists()) return;
       const subData = subDoc.data();
 
+      const primaryWorkOrderId = selectedBidding.workOrderId || selectedBidding.workOrderIds?.[0];
+      if (!primaryWorkOrderId) {
+        toast.error('This bidding item is missing a work order reference.');
+        return;
+      }
+
       const labor = validItems.filter(li => li.description.toLowerCase().includes('labor')).reduce((s, li) => s + Number(li.amount), 0);
       const material = validItems.filter(li => li.description.toLowerCase().includes('material')).reduce((s, li) => s + Number(li.amount), 0);
       const total = validItems.reduce((s, li) => s + Number(li.amount), 0);
@@ -567,7 +577,11 @@ export default function SubcontractorBidding() {
       });
 
       const quoteRef = await addDoc(collection(db, 'quotes'), {
-        workOrderId: selectedBidding.workOrderId,
+        workOrderId: primaryWorkOrderId,
+        ...(Array.isArray(selectedBidding.workOrderIds) && selectedBidding.workOrderIds.length >= 2
+          ? { workOrderIds: selectedBidding.workOrderIds.map(String) }
+          : {}),
+        ...(selectedBidding.workOrderGroupId ? { workOrderGroupId: String(selectedBidding.workOrderGroupId) } : {}),
         workOrderNumber: selectedBidding.workOrderNumber,
         workOrderTitle: selectedBidding.workOrderTitle,
         subcontractorId: currentUser.uid,
@@ -600,8 +614,8 @@ export default function SubcontractorBidding() {
 
       await notifyQuoteSubmission(
         selectedBidding.clientId,
-        selectedBidding.workOrderId,
-        selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+        primaryWorkOrderId,
+        selectedBidding.workOrderNumber || primaryWorkOrderId,
         subData.fullName || subData.businessName,
         total,
       );
@@ -650,13 +664,14 @@ export default function SubcontractorBidding() {
 
       // Update work order status + quotesReceived (best effort)
       try {
-        const workOrderRef = doc(db, 'workOrders', selectedBidding.workOrderId);
-        const workOrderSnapshot = await getDoc(workOrderRef);
-        if (workOrderSnapshot.exists()) {
+        const ids = Array.isArray(selectedBidding.workOrderIds) && selectedBidding.workOrderIds.length >= 2
+          ? selectedBidding.workOrderIds.map(String)
+          : [primaryWorkOrderId];
+        await Promise.all(ids.map(async (woId) => {
+          const workOrderRef = doc(db, 'workOrders', woId);
+          const workOrderSnapshot = await getDoc(workOrderRef);
+          if (!workOrderSnapshot.exists()) return;
           const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
-          // 'diagnostic_accepted' is the post-diagnostic entry point for this
-          // modal — submitting the repair quote advances the WO to
-          // 'quotes_received' so admin sees the Share Quote with Client button.
           const statusesEligibleForQuote = ['pending', 'approved', 'bidding', 'diagnostic_accepted', 'diagnostic_results_submitted'];
           const woData = workOrderSnapshot.data();
           const existingTimeline = woData?.timeline || [];
@@ -669,7 +684,11 @@ export default function SubcontractorBidding() {
             userName: subData.fullName || subData.businessName,
             userRole: 'subcontractor',
             details: `Quote received from ${subData.fullName || subData.businessName} - ${formatMoney(total)}`,
-            metadata: { quoteId: quoteRef.id, amount: total },
+            metadata: {
+              quoteId: quoteRef.id,
+              amount: total,
+              ...(selectedBidding.workOrderGroupId ? { workOrderGroupId: selectedBidding.workOrderGroupId } : {}),
+            },
           };
           const updatedSysInfo = {
             ...existingSysInfo,
@@ -683,7 +702,7 @@ export default function SubcontractorBidding() {
           } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
             await updateDoc(workOrderRef, { status: 'quotes_received', quoteReceivedAt: serverTimestamp(), updatedAt: serverTimestamp(), timeline: [...existingTimeline, woTimelineEvent], systemInformation: updatedSysInfo });
           }
-        }
+        }));
       } catch (e) { console.error('Quote submitted, but failed to update work order:', e); }
 
       try {
@@ -749,6 +768,12 @@ export default function SubcontractorBidding() {
 
   const handleSubmitQuote = async () => {
     if (!selectedBidding) return;
+
+    const isGroup = Array.isArray(selectedBidding.workOrderIds) && selectedBidding.workOrderIds.length >= 2;
+    if (isGroup) {
+      toast.error('Diagnostic Requests are not available for combined work order bundles. Please submit a quote instead.');
+      return;
+    }
 
     if (!quoteForm.proposedServiceDate || !quoteForm.proposedServiceTime) {
       toast.error('Please fill in all required fields (including service date and time)');
@@ -1006,17 +1031,19 @@ export default function SubcontractorBidding() {
                       <FileText className="h-4 w-4" />
                       Submit Quote
                     </Button>
-                    <Button
-                      className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
-                      onClick={() => {
-                        setSelectedBidding(viewWorkOrder);
-                        setShowQuoteForm(true);
-                        setViewWorkOrder(null);
-                      }}
-                    >
-                      <Stethoscope className="h-4 w-4" />
-                      Submit Diagnostic Request
-                    </Button>
+                    {!(Array.isArray(viewWorkOrder.workOrderIds) && viewWorkOrder.workOrderIds.length >= 2) && (
+                      <Button
+                        className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
+                        onClick={() => {
+                          setSelectedBidding(viewWorkOrder);
+                          setShowQuoteForm(true);
+                          setViewWorkOrder(null);
+                        }}
+                      >
+                        <Stethoscope className="h-4 w-4" />
+                        Submit Diagnostic Request
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       className="h-10 rounded-xl px-4 font-semibold gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300"
@@ -1683,6 +1710,11 @@ export default function SubcontractorBidding() {
                     {bidding.workOrderNumber && (
                       <p className="text-[11px] font-medium text-muted-foreground tracking-wide mt-0.5">WO: {bidding.workOrderNumber}</p>
                     )}
+                    {Array.isArray(bidding.workOrderIds) && bidding.workOrderIds.length >= 2 && (
+                      <p className="text-[11px] font-medium text-blue-700 tracking-wide mt-0.5">
+                        Combined bundle · {bidding.workOrderIds.length} work orders
+                      </p>
+                    )}
                   </div>
                   {bidding.priority && (
                     <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${getPriorityBadge(bidding.priority)}`}>
@@ -1782,16 +1814,18 @@ export default function SubcontractorBidding() {
                         <FileText className="h-3.5 w-3.5" />
                         Submit Quote
                       </Button>
-                      <Button
-                        className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/20 col-span-2"
-                        onClick={() => {
-                          setSelectedBidding(bidding);
-                          setShowQuoteForm(true);
-                        }}
-                      >
-                        <Stethoscope className="h-3.5 w-3.5" />
-                        Submit Diagnostic Request
-                      </Button>
+                      {!(Array.isArray(bidding.workOrderIds) && bidding.workOrderIds.length >= 2) && (
+                        <Button
+                          className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/20 col-span-2"
+                          onClick={() => {
+                            setSelectedBidding(bidding);
+                            setShowQuoteForm(true);
+                          }}
+                        >
+                          <Stethoscope className="h-3.5 w-3.5" />
+                          Submit Diagnostic Request
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         className="h-9 rounded-xl text-xs font-semibold gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 col-span-2"

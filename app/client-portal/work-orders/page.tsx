@@ -9,12 +9,14 @@ import { notifyBiddingOpportunity } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye, CheckCircle, XCircle, Share2, X, ClipboardCheck, Clock, BarChart3, Archive } from 'lucide-react';
 import Link from 'next/link';
 import ViewControls from '@/components/view-controls';
 import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
+import { createWorkOrderGroup } from '@/lib/work-order-groups';
 
 interface WorkOrder {
   id: string;
@@ -40,6 +42,12 @@ interface WorkOrder {
   scheduleSharedWithClient?: boolean;
   assignedToName?: string;
   isMaintenanceRequestOrder?: boolean;
+  workOrderGroupId?: string | null;
+  isCombinedPrimary?: boolean;
+  isCombinedChild?: boolean;
+  combinedPrimaryWorkOrderId?: string | null;
+  combinedWorkOrderCount?: number;
+  approvedQuoteId?: string | null;
 }
 
 interface Subcontractor {
@@ -83,7 +91,9 @@ function ClientWorkOrdersContent() {
   const [hasApproveRejectPermission, setHasApproveRejectPermission] = useState(false);
   const [hasShareForBiddingPermission, setHasShareForBiddingPermission] = useState(false);
   const [hasArchivePermission, setHasArchivePermission] = useState(false);
+  const [hasCombineWorkOrdersPermission, setHasCombineWorkOrdersPermission] = useState(false);
   const [processingWorkOrder, setProcessingWorkOrder] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
@@ -144,6 +154,7 @@ function ClientWorkOrdersContent() {
 
           // Check for Archive Work Orders permission
           setHasArchivePermission(clientData?.permissions?.archiveWorkOrders === true);
+          setHasCombineWorkOrdersPermission(clientData?.permissions?.combineWorkOrders === true);
 
           // If viewing archive, require permission
           if (workOrderType === 'archive' && !clientData?.permissions?.archiveWorkOrders) {
@@ -618,6 +629,8 @@ function ClientWorkOrdersContent() {
     : workOrders.filter(wo => wo.status !== 'archived');
 
   const filteredWorkOrders = workOrdersToShow.filter(wo => {
+    // Hide combined children in the list; the primary row represents the bundle.
+    if (wo.isCombinedChild) return false;
     const statusMatch = filter === 'all' || normalizeStatus(wo.status) === filter;
 
     const searchLower = searchQuery.toLowerCase();
@@ -633,6 +646,49 @@ function ClientWorkOrdersContent() {
 
   const getStatusCount = (value: string) =>
     workOrdersToShow.filter(wo => normalizeStatus(wo.status) === value).length;
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+  const toggleSelectAll = (ids: string[]) => {
+    if (selectedIds.length === ids.length) setSelectedIds([]);
+    else setSelectedIds(ids);
+  };
+  const handleCombineSelected = async () => {
+    if (!hasCombineWorkOrdersPermission) {
+      toast.error('You do not have permission to combine work orders');
+      return;
+    }
+    if (selectedIds.length < 2) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      toast.error('You must be signed in to combine work orders');
+      return;
+    }
+    const selected = selectedIds
+      .map((id) => workOrders.find((w) => w.id === id))
+      .filter(Boolean) as WorkOrder[];
+
+    const res = await createWorkOrderGroup({
+      db,
+      actor: { uid: currentUser.uid, role: 'client' },
+      workOrders: selected.map((w) => ({
+        id: w.id,
+        clientId: w.clientId,
+        companyId: w.companyId ?? null,
+        locationId: w.locationId ?? null,
+        status: w.status ?? null,
+        workOrderGroupId: w.workOrderGroupId ?? null,
+        approvedQuoteId: (w as any).approvedQuoteId ?? null,
+      })),
+    });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success(`Combined into group ${res.groupId}`);
+    setSelectedIds([]);
+  };
 
   const filterOptions = [
     { value: 'all', label: 'All', count: workOrdersToShow.length },
@@ -751,6 +807,32 @@ function ClientWorkOrdersContent() {
           <ViewControls hideSort />
         </div>
 
+        {/* Selection Controls (Combine) */}
+        {hasCombineWorkOrdersPermission && filteredWorkOrders.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="select-all-wo"
+                checked={selectedIds.length > 0 && selectedIds.length === filteredWorkOrders.map((w) => w.id).length}
+                onCheckedChange={() => toggleSelectAll(filteredWorkOrders.map((w) => w.id))}
+              />
+              <label htmlFor="select-all-wo" className="text-sm font-medium text-foreground cursor-pointer">
+                Select All ({filteredWorkOrders.length})
+              </label>
+              {selectedIds.length > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {selectedIds.length} selected
+                </span>
+              )}
+            </div>
+            {selectedIds.length >= 2 && (
+              <Button variant="outline" onClick={handleCombineSelected} className="w-full sm:w-auto">
+                Combine Work Orders ({selectedIds.length})
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Empty State */}
         {filteredWorkOrders.length === 0 ? (
           <div className="bg-card rounded-xl border border-border p-16 text-center">
@@ -779,6 +861,14 @@ function ClientWorkOrdersContent() {
             <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-border bg-muted">
+                  {hasCombineWorkOrdersPermission && (
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground w-10">
+                      <Checkbox
+                        checked={filteredWorkOrders.length > 0 && selectedIds.length === filteredWorkOrders.length}
+                        onCheckedChange={() => toggleSelectAll(filteredWorkOrders.map((w) => w.id))}
+                      />
+                    </th>
+                  )}
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Work Order</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Location</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Category</th>
@@ -794,10 +884,23 @@ function ClientWorkOrdersContent() {
                   const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || PRIORITY_CONFIG.medium;
                   return (
                     <tr key={workOrder.id} className="hover:bg-muted transition-colors">
+                      {hasCombineWorkOrdersPermission && (
+                        <td className="px-4 py-3.5">
+                          <Checkbox
+                            checked={selectedIds.includes(workOrder.id)}
+                            onCheckedChange={() => toggleSelection(workOrder.id)}
+                          />
+                        </td>
+                      )}
                       <td className="px-5 py-3.5">
                         <p className="font-medium text-foreground">{workOrder.title}</p>
                         {workOrder.workOrderNumber && (
                           <p className="text-xs text-muted-foreground">{workOrder.workOrderNumber}</p>
+                        )}
+                        {workOrder.isCombinedPrimary && (workOrder.combinedWorkOrderCount || 0) > 1 && (
+                          <p className="text-[11px] text-blue-700 mt-0.5">
+                            Combined bundle · {workOrder.combinedWorkOrderCount} work orders
+                          </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{workOrder.description}</p>
                       </td>
@@ -880,7 +983,23 @@ function ClientWorkOrdersContent() {
                   {/* Row 1: title + status badge */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{workOrder.title}</p>
+                      <div className="flex items-start gap-2">
+                        {hasCombineWorkOrdersPermission && (
+                          <Checkbox
+                            checked={selectedIds.includes(workOrder.id)}
+                            onCheckedChange={() => toggleSelection(workOrder.id)}
+                            className="mt-0.5 shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{workOrder.title}</p>
+                          {workOrder.isCombinedPrimary && (workOrder.combinedWorkOrderCount || 0) > 1 && (
+                            <p className="text-[11px] text-blue-700 mt-0.5">
+                              Combined bundle · {workOrder.combinedWorkOrderCount} work orders
+                            </p>
+                          )}
+                        </div>
+                      </div>
                       {workOrder.workOrderNumber && (
                         <p className="text-xs text-muted-foreground mt-0.5">{workOrder.workOrderNumber}</p>
                       )}

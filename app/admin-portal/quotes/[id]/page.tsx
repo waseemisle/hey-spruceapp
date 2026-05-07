@@ -29,6 +29,8 @@ interface LineItem {
 interface Quote {
   id: string;
   workOrderId?: string;
+  workOrderIds?: string[];
+  workOrderGroupId?: string;
   workOrderNumber?: string;
   workOrderTitle: string;
   clientId: string;
@@ -180,37 +182,50 @@ export default function AdminQuoteDetail() {
       });
 
       // Mirror onto the work order timeline.
-      if (quote.workOrderId) {
-        const woDoc = await getDoc(doc(db, 'workOrders', quote.workOrderId));
-        const woData = woDoc.data();
-        const existingTimeline = woData?.timeline || [];
-        const existingWoSysInfo = woData?.systemInformation || {};
-        await updateDoc(doc(db, 'workOrders', quote.workOrderId), {
-          timeline: [...existingTimeline, createTimelineEvent({
-            type: 'quote_shared_with_client',
-            userId: currentUser.uid,
-            userName: adminName,
-            userRole: 'admin',
-            details: isResend
-              ? `Quote from ${quote.subcontractorName} resent to client with ${markup}% markup (${formatMoney(clientAmount)})`
-              : `Quote from ${quote.subcontractorName} sent to client with ${markup}% markup (${formatMoney(clientAmount)})`,
-            metadata: { quoteId: quote.id, subcontractorName: quote.subcontractorName, clientAmount, markup },
-          })],
-          systemInformation: {
-            ...existingWoSysInfo,
-            quoteSharedWithClient: {
-              quoteId: quote.id,
-              by: { id: currentUser.uid, name: adminName },
-              timestamp: Timestamp.now(),
+      const workOrderIds = Array.isArray(quote.workOrderIds) && quote.workOrderIds.length >= 2
+        ? quote.workOrderIds.map(String)
+        : quote.workOrderId ? [quote.workOrderId] : [];
+      if (workOrderIds.length > 0) {
+        await Promise.all(workOrderIds.map(async (woId) => {
+          const woDoc = await getDoc(doc(db, 'workOrders', woId));
+          if (!woDoc.exists()) return;
+          const woData = woDoc.data();
+          const existingTimeline = woData?.timeline || [];
+          const existingWoSysInfo = woData?.systemInformation || {};
+          await updateDoc(doc(db, 'workOrders', woId), {
+            timeline: [...existingTimeline, createTimelineEvent({
+              type: 'quote_shared_with_client',
+              userId: currentUser.uid,
+              userName: adminName,
+              userRole: 'admin',
+              details: isResend
+                ? `Quote from ${quote.subcontractorName} resent to client with ${markup}% markup (${formatMoney(clientAmount)})`
+                : `Quote from ${quote.subcontractorName} sent to client with ${markup}% markup (${formatMoney(clientAmount)})`,
+              metadata: { quoteId: quote.id, subcontractorName: quote.subcontractorName, clientAmount, markup, ...(quote.workOrderGroupId ? { workOrderGroupId: quote.workOrderGroupId } : {}) },
+            })],
+            systemInformation: {
+              ...existingWoSysInfo,
+              quoteSharedWithClient: {
+                quoteId: quote.id,
+                by: { id: currentUser.uid, name: adminName },
+                timestamp: Timestamp.now(),
+                ...(quote.workOrderGroupId ? { workOrderGroupId: quote.workOrderGroupId } : {}),
+              },
             },
-          },
-          updatedAt: serverTimestamp(),
-        });
+            updatedAt: serverTimestamp(),
+          });
+        }));
       }
 
       // In-app notification.
-      if (quote.workOrderId && quote.workOrderNumber) {
-        await notifyClientOfQuoteSent(quote.clientId, quote.workOrderId, quote.workOrderNumber, clientAmount);
+      if (quote.workOrderNumber) {
+        const primaryWoId =
+          (Array.isArray(quote.workOrderIds) && quote.workOrderIds.length > 0 ? String(quote.workOrderIds[0]) : null) ||
+          quote.workOrderId ||
+          null;
+        if (primaryWoId) {
+          await notifyClientOfQuoteSent(quote.clientId, primaryWoId, quote.workOrderNumber, clientAmount);
+        }
       }
 
       // Email — always call the route so it can write a `skipped` row to

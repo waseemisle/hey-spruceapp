@@ -44,6 +44,18 @@ export async function POST(request: Request) {
 
     const quoteIsDiagnostic = quoteData.isDiagnosticQuote === true;
     const label = quoteIsDiagnostic ? 'Diagnostic Request' : 'Quote';
+    const quoteWorkOrderIds: string[] = Array.isArray(quoteData.workOrderIds)
+      ? quoteData.workOrderIds.map(String).filter(Boolean)
+      : [];
+    const workOrderIds = (quoteWorkOrderIds.length >= 2
+      ? quoteWorkOrderIds
+      : quoteData.workOrderId
+        ? [String(quoteData.workOrderId)]
+        : []);
+    const uniqueWorkOrderIds = Array.from(new Set(workOrderIds));
+    if (quoteIsDiagnostic && uniqueWorkOrderIds.length >= 2) {
+      return NextResponse.json({ error: 'Diagnostic rejection is not supported for combined work orders', step }, { status: 400 });
+    }
 
     // Mark the quote rejected
     step = 'update-quote-rejected';
@@ -79,11 +91,12 @@ export async function POST(request: Request) {
     });
 
     // Work order timeline + (for diagnostics) status flip to diagnostic_rejected
-    if (quoteData.workOrderId) {
-      try {
-        const woRef = doc(db, 'workOrders', quoteData.workOrderId);
-        const woSnap = await getDoc(woRef);
-        if (woSnap.exists()) {
+    if (uniqueWorkOrderIds.length > 0) {
+      await Promise.all(uniqueWorkOrderIds.map(async (woId) => {
+        try {
+          const woRef = doc(db, 'workOrders', woId);
+          const woSnap = await getDoc(woRef);
+          if (!woSnap.exists()) return;
           const woData = woSnap.data();
           const existingTimeline = woData.timeline || [];
           const updates: Record<string, any> = {
@@ -96,21 +109,19 @@ export async function POST(request: Request) {
                 userName: clientName,
                 userRole: 'client',
                 details: `${label} from ${quoteData.subcontractorName} rejected by ${clientName}${reason ? `. Reason: ${reason}` : ''}`,
-                metadata: { quoteId, subcontractorName: quoteData.subcontractorName, reason: reason || '', isDiagnosticQuote: quoteIsDiagnostic },
+                metadata: { quoteId, subcontractorName: quoteData.subcontractorName, reason: reason || '', isDiagnosticQuote: quoteIsDiagnostic, ...(quoteData.workOrderGroupId ? { workOrderGroupId: quoteData.workOrderGroupId } : {}) },
               }),
             ],
           };
-          // Only move a work order to 'diagnostic_rejected' if it hasn't already
-          // progressed beyond the diagnostic stage.
           const currentStatus = (woData.status as string | undefined) || '';
           if (quoteIsDiagnostic && ['pending', 'approved', 'bidding'].includes(currentStatus)) {
             updates.status = 'diagnostic_rejected';
           }
           await updateDoc(woRef, updates);
+        } catch (e) {
+          console.error('Failed to update work order after rejection:', woId, e);
         }
-      } catch (e) {
-        console.error('Failed to update work order after rejection:', e);
-      }
+      }));
     }
 
     // For diagnostic rejections, also flip the sub's biddingWorkOrders card

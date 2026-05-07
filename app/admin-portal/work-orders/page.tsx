@@ -24,6 +24,7 @@ import { isInvoiceApprovalRequiredForClient, computeApprovalDeadline, APPROVAL_W
 import { formatMoney } from '@/lib/money';
 import { canAddBidders, hasBeenSharedForBidding } from '@/lib/bidding-eligibility';
 import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
+import { createWorkOrderGroup } from '@/lib/work-order-groups';
 
 interface WorkOrder {
   id: string;
@@ -56,6 +57,12 @@ interface WorkOrder {
   quoteCount?: number;
   hasInvoice?: boolean;
   isMaintenanceRequestOrder?: boolean;
+  workOrderGroupId?: string | null;
+  isCombinedPrimary?: boolean;
+  isCombinedChild?: boolean;
+  combinedPrimaryWorkOrderId?: string | null;
+  combinedWorkOrderCount?: number;
+  approvedQuoteId?: string | null;
 }
 
 interface Client {
@@ -1908,6 +1915,19 @@ const handleLocationSelect = (locationId: string) => {
       // Ensure workOrderNumber exists, generate if missing
       const workOrderNumber = workOrderToShare.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
 
+      // If this is a combined bundle, attach the full workOrderIds list to the bidding card.
+      let workOrderGroupId: string | null = (workOrderToShare as any).workOrderGroupId || null;
+      let workOrderIdsForBidding: string[] | null = null;
+      if (workOrderGroupId) {
+        try {
+          const groupSnap = await getDoc(doc(db, 'workOrderGroups', workOrderGroupId));
+          const ids = groupSnap.exists() ? (groupSnap.data() as any)?.workOrderIds : null;
+          if (Array.isArray(ids) && ids.length >= 2) workOrderIdsForBidding = ids.map(String);
+        } catch (e) {
+          console.warn('[admin WO share for bidding] failed to load workOrderGroup:', e);
+        }
+      }
+
       // Create bidding work order for each selected subcontractor
       const subAuthIds = selectedSubcontractors.map((subId) => {
         const sub = subcontractors.find((s) => s.id === subId);
@@ -1921,6 +1941,8 @@ const handleLocationSelect = (locationId: string) => {
 
         await addDoc(collection(db, 'biddingWorkOrders'), {
           workOrderId: workOrderToShare.id,
+          ...(workOrderGroupId ? { workOrderGroupId } : {}),
+          ...(workOrderIdsForBidding ? { workOrderIds: workOrderIdsForBidding } : {}),
           workOrderNumber: workOrderNumber,
           subcontractorId: authId,
           subcontractorName: sub.fullName,
@@ -2063,6 +2085,27 @@ const handleLocationSelect = (locationId: string) => {
         timeline: [...existingTimeline, timelineEvent],
         systemInformation: updatedSysInfo,
       });
+
+      // Best-effort: for bundle children, mirror the bidding status + invited
+      // subs so downstream flows can treat the group consistently.
+      if (workOrderIdsForBidding && workOrderIdsForBidding.length >= 2) {
+        await Promise.all(
+          workOrderIdsForBidding
+            .filter((id) => id !== workOrderToShare.id)
+            .map((id) =>
+              updateDoc(doc(db, 'workOrders', id), {
+                ...(shouldFlipToBidding ? { status: 'bidding' } : {}),
+                workOrderNumber,
+                ...(isFirstShare
+                  ? { sharedForBiddingAt: serverTimestamp() }
+                  : { biddersLastAddedAt: serverTimestamp() }),
+                biddingSubcontractors: arrayUnion(...subAuthIds),
+                updatedAt: serverTimestamp(),
+                timeline: arrayUnion(timelineEvent),
+              }).catch((e) => console.warn('[admin WO share for bidding] child update failed', id, e)),
+            ),
+        );
+      }
 
       toast.success(
         isFirstShare
@@ -2243,6 +2286,46 @@ const handleLocationSelect = (locationId: string) => {
     }
   };
 
+  const handleCombineSelected = async () => {
+    if (selectedIds.length < 2) return;
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        toast.error('You must be signed in to combine work orders');
+        return;
+      }
+      const selected = selectedIds
+        .map((id) => workOrders.find((w) => w.id === id))
+        .filter(Boolean) as WorkOrder[];
+
+      const res = await createWorkOrderGroup({
+        db,
+        actor: { uid: currentUser.uid, role: 'admin' },
+        workOrders: selected.map((w) => ({
+          id: w.id,
+          clientId: w.clientId,
+          companyId: w.companyId ?? null,
+          locationId: w.locationId ?? null,
+          status: w.status ?? null,
+          workOrderGroupId: w.workOrderGroupId ?? null,
+          approvedQuoteId: (w as any).approvedQuoteId ?? null,
+        })),
+      });
+
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+
+      toast.success(`Combined into group ${res.groupId}`);
+      setSelectedIds([]);
+      fetchWorkOrders();
+    } catch (e: any) {
+      console.error('Failed to combine work orders:', e);
+      toast.error(e?.message || 'Failed to combine work orders');
+    }
+  };
+
   const getTimestampValue = (value: any) => {
     if (!value) return 0;
     if (typeof value === 'number') return value;
@@ -2259,6 +2342,8 @@ const handleLocationSelect = (locationId: string) => {
   };
 
   const filteredWorkOrders = workOrders.filter(wo => {
+    // Hide combined children in the list; the primary row represents the bundle.
+    if (wo.isCombinedChild) return false;
     // Filter by work order type (client-side, avoids requiring a Firestore composite index)
     // Archive type shows only archived; all other types exclude archived work orders
     const typeMatch =
@@ -2539,6 +2624,16 @@ const companiesForSelectedClient = (() => {
             <div className="flex items-center gap-3">
               {deleteProgress && (
                 <span className="text-sm text-muted-foreground">{deleteProgress}</span>
+              )}
+              {selectedIds.length >= 2 && (
+                <Button
+                  variant="outline"
+                  onClick={handleCombineSelected}
+                  disabled={submitting}
+                  className="w-full sm:w-auto"
+                >
+                  Combine Work Orders ({selectedIds.length})
+                </Button>
               )}
               <Button
                 variant="destructive"

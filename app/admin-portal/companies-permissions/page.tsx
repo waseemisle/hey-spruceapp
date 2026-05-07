@@ -61,6 +61,7 @@ interface Client {
     createLocation?: boolean;
     createRecurringWorkOrders?: boolean;
     archiveWorkOrders?: boolean;
+    combineWorkOrders?: boolean;
   };
 }
 
@@ -89,6 +90,7 @@ const PERMISSION_DEFS: {
   { key: 'shareForBidding',                    label: 'Share for Bidding',              desc: 'Share work orders with subcontractors for bidding. Quotes are shared without markup.',           category: 'workflow', icon: GitBranch },
   { key: 'approveRejectOrder',                 label: 'Approve / Reject Order',         desc: 'Allow clients to approve or reject work orders from their portal.',                              category: 'workflow', icon: CheckCircle2 },
   { key: 'compareQuotes',                      label: 'Compare Quotes',                 desc: 'Compare multiple quotes side-by-side with subcontractor details.',                               category: 'workflow', icon: Workflow },
+  { key: 'combineWorkOrders',                  label: 'Combine Work Orders',            desc: 'Combine 2+ eligible work orders into a single bundle so a subcontractor can submit one quote that covers all of them.', category: 'workflow', icon: Workflow },
   { key: 'archiveWorkOrders',                  label: 'Archive Work Orders',            desc: 'Archive work orders, removing them from active lists.',                                          category: 'workflow', icon: RotateCcw },
 ];
 

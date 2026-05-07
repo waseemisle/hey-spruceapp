@@ -57,9 +57,19 @@ export async function POST(request: Request) {
     if (quoteData.clientId !== uid) {
       return NextResponse.json({ error: 'Forbidden', step }, { status: 403 });
     }
-    if (!quoteData.workOrderId) {
-      return NextResponse.json({ error: 'Quote has no associated work order', step }, { status: 400 });
+    const quoteWorkOrderIds: string[] = Array.isArray(quoteData.workOrderIds)
+      ? quoteData.workOrderIds.map(String).filter(Boolean)
+      : [];
+    const workOrderIds = (quoteWorkOrderIds.length >= 2
+      ? quoteWorkOrderIds
+      : quoteData.workOrderId
+        ? [String(quoteData.workOrderId)]
+        : []);
+    if (workOrderIds.length === 0) {
+      return NextResponse.json({ error: 'Quote has no associated work order(s)', step }, { status: 400 });
     }
+    // De-dupe defensively (prevents duplicate writes / assignedJobs if client data is malformed).
+    const uniqueWorkOrderIds = Array.from(new Set(workOrderIds));
     // Idempotency guard — if this quote is already accepted (user double-
     // clicked, slow network retried, etc.) short-circuit with success
     // instead of running the full assignment flow twice and creating
@@ -78,7 +88,8 @@ export async function POST(request: Request) {
           subcontractorName: quoteData.subcontractorName || '',
           clientName: quoteData.clientName || '',
           subcontractorId: quoteData.subcontractorId || '',
-          workOrderId: quoteData.workOrderId,
+          workOrderId: quoteData.workOrderId || uniqueWorkOrderIds[0],
+          workOrderIds: uniqueWorkOrderIds,
         },
       });
     }
@@ -91,23 +102,26 @@ export async function POST(request: Request) {
     // bypassing our catch block — *exactly* the symptom the operator
     // reported in production).
     step = 'parallel-reads';
-    const [clientDoc, workOrderDoc, subDoc] = await Promise.all([
+    const [clientDoc, ...rest] = await Promise.all([
       getDoc(doc(db, 'clients', uid)),
-      getDoc(doc(db, 'workOrders', quoteData.workOrderId)),
       quoteData.subcontractorId
         ? getDoc(doc(db, 'subcontractors', quoteData.subcontractorId)).catch(() => null)
         : Promise.resolve(null),
+      ...uniqueWorkOrderIds.map((woId) => getDoc(doc(db, 'workOrders', woId))),
     ]);
+    const subDoc = rest[0] as any;
+    const workOrderDocs = rest.slice(1) as any[];
 
     let clientName: string = quoteData.clientName || 'Client';
     if (clientDoc.exists()) {
       clientName = clientDoc.data().fullName || clientName;
     }
 
-    if (!workOrderDoc.exists()) {
+    const firstWorkOrderDoc = workOrderDocs.find((d) => d?.exists?.());
+    if (!firstWorkOrderDoc) {
       return NextResponse.json({ error: 'Work order not found', step }, { status: 404 });
     }
-    const workOrderData = workOrderDoc.data();
+    const workOrderData = firstWorkOrderDoc.data();
 
     // Resolve subcontractor auth uid up-front from the parallel read so
     // we don't have to re-fetch it later.
@@ -156,9 +170,12 @@ export async function POST(request: Request) {
     // submits a regular repair quote from /bidding. Just pin the fee and
     // move the WO to 'diagnostic_accepted'.
     if (quoteIsDiagnostic) {
+      if (uniqueWorkOrderIds.length >= 2) {
+        return NextResponse.json({ error: 'Diagnostic approval is not supported for combined work orders', step }, { status: 400 });
+      }
       step = 'update-wo-diagnostic-accepted';
       const diagFee = Number(quoteData.diagnosticFee ?? quoteData.totalAmount ?? 0);
-      await updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
+      await updateDoc(doc(db, 'workOrders', uniqueWorkOrderIds[0]), {
         status: 'diagnostic_accepted',
         diagnosticFee: diagFee,
         diagnosticAcceptedAt: serverTimestamp(),
@@ -234,7 +251,8 @@ export async function POST(request: Request) {
           subcontractorName: quoteData.subcontractorName,
           clientName: quoteData.clientName,
           subcontractorId: resolvedSubId,
-          workOrderId: quoteData.workOrderId,
+          workOrderId: uniqueWorkOrderIds[0],
+          workOrderIds: uniqueWorkOrderIds,
           diagnosticFee: diagFee,
         },
       });
@@ -242,9 +260,7 @@ export async function POST(request: Request) {
 
     // ───────────────────────── REGULAR QUOTE FLOW ──────────────────────
     // Don't move the work order backward through the pipeline on repeat approvals.
-    const currentWoStatus = (workOrderData.status as string | undefined) || '';
-    const EARLY_STAGES = new Set(['pending', 'approved', 'bidding', 'quotes_received', 'diagnostic_accepted']);
-    const shouldSetAssigned = EARLY_STAGES.has(currentWoStatus);
+    const EARLY_STAGES = new Set(['pending', 'approved', 'bidding', 'quotes_received', 'diagnostic_accepted', 'diagnostic_results_submitted']);
 
     // Firestore rejects updateDoc payloads that contain `undefined` and
     // throws "Function setDoc() called with invalid data. Unsupported field
@@ -282,8 +298,20 @@ export async function POST(request: Request) {
     // single update. The assignedJobs insert touches a different doc and
     // can run in parallel.
     step = 'parallel-writes';
-    await Promise.all([
-      updateDoc(doc(db, 'workOrders', quoteData.workOrderId), {
+    for (const woDoc of workOrderDocs) {
+      if (!woDoc?.exists?.()) continue;
+      const woId = woDoc.id as string;
+      const woData = woDoc.data();
+      const existingTimeline = woData?.timeline || [];
+      const existingSysInfo = woData?.systemInformation || {};
+      const currentWoStatus = (woData?.status as string | undefined) || '';
+      const shouldSetAssigned = EARLY_STAGES.has(currentWoStatus);
+      // Idempotency guard per work order (in addition to the quote-level guard above).
+      if (woData?.approvedQuoteId === quoteId && (woData?.assignedTo || woData?.assignedSubcontractor)) {
+        continue;
+      }
+
+      await updateDoc(doc(db, 'workOrders', woId), {
         ...(shouldSetAssigned ? { status: 'assigned' } : {}),
         assignedSubcontractor: safeSubId,
         assignedSubcontractorName: safeSubName,
@@ -309,6 +337,7 @@ export async function POST(request: Request) {
               quoteId,
               subcontractorName: safeSubName,
               amount: safeAmount,
+              ...(quoteData.workOrderGroupId ? { workOrderGroupId: quoteData.workOrderGroupId } : {}),
             },
           }),
         ],
@@ -318,16 +347,30 @@ export async function POST(request: Request) {
             quoteId,
             approvedBy: { id: uid, name: clientName },
             timestamp: Timestamp.now(),
+            ...(quoteData.workOrderGroupId ? { workOrderGroupId: quoteData.workOrderGroupId } : {}),
           },
         },
-      }),
-      addDoc(collection(db, 'assignedJobs'), {
-        workOrderId: quoteData.workOrderId,
-        subcontractorId: safeSubId,
-        assignedAt: serverTimestamp(),
-        status: 'pending_acceptance',
-      }),
-    ]);
+      });
+
+      // assignedJobs idempotency: ensure we don't insert duplicates for this WO/sub pair.
+      try {
+        const existingAssigned = await getDocs(query(
+          collection(db, 'assignedJobs'),
+          where('workOrderId', '==', woId),
+          where('subcontractorId', '==', safeSubId),
+        ));
+        if (existingAssigned.empty) {
+          await addDoc(collection(db, 'assignedJobs'), {
+            workOrderId: woId,
+            subcontractorId: safeSubId,
+            assignedAt: serverTimestamp(),
+            status: 'pending_acceptance',
+          });
+        }
+      } catch (e) {
+        console.warn('[quotes/approve] assignedJobs insert check failed (non-fatal):', e);
+      }
+    }
 
     // Notify the sub of their assignment from the server too. The client
     // UI also fires this after the API returns, so subs may see two bell
@@ -355,7 +398,8 @@ export async function POST(request: Request) {
         subcontractorName: safeSubName,
         clientName: quoteData.clientName || '',
         subcontractorId: safeSubId,
-        workOrderId: quoteData.workOrderId,
+        workOrderId: quoteData.workOrderId || uniqueWorkOrderIds[0],
+        workOrderIds: uniqueWorkOrderIds,
       },
     });
   } catch (error: any) {
