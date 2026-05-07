@@ -8,6 +8,7 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -57,17 +58,20 @@ export default function AdminWorkOrderGroupsList() {
   const handleDelete = async (group: GroupRow) => {
     setDeletingId(group.id);
     try {
-      // Remove combined-group fields from every constituent work order
+      // Remove combined-group fields from each constituent WO (skip any that no longer exist)
+      const woRefs = group.workOrderIds.map((id) => doc(db, 'workOrders', id));
+      const woSnaps = await Promise.all(woRefs.map((ref) => getDoc(ref)));
       const batch = writeBatch(db);
-      for (const woId of group.workOrderIds) {
-        batch.update(doc(db, 'workOrders', woId), {
+      woSnaps.forEach((snap, i) => {
+        if (!snap.exists()) return;
+        batch.update(woRefs[i], {
           workOrderGroupId: deleteField(),
           isCombinedPrimary: deleteField(),
           isCombinedChild: deleteField(),
           combinedPrimaryWorkOrderId: deleteField(),
           combinedWorkOrderCount: deleteField(),
         });
-      }
+      });
       await batch.commit();
 
       // Delete the group document itself
