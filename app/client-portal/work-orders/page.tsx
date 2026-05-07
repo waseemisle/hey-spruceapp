@@ -691,6 +691,7 @@ function ClientWorkOrdersContent() {
     }
     toast.success(`Combined into group ${res.groupId}`);
     setSelectedIds([]);
+    router.push(`/client-portal/work-order-groups/${res.groupId}`);
   };
 
   const filterOptions = [

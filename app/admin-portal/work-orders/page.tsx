@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, writeBatch, limit, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService, notifyClientOfWorkOrderRejection } from '@/lib/notifications';
@@ -110,6 +110,7 @@ interface Category {
 }
 
 function WorkOrdersContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const workOrderType = searchParams?.get('type') || 'all'; // 'all', 'standard', 'maintenance', or 'archive'
 
@@ -2321,6 +2322,7 @@ const handleLocationSelect = (locationId: string) => {
       }
 
       toast.success(`Combined into group ${res.groupId}`);
+      router.push(`/admin-portal/work-order-groups/${res.groupId}`);
       setSelectedIds([]);
       fetchWorkOrders();
     } catch (e: any) {
