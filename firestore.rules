@@ -246,10 +246,15 @@ service cloud.firestore {
         isAdmin() ||
         request.resource.data.clientId == request.auth.uid
       );
-      // Client may update / delete only the recurring WOs they own. Admin retains full access.
+      // Client may update / delete recurring WOs they own, or that belong to a location
+      // they are assigned to — provided they have the editRecurringWorkOrders permission.
       allow update, delete: if isSignedIn() && (
         isAdmin() ||
-        resource.data.clientId == request.auth.uid
+        resource.data.clientId == request.auth.uid ||
+        (resource.data.locationId != null &&
+         exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
+         resource.data.locationId in get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.assignedLocations &&
+         get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.permissions.editRecurringWorkOrders == true)
       );
     }
 

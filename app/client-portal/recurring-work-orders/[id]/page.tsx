@@ -26,6 +26,7 @@ export default function ClientRecurringWorkOrderDetails() {
   const [recurringWorkOrder, setRecurringWorkOrder] = useState<RecurringWorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -41,6 +42,7 @@ export default function ClientRecurringWorkOrderDetails() {
           const clientData = clientDoc.data();
           const hasRecurringPermission = clientData?.permissions?.viewRecurringWorkOrders === true;
           setHasPermission(hasRecurringPermission);
+          setCanEdit(clientData?.permissions?.editRecurringWorkOrders === true);
 
           if (!hasRecurringPermission) {
             toast.error('You do not have permission to view recurring work orders');
@@ -179,12 +181,14 @@ export default function ClientRecurringWorkOrderDetails() {
               {recurringWorkOrder.priority.toUpperCase()} PRIORITY
             </span>
           </div>
-          <Link href={`/client-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}>
-            <Button size="sm">
-              <Edit2 className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          </Link>
+          {canEdit && (
+            <Link href={`/client-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}>
+              <Button size="sm">
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            </Link>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

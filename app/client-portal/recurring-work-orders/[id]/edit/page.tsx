@@ -56,7 +56,7 @@ export default function ClientEditRecurringWorkOrder() {
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         if (clientDoc.exists() && clientDoc.data().status === 'approved') {
           const clientData = clientDoc.data();
-          const hasRecurringPermission = clientData?.permissions?.viewRecurringWorkOrders === true;
+          const hasRecurringPermission = clientData?.permissions?.editRecurringWorkOrders === true;
           setHasPermission(hasRecurringPermission);
 
           if (!hasRecurringPermission) {
