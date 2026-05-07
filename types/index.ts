@@ -379,7 +379,7 @@ export interface Quote {
 }
 
 // Invoice Types
-export type InvoiceTimelineEventType = 'created' | 'sent' | 'paid';
+export type InvoiceTimelineEventType = 'created' | 'sent' | 'paid' | 'failed';
 
 export interface InvoiceTimelineEvent {
   id: string;

@@ -785,12 +785,19 @@ export default function AdminInvoiceDetail() {
         status: 'paid',
         paidAt: serverTimestamp(),
         manuallyMarkedPaid: true,
+        // Clear stale failed auto-charge pill when admin manually marks paid.
+        ...(invoice.autoChargeStatus === 'failed'
+          ? { autoChargeStatus: 'succeeded', autoChargeError: null }
+          : {}),
         timeline: [...((invoice.timeline as any) || []), paidEvent],
         updatedAt: serverTimestamp(),
       });
       setInvoice(prev => prev ? {
         ...prev,
         status: 'paid',
+        ...(prev.autoChargeStatus === 'failed'
+          ? { autoChargeStatus: 'succeeded' as const, autoChargeError: undefined }
+          : {}),
         timeline: [...((prev.timeline as any) || []), paidEvent],
       } : prev);
       toast.success('Invoice marked as paid.');
@@ -856,7 +863,7 @@ export default function AdminInvoiceDetail() {
       if (!res.ok) throw new Error(data.error || 'Charge failed');
       if (data.status === 'succeeded') {
         toast.success(`Charged ${formatMoney(invoice.totalAmount)} to ${pmLabel}.`);
-        setInvoice(prev => prev ? { ...prev, status: 'paid', autoChargeStatus: 'succeeded' } : prev);
+        setInvoice(prev => prev ? { ...prev, status: 'paid', autoChargeStatus: 'succeeded', autoChargeError: undefined } : prev);
       } else if (data.status === 'requires_action') {
         toast.warning('Charge needs customer authentication (3DS). Send the hosted invoice link to the client.');
         setInvoice(prev => prev ? { ...prev, autoChargeAttempted: true, autoChargeStatus: 'requires_action' } : prev);

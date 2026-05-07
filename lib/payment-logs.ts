@@ -472,8 +472,10 @@ export function fromInvoice(
     stripeObjectId: inv.id || '',
     stripeObjectType: 'invoice',
     status,
-    amount: moneyFromCents(inv.amount_paid ?? inv.amount_due ?? 0),
-    amountCents: inv.amount_paid ?? inv.amount_due ?? 0,
+    // Use || (not ??) so that amount_paid=0 (failed charge) falls through
+    // to amount_due which holds the actual invoice total.
+    amount: moneyFromCents(inv.amount_paid || inv.amount_due || 0),
+    amountCents: inv.amount_paid || inv.amount_due || 0,
     currency: inv.currency,
     hostedInvoiceUrl: inv.hosted_invoice_url || undefined,
     invoicePdfUrl: inv.invoice_pdf || undefined,

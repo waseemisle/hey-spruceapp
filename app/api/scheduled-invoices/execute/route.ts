@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   doc, getDoc, addDoc, updateDoc, collection, serverTimestamp, Timestamp, query, where, getDocs,
+  increment,
 } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
@@ -328,9 +329,7 @@ export async function POST(request: NextRequest) {
           updatedAt: serverTimestamp(),
         });
         await updateDoc(doc(db, 'scheduledInvoices', scheduledInvoiceId), {
-          failedExecutions: (await getDoc(doc(db, 'scheduledInvoices', scheduledInvoiceId))).data()?.failedExecutions
-            ? ((await getDoc(doc(db, 'scheduledInvoices', scheduledInvoiceId))).data()?.failedExecutions || 0) + 1
-            : 1,
+          failedExecutions: increment(1),
           updatedAt: serverTimestamp(),
         });
       } catch (auditErr) {

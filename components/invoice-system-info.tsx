@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Clock, FileText, Send, CheckCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, FileText, Send, CheckCircle, XCircle } from 'lucide-react';
 
 interface InvoiceSystemInfoProps {
   timeline?: InvoiceTimelineEvent[];
@@ -33,6 +33,8 @@ export default function InvoiceSystemInfo({
         return <Send className="h-4 w-4 text-blue-600" />;
       case 'paid':
         return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-600" />;
       default:
         return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
@@ -59,6 +61,7 @@ export default function InvoiceSystemInfo({
       created: 'Created',
       sent: 'Sent',
       paid: 'Payment Received',
+      failed: 'Payment Failed',
     };
     return labels[type] || type;
   };

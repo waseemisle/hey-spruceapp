@@ -528,7 +528,10 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
     // metadata.autoCharge='true' on the invoice. Capture the auto-charge
     // success state on the Firestore doc so the admin UI's status pill
     // stays accurate.
+    // Also clear any stale failed-auto-charge state when the client paid
+    // via the hosted link after the initial auto-charge was declined.
     const wasAutoCharge = stripeInvoice.metadata?.autoCharge === 'true';
+    const hadFailedAutoCharge = invData?.autoChargeAttempted === true && invData?.autoChargeStatus !== 'succeeded';
 
     await updateDoc(doc(db, 'invoices', invoiceId), {
       status: 'paid',
@@ -541,7 +544,9 @@ async function handleHostedInvoicePaid(stripeInvoice: Stripe.Invoice) {
       stripeReceiptUrl: receiptUrl,
       stripeInvoicePdf: stripeInvoice.invoice_pdf || null,
       stripeHostedInvoiceUrl: stripeInvoice.hosted_invoice_url || null,
-      ...(wasAutoCharge ? { autoChargeAttempted: true, autoChargeStatus: 'succeeded' } : {}),
+      ...(wasAutoCharge || hadFailedAutoCharge
+        ? { autoChargeAttempted: true, autoChargeStatus: 'succeeded', autoChargeError: null }
+        : {}),
       timeline: [...existingTimeline, paidEvent],
       systemInformation: {
         ...existingSysInfo,
@@ -706,10 +711,34 @@ async function handleHostedInvoicePaymentFailed(stripeInvoice: Stripe.Invoice) {
     const invData = invSnap.data();
     if (invData?.status === 'paid') return;
 
+    // Pull the PI for the actual decline reason — the invoice object alone
+    // only gives a generic failure signal; the PI's last_payment_error has
+    // the specific decline code (insufficient_funds, authentication_required,
+    // etc.) that the admin needs to know what action to take.
+    let failureMessage: string | undefined = 'Stripe hosted invoice payment failed';
+    let failureCode: string | undefined;
+    let declineCode: string | undefined;
+    const piId = typeof stripeInvoice.payment_intent === 'string'
+      ? stripeInvoice.payment_intent
+      : stripeInvoice.payment_intent?.id;
+    if (piId) {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(piId);
+        failureMessage = pi.last_payment_error?.message || failureMessage;
+        failureCode = pi.last_payment_error?.code as string | undefined;
+        declineCode = (pi.last_payment_error as any)?.decline_code as string | undefined;
+      } catch (piErr) {
+        console.warn('[webhook] Could not retrieve PI for failed hosted invoice:', piErr);
+      }
+    }
+
     await updateDoc(doc(db, 'invoices', invoiceId), {
+      autoChargeAttempted: true,
       autoChargeStatus: 'failed',
+      autoChargeError: failureMessage,
       autoChargeFailedAt: serverTimestamp(),
-      autoChargeFailureReason: 'Stripe hosted invoice payment failed',
+      ...(failureCode ? { autoChargeFailureCode: failureCode } : {}),
+      ...(declineCode ? { autoChargeDeclineCode: declineCode } : {}),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -1023,7 +1052,7 @@ async function handleAsyncPaymentFailed(session: Stripe.Checkout.Session) {
     const invData = invSnap.data();
 
     const failedEvent = createInvoiceTimelineEvent({
-      type: 'paid', // closest type — timeline schema doesn't have 'failed_async'
+      type: 'failed',
       userId: 'system',
       userName: 'Payment System',
       userRole: 'system',

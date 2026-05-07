@@ -330,6 +330,7 @@ export async function POST(request: NextRequest) {
         await updateDoc(doc(db, 'invoices', invoiceId), {
           autoChargeAttempted: true,
           autoChargeStatus: 'requires_action',
+          autoChargeError: null,
           stripePaymentIntentId: piId || null,
           updatedAt: serverTimestamp(),
         });
@@ -387,6 +388,7 @@ export async function POST(request: NextRequest) {
         stripeHostedInvoiceUrl: paidStripeInvoice.hosted_invoice_url || null,
         autoChargeAttempted: true,
         autoChargeStatus: 'succeeded',
+        autoChargeError: null,
         autoChargeAt: serverTimestamp(),
         autoChargeMethodLabel: cardLabel,
         ...enrichment.fields,
@@ -522,6 +524,7 @@ export async function POST(request: NextRequest) {
         stripePaymentIntentId: paymentIntent.id,
         autoChargeAttempted: true,
         autoChargeStatus: 'succeeded',
+        autoChargeError: null,
         autoChargeAt: serverTimestamp(),
         autoChargeMethodLabel: cardLabel,
         ...enrichment.fields,

@@ -137,7 +137,19 @@ export async function POST(request: NextRequest) {
         const prevAmount = typeof prev.amount_due === 'number' ? prev.amount_due : -1;
 
         if (prev.status === 'open' && prevAmount === expectedAmountCents && prev.hosted_invoice_url) {
-          // Reuse — no changes needed.
+          // Reuse — no Stripe changes needed. Clear any stale failed-auto-charge
+          // state so the admin doesn't see "Card declined" on an invoice they
+          // are actively regenerating a link for.
+          try {
+            const firestoreInv = (await getDoc(doc(db, 'invoices', invoiceId))).data() as any;
+            if (firestoreInv?.autoChargeStatus === 'failed') {
+              await updateDoc(doc(db, 'invoices', invoiceId), {
+                autoChargeStatus: null,
+                autoChargeError: null,
+                updatedAt: serverTimestamp(),
+              });
+            }
+          } catch { /* non-fatal */ }
           return NextResponse.json({
             paymentLink: prev.hosted_invoice_url,
             hostedInvoiceUrl: prev.hosted_invoice_url,
@@ -323,6 +335,12 @@ export async function POST(request: NextRequest) {
     // a manual-payment fallback (failed). Stripe sets the invoice status
     // to 'paid' synchronously when the off-session charge succeeds.
     let autoChargeOutcome: 'succeeded' | 'failed' | 'requires_action' | 'pending' | null = null;
+    // Decline reason from the PI's last_payment_error (not last_finalization_error
+    // which is only set when finalization itself fails, not when the card is declined
+    // after a successful finalization).
+    let autoChargeError: string | undefined;
+    let autoChargeFailureCode: string | undefined;
+    let autoChargeDeclineCode: string | undefined;
     if (willAutoCharge) {
       if (finalized.status === 'paid') {
         autoChargeOutcome = 'succeeded';
@@ -330,6 +348,24 @@ export async function POST(request: NextRequest) {
         // Card was declined or requires action; the customer can still
         // pay via the hosted invoice URL.
         autoChargeOutcome = 'failed';
+        // Fetch the PI to get the actual decline reason. last_finalization_error
+        // on the invoice is null for post-finalization card declines.
+        const piId = typeof finalized.payment_intent === 'string'
+          ? finalized.payment_intent
+          : (finalized.payment_intent as any)?.id;
+        if (piId) {
+          try {
+            const pi = await stripe.paymentIntents.retrieve(piId);
+            autoChargeError = pi.last_payment_error?.message || undefined;
+            autoChargeFailureCode = pi.last_payment_error?.code as string | undefined;
+            autoChargeDeclineCode = (pi.last_payment_error as any)?.decline_code as string | undefined;
+          } catch {
+            // non-fatal — fall back to generic message
+          }
+        }
+        if (!autoChargeError) {
+          autoChargeError = finalized.last_finalization_error?.message || 'Card declined';
+        }
       } else {
         autoChargeOutcome = 'pending';
       }
@@ -351,8 +387,10 @@ export async function POST(request: NextRequest) {
       if (willAutoCharge) {
         persistFields.autoChargeAttempted = true;
         persistFields.autoChargeStatus = autoChargeOutcome || 'pending';
-        if (autoChargeOutcome === 'failed' && finalized.last_finalization_error?.message) {
-          persistFields.autoChargeError = finalized.last_finalization_error.message;
+        if (autoChargeOutcome === 'failed') {
+          persistFields.autoChargeError = autoChargeError || 'Card declined';
+          if (autoChargeFailureCode) persistFields.autoChargeFailureCode = autoChargeFailureCode;
+          if (autoChargeDeclineCode) persistFields.autoChargeDeclineCode = autoChargeDeclineCode;
         }
       }
       await updateDoc(doc(db, 'invoices', invoiceId), persistFields);
@@ -373,9 +411,10 @@ export async function POST(request: NextRequest) {
         partial.linkedInvoiceNumber = invoiceNumber;
         partial.linkedClientId = clientId || undefined;
         partial.linkedClientName = clientName || undefined;
-        if (status === 'failed' && finalized.last_finalization_error?.message) {
-          partial.failureMessage = finalized.last_finalization_error.message;
-          partial.failureCode = (finalized.last_finalization_error as any).code;
+        if (status === 'failed') {
+          partial.failureMessage = autoChargeError;
+          if (autoChargeFailureCode) partial.failureCode = autoChargeFailureCode;
+          if (autoChargeDeclineCode) partial.declineCode = autoChargeDeclineCode;
         }
         await recordPaymentEvent({
           db,

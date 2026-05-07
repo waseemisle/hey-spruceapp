@@ -62,7 +62,9 @@ export async function POST(request: NextRequest) {
       if (stripeInvoiceId) {
         try {
           const stripeInvoice = await stripe.invoices.retrieve(stripeInvoiceId);
-          if (stripeInvoice.status === 'open' || stripeInvoice.status === 'draft') {
+          // paid_out_of_band only works on open invoices; calling it on a draft
+          // throws a Stripe error. Drafts would need finalization first — skip them.
+          if (stripeInvoice.status === 'open') {
             const closed = await stripe.invoices.pay(stripeInvoiceId, { paid_out_of_band: true });
             const closeEvent = createInvoiceTimelineEvent({
               type: 'paid',
@@ -165,6 +167,10 @@ export async function POST(request: NextRequest) {
       stripeReceiptUrl: receiptUrl,
       stripeInvoicePdf: stripeInvoice.invoice_pdf || null,
       stripeHostedInvoiceUrl: stripeInvoice.hosted_invoice_url || null,
+      // Clear any stale failed-auto-charge state so the invoice detail page
+      // no longer shows "Card declined" after the Stripe invoice is paid
+      // (either via Stripe retry or the client paying the hosted link).
+      ...(inv.autoChargeAttempted ? { autoChargeStatus: 'succeeded', autoChargeError: null } : {}),
       timeline: [...existingTimeline, paidEvent],
       systemInformation: {
         ...existingSysInfo,
