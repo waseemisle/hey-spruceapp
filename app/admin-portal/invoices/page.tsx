@@ -286,6 +286,37 @@ function InvoicesManagementInner() {
     }
   };
 
+  // Load the selected client's saved payment methods when the pending-item
+  // modal opens so the PM picker can show the right options.
+  useEffect(() => {
+    const clientId = editingPendingItem?.clientId;
+    if (!clientId) { setEditClientPms([]); setEditAutoChargePmId(''); return; }
+    let cancelled = false;
+    setEditPmLoading(true);
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'clients', clientId));
+        if (cancelled || !snap.exists()) { setEditClientPms([]); setEditAutoChargePmId(''); return; }
+        const cd = snap.data() as any;
+        const raw: any[] = Array.isArray(cd.paymentMethods) ? cd.paymentMethods : [];
+        const chargeable = raw
+          .filter((m: any) => m?.id && m.verificationStatus !== 'pending')
+          .map((m: any) => ({ id: m.id, type: m.type, last4: m.last4, brand: m.brand, bankName: m.bankName, isDefault: !!m.isDefault }));
+        if (chargeable.length === 0 && cd.defaultPaymentMethodId && cd.savedCardLast4) {
+          chargeable.push({ id: cd.defaultPaymentMethodId, type: 'card', last4: cd.savedCardLast4, brand: cd.savedCardBrand || 'card', isDefault: true });
+        }
+        if (!cancelled) {
+          setEditClientPms(chargeable);
+          const defId = cd.defaultPaymentMethodId && chargeable.some((m: any) => m.id === cd.defaultPaymentMethodId)
+            ? cd.defaultPaymentMethodId : (chargeable[0]?.id || '');
+          setEditAutoChargePmId(defId);
+        }
+      } catch { if (!cancelled) { setEditClientPms([]); setEditAutoChargePmId(''); } }
+      finally { if (!cancelled) setEditPmLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [editingPendingItem?.clientId]);
+
   // Set of WO ids whose status is 'archived'. Used to filter the
   // Pending Invoice Generation panel — archived work orders shouldn't
   // show up as billing candidates because they were intentionally
@@ -306,7 +337,12 @@ function InvoicesManagementInner() {
   const [editMarkupPercent, setEditMarkupPercent] = useState('20');
   const [editDueDate, setEditDueDate] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editTerms, setEditTerms] = useState('Payment due within 30 days. Late payments may incur additional fees.');
   const [editStatus, setEditStatus] = useState<'draft' | 'sent'>('draft');
+  const [editDiscountAmount, setEditDiscountAmount] = useState('0');
+  const [editClientPms, setEditClientPms] = useState<Array<{ id: string; type?: string; last4?: string; brand?: string; bankName?: string; isDefault?: boolean }>>([]);
+  const [editAutoChargePmId, setEditAutoChargePmId] = useState('');
+  const [editPmLoading, setEditPmLoading] = useState(false);
 
   const fetchArchivedWorkOrderIds = async () => {
     try {
@@ -427,11 +463,15 @@ function InvoicesManagementInner() {
     markupContext: 'editable' | 'locked' | 'diagnostic';
     dueDate: Date;
     notes: string;
+    terms: string;
     status: 'draft' | 'sent';
+    discountAmount: number;
+    autoChargePmId?: string;
+    autoChargeMethodLabel?: string;
   };
 
   const createInvoiceForPendingItem = async (params: CreateInvoiceParams) => {
-    const { item, lineItems: editedLineItems, markupPercent, markupContext, dueDate, notes, status } = params;
+    const { item, lineItems: editedLineItems, markupPercent, markupContext, dueDate, notes, terms, status, discountAmount, autoChargePmId, autoChargeMethodLabel } = params;
     setCreatingForWoId(item.workOrderId);
     try {
       const quote = quotes.find(q => q.id === item.quoteId);
@@ -469,7 +509,9 @@ function InvoicesManagementInner() {
             amount: round2(Number(li.amount ?? 0) * factor),
           }));
 
-      const totalAmount = round2(finalLineItems.reduce((s, li) => s + (li.amount || 0), 0));
+      const subtotalAmount = round2(finalLineItems.reduce((s, li) => s + (li.amount || 0), 0));
+      const discountNum = round2(Math.max(0, discountAmount || 0));
+      const totalAmount = round2(Math.max(0, subtotalAmount - discountNum));
       if (!totalAmount || totalAmount <= 0) {
         toast.error('Cannot create invoice: total must be greater than 0.');
         return;
@@ -532,10 +574,11 @@ function InvoicesManagementInner() {
         status,
         totalAmount,
         lineItems: finalLineItems,
-        discountAmount: 0,
+        discountAmount: discountNum,
         dueDate,
         notes,
-        terms: 'Payment due within 30 days. Late payments may incur additional fees.',
+        terms,
+        ...(autoChargePmId ? { autoChargePaymentMethodId: autoChargePmId, autoChargeMethodLabel: autoChargeMethodLabel || '' } : {}),
         markupPercentage: markupContext === 'locked' ? (quote.markupPercentage || 0) : markupPercent,
         markupAppliedAtCreate: markupContext === 'editable' && markupPercent > 0,
         markupContext,
@@ -674,6 +717,8 @@ function InvoicesManagementInner() {
     setEditMarkupPercent(initialMarkup);
     setEditDueDate(isoDue);
     setEditNotes(quote.notes || '');
+    setEditTerms('Payment due within 30 days. Late payments may incur additional fees.');
+    setEditDiscountAmount('0');
     setEditStatus('draft');
   };
 
@@ -720,6 +765,12 @@ function InvoicesManagementInner() {
       toast.error('Add at least one line item.');
       return;
     }
+    const selectedPm = editClientPms.find((m) => m.id === editAutoChargePmId);
+    const pmLabel = selectedPm
+      ? selectedPm.type === 'us_bank_account'
+        ? `${selectedPm.bankName || selectedPm.brand || 'Bank'} ••${selectedPm.last4 || ''}`
+        : `${(selectedPm.brand || 'Card').replace(/^./, (c) => c.toUpperCase())} ••${selectedPm.last4 || ''}`
+      : '';
     createInvoiceForPendingItem({
       item: editingPendingItem,
       lineItems: editLineItems,
@@ -727,7 +778,11 @@ function InvoicesManagementInner() {
       markupContext: editMarkupContext,
       dueDate: new Date(editDueDate),
       notes: editNotes,
+      terms: editTerms,
       status: editStatus,
+      discountAmount: parseFloat(editDiscountAmount) || 0,
+      autoChargePmId: editAutoChargePmId || undefined,
+      autoChargeMethodLabel: pmLabel || undefined,
     });
   };
 
@@ -1840,6 +1895,21 @@ function InvoicesManagementInner() {
                 </div>
 
                 <div className="p-5 space-y-5">
+                  {/* Client + WO info (read-only) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <Label className="text-muted-foreground text-xs">Client</Label>
+                      <p className="font-medium">{editingPendingItem.clientName}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">Work Order</Label>
+                      <p className="font-medium">{editingPendingItem.workOrderTitle}</p>
+                      {editingPendingItem.workOrderNumber && (
+                        <p className="text-xs text-muted-foreground">{editingPendingItem.workOrderNumber}</p>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Line items editor */}
                   <div>
                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">Line Items</Label>
@@ -1978,26 +2048,92 @@ function InvoicesManagementInner() {
                     />
                   </div>
 
-                  {/* Totals breakdown */}
-                  <div className="flex justify-end pt-2 border-t border-border">
-                    <div className="text-right space-y-1 min-w-[220px]">
-                      {markupApplies && (
-                        <>
-                          <div className="flex justify-between gap-6 text-sm">
-                            <span className="text-muted-foreground">Subtotal</span>
-                            <span className="tabular-nums">{formatMoney(subtotal)}</span>
-                          </div>
-                          <div className="flex justify-between gap-6 text-sm">
-                            <span className="text-muted-foreground">Markup ({markupNum}%)</span>
-                            <span className="tabular-nums text-amber-700 dark:text-amber-300">+{formatMoney(markupAmount)}</span>
-                          </div>
-                        </>
-                      )}
-                      <div className="flex justify-between gap-6 pt-1 border-t">
-                        <span className="text-sm text-muted-foreground">Total</span>
-                        <span className="text-2xl font-bold text-foreground tabular-nums">{formatMoney(previewTotal)}</span>
+                  {/* Discount + Total */}
+                  {(() => {
+                    const discountNum = Math.max(0, parseFloat(editDiscountAmount) || 0);
+                    const finalTotal = Math.max(0, previewTotal - discountNum);
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border">
+                        <div>
+                          <Label className="text-xs">Discount ($)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="mt-1"
+                            value={editDiscountAmount}
+                            onChange={e => setEditDiscountAmount(e.target.value)}
+                            onWheel={e => e.currentTarget.blur()}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="rounded-lg border border-border p-3 bg-muted/30">
+                          {markupApplies && (
+                            <div className="text-xs text-muted-foreground mb-1 space-y-0.5">
+                              <div className="flex justify-between">
+                                <span>Subtotal</span><span>{formatMoney(subtotal)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Markup ({markupNum}%)</span>
+                                <span className="text-amber-700">+{formatMoney(markupAmount)}</span>
+                              </div>
+                              {discountNum > 0 && (
+                                <div className="flex justify-between">
+                                  <span>Discount</span>
+                                  <span className="text-green-700">−{formatMoney(discountNum)}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground">Invoice Total</div>
+                          <div className="text-lg font-bold">{formatMoney(finalTotal)}</div>
+                        </div>
                       </div>
-                    </div>
+                    );
+                  })()}
+
+                  {/* Auto-charge PM picker */}
+                  <div>
+                    <Label className="text-xs">Auto-Charge Payment Method</Label>
+                    {editPmLoading ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Loading saved methods…</p>
+                    ) : editClientPms.length === 0 ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Client has no saved payment method. A Stripe pay link will be sent instead.
+                      </p>
+                    ) : (
+                      <>
+                        <select
+                          value={editAutoChargePmId}
+                          onChange={e => setEditAutoChargePmId(e.target.value)}
+                          className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {editClientPms.map(pm => (
+                            <option key={pm.id} value={pm.id}>
+                              {pm.type === 'us_bank_account'
+                                ? `${pm.bankName || pm.brand || 'Bank'} ••${pm.last4 || ''}`
+                                : `${(pm.brand || 'Card').replace(/^./, c => c.toUpperCase())} ••${pm.last4 || ''}`
+                              }{pm.isDefault ? ' (client default)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          The Auto Charge button on this invoice will bill this saved method.
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Terms */}
+                  <div>
+                    <Label htmlFor="editTerms" className="text-xs">Terms</Label>
+                    <textarea
+                      id="editTerms"
+                      className="mt-1 w-full border border-input rounded-md p-2 min-h-[60px] text-sm bg-background"
+                      value={editTerms}
+                      onChange={e => setEditTerms(e.target.value)}
+                      placeholder="Payment terms..."
+                    />
                   </div>
                 </div>
 
