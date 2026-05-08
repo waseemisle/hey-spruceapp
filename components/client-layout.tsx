@@ -169,7 +169,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             const clientDoc = await getDoc(clientDocRef);
             if (clientDoc.exists() && clientDoc.data().status === 'approved') {
               const clientData = clientDoc.data();
-              setUser({ ...firebaseUser, ...clientData });
+              setUser({ ...firebaseUser, ...clientData, email: clientData.email || firebaseUser.email });
               // Check maintenance requests permission
               const permissions = clientData.permissions || {};
               setHasMaintenancePermission(permissions.viewMaintenanceRequests || false);

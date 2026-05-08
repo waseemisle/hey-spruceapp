@@ -59,12 +59,14 @@ export default function ClientEditRecurringWorkOrder() {
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         if (clientDoc.exists() && clientDoc.data().status === 'approved') {
           const clientData = clientDoc.data();
-          const hasRecurringPermission = clientData?.permissions?.editRecurringWorkOrders === true;
+          const hasRecurringPermission =
+            clientData?.permissions?.editRecurringWorkOrders === true ||
+            clientData?.permissions?.viewRecurringWorkOrders === true;
           setHasPermission(hasRecurringPermission);
 
           if (!hasRecurringPermission) {
             toast.error('You do not have permission to edit recurring work orders');
-            router.push('/client-portal');
+            router.push('/client-portal/recurring-work-orders');
             return;
           }
 
@@ -202,13 +204,26 @@ export default function ClientEditRecurringWorkOrder() {
     );
   }
 
-  if (!hasPermission || !recurringWorkOrder) {
+  if (!hasPermission) {
     return (
       <ClientLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-muted-foreground">You do not have permission to edit this recurring work order</p>
+            <p className="text-muted-foreground">You do not have permission to edit recurring work orders.</p>
+          </div>
+        </div>
+      </ClientLayout>
+    );
+  }
+
+  if (!recurringWorkOrder) {
+    return (
+      <ClientLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <p className="text-muted-foreground">Recurring work order not found or you do not have access to it.</p>
           </div>
         </div>
       </ClientLayout>
