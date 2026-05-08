@@ -12,12 +12,18 @@ import {
   getDocs,
   query,
   where,
+  addDoc,
+  updateDoc,
+  serverTimestamp,
+  arrayUnion,
+  Timestamp,
 } from 'firebase/firestore';
 import ClientLayout from '@/components/client-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   ArrowLeft,
   ClipboardList,
@@ -30,9 +36,13 @@ import {
   StickyNote,
   MapPin,
   Clock,
+  Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { notifyBiddingOpportunity } from '@/lib/notifications';
+import { createTimelineEvent } from '@/lib/timeline';
+import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +53,9 @@ type WorkOrderGroup = {
   companyId?: string | null;
   workOrderIds: string[];
   primaryWorkOrderId: string;
+  status?: string;
+  biddingSubcontractors?: string[];
+  assignedSubcontractor?: string;
 };
 
 type WorkOrderFull = {
@@ -54,6 +67,9 @@ type WorkOrderFull = {
   priority?: string;
   category?: string;
   locationName?: string;
+  locationAddress?: string;
+  clientId?: string;
+  clientName?: string;
   assignedSubcontractorName?: string;
   estimateBudget?: number;
   createdAt?: any;
@@ -72,6 +88,18 @@ type WoBundle = {
   quotes: WoQuote[];
   invoices: WoInvoice[];
   idx: number;
+};
+
+type Subcontractor = {
+  id: string;
+  uid?: string;
+  fullName: string;
+  email: string;
+  businessName?: string;
+  city?: string;
+  state?: string;
+  skills?: string[];
+  matchesCategory?: boolean;
 };
 
 type ActiveTab = 'overview' | 'notes' | 'history' | 'attachments' | 'quotes' | 'invoices';
@@ -138,11 +166,21 @@ export default function ClientWorkOrderGroupDetail() {
   const [group, setGroup] = useState<WorkOrderGroup | null>(null);
   const [bundles, setBundles] = useState<WoBundle[]>([]);
 
+  // Permissions
+  const [hasShareForBiddingPermission, setHasShareForBiddingPermission] = useState(false);
+  const clientNameRef = useRef('');
+
   // Phase 2: tab sub-data loaded on demand
   const [tabLoading, setTabLoading] = useState(false);
   const loadedTabs = useRef(new Set<ActiveTab>());
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
+
+  // Bidding
+  const [showBiddingModal, setShowBiddingModal] = useState(false);
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
+  const [biddingSubmitting, setBiddingSubmitting] = useState(false);
 
   // Aggregate counts (derived from bundle sub-data, 0 until loaded)
   const totalNotes = useMemo(() => bundles.reduce((s, b) => s + b.notes.length, 0), [bundles]);
@@ -169,19 +207,37 @@ export default function ClientWorkOrderGroupDetail() {
     return events;
   }, [bundles]);
 
+  const groupStatus = useMemo(() => {
+    if (group?.status) return group.status;
+    return bundles.find((b) => b.wo.id === group?.primaryWorkOrderId)?.wo.status || bundles[0]?.wo.status || 'pending';
+  }, [group, bundles]);
+
+  const canSendToBidding = hasShareForBiddingPermission
+    && ['approved', 'bidding', 'quotes_received'].includes(groupStatus)
+    && !group?.assignedSubcontractor;
+
   // ── Phase 1: load group + WO docs only ───────────────────────────────────
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u || !groupId) return;
       setLoading(true);
       try {
-        const groupSnap = await getDoc(doc(db, 'workOrderGroups', groupId));
+        const [groupSnap, clientSnap] = await Promise.all([
+          getDoc(doc(db, 'workOrderGroups', groupId)),
+          getDoc(doc(db, 'clients', u.uid)),
+        ]);
+
         if (!groupSnap.exists()) {
           toast.error('Combined group not found');
           setGroup(null);
           setBundles([]);
           return;
         }
+
+        const clientData = clientSnap.exists() ? (clientSnap.data() as any) : {};
+        setHasShareForBiddingPermission(clientData?.permissions?.shareForBidding === true);
+        clientNameRef.current = clientData.fullName || u.email || 'Client';
+
         const g = { id: groupSnap.id, ...groupSnap.data() } as WorkOrderGroup;
         setGroup(g);
 
@@ -282,6 +338,192 @@ export default function ClientWorkOrderGroupDetail() {
     loadTabData(activeTab, currentUser.uid);
   }, [activeTab, loading, loadTabData, auth]);
 
+  // ── Share for Bidding ─────────────────────────────────────────────────────
+  const handleShareForBidding = async () => {
+    if (!group) return;
+    try {
+      const subsSnapshot = await getDocs(query(collection(db, 'subcontractors'), where('status', '==', 'approved')));
+      if (subsSnapshot.empty) { toast.error('No approved subcontractors found'); return; }
+
+      let allowedStates: string[] = [];
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const clientSnap = await getDoc(doc(db, 'clients', currentUser.uid));
+          const companyId = clientSnap.data()?.companyId;
+          if (companyId) {
+            const compSnap = await getDoc(doc(db, 'companies', companyId));
+            const list = compSnap.data()?.allowedSubcontractorStates;
+            if (Array.isArray(list)) allowedStates = list;
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+      const { isSubcontractorAllowedByStates } = await import('@/lib/us-states');
+
+      const alreadyInvited = new Set<string>(Array.isArray(group.biddingSubcontractors) ? group.biddingSubcontractors : []);
+      const primaryWo = bundles.find((b) => b.wo.id === group.primaryWorkOrderId)?.wo || bundles[0]?.wo;
+
+      const subsData: Subcontractor[] = subsSnapshot.docs
+        .map((d) => ({
+          id: d.id,
+          uid: d.data().uid,
+          fullName: d.data().fullName,
+          email: d.data().email,
+          businessName: d.data().businessName,
+          skills: d.data().skills || [],
+          state: d.data().state || '',
+          city: d.data().city || '',
+        }))
+        .filter((s) => isSubcontractorAllowedByStates(s.state, allowedStates))
+        .filter((s) => !alreadyInvited.has(subcontractorAuthId(s)))
+        .map((sub) => {
+          let matchesCategory = false;
+          if (primaryWo?.category && sub.skills!.length > 0) {
+            const cat = primaryWo.category.toLowerCase();
+            matchesCategory = sub.skills!.some((sk: string) => sk.toLowerCase().includes(cat) || cat.includes(sk.toLowerCase()));
+          }
+          return { ...sub, matchesCategory };
+        });
+
+      if (subsData.length === 0) {
+        toast.info(alreadyInvited.size > 0 ? 'All approved subcontractors have already been invited.' : 'No approved subcontractors available.');
+        return;
+      }
+
+      subsData.sort((a, b) => (b.matchesCategory ? 1 : 0) - (a.matchesCategory ? 1 : 0));
+      setSubcontractors(subsData);
+      setSelectedSubcontractors([]);
+      setShowBiddingModal(true);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to load subcontractors');
+    }
+  };
+
+  const handleSubmitBidding = async () => {
+    if (!group || selectedSubcontractors.length === 0) {
+      toast.error('Please select at least one subcontractor');
+      return;
+    }
+    setBiddingSubmitting(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) { toast.error('You must be logged in'); return; }
+
+      const clientName = clientNameRef.current;
+      const subAuthIds = selectedSubcontractors.map((subId) => {
+        const sub = subcontractors.find((s) => s.id === subId);
+        return sub ? subcontractorAuthId(sub) : subId;
+      });
+
+      const isFirstShare = !group.biddingSubcontractors?.length;
+
+      // Update every member WO
+      await Promise.all(bundles.map(async (b) => {
+        const woRef = doc(db, 'workOrders', b.wo.id);
+        const snap = await getDoc(woRef);
+        const existing = snap.data();
+        await updateDoc(woRef, {
+          status: 'bidding',
+          biddingSubcontractors: arrayUnion(...subAuthIds),
+          ...(isFirstShare ? { sharedForBiddingAt: serverTimestamp() } : { biddersLastAddedAt: serverTimestamp() }),
+          updatedAt: serverTimestamp(),
+          timeline: [...(existing?.timeline || []), createTimelineEvent({
+            type: 'shared_for_bidding',
+            userId: currentUser.uid,
+            userName: clientName,
+            userRole: 'client',
+            details: isFirstShare
+              ? `Shared with ${selectedSubcontractors.length} subcontractor(s) for bidding (via combined group)`
+              : `Added ${selectedSubcontractors.length} more bidder(s) (via combined group)`,
+            metadata: { groupId: group.id, subcontractorIds: subAuthIds },
+          })],
+        });
+
+        await Promise.all(selectedSubcontractors.map(async (subId) => {
+          const sub = subcontractors.find((s) => s.id === subId);
+          if (!sub) return;
+          const authId = subcontractorAuthId(sub);
+          await addDoc(collection(db, 'biddingWorkOrders'), {
+            workOrderId: b.wo.id,
+            workOrderNumber: b.wo.workOrderNumber || b.wo.id,
+            subcontractorId: authId,
+            subcontractorName: sub.fullName,
+            subcontractorEmail: sub.email,
+            workOrderTitle: b.wo.title || '',
+            workOrderDescription: b.wo.description || '',
+            clientId: b.wo.clientId || group.clientId,
+            clientName: b.wo.clientName || '',
+            priority: b.wo.priority || '',
+            category: b.wo.category || '',
+            locationName: b.wo.locationName || '',
+            locationAddress: b.wo.locationAddress || '',
+            images: b.wo.images || [],
+            estimateBudget: b.wo.estimateBudget ?? null,
+            groupId: group.id,
+            status: 'pending',
+            sharedAt: serverTimestamp(),
+            createdAt: serverTimestamp(),
+          });
+        }));
+      }));
+
+      // Update group doc
+      await updateDoc(doc(db, 'workOrderGroups', group.id), {
+        status: 'bidding',
+        biddingSubcontractors: arrayUnion(...subAuthIds),
+        updatedAt: serverTimestamp(),
+      });
+
+      setGroup((prev) => prev ? {
+        ...prev,
+        status: 'bidding',
+        biddingSubcontractors: [...(prev.biddingSubcontractors || []), ...subAuthIds],
+      } : prev);
+      setBundles((prev) => prev.map((b) => ({ ...b, wo: { ...b.wo, status: 'bidding' } })));
+      setShowBiddingModal(false);
+      setSelectedSubcontractors([]);
+      toast.success(
+        isFirstShare
+          ? `Shared with ${selectedSubcontractors.length} subcontractor(s) — ${bundles.length} work orders updated`
+          : `Added ${selectedSubcontractors.length} more bidder(s) to this group`,
+      );
+
+      // Fire-and-forget: notifications + emails
+      notifyBiddingOpportunity(subAuthIds, group.id, `GROUP-${group.id.slice(0, 8)}`, 'Combined Work Orders').catch(console.error);
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      selectedSubcontractors.forEach((subId) => {
+        const sub = subcontractors.find((s) => s.id === subId);
+        if (!sub?.email) return;
+        const primaryWo = bundles.find((b) => b.wo.id === group.primaryWorkOrderId)?.wo || bundles[0]?.wo;
+        fetch('/api/email/send-bidding-opportunity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({
+            toEmail: sub.email,
+            toName: sub.fullName,
+            workOrderNumber: `GROUP-${group.id.slice(0, 8)}`,
+            workOrderTitle: `Combined Work Orders (${bundles.length} orders)`,
+            workOrderDescription: primaryWo?.description || '',
+            locationName: primaryWo?.locationName || '',
+            category: primaryWo?.category || '',
+            priority: primaryWo?.priority || '',
+            portalLink: `${origin}/subcontractor-portal/bidding`,
+          }),
+        }).catch(console.error);
+      });
+    } catch (err: any) {
+      console.error('Error submitting bidding:', err);
+      toast.error(err?.message || 'Failed to share for bidding');
+    } finally {
+      setBiddingSubmitting(false);
+    }
+  };
+
   const TABS = [
     { key: 'overview' as const, label: 'Overview', icon: FileText },
     { key: 'notes' as const, label: totalNotes > 0 ? `Notes (${totalNotes})` : 'Notes', icon: StickyNote },
@@ -321,6 +563,27 @@ export default function ClientWorkOrderGroupDetail() {
           </Card>
         ) : (
           <div className="space-y-4">
+
+            {/* ── Status + Actions bar ───────────────────────────────── */}
+            {canSendToBidding && (
+              <Card className="rounded-2xl border border-border shadow-sm">
+                <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-medium">Status:</span>
+                    {statusBadge(groupStatus)}
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-9 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                    onClick={handleShareForBidding}
+                  >
+                    <Send className="h-4 w-4 mr-1.5" />
+                    {group.biddingSubcontractors?.length ? 'Add Bidders' : 'Send to Bidding'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Tab nav */}
             <div className="flex gap-1 overflow-x-auto pb-1 border-b border-border">
               {TABS.map((tab) => (
@@ -618,6 +881,75 @@ export default function ClientWorkOrderGroupDetail() {
                 </CardContent>
               </Card>
             )}
+          </div>
+        )}
+
+        {/* ── Bidding Modal ─────────────────────────────────────────── */}
+        {showBiddingModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <Card className="w-full max-w-lg rounded-2xl border border-border shadow-xl max-h-[80vh] flex flex-col">
+              <CardHeader className="px-6 pt-5 pb-3 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">Share for Bidding</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Selected subcontractors will be invited to quote on all {bundles.length} work orders.
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setShowBiddingModal(false)} className="h-8 w-8 p-0">
+                    ×
+                  </Button>
+                </div>
+              </CardHeader>
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+                {subcontractors.map((sub) => (
+                  <label key={sub.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                    selectedSubcontractors.includes(sub.id) ? 'border-blue-400 bg-blue-50' : 'border-border hover:bg-muted/50'
+                  }`}>
+                    <Checkbox
+                      checked={selectedSubcontractors.includes(sub.id)}
+                      onCheckedChange={(checked) =>
+                        setSelectedSubcontractors((prev) =>
+                          checked ? [...prev, sub.id] : prev.filter((id) => id !== sub.id),
+                        )
+                      }
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-foreground">{sub.fullName}</p>
+                        {sub.matchesCategory && (
+                          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Match</span>
+                        )}
+                      </div>
+                      {sub.businessName && (
+                        <p className="text-xs text-muted-foreground">{sub.businessName}</p>
+                      )}
+                      {(sub.city || sub.state) && (
+                        <p className="text-xs text-muted-foreground">{[sub.city, sub.state].filter(Boolean).join(', ')}</p>
+                      )}
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {selectedSubcontractors.length} selected
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setShowBiddingModal(false)} className="h-9 rounded-xl">
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSubmitBidding}
+                    disabled={biddingSubmitting || selectedSubcontractors.length === 0}
+                    className="h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {biddingSubmitting ? 'Sharing…' : `Share with ${selectedSubcontractors.length || '—'}`}
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
       </PageContainer>

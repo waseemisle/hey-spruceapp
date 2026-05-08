@@ -122,7 +122,14 @@ service cloud.firestore {
         isAdmin() ||
         request.resource.data.clientId == request.auth.uid
       );
-      allow update, delete: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.clientId == request.auth.uid ||
+        (resource.data.companyId != null &&
+         exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == resource.data.companyId)
+      );
+      allow delete: if isSignedIn() && isAdmin();
     }
 
     // Invoices - admins full access; clients read their own; clients may
