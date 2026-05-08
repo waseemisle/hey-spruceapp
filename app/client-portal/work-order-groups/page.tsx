@@ -3,7 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+} from 'firebase/firestore';
 import ClientLayout from '@/components/client-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
@@ -12,12 +19,15 @@ import { Button } from '@/components/ui/button';
 import { Layers, ChevronRight, ClipboardList, ShieldOff } from 'lucide-react';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 
+type WoSummary = { id: string; workOrderNumber?: string; title?: string };
+
 type GroupRow = {
   id: string;
   clientId: string;
   workOrderIds: string[];
   primaryWorkOrderId: string;
   createdAt?: any;
+  woSummaries: WoSummary[];
 };
 
 export default function ClientWorkOrderGroupsList() {
@@ -41,13 +51,48 @@ export default function ClientWorkOrderGroupsList() {
         }
         setPermitted(true);
 
-        // Query groups where clientId matches the logged-in user.
-        // No orderBy to avoid requiring a composite index; sort client-side.
-        const snap = await getDocs(
-          query(collection(db, 'workOrderGroups'), where('clientId', '==', u.uid)),
+        // Find all work orders belonging to this client that are part of a combined group.
+        // Querying workOrders by clientId is already proven to work in the client portal.
+        // Collect unique workOrderGroupId values, then fetch each group doc individually
+        // (avoids needing a composite index on workOrderGroups).
+        const woSnap = await getDocs(
+          query(collection(db, 'workOrders'), where('clientId', '==', u.uid)),
         );
-        const rows = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as GroupRow))
+
+        const groupIds = new Set<string>();
+        const woByGroup: Record<string, WoSummary[]> = {};
+
+        for (const d of woSnap.docs) {
+          const data = d.data() as any;
+          const gid: string | undefined = data.workOrderGroupId;
+          if (!gid) continue;
+          groupIds.add(gid);
+          if (!woByGroup[gid]) woByGroup[gid] = [];
+          woByGroup[gid].push({
+            id: d.id,
+            workOrderNumber: data.workOrderNumber,
+            title: data.title,
+          });
+        }
+
+        if (groupIds.size === 0) {
+          setGroups([]);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch each group doc individually
+        const groupDocs = await Promise.all(
+          Array.from(groupIds).map((gid) => getDoc(doc(db, 'workOrderGroups', gid))),
+        );
+
+        const rows: GroupRow[] = groupDocs
+          .filter((d) => d.exists())
+          .map((d) => ({
+            id: d.id,
+            ...(d.data() as any),
+            woSummaries: woByGroup[d.id] || [],
+          }))
           .sort((a, b) => {
             try {
               const ta = a.createdAt?.toDate?.()?.getTime() ?? 0;
@@ -55,6 +100,7 @@ export default function ClientWorkOrderGroupsList() {
               return tb - ta;
             } catch { return 0; }
           });
+
         setGroups(rows);
       } catch (e: any) {
         console.error('Failed to load work order groups:', e);
@@ -117,8 +163,7 @@ export default function ClientWorkOrderGroupsList() {
                 <table className="w-full text-sm min-w-[560px]">
                   <thead>
                     <tr className="border-b border-border bg-muted">
-                      <th className="text-left px-5 py-3 font-medium text-muted-foreground">Bundle</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Work Orders</th>
+                      <th className="text-left px-5 py-3 font-medium text-muted-foreground">Work Orders in Bundle</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Created</th>
                       <th className="text-right px-5 py-3 font-medium text-muted-foreground">Open</th>
                     </tr>
@@ -127,21 +172,34 @@ export default function ClientWorkOrderGroupsList() {
                     {groups.map((group) => (
                       <tr key={group.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 mb-1.5">
                             <Layers className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-foreground font-medium">{group.workOrderIds.length}</span>
-                              <span className="text-muted-foreground">
-                                work order{group.workOrderIds.length === 1 ? '' : 's'} combined
+                            <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                              {group.woSummaries.length || group.workOrderIds.length} combined
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {group.woSummaries.map((wo) => (
+                              <span
+                                key={wo.id}
+                                className="inline-flex items-center gap-1 text-xs bg-muted border border-border rounded-lg px-2 py-1"
+                              >
+                                <ClipboardList className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <span className="font-semibold text-foreground">
+                                  {wo.workOrderNumber || wo.id.slice(0, 8)}
+                                </span>
+                                {wo.title && (
+                                  <span className="text-muted-foreground truncate max-w-[120px]">
+                                    · {wo.title}
+                                  </span>
+                                )}
                               </span>
-                            </div>
+                            ))}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-muted-foreground text-xs font-mono">
-                          {group.id.slice(0, 14)}…
+                        <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
+                          {formatDate(group.createdAt)}
                         </td>
-                        <td className="px-4 py-3.5 text-muted-foreground">{formatDate(group.createdAt)}</td>
                         <td className="px-5 py-3.5 text-right">
                           <Button size="sm" variant="outline" asChild className="h-8 gap-1">
                             <Link href={`/client-portal/work-order-groups/${group.id}`}>
