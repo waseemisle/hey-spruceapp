@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Layers, ChevronRight, ClipboardList, ShieldOff } from 'lucide-react';
+import { toast } from 'sonner';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 
 type WoSummary = { id: string; workOrderNumber?: string; title?: string };
@@ -51,13 +52,11 @@ export default function ClientWorkOrderGroupsList() {
         }
         setPermitted(true);
 
-        // Find all work orders belonging to this client that are part of a combined group.
-        // Querying workOrders by clientId is already proven to work in the client portal.
-        // Collect unique workOrderGroupId values, then fetch each group doc individually
-        // (avoids needing a composite index on workOrderGroups).
         const woSnap = await getDocs(
           query(collection(db, 'workOrders'), where('clientId', '==', u.uid)),
         );
+
+        toast.info(`DEBUG: found ${woSnap.size} work orders for this user`);
 
         const groupIds = new Set<string>();
         const woByGroup: Record<string, WoSummary[]> = {};
@@ -74,6 +73,8 @@ export default function ClientWorkOrderGroupsList() {
             title: data.title,
           });
         }
+
+        toast.info(`DEBUG: ${groupIds.size} group(s) found from work orders`);
 
         if (groupIds.size === 0) {
           setGroups([]);
@@ -104,6 +105,7 @@ export default function ClientWorkOrderGroupsList() {
         setGroups(rows);
       } catch (e: any) {
         console.error('Failed to load work order groups:', e);
+        toast.error(`DEBUG error: ${e?.message || String(e)}`);
       } finally {
         setLoading(false);
       }
