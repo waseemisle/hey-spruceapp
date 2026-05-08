@@ -36,6 +36,7 @@ export default function ClientEditRecurringWorkOrder() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [noPermission, setNoPermission] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -57,6 +58,11 @@ export default function ClientEditRecurringWorkOrder() {
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         if (clientDoc.exists() && clientDoc.data().status === 'approved') {
           const clientData = clientDoc.data();
+
+          if (!clientData?.permissions?.editRecurringWorkOrders) {
+            setNoPermission(true);
+            return;
+          }
 
           // Fetch recurring work order
           const docRef = doc(db, 'recurringWorkOrders', id);
@@ -191,6 +197,19 @@ export default function ClientEditRecurringWorkOrder() {
         </div>
             </PageContainer>
     </ClientLayout>
+    );
+  }
+
+  if (noPermission) {
+    return (
+      <ClientLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <p className="text-muted-foreground">You do not have permission to edit recurring work orders.</p>
+          </div>
+        </div>
+      </ClientLayout>
     );
   }
 

@@ -30,6 +30,7 @@ export default function ClientRecurringWorkOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [hasPermission, setHasPermission] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const [, setAssignedLocations] = useState<string[]>([]);
 
   useEffect(() => {
@@ -76,6 +77,7 @@ export default function ClientRecurringWorkOrders() {
         const assignedLocationsList: string[] = clientData?.assignedLocations || [];
         setAssignedLocations(assignedLocationsList);
         setCanCreate(!!(clientData?.permissions?.createRecurringWorkOrders));
+        setCanEdit(!!(clientData?.permissions?.editRecurringWorkOrders));
         setHasPermission(true);
 
         // Fire all queries in PARALLEL — was sequential awaits before, which
@@ -263,11 +265,13 @@ export default function ClientRecurringWorkOrders() {
                       View
                     </Button>
                   </Link>
-                  <Link href={`/client-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}>
-                    <Button size="sm" variant="outline" className="h-8 px-2" title="Edit">
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
+                  {canEdit && (
+                    <Link href={`/client-portal/recurring-work-orders/${recurringWorkOrder.id}/edit`}>
+                      <Button size="sm" variant="outline" className="h-8 px-2" title="Edit">
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}
