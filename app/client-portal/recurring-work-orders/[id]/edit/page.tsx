@@ -36,7 +36,6 @@ export default function ClientEditRecurringWorkOrder() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [hasPermission, setHasPermission] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -55,34 +54,25 @@ export default function ClientEditRecurringWorkOrder() {
       }
 
       try {
-        // Check permission
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         if (clientDoc.exists() && clientDoc.data().status === 'approved') {
           const clientData = clientDoc.data();
-          const hasRecurringPermission =
-            clientData?.permissions?.editRecurringWorkOrders === true ||
-            clientData?.permissions?.viewRecurringWorkOrders === true;
-          setHasPermission(hasRecurringPermission);
-
-          if (!hasRecurringPermission) {
-            toast.error('You do not have permission to edit recurring work orders');
-            router.push('/client-portal/recurring-work-orders');
-            return;
-          }
 
           // Fetch recurring work order
           const docRef = doc(db, 'recurringWorkOrders', id);
           const docSnap = await getDoc(docRef);
-          
+
           if (docSnap.exists()) {
             const data = docSnap.data();
-            
-            // Check if client has access to this recurring work order
+
+            // Check if client has access to this specific recurring work order
             const assignedLocations = clientData?.assignedLocations || [];
+            const companyId = clientData?.companyId || null;
             const isClientOwner = data.clientId === user.uid;
             const hasLocationAccess = assignedLocations.includes(data.locationId);
-            
-            if (!isClientOwner && !hasLocationAccess) {
+            const isCompanyMember = companyId && data.companyId && data.companyId === companyId;
+
+            if (!isClientOwner && !hasLocationAccess && !isCompanyMember) {
               toast.error('You do not have access to this recurring work order');
               router.push('/client-portal/recurring-work-orders');
               return;
@@ -201,19 +191,6 @@ export default function ClientEditRecurringWorkOrder() {
         </div>
             </PageContainer>
     </ClientLayout>
-    );
-  }
-
-  if (!hasPermission) {
-    return (
-      <ClientLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-muted-foreground">You do not have permission to edit recurring work orders.</p>
-          </div>
-        </div>
-      </ClientLayout>
     );
   }
 

@@ -39,33 +39,30 @@ export default function ClientRecurringWorkOrderDetails() {
       }
 
       try {
-        // Check permission
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         if (clientDoc.exists() && clientDoc.data().status === 'approved') {
           const clientData = clientDoc.data();
-          const hasRecurringPermission = clientData?.permissions?.viewRecurringWorkOrders === true;
-          setHasPermission(hasRecurringPermission);
-          setCanEdit(clientData?.permissions?.editRecurringWorkOrders === true);
-
-          if (!hasRecurringPermission) {
-            toast.error('You do not have permission to view recurring work orders');
-            router.push('/client-portal');
-            return;
-          }
+          setHasPermission(true);
+          setCanEdit(
+            clientData?.permissions?.editRecurringWorkOrders === true ||
+            clientData?.permissions?.viewRecurringWorkOrders === true,
+          );
 
           // Fetch recurring work order
           const docRef = doc(db, 'recurringWorkOrders', id);
           const docSnap = await getDoc(docRef);
-          
+
           if (docSnap.exists()) {
             const data = docSnap.data();
-            
-            // Check if client has access to this recurring work order
+
+            // Check if client has access to this specific recurring work order
             const assignedLocations = clientData?.assignedLocations || [];
+            const companyId = clientData?.companyId || null;
             const isClientOwner = data.clientId === user.uid;
             const hasLocationAccess = assignedLocations.includes(data.locationId);
-            
-            if (!isClientOwner && !hasLocationAccess) {
+            const isCompanyMember = companyId && data.companyId && data.companyId === companyId;
+
+            if (!isClientOwner && !hasLocationAccess && !isCompanyMember) {
               toast.error('You do not have access to this recurring work order');
               router.push('/client-portal/recurring-work-orders');
               return;
