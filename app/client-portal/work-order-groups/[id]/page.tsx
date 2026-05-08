@@ -6,17 +6,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import {
-  collection,
   doc,
   getDoc,
   getDocs,
+  collection,
   query,
   where,
-  addDoc,
-  updateDoc,
-  serverTimestamp,
-  arrayUnion,
-  Timestamp,
 } from 'firebase/firestore';
 import ClientLayout from '@/components/client-layout';
 import { PageContainer } from '@/components/ui/page-container';
@@ -41,7 +36,6 @@ import {
 import { toast } from 'sonner';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyBiddingOpportunity } from '@/lib/notifications';
-import { createTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -412,70 +406,23 @@ export default function ClientWorkOrderGroupDetail() {
       const currentUser = auth.currentUser;
       if (!currentUser) { toast.error('You must be logged in'); return; }
 
-      const clientName = clientNameRef.current;
-      const subAuthIds = selectedSubcontractors.map((subId) => {
-        const sub = subcontractors.find((s) => s.id === subId);
-        return sub ? subcontractorAuthId(sub) : subId;
+      const res = await fetch('/api/work-order-groups/share-bidding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId: group.id,
+          selectedSubcontractorIds: selectedSubcontractors,
+          clientUid: currentUser.uid,
+          clientName: clientNameRef.current,
+        }),
       });
 
-      const isFirstShare = !group.biddingSubcontractors?.length;
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to share for bidding');
+      }
 
-      // Update every member WO
-      await Promise.all(bundles.map(async (b) => {
-        const woRef = doc(db, 'workOrders', b.wo.id);
-        const snap = await getDoc(woRef);
-        const existing = snap.data();
-        await updateDoc(woRef, {
-          status: 'bidding',
-          biddingSubcontractors: arrayUnion(...subAuthIds),
-          ...(isFirstShare ? { sharedForBiddingAt: serverTimestamp() } : { biddersLastAddedAt: serverTimestamp() }),
-          updatedAt: serverTimestamp(),
-          timeline: [...(existing?.timeline || []), createTimelineEvent({
-            type: 'shared_for_bidding',
-            userId: currentUser.uid,
-            userName: clientName,
-            userRole: 'client',
-            details: isFirstShare
-              ? `Shared with ${selectedSubcontractors.length} subcontractor(s) for bidding (via combined group)`
-              : `Added ${selectedSubcontractors.length} more bidder(s) (via combined group)`,
-            metadata: { groupId: group.id, subcontractorIds: subAuthIds },
-          })],
-        });
-
-        await Promise.all(selectedSubcontractors.map(async (subId) => {
-          const sub = subcontractors.find((s) => s.id === subId);
-          if (!sub) return;
-          const authId = subcontractorAuthId(sub);
-          await addDoc(collection(db, 'biddingWorkOrders'), {
-            workOrderId: b.wo.id,
-            workOrderNumber: b.wo.workOrderNumber || b.wo.id,
-            subcontractorId: authId,
-            subcontractorName: sub.fullName,
-            subcontractorEmail: sub.email,
-            workOrderTitle: b.wo.title || '',
-            workOrderDescription: b.wo.description || '',
-            clientId: b.wo.clientId || group.clientId,
-            clientName: b.wo.clientName || '',
-            priority: b.wo.priority || '',
-            category: b.wo.category || '',
-            locationName: b.wo.locationName || '',
-            locationAddress: b.wo.locationAddress || '',
-            images: b.wo.images || [],
-            estimateBudget: b.wo.estimateBudget ?? null,
-            groupId: group.id,
-            status: 'pending',
-            sharedAt: serverTimestamp(),
-            createdAt: serverTimestamp(),
-          });
-        }));
-      }));
-
-      // Update group doc
-      await updateDoc(doc(db, 'workOrderGroups', group.id), {
-        status: 'bidding',
-        biddingSubcontractors: arrayUnion(...subAuthIds),
-        updatedAt: serverTimestamp(),
-      });
+      const { subAuthIds, isFirstShare, subcontractors: sharedSubs } = data;
 
       setGroup((prev) => prev ? {
         ...prev,
@@ -495,10 +442,9 @@ export default function ClientWorkOrderGroupDetail() {
       notifyBiddingOpportunity(subAuthIds, group.id, `GROUP-${group.id.slice(0, 8)}`, 'Combined Work Orders').catch(console.error);
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      selectedSubcontractors.forEach((subId) => {
-        const sub = subcontractors.find((s) => s.id === subId);
-        if (!sub?.email) return;
-        const primaryWo = bundles.find((b) => b.wo.id === group.primaryWorkOrderId)?.wo || bundles[0]?.wo;
+      const primaryWo = bundles.find((b) => b.wo.id === group.primaryWorkOrderId)?.wo || bundles[0]?.wo;
+      (sharedSubs as Array<{ email: string; fullName: string }>).forEach((sub) => {
+        if (!sub.email) return;
         fetch('/api/email/send-bidding-opportunity', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
