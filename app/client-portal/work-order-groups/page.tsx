@@ -17,7 +17,6 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Layers, ChevronRight, ClipboardList, ShieldOff } from 'lucide-react';
-import { toast } from 'sonner';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 
 type WoSummary = { id: string; workOrderNumber?: string; title?: string };
@@ -25,6 +24,7 @@ type WoSummary = { id: string; workOrderNumber?: string; title?: string };
 type GroupRow = {
   id: string;
   clientId: string;
+  companyId?: string | null;
   workOrderIds: string[];
   primaryWorkOrderId: string;
   createdAt?: any;
@@ -42,9 +42,10 @@ export default function ClientWorkOrderGroupsList() {
       if (!u) return;
       setLoading(true);
       try {
-        // Check permission
+        // Load client doc once — get permission + companyId
         const clientSnap = await getDoc(doc(db, 'clients', u.uid));
-        const perms = clientSnap.exists() ? (clientSnap.data()?.permissions || {}) : {};
+        const clientData = clientSnap.exists() ? (clientSnap.data() as any) : {};
+        const perms = clientData.permissions || {};
         if (!perms.combineWorkOrders) {
           setPermitted(false);
           setLoading(false);
@@ -52,60 +53,62 @@ export default function ClientWorkOrderGroupsList() {
         }
         setPermitted(true);
 
-        const woSnap = await getDocs(
-          query(collection(db, 'workOrders'), where('clientId', '==', u.uid)),
-        );
+        const companyId: string | null = clientData.companyId || null;
 
-        toast.info(`DEBUG: found ${woSnap.size} work orders for this user`);
-
-        const groupIds = new Set<string>();
-        const woByGroup: Record<string, WoSummary[]> = {};
-
-        for (const d of woSnap.docs) {
-          const data = d.data() as any;
-          const gid: string | undefined = data.workOrderGroupId;
-          if (!gid) continue;
-          groupIds.add(gid);
-          if (!woByGroup[gid]) woByGroup[gid] = [];
-          woByGroup[gid].push({
-            id: d.id,
-            workOrderNumber: data.workOrderNumber,
-            title: data.title,
-          });
+        // Query workOrderGroups by clientId AND (if in a company) by companyId.
+        // Run both queries in parallel; merge + deduplicate results.
+        // Firestore security rules allow reads via either path, so no extra
+        // index is required for single-field equality queries.
+        const queries = [
+          getDocs(query(collection(db, 'workOrderGroups'), where('clientId', '==', u.uid))),
+        ];
+        if (companyId) {
+          queries.push(
+            getDocs(query(collection(db, 'workOrderGroups'), where('companyId', '==', companyId))),
+          );
         }
 
-        toast.info(`DEBUG: ${groupIds.size} group(s) found from work orders`);
+        const snaps = await Promise.all(queries);
 
-        if (groupIds.size === 0) {
-          setGroups([]);
-          setLoading(false);
-          return;
+        const seen = new Set<string>();
+        const rawGroups: Omit<GroupRow, 'woSummaries'>[] = [];
+        for (const snap of snaps) {
+          for (const d of snap.docs) {
+            if (seen.has(d.id)) continue;
+            seen.add(d.id);
+            rawGroups.push({ id: d.id, ...(d.data() as any) });
+          }
         }
 
-        // Fetch each group doc individually
-        const groupDocs = await Promise.all(
-          Array.from(groupIds).map((gid) => getDoc(doc(db, 'workOrderGroups', gid))),
+        // Load WO summaries for each group from its workOrderIds list
+        const enriched: GroupRow[] = await Promise.all(
+          rawGroups.map(async (g) => {
+            const ids: string[] = Array.isArray(g.workOrderIds) ? g.workOrderIds : [];
+            const summaries = await Promise.all(
+              ids.map(async (woId) => {
+                try {
+                  const woSnap = await getDoc(doc(db, 'workOrders', woId));
+                  if (!woSnap.exists()) return { id: woId };
+                  const d = woSnap.data() as any;
+                  return { id: woId, workOrderNumber: d.workOrderNumber, title: d.title };
+                } catch {
+                  return { id: woId };
+                }
+              }),
+            );
+            return { ...g, woSummaries: summaries };
+          }),
         );
 
-        const rows: GroupRow[] = groupDocs
-          .filter((d) => d.exists())
-          .map((d) => ({
-            id: d.id,
-            ...(d.data() as any),
-            woSummaries: woByGroup[d.id] || [],
-          }))
-          .sort((a, b) => {
-            try {
-              const ta = a.createdAt?.toDate?.()?.getTime() ?? 0;
-              const tb = b.createdAt?.toDate?.()?.getTime() ?? 0;
-              return tb - ta;
-            } catch { return 0; }
-          });
+        enriched.sort((a, b) => {
+          try {
+            return (b.createdAt?.toDate?.()?.getTime() ?? 0) - (a.createdAt?.toDate?.()?.getTime() ?? 0);
+          } catch { return 0; }
+        });
 
-        setGroups(rows);
+        setGroups(enriched);
       } catch (e: any) {
         console.error('Failed to load work order groups:', e);
-        toast.error(`DEBUG error: ${e?.message || String(e)}`);
       } finally {
         setLoading(false);
       }
@@ -118,9 +121,7 @@ export default function ClientWorkOrderGroupsList() {
     try {
       const d = ts?.toDate ? ts.toDate() : new Date(ts);
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-      return '—';
-    }
+    } catch { return '—'; }
   };
 
   return (
