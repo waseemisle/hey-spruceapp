@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot, getFirestore } from 'firebase/firestore';
 import { isItemUnviewed, markBadgeViewed, pathnameToBadgeKey, type ClientBadgeKey } from '@/lib/sidebar-badges';
-import { onAuthStateChanged, getAuth } from 'firebase/auth';
+import { onAuthStateChanged, getAuth } from '@/lib/firebase-auth';
 import { initializeApp, getApps } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
 import { Button } from '@/components/ui/button';
@@ -164,6 +164,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         lastViewedRef.current = {};
 
         if (firebaseUser) {
+          setUser((prev: any) => prev?.uid === firebaseUser.uid ? prev : { ...firebaseUser });
           try {
             const clientDocRef = doc(instances.dbInstance, 'clients', firebaseUser.uid);
             const clientDoc = await getDoc(clientDocRef);

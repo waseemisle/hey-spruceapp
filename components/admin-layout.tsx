@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
@@ -183,6 +183,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
       unsubscribeProcurement?.();
 
       if (firebaseUser) {
+        setUser((prev: any) => prev?.uid === firebaseUser.uid ? prev : { ...firebaseUser });
         try {
           const adminDoc = await getDoc(doc(db, 'adminUsers', firebaseUser.uid));
           if (adminDoc.exists()) {

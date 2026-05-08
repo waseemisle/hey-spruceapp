@@ -2172,14 +2172,15 @@ const handleLocationSelect = (locationId: string) => {
       const quoteDeletePromises = quotesSnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(quoteDeletePromises);
 
-      // Delete related bidding work orders
-      const biddingQuery = query(
-        collection(db, 'biddingWorkOrders'),
-        where('workOrderId', '==', workOrder.id)
-      );
-      const biddingSnapshot = await getDocs(biddingQuery);
-      const biddingDeletePromises = biddingSnapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(biddingDeletePromises);
+      // Delete related bidding work orders (single-WO docs and combined group docs)
+      const [biddingSnapshot, combinedBiddingSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'biddingWorkOrders'), where('workOrderId', '==', workOrder.id))),
+        getDocs(query(collection(db, 'biddingWorkOrders'), where('workOrderIds', 'array-contains', workOrder.id))),
+      ]);
+      await Promise.all([
+        ...biddingSnapshot.docs.map(doc => deleteDoc(doc.ref)),
+        ...combinedBiddingSnapshot.docs.map(doc => deleteDoc(doc.ref)),
+      ]);
 
       // Delete related invoices
       const invoicesQuery = query(
@@ -2253,16 +2254,19 @@ const handleLocationSelect = (locationId: string) => {
       }
 
       // Fetch all related docs across all collections in parallel using 'in' queries
-      const [quoteSnaps, biddingSnaps, invoiceSnaps] = await Promise.all([
+      const [quoteSnaps, biddingSnaps, combinedBiddingSnaps, invoiceSnaps] = await Promise.all([
         Promise.all(idChunks.map(chunk => getDocs(query(collection(db, 'quotes'), where('workOrderId', 'in', chunk))))),
         Promise.all(idChunks.map(chunk => getDocs(query(collection(db, 'biddingWorkOrders'), where('workOrderId', 'in', chunk))))),
+        Promise.all(idChunks.map(chunk => getDocs(query(collection(db, 'biddingWorkOrders'), where('workOrderIds', 'array-contains-any', chunk))))),
         Promise.all(idChunks.map(chunk => getDocs(query(collection(db, 'invoices'), where('workOrderId', 'in', chunk))))),
       ]);
 
-      // Collect all refs to delete
+      // Collect all refs to delete (deduplicate combined bidding docs that may appear in multiple chunks)
       const refsToDelete: any[] = [];
+      const seenIds = new Set<string>();
       quoteSnaps.forEach(snap => snap.docs.forEach(d => refsToDelete.push(d.ref)));
-      biddingSnaps.forEach(snap => snap.docs.forEach(d => refsToDelete.push(d.ref)));
+      biddingSnaps.forEach(snap => snap.docs.forEach(d => { if (!seenIds.has(d.id)) { seenIds.add(d.id); refsToDelete.push(d.ref); } }));
+      combinedBiddingSnaps.forEach(snap => snap.docs.forEach(d => { if (!seenIds.has(d.id)) { seenIds.add(d.id); refsToDelete.push(d.ref); } }));
       invoiceSnaps.forEach(snap => snap.docs.forEach(d => refsToDelete.push(d.ref)));
       selectedIds.forEach(id => refsToDelete.push(doc(db, 'workOrders', id)));
 

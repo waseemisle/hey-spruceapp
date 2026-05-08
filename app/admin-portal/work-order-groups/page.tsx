@@ -12,6 +12,7 @@ import {
   getDocs,
   orderBy,
   query,
+  where,
   writeBatch,
 } from 'firebase/firestore';
 import AdminLayout from '@/components/admin-layout';
@@ -97,6 +98,11 @@ export default function AdminWorkOrderGroupsList() {
         });
       });
       await batch.commit();
+
+      // Delete all biddingWorkOrders docs tied to this group
+      const biddingSnaps = await getDocs(query(collection(db, 'biddingWorkOrders'), where('groupId', '==', group.id)));
+      await Promise.all(biddingSnaps.docs.map((d) => deleteDoc(d.ref)));
+
       await deleteDoc(doc(db, 'workOrderGroups', group.id));
       setGroups((prev) => prev.filter((g) => g.id !== group.id));
       toast.success('Bundle deleted. Work orders are now independent.');
