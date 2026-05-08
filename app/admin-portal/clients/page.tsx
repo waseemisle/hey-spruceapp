@@ -224,8 +224,8 @@ export default function ClientsManagement() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.email || !formData.fullName || !formData.phone) {
-      toast.error('Please fill in all required fields');
+    if (!formData.email || !formData.fullName || !formData.phone || !formData.companyId) {
+      toast.error('Please fill in all required fields (including Company)');
       return;
     }
     setSubmitting(true);

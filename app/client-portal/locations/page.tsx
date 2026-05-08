@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -151,14 +152,18 @@ export default function ClientLocations() {
           Array.isArray(clientData.assignedLocations) ? clientData.assignedLocations : []
         );
         const clientUid = user.uid;
-        const clientCompanyId = clientData.companyId;
+        let clientCompanyId = clientData.companyId as string | undefined;
         if (!clientCompanyId) {
-          // POSITIVELY confirmed: client doc exists but has no companyId.
-          setCompanyInfo(null);
-          setLocations([]);
-          setLoading(false);
-          setCheckingCompany(false);
-          return;
+          const resolved = await resolveClientCompanyId(db, user.uid, user.email);
+          if (resolved) {
+            clientCompanyId = resolved.companyId;
+          } else {
+            setCompanyInfo(null);
+            setLocations([]);
+            setLoading(false);
+            setCheckingCompany(false);
+            return;
+          }
         }
 
         // Fetch company info for UI context

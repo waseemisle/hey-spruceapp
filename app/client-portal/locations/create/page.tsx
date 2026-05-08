@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import { notifyAdminsOfLocation } from '@/lib/notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase';
@@ -116,16 +117,20 @@ export default function CreateLocation() {
           return;
         }
 
-        const clientCompanyId = clientData.companyId;
+        let clientCompanyId = clientData.companyId as string | undefined;
 
         if (!clientCompanyId) {
-          // POSITIVELY confirmed: client doc exists but has no companyId.
-          if (isMounted) {
-            setAssignedCompany(null);
-            setFormData(prev => ({ ...prev, companyId: '' }));
-            setCheckingCompany(false);
+          const resolved = await resolveClientCompanyId(db, user.uid, user.email);
+          if (resolved) {
+            clientCompanyId = resolved.companyId;
+          } else {
+            if (isMounted) {
+              setAssignedCompany(null);
+              setFormData(prev => ({ ...prev, companyId: '' }));
+              setCheckingCompany(false);
+            }
+            return;
           }
-          return;
         }
 
         const companyDoc = await getDoc(doc(db, 'companies', clientCompanyId));

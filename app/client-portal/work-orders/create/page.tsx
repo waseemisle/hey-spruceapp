@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc, orderBy, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
+import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import { notifyAdminsOfWorkOrder } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
@@ -122,14 +123,18 @@ export default function CreateWorkOrder() {
           Array.isArray(clientData.assignedLocations) ? clientData.assignedLocations : []
         );
         const clientUid = user.uid;
-        const companyId = clientData.companyId as string | undefined;
+        let companyId = clientData.companyId as string | undefined;
         if (!companyId) {
-          // POSITIVELY confirmed: client doc exists but has no companyId.
-          setCompanyInfo(null);
-          setLocations([]);
-          setCheckingCompany(false);
-          setLoadingLocations(false);
-          return;
+          const resolved = await resolveClientCompanyId(db, user.uid, user.email);
+          if (resolved) {
+            companyId = resolved.companyId;
+          } else {
+            setCompanyInfo(null);
+            setLocations([]);
+            setCheckingCompany(false);
+            setLoadingLocations(false);
+            return;
+          }
         }
 
         // Render the form immediately with placeholder company info — don't
@@ -283,9 +288,14 @@ export default function CreateWorkOrder() {
 
       const clientData = clientDoc.data();
       if (!clientData.companyId) {
-        toast.error('No company is assigned to your profile. Please contact an administrator.');
-        setLoading(false);
-        return;
+        const resolved = await resolveClientCompanyId(db, currentUser.uid, currentUser.email);
+        if (resolved) {
+          clientData.companyId = resolved.companyId;
+        } else {
+          toast.error('No company is assigned to your profile. Please contact an administrator.');
+          setLoading(false);
+          return;
+        }
       }
 
       const locationData = locationDoc.data();
