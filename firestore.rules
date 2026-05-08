@@ -105,14 +105,18 @@ service cloud.firestore {
 
     // Work Order Groups (Combined / Bundled work orders)
     // Admins full access. Clients may create a group for themselves and read
-    // groups that belong to them or their company.
+    // groups that belong to them or their company. Subcontractors can read
+    // groups they're invited to bid on or assigned to (mirrors workOrders rules).
     match /workOrderGroups/{groupId} {
       allow read: if isSignedIn() && (
         isAdmin() ||
         resource.data.clientId == request.auth.uid ||
         (resource.data.companyId != null &&
          exists(/databases/$(database)/documents/clients/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == resource.data.companyId)
+         get(/databases/$(database)/documents/clients/$(request.auth.uid)).data.companyId == resource.data.companyId) ||
+        resource.data.assignedSubcontractor == request.auth.uid ||
+        (resource.data.biddingSubcontractors != null &&
+         request.auth.uid in resource.data.biddingSubcontractors)
       );
       allow create: if isSignedIn() && (
         isAdmin() ||
