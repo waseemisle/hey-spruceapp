@@ -12,7 +12,7 @@ import {
   limit,
   Timestamp,
 } from 'firebase/firestore';
-import { onAuthStateChanged, getIdToken } from 'firebase/auth';
+import { onAuthStateChanged, getIdToken } from '@/lib/firebase-auth';
 import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

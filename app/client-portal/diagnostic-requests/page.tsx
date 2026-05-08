@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import type { QuoteTimelineEvent } from '@/types';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { createNotification } from '@/lib/notifications';
 import { formatUsd2 } from '@/lib/format-currency';

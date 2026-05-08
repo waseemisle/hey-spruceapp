@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs, updateDoc, orderBy, Timestamp } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';

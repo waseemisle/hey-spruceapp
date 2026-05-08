@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc, addDoc, serverTimestamp, updateDoc, Timestamp } from 'firebase/firestore';
 import { createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifyQuoteSubmission, notifyAdminsOfBiddingRejection, notifyDiagnosticResultsSubmitted } from '@/lib/notifications';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import SubcontractorLayout from '@/components/subcontractor-layout';

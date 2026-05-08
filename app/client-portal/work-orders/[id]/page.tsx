@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, onSnapshot, Timestamp, addDoc, arrayUnion } from 'firebase/firestore';
 import { createTimelineEvent } from '@/lib/timeline';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { formatUsd2 } from '@/lib/format-currency';

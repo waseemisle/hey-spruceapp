@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, limit, onSnapshot, where, updateDoc, doc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { markBadgeViewed } from '@/lib/sidebar-badges';
 import ClientLayout from '@/components/client-layout';

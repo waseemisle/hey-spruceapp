@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { onSnapshot, collection, doc, getDoc, query, where } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';

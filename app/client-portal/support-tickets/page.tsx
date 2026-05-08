@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { subscribeClientSupportTickets } from '@/lib/support-ticket-snapshots';
 import ClientLayout from '@/components/client-layout';

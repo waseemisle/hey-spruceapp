@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import { notifyAdminsOfLocation } from '@/lib/notifications';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import ClientLayout from '@/components/client-layout';

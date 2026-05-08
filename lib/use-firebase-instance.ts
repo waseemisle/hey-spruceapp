@@ -58,10 +58,8 @@ export function useFirebaseInstance() {
 
     getInstances();
 
-    // Check for changes periodically (e.g., when impersonation state changes)
-    const interval = setInterval(getInstances, 1000);
-
-    return () => clearInterval(interval);
+    window.addEventListener('storage', getInstances);
+    return () => window.removeEventListener('storage', getInstances);
   }, []);
 
   return { auth: authInstance, db: dbInstance };

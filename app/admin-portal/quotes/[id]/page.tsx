@@ -6,7 +6,7 @@ import {
   doc, getDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

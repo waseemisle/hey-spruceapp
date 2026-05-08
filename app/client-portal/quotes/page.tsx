@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, updateDoc, doc, serverTimestamp, getDoc, getDocs, Timestamp, documentId } from 'firebase/firestore';
 import type { QuoteTimelineEvent } from '@/types';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { notifyQuoteRejection } from '@/lib/notifications';

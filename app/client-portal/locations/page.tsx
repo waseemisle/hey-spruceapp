@@ -14,7 +14,7 @@ import {
   type QuerySnapshot,
   type DocumentData,
 } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import ClientLayout from '@/components/client-layout';

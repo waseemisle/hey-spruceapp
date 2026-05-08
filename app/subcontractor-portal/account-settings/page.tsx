@@ -9,7 +9,7 @@ import {
   EmailAuthProvider,
   updatePassword,
   onAuthStateChanged,
-} from 'firebase/auth';
+} from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 import SubcontractorLayout from '@/components/subcontractor-layout';

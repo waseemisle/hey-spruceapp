@@ -6,7 +6,7 @@ import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import {
   Clock, CheckCircle, XCircle, AlertTriangle, Loader2, Play, ChevronDown, ChevronUp,
   Zap, Timer, Hash, Activity, Settings, RefreshCw, CalendarClock,

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { subscribeSubcontractorSupportTickets } from '@/lib/support-ticket-snapshots';
 import Link from 'next/link';

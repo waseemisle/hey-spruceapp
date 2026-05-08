@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, limit, updateDoc, doc, serverTimestamp, getDoc, Timestamp, getDocs, addDoc, documentId } from 'firebase/firestore';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { notifyWorkOrderCompletion, notifyScheduledService, notifyQuoteSubmission, getAllAdminUserIds, notifyAdminsOfAssignmentResponse } from '@/lib/notifications';

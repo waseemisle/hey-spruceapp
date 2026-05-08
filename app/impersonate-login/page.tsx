@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { signInWithCustomToken, getAuth } from 'firebase/auth';
+import { signInWithCustomToken, getAuth } from '@/lib/firebase-auth';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { useRouter } from 'next/navigation';
