@@ -67,14 +67,11 @@ type WorkOrderFull = {
 type WoNote = { id: string; content?: string; text?: string; createdAt?: any; userName?: string; createdBy?: string };
 type WoQuote = { id: string; subcontractorName?: string; totalAmount?: number; clientAmount?: number; status?: string; createdAt?: any };
 type WoInvoice = { id: string; invoiceNumber?: string; totalAmount?: number; status?: string; createdAt?: any };
-type WoVendorPayment = { id: string; baseAmount?: number; finalAmount?: number; status?: string } | null;
-
 type WoBundle = {
   wo: WorkOrderFull;
   notes: WoNote[];
   quotes: WoQuote[];
   invoices: WoInvoice[];
-  vendorPayment: WoVendorPayment;
   idx: number;
 };
 
@@ -161,12 +158,11 @@ export default function ClientWorkOrderGroupDetail() {
 
         const loadedBundles: WoBundle[] = await Promise.all(
           ids.map(async (id, i) => {
-            const [woSnap, notesSnap, quotesSnap, invoicesSnap, vpSnap] = await Promise.all([
+            const [woSnap, notesSnap, quotesSnap, invoicesSnap] = await Promise.all([
               getDoc(doc(db, 'workOrders', id)),
-              getDocs(query(collection(db, 'workOrderNotes'), where('workOrderId', '==', id))),
+              getDocs(query(collection(db, 'workOrderNotes'), where('workOrderId', '==', id), where('clientId', '==', u.uid))),
               getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', id))),
               getDocs(query(collection(db, 'invoices'), where('workOrderId', '==', id))),
-              getDocs(query(collection(db, 'vendorPayments'), where('workOrderId', '==', id))),
             ]);
 
             const wo: WorkOrderFull = woSnap.exists()
@@ -178,9 +174,6 @@ export default function ClientWorkOrderGroupDetail() {
               notes: notesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as WoNote)),
               quotes: quotesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as WoQuote)),
               invoices: invoicesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as WoInvoice)),
-              vendorPayment: vpSnap.docs.length > 0
-                ? ({ id: vpSnap.docs[0].id, ...vpSnap.docs[0].data() } as WoVendorPayment)
-                : null,
               idx: i + 1,
             };
           }),
