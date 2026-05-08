@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -28,9 +28,7 @@ import {
   Paperclip,
   Receipt,
   StickyNote,
-  Stethoscope,
   MapPin,
-  User,
   Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -67,6 +65,7 @@ type WorkOrderFull = {
 type WoNote = { id: string; content?: string; text?: string; createdAt?: any; userName?: string; createdBy?: string };
 type WoQuote = { id: string; subcontractorName?: string; totalAmount?: number; clientAmount?: number; status?: string; createdAt?: any };
 type WoInvoice = { id: string; invoiceNumber?: string; totalAmount?: number; status?: string; createdAt?: any };
+
 type WoBundle = {
   wo: WorkOrderFull;
   notes: WoNote[];
@@ -134,62 +133,18 @@ export default function ClientWorkOrderGroupDetail() {
   const params = useParams();
   const groupId = params?.id as string | undefined;
 
+  // Phase 1: group + WO docs (shown immediately)
   const [loading, setLoading] = useState(true);
   const [group, setGroup] = useState<WorkOrderGroup | null>(null);
   const [bundles, setBundles] = useState<WoBundle[]>([]);
+
+  // Phase 2: tab sub-data loaded on demand
+  const [tabLoading, setTabLoading] = useState(false);
+  const loadedTabs = useRef(new Set<ActiveTab>());
+
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u || !groupId) return;
-      setLoading(true);
-      try {
-        const groupSnap = await getDoc(doc(db, 'workOrderGroups', groupId));
-        if (!groupSnap.exists()) {
-          toast.error('Combined group not found');
-          setGroup(null);
-          setBundles([]);
-          return;
-        }
-        const g = { id: groupSnap.id, ...groupSnap.data() } as WorkOrderGroup;
-        setGroup(g);
-
-        const ids = Array.isArray(g.workOrderIds) ? g.workOrderIds.map(String) : [];
-
-        const loadedBundles: WoBundle[] = await Promise.all(
-          ids.map(async (id, i) => {
-            const [woSnap, notesSnap, quotesSnap, invoicesSnap] = await Promise.all([
-              getDoc(doc(db, 'workOrders', id)),
-              getDocs(query(collection(db, 'workOrderNotes'), where('workOrderId', '==', id), where('clientId', '==', u.uid))),
-              getDocs(query(collection(db, 'quotes'), where('workOrderId', '==', id))),
-              getDocs(query(collection(db, 'invoices'), where('workOrderId', '==', id))),
-            ]);
-
-            const wo: WorkOrderFull = woSnap.exists()
-              ? { id: woSnap.id, ...(woSnap.data() as any) }
-              : { id, workOrderNumber: id };
-
-            return {
-              wo,
-              notes: notesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as WoNote)),
-              quotes: quotesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as WoQuote)),
-              invoices: invoicesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as WoInvoice)),
-              idx: i + 1,
-            };
-          }),
-        );
-
-        setBundles(loadedBundles);
-      } catch (e: any) {
-        console.error('Failed to load work order group:', e);
-        toast.error(e?.message || 'Failed to load combined group');
-      } finally {
-        setLoading(false);
-      }
-    });
-    return () => unsub();
-  }, [auth, db, groupId]);
-
+  // Aggregate counts (derived from bundle sub-data, 0 until loaded)
   const totalNotes = useMemo(() => bundles.reduce((s, b) => s + b.notes.length, 0), [bundles]);
   const totalQuotes = useMemo(() => bundles.reduce((s, b) => s + b.quotes.length, 0), [bundles]);
   const totalInvoices = useMemo(() => bundles.reduce((s, b) => s + b.invoices.length, 0), [bundles]);
@@ -213,6 +168,119 @@ export default function ClientWorkOrderGroupDetail() {
     });
     return events;
   }, [bundles]);
+
+  // ── Phase 1: load group + WO docs only ───────────────────────────────────
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u || !groupId) return;
+      setLoading(true);
+      try {
+        const groupSnap = await getDoc(doc(db, 'workOrderGroups', groupId));
+        if (!groupSnap.exists()) {
+          toast.error('Combined group not found');
+          setGroup(null);
+          setBundles([]);
+          return;
+        }
+        const g = { id: groupSnap.id, ...groupSnap.data() } as WorkOrderGroup;
+        setGroup(g);
+
+        const ids = Array.isArray(g.workOrderIds) ? g.workOrderIds.map(String) : [];
+
+        // Load only WO docs upfront (fast — no sub-collections yet)
+        const woSnaps = await Promise.all(ids.map((id) => getDoc(doc(db, 'workOrders', id))));
+
+        const initialBundles: WoBundle[] = woSnaps.map((snap, i) => ({
+          wo: snap.exists() ? ({ id: snap.id, ...(snap.data() as any) } as WorkOrderFull) : { id: ids[i], workOrderNumber: ids[i] },
+          notes: [],
+          quotes: [],
+          invoices: [],
+          idx: i + 1,
+        }));
+
+        setBundles(initialBundles);
+        loadedTabs.current = new Set(['overview', 'history', 'attachments']);
+      } catch (e: any) {
+        console.error('Failed to load work order group:', e);
+        toast.error(e?.message || 'Failed to load combined group');
+      } finally {
+        setLoading(false);
+      }
+    });
+    return () => unsub();
+  }, [auth, db, groupId]);
+
+  // ── Phase 2: lazy-load sub-data for tabs ─────────────────────────────────
+  const loadTabData = useCallback(async (tab: ActiveTab, uid: string) => {
+    if (loadedTabs.current.has(tab) || bundles.length === 0) return;
+    loadedTabs.current.add(tab);
+    setTabLoading(true);
+
+    try {
+      const ids = bundles.map((b) => b.wo.id);
+
+      if (tab === 'notes') {
+        const snaps = await Promise.all(
+          ids.map((id) =>
+            getDocs(query(
+              collection(db, 'workOrderNotes'),
+              where('workOrderId', '==', id),
+              where('clientId', '==', uid),
+            )),
+          ),
+        );
+        setBundles((prev) => prev.map((b, i) => ({
+          ...b,
+          notes: snaps[i].docs.map((d) => ({ id: d.id, ...d.data() } as WoNote)),
+        })));
+      }
+
+      if (tab === 'quotes') {
+        const snaps = await Promise.all(
+          ids.map((id) =>
+            getDocs(query(
+              collection(db, 'quotes'),
+              where('workOrderId', '==', id),
+              where('clientId', '==', uid),
+            )),
+          ),
+        );
+        setBundles((prev) => prev.map((b, i) => ({
+          ...b,
+          quotes: snaps[i].docs.map((d) => ({ id: d.id, ...d.data() } as WoQuote)),
+        })));
+      }
+
+      if (tab === 'invoices') {
+        const snaps = await Promise.all(
+          ids.map((id) =>
+            getDocs(query(
+              collection(db, 'invoices'),
+              where('workOrderId', '==', id),
+              where('clientId', '==', uid),
+            )),
+          ),
+        );
+        setBundles((prev) => prev.map((b, i) => ({
+          ...b,
+          invoices: snaps[i].docs.map((d) => ({ id: d.id, ...d.data() } as WoInvoice)),
+        })));
+      }
+    } catch (e: any) {
+      console.error(`Failed to load ${tab} data:`, e);
+      toast.error(`Failed to load ${tab}`);
+      loadedTabs.current.delete(tab);
+    } finally {
+      setTabLoading(false);
+    }
+  }, [db, bundles]);
+
+  // Trigger lazy load whenever active tab changes (once auth is resolved)
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || loading) return;
+    loadTabData(activeTab, currentUser.uid);
+  }, [activeTab, loading, loadTabData, auth]);
 
   const TABS = [
     { key: 'overview' as const, label: 'Overview', icon: FileText },
@@ -271,8 +339,15 @@ export default function ClientWorkOrderGroupDetail() {
               ))}
             </div>
 
+            {/* Tab loading indicator */}
+            {tabLoading && (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+              </div>
+            )}
+
             {/* ── Overview ── */}
-            {activeTab === 'overview' && (
+            {activeTab === 'overview' && !tabLoading && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {bundles.map((b) => (
                   <Card key={b.wo.id} className="rounded-2xl border border-border shadow-sm">
@@ -330,7 +405,7 @@ export default function ClientWorkOrderGroupDetail() {
             )}
 
             {/* ── Notes ── */}
-            {activeTab === 'notes' && (
+            {activeTab === 'notes' && !tabLoading && (
               <Card className="rounded-2xl border border-border shadow-sm">
                 <CardContent className="p-5 space-y-4">
                   {totalNotes === 0 ? (
@@ -361,7 +436,7 @@ export default function ClientWorkOrderGroupDetail() {
             )}
 
             {/* ── History ── */}
-            {activeTab === 'history' && (
+            {activeTab === 'history' && !tabLoading && (
               <Card className="rounded-2xl border border-border shadow-sm">
                 <CardContent className="p-5">
                   {allTimeline.length === 0 ? (
@@ -396,7 +471,7 @@ export default function ClientWorkOrderGroupDetail() {
             )}
 
             {/* ── Attachments ── */}
-            {activeTab === 'attachments' && (
+            {activeTab === 'attachments' && !tabLoading && (
               <div className="space-y-4">
                 {totalAttachments === 0 ? (
                   <Card className="rounded-2xl border border-border shadow-sm">
@@ -432,7 +507,7 @@ export default function ClientWorkOrderGroupDetail() {
             )}
 
             {/* ── Quotes ── */}
-            {activeTab === 'quotes' && (
+            {activeTab === 'quotes' && !tabLoading && (
               <Card className="rounded-2xl border border-border shadow-sm overflow-hidden">
                 <CardContent className="p-0">
                   {totalQuotes === 0 ? (
@@ -489,7 +564,7 @@ export default function ClientWorkOrderGroupDetail() {
             )}
 
             {/* ── Invoices ── */}
-            {activeTab === 'invoices' && (
+            {activeTab === 'invoices' && !tabLoading && (
               <Card className="rounded-2xl border border-border shadow-sm overflow-hidden">
                 <CardContent className="p-0">
                   {totalInvoices === 0 ? (
