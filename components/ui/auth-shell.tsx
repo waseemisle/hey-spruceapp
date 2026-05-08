@@ -22,7 +22,7 @@ export function AuthShell({
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-10">
         <PageContainer>
-          <PortalHero title={title} subtitle={subtitle} icon={Icon} />
+          {title && <PortalHero title={title} subtitle={subtitle} icon={Icon} />}
           <div className={`mx-auto w-full ${contentClassName}`}>
             {children}
           </div>

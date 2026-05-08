@@ -151,8 +151,8 @@ export default function PortalLogin() {
 
   return (
     <AuthShell
-      title="Portal Login"
-      subtitle="Enter your credentials to access your portal."
+      title=""
+      subtitle=""
       icon={ShieldCheck}
     >
       <Card className="w-full">
@@ -160,10 +160,6 @@ export default function PortalLogin() {
           <div className="flex justify-center mb-4">
             <Logo size="lg" href="/" />
           </div>
-          <CardTitle className="text-3xl font-bold text-center">Portal Login</CardTitle>
-          <CardDescription className="text-center">
-            Enter your credentials to access your portal
-          </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">

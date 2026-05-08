@@ -238,12 +238,27 @@ function SchedulePicker({
   );
 }
 
+interface WoDetail {
+  id: string;
+  workOrderNumber?: string;
+  title?: string;
+  category?: string;
+  description?: string;
+  priority?: string;
+  locationName?: string;
+  locationAddress?: string;
+  status?: string;
+  images?: string[];
+}
+
 interface BiddingWorkOrder {
   id: string;
   workOrderId?: string;
   workOrderIds?: string[];
   workOrderGroupId?: string;
+  groupId?: string;
   workOrderNumber?: string;
+  workOrderDetails?: WoDetail[];
   workOrderTitle: string;
   workOrderDescription: string;
   clientId: string;
@@ -1101,88 +1116,160 @@ export default function SubcontractorBidding() {
             }
           />
 
-          <Card className="rounded-2xl border border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Work Order Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {viewWorkOrder.workOrderTitle && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Title</p>
-                    <p className="text-sm font-semibold text-foreground">{viewWorkOrder.workOrderTitle}</p>
+          {/* Combined bundle: show each WO as its own card */}
+          {Array.isArray(viewWorkOrder.workOrderIds) && viewWorkOrder.workOrderIds.length >= 2 && viewWorkOrder.workOrderDetails?.length ? (
+            <div className="space-y-4">
+              {/* Shared meta (client, location, date) */}
+              <Card className="rounded-2xl border border-border shadow-sm">
+                <CardContent className="p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Client</p>
+                      <p className="font-semibold text-foreground">{viewWorkOrder.clientName}</p>
+                    </div>
+                    {viewWorkOrder.locationName && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Location</p>
+                        <p className="font-semibold text-foreground">{viewWorkOrder.locationName}</p>
+                        {viewWorkOrder.locationAddress && (
+                          <p className="text-xs text-muted-foreground">{formatAddress(viewWorkOrder.locationAddress)}</p>
+                        )}
+                      </div>
+                    )}
+                    {viewWorkOrder.sharedAt && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Shared Date</p>
+                        <p className="font-semibold text-foreground">{viewWorkOrder.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-                {viewWorkOrder.workOrderNumber && (
+                </CardContent>
+              </Card>
+              {/* Individual WO cards */}
+              {viewWorkOrder.workOrderDetails.map((wo, i) => (
+                <Card key={wo.id} className="rounded-2xl border border-border shadow-sm">
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Work Order {i + 1}</p>
+                        <p className="font-bold text-base text-foreground">{wo.workOrderNumber || wo.id}</p>
+                        {wo.title && <p className="text-sm text-muted-foreground">{wo.title}</p>}
+                      </div>
+                      {wo.priority && (
+                        <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${getPriorityBadge(wo.priority)}`}>
+                          {wo.priority}
+                        </span>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-5 pb-4 space-y-2 text-sm">
+                    {wo.category && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span className="text-xs font-semibold uppercase tracking-wide w-24 flex-shrink-0">Category</span>
+                        <span>{wo.category}</span>
+                      </div>
+                    )}
+                    {wo.description && (
+                      <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 whitespace-pre-wrap">{wo.description}</p>
+                    )}
+                    {wo.images && wo.images.length > 0 && (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1">
+                        {wo.images.map((img, j) => (
+                          <button key={j} onClick={() => { setLightboxImages(wo.images!); setLightboxIndex(j); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
+                            <img src={img} alt={`Attachment ${j + 1}`} className="w-full h-20 object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            /* Single WO detail */
+            <Card className="rounded-2xl border border-border shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Work Order Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {viewWorkOrder.workOrderTitle && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Title</p>
+                      <p className="text-sm font-semibold text-foreground">{viewWorkOrder.workOrderTitle}</p>
+                    </div>
+                  )}
+                  {viewWorkOrder.workOrderNumber && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                      <p className="text-sm font-semibold text-foreground">{viewWorkOrder.workOrderNumber}</p>
+                    </div>
+                  )}
+                  {viewWorkOrder.category && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Category</p>
+                      <p className="text-sm text-foreground">{viewWorkOrder.category}</p>
+                    </div>
+                  )}
+                  {viewWorkOrder.priority && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Priority</p>
+                      <p className="text-sm text-foreground capitalize">{viewWorkOrder.priority}</p>
+                    </div>
+                  )}
+                  {viewWorkOrder.estimateBudget != null && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
+                      <p className="text-sm text-foreground">{formatMoney(viewWorkOrder.estimateBudget)}</p>
+                    </div>
+                  )}
+                  {viewWorkOrder.locationName && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Location Name</p>
+                      <p className="text-sm text-foreground">{viewWorkOrder.locationName}</p>
+                    </div>
+                  )}
+                  {viewWorkOrder.locationAddress && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Address</p>
+                      <p className="text-sm text-foreground">{formatAddress(viewWorkOrder.locationAddress)}</p>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
-                    <p className="text-sm font-semibold text-foreground">{viewWorkOrder.workOrderNumber}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Client</p>
+                    <p className="text-sm text-foreground">{viewWorkOrder.clientName}</p>
                   </div>
-                )}
-                {viewWorkOrder.category && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Category</p>
-                    <p className="text-sm text-foreground">{viewWorkOrder.category}</p>
-                  </div>
-                )}
-                {viewWorkOrder.priority && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Priority</p>
-                    <p className="text-sm text-foreground capitalize">{viewWorkOrder.priority}</p>
-                  </div>
-                )}
-                {viewWorkOrder.estimateBudget != null && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
-                    <p className="text-sm text-foreground">{formatMoney(viewWorkOrder.estimateBudget)}</p>
-                  </div>
-                )}
-                {viewWorkOrder.locationName && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Location Name</p>
-                    <p className="text-sm text-foreground">{viewWorkOrder.locationName}</p>
-                  </div>
-                )}
-                {viewWorkOrder.locationAddress && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Address</p>
-                    <p className="text-sm text-foreground">{formatAddress(viewWorkOrder.locationAddress)}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">Client</p>
-                  <p className="text-sm text-foreground">{viewWorkOrder.clientName}</p>
+                  {viewWorkOrder.sharedAt && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Shared Date</p>
+                      <p className="text-sm text-foreground">{viewWorkOrder.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
+                    </div>
+                  )}
                 </div>
-                {viewWorkOrder.sharedAt && (
+                {viewWorkOrder.workOrderDescription && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Shared Date</p>
-                    <p className="text-sm text-foreground">{viewWorkOrder.sharedAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{viewWorkOrder.workOrderDescription}</p>
                   </div>
                 )}
-              </div>
-              {viewWorkOrder.workOrderDescription && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{viewWorkOrder.workOrderDescription}</p>
-                </div>
-              )}
-              {workOrderImages.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({workOrderImages.length})</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {workOrderImages.map((img, i) => (
-                      <button key={i} onClick={() => { setLightboxImages(workOrderImages); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
-                        <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
-                      </button>
-                    ))}
+                {workOrderImages.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({workOrderImages.length})</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {workOrderImages.map((img, i) => (
+                        <button key={i} onClick={() => { setLightboxImages(workOrderImages); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
+                          <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </PageContainer>
       </SubcontractorLayout>
     );

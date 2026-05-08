@@ -5,10 +5,13 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  deleteDoc,
   updateDoc,
   arrayUnion,
   serverTimestamp,
   Timestamp,
+  query,
+  where,
 } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 
@@ -56,6 +59,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Group has no work orders' }, { status: 400 });
     }
 
+    // Load all member work orders
+    const woSnaps = await Promise.all(ids.map((id) => getDoc(doc(db, 'workOrders', id))));
+    const wos = woSnaps.map((s, i) => s.exists() ? { id: s.id, ...(s.data() as any) } : { id: ids[i] });
+
+    const primaryWo = wos.find((w: any) => w.id === group.primaryWorkOrderId) || wos[0] || {};
+
     // Load each selected subcontractor
     const subSnaps = await Promise.all(
       selectedSubcontractorIds.map((id: string) => getDoc(doc(db, 'subcontractors', id))),
@@ -68,8 +77,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No valid subcontractors found' }, { status: 400 });
     }
 
-    // Resolve auth UIDs for subcontractors
-    const subAuthIds: string[] = subs.map((s) => {
+    // Resolve auth UIDs
+    const subAuthIds: string[] = subs.map((s: any) => {
       const u = s.uid != null && String(s.uid).trim() !== '' ? String(s.uid).trim() : '';
       return u || s.id;
     });
@@ -78,19 +87,16 @@ export async function POST(req: NextRequest) {
     const actorUid = clientUid || group.clientId || 'unknown';
     const actorName = clientName || 'Client';
 
-    // Load each work order and do all writes
-    await Promise.all(ids.map(async (woId: string) => {
-      const woRef = doc(db, 'workOrders', woId);
-      const woSnap = await getDoc(woRef);
-      const woData = woSnap.exists() ? (woSnap.data() as any) : {};
-
+    // Update every member workOrder to status 'bidding'
+    await Promise.all(wos.map(async (wo: any) => {
+      const woRef = doc(db, 'workOrders', wo.id);
       await updateDoc(woRef, {
         status: 'bidding',
         biddingSubcontractors: arrayUnion(...subAuthIds),
         ...(isFirstShare ? { sharedForBiddingAt: serverTimestamp() } : { biddersLastAddedAt: serverTimestamp() }),
         updatedAt: serverTimestamp(),
         timeline: [
-          ...(woData.timeline || []),
+          ...(wo.timeline || []),
           makeTimelineEvent({
             type: 'shared_for_bidding',
             userId: actorUid,
@@ -103,32 +109,65 @@ export async function POST(req: NextRequest) {
           }),
         ],
       });
+    }));
 
-      // Create biddingWorkOrders for each sub
-      await Promise.all(subs.map(async (sub: any) => {
-        const authId = sub.uid?.trim() || sub.id;
-        await addDoc(collection(db, 'biddingWorkOrders'), {
-          workOrderId: woId,
-          workOrderNumber: woData.workOrderNumber || woId,
-          subcontractorId: authId,
-          subcontractorName: sub.fullName,
-          subcontractorEmail: sub.email,
-          workOrderTitle: woData.title || '',
-          workOrderDescription: woData.description || '',
-          clientId: woData.clientId || group.clientId || actorUid,
-          clientName: woData.clientName || '',
-          priority: woData.priority || '',
-          category: woData.category || '',
-          locationName: woData.locationName || '',
-          locationAddress: woData.locationAddress || '',
-          images: woData.images || [],
-          estimateBudget: woData.estimateBudget ?? null,
-          groupId,
-          status: 'pending',
-          sharedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-        });
-      }));
+    // For each subcontractor: delete any stale per-WO docs for this group, then create ONE group doc
+    await Promise.all(subs.map(async (sub: any, idx: number) => {
+      const authId = subAuthIds[idx];
+
+      // Delete stale individual biddingWorkOrders docs that were created for this group
+      const staleSnap = await getDocs(
+        query(
+          collection(db, 'biddingWorkOrders'),
+          where('groupId', '==', groupId),
+          where('subcontractorId', '==', authId),
+        ),
+      );
+      await Promise.all(staleSnap.docs.map((d) => deleteDoc(d.ref)));
+
+      // Create ONE combined biddingWorkOrders doc for this subcontractor
+      await addDoc(collection(db, 'biddingWorkOrders'), {
+        // Group identity
+        groupId,
+        workOrderIds: ids,
+        workOrderId: primaryWo.id || ids[0],
+
+        // Display fields (from primary WO)
+        workOrderNumber: `GROUP-${groupId.slice(0, 8)}`,
+        workOrderTitle: `Combined Work Orders (${ids.length} orders)`,
+        workOrderDescription: primaryWo.description || '',
+        clientId: primaryWo.clientId || group.clientId || actorUid,
+        clientName: primaryWo.clientName || '',
+        priority: primaryWo.priority || '',
+        category: primaryWo.category || '',
+        locationName: primaryWo.locationName || '',
+        locationAddress: primaryWo.locationAddress || '',
+        images: primaryWo.images || [],
+        estimateBudget: null,
+
+        // All WO summaries for the detail view
+        workOrderDetails: wos.map((w: any) => ({
+          id: w.id,
+          workOrderNumber: w.workOrderNumber || w.id,
+          title: w.title || '',
+          category: w.category || '',
+          description: w.description || '',
+          priority: w.priority || '',
+          locationName: w.locationName || '',
+          locationAddress: w.locationAddress || '',
+          status: w.status || '',
+          images: w.images || [],
+        })),
+
+        // Subcontractor
+        subcontractorId: authId,
+        subcontractorName: sub.fullName,
+        subcontractorEmail: sub.email,
+
+        status: 'pending',
+        sharedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
     }));
 
     // Update the group doc
