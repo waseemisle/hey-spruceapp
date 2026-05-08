@@ -165,10 +165,17 @@ export default function AdminInvoiceDetail() {
           link = data.paymentLink as string;
           setInvoice(prev => prev ? { ...prev, stripePaymentLink: link, stripeInvoiceId: data.stripeInvoiceId || prev.stripeInvoiceId } : prev);
         } else {
+          const errMsg = data?.error || 'Failed to create payment link';
           console.error('Stripe payment-link request returned:', data);
+          toast.error(errMsg);
+          setOpeningPayLink(false);
+          return;
         }
       } catch (err) {
         console.error('Failed to fetch Stripe link:', err);
+        toast.error('Network error — could not reach payment server');
+        setOpeningPayLink(false);
+        return;
       } finally {
         setOpeningPayLink(false);
       }
