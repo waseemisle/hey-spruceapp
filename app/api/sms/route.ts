@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendSMS } from '@/lib/sendblue';
+import { sendBlooioSms } from '@/lib/messaging/blooio';
 
 export async function POST(req: NextRequest) {
   try {
-    const { to, content, mediaUrl } = await req.json();
+    const { to, content } = await req.json();
 
     if (!to || !content) {
       return NextResponse.json(
@@ -12,9 +12,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await sendSMS({ to, content, mediaUrl });
+    const result = await sendBlooioSms({ to, text: content });
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({
+      success: result.success,
+      status: result.status,
+      message_handle: result.providerMessageId || '',
+      error: result.error,
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to send SMS';
     console.error('SMS send error:', message);

@@ -338,6 +338,17 @@ export async function POST(request: NextRequest) {
           }).catch(err =>
             console.error('Failed to send bidding opportunity email (cron execution):', err),
           );
+          if (preAssignedSubAuthId) {
+            fetch(`${baseUrl}/api/messaging/send`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'bidding-opportunity',
+                subcontractorId: preAssignedSubAuthId,
+                context: { workOrderId: standardWorkOrderRef.id, workOrderNumber: standardWorkOrderNumber, workOrderTitle: standardWorkOrderData.title, locationName: standardWorkOrderData.locationName, category: standardWorkOrderData.category, priority: standardWorkOrderData.priority },
+              }),
+            }).catch(err => console.error('Messaging send failed (cron execution, non-fatal):', err));
+          }
         }
       }
 

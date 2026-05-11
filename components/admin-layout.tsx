@@ -15,7 +15,7 @@ import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, Menu, X, ShieldCheck, RotateCcw,
   Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail, Headphones,
-  Database, FlaskConical, BookOpen, Archive, Clock, Layers,
+  Database, FlaskConical, BookOpen, Archive, Clock, Layers, MessageCircle,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -48,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { name: 'List of Companies', href: '/admin-portal/subsidiaries', icon: Building2 },
       { name: 'Companies Permissions', href: '/admin-portal/companies-permissions', icon: ShieldCheck },
+      { name: 'Subcontractors Permissions', href: '/admin-portal/subcontractors-permissions', icon: ShieldCheck },
     ],
   },
   {
@@ -98,6 +99,8 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare },
       { name: 'Email Logs', href: '/admin-portal/email-logs', icon: Mail },
+      { name: 'SMS Logs', href: '/admin-portal/sms-logs', icon: MessageSquare },
+      { name: 'WhatsApp Logs', href: '/admin-portal/whatsapp-logs', icon: MessageCircle },
     ],
   },
   {

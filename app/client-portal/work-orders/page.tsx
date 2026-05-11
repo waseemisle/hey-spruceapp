@@ -598,6 +598,10 @@ function ClientWorkOrdersContent() {
             body: JSON.stringify({ toEmail: sub.email, toName: sub.fullName, workOrderNumber, workOrderTitle: wo.title, workOrderDescription: wo.description, locationName: wo.locationName, category: wo.category, priority: wo.priority, portalLink: `${window.location.origin}/subcontractor-portal/bidding` }),
           }).catch(console.error);
         }
+        fetch('/api/messaging/send', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+          body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subId, context: { workOrderId: wo.id, workOrderNumber, workOrderTitle: wo.title, locationName: wo.locationName, category: wo.category, priority: wo.priority } }),
+        }).catch(console.error);
       });
 
       // Timeline (background)

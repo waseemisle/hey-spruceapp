@@ -208,7 +208,16 @@ export default function SubcontractorsManagement() {
           }),
         });
       } catch {}
-      toast.success('Subcontractor approved and notified via email');
+      fetch('/api/messaging/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'subcontractor-approval',
+          subcontractorId: subId,
+          context: { toName: subData.fullName, businessName: subData.businessName, approvedBy: adminName },
+        }),
+      }).catch(err => console.error('Messaging send failed (non-fatal):', err));
+      toast.success('Subcontractor approved and notified via email + SMS + WhatsApp');
       fetchSubcontractors();
     } catch (error) {
       toast.error('Failed to approve subcontractor');
@@ -248,7 +257,16 @@ export default function SubcontractorsManagement() {
         }),
       });
       if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to send email'); }
-      toast.success('Approval email resent successfully');
+      fetch('/api/messaging/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'subcontractor-approval',
+          subcontractorId: subId,
+          context: { toName: subData.fullName, businessName: subData.businessName, approvedBy: adminName },
+        }),
+      }).catch(err => console.error('Messaging resend failed (non-fatal):', err));
+      toast.success('Approval re-sent (email + SMS + WhatsApp)');
     } catch (error: any) {
       toast.error(error.message || 'Failed to resend approval email');
     } finally {

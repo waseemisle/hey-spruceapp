@@ -398,6 +398,26 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isAdmin();
     }
 
+    // SMS logs (Blooio) - admin only
+    match /smsLogs/{logId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+
+    // WhatsApp logs (Meta Cloud API) - admin only
+    match /whatsappLogs/{logId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+
+    // Messaging global settings and per-channel config - admin only
+    match /messagingSettings/{docId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+
+    // Per-subcontractor messaging permission overrides - admin only
+    match /subcontractorMessagingPermissions/{subId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+
     // Payment Logs - admin-only audit trail of every Stripe payment event
     // (webhook) + every server-initiated charge (auto-charge route, hosted-
     // link finalize). Server-side routes write via getServerDb (bypasses

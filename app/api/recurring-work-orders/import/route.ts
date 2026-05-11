@@ -20,6 +20,8 @@ function sendBiddingOpportunityEmail(params: {
   locationName?: string;
   category?: string;
   priority?: string;
+  subcontractorId?: string;
+  workOrderId?: string;
 }): void {
   if (!params.toEmail) return;
   const baseUrl =
@@ -36,6 +38,19 @@ function sendBiddingOpportunityEmail(params: {
   }).catch((err) =>
     console.error('Failed to send bidding opportunity email (CSV import):', err),
   );
+  if (params.subcontractorId) {
+    fetch(`${baseUrl}/api/messaging/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'bidding-opportunity',
+        subcontractorId: params.subcontractorId,
+        context: { workOrderId: params.workOrderId, workOrderNumber: params.workOrderNumber, workOrderTitle: params.workOrderTitle, locationName: params.locationName, category: params.category, priority: params.priority },
+      }),
+    }).catch((err) =>
+      console.error('Failed to send bidding opportunity messaging (CSV import):', err),
+    );
+  }
 }
 
 // Helper function to verify admin token (same as view-as route)

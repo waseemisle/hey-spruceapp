@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendWhatsApp } from '@/lib/twilio';
+import { sendBlooioSms } from '@/lib/messaging/blooio';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,27 +15,24 @@ export async function POST(request: NextRequest) {
 
     const titlePart = workOrderTitle ? ` — "${workOrderTitle}"` : '';
     const message =
-      `Hello ${clientName || 'there'},\n\n` +
-      `Great news! Your Work Order *${workOrderNumber}*${titlePart} has been *approved* ✅.\n\n` +
-      `Our team will be in touch shortly with next steps. You can track the progress in your client portal.\n\n` +
-      `— GroundOps Team`;
+      `Hello ${clientName || 'there'}, ` +
+      `your Work Order ${workOrderNumber}${titlePart} has been approved. ` +
+      `Our team will be in touch shortly. Track progress in your client portal. — GroundOps`;
 
-    await sendWhatsApp({ to: toPhone, body: message });
+    const result = await sendBlooioSms({ to: toPhone, text: message });
 
-    return NextResponse.json({ success: true });
+    if (!result.success) {
+      return NextResponse.json(
+        { error: 'Failed to send SMS notification', details: result.error },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, messageId: result.providerMessageId });
   } catch (error: any) {
-    console.error('❌ WhatsApp approval notification failed:', error.message);
-
-    const isConfigError = error.message?.includes('not configured');
+    console.error('SMS approval notification failed:', error.message);
     return NextResponse.json(
-      {
-        error: 'Failed to send WhatsApp notification',
-        details: error.message,
-        configError: isConfigError,
-        suggestion: isConfigError
-          ? 'Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM in your environment variables.'
-          : undefined,
-      },
+      { error: 'Failed to send SMS notification', details: error.message },
       { status: 500 }
     );
   }

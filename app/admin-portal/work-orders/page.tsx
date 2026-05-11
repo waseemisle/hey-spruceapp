@@ -1998,6 +1998,15 @@ const handleLocationSelect = (locationId: string) => {
                 portalLink: `${window.location.origin}/subcontractor-portal/bidding`,
               }),
             });
+            fetch('/api/messaging/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'bidding-opportunity',
+                subcontractorId: subId,
+                context: { workOrderId: workOrderToShare.id, workOrderNumber, workOrderTitle: workOrderToShare.title, locationName: workOrderToShare.locationName, category: workOrderToShare.category, priority: workOrderToShare.priority },
+              }),
+            }).catch(err => console.error('Messaging send failed (non-fatal):', err));
           }
         }));
       } catch (emailError) {

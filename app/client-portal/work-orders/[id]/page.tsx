@@ -545,6 +545,11 @@ export default function ViewClientWorkOrder() {
               }),
             });
           }
+          fetch('/api/messaging/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subId, context: { workOrderId: workOrder.id, workOrderNumber, workOrderTitle: workOrder.title, locationName: workOrder.locationName, category: workOrder.category, priority: workOrder.priority } }),
+          }).catch(err => console.error('Messaging send failed (non-fatal):', err));
         }
       } catch (emailError) {
         console.error('Failed to send bidding opportunity emails:', emailError);

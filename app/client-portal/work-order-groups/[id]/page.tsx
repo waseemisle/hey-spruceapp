@@ -443,7 +443,7 @@ export default function ClientWorkOrderGroupDetail() {
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const primaryWo = bundles.find((b) => b.wo.id === group.primaryWorkOrderId)?.wo || bundles[0]?.wo;
-      (sharedSubs as Array<{ email: string; fullName: string }>).forEach((sub) => {
+      (sharedSubs as Array<{ id: string; email: string; fullName: string }>).forEach((sub) => {
         if (!sub.email) return;
         fetch('/api/email/send-bidding-opportunity', {
           method: 'POST',
@@ -461,6 +461,18 @@ export default function ClientWorkOrderGroupDetail() {
             portalLink: `${origin}/subcontractor-portal/bidding`,
           }),
         }).catch(console.error);
+        if (sub.id) {
+          fetch('/api/messaging/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
+            body: JSON.stringify({
+              type: 'bidding-opportunity',
+              subcontractorId: sub.id,
+              context: { workOrderId: group.id, workOrderNumber: `GROUP-${group.id.slice(0, 8)}`, workOrderTitle: `Combined Work Orders (${bundles.length} orders)`, locationName: primaryWo?.locationName || '', category: primaryWo?.category || '', priority: primaryWo?.priority || '' },
+            }),
+          }).catch(console.error);
+        }
       });
     } catch (err: any) {
       console.error('Error submitting bidding:', err);

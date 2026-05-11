@@ -386,6 +386,28 @@ export async function POST(request: Request) {
       ).catch((e) => console.error('[quotes/approve] assignment notify fail (non-fatal):', e));
     }
 
+    // Fire-and-forget SMS + WhatsApp to the subcontractor whose quote was approved
+    if (safeSubId) {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        'http://localhost:3000';
+      fetch(`${baseUrl}/api/messaging/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'quote-approved',
+          subcontractorId: safeSubId,
+          context: {
+            quoteId,
+            workOrderId: quoteData.workOrderId || uniqueWorkOrderIds[0],
+            workOrderNumber: workOrderData.workOrderNumber || quoteData.workOrderId,
+            workOrderTitle: quoteData.workOrderTitle || '',
+          },
+        }),
+      }).catch((e) => console.error('[quotes/approve] messaging send fail (non-fatal):', e));
+    }
+
     return NextResponse.json({
       success: true,
       diagnostic: false,

@@ -550,6 +550,16 @@ export default function AdminWorkOrderGroupDetail() {
             portalLink: `${origin}/subcontractor-portal/bidding`,
           }),
         }).catch(console.error);
+        fetch('/api/messaging/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({
+            type: 'bidding-opportunity',
+            subcontractorId: subId,
+            context: { workOrderId: group.id, workOrderNumber: `GROUP-${group.id.slice(0, 8)}`, workOrderTitle: `Combined Work Orders (${bundles.length} orders)`, locationName: primaryWo?.locationName || '', category: primaryWo?.category || '', priority: primaryWo?.priority || '' },
+          }),
+        }).catch(console.error);
       });
     } catch (err: any) {
       console.error('Error submitting bidding:', err);
