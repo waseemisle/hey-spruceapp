@@ -44,12 +44,8 @@ export default function CreateWorkOrder() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [companyInfo, setCompanyInfo] = useState<{ id: string; name?: string } | null>(null);
   const [checkingCompany, setCheckingCompany] = useState(true);
-  // Separate loading flag for the locations query so we don't flash the
-  // "No locations assigned" empty-state during the half-second window
-  // between checkingCompany flipping false and the locations query
-  // resolving. The picker only commits to the empty-state once we've
-  // actually heard back from Firestore.
   const [loadingLocations, setLoadingLocations] = useState(true);
+  const [locationsQueryFailed, setLocationsQueryFailed] = useState(false);
 
   const [formData, setFormData] = useState({
     locationId: '',
@@ -62,27 +58,16 @@ export default function CreateWorkOrder() {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        // Don't touch state on null callbacks — Firebase Auth's first emission
-        // after a fresh page mount (or App Router remount on nav) can be null
-        // both as the callback arg AND `auth.currentUser` while the persisted
-        // user is being restored from IndexedDB. Any state change here flashes
-        // the "No company assigned" warning before the next callback (~150ms
-        // later) arrives with the real user. The layout's auth handler is the
-        // single source of truth for the "user is genuinely signed out →
-        // redirect" decision; this page just stays in loading state until a
-        // real user arrives.
-        return;
-      }
+    let cancelled = false;
+    let didLoad = false;
+
+    const loadForUser = async (user: { uid: string; email: string | null; getIdToken: (force?: boolean) => Promise<string> }) => {
+      if (didLoad || cancelled) return;
+      didLoad = true;
 
       setCheckingCompany(true);
 
-      // Read the client doc with retry-on-permission-error. Right after a
-      // fresh login or App Router remount, the Firebase Auth token sometimes
-      // hasn't propagated to Firestore yet, so the first getDoc rejects with
-      // permission-denied. Retry with TIGHT backoff (100/200/400ms ≈ 700ms
-      // worst case) so we don't keep the user staring at the spinner.
+      // Retry client doc read on auth-race (token not yet propagated to Firestore).
       const readClientDoc = async () => {
         let lastErr: any = null;
         for (let i = 0; i < 4; i++) {
@@ -97,7 +82,7 @@ export default function CreateWorkOrder() {
               code === 'unauthenticated' ||
               /permission|insufficient|unauthenticated/i.test(msg);
             if (!isAuthRace || i === 3) throw err;
-            await new Promise((r) => setTimeout(r, 100 * Math.pow(2, i))); // 100, 200, 400
+            await new Promise((r) => setTimeout(r, 100 * Math.pow(2, i)));
             try { await user.getIdToken(true); } catch {}
           }
         }
@@ -106,8 +91,9 @@ export default function CreateWorkOrder() {
 
       try {
         const clientDoc = await readClientDoc();
+        if (cancelled) return;
+
         if (!clientDoc.exists()) {
-          // POSITIVELY confirmed: there is no client doc for this uid.
           setCompanyInfo(null);
           setLocations([]);
           setCheckingCompany(false);
@@ -116,9 +102,6 @@ export default function CreateWorkOrder() {
         }
 
         const clientData = clientDoc.data();
-        // Capture the admin-curated assigned-location list so the picker
-        // below shows only those locations, not every sibling location
-        // under the parent company.
         const assignedLocationIds = new Set<string>(
           Array.isArray(clientData.assignedLocations) ? clientData.assignedLocations : []
         );
@@ -137,42 +120,28 @@ export default function CreateWorkOrder() {
           }
         }
 
-        // Render the form immediately with placeholder company info — don't
-        // block the UI on the company doc lookup or the locations query.
-        // The user wants to start typing; the location picker can populate
-        // a moment later.
+        if (cancelled) return;
+
+        // Unblock the form immediately; location picker populates in parallel.
         setCompanyInfo({ id: companyId, name: 'Assigned Company' });
         setCheckingCompany(false);
 
-        // Run company info + locations queries in parallel (both are
-        // non-blocking from the user's perspective at this point).
         void Promise.all([
           getDoc(doc(db, 'companies', companyId))
             .then((companyDoc) => {
+              if (cancelled) return;
               if (companyDoc.exists()) {
                 const data = companyDoc.data() as { name?: string };
                 setCompanyInfo({ id: companyDoc.id, name: data.name || 'Assigned Company' });
               }
             })
-            .catch(() => { /* keep placeholder */ }),
+            .catch(() => { /* keep placeholder name */ }),
           getDocs(query(
             collection(db, 'locations'),
             where('companyId', '==', companyId),
           ))
             .then((snapshot) => {
-              // Visibility for the WO create picker:
-              //   • The location must be either explicitly assigned to
-              //     this client OR directly owned (legacy clientId
-              //     match). This matches the /client-portal/locations
-              //     filter so the picker can't show locations the
-              //     client doesn't see on the locations page.
-              //   • Rejected locations are excluded (admin's reject
-              //     decision is honored).
-              //   • Pending IS allowed — locations clients create
-               //    arrive as 'pending' and an admin assignment is the
-              //     trust signal we need; without this, assigning a
-              //     pending location to a client did nothing useful
-              //     because the picker still excluded it.
+              if (cancelled) return;
               const visible = snapshot.docs.filter((docSnap) => {
                 const data = docSnap.data() as any;
                 const status = (data.status || '').toLowerCase();
@@ -184,26 +153,39 @@ export default function CreateWorkOrder() {
                 name: docSnap.data().locationName || docSnap.data().name,
                 address: docSnap.data().address,
               })));
+              setLoadingLocations(false);
             })
-            .catch((err) => console.error('Failed to load locations:', err))
-            .finally(() => setLoadingLocations(false)),
+            .catch((err) => {
+              if (cancelled) return;
+              console.error('Failed to load locations:', err);
+              setLocationsQueryFailed(true);
+              setLoadingLocations(false);
+            }),
         ]);
       } catch (error) {
-        // Transient Firestore failure (network blip, exhausted retries on
-        // post-login JWT race, rules layer hiccup). Do NOT conclude "no
-        // company" — that's the bug that paints the wrong warning. Stay in
-        // loading state. The next auth callback or a manual refresh will
-        // retry the read; we'd rather show a spinner a moment longer than
-        // a wrong empty state.
-        console.error('Error loading work-order create context (will not flash "no company"):', error);
+        if (cancelled) return;
+        console.error('Error loading work-order create context:', error);
+        // Exit loading state so the user isn't stuck — a page refresh will retry.
+        setCheckingCompany(false);
+        setLoadingLocations(false);
+        setLocationsQueryFailed(true);
       }
-      // No finally block — checkingCompany stays true unless one of the
-      // positive-answer branches above explicitly turned it off. This
-      // guarantees the "no company" warning is only ever shown when we
-      // POSITIVELY confirmed the client doc has no companyId.
+    };
+
+    // Start immediately if Firebase Auth has already restored the session
+    // (client-side navigation, page reload). Don't wait for the async callback.
+    if (auth.currentUser) {
+      loadForUser(auth.currentUser);
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) loadForUser(user);
     });
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [auth, db]);
 
   useEffect(() => {
@@ -496,20 +478,22 @@ export default function CreateWorkOrder() {
                       value={formData.locationId}
                       onValueChange={(v) => setFormData((prev) => ({ ...prev, locationId: v }))}
                       options={[
-                        { value: '', label: (checkingCompany || loadingLocations)
-                          ? 'Loading locations…'
-                          : locations.length === 0
-                            ? 'No locations assigned yet — contact your admin'
-                            : 'Select a location' },
+                        { value: '', label: (checkingCompany || loadingLocations) ? 'Loading locations…' : 'Select a location' },
                         ...locations.map((location) => ({ value: location.id, label: location.name })),
                       ]}
                       placeholder={(checkingCompany || loadingLocations) ? 'Loading locations…' : 'Select a location'}
                       aria-label="Location"
                       disabled={checkingCompany || loadingLocations || locations.length === 0}
                     />
-                    {!checkingCompany && !loadingLocations && locations.length === 0 && (
+                    {!checkingCompany && !loadingLocations && locationsQueryFailed && (
+                      <p className="text-xs text-destructive mt-1.5">
+                        Could not load locations — please{' '}
+                        <button className="underline" onClick={() => window.location.reload()}>refresh</button>.
+                      </p>
+                    )}
+                    {!checkingCompany && !loadingLocations && !locationsQueryFailed && locations.length === 0 && (
                       <p className="text-xs text-muted-foreground mt-1.5">
-                        No locations are assigned to you. {' '}
+                        No locations are assigned to you.{' '}
                         <Link href="/client-portal/locations" className="text-blue-600 underline">
                           Add a location
                         </Link>{' '}or ask your administrator to assign one.
