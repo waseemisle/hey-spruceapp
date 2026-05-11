@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, Search, Stethoscope, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, Search, Stethoscope, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/page-header';
@@ -286,6 +286,9 @@ interface BiddingWorkOrder {
   diagnosticResultsImages?: string[];
   diagnosticResultsSubmittedAt?: any;
   sharedAt: any;
+  // Denormalized from companies/{companyId}.allowSubDirectInvoiceFromBidding at share time.
+  // Controls whether the "Submit Invoice" path is shown in the UI.
+  allowSubDirectInvoiceFromBidding?: boolean;
 }
 
 export default function SubcontractorBidding() {
@@ -331,6 +334,16 @@ export default function SubcontractorBidding() {
 
   // ─── Reject Quote Request ───
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+
+  // ─── Direct Invoice (bypass quote — only for companies with allowSubDirectInvoiceFromBidding) ───
+  const [showDirectInvoiceForm, setShowDirectInvoiceForm] = useState(false);
+  const [directInvoiceBidding, setDirectInvoiceBidding] = useState<BiddingWorkOrder | null>(null);
+  const [directInvoiceLineItems, setDirectInvoiceLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([
+    { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+    { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
+  ]);
+  const [directInvoiceNotes, setDirectInvoiceNotes] = useState('');
+  const [directInvoiceSubmitting, setDirectInvoiceSubmitting] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -452,6 +465,124 @@ export default function SubcontractorBidding() {
 
   const removeResultsImage = (idx: number) => {
     setResultsImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // ─── Direct Invoice helpers ───
+  const openDirectInvoiceForm = (bidding: BiddingWorkOrder) => {
+    setDirectInvoiceBidding(bidding);
+    setDirectInvoiceLineItems([
+      { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+      { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
+    ]);
+    setDirectInvoiceNotes('');
+    setShowDirectInvoiceForm(true);
+  };
+
+  const updateDirectInvoiceLineItem = (idx: number, field: 'description' | 'quantity' | 'unitPrice' | 'amount', value: string) => {
+    setDirectInvoiceLineItems(prev => {
+      const next = [...prev];
+      const item = { ...next[idx] };
+      if (field === 'description') item.description = value;
+      else {
+        const num = parseFloat(value) || 0;
+        if (field === 'quantity') { item.quantity = num; item.amount = parseFloat((num * item.unitPrice).toFixed(2)); }
+        else if (field === 'unitPrice') { item.unitPrice = num; item.amount = parseFloat((item.quantity * num).toFixed(2)); }
+        else if (field === 'amount') { item.amount = num; }
+      }
+      next[idx] = item;
+      return next;
+    });
+  };
+  const addDirectInvoiceLineItem = () => setDirectInvoiceLineItems(prev => [...prev, { description: '', quantity: 1, unitPrice: 0, amount: 0 }]);
+  const removeDirectInvoiceLineItem = (idx: number) => setDirectInvoiceLineItems(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
+  const directInvoiceTotal = directInvoiceLineItems.reduce((s, li) => s + (Number(li.amount) || 0), 0);
+
+  const handleSubmitDirectInvoice = async () => {
+    if (!directInvoiceBidding) return;
+    const validItems = directInvoiceLineItems.filter(li => li.description.trim() && Number(li.amount) > 0);
+    if (validItems.length === 0) {
+      toast.error('Please add at least one line item with a description and amount');
+      return;
+    }
+    if (directInvoiceTotal <= 0) {
+      toast.error('Invoice total must be greater than zero');
+      return;
+    }
+    setDirectInvoiceSubmitting(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const primaryWorkOrderId = directInvoiceBidding.workOrderId || directInvoiceBidding.workOrderIds?.[0];
+      if (!primaryWorkOrderId) {
+        toast.error('This bidding item is missing a work order reference.');
+        return;
+      }
+
+      const subDoc = await getDoc(doc(db, 'subcontractors', currentUser.uid));
+      const subData = subDoc.exists() ? subDoc.data() : {};
+      const subName = (subData as any).fullName || (subData as any).businessName || 'Subcontractor';
+
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch('/api/work-orders/bidding-direct-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          biddingWorkOrderId: directInvoiceBidding.id,
+          workOrderId: primaryWorkOrderId,
+          lineItems: validItems,
+          notes: directInvoiceNotes,
+          totalAmount: directInvoiceTotal,
+          subName,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error((data as any).error || 'Failed to submit invoice');
+        return;
+      }
+
+      const data = await res.json();
+
+      // Fire-and-forget: notify admins that a direct invoice arrived.
+      void (async () => {
+        try {
+          await fetch('/api/email/send-quote-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
+            body: JSON.stringify({
+              notifyAdmins: true,
+              workOrderNumber: directInvoiceBidding.workOrderNumber || primaryWorkOrderId,
+              workOrderTitle: directInvoiceBidding.workOrderTitle,
+              subcontractorName: subName,
+              quoteAmount: directInvoiceTotal,
+              category: directInvoiceBidding.category || '',
+              locationName: directInvoiceBidding.locationName || '',
+              priority: directInvoiceBidding.priority || '',
+              description: directInvoiceBidding.workOrderDescription || '',
+            }),
+          });
+        } catch (err) {
+          console.error('[bidding] Direct invoice admin notification failed:', err);
+        }
+      })();
+
+      toast.success(`Invoice ${(data as any).invoiceNumber} submitted successfully!`);
+      setShowDirectInvoiceForm(false);
+      setDirectInvoiceBidding(null);
+      setDirectInvoiceLineItems([
+        { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+        { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
+      ]);
+      setDirectInvoiceNotes('');
+    } catch (error) {
+      console.error('Error submitting direct invoice:', error);
+      toast.error('Failed to submit invoice');
+    } finally {
+      setDirectInvoiceSubmitting(false);
+    }
   };
 
   const handleSubmitResults = async () => {
@@ -1051,6 +1182,18 @@ export default function SubcontractorBidding() {
                 </Button>
                 {viewWorkOrder.status === 'pending' && (
                   <>
+                    {viewWorkOrder.allowSubDirectInvoiceFromBidding && (
+                      <Button
+                        className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/25"
+                        onClick={() => {
+                          openDirectInvoiceForm(viewWorkOrder);
+                          setViewWorkOrder(null);
+                        }}
+                      >
+                        <Receipt className="h-4 w-4" />
+                        Submit Invoice
+                      </Button>
+                    )}
                     <Button
                       className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25"
                       onClick={() => {
@@ -1374,6 +1517,183 @@ export default function SubcontractorBidding() {
                   >
                     <Stethoscope className="h-4 w-4" />
                     {resultsSubmitting ? 'Submitting...' : 'Submit Diagnostic Results'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </PageContainer>
+      </SubcontractorLayout>
+    );
+  }
+
+  if (showDirectInvoiceForm && directInvoiceBidding) {
+    return (
+      <SubcontractorLayout>
+        <PageContainer>
+          <PageHeader
+            title="Submit Invoice"
+            subtitle={directInvoiceBidding.workOrderNumber ? `Work Order: ${directInvoiceBidding.workOrderNumber}` : directInvoiceBidding.workOrderTitle}
+            icon={Receipt}
+            iconClassName="text-blue-600"
+            action={
+              <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => {
+                setShowDirectInvoiceForm(false);
+                setDirectInvoiceBidding(null);
+              }}>
+                Cancel
+              </Button>
+            }
+          />
+
+          <Card className="rounded-2xl border border-border shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Work Order Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {directInvoiceBidding.workOrderTitle && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Title</p>
+                    <p className="text-sm font-semibold text-foreground">{directInvoiceBidding.workOrderTitle}</p>
+                  </div>
+                )}
+                {directInvoiceBidding.workOrderNumber && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                    <p className="text-sm font-semibold text-foreground">{directInvoiceBidding.workOrderNumber}</p>
+                  </div>
+                )}
+                {directInvoiceBidding.locationName && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Location</p>
+                    <p className="text-sm text-foreground">{directInvoiceBidding.locationName}</p>
+                  </div>
+                )}
+                {directInvoiceBidding.locationAddress && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Address</p>
+                    <p className="text-sm text-foreground">{formatAddress(directInvoiceBidding.locationAddress)}</p>
+                  </div>
+                )}
+              </div>
+              {directInvoiceBidding.workOrderDescription && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{directInvoiceBidding.workOrderDescription}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border border-blue-200/60 shadow-sm bg-blue-50/40 dark:bg-blue-950/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
+                <Receipt className="h-5 w-5" />
+                Invoice Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-6">
+                <div className="rounded-2xl bg-white/70 border border-blue-200/60 p-4 sm:p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-foreground">Line Items *</p>
+                    <Button type="button" size="sm" variant="outline" onClick={addDirectInvoiceLineItem} className="h-8 rounded-lg text-xs font-semibold gap-1.5">
+                      <Plus className="h-3.5 w-3.5" /> Add Item
+                    </Button>
+                  </div>
+                  <div className="hidden sm:grid grid-cols-12 gap-2 px-1 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="col-span-5">Description</div>
+                    <div className="col-span-2">Quantity</div>
+                    <div className="col-span-2">Rate</div>
+                    <div className="col-span-2 text-right">Total</div>
+                    <div className="col-span-1" />
+                  </div>
+                  <div className="space-y-2">
+                    {directInvoiceLineItems.map((item, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-12 sm:col-span-5">
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Description</Label>
+                          <Input
+                            placeholder="Description"
+                            value={item.description}
+                            onChange={(e) => updateDirectInvoiceLineItem(idx, 'description', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-3 sm:col-span-2">
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Quantity</Label>
+                          <Input
+                            type="number" min="0" step="0.01"
+                            placeholder="0"
+                            value={item.quantity || ''}
+                            onChange={(e) => updateDirectInvoiceLineItem(idx, 'quantity', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-3 sm:col-span-2">
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground">Rate</Label>
+                          <Input
+                            type="number" min="0" step="0.01"
+                            placeholder="0.00"
+                            value={item.unitPrice || ''}
+                            onChange={(e) => updateDirectInvoiceLineItem(idx, 'unitPrice', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-4 sm:col-span-2 text-right text-sm font-semibold tabular-nums self-center sm:self-end">
+                          <Label className="sm:hidden text-[11px] font-medium text-muted-foreground text-left block">Total</Label>
+                          {formatMoney(item.amount)}
+                        </div>
+                        <div className="col-span-2 sm:col-span-1 flex justify-end self-center sm:self-end">
+                          {directInvoiceLineItems.length > 1 && (
+                            <Button type="button" size="icon" variant="ghost" onClick={() => removeDirectInvoiceLineItem(idx)} className="h-9 w-9 rounded-lg text-rose-600 hover:bg-rose-50">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="invoiceNotes">Additional Notes (Optional)</Label>
+                  <textarea
+                    id="invoiceNotes"
+                    value={directInvoiceNotes}
+                    onChange={(e) => setDirectInvoiceNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-3.5 py-2.5 border border-input bg-background rounded-xl text-sm placeholder:text-muted-foreground hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Any additional information for the client..."
+                  />
+                </div>
+
+                <div className="rounded-2xl bg-white/70 border border-blue-200/60 px-5 py-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Invoice Total</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Submitted directly to client</p>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-700 tabular-nums">{formatMoney(directInvoiceTotal)}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                  <Button type="button" variant="outline" className="h-10 rounded-xl px-5 font-semibold w-full sm:w-auto" onClick={() => {
+                    setShowDirectInvoiceForm(false);
+                    setDirectInvoiceBidding(null);
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSubmitDirectInvoice}
+                    loading={directInvoiceSubmitting} disabled={directInvoiceSubmitting}
+                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/25 w-full sm:w-auto"
+                  >
+                    <Receipt className="h-4 w-4" />
+                    {directInvoiceSubmitting ? 'Submitting...' : 'Submit Invoice'}
                   </Button>
                 </div>
               </form>
@@ -1896,6 +2216,16 @@ export default function SubcontractorBidding() {
                   </div>
                 )}
 
+                {/* Status banner — direct invoice submitted */}
+                {bidding.status === 'direct_invoice_submitted' && (
+                  <div className="rounded-xl bg-blue-50 border border-blue-200/60 px-3 py-2.5 text-xs text-blue-900 flex items-start gap-2">
+                    <Receipt className="h-4 w-4 mt-0.5 shrink-0 text-blue-600" />
+                    <span>
+                      <strong>Invoice submitted.</strong> You have been assigned to this work order. Complete the work and mark it done when finished.
+                    </span>
+                  </div>
+                )}
+
                 {/* Actions — vary by state */}
                 <div className="border-t border-border pt-3 mt-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Button
@@ -1909,6 +2239,15 @@ export default function SubcontractorBidding() {
 
                   {bidding.status === 'pending' && (
                     <>
+                      {bidding.allowSubDirectInvoiceFromBidding && (
+                        <Button
+                          className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/20"
+                          onClick={() => openDirectInvoiceForm(bidding)}
+                        >
+                          <Receipt className="h-3.5 w-3.5" />
+                          Submit Invoice
+                        </Button>
+                      )}
                       <Button
                         className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
                         onClick={() => openDirectQuoteForm(bidding)}
@@ -1960,7 +2299,7 @@ export default function SubcontractorBidding() {
                     </Button>
                   )}
 
-                  {/* diagnostic_requested and diagnostic_rejected: only "View Work Order" remains */}
+                  {/* diagnostic_requested, diagnostic_rejected, direct_invoice_submitted: only "View Work Order" remains */}
                 </div>
               </div>
             ))}

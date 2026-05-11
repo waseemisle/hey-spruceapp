@@ -39,6 +39,9 @@ interface Company {
   // can opt in without code changes.
   marginEdgeEnabled?: boolean;
   marginEdgeInvoiceEmail?: string;
+  // When true, subcontractors invited to bid on this company's work orders
+  // may submit an invoice directly instead of going through the quote flow.
+  allowSubDirectInvoiceFromBidding?: boolean;
 }
 
 interface Client {
@@ -129,6 +132,8 @@ function configuredFeatureCount(c: Company): number {
   if ((c.allowedSubcontractorStates || []).length > 0) n++;
   if (c.invoiceApprovalRequired) n++;
   if (c.invoiceLocationEmailEnabled) n++;
+  if (c.marginEdgeEnabled) n++;
+  if (c.allowSubDirectInvoiceFromBidding) n++;
   return n;
 }
 
@@ -233,6 +238,9 @@ export default function CompaniesPermissions() {
   const [companyMarginEdgeEnabled, setCompanyMarginEdgeEnabled] = useState<Record<string, boolean>>({});
   const [companyMarginEdgeEmail, setCompanyMarginEdgeEmail] = useState<Record<string, string>>({});
   const [companyMarginEdgeSaving, setCompanyMarginEdgeSaving] = useState<string | null>(null);
+  // Direct invoice from bidding — per-company toggle + save state.
+  const [companyDirectInvoice, setCompanyDirectInvoice] = useState<Record<string, boolean>>({});
+  const [companyDirectInvoiceSaving, setCompanyDirectInvoiceSaving] = useState<string | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -255,18 +263,21 @@ export default function CompaniesPermissions() {
       const locationEmailMap: Record<string, boolean> = {};
       const marginEdgeEnabledMap: Record<string, boolean> = {};
       const marginEdgeEmailMap: Record<string, string> = {};
+      const directInvoiceMap: Record<string, boolean> = {};
       comps.forEach((c) => {
         allowedStatesMap[c.id] = Array.isArray(c.allowedSubcontractorStates) ? c.allowedSubcontractorStates : [];
         invoiceApprovalMap[c.id] = c.invoiceApprovalRequired === true;
         locationEmailMap[c.id] = c.invoiceLocationEmailEnabled === true;
         marginEdgeEnabledMap[c.id] = c.marginEdgeEnabled === true;
         marginEdgeEmailMap[c.id] = c.marginEdgeInvoiceEmail || '';
+        directInvoiceMap[c.id] = c.allowSubDirectInvoiceFromBidding === true;
       });
       setCompanyAllowedStates(allowedStatesMap);
       setCompanyInvoiceApproval(invoiceApprovalMap);
       setCompanyLocationEmail(locationEmailMap);
       setCompanyMarginEdgeEnabled(marginEdgeEnabledMap);
       setCompanyMarginEdgeEmail(marginEdgeEmailMap);
+      setCompanyDirectInvoice(directInvoiceMap);
 
       const permissionsMap: Record<string, Client['permissions']> = {};
       cls.forEach((client) => {
@@ -397,6 +408,28 @@ export default function CompaniesPermissions() {
       toast.error(e?.message || 'Failed to save Margin Edge setting');
     } finally {
       setCompanyMarginEdgeSaving(null);
+    }
+  };
+
+  // --- Direct invoice from bidding perm --------------------------------
+  const handleSaveDirectInvoice = async (companyId: string) => {
+    setCompanyDirectInvoiceSaving(companyId);
+    try {
+      const enabled = companyDirectInvoice[companyId] === true;
+      await updateDoc(doc(db, 'companies', companyId), {
+        allowSubDirectInvoiceFromBidding: enabled,
+        updatedAt: serverTimestamp(),
+      });
+      toast.success(
+        enabled
+          ? 'Direct Invoice from Bidding enabled — subs may now submit invoices directly'
+          : 'Direct Invoice from Bidding disabled',
+      );
+      setCompanies((prev) => prev.map((c) => (c.id === companyId ? { ...c, allowSubDirectInvoiceFromBidding: enabled } : c)));
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to save Direct Invoice setting');
+    } finally {
+      setCompanyDirectInvoiceSaving(null);
     }
   };
 
@@ -700,6 +733,11 @@ export default function CompaniesPermissions() {
                     onSetMarginEdgeEmail={(v) => setCompanyMarginEdgeEmail((prev) => ({ ...prev, [selectedCompany.id]: v }))}
                     onSaveMarginEdge={() => handleSaveMarginEdge(selectedCompany.id)}
                     marginEdgeSaving={companyMarginEdgeSaving === selectedCompany.id}
+
+                    directInvoiceEnabled={companyDirectInvoice[selectedCompany.id] === true}
+                    onSetDirectInvoice={(v) => setCompanyDirectInvoice((prev) => ({ ...prev, [selectedCompany.id]: v }))}
+                    onSaveDirectInvoice={() => handleSaveDirectInvoice(selectedCompany.id)}
+                    directInvoiceSaving={companyDirectInvoiceSaving === selectedCompany.id}
                   />
                 )}
 
@@ -751,6 +789,11 @@ function SettingsTab(props: {
   onSetMarginEdgeEmail: (v: string) => void;
   onSaveMarginEdge: () => void;
   marginEdgeSaving: boolean;
+
+  directInvoiceEnabled: boolean;
+  onSetDirectInvoice: (v: boolean) => void;
+  onSaveDirectInvoice: () => void;
+  directInvoiceSaving: boolean;
 }) {
   const {
     company,
@@ -759,6 +802,7 @@ function SettingsTab(props: {
     locationEmailEnabled, onSetLocationEmail, onSaveLocationEmail, locationEmailSaving,
     marginEdgeEnabled, marginEdgeEmail, onSetMarginEdgeEnabled, onSetMarginEdgeEmail,
     onSaveMarginEdge, marginEdgeSaving,
+    directInvoiceEnabled, onSetDirectInvoice, onSaveDirectInvoice, directInvoiceSaving,
   } = props;
 
   const allStates = companyAllowedStates.length === 0;
@@ -770,6 +814,7 @@ function SettingsTab(props: {
   const marginEdgeDirty =
     marginEdgeEnabled !== (company.marginEdgeEnabled === true) ||
     (marginEdgeEmail || '').trim() !== (company.marginEdgeInvoiceEmail || '').trim();
+  const directInvoiceDirty = directInvoiceEnabled !== (company.allowSubDirectInvoiceFromBidding === true);
 
   return (
     <div className="space-y-4">
@@ -895,6 +940,34 @@ function SettingsTab(props: {
         </div>
       </SettingCard>
 
+      {/* Direct Invoice from Bidding */}
+      <SettingCard
+        accent="indigo"
+        icon={FileText}
+        title="Direct Invoice from Bidding"
+        description="When enabled, subcontractors invited to bid on this company's work orders may submit an invoice directly, bypassing the normal quote → approve → assign flow. The work order is assigned to them immediately; they complete the work and mark it done normally."
+        statusBadge={<StatusPill on={directInvoiceEnabled} />}
+        footer={
+          <Button size="sm" onClick={onSaveDirectInvoice} disabled={directInvoiceSaving || !directInvoiceDirty} className="gap-1.5">
+            <Save className="h-3.5 w-3.5" />
+            {directInvoiceSaving ? 'Saving…' : directInvoiceDirty ? 'Save Direct Invoice' : 'Saved'}
+          </Button>
+        }
+      >
+        <div className="flex items-start gap-4 p-3 rounded-lg bg-muted/30 border border-border">
+          <Switch
+            checked={directInvoiceEnabled}
+            onCheckedChange={onSetDirectInvoice}
+          />
+          <div className="text-sm">
+            <p className="font-medium text-foreground">Allow subcontractors to submit invoices directly from bidding</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Skips the quote step for invited subs on this company's orders. Invoice approval rules (72h window) still apply if enabled above.
+            </p>
+          </div>
+        </div>
+      </SettingCard>
+
       {/* Margin Edge Integration */}
       <SettingCard
         accent="emerald"
@@ -976,11 +1049,12 @@ function StatusPill({ on }: { on: boolean }) {
   );
 }
 
-const ACCENT: Record<'blue' | 'amber' | 'purple' | 'emerald', { stripe: string; iconBg: string; iconText: string }> = {
+const ACCENT: Record<'blue' | 'amber' | 'purple' | 'emerald' | 'indigo', { stripe: string; iconBg: string; iconText: string }> = {
   blue:    { stripe: 'before:bg-blue-500',    iconBg: 'bg-blue-50 dark:bg-blue-950/40',       iconText: 'text-blue-600 dark:text-blue-400' },
   amber:   { stripe: 'before:bg-amber-500',   iconBg: 'bg-amber-50 dark:bg-amber-950/40',     iconText: 'text-amber-600 dark:text-amber-400' },
   purple:  { stripe: 'before:bg-purple-500',  iconBg: 'bg-purple-50 dark:bg-purple-950/40',   iconText: 'text-purple-600 dark:text-purple-400' },
   emerald: { stripe: 'before:bg-emerald-500', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40', iconText: 'text-emerald-600 dark:text-emerald-400' },
+  indigo:  { stripe: 'before:bg-indigo-500',  iconBg: 'bg-indigo-50 dark:bg-indigo-950/40',   iconText: 'text-indigo-600 dark:text-indigo-400' },
 };
 
 function SettingCard({

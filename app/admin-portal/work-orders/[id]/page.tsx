@@ -1049,22 +1049,43 @@ export default function ViewWorkOrder() {
 
       // ── Background: create bidding docs, send emails, update timeline ──
       // None of this blocks the UI
-      Promise.all(selectedSubcontractors.map(async subId => {
-        const sub = subcontractors.find(s => s.id === subId);
-        if (!sub) return;
-        const authId = subcontractorAuthId(sub);
-        await addDoc(collection(db, 'biddingWorkOrders'), {
-          workOrderId: workOrder.id, workOrderNumber,
-          subcontractorId: authId, subcontractorName: sub.fullName, subcontractorEmail: sub.email,
-          workOrderTitle: workOrder.title, workOrderDescription: workOrder.description,
-          clientId: workOrder.clientId, clientName: workOrder.clientName, clientEmail: workOrder.clientEmail || '',
-          priority: workOrder.priority || '', category: workOrder.category || '',
-          locationName: workOrder.locationName || '', locationAddress: workOrder.locationAddress || '',
-          images: workOrder.images || [],
-          estimateBudget: workOrder.estimateBudget ?? null,
-          status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
-        });
-      })).catch(console.error);
+      ;(async () => {
+        // Resolve company once so every biddingWorkOrders doc is stamped with
+        // companyId and the allowSubDirectInvoiceFromBidding flag. Subs read
+        // this field to decide whether to show the direct-invoice button; the
+        // API re-verifies the flag server-side on submit (defence-in-depth).
+        let biddingCompanyId: string | null = (workOrder as any).companyId || null;
+        let allowSubDirectInvoice = false;
+        try {
+          if (!biddingCompanyId && workOrder.clientId) {
+            const cSnap = await getDoc(doc(db, 'clients', workOrder.clientId));
+            biddingCompanyId = cSnap.data()?.companyId || null;
+          }
+          if (biddingCompanyId) {
+            const compSnap = await getDoc(doc(db, 'companies', biddingCompanyId));
+            allowSubDirectInvoice = compSnap.data()?.allowSubDirectInvoiceFromBidding === true;
+          }
+        } catch { /* non-fatal; subs fall back to the API gate */ }
+
+        await Promise.all(selectedSubcontractors.map(async subId => {
+          const sub = subcontractors.find(s => s.id === subId);
+          if (!sub) return;
+          const authId = subcontractorAuthId(sub);
+          await addDoc(collection(db, 'biddingWorkOrders'), {
+            workOrderId: workOrder.id, workOrderNumber,
+            subcontractorId: authId, subcontractorName: sub.fullName, subcontractorEmail: sub.email,
+            workOrderTitle: workOrder.title, workOrderDescription: workOrder.description,
+            clientId: workOrder.clientId, clientName: workOrder.clientName, clientEmail: workOrder.clientEmail || '',
+            priority: workOrder.priority || '', category: workOrder.category || '',
+            locationName: workOrder.locationName || '', locationAddress: workOrder.locationAddress || '',
+            images: workOrder.images || [],
+            estimateBudget: workOrder.estimateBudget ?? null,
+            companyId: biddingCompanyId,
+            allowSubDirectInvoiceFromBidding: allowSubDirectInvoice,
+            status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
+          });
+        }));
+      })().catch(console.error);
 
       notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title).catch(console.error);
 

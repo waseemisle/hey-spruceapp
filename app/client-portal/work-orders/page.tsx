@@ -552,23 +552,37 @@ function ClientWorkOrdersContent() {
       setSubmitting(false);
 
       // ── Everything below runs in background ──
-      // Bidding docs
-      Promise.all(subs.map(async (subId) => {
-        const sub = subcontractors.find(s => s.id === subId);
-        if (!sub) return;
-        const authId = subcontractorAuthId(sub);
-        await addDoc(collection(db, 'biddingWorkOrders'), {
-          workOrderId: wo.id, workOrderNumber, subcontractorId: authId,
-          subcontractorName: sub.fullName, subcontractorEmail: sub.email,
-          workOrderTitle: wo.title, workOrderDescription: wo.description,
-          clientId: wo.clientId, clientName: wo.clientName, clientEmail: wo.clientEmail || '',
-          companyId: wo.companyId || null, images: wo.images || [],
-          estimateBudget: (wo as any).estimateBudget ?? null,
-          priority: wo.priority || '', category: wo.category || '',
-          locationName: wo.locationName || '', locationAddress: (wo as any).locationAddress || '',
-          status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
-        });
-      })).catch(console.error);
+      // Bidding docs — stamp company flag so sub portal can show the direct-invoice
+      // button without an extra read; API re-verifies on submit (defence-in-depth).
+      ;(async () => {
+        let allowSubDirectInvoice = false;
+        try {
+          const cId: string | null = wo.companyId || null;
+          if (cId) {
+            const compSnap = await getDoc(doc(db, 'companies', cId));
+            allowSubDirectInvoice = compSnap.data()?.allowSubDirectInvoiceFromBidding === true;
+          }
+        } catch { /* non-fatal */ }
+
+        await Promise.all(subs.map(async (subId) => {
+          const sub = subcontractors.find(s => s.id === subId);
+          if (!sub) return;
+          const authId = subcontractorAuthId(sub);
+          await addDoc(collection(db, 'biddingWorkOrders'), {
+            workOrderId: wo.id, workOrderNumber, subcontractorId: authId,
+            subcontractorName: sub.fullName, subcontractorEmail: sub.email,
+            workOrderTitle: wo.title, workOrderDescription: wo.description,
+            clientId: wo.clientId, clientName: wo.clientName, clientEmail: wo.clientEmail || '',
+            companyId: wo.companyId || null,
+            allowSubDirectInvoiceFromBidding: allowSubDirectInvoice,
+            images: wo.images || [],
+            estimateBudget: (wo as any).estimateBudget ?? null,
+            priority: wo.priority || '', category: wo.category || '',
+            locationName: wo.locationName || '', locationAddress: (wo as any).locationAddress || '',
+            status: 'pending', sharedAt: serverTimestamp(), createdAt: serverTimestamp(),
+          });
+        }));
+      })().catch(console.error);
 
       // Notifications + emails (fire-and-forget)
       notifyBiddingOpportunity(subAuthIds, wo.id, workOrderNumber, wo.title).catch(console.error);
