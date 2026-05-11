@@ -2253,80 +2253,16 @@ export default function SubcontractorBidding() {
                   </div>
                 )}
 
-                {/* Actions — vary by state */}
-                <div className="border-t border-border pt-3 mt-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* Single action — all other actions accessible inside the detail view */}
+                <div className="border-t border-border pt-3 mt-auto">
                   <Button
                     variant="outline"
-                    className="h-9 rounded-xl text-xs font-semibold gap-1.5"
+                    className="h-9 w-full rounded-xl text-xs font-semibold gap-1.5"
                     onClick={() => setViewWorkOrder(bidding)}
                   >
                     <ClipboardList className="h-3.5 w-3.5" />
                     View Work Order
                   </Button>
-
-                  {bidding.status === 'pending' && (
-                    <>
-                      {(bidding.allowSubDirectInvoiceFromBidding || eligibleDirectInvoiceIds.has(bidding.id)) && (
-                        <Button
-                          className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/20"
-                          onClick={() => openDirectInvoiceForm(bidding)}
-                        >
-                          <Receipt className="h-3.5 w-3.5" />
-                          Submit Invoice
-                        </Button>
-                      )}
-                      <Button
-                        className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
-                        onClick={() => openDirectQuoteForm(bidding)}
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        Submit Quote
-                      </Button>
-                      {!(Array.isArray(bidding.workOrderIds) && bidding.workOrderIds.length >= 2) && (
-                        <Button
-                          className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/20 col-span-2"
-                          onClick={() => {
-                            setSelectedBidding(bidding);
-                            setShowQuoteForm(true);
-                          }}
-                        >
-                          <Stethoscope className="h-3.5 w-3.5" />
-                          Submit Diagnostic Request
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        className="h-9 rounded-xl text-xs font-semibold gap-1.5 text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 col-span-2"
-                        disabled={rejectingId === bidding.id}
-                        onClick={() => handleRejectBidding(bidding)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        {rejectingId === bidding.id ? 'Rejecting…' : 'Reject Quote Request'}
-                      </Button>
-                    </>
-                  )}
-
-                  {bidding.status === 'diagnostic_accepted' && (
-                    <Button
-                      className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/20"
-                      onClick={() => openResultsForm(bidding)}
-                    >
-                      <Stethoscope className="h-3.5 w-3.5" />
-                      Submit Diagnostic Results
-                    </Button>
-                  )}
-
-                  {bidding.status === 'diagnostic_results_submitted' && (
-                    <Button
-                      className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/20"
-                      onClick={() => openDirectQuoteForm(bidding)}
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      Submit Quote
-                    </Button>
-                  )}
-
-                  {/* diagnostic_requested, diagnostic_rejected, direct_invoice_submitted: only "View Work Order" remains */}
                 </div>
               </div>
             ))}

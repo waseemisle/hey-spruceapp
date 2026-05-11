@@ -297,7 +297,7 @@ describe('POST /api/work-orders/bidding-direct-invoice', () => {
     expect(mockAddDoc).toHaveBeenCalledTimes(1);
     const [, invoiceDoc] = mockAddDoc.mock.calls[0];
     expect(invoiceDoc.totalAmount).toBe(500);
-    expect(invoiceDoc.status).toBe('sent'); // invoiceApprovalRequired=false
+    expect(invoiceDoc.status).toBe('draft'); // always draft — admin reviews and sends to client
     expect(invoiceDoc.directInvoiceBypass).toBe(true);
     expect(invoiceDoc.creationSource).toBe('subcontractor_direct_invoice_bidding');
 
@@ -314,7 +314,7 @@ describe('POST /api/work-orders/bidding-direct-invoice', () => {
     expect(biddingUpdates.directInvoiceId).toBe(INVOICE_ID);
   });
 
-  it('creates invoice with pending_approval status when invoiceApprovalRequired is true', async () => {
+  it('creates invoice as draft even when invoiceApprovalRequired is true (admin markup flow)', async () => {
     mockGetBearerUid.mockResolvedValue(SUB_UID);
     mockGetServerDb.mockResolvedValue({});
     mockAddDoc.mockResolvedValue({ id: INVOICE_ID });
@@ -329,7 +329,6 @@ describe('POST /api/work-orders/bidding-direct-invoice', () => {
     expect(res.status).toBe(200);
 
     const [, invoiceDoc] = mockAddDoc.mock.calls[0];
-    expect(invoiceDoc.status).toBe('pending_approval');
-    expect(invoiceDoc.clientApprovalStatus).toBe('pending');
+    expect(invoiceDoc.status).toBe('draft');
   });
 });

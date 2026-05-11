@@ -108,9 +108,9 @@ export async function POST(request: Request) {
     const subName: string = bodySubName || (subData.fullName as string) || (subData.businessName as string) || 'Subcontractor';
     const subEmail: string = (subData.email as string) || '';
 
-    // 6. Determine invoice status — respect invoiceApprovalRequired gate.
-    const invoiceApprovalRequired = companyData.invoiceApprovalRequired === true;
-    const invoiceStatus = invoiceApprovalRequired ? 'pending_approval' : 'sent';
+    // 6. Create invoice as 'draft' so admin can review, add markup, and send to
+    //    client — matching the normal quote → admin-markup → client-invoice flow.
+    //    The sub and client never see each other's amounts.
 
     // 7. Create invoice document server-side (bypasses the client Firestore rule
     //    that restricts invoice creates to isAdmin() only).
@@ -134,10 +134,7 @@ export async function POST(request: Request) {
       totalAmount,
       lineItems,
       discountAmount: 0,
-      status: invoiceStatus,
-      ...(invoiceApprovalRequired
-        ? { clientApprovalStatus: 'pending', approvalWindowHours: 72 }
-        : {}),
+      status: 'draft',
       dueDate,
       notes: notes || '',
       createdBy: uid,
