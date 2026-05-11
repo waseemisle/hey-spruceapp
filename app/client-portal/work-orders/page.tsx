@@ -557,7 +557,11 @@ function ClientWorkOrdersContent() {
       ;(async () => {
         let allowSubDirectInvoice = false;
         try {
-          const cId: string | null = wo.companyId || null;
+          let cId: string | null = wo.companyId || null;
+          if (!cId && wo.clientId) {
+            const clientSnap = await getDoc(doc(db, 'clients', wo.clientId));
+            cId = clientSnap.data()?.companyId || null;
+          }
           if (cId) {
             const compSnap = await getDoc(doc(db, 'companies', cId));
             allowSubDirectInvoice = compSnap.data()?.allowSubDirectInvoiceFromBidding === true;

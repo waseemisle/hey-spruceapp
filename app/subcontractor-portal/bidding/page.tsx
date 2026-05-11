@@ -336,6 +336,9 @@ export default function SubcontractorBidding() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   // ─── Direct Invoice (bypass quote — only for companies with allowSubDirectInvoiceFromBidding) ───
+  // eligibleDirectInvoiceIds: server-verified fallback for biddingWorkOrders docs created
+  // before the allowSubDirectInvoiceFromBidding field was denormalized at share time.
+  const [eligibleDirectInvoiceIds, setEligibleDirectInvoiceIds] = useState<Set<string>>(new Set());
   const [showDirectInvoiceForm, setShowDirectInvoiceForm] = useState(false);
   const [directInvoiceBidding, setDirectInvoiceBidding] = useState<BiddingWorkOrder | null>(null);
   const [directInvoiceLineItems, setDirectInvoiceLineItems] = useState<Array<{ description: string; quantity: number; unitPrice: number; amount: number }>>([
@@ -382,6 +385,30 @@ export default function SubcontractorBidding() {
 
     return () => unsubscribeAuth();
   }, [auth, db]);
+
+  // For biddingWorkOrders docs that pre-date the allowSubDirectInvoiceFromBidding field,
+  // do a server-side eligibility check so the Submit Invoice button still appears.
+  useEffect(() => {
+    const unchecked = biddingWorkOrders.filter(
+      b => b.status === 'pending' && !b.allowSubDirectInvoiceFromBidding && !eligibleDirectInvoiceIds.has(b.id),
+    );
+    if (unchecked.length === 0) return;
+
+    const ids = unchecked.map(b => b.id).join(',');
+    auth.currentUser?.getIdToken().then(token =>
+      fetch(`/api/bidding/direct-invoice-eligible?ids=${ids}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.json())
+        .then(({ eligibleIds }: { eligibleIds: string[] }) => {
+          if (eligibleIds.length > 0) {
+            setEligibleDirectInvoiceIds(prev => new Set([...prev, ...eligibleIds]));
+          }
+        })
+        .catch(console.error),
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biddingWorkOrders]);
 
   // Fetch images from original work order if bidding doc doesn't have them
   useEffect(() => {
@@ -1182,7 +1209,7 @@ export default function SubcontractorBidding() {
                 </Button>
                 {viewWorkOrder.status === 'pending' && (
                   <>
-                    {viewWorkOrder.allowSubDirectInvoiceFromBidding && (
+                    {(viewWorkOrder.allowSubDirectInvoiceFromBidding || eligibleDirectInvoiceIds.has(viewWorkOrder.id)) && (
                       <Button
                         className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/25"
                         onClick={() => {
@@ -2239,7 +2266,7 @@ export default function SubcontractorBidding() {
 
                   {bidding.status === 'pending' && (
                     <>
-                      {bidding.allowSubDirectInvoiceFromBidding && (
+                      {(bidding.allowSubDirectInvoiceFromBidding || eligibleDirectInvoiceIds.has(bidding.id)) && (
                         <Button
                           className="h-9 rounded-xl text-xs font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/20"
                           onClick={() => openDirectInvoiceForm(bidding)}
