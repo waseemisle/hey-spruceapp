@@ -186,12 +186,16 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
 
 function TimeSlotGrid({ slots, value, onChange, accent, columns = 3 }: { slots: readonly string[]; value: string; onChange: (slot: string) => void; accent: Accent; columns?: 3 | 4 }) {
   const styles = ACCENT[accent];
-  const colCls =
-    columns === 4
-      ? 'sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
-      : 'sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
+  /** 24× 1-hour labels need 1 column on very small screens; 12× 2-hour labels still overflow in 2-up below ~380px. */
+  const manySlots = slots.length > 12;
+  const gridCols = manySlots
+    ? 'grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
+    : columns === 4
+      ? 'grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
+      : 'grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
+
   return (
-    <div className={`grid grid-cols-2 ${colCls} gap-1.5 sm:gap-2`}>
+    <div className={`grid w-full min-w-0 ${gridCols} gap-2`}>
       {slots.map((slot) => {
         const isSelected = value === slot;
         return (
@@ -200,7 +204,7 @@ function TimeSlotGrid({ slots, value, onChange, accent, columns = 3 }: { slots: 
             key={slot}
             onClick={() => onChange(slot)}
             aria-pressed={isSelected}
-            className={`rounded-lg sm:rounded-xl border px-1.5 py-2 sm:px-2.5 sm:py-2.5 text-[11px] sm:text-xs font-semibold tabular-nums whitespace-nowrap transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${styles.ring} ${isSelected ? styles.pillSelected : styles.pillIdle}`}
+            className={`min-h-[2.75rem] min-w-0 w-full max-w-full break-words rounded-lg border px-2 py-2 text-center text-[10px] font-semibold leading-snug tabular-nums transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 sm:rounded-xl sm:px-2.5 sm:py-2.5 sm:text-xs sm:leading-tight ${styles.ring} ${isSelected ? styles.pillSelected : styles.pillIdle}`}
           >
             {slot}
           </button>
@@ -218,7 +222,7 @@ function SchedulePicker({
 }) {
   const styles = ACCENT[accent];
   return (
-    <div className={`rounded-2xl border ${styles.panelBorder} ${styles.panelBg} p-3 sm:p-4 space-y-3 sm:space-y-4`}>
+    <div className={`min-w-0 max-w-full overflow-hidden rounded-2xl border ${styles.panelBorder} ${styles.panelBg} p-3 sm:p-4 space-y-3 sm:space-y-4`}>
       <div>
         <p className="text-xs sm:text-sm font-semibold text-foreground mb-2">Pick a service date</p>
         <DateStrip value={date} onChange={onDateChange} accent={accent} />
@@ -1360,7 +1364,7 @@ export default function SubcontractorBidding() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
                   {viewWorkOrder.workOrderTitle && (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground">Title</p>
@@ -2101,7 +2105,7 @@ export default function SubcontractorBidding() {
                 </CardHeader>
                 <CardContent>
                   <form className="space-y-4 sm:space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="md:col-span-2">
                     <Label htmlFor="diagnosticFee" className="text-sm font-semibold text-foreground">Diagnostic Fee *</Label>
                     <div className="relative mt-1.5">
@@ -2131,7 +2135,6 @@ export default function SubcontractorBidding() {
                       slots={DIAGNOSTIC_TIME_SLOTS}
                       accent="indigo"
                       durationLabel="1-hour window"
-                      slotColumns={4}
                     />
                   </div>
 
