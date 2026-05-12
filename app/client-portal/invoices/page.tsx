@@ -7,7 +7,6 @@ import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
-import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye, Zap, AlertCircle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -218,18 +217,18 @@ function ClientInvoicesInner() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Invoices"
@@ -472,20 +471,16 @@ function ClientInvoicesInner() {
           </div>
         )}
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }
 
 export default function ClientInvoices() {
   return (
     <Suspense
-      fallback={
-        <ClientLayout>
-          <div className="flex items-center justify-center h-64">
+      fallback={<div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-          </div>
-        </ClientLayout>
-      }
+          </div>}
     >
       <ClientInvoicesInner />
     </Suspense>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, limit, onSnapshot, where, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -302,7 +301,7 @@ export default function MessagesManagement() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Messages"
@@ -313,12 +312,12 @@ export default function MessagesManagement() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       {/*
         Locked to viewport — chat is a single-screen workspace, the page
         itself does not scroll. Only the messages list scrolls inside the
@@ -650,6 +649,6 @@ export default function MessagesManagement() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

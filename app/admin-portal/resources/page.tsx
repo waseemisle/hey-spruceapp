@@ -6,7 +6,6 @@ import {
   addDoc, serverTimestamp, deleteDoc, orderBy, limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -193,7 +192,7 @@ export default function ResourcesPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         {/* ── Header ────────────────────────────────────────────────────────── */}
         <PageHeader
@@ -549,6 +548,6 @@ export default function ResourcesPage() {
         )}
 
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

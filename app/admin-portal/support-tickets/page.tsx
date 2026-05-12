@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -256,16 +255,16 @@ export default function AdminSupportTicketsPage() {
 
   if (loading && tickets.length === 0) {
     return (
-      <AdminLayout>
+      <>
         <div className="flex justify-center py-24">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Support Tickets"
@@ -533,6 +532,6 @@ export default function AdminSupportTicketsPage() {
           </DialogContent>
         </Dialog>
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

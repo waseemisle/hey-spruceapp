@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, where, deleteDoc, getDoc, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -408,7 +407,7 @@ export default function SubcontractorsManagement() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
       <div className="space-y-6">
 
@@ -865,6 +864,6 @@ export default function SubcontractorsManagement() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

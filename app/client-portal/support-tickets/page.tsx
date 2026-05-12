@@ -6,7 +6,6 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { subscribeClientSupportTickets } from '@/lib/support-ticket-snapshots';
-import ClientLayout from '@/components/client-layout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -235,16 +234,16 @@ export default function ClientSupportTicketsPage() {
 
   if (loading && tickets.length === 0) {
     return (
-      <ClientLayout>
+      <>
         <div className="flex justify-center py-24">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Support Tickets"
@@ -473,6 +472,6 @@ export default function ClientSupportTicketsPage() {
           </DialogContent>
         </Dialog>
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

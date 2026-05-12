@@ -8,7 +8,6 @@ import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { notifyQuoteRejection } from '@/lib/notifications';
-import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { FileText, Check, X, Calendar, DollarSign, Eye } from 'lucide-react';
@@ -370,18 +369,18 @@ export default function ClientQuotes() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Quotes"
@@ -488,6 +487,6 @@ export default function ClientQuotes() {
           </div>
         )}
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

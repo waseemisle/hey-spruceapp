@@ -10,7 +10,6 @@ import {
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Input } from '@/components/ui/input';
 import {
   ClipboardCheck,
@@ -207,18 +206,18 @@ export default function SubcontractorCompletedJobs() {
 
   if (loading) {
     return (
-      <SubcontractorLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   return (
-    <SubcontractorLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="My Completed Jobs"
@@ -351,6 +350,6 @@ export default function SubcontractorCompletedJobs() {
           </div>
         )}
       </PageContainer>
-    </SubcontractorLayout>
+    </>
   );
 }

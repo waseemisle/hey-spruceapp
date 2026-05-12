@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { formatMoney } from '@/lib/money';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClipboardList, FileText, Users, Receipt, DollarSign, TrendingUp, Building2 } from 'lucide-react';
 
@@ -117,7 +116,7 @@ export default function AnalyticsExecutiveDashboard() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Analytics"
@@ -128,12 +127,12 @@ export default function AnalyticsExecutiveDashboard() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-8 max-w-6xl mx-auto">
         <div>
           <h1 className="text-2xl font-bold">Analytics — Executive Dashboard</h1>
@@ -299,6 +298,6 @@ export default function AnalyticsExecutiveDashboard() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

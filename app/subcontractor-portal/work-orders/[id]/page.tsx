@@ -7,7 +7,6 @@ import { collection, doc, getDoc, onSnapshot, query, where, Timestamp } from 'fi
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ClipboardList, Calendar, MapPin, Stethoscope, FileText, Image as ImageIcon } from 'lucide-react';
@@ -146,17 +145,17 @@ export default function SubWorkOrderDetail() {
 
   if (loading) {
     return (
-      <SubcontractorLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   if (!workOrder) {
     return (
-      <SubcontractorLayout>
+      <>
         <PageContainer>
           <Card className="rounded-2xl border border-border shadow-sm">
             <CardContent className="p-8 text-center">
@@ -170,7 +169,7 @@ export default function SubWorkOrderDetail() {
             </CardContent>
           </Card>
         </PageContainer>
-      </SubcontractorLayout>
+      </>
     );
   }
 
@@ -178,7 +177,7 @@ export default function SubWorkOrderDetail() {
   const statusLabel = STATUS_LABELS[status] || status;
 
   return (
-    <SubcontractorLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Work Order Details"
@@ -487,6 +486,6 @@ export default function SubWorkOrderDetail() {
           onClose={() => setLightboxImages([])}
         />
       )}
-    </SubcontractorLayout>
+    </>
   );
 }

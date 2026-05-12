@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, getDoc, Timestamp, orderBy, writeBatch, limit, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { notifyClientOfWorkOrderApproval, notifyBiddingOpportunity, notifyClientOfInvoice, notifyScheduledService, notifyClientOfWorkOrderRejection } from '@/lib/notifications';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -516,11 +515,6 @@ const fetchCategories = async () => {
   const handleCreateRecurringWorkOrder = () => {
     setShowWorkOrderTypeModal(false);
     router.push('/admin-portal/recurring-work-orders/create');
-  };
-
-  const handleCreateGuidedWorkOrder = () => {
-    setShowWorkOrderTypeModal(false);
-    router.push('/admin-portal/work-orders/create/guided');
   };
 
 const handleCompanySelect = (companyId: string) => {
@@ -2540,7 +2534,7 @@ const companiesForSelectedClient = (() => {
 })();
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Work Orders"
@@ -3340,16 +3334,6 @@ const companiesForSelectedClient = (() => {
                       Create a recurring work order that repeats automatically (daily, weekly, monthly, yearly, or custom)
                     </div>
                   </button>
-
-                  <button
-                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
-                    onClick={handleCreateGuidedWorkOrder}
-                  >
-                    <div className="font-semibold text-lg text-foreground">Guided Work Order</div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      Step-by-step wizard with location, problem search, duplicate detection, and troubleshooting tips
-                    </div>
-                  </button>
                 </div>
 
                 <div className="flex gap-3 pt-4 border-t">
@@ -3606,13 +3590,13 @@ const companiesForSelectedClient = (() => {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }
 
 export default function WorkOrdersManagement() {
   return (
-    <Suspense fallback={<AdminLayout><div /></AdminLayout>}>
+    <Suspense fallback={<div />}>
       <WorkOrdersContent />
     </Suspense>
   );

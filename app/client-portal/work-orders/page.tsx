@@ -8,7 +8,6 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyBiddingOpportunity, notifyAdminsOfWorkOrder } from '@/lib/notifications';
 import { createTimelineEvent } from '@/lib/timeline';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
-import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -951,7 +950,7 @@ function ClientWorkOrdersContent() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Work Orders"
@@ -962,12 +961,12 @@ function ClientWorkOrdersContent() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </ClientLayout>
+    </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <div className="space-y-6">
 
         {/* Header */}
@@ -1644,19 +1643,15 @@ function ClientWorkOrdersContent() {
           </div>
         </div>
       )}
-    </ClientLayout>
+    </>
   );
 }
 
 export default function ClientWorkOrders() {
   return (
-    <Suspense fallback={
-      <ClientLayout>
-        <div className="flex items-center justify-center h-64">
+    <Suspense fallback={<div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-        </div>
-      </ClientLayout>
-    }>
+        </div>}>
       <ClientWorkOrdersContent />
     </Suspense>
   );

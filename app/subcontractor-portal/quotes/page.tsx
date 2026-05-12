@@ -5,7 +5,6 @@ import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/f
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { FileText, Calendar, DollarSign, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
@@ -118,7 +117,7 @@ export default function SubcontractorQuotes() {
 
   if (loading) {
     return (
-      <SubcontractorLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Quotes"
@@ -129,12 +128,12 @@ export default function SubcontractorQuotes() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </SubcontractorLayout>
+    </>
     );
   }
 
   return (
-    <SubcontractorLayout>
+    <>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Quotes</h1>
@@ -258,6 +257,6 @@ export default function SubcontractorQuotes() {
           </div>
         )}
       </div>
-    </SubcontractorLayout>
+    </>
   );
 }

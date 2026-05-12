@@ -15,7 +15,6 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import AdminLayout from '@/components/admin-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
@@ -126,7 +125,7 @@ export default function AdminWorkOrderGroupsList() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Combined Work Orders"
@@ -249,6 +248,6 @@ export default function AdminWorkOrderGroupsList() {
           </Card>
         )}
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, getDoc, doc, updateDoc, serverTimestamp, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { formatMoney } from '@/lib/money';
-import AdminLayout from '@/components/admin-layout';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -373,7 +372,7 @@ export default function ClientsManagement() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
       <div className="space-y-6">
 
@@ -907,6 +906,6 @@ export default function ClientsManagement() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

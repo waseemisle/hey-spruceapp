@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,18 +143,18 @@ export default function UserActivityPage() {
   };
 
   if (loading) {
-    return <AdminLayout>
+    return <>
       <PageContainer>
         <PortalHero
           title="User Activity"
           subtitle=""
           icon={Sparkles}
         /><div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>      </PageContainer>
-    </AdminLayout>;
+    </>;
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -300,6 +299,6 @@ export default function UserActivityPage() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

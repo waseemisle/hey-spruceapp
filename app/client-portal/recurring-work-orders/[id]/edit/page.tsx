@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import ClientLayout from '@/components/client-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -186,38 +185,38 @@ export default function ClientEditRecurringWorkOrder() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   if (noPermission) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <EmptyState icon={AlertCircle} title="Access Restricted" subtitle="You do not have permission to edit recurring work orders." />
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   if (!recurringWorkOrder) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <EmptyState icon={AlertCircle} title="Not Found" subtitle="Recurring work order not found or you do not have access to it." />
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Edit Recurring Work Order"
@@ -327,6 +326,6 @@ export default function ClientEditRecurringWorkOrder() {
           </CardContent>
         </Card>
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

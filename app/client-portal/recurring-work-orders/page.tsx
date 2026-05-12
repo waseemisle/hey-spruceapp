@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, getDoc, where } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import ClientLayout from '@/components/client-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -128,7 +127,7 @@ export default function ClientRecurringWorkOrders() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Recurring Work Orders"
@@ -139,25 +138,25 @@ export default function ClientRecurringWorkOrders() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </ClientLayout>
+    </>
     );
   }
 
   if (!hasPermission) {
     return (
-      <ClientLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="text-muted-foreground">You do not have permission to view recurring work orders</p>
           </div>
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
@@ -255,6 +254,6 @@ export default function ClientRecurringWorkOrders() {
           </div>
         )}
       </div>
-    </ClientLayout>
+    </>
   );
 }

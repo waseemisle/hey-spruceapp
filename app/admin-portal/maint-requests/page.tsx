@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -361,7 +360,7 @@ export default function MaintRequestsPage() {
   );
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Maint Requests"
@@ -735,6 +734,6 @@ export default function MaintRequestsPage() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

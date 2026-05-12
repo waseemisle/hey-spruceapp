@@ -20,7 +20,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -211,7 +210,7 @@ export default function PaymentLogsListPage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Payment Logs"
@@ -358,6 +357,6 @@ export default function PaymentLogsListPage() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

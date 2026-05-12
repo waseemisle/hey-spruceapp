@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
+import { useAdminPortalHeaderExtra } from '@/components/admin-portal-header-extra-context';
 import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
@@ -219,6 +219,26 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = params?.id as string;
+
+  const { setHeaderExtra } = useAdminPortalHeaderExtra();
+
+  useEffect(() => {
+    setHeaderExtra(
+      <Button
+        asChild
+        variant="ghost"
+        className="gap-2 text-muted-foreground hover:text-foreground shrink-0"
+      >
+        <Link href="/admin-portal/clients">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Clients
+        </Link>
+      </Button>,
+    );
+    return () => {
+      setHeaderExtra(null);
+    };
+  }, [setHeaderExtra]);
 
   const [client, setClient] = useState<Client | null>(null);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -1162,26 +1182,22 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
       <PageContainer>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
         </div>
-            </PageContainer>
-    </AdminLayout>
+      </PageContainer>
     );
   }
 
   if (!client) {
     return (
-      <AdminLayout>
-        <div className="text-center py-16">
-          <p className="text-muted-foreground mb-4">Client not found.</p>
-          <Button asChild>
-            <Link href="/admin-portal/clients">Go Back</Link>
-          </Button>
-        </div>
-      </AdminLayout>
+      <div className="text-center py-16">
+        <p className="text-muted-foreground mb-4">Client not found.</p>
+        <Button asChild>
+          <Link href="/admin-portal/clients">Go Back</Link>
+        </Button>
+      </div>
     );
   }
 
@@ -1212,20 +1228,7 @@ export default function ClientDetailPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <AdminLayout
-      headerExtra={
-        <Button
-          asChild
-          variant="ghost"
-          className="gap-2 text-muted-foreground hover:text-foreground shrink-0"
-        >
-          <Link href="/admin-portal/clients">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Clients
-          </Link>
-        </Button>
-      }
-    >
+    <>
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
 
         {/* Entity Header */}
@@ -3025,7 +3028,7 @@ export default function ClientDetailPage() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 }
 

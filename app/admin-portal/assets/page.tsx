@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Package, TrendingUp, AlertCircle, Wrench, Clock } from 'lucide-react';
 
@@ -75,7 +74,7 @@ export default function AssetManagementPage() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Assets"
@@ -238,6 +237,6 @@ export default function AssetManagementPage() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

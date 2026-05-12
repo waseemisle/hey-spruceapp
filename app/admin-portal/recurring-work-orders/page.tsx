@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -498,7 +497,7 @@ export default function RecurringWorkOrdersManagement() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Recurring Work Orders"
@@ -948,6 +947,6 @@ export default function RecurringWorkOrdersManagement() {
         />
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { formatMoney } from '@/lib/money';
-import AdminLayout from '@/components/admin-layout';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,7 +97,7 @@ export default function RejectedWorkOrders() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Rejected Work Orders"
@@ -109,12 +108,12 @@ export default function RejectedWorkOrders() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
@@ -207,6 +206,6 @@ export default function RejectedWorkOrders() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

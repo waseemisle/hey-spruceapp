@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, addDoc, serverTimestamp, deleteDoc, orderBy, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -183,7 +182,7 @@ export default function CategoriesManagement() {
   });
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Categories"
@@ -349,7 +348,7 @@ export default function CategoriesManagement() {
           </div>
         )}
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }
 

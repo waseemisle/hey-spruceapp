@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useContext } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { auth, db, storage } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -20,6 +20,7 @@ import {
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
 import { subscribeAdminUnassignedOpenSupportTicketCount } from '@/lib/support-ticket-snapshots';
+import { AdminPortalHeaderExtraContext } from '@/components/admin-portal-header-extra-context';
 
 type NavChild = { name: string; href: string; icon: React.ElementType };
 type NavItem = {
@@ -158,6 +159,9 @@ function EstClock() {
 }
 
 export default function AdminLayout({ children, headerExtra }: { children: React.ReactNode; headerExtra?: React.ReactNode }) {
+  const portalHeaderExtra = useContext(AdminPortalHeaderExtraContext);
+  const mergedHeaderExtra = headerExtra ?? portalHeaderExtra?.headerExtra ?? null;
+
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -539,7 +543,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
       <main className="pt-14 md:pt-24 overflow-x-hidden">
         <div className="p-4 md:p-6 space-y-4">
           <div className="flex items-center gap-4">
-            {headerExtra}
+            {mergedHeaderExtra}
             <ViewControls className="flex-1" />
           </div>
           {children}

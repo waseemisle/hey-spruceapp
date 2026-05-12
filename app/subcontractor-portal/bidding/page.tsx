@@ -7,7 +7,6 @@ import { notifyQuoteSubmission, notifyAdminsOfBiddingRejection, notifyDiagnostic
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1178,17 +1177,17 @@ export default function SubcontractorBidding() {
 
   if (loading) {
     return (
-      <SubcontractorLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   if (viewWorkOrder) {
     return (
-      <SubcontractorLayout>
+      <>
         <PageContainer>
           <PageHeader
             title="Work Order Details"
@@ -1434,13 +1433,13 @@ export default function SubcontractorBidding() {
             </Card>
           )}
         </PageContainer>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   if (showResultsForm && resultsBidding) {
     return (
-      <SubcontractorLayout>
+      <>
         <PageContainer>
           <PageHeader
             title="Submit Diagnostic Results"
@@ -1543,13 +1542,13 @@ export default function SubcontractorBidding() {
             </CardContent>
           </Card>
         </PageContainer>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   if (showDirectInvoiceForm && directInvoiceBidding) {
     return (
-      <SubcontractorLayout>
+      <>
         <PageContainer>
           <PageHeader
             title="Submit Invoice"
@@ -1720,13 +1719,13 @@ export default function SubcontractorBidding() {
             </CardContent>
           </Card>
         </PageContainer>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   if (showDirectQuoteForm && selectedBidding) {
     return (
-      <SubcontractorLayout>
+      <>
         <PageContainer>
           <PageHeader
             title="Submit Quote"
@@ -1907,13 +1906,13 @@ export default function SubcontractorBidding() {
             </CardContent>
           </Card>
         </PageContainer>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   if (showQuoteForm && selectedBidding) {
     return (
-      <SubcontractorLayout>
+      <>
         <PageContainer>
           <PageHeader
             title="Submit Diagnostic Request"
@@ -2102,12 +2101,12 @@ export default function SubcontractorBidding() {
             </CardContent>
           </Card>
         </PageContainer>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   return (
-    <SubcontractorLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Available Work Orders"
@@ -2270,6 +2269,6 @@ export default function SubcontractorBidding() {
           onClose={() => setLightboxImages([])}
         />
       )}
-    </SubcontractorLayout>
+    </>
   );
 }

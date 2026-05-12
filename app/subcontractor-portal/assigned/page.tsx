@@ -9,7 +9,6 @@ import { formatMoney } from '@/lib/money';
 import { notifyWorkOrderCompletion, notifyScheduledService, notifyQuoteSubmission, getAllAdminUserIds, notifyAdminsOfAssignmentResponse } from '@/lib/notifications';
 import { createNotification } from '@/lib/notifications';
 import Link from 'next/link';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ClipboardList, CheckSquare, Calendar, MapPin, AlertCircle, CheckCircle, Search, X, Clock, Upload, Image as ImageIcon, Loader2, Stethoscope, Wrench, DollarSign, Plus, Eye } from 'lucide-react';
@@ -962,18 +961,18 @@ export default function SubcontractorAssignedJobs() {
 
   if (loading) {
     return (
-      <SubcontractorLayout>
+      <>
       <PageContainer>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </PageContainer>
-    </SubcontractorLayout>
+    </>
     );
   }
 
   return (
-    <SubcontractorLayout>
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1681,6 +1680,6 @@ export default function SubcontractorAssignedJobs() {
           );
         })()}
       </div>
-    </SubcontractorLayout>
+    </>
   );
 }

@@ -126,20 +126,25 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       diagnosticRequests: [], quotes: [], invoices: [], messages: [], supportTickets: [],
     };
     let lastViewed: Record<string, any> = {};
+    let recomputeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const recompute = () => {
-      const next: Record<ClientBadgeKey, number> = {
-        workOrders: 0, recurringWorkOrders: 0, locations: 0,
-        diagnosticRequests: 0, quotes: 0, invoices: 0, messages: 0, supportTickets: 0,
-      };
-      for (const key of Object.keys(itemsStore) as ClientBadgeKey[]) {
-        const lvKey = lastViewed?.[key];
-        for (const item of itemsStore[key]) {
-          const ts = key === 'messages' ? item.lastMessageTimestamp : item.updatedAt;
-          if (isItemUnviewed(ts, item.createdAt, lvKey)) next[key] += 1;
+      if (recomputeTimer) clearTimeout(recomputeTimer);
+      recomputeTimer = setTimeout(() => {
+        recomputeTimer = null;
+        const next: Record<ClientBadgeKey, number> = {
+          workOrders: 0, recurringWorkOrders: 0, locations: 0,
+          diagnosticRequests: 0, quotes: 0, invoices: 0, messages: 0, supportTickets: 0,
+        };
+        for (const key of Object.keys(itemsStore) as ClientBadgeKey[]) {
+          const lvKey = lastViewed?.[key];
+          for (const item of itemsStore[key]) {
+            const ts = key === 'messages' ? item.lastMessageTimestamp : item.updatedAt;
+            if (isItemUnviewed(ts, item.createdAt, lvKey)) next[key] += 1;
+          }
         }
-      }
-      setBadgeCounts(next);
+        setBadgeCounts(next);
+      }, 120);
     };
 
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
@@ -332,9 +337,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         setFirebaseInstances(nextInstances);
         unsubscribe = subscribeToAuth(nextInstances);
       }
-    }, 1000);
+    }, 3000);
 
     return () => {
+      if (recomputeTimer) clearTimeout(recomputeTimer);
       unsubscribe();
       unsubscribeWorkOrders?.(); unsubscribeWorkOrders = null;
       unsubscribeRecurring?.(); unsubscribeRecurring = null;

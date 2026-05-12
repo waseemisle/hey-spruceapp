@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { onSnapshot, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { DashboardHero } from '@/components/dashboard/dashboard-hero';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
 import ProposalsSection from '@/components/dashboard/proposals-section';
@@ -230,7 +229,7 @@ export default function AdminDashboard() {
     proposalsData.pendingApproval.urgent;
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Admin Portal"
@@ -348,6 +347,6 @@ export default function AdminDashboard() {
         </div>
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

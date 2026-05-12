@@ -6,7 +6,6 @@ import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { subscribeSubcontractorSupportTickets } from '@/lib/support-ticket-snapshots';
 import Link from 'next/link';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -235,16 +234,16 @@ export default function SubcontractorSupportTicketsPage() {
 
   if (loading && tickets.length === 0) {
     return (
-      <SubcontractorLayout>
+      <>
         <div className="flex justify-center py-24">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600" />
         </div>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   return (
-    <SubcontractorLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Support Tickets"
@@ -461,6 +460,6 @@ export default function SubcontractorSupportTicketsPage() {
           </DialogContent>
         </Dialog>
       </PageContainer>
-    </SubcontractorLayout>
+    </>
   );
 }

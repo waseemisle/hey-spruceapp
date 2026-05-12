@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { collection, query, getDocs, where, doc, getDoc, orderBy } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import ClientLayout from '@/components/client-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -211,17 +210,17 @@ export default function ClientSubcontractorsView() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
   if (!hasViewPermission && !hasCreatePermission) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <EmptyState
             icon={User}
@@ -229,12 +228,12 @@ export default function ClientSubcontractorsView() {
             subtitle="You do not have permission to view or create subcontractors. Please contact your administrator to request access."
           />
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Subcontractors"
@@ -396,6 +395,6 @@ export default function ClientSubcontractorsView() {
           </div>
         )}
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

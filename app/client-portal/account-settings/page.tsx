@@ -12,7 +12,6 @@ import {
 } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
-import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -136,7 +135,7 @@ export default function ClientAccountSettings() {
   const initials = (fullName || email || 'C').slice(0, 2).toUpperCase();
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
       <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-16 p-4 sm:p-6">
         <div className="flex items-center gap-4">
@@ -248,6 +247,6 @@ export default function ClientAccountSettings() {
         )}
       </div>
           </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

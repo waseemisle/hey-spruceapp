@@ -19,7 +19,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { doc, getDoc, serverTimestamp, updateDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -177,18 +176,18 @@ export default function EditScheduledInvoicePage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Edit Scheduled Invoice"
@@ -301,6 +300,6 @@ export default function EditScheduledInvoicePage() {
           </Link>
         </div>
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, addDoc, serverTimestamp, where, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -176,7 +175,7 @@ export default function AdminCompanies() {
   const totalLocations = Object.values(locationCounts).reduce((a, b) => a + b, 0);
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Companies"
@@ -444,6 +443,6 @@ export default function AdminCompanies() {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 }

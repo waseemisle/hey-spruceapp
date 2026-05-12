@@ -17,7 +17,6 @@ import {
   serverTimestamp,
   arrayUnion,
 } from 'firebase/firestore';
-import AdminLayout from '@/components/admin-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -682,7 +681,7 @@ export default function AdminWorkOrderGroupDetail() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Combined Work Orders"
@@ -1320,6 +1319,6 @@ export default function AdminWorkOrderGroupDetail() {
           </div>
         )}
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

@@ -13,7 +13,6 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { onAuthStateChanged, getIdToken } from '@/lib/firebase-auth';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -298,7 +297,7 @@ export default function SandboxRefreshPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Sandbox Refresh"
@@ -309,12 +308,12 @@ export default function SandboxRefreshPage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
         {/* Page header */}
@@ -595,6 +594,6 @@ export default function SandboxRefreshPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 }

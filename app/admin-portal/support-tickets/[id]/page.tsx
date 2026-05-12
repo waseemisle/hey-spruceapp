@@ -15,7 +15,6 @@ import {
   deleteField,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -381,11 +380,11 @@ export default function AdminSupportTicketDetailPage() {
 
   if (loading || !ticket) {
     return (
-      <AdminLayout>
+      <>
         <div className="flex justify-center py-24">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
@@ -397,7 +396,7 @@ export default function AdminSupportTicketDetailPage() {
         : `/admin-portal/admin-users`;
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <div className="flex items-center gap-3 mb-4">
           <Link href="/admin-portal/support-tickets">
@@ -684,6 +683,6 @@ export default function AdminSupportTicketDetailPage() {
           </div>
         </div>
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

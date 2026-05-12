@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { auth } from '@/lib/firebase';
@@ -312,7 +311,7 @@ export default function CronJobsPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Cron Jobs"
@@ -321,12 +320,12 @@ export default function CronJobsPage() {
         />
         <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -852,6 +851,6 @@ export default function CronJobsPage() {
             </CardContent>
           </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

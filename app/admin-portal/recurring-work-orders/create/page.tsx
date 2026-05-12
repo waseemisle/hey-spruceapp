@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, addDoc, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -639,18 +638,18 @@ export default function CreateRecurringWorkOrder() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Create Recurring Work Order"
@@ -1153,6 +1152,6 @@ export default function CreateRecurringWorkOrder() {
           </Button>
         </div>
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

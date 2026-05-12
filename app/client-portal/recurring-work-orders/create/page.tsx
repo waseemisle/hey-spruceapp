@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, addDoc, doc, getDoc, serverTimestamp, orderBy, where } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -365,18 +364,18 @@ export default function ClientCreateRecurringWorkOrder() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="New Recurring Work Order"
@@ -645,6 +644,6 @@ export default function ClientCreateRecurringWorkOrder() {
           </Button>
         </div>
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

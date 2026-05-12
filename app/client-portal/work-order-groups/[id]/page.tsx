@@ -13,7 +13,6 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-import ClientLayout from '@/components/client-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -494,7 +493,7 @@ export default function ClientWorkOrderGroupDetail() {
   ];
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Combined Work Orders"
@@ -928,6 +927,6 @@ export default function ClientWorkOrderGroupDetail() {
           </div>
         )}
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

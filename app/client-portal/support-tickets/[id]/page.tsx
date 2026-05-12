@@ -6,7 +6,6 @@ import { useParams } from 'next/navigation';
 import { doc, onSnapshot, collection, updateDoc, arrayUnion, serverTimestamp, Timestamp, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
-import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -207,16 +206,16 @@ export default function ClientSupportTicketDetailPage() {
 
   if (loading || !ticket) {
     return (
-      <ClientLayout>
+      <>
         <div className="flex justify-center py-24">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <div className="flex items-center gap-3 mb-4">
           <Link href="/client-portal/support-tickets">
@@ -336,6 +335,6 @@ export default function ClientSupportTicketDetailPage() {
           </div>
         </div>
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

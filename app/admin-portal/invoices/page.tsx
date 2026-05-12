@@ -7,7 +7,6 @@ import { collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimest
 import { db, auth } from '@/lib/firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1332,7 +1331,7 @@ function InvoicesManagementInner() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Invoices"
@@ -2280,20 +2279,16 @@ function InvoicesManagementInner() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }
 
 export default function InvoicesManagement() {
   return (
     <Suspense
-      fallback={
-        <AdminLayout>
-          <div className="flex items-center justify-center min-h-[40vh]">
+      fallback={<div className="flex items-center justify-center min-h-[40vh]">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
-          </div>
-        </AdminLayout>
-      }
+          </div>}
     >
       <InvoicesManagementInner />
     </Suspense>

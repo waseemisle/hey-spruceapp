@@ -18,7 +18,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,7 +98,7 @@ export default function ScheduledInvoicesListPage() {
   }, [invoices, filter, searchQuery]);
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Scheduled Invoices"
@@ -259,6 +258,6 @@ export default function ScheduledInvoicesListPage() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import ClientLayout from '@/components/client-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PortalHero } from '@/components/ui/portal-hero';
 import { Sparkles } from 'lucide-react';
@@ -15,7 +14,7 @@ export default function ClientMaintenanceRequestsWorkOrders() {
   }, [router]);
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PortalHero title="Work Orders" subtitle="Redirecting…" icon={Sparkles} />
         <div className="flex items-center justify-center h-48">
@@ -25,6 +24,6 @@ export default function ClientMaintenanceRequestsWorkOrders() {
           </div>
         </div>
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }

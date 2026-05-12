@@ -8,7 +8,6 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifyQuoteRejection } from '@/lib/notifications';
-import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Check, X, Calendar, DollarSign, ArrowLeft } from 'lucide-react';
@@ -415,7 +414,7 @@ export default function QuoteDetail() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -426,13 +425,13 @@ export default function QuoteDetail() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </ClientLayout>
+    </>
     );
   }
 
   if (!isAuthorized || !quote) {
     return (
-      <ClientLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -446,12 +445,12 @@ export default function QuoteDetail() {
             </Link>
           </div>
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <div className="space-y-6 max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -645,6 +644,6 @@ export default function QuoteDetail() {
           />
         )}
       </div>
-    </ClientLayout>
+    </>
   );
 }

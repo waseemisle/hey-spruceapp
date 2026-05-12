@@ -25,7 +25,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -104,7 +103,7 @@ export default function PaymentLogDetailPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -115,13 +114,13 @@ export default function PaymentLogDetailPage() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   if (!log) {
     return (
-      <AdminLayout>
+      <>
         <div className="max-w-3xl mx-auto pt-8">
           <Card>
             <CardContent className="p-8 text-center">
@@ -135,7 +134,7 @@ export default function PaymentLogDetailPage() {
             </CardContent>
           </Card>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
@@ -144,7 +143,7 @@ export default function PaymentLogDetailPage() {
   const recordedAt = toDate(log.createdAt);
 
   return (
-    <AdminLayout>
+    <>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
           <Link href="/admin-portal/payment-logs">
@@ -425,7 +424,7 @@ export default function PaymentLogDetailPage() {
           </Card>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }
 

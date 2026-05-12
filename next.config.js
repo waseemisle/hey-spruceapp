@@ -3,6 +3,7 @@ const withPWA = require('@ducanh2912/next-pwa').default({
   dest: 'public',
   register: true,
   cacheOnFrontEndNav: true,
+  // Prefetching every link can pull large/stale HTML for auth-heavy portals; keep default navigation leaner.
   aggressiveFrontEndNavCaching: false,
   reloadOnOnline: false,
   disable: false,
@@ -43,7 +44,7 @@ const withPWA = require('@ducanh2912/next-pwa').default({
         handler: 'NetworkFirst',
         options: {
           cacheName: 'pages',
-          networkTimeoutSeconds: 5,
+          networkTimeoutSeconds: 2,
           expiration: { maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 },
         },
       },
@@ -55,6 +56,9 @@ const withPWA = require('@ducanh2912/next-pwa').default({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'date-fns'],
+  },
   // Rewrite to Firebase CF removed — GCP org policy (iam.allowedPolicyMemberDomains)
   // blocks allUsers on Cloud Functions. Requests now go to the local Vercel route at
   // app/api/maint-requests/route.ts which handles the same logic (compress + Cloudinary + Firestore).

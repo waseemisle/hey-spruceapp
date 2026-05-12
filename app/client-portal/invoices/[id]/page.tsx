@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft, Image as ImageIcon, AlertTriangle, ThumbsUp, Clock } from 'lucide-react';
@@ -382,7 +381,7 @@ export default function ClientInvoiceDetail() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -393,13 +392,13 @@ export default function ClientInvoiceDetail() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </ClientLayout>
+    </>
     );
   }
 
   if (!isAuthorized || !invoice) {
     return (
-      <ClientLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <Receipt className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -413,12 +412,12 @@ export default function ClientInvoiceDetail() {
             </Link>
           </div>
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <div className="space-y-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           <Link href="/client-portal/invoices">
@@ -617,6 +616,6 @@ export default function ClientInvoiceDetail() {
           onClose={() => setLightboxImages([])}
         />
       )}
-    </ClientLayout>
+    </>
   );
 }

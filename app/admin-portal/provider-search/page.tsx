@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -407,7 +406,7 @@ export default function ProviderSearchPage() {
   const compareSubs = subcontractors.filter(s => compareIds.includes(s.uid));
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Provider Search"
@@ -571,6 +570,6 @@ export default function ProviderSearchPage() {
         <ComparePanel subs={compareSubs} onClose={() => setCompareIds([])} />
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

@@ -5,7 +5,6 @@ import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, add
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { db, auth } from '@/lib/firebase';
 import { formatMoney } from '@/lib/money';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -570,7 +569,7 @@ function QuotesContent() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Quotes"
@@ -1014,13 +1013,13 @@ function QuotesContent() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }
 
 export default function QuotesManagement() {
   return (
-    <Suspense fallback={<AdminLayout><div /></AdminLayout>}>
+    <Suspense fallback={<div />}>
       <QuotesContent />
     </Suspense>
   );

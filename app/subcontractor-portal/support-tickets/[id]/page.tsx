@@ -6,7 +6,6 @@ import { useParams } from 'next/navigation';
 import { doc, onSnapshot, collection, updateDoc, arrayUnion, serverTimestamp, Timestamp, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -207,16 +206,16 @@ export default function SubcontractorSupportTicketDetailPage() {
 
   if (loading || !ticket) {
     return (
-      <SubcontractorLayout>
+      <>
         <div className="flex justify-center py-24">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </SubcontractorLayout>
+      </>
     );
   }
 
   return (
-    <SubcontractorLayout>
+    <>
       <PageContainer>
         <div className="flex items-center gap-3 mb-4">
           <Link href="/subcontractor-portal/support-tickets">
@@ -336,6 +335,6 @@ export default function SubcontractorSupportTicketDetailPage() {
           </div>
         </div>
       </PageContainer>
-    </SubcontractorLayout>
+    </>
   );
 }

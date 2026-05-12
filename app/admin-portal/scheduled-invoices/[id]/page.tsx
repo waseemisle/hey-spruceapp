@@ -20,7 +20,6 @@ import {
   collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Pause, Play, Edit2, X, Calendar, Receipt, Zap, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
@@ -267,7 +266,7 @@ export default function ScheduledInvoiceDetailPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -278,13 +277,13 @@ export default function ScheduledInvoiceDetailPage() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   if (!invoice) {
     return (
-      <AdminLayout>
+      <>
         <div className="max-w-3xl mx-auto pt-8">
           <Card>
             <CardContent className="p-8 text-center">
@@ -298,12 +297,12 @@ export default function ScheduledInvoiceDetailPage() {
             </CardContent>
           </Card>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -592,6 +591,6 @@ export default function ScheduledInvoiceDetailPage() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

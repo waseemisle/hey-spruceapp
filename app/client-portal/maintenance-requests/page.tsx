@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Wrench, User, MapPin, Search, Eye, X } from 'lucide-react';
@@ -158,19 +157,19 @@ export default function ClientMaintenanceRequests() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   if (!hasPermission) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <EmptyState
             icon={Wrench}
@@ -178,12 +177,12 @@ export default function ClientMaintenanceRequests() {
             subtitle="You don't have permission to view maintenance requests. Please contact your administrator."
           />
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Maintenance Requests"
@@ -298,7 +297,7 @@ export default function ClientMaintenanceRequests() {
           </div>
         )}
       </PageContainer>
-    </ClientLayout>
+    </>
   );
 }
 

@@ -14,7 +14,6 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { PageContainer } from '@/components/ui/page-container';
 import { PortalHero } from '@/components/ui/portal-hero';
 import { Button } from '@/components/ui/button';
@@ -310,7 +309,7 @@ export default function SubcontractorsPermissionsPage() {
   const waConfigured = false; // Meta doesn't expose env on client
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Subcontractors Messaging Permissions"
@@ -737,6 +736,6 @@ export default function SubcontractorsPermissionsPage() {
           </div>
         </div>
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

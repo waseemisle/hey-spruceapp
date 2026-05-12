@@ -7,7 +7,6 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -303,7 +302,7 @@ export default function AdminQuoteDetail() {
 
   if (loading || !authReady) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -314,13 +313,13 @@ export default function AdminQuoteDetail() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   if (!quote) {
     return (
-      <AdminLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
@@ -332,7 +331,7 @@ export default function AdminQuoteDetail() {
             </Link>
           </div>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
@@ -340,7 +339,7 @@ export default function AdminQuoteDetail() {
   const previewClientAmount = quote.totalAmount * (1 + (parseFloat(markupPercent || '0') / 100));
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6 max-w-5xl mx-auto">
         {/* Top bar */}
         <div className="flex items-center justify-between gap-3">
@@ -658,6 +657,6 @@ export default function AdminQuoteDetail() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

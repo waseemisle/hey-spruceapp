@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -658,7 +657,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -669,23 +668,23 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   if (!recurringWorkOrder) {
     return (
-      <AdminLayout>
+      <>
         <div className="text-center py-12">
           <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">Recurring work order not found</p>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -1378,6 +1377,6 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
         </>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

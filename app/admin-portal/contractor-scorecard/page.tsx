@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Award } from 'lucide-react';
@@ -89,7 +88,7 @@ export default function ContractorScorecardPage() {
   }, [subcontractors, tab]);
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Contractor Scorecard"
@@ -154,6 +153,6 @@ export default function ContractorScorecardPage() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

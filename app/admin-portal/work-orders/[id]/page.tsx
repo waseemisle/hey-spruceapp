@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { doc, getDoc, collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, Timestamp, arrayUnion, writeBatch } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1997,7 +1996,7 @@ export default function ViewWorkOrder() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -2008,13 +2007,13 @@ export default function ViewWorkOrder() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   if (!workOrder) {
     return (
-      <AdminLayout>
+      <>
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold text-foreground">Work Order Not Found</h2>
           <Link href="/admin-portal/work-orders">
@@ -2024,7 +2023,7 @@ export default function ViewWorkOrder() {
             </Button>
           </Link>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
@@ -2043,7 +2042,7 @@ export default function ViewWorkOrder() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start gap-3 flex-wrap">
@@ -4071,6 +4070,6 @@ export default function ViewWorkOrder() {
           onClose={() => setLightboxImages([])}
         />
       )}
-    </AdminLayout>
+    </>
   );
 }

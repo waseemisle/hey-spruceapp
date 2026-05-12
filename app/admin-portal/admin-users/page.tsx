@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -199,7 +198,7 @@ export default function AdminUsersManagement() {
   });
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Admin Users"
@@ -385,6 +384,6 @@ export default function AdminUsersManagement() {
           </div>
         )}
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

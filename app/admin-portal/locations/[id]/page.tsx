@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Building2, ClipboardList, Clock, AlertCircle, FileCheck, Receipt, BarChart2, Calendar, Info, User, History } from 'lucide-react';
@@ -112,7 +111,7 @@ export default function LocationLandingPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -123,14 +122,14 @@ export default function LocationLandingPage() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   if (!location) return null;
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6 max-w-5xl mx-auto">
         <div className="flex items-center gap-4">
           <Link href="/admin-portal/locations">
@@ -384,6 +383,6 @@ export default function LocationLandingPage() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, setDoc, deleteDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -269,7 +268,7 @@ export default function LocationMapPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Location Map"
@@ -280,12 +279,12 @@ export default function LocationMapPage() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
@@ -447,6 +446,6 @@ export default function LocationMapPage() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

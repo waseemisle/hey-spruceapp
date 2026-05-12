@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import RecurringWorkOrderEditForm from '@/components/recurring-work-order-edit-form';
@@ -14,7 +13,7 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
   const router = useRouter();
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Edit Recurring Work Order"
@@ -33,6 +32,6 @@ export default function EditRecurringWorkOrder({ params }: { params: { id: strin
           onCancel={() => router.back()}
         />
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

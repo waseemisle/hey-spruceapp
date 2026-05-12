@@ -8,7 +8,6 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { formatUsd2 } from '@/lib/format-currency';
 import { createNotification } from '@/lib/notifications';
-import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Stethoscope, Check, X, Calendar, DollarSign, User, FileText, ClipboardList } from 'lucide-react';
@@ -196,7 +195,7 @@ export default function ClientDiagnosticRequestDetail() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -207,13 +206,13 @@ export default function ClientDiagnosticRequestDetail() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
         </div>
             </PageContainer>
-    </ClientLayout>
+    </>
     );
   }
 
   if (!quote) {
     return (
-      <ClientLayout>
+      <>
         <div className="space-y-4 max-w-3xl mx-auto py-12 text-center">
           <p className="text-muted-foreground">Diagnostic request not found.</p>
           <Button asChild variant="outline">
@@ -223,7 +222,7 @@ export default function ClientDiagnosticRequestDetail() {
             </Link>
           </Button>
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
@@ -244,7 +243,7 @@ export default function ClientDiagnosticRequestDetail() {
   };
 
   return (
-    <ClientLayout>
+    <>
       <div className="space-y-4 max-w-4xl">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <Button asChild variant="outline" size="sm">
@@ -410,6 +409,6 @@ export default function ClientDiagnosticRequestDetail() {
           </div>
         )}
       </div>
-    </ClientLayout>
+    </>
   );
 }

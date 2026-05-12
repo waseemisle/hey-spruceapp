@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
@@ -439,7 +438,7 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Reports"
@@ -450,12 +449,12 @@ export default function ReportsPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6 max-w-[1400px] mx-auto pb-10 print:space-y-4">
         {/* ── Page Header ── */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -1042,6 +1041,6 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

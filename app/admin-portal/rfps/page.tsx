@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { FileText, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
@@ -47,7 +46,7 @@ export default function RFPsPage() {
   }, []);
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Rfps"
@@ -105,6 +104,6 @@ export default function RFPsPage() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

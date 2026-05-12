@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -961,7 +960,7 @@ export default function AdminInvoiceDetail() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -972,7 +971,7 @@ export default function AdminInvoiceDetail() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
@@ -993,7 +992,7 @@ export default function AdminInvoiceDetail() {
   const totalDisplay = invoice.totalAmount;
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6 max-w-4xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -1596,6 +1595,6 @@ export default function AdminInvoiceDetail() {
           onClose={() => setLightboxImages([])}
         />
       )}
-    </AdminLayout>
+    </>
   );
 }

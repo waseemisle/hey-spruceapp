@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp, addDoc, where, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -504,7 +503,7 @@ export default function LocationsManagement() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Locations"
@@ -939,6 +938,6 @@ export default function LocationsManagement() {
           </div>
         )}
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

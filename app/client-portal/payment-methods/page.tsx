@@ -5,7 +5,6 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
-import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import {
@@ -271,11 +270,11 @@ function PaymentMethodsContent() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
@@ -283,7 +282,7 @@ function PaymentMethodsContent() {
   const hasSub = !!(clientData?.stripeSubscriptionId && clientData?.subscriptionStatus === 'active');
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Payment Methods"
@@ -668,20 +667,16 @@ function PaymentMethodsContent() {
           </div>
         </div>
       )}
-    </ClientLayout>
+    </>
   );
 }
 
 export default function PaymentMethodsPage() {
   return (
     <Suspense
-      fallback={
-        <ClientLayout>
-          <div className="flex justify-center items-center h-64">
+      fallback={<div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-          </div>
-        </ClientLayout>
-      }
+          </div>}
     >
       <PaymentMethodsContent />
     </Suspense>

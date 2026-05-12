@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { onSnapshot, collection, query, where, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import { DashboardHero } from '@/components/dashboard/dashboard-hero';
 import BiddingWorkOrdersSection from '@/components/dashboard/bidding-work-orders-section';
@@ -158,7 +157,7 @@ export default function SubcontractorDashboard() {
 
   if (loading) {
     return (
-      <SubcontractorLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Subcontractor Portal"
@@ -172,12 +171,12 @@ export default function SubcontractorDashboard() {
           </div>
         </div>
             </PageContainer>
-    </SubcontractorLayout>
+    </>
     );
   }
 
   return (
-    <SubcontractorLayout>
+    <>
       <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         <DashboardSearchBar portalType="subcontractor" onSearch={handleSearch} />
 
@@ -201,6 +200,6 @@ export default function SubcontractorDashboard() {
           <CompletedJobsSection data={completedJobsData} items={completedItems} />
         </div>
       </div>
-    </SubcontractorLayout>
+    </>
   );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, query, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -478,16 +477,16 @@ export default function CompaniesPermissions() {
   // --- Render ----------------------------------------------------------
   if (loading) {
     return (
-      <AdminLayout>
+      <>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         {/* Hero Header — gradient panel with icon */}
         <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-blue-50 via-card to-purple-50/60 dark:from-blue-950/30 dark:via-card dark:to-purple-950/20">
@@ -756,7 +755,7 @@ export default function CompaniesPermissions() {
           </section>
         </div>
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }
 

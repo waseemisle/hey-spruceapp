@@ -12,7 +12,6 @@ import {
 } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -168,7 +167,7 @@ export default function AdminAccountSettings() {
   const initials = (fullName || email || 'A').slice(0, 2).toUpperCase();
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Account Settings"
@@ -373,6 +372,6 @@ export default function AdminAccountSettings() {
         )}
       </div>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }

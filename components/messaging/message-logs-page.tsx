@@ -13,7 +13,6 @@ import {
   writeBatch,
   Timestamp,
 } from 'firebase/firestore';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -224,7 +223,7 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title={title}
@@ -514,7 +513,7 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
           </DialogContent>
         </Dialog>
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }
 

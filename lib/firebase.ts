@@ -1,6 +1,5 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -35,9 +34,25 @@ if (firebaseConfig.apiKey) {
   db = getFirestore(app, dbId);
   storage = getStorage(app);
 
-  // Initialize Analytics (only in browser environment)
-  if (typeof window !== 'undefined') {
-    analytics = getAnalytics(app);
+  // Defer Analytics so it never blocks first paint / hydration (dynamic import + idle).
+  if (typeof window !== "undefined" && firebaseConfig.measurementId) {
+    const run = () => {
+      import("firebase/analytics")
+        .then(({ isSupported, getAnalytics }) =>
+          isSupported().then((ok) => {
+            if (ok && app) {
+              analytics = getAnalytics(app);
+            }
+          })
+        )
+        .catch(() => {});
+    };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (typeof w.requestIdleCallback === "function") {
+      w.requestIdleCallback(run, { timeout: 4000 });
+    } else {
+      setTimeout(run, 0);
+    }
   }
 }
 

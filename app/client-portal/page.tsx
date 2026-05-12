@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { onSnapshot, collection, doc, getDoc, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import ClientLayout from '@/components/client-layout';
 import DashboardSearchBar from '@/components/dashboard/dashboard-search-bar';
 import { DashboardHero } from '@/components/dashboard/dashboard-hero';
 import WorkOrdersSection from '@/components/dashboard/work-orders-section';
@@ -199,7 +198,7 @@ export default function ClientDashboard() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Client Portal"
@@ -213,7 +212,7 @@ export default function ClientDashboard() {
           </div>
         </div>
             </PageContainer>
-    </ClientLayout>
+    </>
     );
   }
 
@@ -228,7 +227,7 @@ export default function ClientDashboard() {
   const openDiagnostics = diagnosticData.pendingReview;
 
   return (
-    <ClientLayout>
+    <>
       <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         <DashboardSearchBar portalType="client" onSearch={handleSearch} />
 
@@ -252,6 +251,6 @@ export default function ClientDashboard() {
           <InvoicesSection data={invoicesData} portalType="client" items={invoiceItems} />
         </div>
       </div>
-    </ClientLayout>
+    </>
   );
 }

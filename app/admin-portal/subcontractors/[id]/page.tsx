@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, ExternalLink, Mail, Loader2, Landmark, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -280,7 +279,7 @@ export default function SubcontractorDetailPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
       <PageContainer>
         <PortalHero
           title="Page"
@@ -291,20 +290,20 @@ export default function SubcontractorDetailPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
         </div>
             </PageContainer>
-    </AdminLayout>
+    </>
     );
   }
 
   if (!sub) {
     return (
-      <AdminLayout>
+      <>
         <div className="text-center py-16">
           <p className="text-muted-foreground mb-4">Subcontractor not found.</p>
           <Button asChild>
             <Link href="/admin-portal/subcontractors">Go Back</Link>
           </Button>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
@@ -320,7 +319,7 @@ export default function SubcontractorDetailPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
         {/* Back */}
         <Button
@@ -582,6 +581,6 @@ export default function SubcontractorDetailPage() {
           </div>
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 }

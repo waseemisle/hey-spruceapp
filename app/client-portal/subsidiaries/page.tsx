@@ -2,8 +2,6 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import ClientLayout from '@/components/client-layout';
-
 import { PageContainer } from '@/components/ui/page-container';
 import { PortalHero } from '@/components/ui/portal-hero';
 import { Sparkles } from 'lucide-react';
@@ -16,7 +14,7 @@ export default function ClientCompanies() {
   }, [router]);
 
   return (
-    <ClientLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Subsidiaries"
@@ -27,7 +25,7 @@ export default function ClientCompanies() {
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
       </div>
           </PageContainer>
-    </ClientLayout>
+    </>
   );
 }
 

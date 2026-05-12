@@ -119,21 +119,26 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
       bidding: [], quotes: [], assigned: [], completedJobs: [], messages: [], supportTickets: [],
     };
     let lastViewed: Record<string, any> = {};
+    let recomputeTimer: ReturnType<typeof setTimeout> | null = null;
 
     const recompute = () => {
-      const next: Record<SubBadgeKey, number> = {
-        bidding: 0, quotes: 0, assigned: 0, completedJobs: 0, messages: 0, supportTickets: 0,
-      };
-      for (const key of Object.keys(itemsStore) as SubBadgeKey[]) {
-        const lvKey = lastViewed?.[key];
-        for (const item of itemsStore[key]) {
-          // Messages use lastMessageTimestamp instead of updatedAt; isItemUnviewed
-          // already handles both via toMillis() — pass the right field per key.
-          const ts = key === 'messages' ? item.lastMessageTimestamp : item.updatedAt;
-          if (isItemUnviewed(ts, item.createdAt, lvKey)) next[key] += 1;
+      if (recomputeTimer) clearTimeout(recomputeTimer);
+      recomputeTimer = setTimeout(() => {
+        recomputeTimer = null;
+        const next: Record<SubBadgeKey, number> = {
+          bidding: 0, quotes: 0, assigned: 0, completedJobs: 0, messages: 0, supportTickets: 0,
+        };
+        for (const key of Object.keys(itemsStore) as SubBadgeKey[]) {
+          const lvKey = lastViewed?.[key];
+          for (const item of itemsStore[key]) {
+            // Messages use lastMessageTimestamp instead of updatedAt; isItemUnviewed
+            // already handles both via toMillis() — pass the right field per key.
+            const ts = key === 'messages' ? item.lastMessageTimestamp : item.updatedAt;
+            if (isItemUnviewed(ts, item.createdAt, lvKey)) next[key] += 1;
+          }
         }
-      }
-      setBadgeCounts(next);
+        setBadgeCounts(next);
+      }, 120);
     };
 
     const subscribeToAuth = (instances: typeof firebaseInstances) =>
@@ -316,9 +321,10 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
         setFirebaseInstances(nextInstances);
         unsubscribe = subscribeToAuth(nextInstances);
       }
-    }, 1000);
+    }, 3000);
 
     return () => {
+      if (recomputeTimer) clearTimeout(recomputeTimer);
       unsubscribe();
       unsubscribeBidding?.(); unsubscribeBidding = null;
       unsubscribeQuotes?.(); unsubscribeQuotes = null;

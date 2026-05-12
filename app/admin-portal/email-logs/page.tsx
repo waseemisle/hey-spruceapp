@@ -14,7 +14,6 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { auth } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -411,7 +410,7 @@ export default function EmailLogsPage() {
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PortalHero
           title="Email Logs"
@@ -737,7 +736,7 @@ export default function EmailLogsPage() {
         </DialogContent>
       </Dialog>
           </PageContainer>
-    </AdminLayout>
+    </>
   );
 }
 

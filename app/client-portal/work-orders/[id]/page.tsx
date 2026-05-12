@@ -7,7 +7,6 @@ import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { formatUsd2 } from '@/lib/format-currency';
-import ClientLayout from '@/components/client-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -979,19 +978,19 @@ export default function ViewClientWorkOrder() {
 
   if (loading) {
     return (
-      <ClientLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </ClientLayout>
+      </>
     );
   }
 
   if (!workOrder) {
     return (
-      <ClientLayout>
+      <>
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold text-foreground">Work Order Not Found</h2>
           <Link href="/client-portal/work-orders">
@@ -1001,7 +1000,7 @@ export default function ViewClientWorkOrder() {
             </Button>
           </Link>
         </div>
-      </ClientLayout>
+      </>
     );
   }
 
@@ -1027,7 +1026,7 @@ export default function ViewClientWorkOrder() {
   ] as { key: typeof activeTab; label: string; icon: any }[];
 
   return (
-    <ClientLayout>
+    <>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start gap-3 flex-wrap">
@@ -1755,6 +1754,6 @@ export default function ViewClientWorkOrder() {
           onClose={() => setLightboxImages([])}
         />
       )}
-    </ClientLayout>
+    </>
   );
 }

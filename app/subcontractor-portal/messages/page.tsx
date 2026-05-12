@@ -5,7 +5,6 @@ import { collection, query, getDocs, addDoc, serverTimestamp, orderBy, limit, on
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { markBadgeViewed } from '@/lib/sidebar-badges';
-import SubcontractorLayout from '@/components/subcontractor-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,18 +140,18 @@ export default function SubcontractorMessages() {
 
   if (loading) {
     return (
-      <SubcontractorLayout>
+      <>
       <PageContainer>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
       </PageContainer>
-    </SubcontractorLayout>
+    </>
     );
   }
 
   return (
-    <SubcontractorLayout>
+    <>
       {/*
         Locked to viewport — chat is a single-screen workspace, the page
         itself does not scroll. Only the messages list scrolls inside the
@@ -271,6 +270,6 @@ export default function SubcontractorMessages() {
           </Card>
         </div>
       </div>
-    </SubcontractorLayout>
+    </>
   );
 }

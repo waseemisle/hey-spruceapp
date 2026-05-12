@@ -22,7 +22,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import AdminLayout from '@/components/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -418,13 +417,13 @@ export default function CreateScheduledInvoicePage() {
 
   if (loading) {
     return (
-      <AdminLayout>
+      <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
           </div>
         </PageContainer>
-      </AdminLayout>
+      </>
     );
   }
 
@@ -432,7 +431,7 @@ export default function CreateScheduledInvoicePage() {
   const patternOptions = RECURRENCE_PATTERN_LABELS.map(l => ({ value: l, label: l }));
 
   return (
-    <AdminLayout>
+    <>
       <PageContainer>
         <PageHeader
           title="Create Scheduled Invoice"
@@ -773,6 +772,6 @@ export default function CreateScheduledInvoicePage() {
           </Link>
         </div>
       </PageContainer>
-    </AdminLayout>
+    </>
   );
 }
