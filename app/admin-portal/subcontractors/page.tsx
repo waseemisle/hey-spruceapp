@@ -709,20 +709,18 @@ export default function SubcontractorsManagement() {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-foreground">
-                    {editingId ? 'Edit Subcontractor' : 'Create New Subcontractor'}
-                  </h2>
-                  <button onClick={resetForm} className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-muted transition-colors">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
+            <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl">
+              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-center justify-between gap-4">
+                <h2 className="text-base font-semibold text-foreground">
+                  {editingId ? 'Edit Subcontractor' : 'Add Subcontractor'}
+                </h2>
+                <button onClick={resetForm} className="p-1.5 hover:bg-muted rounded-lg transition-colors shrink-0">
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium text-foreground">Business Name *</Label>
@@ -825,13 +823,13 @@ export default function SubcontractorsManagement() {
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-4 border-t border-border">
-                  <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>
-                    <Save className="h-4 w-4" />
-                    {submitting ? 'Saving...' : editingId ? 'Update Subcontractor' : 'Create Subcontractor'}
-                  </Button>
-                  <Button variant="outline" onClick={resetForm} disabled={submitting}>Cancel</Button>
-                </div>
+              </div>
+              <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={resetForm} disabled={submitting}>Cancel</Button>
+                <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>
+                  <Save className="h-4 w-4" />
+                  {submitting ? 'Saving…' : editingId ? 'Update Subcontractor' : 'Create Subcontractor'}
+                </Button>
               </div>
             </div>
           </div>
