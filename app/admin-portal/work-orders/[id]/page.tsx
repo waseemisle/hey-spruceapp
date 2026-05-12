@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2, Stethoscope, Wrench, ThumbsUp, ThumbsDown, Search } from 'lucide-react';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { formatAddress } from '@/lib/utils';
 import CompareQuotesDialog from '@/components/compare-quotes-dialog';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
@@ -148,6 +148,7 @@ interface Quote {
 
 export default function ViewWorkOrder() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string;
 
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
@@ -1658,8 +1659,7 @@ export default function ViewWorkOrder() {
 
       toast.success(`Invoice ${invoiceNumber} created and emailed to ${workOrder.clientEmail}`);
 
-      // Navigate to the new invoice
-      window.location.href = `/admin-portal/invoices/${invoiceRef.id}`;
+      router.push(`/admin-portal/invoices/${invoiceRef.id}`);
     } catch (err: any) {
       console.error('Error creating invoice:', err);
       toast.error(err.message || 'Failed to create invoice');

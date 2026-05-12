@@ -5,16 +5,14 @@ import { collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, wh
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Wrench, User, MapPin, AlertCircle, Search, Eye, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { Wrench, User, MapPin, Search, Eye, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCards } from '@/components/ui/stat-cards';
 interface MaintRequest {
   id: string;
   venue: string;
@@ -161,49 +159,49 @@ export default function ClientMaintenanceRequests() {
   if (loading) {
     return (
       <ClientLayout>
-      <PageContainer>
-        <PortalHero
-          title="Maintenance Requests"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-        </div>
-            </PageContainer>
-    </ClientLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </ClientLayout>
     );
   }
 
   if (!hasPermission) {
     return (
       <ClientLayout>
-        <div className="text-center py-12">
-          <Wrench className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Access Restricted</h2>
-          <p className="text-muted-foreground mb-4">
-            You don't have permission to view maintenance requests.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Please contact your administrator to request access.
-          </p>
-        </div>
+        <PageContainer>
+          <EmptyState
+            icon={Wrench}
+            title="Access Restricted"
+            subtitle="You don't have permission to view maintenance requests. Please contact your administrator."
+          />
+        </PageContainer>
       </ClientLayout>
     );
   }
 
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Maintenance Requests</h1>
-            <p className="text-muted-foreground mt-2">View maintenance requests from your properties</p>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Maintenance Requests"
+          subtitle="View maintenance requests from your properties"
+          icon={Wrench}
+        />
+
+        <StatCards
+          items={[
+            { label: 'Total', value: requests.length, icon: Wrench, color: 'blue' },
+            { label: 'Pending', value: requests.filter(r => r.status === 'pending').length, icon: Wrench, color: 'amber' },
+            { label: 'In Progress', value: requests.filter(r => r.status === 'in-progress').length, icon: Wrench, color: 'purple' },
+            { label: 'Completed', value: requests.filter(r => r.status === 'completed').length, icon: Wrench, color: 'emerald' },
+          ]}
+        />
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search maintenance requests..."
             value={searchQuery}
@@ -212,123 +210,94 @@ export default function ClientMaintenanceRequests() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No maintenance requests found</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filtered.map((request) => (
-              <Card key={request.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{request.title}</CardTitle>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(request.priority)}`}>
-                      {request.priority}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {request.image && (
-                    <img
-                      src={request.image}
-                      alt={request.title}
-                      className="w-full h-48 object-cover rounded"
-                    />
-                  )}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      <span>{request.venue}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      <span>{request.requestor}</span>
-                    </div>
-                    <div className="text-muted-foreground">
-                      <span className="font-medium">Date: </span>
-                      {formatDate(request.date)}
-                    </div>
-                    <p className="text-foreground line-clamp-3">{request.description}</p>
-                    <div className="flex items-center justify-between pt-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(request.status)}`}>
-                        {request.status}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedRequest(request);
-                          setShowModal(true);
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon={Wrench}
+            title="No maintenance requests found"
+            subtitle={searchQuery ? 'Try adjusting your search' : 'No maintenance requests yet'}
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filtered.map((request) => (
+              <div key={request.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-foreground leading-snug line-clamp-2">{request.title}</p>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getPriorityBadge(request.priority)}`}>
+                    {request.priority}
+                  </span>
+                </div>
+                {request.image && (
+                  <img src={request.image} alt={request.title} className="w-full h-36 object-cover rounded-md" />
+                )}
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 shrink-0" />{request.venue}</span>
+                  <span className="flex items-center gap-1"><User className="h-3.5 w-3.5 shrink-0" />{request.requestor}</span>
+                  <span>Date: {formatDate(request.date)}</span>
+                  <p className="text-foreground line-clamp-2 mt-1">{request.description}</p>
+                </div>
+                <div className="border-t border-border pt-2 mt-auto flex items-center justify-between">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusBadge(request.status)}`}>
+                    {request.status}
+                  </span>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                    onClick={() => { setSelectedRequest(request); setShowModal(true); }}>
+                    <Eye className="h-3.5 w-3.5" /> View
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Detail Modal */}
         {showModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b flex items-center justify-between sticky top-0 bg-card gap-3">
-                <h2 className="text-xl sm:text-2xl font-bold truncate">{selectedRequest.title}</h2>
-                <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowModal(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
+          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
+            <div className="bg-card rounded-2xl shadow-2xl w-full max-w-xl">
+              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-center justify-between gap-4">
+                <h2 className="text-base font-semibold text-foreground truncate">{selectedRequest.title}</h2>
+                <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-muted rounded-lg transition-colors shrink-0">
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
               </div>
-              <div className="p-4 sm:p-6 space-y-4">
+              <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
                 {selectedRequest.image && (
-                  <img
-                    src={selectedRequest.image}
-                    alt={selectedRequest.title}
-                    className="w-full h-64 object-cover rounded"
-                  />
+                  <img src={selectedRequest.image} alt={selectedRequest.title} className="w-full h-56 object-cover rounded-lg" />
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Venue</p>
-                    <p className="font-medium">{selectedRequest.venue}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Venue</p>
+                    <p className="font-medium text-sm mt-0.5">{selectedRequest.venue}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Requestor</p>
-                    <p className="font-medium">{selectedRequest.requestor}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Requestor</p>
+                    <p className="font-medium text-sm mt-0.5">{selectedRequest.requestor}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Date</p>
-                    <p className="font-medium">{formatDate(selectedRequest.date)}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Date</p>
+                    <p className="font-medium text-sm mt-0.5">{formatDate(selectedRequest.date)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Priority</p>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getPriorityBadge(selectedRequest.priority)}`}>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Priority</p>
+                    <span className={`mt-0.5 inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${getPriorityBadge(selectedRequest.priority)}`}>
                       {selectedRequest.priority}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(selectedRequest.status)}`}>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Status</p>
+                    <span className={`mt-0.5 inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusBadge(selectedRequest.status)}`}>
                       {selectedRequest.status}
                     </span>
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">Description</p>
-                  <p className="text-foreground">{selectedRequest.description}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Description</p>
+                  <p className="text-sm text-foreground">{selectedRequest.description}</p>
                 </div>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </PageContainer>
     </ClientLayout>
   );
 }

@@ -9,18 +9,15 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { notifyQuoteRejection } from '@/lib/notifications';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { FileText, Check, X, Calendar, DollarSign, Search, Eye, GitCompare } from 'lucide-react';
-import QuoteComparison from '@/components/quote-comparison';
+import { FileText, Check, X, Calendar, DollarSign, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
-
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatCards } from '@/components/ui/stat-cards';
 interface Quote {
   id: string;
   workOrderId?: string;
@@ -374,45 +371,35 @@ export default function ClientQuotes() {
   if (loading) {
     return (
       <ClientLayout>
-      <PageContainer>
-        <PortalHero
-          title="Quotes"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-        </div>
-            </PageContainer>
-    </ClientLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </ClientLayout>
     );
   }
 
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Quotes</h1>
-            <p className="text-muted-foreground mt-2">Review and approve quotes from contractors</p>
-          </div>
-          {quotes.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                List View
-              </Button>
-              {/* Compare Quotes is available on individual work order pages */}
-            </div>
-          )}
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Quotes"
+          subtitle="Review and approve quotes from contractors"
+          icon={FileText}
+        />
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
-          <span className="text-sm font-medium text-foreground shrink-0">Filter by Status:</span>
+        <StatCards
+          items={[
+            { label: 'Total', value: quotes.length, icon: FileText, color: 'blue' },
+            { label: 'Pending Review', value: quotes.filter(q => q.status === 'sent_to_client').length, icon: FileText, color: 'amber' },
+            { label: 'Accepted', value: quotes.filter(q => q.status === 'accepted').length, icon: FileText, color: 'emerald' },
+            { label: 'Rejected', value: quotes.filter(q => q.status === 'rejected').length, icon: FileText, color: 'red' },
+          ]}
+        />
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <span className="text-sm font-medium text-foreground shrink-0">Filter:</span>
           <SearchableSelect
             className="w-full sm:w-auto sm:min-w-[200px]"
             value={filter}
@@ -427,19 +414,11 @@ export default function ClientQuotes() {
         </div>
 
         {filteredQuotes.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                {filter === 'all' ? 'No quotes yet' : `No ${filter} quotes`}
-              </h3>
-              <p className="text-muted-foreground text-center">
-                {filter === 'all'
-                  ? 'Quotes will appear here once subcontractors submit them and admin forwards them to you.'
-                  : 'Try a different filter'}
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={FileText}
+            title={filter === 'all' ? 'No quotes yet' : `No ${filter.replace('_', ' ')} quotes`}
+            subtitle={filter === 'all' ? 'Quotes appear here once subcontractors submit them.' : 'Try a different filter'}
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredQuotes.map((quote) => (
@@ -508,7 +487,7 @@ export default function ClientQuotes() {
             ))}
           </div>
         )}
-      </div>
+      </PageContainer>
     </ClientLayout>
   );
 }

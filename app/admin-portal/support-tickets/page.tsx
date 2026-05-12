@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import AdminLayout from '@/components/admin-layout';
@@ -91,6 +92,7 @@ const PRIORITIES: SupportTicketPriority[] = ['low', 'medium', 'high', 'urgent'];
 const TYPES: SupportTicketType[] = ['question', 'problem', 'task', 'incident'];
 
 export default function AdminSupportTicketsPage() {
+  const router = useRouter();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [admins, setAdmins] = useState<{ id: string; fullName: string }[]>([]);
   const [clients, setClients] = useState<{ id: string; fullName: string }[]>([]);
@@ -237,7 +239,7 @@ export default function AdminSupportTicketsPage() {
         type: 'question',
         onBehalfOfUid: '',
       });
-      if (res.ticketId) window.location.href = `/admin-portal/support-tickets/${res.ticketId}`;
+      if (res.ticketId) router.push(`/admin-portal/support-tickets/${res.ticketId}`);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to create');
     } finally {

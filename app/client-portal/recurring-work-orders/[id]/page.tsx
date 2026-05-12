@@ -34,7 +34,7 @@ export default function ClientRecurringWorkOrderDetails() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        if (!auth.currentUser) router.push('/portal-login');
+        router.push('/portal-login');
         return;
       }
 
@@ -90,7 +90,7 @@ export default function ClientRecurringWorkOrderDetails() {
             router.push('/client-portal/recurring-work-orders');
           }
         } else {
-          if (!auth.currentUser) router.push('/portal-login');
+          router.push('/portal-login');
         }
       } catch (error: any) {
         console.error('Error fetching recurring work order:', error);

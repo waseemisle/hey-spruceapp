@@ -22,6 +22,7 @@ import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Building2, Plus, MapPin, Calendar, Search, Eye, X, ClipboardList, Upload, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
@@ -708,15 +709,12 @@ export default function ClientLocations() {
                 {/* Property Type */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-foreground uppercase tracking-wide">Property Type</label>
-                  <select
+                  <SearchableSelect
                     value={createLocForm.propertyType}
-                    onChange={(e) => setCreateLocForm(p => ({ ...p, propertyType: e.target.value }))}
-                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                  >
-                    {['Commercial', 'Residential', 'Industrial', 'Retail', 'Office', 'Warehouse', 'Other'].map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => setCreateLocForm(p => ({ ...p, propertyType: v }))}
+                    options={['Commercial', 'Residential', 'Industrial', 'Retail', 'Office', 'Warehouse', 'Other'].map(t => ({ value: t, label: t }))}
+                    placeholder="Select type…"
+                  />
                 </div>
 
                 {/* Optional fields */}
