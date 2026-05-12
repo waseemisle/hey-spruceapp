@@ -5,12 +5,16 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc, getDocs, updateDoc, serverTimestamp, addDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
-import { notifyBiddingOpportunity } from '@/lib/notifications';
+import { notifyBiddingOpportunity, notifyAdminsOfWorkOrder } from '@/lib/notifications';
+import { createTimelineEvent } from '@/lib/timeline';
+import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
+import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye, CheckCircle, XCircle, Share2, X, ClipboardCheck, Clock, BarChart3, Archive } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ClipboardList, Plus, Calendar, AlertCircle, Search, Eye, CheckCircle, XCircle, Share2, X, ClipboardCheck, Clock, BarChart3, Archive, Upload, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import ViewControls from '@/components/view-controls';
 import { useViewControls } from '@/contexts/view-controls-context';
@@ -86,6 +90,7 @@ function ClientWorkOrdersContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const workOrderType = searchParams?.get('type') || 'all'; // 'all', 'maintenance', or 'archive'
+  const createParam = searchParams?.get('create');
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -103,6 +108,21 @@ function ClientWorkOrdersContent() {
   const [biddingSearch, setBiddingSearch] = useState('');
   const [workOrderToShare, setWorkOrderToShare] = useState<WorkOrder | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Create Work Order modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createLocations, setCreateLocations] = useState<{ id: string; name: string }[]>([]);
+  const [createCategories, setCreateCategories] = useState<{ id: string; name: string }[]>([]);
+  const [loadingCreateLocations, setLoadingCreateLocations] = useState(true);
+  const [createForm, setCreateForm] = useState({
+    locationId: '', title: '', description: '', category: '', priority: 'medium',
+    estimateBudget: '', isMaintenanceRequestOrder: false,
+  });
+  const [createFiles, setCreateFiles] = useState<FileList | null>(null);
+  const [createPreviews, setCreatePreviews] = useState<string[]>([]);
+  const [uploadingCreateImages, setUploadingCreateImages] = useState(false);
+  const [submittingCreate, setSubmittingCreate] = useState(false);
+  const [cachedClientData, setCachedClientData] = useState<any>(null);
 
   const normalizeStatus = (status: string) => {
     if (status === 'quotes_received') {
@@ -159,6 +179,33 @@ function ClientWorkOrdersContent() {
           // Check for Archive Work Orders permission
           setHasArchivePermission(clientData?.permissions?.archiveWorkOrders === true);
           setHasCombineWorkOrdersPermission(clientData?.permissions?.combineWorkOrders === true);
+
+          // Cache client data and load create-modal dependencies (non-blocking)
+          setCachedClientData(clientData);
+          const assignedSet = new Set<string>(Array.isArray(clientData?.assignedLocations) ? clientData.assignedLocations : []);
+          const modalCompanyId = clientCompanyId;
+          if (modalCompanyId) {
+            getDocs(query(collection(db, 'locations'), where('companyId', '==', modalCompanyId)))
+              .then(snap => {
+                const visible = snap.docs.filter(d => {
+                  const data = d.data() as any;
+                  return (data.status || '') !== 'rejected' && (assignedSet.has(d.id) || data.clientId === user.uid);
+                });
+                setCreateLocations(visible.map(d => ({
+                  id: d.id,
+                  name: (d.data() as any).locationName || (d.data() as any).name || 'Unnamed',
+                })));
+                setLoadingCreateLocations(false);
+              })
+              .catch(() => setLoadingCreateLocations(false));
+          } else {
+            setLoadingCreateLocations(false);
+          }
+          getDocs(query(collection(db, 'categories'), orderBy('name', 'asc')))
+            .then(snap => {
+              setCreateCategories(snap.docs.map(d => ({ id: d.id, name: (d.data() as any).name })));
+            })
+            .catch(err => console.error('Failed to load categories for create modal:', err));
 
           // If viewing archive, require permission
           if (workOrderType === 'archive' && !clientData?.permissions?.archiveWorkOrders) {
@@ -357,6 +404,131 @@ function ClientWorkOrdersContent() {
       high: 'bg-red-100 text-red-800',
     };
     return styles[priority as keyof typeof styles] || 'bg-muted text-foreground';
+  };
+
+  // Auto-open create modal when ?create=1 is in URL
+  useEffect(() => {
+    if (createParam === '1' && !loading) setShowCreateModal(true);
+  }, [createParam, loading]);
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setCreateForm({ locationId: '', title: '', description: '', category: '', priority: 'medium', estimateBudget: '', isMaintenanceRequestOrder: false });
+    createPreviews.forEach(u => URL.revokeObjectURL(u));
+    setCreatePreviews([]);
+    setCreateFiles(null);
+  };
+
+  const handleCreateFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setCreateFiles(files);
+      setCreatePreviews(Array.from(files).map(f => URL.createObjectURL(f)));
+    }
+  };
+
+  const handleCreateRemoveImage = (index: number) => {
+    if (createFiles) {
+      const dt = new DataTransfer();
+      Array.from(createFiles).filter((_, i) => i !== index).forEach(f => dt.items.add(f));
+      setCreateFiles(dt.files.length > 0 ? dt.files : null);
+    }
+    const updated = [...createPreviews];
+    URL.revokeObjectURL(updated[index]);
+    updated.splice(index, 1);
+    setCreatePreviews(updated);
+  };
+
+  const handleCreateWorkOrder = async () => {
+    if (!createForm.locationId) { toast.error('Please select a location'); return; }
+    if (!createForm.category) { toast.error('Please select a category'); return; }
+    if (!createForm.title.trim()) { toast.error('Please enter a title'); return; }
+    if (!createForm.description.trim()) { toast.error('Please enter a description'); return; }
+    if (!createFiles || createFiles.length === 0) { toast.error('Please upload at least one image'); return; }
+    const currentUser = auth.currentUser;
+    if (!currentUser) { toast.error('Not authenticated'); return; }
+
+    setSubmittingCreate(true);
+    try {
+      const locationDoc = await getDoc(doc(db, 'locations', createForm.locationId));
+      if (!locationDoc.exists()) { toast.error('Location not found'); setSubmittingCreate(false); return; }
+      const locationData = locationDoc.data() as any;
+      let fullAddress = 'N/A';
+      if (locationData.address && typeof locationData.address === 'object') {
+        fullAddress = [locationData.address.street, locationData.address.city, locationData.address.state, locationData.address.zip].filter(Boolean).join(', ') || 'N/A';
+      } else if (locationData.address) {
+        fullAddress = String(locationData.address);
+      }
+
+      setUploadingCreateImages(true);
+      let imageUrls: string[] = [];
+      try {
+        imageUrls = await uploadMultipleToCloudinary(createFiles!);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to upload images');
+        setUploadingCreateImages(false);
+        setSubmittingCreate(false);
+        return;
+      }
+      setUploadingCreateImages(false);
+
+      const clientName = cachedClientData?.fullName || cachedClientData?.companyName || 'Client';
+      const timelineEvent = createTimelineEvent({
+        type: 'created',
+        userId: currentUser.uid,
+        userName: clientName,
+        userRole: 'client',
+        details: `Work order created by ${clientName} via Client Portal`,
+        metadata: { source: 'client_portal_ui' },
+      });
+
+      const payload: Record<string, unknown> = {
+        clientId: currentUser.uid,
+        clientName,
+        clientEmail: cachedClientData?.email || '',
+        companyId: cachedClientData?.companyId || null,
+        locationId: createForm.locationId,
+        locationName: locationData.locationName || locationData.name || 'Unnamed Location',
+        locationAddress: fullAddress,
+        title: createForm.title,
+        description: createForm.description,
+        category: createForm.category,
+        priority: createForm.priority,
+        estimateBudget: createForm.estimateBudget ? parseFloat(createForm.estimateBudget) : null,
+        images: imageUrls,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        timeline: [timelineEvent],
+        systemInformation: {
+          createdBy: { id: currentUser.uid, name: clientName, role: 'client', timestamp: Timestamp.now() },
+        },
+      };
+      if (createForm.isMaintenanceRequestOrder) payload.isMaintenanceRequestOrder = true;
+
+      const woRef = await addDoc(collection(db, 'workOrders'), payload);
+      const workOrderNumber = `WO-${woRef.id.slice(-8).toUpperCase()}`;
+      await updateDoc(woRef, { workOrderNumber });
+
+      notifyAdminsOfWorkOrder(woRef.id, workOrderNumber, clientName).catch(console.error);
+
+      fetch('/api/email/send-work-order-notification', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ workOrderId: woRef.id, workOrderNumber, title: createForm.title, clientName, locationName: locationData.locationName || locationData.name || 'Unnamed Location', priority: createForm.priority, workOrderType: createForm.isMaintenanceRequestOrder ? 'maintenance' : 'standard', description: createForm.description }),
+      }).catch(err => console.error('Failed to send WO notification:', err));
+
+      fetch('/api/email/send-work-order-received', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({ workOrderId: woRef.id, workOrderNumber, title: createForm.title, clientName, clientEmail: cachedClientData?.email || '', locationName: locationData.locationName || locationData.name || 'Unnamed Location', priority: createForm.priority, description: createForm.description }),
+      }).catch(err => console.error('Failed to send WO received email:', err));
+
+      toast.success('Work order created! Awaiting admin approval.');
+      closeCreateModal();
+    } catch (err) {
+      console.error('Error creating work order:', err);
+      toast.error('Failed to create work order');
+    } finally {
+      setSubmittingCreate(false);
+    }
   };
 
   const handleApproveWorkOrder = async (workOrderId: string) => {
@@ -784,12 +956,10 @@ function ClientWorkOrdersContent() {
               </Link>
             )}
             {workOrderType !== 'maintenance' && workOrderType !== 'archive' && (
-              <Link href="/client-portal/work-orders/create">
-                <Button className="gap-2 self-start sm:self-auto">
-                  <Plus className="h-4 w-4" />
-                  Create Work Order
-                </Button>
-              </Link>
+              <Button className="gap-2 self-start sm:self-auto" onClick={() => setShowCreateModal(true)}>
+                <Plus className="h-4 w-4" />
+                Create Work Order
+              </Button>
             )}
           </div>
         </div>
@@ -880,12 +1050,10 @@ function ClientWorkOrdersContent() {
               {filter === 'all' ? 'Get started by creating your first work order' : 'Try a different filter'}
             </p>
             {filter === 'all' && workOrderType !== 'maintenance' && (
-              <Link href="/client-portal/work-orders/create">
-                <Button className="mt-4 gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create Work Order
-                </Button>
-              </Link>
+              <Button className="mt-4 gap-2" onClick={() => setShowCreateModal(true)}>
+                <Plus className="h-4 w-4" />
+                Create Work Order
+              </Button>
             )}
           </div>
         ) : viewMode === 'list' ? (
@@ -1106,6 +1274,174 @@ function ClientWorkOrdersContent() {
           </div>
         )}
       </div>
+
+      {/* Create Work Order Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-xl">
+            <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Create Work Order</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Submit a new maintenance request</p>
+              </div>
+              <button onClick={closeCreateModal} className="p-1.5 hover:bg-muted rounded-lg transition-colors shrink-0">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Location */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                  Location <span className="text-destructive">*</span>
+                </label>
+                <SearchableSelect
+                  value={createForm.locationId}
+                  onValueChange={(v) => setCreateForm(p => ({ ...p, locationId: v }))}
+                  options={[
+                    { value: '', label: loadingCreateLocations ? 'Loading locations…' : 'Select a location' },
+                    ...createLocations.map(l => ({ value: l.id, label: l.name })),
+                  ]}
+                  placeholder={loadingCreateLocations ? 'Loading locations…' : 'Select a location'}
+                  disabled={loadingCreateLocations}
+                  aria-label="Location"
+                  className="w-full"
+                />
+              </div>
+
+              {/* Category + Priority */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                    Category <span className="text-destructive">*</span>
+                  </label>
+                  <SearchableSelect
+                    value={createForm.category}
+                    onValueChange={(v) => setCreateForm(p => ({ ...p, category: v }))}
+                    options={[
+                      { value: '', label: 'Select category…' },
+                      ...createCategories.map(c => ({ value: c.name, label: c.name })),
+                    ]}
+                    placeholder="Select category…"
+                    aria-label="Category"
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                    Priority <span className="text-destructive">*</span>
+                  </label>
+                  <SearchableSelect
+                    value={createForm.priority}
+                    onValueChange={(v) => setCreateForm(p => ({ ...p, priority: v }))}
+                    options={[
+                      { value: 'low', label: 'Low' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'high', label: 'High' },
+                    ]}
+                    placeholder="Select priority"
+                    aria-label="Priority"
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Title */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                  Title <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={createForm.title}
+                  onChange={(e) => setCreateForm(p => ({ ...p, title: e.target.value }))}
+                  placeholder="e.g., AC Unit Not Cooling"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                />
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                  Description <span className="text-destructive">*</span>
+                </label>
+                <textarea
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Provide detailed information about the issue…"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent min-h-[72px] max-h-[120px] resize-none"
+                />
+              </div>
+
+              {/* Images */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                  Images <span className="text-destructive">*</span>
+                </label>
+                <label htmlFor="create-wo-images" className="border-2 border-dashed border-border rounded-xl p-3 text-center cursor-pointer hover:border-primary/50 transition-colors flex flex-col items-center gap-1">
+                  <Upload className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Click or drag images</span>
+                  <input id="create-wo-images" type="file" multiple accept="image/*" onChange={handleCreateFileSelect} className="hidden" />
+                </label>
+                {createPreviews.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {createPreviews.map((url, i) => (
+                      <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-border">
+                        <img src={url} className="w-full h-full object-cover" alt="" />
+                        <button type="button" onClick={() => handleCreateRemoveImage(i)} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
+                          <X className="h-2.5 w-2.5 text-white" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Optional fields */}
+              <details className="group">
+                <summary className="text-xs font-medium text-muted-foreground cursor-pointer select-none flex items-center gap-1 hover:text-foreground transition-colors">
+                  <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
+                  Optional fields
+                </summary>
+                <div className="mt-3 space-y-4 pl-4 border-l border-border">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground uppercase tracking-wide">Estimate Budget (USD)</label>
+                    <input
+                      type="number" step="0.01" min="0" inputMode="decimal"
+                      value={createForm.estimateBudget}
+                      onChange={(e) => setCreateForm(p => ({ ...p, estimateBudget: e.target.value }))}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      placeholder="e.g., 5000"
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="create-maintenance-toggle"
+                      checked={createForm.isMaintenanceRequestOrder}
+                      onChange={(e) => setCreateForm(p => ({ ...p, isMaintenanceRequestOrder: e.target.checked }))}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    <label htmlFor="create-maintenance-toggle" className="text-xs font-medium text-foreground cursor-pointer">
+                      Mark as Maintenance Request
+                    </label>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+              <Button variant="outline" onClick={closeCreateModal} className="flex-1" disabled={submittingCreate || uploadingCreateImages}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateWorkOrder} className="flex-1" disabled={submittingCreate || uploadingCreateImages}>
+                {uploadingCreateImages ? 'Uploading…' : submittingCreate ? 'Creating…' : 'Create Work Order'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Share for Bidding Modal */}
       {showBiddingModal && (

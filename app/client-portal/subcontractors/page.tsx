@@ -316,80 +316,62 @@ export default function ClientSubcontractorsView() {
 
         {/* Create Subcontractor Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-bold">Add Subcontractor</h2>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    setShowCreateModal(false);
-                    setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
-                    setSelectedSkills([]);
-                  }}>
-                    <X className="h-4 w-4" />
-                  </Button>
+          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
+            <div className="bg-card rounded-2xl shadow-2xl w-full max-w-xl">
+              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Add Subcontractor</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">An invitation email will be sent to set up their account</p>
                 </div>
+                <button onClick={() => { setShowCreateModal(false); setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' }); setSelectedSkills([]); }} className="p-1.5 hover:bg-muted rounded-lg transition-colors shrink-0">
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
               </div>
-              <div className="p-4 sm:p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="sub-email">Email <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="sub-email"
-                    type="email"
-                    placeholder="subcontractor@example.com"
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
-                  />
+
+              <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                {/* Email */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                    Email <span className="text-destructive">*</span>
+                  </label>
+                  <Input type="email" placeholder="subcontractor@example.com" value={createForm.email} onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))} />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="sub-businessName">Business Name <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="sub-businessName"
-                    placeholder="Doe Contracting LLC"
-                    value={createForm.businessName}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, businessName: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="sub-phone">Phone <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="sub-phone"
-                    placeholder="(555) 000-0000"
-                    value={createForm.phone}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sub-city">City</Label>
-                    <Input
-                      id="sub-city"
-                      placeholder="New York"
-                      value={createForm.city}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, city: e.target.value }))}
-                    />
+
+                {/* Business Name + Phone */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                      Business Name <span className="text-destructive">*</span>
+                    </label>
+                    <Input placeholder="Doe Contracting LLC" value={createForm.businessName} onChange={(e) => setCreateForm(prev => ({ ...prev, businessName: e.target.value }))} />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="sub-state">State</Label>
-                    <Input
-                      id="sub-state"
-                      placeholder="NY"
-                      value={createForm.state}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, state: e.target.value }))}
-                    />
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                      Phone <span className="text-destructive">*</span>
+                    </label>
+                    <Input placeholder="(555) 000-0000" value={createForm.phone} onChange={(e) => setCreateForm(prev => ({ ...prev, phone: e.target.value }))} />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="sub-license">License Number</Label>
-                  <Input
-                    id="sub-license"
-                    placeholder="Optional"
-                    value={createForm.licenseNumber}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, licenseNumber: e.target.value }))}
-                  />
+
+                {/* City + State */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground uppercase tracking-wide">City</label>
+                    <Input placeholder="New York" value={createForm.city} onChange={(e) => setCreateForm(prev => ({ ...prev, city: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground uppercase tracking-wide">State</label>
+                    <Input placeholder="NY" value={createForm.state} onChange={(e) => setCreateForm(prev => ({ ...prev, state: e.target.value }))} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Skills</Label>
+
+                {/* License + Skills */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground uppercase tracking-wide">License Number</label>
+                  <Input placeholder="Optional" value={createForm.licenseNumber} onChange={(e) => setCreateForm(prev => ({ ...prev, licenseNumber: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground uppercase tracking-wide">Skills</label>
                   <SearchableMultiSelect
                     values={selectedSkills}
                     onValuesChange={setSelectedSkills}
@@ -401,17 +383,15 @@ export default function ClientSubcontractorsView() {
                     allowFreeText
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">An invitation email will be sent to the subcontractor to set up their account. They will be in <strong>pending</strong> status until approved by an admin.</p>
-                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
-                  <Button variant="outline" className="w-full sm:w-auto" onClick={() => {
-                    setShowCreateModal(false);
-                    setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' });
-                    setSelectedSkills([]);
-                  }}>Cancel</Button>
-                  <Button onClick={handleCreateSubcontractor} disabled={submitting} className="w-full sm:w-auto">
-                    {submitting ? 'Creating...' : 'Create & Send Invite'}
-                  </Button>
-                </div>
+              </div>
+
+              <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => { setShowCreateModal(false); setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' }); setSelectedSkills([]); }} disabled={submitting}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateSubcontractor} disabled={submitting} className="flex-1">
+                  {submitting ? 'Creating…' : 'Create & Send Invite'}
+                </Button>
               </div>
             </div>
           </div>

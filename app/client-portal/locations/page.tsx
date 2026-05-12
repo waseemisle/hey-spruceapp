@@ -11,6 +11,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  addDoc,
+  serverTimestamp,
   type QuerySnapshot,
   type DocumentData,
 } from 'firebase/firestore';
@@ -20,7 +22,10 @@ import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Building2, Plus, MapPin, Calendar, Search, Eye, X, ClipboardList } from 'lucide-react';
+import { Building2, Plus, MapPin, Calendar, Search, Eye, X, ClipboardList, Upload, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
+import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
+import { notifyAdminsOfLocation } from '@/lib/notifications';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -70,6 +75,16 @@ export default function ClientLocations() {
   const [locationWorkOrders, setLocationWorkOrders] = useState<WorkOrder[]>([]);
   const [loadingWorkOrders, setLoadingWorkOrders] = useState(false);
   const [canCreateLocation, setCanCreateLocation] = useState(false);
+
+  // Create Location modal
+  const [showCreateLocationModal, setShowCreateLocationModal] = useState(false);
+  const [createLocForm, setCreateLocForm] = useState({
+    name: '', address: '', city: '', state: '', zipCode: '', propertyType: 'Commercial', notes: '',
+  });
+  const [createLocFiles, setCreateLocFiles] = useState<FileList | null>(null);
+  const [createLocPreviews, setCreateLocPreviews] = useState<string[]>([]);
+  const [uploadingLocImages, setUploadingLocImages] = useState(false);
+  const [submittingLoc, setSubmittingLoc] = useState(false);
 
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
@@ -260,6 +275,113 @@ export default function ClientLocations() {
       return bTime - aTime;
     });
 
+  const closeCreateLocationModal = () => {
+    setShowCreateLocationModal(false);
+    setCreateLocForm({ name: '', address: '', city: '', state: '', zipCode: '', propertyType: 'Commercial', notes: '' });
+    createLocPreviews.forEach(u => URL.revokeObjectURL(u));
+    setCreateLocPreviews([]);
+    setCreateLocFiles(null);
+  };
+
+  const handleLocFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setCreateLocFiles(files);
+      setCreateLocPreviews(Array.from(files).map(f => URL.createObjectURL(f)));
+    }
+  };
+
+  const handleLocRemoveImage = (index: number) => {
+    if (createLocFiles) {
+      const dt = new DataTransfer();
+      Array.from(createLocFiles).filter((_, i) => i !== index).forEach(f => dt.items.add(f));
+      setCreateLocFiles(dt.files.length > 0 ? dt.files : null);
+    }
+    const updated = [...createLocPreviews];
+    URL.revokeObjectURL(updated[index]);
+    updated.splice(index, 1);
+    setCreateLocPreviews(updated);
+  };
+
+  const handleCreateLocation = async () => {
+    if (!createLocForm.name.trim()) { toast.error('Please enter a location name'); return; }
+    if (!createLocForm.address.trim()) { toast.error('Please enter a street address'); return; }
+    if (!createLocForm.city.trim()) { toast.error('Please enter a city'); return; }
+    if (!createLocForm.state.trim()) { toast.error('Please enter a state'); return; }
+    if (!createLocForm.zipCode.trim()) { toast.error('Please enter a ZIP code'); return; }
+    const currentUser = auth.currentUser;
+    if (!currentUser) { toast.error('Not authenticated'); return; }
+    if (!companyInfo) { toast.error('No company assigned to your profile'); return; }
+
+    setSubmittingLoc(true);
+    try {
+      let imageUrls: string[] = [];
+      if (createLocFiles && createLocFiles.length > 0) {
+        setUploadingLocImages(true);
+        try {
+          imageUrls = await uploadMultipleToCloudinary(createLocFiles);
+        } catch {
+          toast.error('Failed to upload images');
+          setUploadingLocImages(false);
+          setSubmittingLoc(false);
+          return;
+        }
+        setUploadingLocImages(false);
+      }
+
+      const clientDoc = await getDoc(doc(db, 'clients', currentUser.uid));
+      const clientData = clientDoc.data() as any;
+      const clientName = clientData?.fullName || clientData?.companyName || '';
+
+      const locationRef = await addDoc(collection(db, 'locations'), {
+        clientId: currentUser.uid,
+        clientName,
+        clientEmail: clientData?.email || '',
+        companyId: companyInfo.id,
+        companyName: companyInfo.name || '',
+        locationName: createLocForm.name,
+        name: createLocForm.name,
+        address: {
+          street: createLocForm.address,
+          city: createLocForm.city,
+          state: createLocForm.state,
+          zip: createLocForm.zipCode,
+          country: 'USA',
+        },
+        city: createLocForm.city,
+        state: createLocForm.state,
+        zipCode: createLocForm.zipCode,
+        propertyType: createLocForm.propertyType,
+        contactPerson: '',
+        contactPhone: '',
+        notes: createLocForm.notes || '',
+        images: imageUrls,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        createdBy: currentUser.uid,
+        createdByName: clientName,
+        creationSource: 'client_portal',
+        systemNotes: [{
+          action: 'created',
+          userId: currentUser.uid,
+          userName: clientName,
+          timestamp: new Date().toISOString(),
+          details: `Location submitted via Client Portal by ${clientName}. Status: pending approval.`,
+        }],
+      });
+
+      notifyAdminsOfLocation(locationRef.id, createLocForm.name, clientName).catch(console.error);
+
+      toast.success('Location created! Awaiting admin approval.');
+      closeCreateLocationModal();
+    } catch (err) {
+      console.error('Error creating location:', err);
+      toast.error('Failed to create location');
+    } finally {
+      setSubmittingLoc(false);
+    }
+  };
+
   const handleViewDetails = async (location: Location) => {
     setSelectedLocation(location);
     setShowModal(true);
@@ -397,12 +519,14 @@ export default function ClientLocations() {
           icon={Building2}
           iconClassName="text-blue-600"
           action={canCreateLocation ? (
-            <Link href="/client-portal/locations/create">
-              <Button disabled={!companyInfo || checkingCompany} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Add New Location
-              </Button>
-            </Link>
+            <Button
+              disabled={!companyInfo || checkingCompany}
+              className="gap-2"
+              onClick={() => setShowCreateLocationModal(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add New Location
+            </Button>
           ) : undefined}
         />
 
@@ -480,7 +604,7 @@ export default function ClientLocations() {
                         <Eye className="h-3.5 w-3.5" />
                         View Details
                       </Button>
-                      <Link href={`/client-portal/work-orders/create?locationId=${location.id}`}>
+                      <Link href="/client-portal/work-orders?create=1">
                         <Button
                           size="sm"
                           variant="outline"
@@ -496,6 +620,155 @@ export default function ClientLocations() {
               </div>
             )}
           </>
+        )}
+
+        {/* Create Location Modal */}
+        {showCreateLocationModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
+            <div className="bg-card rounded-2xl shadow-2xl w-full max-w-xl">
+              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">Add New Location</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Submit a property location for approval</p>
+                </div>
+                <button onClick={closeCreateLocationModal} className="p-1.5 hover:bg-muted rounded-lg transition-colors shrink-0">
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+
+              <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                {/* Location Name */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                    Location Name <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={createLocForm.name}
+                    onChange={(e) => setCreateLocForm(p => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g., Main Office Building"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  />
+                </div>
+
+                {/* Street Address */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                    Street Address <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={createLocForm.address}
+                    onChange={(e) => setCreateLocForm(p => ({ ...p, address: e.target.value }))}
+                    placeholder="123 Main St"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  />
+                </div>
+
+                {/* City / State / ZIP */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                      City <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={createLocForm.city}
+                      onChange={(e) => setCreateLocForm(p => ({ ...p, city: e.target.value }))}
+                      placeholder="Denver"
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                      State <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={createLocForm.state}
+                      onChange={(e) => setCreateLocForm(p => ({ ...p, state: e.target.value }))}
+                      placeholder="CO"
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground uppercase tracking-wide">
+                      ZIP <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={createLocForm.zipCode}
+                      onChange={(e) => setCreateLocForm(p => ({ ...p, zipCode: e.target.value }))}
+                      placeholder="80202"
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Property Type */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground uppercase tracking-wide">Property Type</label>
+                  <select
+                    value={createLocForm.propertyType}
+                    onChange={(e) => setCreateLocForm(p => ({ ...p, propertyType: e.target.value }))}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  >
+                    {['Commercial', 'Residential', 'Industrial', 'Retail', 'Office', 'Warehouse', 'Other'].map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Optional fields */}
+                <details className="group">
+                  <summary className="text-xs font-medium text-muted-foreground cursor-pointer select-none flex items-center gap-1 hover:text-foreground transition-colors">
+                    <ChevronRight className="h-3 w-3 group-open:rotate-90 transition-transform" />
+                    Optional fields
+                  </summary>
+                  <div className="mt-3 space-y-4 pl-4 border-l border-border">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-foreground uppercase tracking-wide">Notes</label>
+                      <textarea
+                        value={createLocForm.notes}
+                        onChange={(e) => setCreateLocForm(p => ({ ...p, notes: e.target.value }))}
+                        placeholder="Any additional information about this location…"
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent min-h-[72px] max-h-[120px] resize-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-foreground uppercase tracking-wide">Images</label>
+                      <label htmlFor="create-loc-images" className="border-2 border-dashed border-border rounded-xl p-3 text-center cursor-pointer hover:border-primary/50 transition-colors flex flex-col items-center gap-1">
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Click or drag images</span>
+                        <input id="create-loc-images" type="file" multiple accept="image/*" onChange={handleLocFileSelect} className="hidden" />
+                      </label>
+                      {createLocPreviews.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {createLocPreviews.map((url, i) => (
+                            <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden border border-border">
+                              <img src={url} className="w-full h-full object-cover" alt="" />
+                              <button type="button" onClick={() => handleLocRemoveImage(i)} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5">
+                                <X className="h-2.5 w-2.5 text-white" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+                <Button variant="outline" onClick={closeCreateLocationModal} className="flex-1" disabled={submittingLoc || uploadingLocImages}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateLocation} className="flex-1" disabled={submittingLoc || uploadingLocImages}>
+                  {uploadingLocImages ? 'Uploading…' : submittingLoc ? 'Creating…' : 'Add Location'}
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Details Modal */}

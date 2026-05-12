@@ -38,7 +38,7 @@ export default function DashboardSearchBar({ portalType, onSearch }: DashboardSe
         router.push('/admin-portal/work-orders');
         break;
       case 'client':
-        router.push('/client-portal/work-orders/create');
+        router.push('/client-portal/work-orders?create=1');
         break;
       case 'subcontractor':
         // Subcontractors typically don't create work orders

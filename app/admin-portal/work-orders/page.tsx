@@ -515,12 +515,12 @@ const fetchCategories = async () => {
 
   const handleCreateRecurringWorkOrder = () => {
     setShowWorkOrderTypeModal(false);
-    window.location.href = '/admin-portal/recurring-work-orders/create';
+    router.push('/admin-portal/recurring-work-orders/create');
   };
 
   const handleCreateGuidedWorkOrder = () => {
     setShowWorkOrderTypeModal(false);
-    window.location.href = '/admin-portal/work-orders/create/guided';
+    router.push('/admin-portal/work-orders/create/guided');
   };
 
 const handleCompanySelect = (companyId: string) => {
