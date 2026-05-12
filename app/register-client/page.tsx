@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { AuthShell } from '@/components/ui/auth-shell';
 import { UserPlus } from 'lucide-react';
 
@@ -24,8 +24,6 @@ export default function RegisterClient() {
   });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -34,20 +32,12 @@ export default function RegisterClient() {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: 'Error',
-        description: 'Passwords do not match',
-        variant: 'destructive',
-      });
+      toast.error('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
-      toast({
-        title: 'Error',
-        description: 'Password must be at least 6 characters',
-        variant: 'destructive',
-      });
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
@@ -84,10 +74,7 @@ export default function RegisterClient() {
         updatedAt: serverTimestamp(),
       });
 
-      toast({
-        title: 'Registration Successful',
-        description: 'Your account is pending admin approval. You will receive an email once approved.',
-      });
+      toast.success('Registration successful! Your account is pending admin approval.');
 
       // Sign out and redirect to login
       await auth.signOut();
@@ -96,11 +83,7 @@ export default function RegisterClient() {
       }, 2000);
     } catch (error: any) {
       console.error('Registration error:', error);
-      toast({
-        title: 'Registration Failed',
-        description: error.message || 'An error occurred during registration',
-        variant: 'destructive',
-      });
+      toast.error(error.message || 'An error occurred during registration');
     } finally {
       setLoading(false);
     }
@@ -116,7 +99,7 @@ export default function RegisterClient() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Client Registration</CardTitle>
           <CardDescription className="text-center">
-            Create your client account to manage restaurant cleaning and maintenance
+            Create your client account to manage your service requests
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

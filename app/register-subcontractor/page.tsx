@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { SearchableSelect, SearchableMultiSelect, SearchableSelectOption } from '@/components/ui/searchable-select';
 import { AuthShell } from '@/components/ui/auth-shell';
 import { UserPlus } from 'lucide-react';
@@ -86,8 +86,6 @@ export default function RegisterSubcontractor() {
   const [categoryOptions, setCategoryOptions] = useState<SearchableSelectOption[]>([]);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
-
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -111,29 +109,17 @@ export default function RegisterSubcontractor() {
     e.preventDefault();
 
     if (selectedSkills.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one skill',
-        variant: 'destructive',
-      });
+      toast.error('Please select at least one skill');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: 'Error',
-        description: 'Passwords do not match',
-        variant: 'destructive',
-      });
+      toast.error('Passwords do not match');
       return;
     }
 
     if (formData.password.length < 6) {
-      toast({
-        title: 'Error',
-        description: 'Password must be at least 6 characters',
-        variant: 'destructive',
-      });
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
@@ -175,10 +161,7 @@ export default function RegisterSubcontractor() {
         updatedAt: serverTimestamp(),
       });
 
-      toast({
-        title: 'Registration Successful',
-        description: 'Your account is pending admin approval. You will receive an email once approved.',
-      });
+      toast.success('Registration successful! Your account is pending admin approval.');
 
       // Sign out and redirect to login
       await auth.signOut();
@@ -187,11 +170,7 @@ export default function RegisterSubcontractor() {
       }, 2000);
     } catch (error: any) {
       console.error('Registration error:', error);
-      toast({
-        title: 'Registration Failed',
-        description: error.message || 'An error occurred during registration',
-        variant: 'destructive',
-      });
+      toast.error(error.message || 'An error occurred during registration');
     } finally {
       setLoading(false);
     }

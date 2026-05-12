@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import Logo from '@/components/ui/logo';
 import { AuthShell } from '@/components/ui/auth-shell';
 import { ShieldCheck } from 'lucide-react';
@@ -20,8 +20,6 @@ export default function PortalLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -41,7 +39,7 @@ export default function PortalLogin() {
           userEmail: ad.email || email, userRole: 'admin', loginAt: serverTimestamp(),
           logoutAt: null, sessionDuration: null, createdAt: serverTimestamp(),
         }).catch(() => {});
-        toast({ title: 'Login Successful', description: 'Welcome to Admin Portal' });
+        toast.success('Welcome to Admin Portal');
         router.push('/admin-portal');
         return;
       }
@@ -62,15 +60,11 @@ export default function PortalLogin() {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, newPassword: password }),
           }).catch(() => {});
-          toast({ title: 'Login Successful', description: 'Welcome to Client Portal' });
+          toast.success('Welcome to Client Portal');
           router.push('/client-portal');
           return;
         } else {
-          toast({
-            title: 'Account Pending',
-            description: 'Your account is pending admin approval. Please check back later.',
-            variant: 'destructive',
-          });
+          toast.error('Your account is pending admin approval. Please check back later.');
           await auth.signOut();
           setLoading(false);
           return;
@@ -93,15 +87,11 @@ export default function PortalLogin() {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, newPassword: password }),
           }).catch(() => {});
-          toast({ title: 'Login Successful', description: 'Welcome to Subcontractor Portal' });
+          toast.success('Welcome to Subcontractor Portal');
           router.push('/subcontractor-portal');
           return;
         } else {
-          toast({
-            title: 'Account Pending',
-            description: 'Your account is pending admin approval. Please check back later.',
-            variant: 'destructive',
-          });
+          toast.error('Your account is pending admin approval. Please check back later.');
           await auth.signOut();
           setLoading(false);
           return;
@@ -109,18 +99,13 @@ export default function PortalLogin() {
       }
 
       // No profile found
-      toast({
-        title: 'Error',
-        description: 'No account profile found. Please contact support.',
-        variant: 'destructive',
-      });
+      toast.error('No account profile found. Please contact support.');
       await auth.signOut();
     } catch (error: any) {
       console.error('Login error:', error);
-      
+
       let errorMessage = 'An unexpected error occurred. Please try again.';
-      
-      // Handle specific Firebase auth errors
+
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email address.';
       } else if (error.code === 'auth/wrong-password') {
@@ -138,12 +123,8 @@ export default function PortalLogin() {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
-      toast({
-        title: 'Login Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
