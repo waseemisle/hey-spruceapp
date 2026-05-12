@@ -16,10 +16,8 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
-
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
@@ -34,6 +32,8 @@ const CATEGORIES = [
   { name: 'Onboarding',           emoji: '👋' },
   { name: 'Policies',             emoji: '📜' },
 ] as const;
+
+const CATEGORY_OPTIONS = CATEGORIES.map(c => ({ value: c.name, label: `${c.emoji} ${c.name}` }));
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -195,12 +195,6 @@ export default function ResourcesPage() {
   return (
     <AdminLayout>
       <PageContainer>
-        <PortalHero
-          title="Resources"
-          subtitle=""
-          icon={Sparkles}
-        />
-
         {/* ── Header ────────────────────────────────────────────────────────── */}
         <PageHeader
           title="Resources & Knowledge Base"
@@ -261,16 +255,13 @@ export default function ResourcesPage() {
               className="pl-10"
             />
           </div>
-          <select
+          <SearchableSelect
             value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            className="h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">All Categories</option>
-            {CATEGORIES.map(c => (
-              <option key={c.name} value={c.name}>{c.emoji} {c.name}</option>
-            ))}
-          </select>
+            onValueChange={setFilterCategory}
+            options={CATEGORY_OPTIONS}
+            placeholder="All Categories"
+            className="w-full sm:w-48"
+          />
           {(searchQuery || filterCategory) && (
             <Button
               variant="outline"
@@ -434,16 +425,13 @@ export default function ResourcesPage() {
                 {/* Category */}
                 <div>
                   <Label>Category</Label>
-                  <select
+                  <SearchableSelect
                     value={formData.category}
-                    onChange={e => setFormData({ ...formData, category: e.target.value })}
-                    className="mt-1 w-full h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">Select category...</option>
-                    {CATEGORIES.map(c => (
-                      <option key={c.name} value={c.name}>{c.emoji} {c.name}</option>
-                    ))}
-                  </select>
+                    onValueChange={v => setFormData({ ...formData, category: v })}
+                    options={CATEGORY_OPTIONS}
+                    placeholder="Select category..."
+                    className="mt-1"
+                  />
                 </div>
 
                 {/* Type */}

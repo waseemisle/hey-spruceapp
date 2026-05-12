@@ -24,8 +24,6 @@ import {
 import { formatAddress } from '@/lib/utils';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 interface Client {
   id: string;
   fullName: string;
@@ -290,23 +288,19 @@ export default function GuidedWorkOrderCreate() {
   if (loading) {
     return (
       <AdminLayout>
-      <PageContainer>
-        <PortalHero
-          title="Guided"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-            </PageContainer>
-    </AdminLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </AdminLayout>
     );
   }
 
   return (
     <AdminLayout>
-      <div className="max-w-3xl mx-auto space-y-6 pb-24">
+      <PageContainer>
+        <div className="max-w-3xl mx-auto space-y-6 pb-24">
         <div className="flex items-center gap-4">
           <Link href="/admin-portal/work-orders">
             <Button variant="outline" size="sm">
@@ -612,7 +606,8 @@ export default function GuidedWorkOrderCreate() {
             </CardContent>
           </Card>
         )}
-      </div>
+        </div>
+      </PageContainer>
     </AdminLayout>
   );
 }

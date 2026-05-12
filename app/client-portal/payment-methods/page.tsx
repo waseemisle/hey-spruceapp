@@ -16,7 +16,6 @@ import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
 interface ClientData {
   uid: string;
   fullName: string;

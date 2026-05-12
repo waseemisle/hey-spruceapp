@@ -1,8 +1,7 @@
 'use client';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 /**
  * Admin → Edit Scheduled Invoice
  *
@@ -179,38 +178,31 @@ export default function EditScheduledInvoicePage() {
   if (loading) {
     return (
       <AdminLayout>
-      <PageContainer>
-        <PortalHero
-          title="Edit"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-            </PageContainer>
-    </AdminLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </AdminLayout>
     );
   }
 
   return (
     <AdminLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <Link href={`/admin-portal/scheduled-invoices/${id}`}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Edit Scheduled Invoice</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Update title, description, and line items. Schedule changes (frequency, dates) require
-              cancel + recreate to keep the execution audit clean.
-            </p>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Edit Scheduled Invoice"
+          subtitle="Update title, description, and line items. Schedule changes require cancel + recreate."
+          icon={Receipt}
+          action={
+            <Link href={`/admin-portal/scheduled-invoices/${id}`}>
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </Link>
+          }
+        />
 
         <Card>
           <CardHeader>
@@ -308,7 +300,7 @@ export default function EditScheduledInvoicePage() {
             <Button variant="outline" disabled={saving} className="w-full">Cancel</Button>
           </Link>
         </div>
-      </div>
+      </PageContainer>
     </AdminLayout>
   );
 }

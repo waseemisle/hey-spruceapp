@@ -17,8 +17,8 @@ import { toast } from 'sonner';
 import { RecurrencePattern, InvoiceSchedule } from '@/types';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+
 interface Location {
   id: string;
   name?: string;
@@ -69,12 +69,12 @@ export default function ClientCreateRecurringWorkOrder() {
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (!user) { if (!auth.currentUser) router.push('/portal-login'); return; }
+      if (!user) { router.push('/portal-login'); return; }
 
       try {
         const clientDoc = await getDoc(doc(db, 'clients', user.uid));
         if (!clientDoc.exists() || clientDoc.data().status !== 'approved') {
-          if (!auth.currentUser) router.push('/portal-login');
+          router.push('/portal-login');
           return;
         }
 
@@ -366,35 +366,31 @@ export default function ClientCreateRecurringWorkOrder() {
   if (loading) {
     return (
       <ClientLayout>
-      <PageContainer>
-        <PortalHero
-          title="Create"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-            </PageContainer>
-    </ClientLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </ClientLayout>
     );
   }
 
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Link href="/client-portal/recurring-work-orders">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">New Recurring Work Order</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Set up a work order that repeats automatically</p>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="New Recurring Work Order"
+          subtitle="Set up a work order that repeats automatically"
+          icon={RotateCcw}
+          action={
+            <Link href="/client-portal/recurring-work-orders">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </Link>
+          }
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Basic Information */}
@@ -648,7 +644,7 @@ export default function ClientCreateRecurringWorkOrder() {
             {submitting ? 'Creating...' : 'Create Recurring Work Order'}
           </Button>
         </div>
-      </div>
+      </PageContainer>
     </ClientLayout>
   );
 }

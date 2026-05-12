@@ -14,8 +14,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 interface AdminUser {
   uid: string;
   email: string;
@@ -203,11 +201,6 @@ export default function AdminUsersManagement() {
   return (
     <AdminLayout>
       <PageContainer>
-        <PortalHero
-          title="Admin Users"
-          subtitle=""
-          icon={Sparkles}
-        />
         <PageHeader
           title="Admin Users"
           subtitle="Manage admin user accounts"

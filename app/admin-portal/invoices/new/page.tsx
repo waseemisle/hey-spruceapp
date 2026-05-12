@@ -18,8 +18,7 @@ import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { formatMoney } from '@/lib/money';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface WorkOrder {
@@ -755,34 +754,29 @@ function CreateInvoiceContent() {
   if (loading) {
     return (
       <AdminLayout>
-      <PageContainer>
-        <PortalHero
-          title="New"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-            </PageContainer>
-    </AdminLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </AdminLayout>
     );
   }
 
   return (
     <AdminLayout>
-      <div className="space-y-6 max-w-4xl">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Create Invoice</h1>
-            <p className="text-muted-foreground mt-1">Fill in the details or select a work order to auto-fill</p>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Create Invoice"
+          subtitle="Fill in the details or select a work order to auto-fill"
+          icon={Receipt}
+          action={
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          }
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Work Order + Client */}
@@ -1140,7 +1134,7 @@ function CreateInvoiceContent() {
             Cancel
           </Button>
         </div>
-      </div>
+      </PageContainer>
     </AdminLayout>
   );
 }

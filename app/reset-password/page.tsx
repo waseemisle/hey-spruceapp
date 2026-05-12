@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { AuthShell } from '@/components/ui/auth-shell';
 
@@ -24,7 +24,6 @@ function ResetPasswordForm() {
   const [userEmail, setUserEmail] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { toast } = useToast();
 
   useEffect(() => {
     const verifyResetCode = async () => {
@@ -63,20 +62,12 @@ function ResetPasswordForm() {
     e.preventDefault();
     
     if (password !== confirmPassword) {
-      toast({
-        title: 'Passwords Do Not Match',
-        description: 'Please make sure both passwords are identical.',
-        variant: 'destructive',
-      });
+      toast.error('Please make sure both passwords are identical.');
       return;
     }
 
     if (password.length < 6) {
-      toast({
-        title: 'Password Too Short',
-        description: 'Password must be at least 6 characters long.',
-        variant: 'destructive',
-      });
+      toast.error('Password must be at least 6 characters long.');
       return;
     }
 
@@ -98,10 +89,7 @@ function ResetPasswordForm() {
       }
 
       setSuccess(true);
-      toast({
-        title: 'Password Reset Successful',
-        description: 'Your password has been updated. You can now log in with your new password.',
-      });
+      toast.success('Your password has been updated. You can now log in with your new password.');
     } catch (error: any) {
       console.error('Password reset error:', error);
       
@@ -117,11 +105,7 @@ function ResetPasswordForm() {
         errorMessage = error.message;
       }
       
-      toast({
-        title: 'Reset Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

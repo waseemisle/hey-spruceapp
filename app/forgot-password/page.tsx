@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { ArrowLeft, Mail } from 'lucide-react';
 import { AuthShell } from '@/components/ui/auth-shell';
 
@@ -18,7 +18,6 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,11 +26,7 @@ export default function ForgotPassword() {
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail) {
-      toast({
-        title: 'Email Required',
-        description: 'Please enter your email address.',
-        variant: 'destructive',
-      });
+      toast.error('Please enter your email address.');
       setLoading(false);
       return;
     }
@@ -40,10 +35,7 @@ export default function ForgotPassword() {
       await sendPasswordResetEmail(auth, trimmedEmail);
       setEmail(trimmedEmail);
       setEmailSent(true);
-      toast({
-        title: 'Reset Email Sent',
-        description: 'Please check your email for password reset instructions.',
-      });
+      toast.success('Please check your email for password reset instructions.');
     } catch (error: any) {
       console.error('Password reset error:', error);
       
@@ -62,11 +54,7 @@ export default function ForgotPassword() {
         errorMessage = error.message;
       }
       
-      toast({
-        title: 'Reset Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

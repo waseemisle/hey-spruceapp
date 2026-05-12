@@ -18,7 +18,6 @@ import { Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
 interface Subcontractor {
   uid: string;
   email: string;

@@ -22,7 +22,6 @@ import Link from 'next/link';
 import { US_STATES } from '@/lib/us-states';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
 interface Company {
   id: string;
   name: string;

@@ -33,8 +33,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 interface WorkOrder {
   id: string;
   workOrderNumber?: string;
@@ -509,11 +507,6 @@ export default function ClientLocations() {
   return (
     <ClientLayout>
       <PageContainer>
-        <PortalHero
-          title="Locations"
-          subtitle=""
-          icon={Sparkles}
-        />
         <PageHeader
           title="My Locations"
           subtitle="Manage your property locations"

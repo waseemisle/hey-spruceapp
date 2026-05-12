@@ -6,7 +6,7 @@ import { doc, getDoc, updateDoc, serverTimestamp, collection, query, getDocs, or
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,8 +20,9 @@ import Link from 'next/link';
 import { syncRwoDescriptionToActiveWorkOrders } from '@/lib/sync-rwo-description';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+
 interface Category {
   id: string;
   name: string;
@@ -50,7 +51,7 @@ export default function ClientEditRecurringWorkOrder() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        if (!auth.currentUser) router.push('/portal-login');
+        router.push('/portal-login');
         return;
       }
 
@@ -130,7 +131,7 @@ export default function ClientEditRecurringWorkOrder() {
           })) as Category[];
           setCategories(categoriesData);
         } else {
-          if (!auth.currentUser) router.push('/portal-login');
+          router.push('/portal-login');
         }
       } catch (error: any) {
         console.error('Error fetching recurring work order:', error);
@@ -186,29 +187,21 @@ export default function ClientEditRecurringWorkOrder() {
   if (loading) {
     return (
       <ClientLayout>
-      <PageContainer>
-        <PortalHero
-          title="Edit"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-        </div>
-            </PageContainer>
-    </ClientLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </ClientLayout>
     );
   }
 
   if (noPermission) {
     return (
       <ClientLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-muted-foreground">You do not have permission to edit recurring work orders.</p>
-          </div>
-        </div>
+        <PageContainer>
+          <EmptyState icon={AlertCircle} title="Access Restricted" subtitle="You do not have permission to edit recurring work orders." />
+        </PageContainer>
       </ClientLayout>
     );
   }
@@ -216,46 +209,39 @@ export default function ClientEditRecurringWorkOrder() {
   if (!recurringWorkOrder) {
     return (
       <ClientLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <p className="text-muted-foreground">Recurring work order not found or you do not have access to it.</p>
-          </div>
-        </div>
+        <PageContainer>
+          <EmptyState icon={AlertCircle} title="Not Found" subtitle="Recurring work order not found or you do not have access to it." />
+        </PageContainer>
       </ClientLayout>
     );
   }
 
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Link href={`/client-portal/recurring-work-orders/${id}`}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Edit Recurring Work Order</h1>
-            <p className="text-muted-foreground mt-2">Update recurring work order details</p>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Edit Recurring Work Order"
+          subtitle="Update recurring work order details"
+          icon={RotateCcw}
+          action={
+            <Link href={`/client-portal/recurring-work-orders/${id}`}>
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </Link>
+          }
+        />
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5" />
-              Work Order Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="pt-6 space-y-4">
             <div>
               <Label>Work Order Title *</Label>
               <Input
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="e.g., Monthly HVAC Maintenance"
+                className="mt-1"
               />
             </div>
 
@@ -264,7 +250,7 @@ export default function ClientEditRecurringWorkOrder() {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                className="mt-1 w-full border border-input rounded-md p-2 min-h-[100px] text-sm bg-background"
                 placeholder="Detailed description of the recurring work..."
               />
             </div>
@@ -273,22 +259,18 @@ export default function ClientEditRecurringWorkOrder() {
               <div>
                 <Label>Category *</Label>
                 <SearchableSelect
-                  className="mt-1 w-full"
+                  className="mt-1"
                   value={formData.category}
                   onValueChange={(v) => setFormData({ ...formData, category: v })}
-                  options={[
-                    { value: '', label: 'Select category...' },
-                    ...categories.map((category) => ({ value: category.name, label: category.name })),
-                  ]}
+                  options={categories.map((c) => ({ value: c.name, label: c.name }))}
                   placeholder="Select category..."
-                  aria-label="Category"
                 />
               </div>
 
               <div>
                 <Label>Priority *</Label>
                 <SearchableSelect
-                  className="mt-1 w-full"
+                  className="mt-1"
                   value={formData.priority}
                   onValueChange={(v) => setFormData({ ...formData, priority: v as typeof formData.priority })}
                   options={[
@@ -297,7 +279,6 @@ export default function ClientEditRecurringWorkOrder() {
                     { value: 'high', label: 'High' },
                   ]}
                   placeholder="Priority"
-                  aria-label="Priority"
                 />
               </div>
             </div>
@@ -313,6 +294,7 @@ export default function ClientEditRecurringWorkOrder() {
                 onChange={(e) => setFormData({ ...formData, estimateBudget: e.target.value })}
                 onWheel={(e) => e.currentTarget.blur()}
                 placeholder="e.g., 5000"
+                className="mt-1"
               />
               <p className="text-xs text-muted-foreground mt-1">Estimated budget per occurrence in USD</p>
             </div>
@@ -322,12 +304,12 @@ export default function ClientEditRecurringWorkOrder() {
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
+                className="mt-1 w-full border border-input rounded-md p-2 min-h-[80px] text-sm bg-background"
                 placeholder="Additional notes about this recurring work order..."
               />
             </div>
 
-            <div className="flex gap-2 pt-4">
+            <div className="flex gap-2 pt-2">
               <Button
                 onClick={handleSubmit}
                 loading={submitting} disabled={submitting}
@@ -344,7 +326,7 @@ export default function ClientEditRecurringWorkOrder() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     </ClientLayout>
   );
 }

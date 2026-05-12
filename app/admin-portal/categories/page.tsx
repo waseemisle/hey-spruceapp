@@ -14,8 +14,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 interface SystemNote {
   action: string;
   userId: string;
@@ -187,11 +185,6 @@ export default function CategoriesManagement() {
   return (
     <AdminLayout>
       <PageContainer>
-        <PortalHero
-          title="Categories"
-          subtitle=""
-          icon={Sparkles}
-        />
         <PageHeader
           title="Categories"
           subtitle="Manage work order categories"

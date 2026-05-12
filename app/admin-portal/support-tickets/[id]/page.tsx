@@ -43,8 +43,6 @@ import { supportTicketPost } from '@/lib/support-ticket-api-client';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 const ALL_STATUSES: SupportTicketStatus[] = [
   'open',
   'in-progress',
@@ -401,11 +399,6 @@ export default function AdminSupportTicketDetailPage() {
   return (
     <AdminLayout>
       <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
         <div className="flex items-center gap-3 mb-4">
           <Link href="/admin-portal/support-tickets">
             <Button variant="ghost" size="icon" aria-label="Back">

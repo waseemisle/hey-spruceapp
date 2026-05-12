@@ -19,7 +19,6 @@ import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
 const US_STATES = [
   { value: 'AL', label: 'Alabama' },
   { value: 'AK', label: 'Alaska' },

@@ -17,8 +17,7 @@ import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurrencePattern, InvoiceSchedule } from '@/types';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 interface Client {
   id: string;
   fullName: string;
@@ -641,36 +640,29 @@ export default function CreateRecurringWorkOrder() {
   if (loading) {
     return (
       <AdminLayout>
-      <PageContainer>
-        <PortalHero
-          title="Create"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-        </div>
-            </PageContainer>
-    </AdminLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </AdminLayout>
     );
   }
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Create Recurring Work Order</h1>
-            <p className="text-muted-foreground mt-2">Set up a work order that repeats automatically</p>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Create Recurring Work Order"
+          subtitle="Set up a work order that repeats automatically"
+          icon={RotateCcw}
+          action={
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          }
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Basic Information */}
@@ -1160,7 +1152,7 @@ export default function CreateRecurringWorkOrder() {
             Cancel
           </Button>
         </div>
-      </div>
+      </PageContainer>
     </AdminLayout>
   );
 }

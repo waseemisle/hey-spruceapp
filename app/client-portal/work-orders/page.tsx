@@ -180,27 +180,38 @@ function ClientWorkOrdersContent() {
           setHasArchivePermission(clientData?.permissions?.archiveWorkOrders === true);
           setHasCombineWorkOrdersPermission(clientData?.permissions?.combineWorkOrders === true);
 
-          // Cache client data and load create-modal dependencies (non-blocking)
+          // Cache client data and load create-modal location/category data (non-blocking)
           setCachedClientData(clientData);
           const assignedSet = new Set<string>(Array.isArray(clientData?.assignedLocations) ? clientData.assignedLocations : []);
           const modalCompanyId = clientCompanyId;
-          if (modalCompanyId) {
-            getDocs(query(collection(db, 'locations'), where('companyId', '==', modalCompanyId)))
-              .then(snap => {
-                const visible = snap.docs.filter(d => {
-                  const data = d.data() as any;
-                  return (data.status || '') !== 'rejected' && (assignedSet.has(d.id) || data.clientId === user.uid);
-                });
-                setCreateLocations(visible.map(d => ({
-                  id: d.id,
-                  name: (d.data() as any).locationName || (d.data() as any).name || 'Unnamed',
-                })));
-                setLoadingCreateLocations(false);
-              })
-              .catch(() => setLoadingCreateLocations(false));
-          } else {
-            setLoadingCreateLocations(false);
-          }
+
+          const loadLocations = async () => {
+            try {
+              let snap;
+              if (modalCompanyId) {
+                snap = await getDocs(query(collection(db, 'locations'), where('companyId', '==', modalCompanyId)));
+              } else {
+                snap = await getDocs(query(collection(db, 'locations'), where('clientId', '==', user.uid)));
+              }
+              const visible = snap.docs.filter(d => {
+                const data = d.data() as any;
+                const notRejected = (data.status || '') !== 'rejected';
+                const hasAccess = modalCompanyId
+                  ? (assignedSet.size === 0 || assignedSet.has(d.id) || data.clientId === user.uid)
+                  : true;
+                return notRejected && hasAccess;
+              });
+              setCreateLocations(visible.map(d => ({
+                id: d.id,
+                name: (d.data() as any).locationName || (d.data() as any).name || 'Unnamed',
+              })));
+            } catch {
+              // silently ignore — user can try again
+            } finally {
+              setLoadingCreateLocations(false);
+            }
+          };
+          loadLocations();
           getDocs(query(collection(db, 'categories'), orderBy('name', 'asc')))
             .then(snap => {
               setCreateCategories(snap.docs.map(d => ({ id: d.id, name: (d.data() as any).name })));

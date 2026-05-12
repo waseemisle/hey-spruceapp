@@ -7,38 +7,32 @@ import { ArrowLeft } from 'lucide-react';
 import RecurringWorkOrderEditForm from '@/components/recurring-work-order-edit-form';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { RefreshCw } from 'lucide-react';
+
 export default function EditRecurringWorkOrder({ params }: { params: { id: string } }) {
   const router = useRouter();
 
   return (
     <AdminLayout>
       <PageContainer>
-        <PortalHero
-          title="Edit"
-          subtitle=""
-          icon={Sparkles}
+        <PageHeader
+          title="Edit Recurring Work Order"
+          subtitle="Update recurring work order settings"
+          icon={RefreshCw}
+          action={
+            <Button variant="outline" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          }
         />
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Edit Recurring Work Order</h1>
-            <p className="text-muted-foreground mt-2">Update recurring work order settings</p>
-          </div>
-        </div>
-
         <RecurringWorkOrderEditForm
           id={params.id}
           onSaved={() => router.push(`/admin-portal/recurring-work-orders/${params.id}`)}
           onCancel={() => router.back()}
         />
-      </div>
-          </PageContainer>
+      </PageContainer>
     </AdminLayout>
   );
 }

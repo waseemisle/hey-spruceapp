@@ -17,7 +17,6 @@ import { toast } from 'sonner';
 import AddPaymentMethodModal from '@/components/billing/add-payment-method-modal';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PaymentMethod {
