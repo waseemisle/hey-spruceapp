@@ -692,9 +692,9 @@ export default function LocationsManagement() {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
-            <div className="bg-card rounded-2xl max-w-3xl w-full shadow-2xl">
-              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-center justify-between gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-3xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+              <div className="flex shrink-0 items-center justify-between gap-4 rounded-t-2xl border-b border-border bg-card px-6 py-4">
                 <h2 className="text-base font-semibold text-foreground">
                   {editingId ? 'Edit Location' : 'Create New Location'}
                 </h2>
@@ -703,7 +703,7 @@ export default function LocationsManagement() {
                 </button>
               </div>
 
-              <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Select Client (Optional)</Label>
@@ -868,7 +868,7 @@ export default function LocationsManagement() {
                 </div>
 
               </div>
-              <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+              <div className="flex shrink-0 gap-3 rounded-b-2xl border-t border-border bg-card px-6 py-4">
                 <Button variant="outline" className="flex-1" onClick={resetForm} disabled={submitting}>Cancel</Button>
                 <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
                   <Save className="h-4 w-4 mr-2" />
@@ -881,14 +881,15 @@ export default function LocationsManagement() {
 
         {/* Reject Reason Modal */}
         {showRejectModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
-            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
-                <div className="flex justify-between items-center gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-md max-h-[min(90dvh,90vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+              <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-4 py-4 sm:px-6 sm:py-4 rounded-t-2xl">
+                <div className="flex justify-between items-center gap-4 w-full">
                   <h2 className="text-xl sm:text-2xl font-bold text-foreground">Reject Location</h2>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="shrink-0"
                     onClick={() => {
                       setShowRejectModal(false);
                       setRejectingLocationId(null);
@@ -900,7 +901,7 @@ export default function LocationsManagement() {
                 </div>
               </div>
 
-              <div className="p-4 sm:p-6 space-y-4">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-4 space-y-4">
                 <div>
                   <Label>Rejection Reason *</Label>
                   <textarea
@@ -911,10 +912,11 @@ export default function LocationsManagement() {
                     autoFocus
                   />
                 </div>
+              </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <div className="flex shrink-0 flex-col gap-3 border-t border-border bg-card px-4 py-4 sm:px-6 sm:py-4 sm:flex-row sm:justify-end rounded-b-2xl">
                   <Button
-                    className="flex-1 w-full sm:w-auto"
+                    className="flex-1 w-full sm:flex-none sm:w-auto order-2 sm:order-1"
                     variant="destructive"
                     onClick={confirmReject}
                     disabled={!rejectionReason.trim()}
@@ -928,11 +930,10 @@ export default function LocationsManagement() {
                       setRejectingLocationId(null);
                       setRejectionReason('');
                     }}
-                    className="w-full sm:w-auto"
+                    className="w-full sm:w-auto order-1 sm:order-2"
                   >
                     Cancel
                   </Button>
-                </div>
               </div>
             </div>
           </div>

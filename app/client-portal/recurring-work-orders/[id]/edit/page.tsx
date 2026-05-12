@@ -232,99 +232,107 @@ export default function ClientEditRecurringWorkOrder() {
           }
         />
 
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div>
-              <Label>Work Order Title *</Label>
-              <Input
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="e.g., Monthly HVAC Maintenance"
-                className="mt-1"
-              />
-            </div>
+        <div className="mx-auto w-full max-w-5xl space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardContent className="space-y-4 pt-6">
+                <div>
+                  <Label>Work Order Title *</Label>
+                  <Input
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="e.g., Monthly HVAC Maintenance"
+                    className="mt-1"
+                  />
+                </div>
 
-            <div>
-              <Label>Description *</Label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="mt-1 w-full border border-input rounded-md p-2 min-h-[100px] text-sm bg-background"
-                placeholder="Detailed description of the recurring work..."
-              />
-            </div>
+                <div>
+                  <Label>Description *</Label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="mt-1 w-full border border-input rounded-md p-2 min-h-[100px] text-sm bg-background"
+                    placeholder="Detailed description of the recurring work..."
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label>Category *</Label>
-                <SearchableSelect
-                  className="mt-1"
-                  value={formData.category}
-                  onValueChange={(v) => setFormData({ ...formData, category: v })}
-                  options={categories.map((c) => ({ value: c.name, label: c.name }))}
-                  placeholder="Select category..."
-                />
-              </div>
+            <Card>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label>Category *</Label>
+                    <SearchableSelect
+                      className="mt-1"
+                      value={formData.category}
+                      onValueChange={(v) => setFormData({ ...formData, category: v })}
+                      options={categories.map((c) => ({ value: c.name, label: c.name }))}
+                      placeholder="Select category..."
+                    />
+                  </div>
 
-              <div>
-                <Label>Priority *</Label>
-                <SearchableSelect
-                  className="mt-1"
-                  value={formData.priority}
-                  onValueChange={(v) => setFormData({ ...formData, priority: v as typeof formData.priority })}
-                  options={[
-                    { value: 'low', label: 'Low' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'high', label: 'High' },
-                  ]}
-                  placeholder="Priority"
-                />
-              </div>
-            </div>
+                  <div>
+                    <Label>Priority *</Label>
+                    <SearchableSelect
+                      className="mt-1"
+                      value={formData.priority}
+                      onValueChange={(v) => setFormData({ ...formData, priority: v as typeof formData.priority })}
+                      options={[
+                        { value: 'low', label: 'Low' },
+                        { value: 'medium', label: 'Medium' },
+                        { value: 'high', label: 'High' },
+                      ]}
+                      placeholder="Priority"
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <Label>Estimate Budget (Optional)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                inputMode="decimal"
-                value={formData.estimateBudget}
-                onChange={(e) => setFormData({ ...formData, estimateBudget: e.target.value })}
-                onWheel={(e) => e.currentTarget.blur()}
-                placeholder="e.g., 5000"
-                className="mt-1"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Estimated budget per occurrence in USD</p>
-            </div>
+                <div>
+                  <Label>Estimate Budget (Optional)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    value={formData.estimateBudget}
+                    onChange={(e) => setFormData({ ...formData, estimateBudget: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    placeholder="e.g., 5000"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Estimated budget per occurrence in USD</p>
+                </div>
 
-            <div>
-              <Label>Notes (Optional)</Label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="mt-1 w-full border border-input rounded-md p-2 min-h-[80px] text-sm bg-background"
-                placeholder="Additional notes about this recurring work order..."
-              />
-            </div>
+                <div>
+                  <Label>Notes (Optional)</Label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="mt-1 w-full border border-input rounded-md p-2 min-h-[80px] text-sm bg-background"
+                    placeholder="Additional notes about this recurring work order..."
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button
-                onClick={handleSubmit}
-                loading={submitting} disabled={submitting}
-                className="flex-1"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {submitting ? 'Saving...' : 'Save Changes'}
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={handleSubmit}
+              loading={submitting} disabled={submitting}
+              className="flex-1"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {submitting ? 'Saving...' : 'Save Changes'}
+            </Button>
+            <Link href={`/client-portal/recurring-work-orders/${id}`} className="flex-1">
+              <Button variant="outline" className="w-full">
+                Cancel
               </Button>
-              <Link href={`/client-portal/recurring-work-orders/${id}`} className="flex-1">
-                <Button variant="outline" className="w-full">
-                  Cancel
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+            </Link>
+          </div>
+        </div>
       </PageContainer>
     </>
   );

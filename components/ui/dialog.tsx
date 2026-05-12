@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
+import { cn } from '@/lib/utils';
 
 type DialogContextValue = {
   open: boolean;
@@ -59,9 +60,14 @@ export function DialogContent({ children, className }: DialogContentProps) {
   if (!ctx?.open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={() => ctx.setOpen?.(false)} />
-      <div className={`relative z-10 w-full max-w-lg rounded-lg bg-card p-6 shadow-lg ${className || ''}`}>
+      <div
+        className={cn(
+          'relative z-10 flex w-full max-w-lg max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg',
+          className,
+        )}
+      >
         {children}
       </div>
     </div>

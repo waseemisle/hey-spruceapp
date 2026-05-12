@@ -848,16 +848,14 @@ function QuotesContent() {
 
         {/* Create Quote Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
-                <div className="flex justify-between items-center gap-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-4xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card p-4 sm:p-6">
                   <h2 className="text-xl sm:text-2xl font-bold truncate">Create New Quote</h2>
                   <Button variant="outline" className="shrink-0" onClick={resetForm}>Cancel</Button>
-                </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
                 {/* Quote Title */}
                 <div>
                   <Label>Quote Title / Work Order Title *</Label>
@@ -991,8 +989,9 @@ function QuotesContent() {
                   />
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-4 border-t">
+              </div>
+
+              <div className="flex shrink-0 gap-3 border-t border-border bg-card p-6">
                   <Button
                     className="flex-1"
                     onClick={handleCreateQuote}
@@ -1006,7 +1005,6 @@ function QuotesContent() {
                   >
                     Cancel
                   </Button>
-                </div>
               </div>
             </div>
           </div>

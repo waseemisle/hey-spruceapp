@@ -78,10 +78,10 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
   const lowestPriceQuote = sortedQuotes.length > 0 && sortBy === 'price' ? sortedQuotes[0] : null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-start justify-center p-4">
-      <div className="bg-card rounded-lg shadow-xl w-full max-w-7xl my-8 max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-card rounded-lg shadow-xl w-full max-w-7xl max-h-[min(92dvh,92vh)] overflow-hidden flex flex-col my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-card z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-6 border-b shrink-0 bg-card">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Compare Quotes</h2>
             <p className="text-muted-foreground mt-1">Comparing {quotes.length} quotes for work order</p>
@@ -107,7 +107,7 @@ export default function CompareQuotesDialog({ quotes, isOpen, onClose, viewMode 
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedQuotes.map((quote, index) => {
               const isLowest = lowestPriceQuote?.id === quote.id;

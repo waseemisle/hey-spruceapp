@@ -617,9 +617,9 @@ export default function ClientLocations() {
 
         {/* Create Location Modal */}
         {showCreateLocationModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
-            <div className="bg-card rounded-2xl shadow-2xl w-full max-w-xl">
-              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-start justify-between gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+              <div className="flex shrink-0 items-start justify-between gap-4 rounded-t-2xl border-b border-border bg-card px-6 py-4">
                 <div>
                   <h2 className="text-base font-semibold text-foreground">Add New Location</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">Submit a property location for approval</p>
@@ -629,7 +629,7 @@ export default function ClientLocations() {
                 </button>
               </div>
 
-              <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
                 {/* Location Name */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-foreground uppercase tracking-wide">
@@ -749,7 +749,7 @@ export default function ClientLocations() {
                 </details>
               </div>
 
-              <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+              <div className="flex shrink-0 gap-3 rounded-b-2xl border-t border-border bg-card px-6 py-4">
                 <Button variant="outline" onClick={closeCreateLocationModal} className="flex-1" disabled={submittingLoc || uploadingLocImages}>
                   Cancel
                 </Button>
@@ -763,9 +763,9 @@ export default function ClientLocations() {
 
         {/* Details Modal */}
         {showModal && selectedLocation && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-3xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-4 sm:p-6 sm:px-6 rounded-t-2xl bg-card">
                 <div className="flex justify-between items-center gap-3">
                   <h2 className="text-xl sm:text-2xl font-bold truncate">{selectedLocation.name || (selectedLocation as any).locationName}</h2>
                   <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowModal(false)}>
@@ -774,7 +774,7 @@ export default function ClientLocations() {
                 </div>
               </div>
 
-              <div className="p-4 sm:p-6 space-y-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(selectedLocation.status)}`}>
                     Status: {selectedLocation.status}

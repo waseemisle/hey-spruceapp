@@ -1741,9 +1741,9 @@ export default function ClientDetailPage() {
             SUBSCRIPTION MODAL
         ══════════════════════════════════════════════════════════════════════ */}
         {showSubModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-4">
-            <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-4 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-              <div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-4">
+            <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-xl bg-card shadow-xl">
+              <div className="shrink-0 border-b border-border p-4 sm:p-6">
                 <h2 className="text-lg font-semibold text-foreground">
                   {client.stripeSubscriptionId && client.subscriptionStatus === 'active'
                     ? 'Edit Fixed Auto-Charge Plan'
@@ -1754,7 +1754,7 @@ export default function ClientDetailPage() {
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:px-6 sm:py-4">
                 {/* Card selector */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground block mb-1">Charge Card</label>
@@ -1819,7 +1819,7 @@ export default function ClientDetailPage() {
                 )}
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex shrink-0 gap-2 border-t border-border bg-card p-4 sm:p-6">
                 <Button
                   variant="outline"
                   onClick={() => { setShowSubModal(false); setSubAmount(''); setSubBillingDay(''); setSubCardId(''); }}
@@ -1954,9 +1954,9 @@ export default function ClientDetailPage() {
             GENERATE CONSOLIDATED INVOICE MODAL
         ══════════════════════════════════════════════════════════════════════ */}
         {showConsolidatedModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="bg-card rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between">
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-4">
+            <div className="my-auto flex w-full max-w-lg max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-xl bg-card shadow-xl">
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4 sm:p-6">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Generate Consolidated Invoice</h2>
                   <p className="text-sm text-muted-foreground mt-0.5">
@@ -1965,12 +1965,13 @@ export default function ClientDetailPage() {
                 </div>
                 <button
                   onClick={() => { setShowConsolidatedModal(false); setSelectedInvoiceIds([]); }}
-                  className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted"
+                  className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               {/* Invoice selection */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -2074,8 +2075,9 @@ export default function ClientDetailPage() {
                   )}
                 </div>
               )}
+              </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex shrink-0 gap-2 border-t border-border bg-card p-4 sm:p-6">
                 <Button
                   variant="outline"
                   onClick={() => { setShowConsolidatedModal(false); setSelectedInvoiceIds([]); }}
@@ -2353,14 +2355,13 @@ export default function ClientDetailPage() {
 
       {/* ── Charge Now Modal ─────────────────────────────────────────────── */}
       {showChargeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !chargingNow && !chargeResult && setShowChargeModal(false)}
           />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+          <div className="relative my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-4 py-4 sm:px-6 rounded-t-2xl">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
                   <DollarSign className="h-4 w-4 text-emerald-600" />
@@ -2381,31 +2382,34 @@ export default function ClientDetailPage() {
             </div>
 
             {chargeResult ? (
-              /* Result screen */
-              <div className="p-8 text-center space-y-4">
-                <div className={`mx-auto h-14 w-14 rounded-full flex items-center justify-center ${chargeResult.success ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                  {chargeResult.success
-                    ? <CheckCircle className="h-7 w-7 text-emerald-500" />
-                    : <AlertCircle className="h-7 w-7 text-red-500" />}
+              <>
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-8 text-center">
+                  <div className={`mx-auto h-14 w-14 rounded-full flex items-center justify-center ${chargeResult.success ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                    {chargeResult.success
+                      ? <CheckCircle className="h-7 w-7 text-emerald-500" />
+                      : <AlertCircle className="h-7 w-7 text-red-500" />}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground text-base">
+                      {chargeResult.success ? 'Charge Successful!' : 'Charge Failed'}
+                    </p>
+                    <p className={`text-sm mt-1.5 ${chargeResult.success ? 'text-muted-foreground' : 'text-red-600'}`}>
+                      {chargeResult.message}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-foreground text-base">
-                    {chargeResult.success ? 'Charge Successful!' : 'Charge Failed'}
-                  </p>
-                  <p className={`text-sm mt-1.5 ${chargeResult.success ? 'text-muted-foreground' : 'text-red-600'}`}>
-                    {chargeResult.message}
-                  </p>
+                <div className="shrink-0 border-t border-border bg-card p-4 sm:p-6">
+                  <Button
+                    onClick={() => { setShowChargeModal(false); setChargeResult(null); }}
+                    className={`w-full ${chargeResult.success ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+                  >
+                    Close
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => { setShowChargeModal(false); setChargeResult(null); }}
-                  className={`w-full ${chargeResult.success ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
-                >
-                  Close
-                </Button>
-              </div>
+              </>
             ) : (
-              /* Charge form */
-              <div className="p-6 space-y-4">
+              <>
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
                 {/* Card selector */}
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Select Card</label>
@@ -2496,8 +2500,8 @@ export default function ClientDetailPage() {
                     </div>
                   ) : null;
                 })()}
-
-                <div className="flex gap-3 pt-1">
+                </div>
+                <div className="flex shrink-0 gap-3 border-t border-border bg-card p-4 sm:p-6">
                   <Button
                     type="button"
                     variant="outline"
@@ -2519,7 +2523,7 @@ export default function ClientDetailPage() {
                     )}
                   </Button>
                 </div>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -2539,13 +2543,13 @@ export default function ClientDetailPage() {
 
       {/* ── LEGACY Add Card Modal — kept dead for now; Add Card button no longer opens it ─ */}
       {showCardModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !submittingCard && setShowCardModal(false)}
           />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+          <div className="relative my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-4 py-4 sm:px-6 rounded-t-2xl">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
                   <CreditCard className="h-4 w-4 text-blue-600" />
@@ -2562,64 +2566,66 @@ export default function ClientDetailPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form onSubmit={handleAdminCardSubmit} className="p-6 space-y-5">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-2">Card details</label>
-                <div
-                  ref={cardMountRef}
-                  className="w-full rounded-lg border border-gray-300 bg-card px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
-                />
-                {cardError && (
-                  <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                    {cardError}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-3 pt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowCardModal(false)}
-                  disabled={submittingCard}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
-                  disabled={submittingCard || !!cardError}
-                >
-                  {submittingCard ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
-                  ) : (
-                    <><CheckCircle className="h-4 w-4" />Save Card</>
+            <form onSubmit={handleAdminCardSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">Card details</label>
+                  <div
+                    ref={cardMountRef}
+                    className="w-full rounded-lg border border-gray-300 bg-card px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
+                  />
+                  {cardError && (
+                    <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {cardError}
+                    </p>
                   )}
-                </Button>
+                </div>
+              </div>
+              <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-4 sm:px-6">
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowCardModal(false)}
+                    disabled={submittingCard}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
+                    disabled={submittingCard || !!cardError}
+                  >
+                    {submittingCard ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
+                    ) : (
+                      <><CheckCircle className="h-4 w-4" />Save Card</>
+                    )}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                  <p className="text-[11px] text-muted-foreground">
+                    Card number is encrypted by Stripe and never touches our servers.
+                  </p>
+                </div>
               </div>
             </form>
-            <div className="px-6 pb-5">
-              <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                <p className="text-[11px] text-muted-foreground">
-                  Card number is encrypted by Stripe and never touches our servers.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
       {/* ── Add Bank Account Modal ────────────────────────────────────────── */}
       {showBankModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !submittingBank && setShowBankModal(false)}
           />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+          <div className="relative my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-4 py-4 sm:px-6 rounded-t-2xl">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
                   <Building2 className="h-4 w-4 text-emerald-600" />
@@ -2636,7 +2642,8 @@ export default function ClientDetailPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form onSubmit={handleAddBankAccount} className="p-6 space-y-4">
+            <form onSubmit={handleAddBankAccount} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
               {/* Account Holder Name */}
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Holder Name</label>
@@ -2709,43 +2716,44 @@ export default function ClientDetailPage() {
                   {bankError}
                 </p>
               )}
+              </div>
 
-              <div className="flex gap-3 pt-1">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setShowBankModal(false)} disabled={submittingBank}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-2" disabled={submittingBank}>
-                  {submittingBank ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
-                  ) : (
-                    <><CheckCircle className="h-4 w-4" />Save Bank Account</>
-                  )}
-                </Button>
+              <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-4 sm:px-6">
+                <div className="flex gap-3">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => setShowBankModal(false)} disabled={submittingBank}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-2" disabled={submittingBank}>
+                    {submittingBank ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
+                    ) : (
+                      <><CheckCircle className="h-4 w-4" />Save Bank Account</>
+                    )}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                  <p className="text-[11px] text-muted-foreground">
+                    Bank details are securely transmitted to Stripe. Micro-deposit verification may be required before charging.
+                  </p>
+                </div>
               </div>
             </form>
-            <div className="px-6 pb-5">
-              <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                <p className="text-[11px] text-muted-foreground">
-                  Bank details are securely transmitted to Stripe. Micro-deposit verification may be required before charging.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
       {/* ── Edit Billing Terms Modal ───────────────────────────────────────── */}
       {showBillingTermsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-4">
-          <div className="bg-card rounded-xl shadow-xl w-full max-w-md p-4 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-4">
+          <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-xl bg-card shadow-xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-foreground">Edit Billing Terms</h2>
-              <button onClick={() => setShowBillingTermsModal(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">
+              <button onClick={() => setShowBillingTermsModal(false)} className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="space-y-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground block mb-1">Payment Terms</label>
                 <SearchableSelect
@@ -2783,7 +2791,7 @@ export default function ClientDetailPage() {
                 <p className="text-xs text-muted-foreground mt-1">Auto-charge when consolidated invoice reaches this amount</p>
               </div>
             </div>
-            <div className="flex gap-2 pt-2">
+            <div className="flex shrink-0 gap-2 border-t border-border bg-card p-4 sm:p-6">
               <Button variant="outline" onClick={() => setShowBillingTermsModal(false)} className="flex-1" disabled={savingBillingTerms}>Cancel</Button>
               <Button onClick={handleSaveBillingTerms} disabled={savingBillingTerms} className="flex-1 bg-blue-600 hover:bg-blue-700">
                 {savingBillingTerms ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</> : 'Save Changes'}
@@ -2795,17 +2803,19 @@ export default function ClientDetailPage() {
 
       {/* ── Edit Client Info Modal — single source of truth ─────────────── */}
       {showEditClientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-card rounded-xl shadow-xl w-full max-w-2xl p-6 space-y-5 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-4">
+          <div className="my-auto flex w-full max-w-2xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-xl bg-card shadow-xl">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4 sm:p-6">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Edit Client</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">All client fields. Changing the email will migrate the auth account.</p>
               </div>
-              <button onClick={() => setShowEditClientModal(false)} className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">
+              <button onClick={() => setShowEditClientModal(false)} className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted">
                 <X className="h-4 w-4" />
               </button>
             </div>
+
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
 
             {/* ── Identity ─────────────────────────────────────────────── */}
             <section className="space-y-3">
@@ -3019,7 +3029,9 @@ export default function ClientDetailPage() {
               </div>
             </section>
 
-            <div className="flex gap-2 pt-2 border-t border-border">
+            </div>
+
+            <div className="flex shrink-0 gap-2 border-t border-border bg-card p-4 sm:p-6">
               <Button variant="outline" onClick={() => setShowEditClientModal(false)} className="flex-1" disabled={savingClientInfo}>Cancel</Button>
               <Button onClick={handleSaveClientInfo} disabled={savingClientInfo} className="flex-1 bg-blue-600 hover:bg-blue-700">
                 {savingClientInfo ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</> : 'Save Changes'}

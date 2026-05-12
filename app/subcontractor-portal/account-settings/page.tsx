@@ -15,7 +15,6 @@ import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { User, Mail, Phone, Briefcase, CreditCard, Lock, Camera, Save, ArrowLeft, Landmark, Building2, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
@@ -56,6 +55,7 @@ export default function SubcontractorAccountSettings() {
   const [savingBank, setSavingBank] = useState(false);
   const [editingBank, setEditingBank] = useState(false);
   const [showAccountNumber, setShowAccountNumber] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'payments' | 'security'>('profile');
 
   useEffect(() => {
     if (!auth || !db) return;
@@ -265,6 +265,36 @@ export default function SubcontractorAccountSettings() {
           </div>
         ) : (
           <>
+            <nav
+              className="sticky top-0 z-10 mb-4 flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-sm"
+              aria-label="Account settings sections"
+            >
+              {(
+                [
+                  { id: 'profile' as const, label: 'Profile' },
+                  { id: 'payments' as const, label: 'Payments (ACH)' },
+                  { id: 'security' as const, label: 'Security' },
+                ] as const
+              ).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setSettingsTab(id)}
+                  aria-current={settingsTab === id ? 'page' : undefined}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    settingsTab === id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+
+            <div className="mx-auto w-full max-w-4xl space-y-4">
+            {settingsTab === 'profile' && (
+            <>
             {/* Profile Photo */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6"><Camera className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Profile Photo</h2></div>
@@ -327,8 +357,11 @@ export default function SubcontractorAccountSettings() {
               </Button>
             </div>
 
-            <Separator />
+            </>
+            )}
 
+            {settingsTab === 'payments' && (
+            <>
             {/* ACH Bank Account Information */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
@@ -527,9 +560,11 @@ export default function SubcontractorAccountSettings() {
                 </div>
               )}
             </div>
+            </>
+            )}
 
-            <Separator />
-
+            {settingsTab === 'security' && (
+            <>
             {/* Change Password */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
@@ -556,6 +591,9 @@ export default function SubcontractorAccountSettings() {
                   {savingPassword ? 'Updating...' : 'Update Password'}
                 </Button>
               </div>
+            </div>
+            </>
+            )}
             </div>
           </>
         )}

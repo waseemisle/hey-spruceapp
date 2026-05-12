@@ -253,8 +253,8 @@ export default function AddPaymentMethodModal({
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => !submitting && onClose()}
       />
-      <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+      <div className="relative flex w-full max-w-lg max-h-[min(92dvh,92vh)] flex-col overflow-hidden bg-card rounded-2xl shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-5 py-4 z-10 rounded-t-2xl">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
               <CreditCard className="h-4 w-4 text-blue-600" />
@@ -276,7 +276,8 @@ export default function AddPaymentMethodModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
           <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground flex items-start gap-2">
             <Building2 className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
             <span>
@@ -303,7 +304,7 @@ export default function AddPaymentMethodModal({
             </span>
           </div>
 
-          <div className="min-h-[260px]">
+          <div className="min-h-[200px] sm:min-h-[260px]">
             {initializing && (
               <div className="flex items-center justify-center h-[200px]">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -320,38 +321,41 @@ export default function AddPaymentMethodModal({
               <span>{error}</span>
             </div>
           )}
-
-          <div className="flex gap-2 pt-2 border-t border-border">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={submitting}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={initializing || submitting || !!error?.includes('Stripe publishable')}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                  Saving…
-                </>
-              ) : (
-                'Save Payment Method'
-              )}
-            </Button>
           </div>
 
-          {stripeCustomerId && (
-            <p className="text-[10px] text-center text-muted-foreground font-mono">
-              Stripe Customer · {stripeCustomerId}
-            </p>
-          )}
+          <div className="shrink-0 space-y-2 border-t border-border bg-card px-5 py-4">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={initializing || submitting || !!error?.includes('Stripe publishable')}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                    Saving…
+                  </>
+                ) : (
+                  'Save Payment Method'
+                )}
+              </Button>
+            </div>
+
+            {stripeCustomerId && (
+              <p className="text-[10px] text-center text-muted-foreground font-mono">
+                Stripe Customer · {stripeCustomerId}
+              </p>
+            )}
+          </div>
         </form>
       </div>
     </div>

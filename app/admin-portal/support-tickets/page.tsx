@@ -465,11 +465,11 @@ export default function AdminSupportTicketsPage() {
         )}
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-lg p-0">
+            <DialogHeader className="shrink-0 border-b px-6 pt-6 pb-3">
               <DialogTitle>New support ticket</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-3 px-6 py-3">
               <div>
                 <Label>On behalf of</Label>
                 <SearchableSelect
@@ -525,7 +525,7 @@ export default function AdminSupportTicketsPage() {
                 />
               </div>
             </div>
-            <DialogFooter className="gap-2">
+            <DialogFooter className="shrink-0 gap-2 border-t bg-card px-6 py-4 mt-0">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleCreate} disabled={creating}>{creating ? 'Creating…' : 'Create'}</Button>
             </DialogFooter>

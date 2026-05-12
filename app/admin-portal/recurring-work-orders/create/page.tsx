@@ -663,7 +663,8 @@ export default function CreateRecurringWorkOrder() {
           }
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="mx-auto w-full max-w-6xl space-y-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-4">
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -1134,7 +1135,7 @@ export default function CreateRecurringWorkOrder() {
           </Card>
         </div>
 
-        <div className="flex gap-3 pt-6 border-t">
+        <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row">
           <Button
             className="flex-1"
             onClick={handleSubmit}
@@ -1150,6 +1151,7 @@ export default function CreateRecurringWorkOrder() {
           >
             Cancel
           </Button>
+        </div>
         </div>
       </PageContainer>
     </>

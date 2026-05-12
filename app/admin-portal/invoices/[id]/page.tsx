@@ -1411,9 +1411,9 @@ export default function AdminInvoiceDetail() {
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="my-auto flex w-full max-w-3xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-card p-4 sm:p-6">
               <div>
                 <h2 className="text-xl font-bold">
                   {editModalIntent === 'reshare' ? 'Update invoice & reshare' : 'Edit Invoice'}
@@ -1428,7 +1428,7 @@ export default function AdminInvoiceDetail() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
               {editModalIntent === 'reshare' && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
                   The payment link always matches the invoice total saved in the database. After you save, we create a new Stripe Checkout session for that amount and email it to the client.
@@ -1543,18 +1543,18 @@ export default function AdminInvoiceDetail() {
                 />
               </div>
             </div>
-            <div className="p-6 border-t flex flex-col sm:flex-row gap-3">
+            <div className="flex shrink-0 flex-col gap-3 border-t border-border bg-card p-6 sm:flex-row sm:flex-wrap">
               {editModalIntent === 'reshare' ? (
              <>
-                  <Button className="flex-1" onClick={handleSaveAndReshare} disabled={saving || resharing}>
+                  <Button className="flex-1 min-w-[10rem]" onClick={handleSaveAndReshare} disabled={saving || resharing}>
                     {resharing ? 'Saving & re-sharing…' : 'Save & reshare with client'}
                   </Button>
-                  <Button variant="outline" className="flex-1" onClick={handleSaveEdit} disabled={saving || resharing}>
+                  <Button variant="outline" className="flex-1 min-w-[10rem]" onClick={handleSaveEdit} disabled={saving || resharing}>
                     {saving ? 'Saving…' : 'Save changes only'}
                   </Button>
                   <Button
                     variant="secondary"
-                    className="flex-1"
+                    className="flex-1 min-w-[10rem]"
                     type="button"
                     disabled={resharing || saving}
                     onClick={async () => {
@@ -1580,7 +1580,7 @@ export default function AdminInvoiceDetail() {
                   </Button>
                 </>
               )}
-              <Button variant="outline" onClick={() => closeEditModal()} disabled={saving || resharing}>
+              <Button variant="outline" onClick={() => closeEditModal()} disabled={saving || resharing} className="w-full sm:w-auto">
                 Cancel
               </Button>
             </div>

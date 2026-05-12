@@ -445,13 +445,13 @@ function PaymentMethodsContent() {
 
       {/* ── Add Bank Account Modal ──────────────────────────────────────────── */}
       {showBankModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !submittingBank && setShowBankModal(false)}
           />
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+          <div className="relative my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-4 py-4 sm:px-6 rounded-t-2xl">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
                   <Building2 className="h-4 w-4 text-emerald-600" />
@@ -468,118 +468,117 @@ function PaymentMethodsContent() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form onSubmit={handleAddBankAccount} className="p-4 sm:p-6 space-y-4">
-              {/* Account Holder Name */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Holder Name</label>
-                <input
-                  type="text"
-                  value={bankHolderName}
-                  onChange={(e) => setBankHolderName(e.target.value)}
-                  placeholder="Full name on account"
-                  required
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-
-              {/* Account Holder Type + Account Type */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleAddBankAccount} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+                {/* Account Holder Name */}
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Holder Type</label>
-                  <select
-                    value={bankHolderType}
-                    onChange={(e) => setBankHolderType(e.target.value as 'individual' | 'company')}
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Holder Name</label>
+                  <input
+                    type="text"
+                    value={bankHolderName}
+                    onChange={(e) => setBankHolderName(e.target.value)}
+                    placeholder="Full name on account"
+                    required
                     className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="individual">Individual</option>
-                    <option value="company">Company</option>
-                  </select>
+                  />
                 </div>
+
+                {/* Account Holder Type + Account Type */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Holder Type</label>
+                    <select
+                      value={bankHolderType}
+                      onChange={(e) => setBankHolderType(e.target.value as 'individual' | 'company')}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="individual">Individual</option>
+                      <option value="company">Company</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Type</label>
+                    <select
+                      value={bankAccountType}
+                      onChange={(e) => setBankAccountType(e.target.value as 'checking' | 'savings')}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="checking">Checking</option>
+                      <option value="savings">Savings</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Routing Number */}
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Type</label>
-                  <select
-                    value={bankAccountType}
-                    onChange={(e) => setBankAccountType(e.target.value as 'checking' | 'savings')}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="checking">Checking</option>
-                    <option value="savings">Savings</option>
-                  </select>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Routing Number</label>
+                  <input
+                    type="text"
+                    value={bankRouting}
+                    onChange={(e) => setBankRouting(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                    placeholder="9-digit routing number"
+                    maxLength={9}
+                    required
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
                 </div>
+
+                {/* Account Number */}
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Number</label>
+                  <input
+                    type="text"
+                    value={bankAccountNum}
+                    onChange={(e) => setBankAccountNum(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Account number"
+                    required
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+
+                {bankError && (
+                  <p className="text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {bankError}
+                  </p>
+                )}
               </div>
 
-              {/* Routing Number */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Routing Number</label>
-                <input
-                  type="text"
-                  value={bankRouting}
-                  onChange={(e) => setBankRouting(e.target.value.replace(/\D/g, '').slice(0, 9))}
-                  placeholder="9-digit routing number"
-                  maxLength={9}
-                  required
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-
-              {/* Account Number */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Account Number</label>
-                <input
-                  type="text"
-                  value={bankAccountNum}
-                  onChange={(e) => setBankAccountNum(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Account number"
-                  required
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-
-              {bankError && (
-                <p className="text-xs text-red-600 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                  {bankError}
-                </p>
-              )}
-
-              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-1">
-                <Button type="button" variant="outline" className="flex-1 w-full sm:w-auto" onClick={() => setShowBankModal(false)} disabled={submittingBank}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-2 w-full sm:w-auto" disabled={submittingBank}>
-                  {submittingBank ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
-                  ) : (
-                    <><CheckCircle className="h-4 w-4" />Save Bank Account</>
-                  )}
-                </Button>
+              <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-4 sm:px-6">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                  <Button type="button" variant="outline" className="flex-1 w-full sm:w-auto" onClick={() => setShowBankModal(false)} disabled={submittingBank}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 gap-2 w-full sm:w-auto" disabled={submittingBank}>
+                    {submittingBank ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />Saving…</>
+                    ) : (
+                      <><CheckCircle className="h-4 w-4" />Save Bank Account</>
+                    )}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                  <p className="text-[11px] text-muted-foreground">
+                    Bank details are securely transmitted to Stripe. Micro-deposit verification may be required before charging.
+                  </p>
+                </div>
               </div>
             </form>
-            <div className="px-4 sm:px-6 pb-5">
-              <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                <p className="text-[11px] text-muted-foreground">
-                  Bank details are securely transmitted to Stripe. Micro-deposit verification may be required before charging.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
       {/* ── Add Card Modal ──────────────────────────────────────────────────── */}
       {showCardModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !submittingCard && setShowCardModal(false)}
           />
 
-          {/* Dialog */}
-          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+          <div className="relative my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-4 py-4 sm:px-6 rounded-t-2xl">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
                   <CreditCard className="h-4 w-4 text-blue-600" />
@@ -599,71 +598,67 @@ function PaymentMethodsContent() {
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleCardSubmit} className="p-4 sm:p-6 space-y-5">
-              {/* Stripe Card Element mount point */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-2">
-                  Card details
-                </label>
-                <div
-                  ref={cardMountRef}
-                  className="w-full rounded-lg border border-border bg-background px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-ring focus-within:border-ring transition-all min-h-[46px]"
-                />
-                {cardError && (
-                  <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                    {cardError}
-                  </p>
-                )}
-              </div>
-
-              {/* Mobile hint */}
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                On mobile, tap the card number field to scan your physical card
-              </p>
-
-              {/* Actions */}
-              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1 w-full sm:w-auto"
-                  onClick={() => setShowCardModal(false)}
-                  disabled={submittingCard}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2 w-full sm:w-auto"
-                  disabled={submittingCard || !!cardError}
-                >
-                  {submittingCard ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4" />
-                      Save Card
-                    </>
+            <form onSubmit={handleCardSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">
+                    Card details
+                  </label>
+                  <div
+                    ref={cardMountRef}
+                    className="w-full rounded-lg border border-border bg-background px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-ring focus-within:border-ring transition-all min-h-[46px]"
+                  />
+                  {cardError && (
+                    <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {cardError}
+                    </p>
                   )}
-                </Button>
-              </div>
-            </form>
+                </div>
 
-            {/* Footer security note */}
-            <div className="px-4 sm:px-6 pb-5">
-              <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
-                <p className="text-[11px] text-muted-foreground">
-                  Your card number is encrypted by Stripe and never touches our servers.
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  On mobile, tap the card number field to scan your physical card
                 </p>
               </div>
-            </div>
+
+              <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-4 sm:px-6">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 w-full sm:w-auto"
+                    onClick={() => setShowCardModal(false)}
+                    disabled={submittingCard}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2 w-full sm:w-auto"
+                    disabled={submittingCard || !!cardError}
+                  >
+                    {submittingCard ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        Save Card
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg bg-muted border border-border px-3 py-2">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                  <p className="text-[11px] text-muted-foreground">
+                    Your card number is encrypted by Stripe and never touches our servers.
+                  </p>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}

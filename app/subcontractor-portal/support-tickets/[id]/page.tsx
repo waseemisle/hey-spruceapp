@@ -250,7 +250,8 @@ export default function SubcontractorSupportTicketDetailPage() {
             </div>
 
             {tab === 'comments' && (
-              <div className="space-y-4">
+              <div className="flex min-h-0 max-h-[min(70dvh,560px)] flex-col gap-4 lg:max-h-[calc(100vh-12rem)]">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                 {comments.map((c) => (
                   <div key={c.id} className="rounded-xl border border-border p-4 bg-card">
                     <div className="flex gap-3">
@@ -275,7 +276,8 @@ export default function SubcontractorSupportTicketDetailPage() {
                     </div>
                   </div>
                 ))}
-                <div className="rounded-xl border border-border p-4 space-y-3 bg-muted">
+                </div>
+                <div className="shrink-0 space-y-3 rounded-xl border border-border bg-muted p-4">
                   <Textarea placeholder="Your message" value={commentBody} onChange={(e) => setCommentBody(e.target.value)} className="min-h-[100px]" />
                   <Input type="file" multiple onChange={(e) => setCommentFiles(e.target.files ? Array.from(e.target.files) : [])} />
                   <Button onClick={postComment} disabled={posting || !commentBody.trim()}>{posting ? 'Sending…' : 'Send reply'}</Button>
@@ -321,7 +323,7 @@ export default function SubcontractorSupportTicketDetailPage() {
             )}
           </div>
 
-          <div className="rounded-xl border border-border p-4 space-y-3 bg-card shadow-sm h-fit">
+          <div className="rounded-xl border border-border p-4 shadow-sm lg:sticky lg:top-4 lg:self-start space-y-3 bg-card h-fit">
             <h3 className="font-semibold text-sm text-muted-foreground">Status</h3>
             <p className="text-sm font-medium">{SUPPORT_STATUS_LABELS[ticket.status]}</p>
             <h3 className="font-semibold text-sm text-muted-foreground">Priority</h3>

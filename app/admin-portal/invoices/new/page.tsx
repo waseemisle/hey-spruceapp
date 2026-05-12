@@ -777,6 +777,7 @@ function CreateInvoiceContent() {
           }
         />
 
+        <div className="mx-auto w-full max-w-6xl space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Work Order + Client */}
           <Card className="lg:col-span-2">
@@ -1124,7 +1125,7 @@ function CreateInvoiceContent() {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-6 border-t">
+        <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row">
           <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
             <Save className="h-4 w-4 mr-2" />
             {submitting ? 'Creating...' : 'Create Invoice'}
@@ -1132,6 +1133,7 @@ function CreateInvoiceContent() {
           <Button variant="outline" onClick={() => router.back()} disabled={submitting}>
             Cancel
           </Button>
+        </div>
         </div>
       </PageContainer>
     </>

@@ -379,11 +379,11 @@ export default function ResourcesPage() {
 
         {/* ── Add / Edit Modal ──────────────────────────────────────────────── */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-2xl max-w-lg w-full shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-lg max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
 
               {/* Header */}
-              <div className="p-6 border-b bg-card rounded-t-2xl shrink-0">
+              <div className="shrink-0 border-b bg-card px-6 py-4 rounded-t-2xl">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-bold">
                     {editingId ? 'Edit Resource' : '➕ Add New Resource'}
@@ -395,7 +395,7 @@ export default function ResourcesPage() {
               </div>
 
               {/* Scrollable body */}
-              <div className="p-6 space-y-5 overflow-y-auto">
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-6">
 
                 {/* Title */}
                 <div>
@@ -495,7 +495,7 @@ export default function ResourcesPage() {
               </div>
 
               {/* Footer buttons */}
-              <div className="p-6 border-t shrink-0">
+              <div className="shrink-0 border-t bg-card px-6 py-4 rounded-b-2xl">
                 <div className="flex gap-3">
                   <Button
                     className="flex-1 gap-2"

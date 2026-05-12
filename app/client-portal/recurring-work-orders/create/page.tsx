@@ -391,6 +391,7 @@ export default function ClientCreateRecurringWorkOrder() {
           }
         />
 
+        <div className="mx-auto w-full max-w-6xl space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Basic Information */}
           <Card>
@@ -577,62 +578,66 @@ export default function ClientCreateRecurringWorkOrder() {
                   className="mt-1"
                 />
               </div>
-
-              <div className="border-t border-border pt-4">
-                <h4 className="text-sm font-medium text-foreground mb-3">Invoice Schedule</h4>
-                <div className="space-y-3">
-                  <div>
-                    <Label>Invoice Frequency</Label>
-                    <div className="mt-1">
-                      <SearchableSelect
-                        options={invoiceScheduleTypeOptions}
-                        value={formData.invoiceScheduleType}
-                        onValueChange={(val) => setFormData(prev => ({ ...prev, invoiceScheduleType: val as any }))}
-                        placeholder="Select frequency..."
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label>Invoice Day of Month</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="28"
-                        value={formData.invoiceScheduleDayOfMonth}
-                        onChange={(e) => setFormData(prev => ({ ...prev, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 }))}
-                        onWheel={(e) => e.currentTarget.blur()}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label>Invoice Time</Label>
-                      <Input
-                        type="time"
-                        value={formData.invoiceTime}
-                        onChange={(e) => setFormData(prev => ({ ...prev, invoiceTime: e.target.value }))}
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Timezone</Label>
-                    <div className="mt-1">
-                      <SearchableSelect
-                        options={timezoneOptions}
-                        value={formData.timezone}
-                        onValueChange={(val) => setFormData(prev => ({ ...prev, timezone: val }))}
-                        placeholder="Select timezone..."
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Invoice Schedule</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div>
+                <Label>Invoice Frequency</Label>
+                <div className="mt-1">
+                  <SearchableSelect
+                    options={invoiceScheduleTypeOptions}
+                    value={formData.invoiceScheduleType}
+                    onValueChange={(val) => setFormData(prev => ({ ...prev, invoiceScheduleType: val as any }))}
+                    placeholder="Select frequency..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Invoice Day of Month</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="28"
+                    value={formData.invoiceScheduleDayOfMonth}
+                    onChange={(e) => setFormData(prev => ({ ...prev, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 }))}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Invoice Time</Label>
+                  <Input
+                    type="time"
+                    value={formData.invoiceTime}
+                    onChange={(e) => setFormData(prev => ({ ...prev, invoiceTime: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <div className="lg:col-span-2">
+                <Label>Timezone</Label>
+                <div className="mt-1 max-w-md">
+                  <SearchableSelect
+                    options={timezoneOptions}
+                    value={formData.timezone}
+                    onValueChange={(val) => setFormData(prev => ({ ...prev, timezone: val }))}
+                    placeholder="Select timezone..."
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="flex justify-end gap-3">
           <Link href="/client-portal/recurring-work-orders">
@@ -642,6 +647,7 @@ export default function ClientCreateRecurringWorkOrder() {
             <Save className="h-4 w-4" />
             {submitting ? 'Creating...' : 'Create Recurring Work Order'}
           </Button>
+        </div>
         </div>
       </PageContainer>
     </>

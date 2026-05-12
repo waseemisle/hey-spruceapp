@@ -15,7 +15,6 @@ import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import {
@@ -44,6 +43,7 @@ export default function AdminAccountSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'security'>('profile');
 
   useEffect(() => {
     if (!auth || !db) return;
@@ -174,7 +174,7 @@ export default function AdminAccountSettings() {
           subtitle=""
           icon={Sparkles}
         />
-      <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-16">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-5 pb-16">
 
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -202,6 +202,30 @@ export default function AdminAccountSettings() {
           </div>
         ) : (
           <>
+            <nav
+              className="sticky top-0 z-10 mb-4 flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1 shadow-sm"
+              aria-label="Account settings sections"
+            >
+              {(['profile', 'security'] as const).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setSettingsTab(id)}
+                  aria-current={settingsTab === id ? 'page' : undefined}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    settingsTab === id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  {id === 'profile' ? 'Profile & notifications' : 'Security'}
+                </button>
+              ))}
+            </nav>
+
+            <div className="space-y-4">
+            {settingsTab === 'profile' && (
+            <>
             {/* Profile Photo */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
@@ -318,8 +342,11 @@ export default function AdminAccountSettings() {
               </Button>
             </div>
 
-            <Separator />
+            </>
+            )}
 
+            {settingsTab === 'security' && (
+            <>
             {/* Change Password */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
@@ -367,6 +394,9 @@ export default function AdminAccountSettings() {
                   {savingPassword ? 'Updating...' : 'Update Password'}
                 </Button>
               </div>
+            </div>
+            </>
+            )}
             </div>
           </>
         )}

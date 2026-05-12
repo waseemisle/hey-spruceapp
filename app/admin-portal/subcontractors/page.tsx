@@ -707,9 +707,9 @@ export default function SubcontractorsManagement() {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
-            <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl">
-              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-center justify-between gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-2xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+              <div className="flex shrink-0 items-center justify-between gap-4 rounded-t-2xl border-b border-border bg-card px-6 py-4">
                 <h2 className="text-base font-semibold text-foreground">
                   {editingId ? 'Edit Subcontractor' : 'Add Subcontractor'}
                 </h2>
@@ -718,7 +718,7 @@ export default function SubcontractorsManagement() {
                 </button>
               </div>
 
-              <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium text-foreground">Business Name *</Label>
@@ -822,7 +822,7 @@ export default function SubcontractorsManagement() {
                 )}
 
               </div>
-              <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+              <div className="flex shrink-0 gap-3 rounded-b-2xl border-t border-border bg-card px-6 py-4">
                 <Button variant="outline" className="flex-1" onClick={resetForm} disabled={submitting}>Cancel</Button>
                 <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>
                   <Save className="h-4 w-4" />

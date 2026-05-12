@@ -509,18 +509,16 @@ export default function MaintRequestsPage() {
 
         {/* Details Modal */}
         {showModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
-                <div className="flex justify-between items-center gap-3">
-                  <h2 className="text-xl sm:text-2xl font-bold truncate">{selectedRequest.title}</h2>
-                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowModal(false)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto flex w-full max-w-3xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold truncate">{selectedRequest.title}</h2>
+                <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
                 <div className="flex gap-2">
                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getPriorityColor(selectedRequest.priority)}`}>
                     Priority: {selectedRequest.priority}
@@ -596,21 +594,19 @@ export default function MaintRequestsPage() {
 
         {/* API Token Management Modal */}
         {showTokenModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">API Token Management</h2>
-                  <Button variant="outline" size="sm" onClick={() => {
-                    setShowTokenModal(false);
-                    setNewlyGeneratedToken('');
-                  }}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto flex w-full max-w-4xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card p-4 sm:p-6">
+                <h2 className="text-2xl font-bold">API Token Management</h2>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setShowTokenModal(false);
+                  setNewlyGeneratedToken('');
+                }}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
                 {/* Generate New Token Section */}
                 <Card>
                   <CardHeader>

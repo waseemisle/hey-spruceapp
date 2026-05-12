@@ -845,23 +845,23 @@ export default function ClientWorkOrderGroupDetail() {
 
         {/* ── Bidding Modal ─────────────────────────────────────────── */}
         {showBiddingModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <Card className="w-full max-w-lg rounded-2xl border border-border shadow-xl max-h-[80vh] flex flex-col">
-              <CardHeader className="px-6 pt-5 pb-3 border-b border-border">
-                <div className="flex items-center justify-between">
-                  <div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+            <Card className="my-auto flex w-full max-w-lg max-h-[min(90dvh,90vh)] flex-col overflow-hidden rounded-2xl border border-border shadow-xl">
+              <CardHeader className="shrink-0 border-b border-border px-6 pt-5 pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <h2 className="text-base font-semibold text-foreground">Share for Bidding</h2>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       Selected subcontractors will be invited to quote on all {bundles.length} work orders.
                     </p>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => { setShowBiddingModal(false); setBiddingSearch(''); }} className="h-8 w-8 p-0">
+                  <Button variant="ghost" size="sm" onClick={() => { setShowBiddingModal(false); setBiddingSearch(''); }} className="h-8 w-8 shrink-0 p-0">
                     ×
                   </Button>
                 </div>
               </CardHeader>
-              <div className="px-6 pb-2 pt-3">
-                <div className="relative">
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                <div className="relative mb-3">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <input
                     type="text"
@@ -871,8 +871,7 @@ export default function ClientWorkOrderGroupDetail() {
                     className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
-              </div>
-              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+                <div className="space-y-2">
                 {subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length === 0 ? (
                   <p className="text-center text-muted-foreground py-8 text-sm">{biddingSearch.trim() ? 'No subcontractors match your search' : 'No approved subcontractors found'}</p>
                 ) : null}
@@ -904,20 +903,21 @@ export default function ClientWorkOrderGroupDetail() {
                     </div>
                   </label>
                 ))}
+                </div>
               </div>
-              <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-3">
+              <div className="shrink-0 border-t border-border px-6 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm text-muted-foreground">
                   {selectedSubcontractors.length} selected
                 </span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setBiddingSearch(''); }} className="h-9 rounded-xl">
+                <div className="flex gap-2 sm:justify-end">
+                  <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setBiddingSearch(''); }} className="h-9 rounded-xl flex-1 sm:flex-none">
                     Cancel
                   </Button>
                   <Button
                     size="sm"
                     onClick={handleSubmitBidding}
                     disabled={biddingSubmitting || selectedSubcontractors.length === 0}
-                    className="h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                    className="h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none"
                   >
                     {biddingSubmitting ? 'Sharing…' : `Share with ${selectedSubcontractors.length || '—'}`}
                   </Button>

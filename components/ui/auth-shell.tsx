@@ -9,7 +9,7 @@ export function AuthShell({
   title,
   subtitle,
   icon: Icon = Sparkles,
-  contentClassName = 'max-w-md',
+  contentClassName = 'max-w-lg',
   children,
 }: {
   title: string;
@@ -20,10 +20,10 @@ export function AuthShell({
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="container mx-auto px-4 py-10">
+      <div className="container mx-auto px-4 py-8 sm:py-10">
         <PageContainer>
           {title && <PortalHero title={title} subtitle={subtitle} icon={Icon} />}
-          <div className={`mx-auto w-full ${contentClassName}`}>
+          <div className={`mx-auto w-full max-w-full ${contentClassName}`}>
             {children}
           </div>
         </PageContainer>

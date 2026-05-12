@@ -1652,25 +1652,25 @@ export default function ViewClientWorkOrder() {
 
       {/* Share for Bidding Modal */}
       {showBiddingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-card rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl">
-              <div className="flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+          <div className="my-auto flex w-full max-w-2xl max-h-[min(90dvh,90vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+            <div className="shrink-0 border-b border-border bg-card px-4 py-4 sm:px-6 sm:py-4 rounded-t-2xl">
+              <div className="flex justify-between items-center gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">Share for Bidding</h2>
                   <p className="text-sm text-muted-foreground mt-0.5">Select subcontractors to share this work order with</p>
                 </div>
-                <button onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); setBiddingSearch(''); }} className="p-2 hover:bg-muted rounded-lg transition-colors">
+                <button type="button" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); setBiddingSearch(''); }} className="p-2 hover:bg-muted rounded-lg transition-colors shrink-0">
                   <X className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
             </div>
-            <div className="p-4 sm:p-6">
-              <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-4">
+              <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <h3 className="font-semibold text-blue-900 mb-1">{workOrder.title}</h3>
                 {workOrder.workOrderNumber && <p className="text-sm text-blue-700">{workOrder.workOrderNumber}</p>}
               </div>
-              <div className="mb-4 relative">
+              <div className="mb-3 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
@@ -1680,24 +1680,24 @@ export default function ViewClientWorkOrder() {
                   className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <input
                     type="checkbox"
-                    id="selectAll"
+                    id="selectAllDetail"
                     checked={subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length > 0 && subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).every(s => selectedSubcontractors.includes(s.id))}
                     onChange={() => {
                       const filtered = subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()));
                       const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                       setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                     }}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
                   />
-                  <label htmlFor="selectAll" className="text-sm font-medium text-foreground">Select All ({subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length})</label>
+                  <label htmlFor="selectAllDetail" className="text-sm font-medium text-foreground truncate">Select All ({subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length})</label>
                 </div>
-                <div className="text-sm text-muted-foreground">{selectedSubcontractors.length} selected</div>
+                <div className="text-sm text-muted-foreground shrink-0">{selectedSubcontractors.length} selected</div>
               </div>
-              <div className="space-y-2 border border-border rounded-xl p-4">
+              <div className="space-y-2 border border-border rounded-xl p-3 sm:p-4">
                 {subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">{biddingSearch.trim() ? 'No subcontractors match your search' : 'No approved subcontractors found'}</p>
                 ) : (
@@ -1718,8 +1718,8 @@ export default function ViewClientWorkOrder() {
                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         onClick={e => e.stopPropagation()}
                       />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-foreground">{sub.fullName}</p>
                           {sub.matchesCategory && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">Matches Category</span>
@@ -1734,7 +1734,9 @@ export default function ViewClientWorkOrder() {
                   ))
                 )}
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t mt-6">
+            </div>
+            <div className="shrink-0 border-t border-border bg-card px-4 py-4 sm:px-6 sm:py-4 rounded-b-2xl">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button variant="outline" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); setBiddingSearch(''); }} disabled={submitting} className="flex-1">
                   Cancel
                 </Button>

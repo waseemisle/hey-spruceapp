@@ -430,10 +430,10 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
 
         {/* Detail Dialog */}
         <Dialog open={!!selected} onOpenChange={(open: boolean) => !open && setSelected(null)}>
-          <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-xl p-0">
             {selected && (
               <>
-                <DialogHeader>
+                <DialogHeader className="shrink-0 border-b px-6 pt-6 pb-3">
                   <div className="flex items-center justify-between gap-3">
                     <DialogTitle className="flex items-center gap-2 text-base">
                       <MessageSquare className="h-5 w-5 text-muted-foreground" />
@@ -457,7 +457,7 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
                   </div>
                 </DialogHeader>
 
-                <div className="space-y-5 mt-1">
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-5 px-6 py-4">
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={selected.status} />
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${EVENT_TYPE_COLORS[selected.type] || 'bg-muted text-foreground'}`}>

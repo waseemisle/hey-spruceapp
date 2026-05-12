@@ -357,18 +357,18 @@ export default function AdminCompanies() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-card rounded-2xl max-w-2xl w-full shadow-2xl">
-            <div className="p-6 border-b sticky top-0 bg-card z-10 rounded-t-2xl flex items-center justify-between">
-              <div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+          <div className="my-auto flex w-full max-w-2xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-card px-6 py-4 rounded-t-2xl">
+              <div className="min-w-0">
                 <h2 className="text-xl font-bold text-foreground">{editingId ? 'Edit Company' : 'Add Company'}</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">{editingId ? 'Update company details' : 'Create a new company'}</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
+              <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowModal(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Company Name *</Label>
@@ -430,7 +430,8 @@ export default function AdminCompanies() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-3 pt-4 border-t">
+            </div>
+            <div className="flex shrink-0 gap-3 border-t border-border bg-card px-6 py-4 rounded-b-2xl">
                 <Button className="flex-1" onClick={handleSave} disabled={saving}>
                   <Save className="h-4 w-4 mr-2" />
                   {saving ? 'Saving...' : editingId ? 'Update Company' : 'Create Company'}
@@ -438,7 +439,6 @@ export default function AdminCompanies() {
                 <Button variant="outline" onClick={() => setShowModal(false)} disabled={saving}>
                   Cancel
                 </Button>
-              </div>
             </div>
           </div>
         </div>

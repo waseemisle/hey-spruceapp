@@ -14,7 +14,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -175,8 +174,8 @@ export default function AccountSettingsDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">Account Settings</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-start justify-between gap-3">
+      <DialogContent className="max-w-lg p-0">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b px-6 pt-6 pb-3">
           <DialogHeader>
             <DialogTitle>Account Settings</DialogTitle>
             <DialogDescription>Update your profile and password.</DialogDescription>
@@ -186,7 +185,7 @@ export default function AccountSettingsDialog({
           </Button>
         </div>
 
-        <div className="space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-6 px-6 py-4">
           <div className="flex items-center gap-4">
             <Avatar className="h-14 w-14">
               {photoPreview ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} /> : <AvatarFallback>{(fullName || user.email || 'U').slice(0, 2).toUpperCase()}</AvatarFallback>}
@@ -237,8 +236,6 @@ export default function AccountSettingsDialog({
             </Button>
           </div>
         </div>
-
-        <DialogFooter />
       </DialogContent>
     </Dialog>
   );

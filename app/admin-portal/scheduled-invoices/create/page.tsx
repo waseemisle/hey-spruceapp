@@ -447,6 +447,7 @@ export default function CreateScheduledInvoicePage() {
           }
         />
 
+        <div className="mx-auto w-full max-w-6xl space-y-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -770,6 +771,7 @@ export default function CreateScheduledInvoicePage() {
               Cancel
             </Button>
           </Link>
+        </div>
         </div>
       </PageContainer>
     </>

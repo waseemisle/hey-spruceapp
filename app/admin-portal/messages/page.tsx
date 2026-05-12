@@ -495,19 +495,22 @@ export default function MessagesManagement() {
 
         {/* Delete Message Modal */}
         {showDeleteMessageModal && messageToDelete && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6">
-                <h2 className="text-xl sm:text-2xl font-bold mb-4">Delete Message</h2>
-                <p className="text-foreground mb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="shrink-0 border-b border-border p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold">Delete Message</h2>
+              </div>
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+                <p className="text-foreground">
                   Are you sure you want to delete this message?
                 </p>
-                <div className="bg-muted p-4 rounded mb-4">
+                <div className="bg-muted p-4 rounded">
                   <p className="text-sm"><strong>From:</strong> {messageToDelete.senderName}</p>
                   <p className="text-sm mt-2"><strong>Message:</strong> {messageToDelete.content}</p>
                 </div>
-                <p className="text-sm text-red-600 mb-4">This action cannot be undone.</p>
-                <div className="flex gap-3">
+                <p className="text-sm text-red-600">This action cannot be undone.</p>
+              </div>
+              <div className="flex shrink-0 gap-3 border-t border-border bg-card p-4 sm:p-6">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -525,7 +528,6 @@ export default function MessagesManagement() {
                   >
                     Delete Message
                   </Button>
-                </div>
               </div>
             </div>
           </div>
@@ -533,14 +535,16 @@ export default function MessagesManagement() {
 
         {/* Delete Thread Modal */}
         {showDeleteThreadModal && threadToDelete && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6">
-                <h2 className="text-xl sm:text-2xl font-bold mb-4">Delete Conversation</h2>
-                <p className="text-foreground mb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="shrink-0 border-b border-border p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold">Delete Conversation</h2>
+              </div>
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+                <p className="text-foreground">
                   Are you sure you want to delete this entire conversation?
                 </p>
-                <div className="bg-muted p-4 rounded mb-4">
+                <div className="bg-muted p-4 rounded">
                   <p className="text-sm">
                     <strong>Conversation with:</strong> {
                       threadToDelete.participantDetails?.find(p => p.id !== auth.currentUser?.uid)?.name || 'Unknown'
@@ -550,10 +554,11 @@ export default function MessagesManagement() {
                     <strong>Last message:</strong> {threadToDelete.lastMessage}
                   </p>
                 </div>
-                <p className="text-sm text-red-600 mb-4">
+                <p className="text-sm text-red-600">
                   This will permanently delete all messages in this conversation. This action cannot be undone.
                 </p>
-                <div className="flex gap-3">
+              </div>
+              <div className="flex shrink-0 gap-3 border-t border-border bg-card p-4 sm:p-6">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -571,7 +576,6 @@ export default function MessagesManagement() {
                   >
                     Delete Conversation
                   </Button>
-                </div>
               </div>
             </div>
           </div>
@@ -579,27 +583,25 @@ export default function MessagesManagement() {
 
         {/* New Chat Modal */}
         {showNewChatModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-2xl w-full max-h-[90vh] sm:max-h-[80vh] overflow-hidden flex flex-col">
-              <div className="p-4 sm:p-6 border-b">
-                <div className="flex justify-between items-center gap-2">
-                  <h2 className="text-xl sm:text-2xl font-bold truncate">Start New Conversation</h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowNewChatModal(false);
-                      setUserSearchQuery('');
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto flex w-full max-w-2xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold truncate">Start New Conversation</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    setShowNewChatModal(false);
+                    setUserSearchQuery('');
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
-              <div className="p-6">
-                {/* User Search Bar */}
-                <div className="relative mb-4">
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4 sm:p-6">
+                <div className="relative shrink-0">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search users by name, email, or role..."
@@ -609,8 +611,7 @@ export default function MessagesManagement() {
                   />
                 </div>
 
-                {/* Users List */}
-                <div className="overflow-y-auto max-h-96">
+                <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">
                   {loadingUsers ? (
                     <div className="flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -621,7 +622,7 @@ export default function MessagesManagement() {
                       <p className="text-muted-foreground text-sm">No users found</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-2 p-3">
                       {filteredUsers.map(user => (
                         <div
                           key={user.id}

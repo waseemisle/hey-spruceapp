@@ -558,32 +558,35 @@ export default function SandboxRefreshPage() {
 
       {/* Confirmation dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-lg p-0">
+          <DialogHeader className="shrink-0 border-b px-6 pt-6 pb-3">
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               Refresh Sandbox?
             </DialogTitle>
-            <DialogDescription>
-              <div className="space-y-3 pt-1 text-sm text-muted-foreground">
-                <p>
-                  This will <strong className="text-foreground">permanently overwrite</strong> all
-                  data in the staging environment with the current production data. This cannot be
-                  undone.
-                </p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>All sandbox-only data will be deleted</li>
-                  <li>
-                    All <strong className="text-foreground">{SYNC_COLLECTIONS.length}</strong>{' '}
-                    Firestore collections will be replaced
-                  </li>
-                  <li>Staging may be briefly unavailable during the refresh</li>
-                  <li>Typically takes 1–3 minutes to complete</li>
-                </ul>
-              </div>
+            <DialogDescription className="sr-only">
+              Confirm overwriting staging with production data.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>
+                This will <strong className="text-foreground">permanently overwrite</strong> all
+                data in the staging environment with the current production data. This cannot be
+                undone.
+              </p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>All sandbox-only data will be deleted</li>
+                <li>
+                  All <strong className="text-foreground">{SYNC_COLLECTIONS.length}</strong>{' '}
+                  Firestore collections will be replaced
+                </li>
+                <li>Staging may be briefly unavailable during the refresh</li>
+                <li>Typically takes 1–3 minutes to complete</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter className="shrink-0 gap-2 border-t bg-card px-6 py-4 mt-0">
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>

@@ -314,9 +314,9 @@ export default function ClientSubcontractorsView() {
 
         {/* Create Subcontractor Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
-            <div className="bg-card rounded-2xl shadow-2xl w-full max-w-xl">
-              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-start justify-between gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+              <div className="flex shrink-0 items-start justify-between gap-4 rounded-t-2xl border-b border-border bg-card px-6 py-4">
                 <div>
                   <h2 className="text-base font-semibold text-foreground">Add Subcontractor</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">An invitation email will be sent to set up their account</p>
@@ -326,7 +326,7 @@ export default function ClientSubcontractorsView() {
                 </button>
               </div>
 
-              <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
                 {/* Email */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-foreground uppercase tracking-wide">
@@ -383,7 +383,7 @@ export default function ClientSubcontractorsView() {
                 </div>
               </div>
 
-              <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+              <div className="flex shrink-0 gap-3 rounded-b-2xl border-t border-border bg-card px-6 py-4">
                 <Button variant="outline" className="flex-1" onClick={() => { setShowCreateModal(false); setCreateForm({ email: '', businessName: '', phone: '', city: '', state: '', licenseNumber: '' }); setSelectedSkills([]); }} disabled={submitting}>
                   Cancel
                 </Button>

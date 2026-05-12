@@ -1178,9 +1178,9 @@ export default function RecurringWorkOrdersImportModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        <CardHeader className="flex-shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+      <Card className="my-auto flex h-auto max-h-[min(92dvh,92vh)] w-full max-w-6xl flex-col overflow-hidden shadow-lg">
+        <CardHeader className="shrink-0 border-b">
           <div className="flex justify-between items-center">
             <CardTitle>Import Recurring Work Orders from CSV/Excel</CardTitle>
             <Button variant="ghost" size="sm" onClick={handleClose} disabled={isImporting}>
@@ -1188,7 +1188,7 @@ export default function RecurringWorkOrdersImportModal({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto space-y-6">
+        <CardContent className="min-h-0 flex-1 space-y-6 overflow-y-auto">
           {/* File Upload Section */}
           <div>
             <Label htmlFor="file-upload">Select CSV or Excel File</Label>
@@ -1935,7 +1935,7 @@ export default function RecurringWorkOrdersImportModal({
             </div>
           )}
         </CardContent>
-        <div className="p-4 border-t flex justify-end gap-2 flex-shrink-0">
+        <div className="flex shrink-0 justify-end gap-2 border-t bg-card p-4">
           <Button variant="outline" onClick={handleClose} disabled={isImporting}>
             Cancel
           </Button>

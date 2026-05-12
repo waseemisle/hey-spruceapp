@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2, Stethoscope, Wrench, ThumbsUp, ThumbsDown, Search } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2, Stethoscope, Wrench, ThumbsUp, ThumbsDown, Search, ClipboardList } from 'lucide-react';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -30,7 +30,6 @@ import type { VendorPayment, VendorPaymentAdjustment, VendorPaymentStatus } from
 
 import { PageContainer } from '@/components/ui/page-container';
 import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 const WORK_ORDER_EDIT_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
@@ -549,31 +548,31 @@ export default function ViewWorkOrder() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-50';
-      case 'approved': return 'text-green-600 bg-green-50';
-      case 'rejected': return 'text-red-600 bg-red-50';
-      case 'bidding': return 'text-blue-600 bg-blue-50';
-      case 'diagnostic_accepted': return 'text-indigo-600 bg-indigo-50';
-      case 'diagnostic_rejected': return 'text-red-600 bg-red-50';
-      case 'quotes_received': return 'text-blue-600 bg-blue-50';
-      case 'assigned': return 'text-indigo-600 bg-indigo-50';
-      case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
-      case 'diagnostic_submitted': return 'text-indigo-600 bg-indigo-50';
-      case 'repair_approved': return 'text-emerald-600 bg-emerald-50';
-      case 'repair_declined': return 'text-orange-600 bg-orange-50';
-      case 'pending_invoice': return 'text-orange-600 bg-orange-50';
-      case 'completed': return 'text-emerald-600 bg-emerald-50';
-      case 'archived': return 'text-gray-600 bg-gray-100';
-      default: return 'text-muted-foreground bg-muted';
+      case 'pending': return 'text-yellow-800 bg-yellow-50 border-yellow-200 dark:text-yellow-200 dark:bg-yellow-950/40 dark:border-yellow-900/60';
+      case 'approved': return 'text-emerald-800 bg-emerald-50 border-emerald-200 dark:text-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60';
+      case 'rejected': return 'text-red-800 bg-red-50 border-red-200 dark:text-red-200 dark:bg-red-950/40 dark:border-red-900/60';
+      case 'bidding': return 'text-blue-800 bg-blue-50 border-blue-200 dark:text-blue-200 dark:bg-blue-950/40 dark:border-blue-900/60';
+      case 'diagnostic_accepted': return 'text-indigo-800 bg-indigo-50 border-indigo-200 dark:text-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900/60';
+      case 'diagnostic_rejected': return 'text-red-800 bg-red-50 border-red-200 dark:text-red-200 dark:bg-red-950/40 dark:border-red-900/60';
+      case 'quotes_received': return 'text-blue-800 bg-blue-50 border-blue-200 dark:text-blue-200 dark:bg-blue-950/40 dark:border-blue-900/60';
+      case 'assigned': return 'text-indigo-800 bg-indigo-50 border-indigo-200 dark:text-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900/60';
+      case 'accepted_by_subcontractor': return 'text-violet-800 bg-violet-50 border-violet-200 dark:text-violet-200 dark:bg-violet-950/40 dark:border-violet-900/60';
+      case 'diagnostic_submitted': return 'text-indigo-800 bg-indigo-50 border-indigo-200 dark:text-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900/60';
+      case 'repair_approved': return 'text-emerald-800 bg-emerald-50 border-emerald-200 dark:text-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60';
+      case 'repair_declined': return 'text-orange-800 bg-orange-50 border-orange-200 dark:text-orange-200 dark:bg-orange-950/40 dark:border-orange-900/60';
+      case 'pending_invoice': return 'text-orange-800 bg-orange-50 border-orange-200 dark:text-orange-200 dark:bg-orange-950/40 dark:border-orange-900/60';
+      case 'completed': return 'text-emerald-800 bg-emerald-50 border-emerald-200 dark:text-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60';
+      case 'archived': return 'text-muted-foreground bg-muted border-border';
+      default: return 'text-muted-foreground bg-muted border-border';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'text-red-600 bg-red-50';
-      case 'medium': return 'text-orange-600 bg-orange-50';
-      case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-muted-foreground bg-muted';
+      case 'high': return 'text-red-800 bg-red-50 border-red-200 dark:text-red-200 dark:bg-red-950/40 dark:border-red-900/60';
+      case 'medium': return 'text-orange-800 bg-orange-50 border-orange-200 dark:text-orange-200 dark:bg-orange-950/40 dark:border-orange-900/60';
+      case 'low': return 'text-emerald-800 bg-emerald-50 border-emerald-200 dark:text-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60';
+      default: return 'text-muted-foreground bg-muted border-border';
     }
   };
 
@@ -1996,34 +1995,36 @@ export default function ViewWorkOrder() {
 
   if (loading) {
     return (
-      <>
       <PageContainer>
         <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
+          title="Work order"
+          subtitle="Loading details…"
+          icon={ClipboardList}
         />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+        <div className="flex items-center justify-center rounded-2xl border border-border bg-card py-24 shadow-sm">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
         </div>
-            </PageContainer>
-    </>
+      </PageContainer>
     );
   }
 
   if (!workOrder) {
     return (
-      <>
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-foreground">Work Order Not Found</h2>
-          <Link href="/admin-portal/work-orders">
-            <Button className="mt-4">
+      <PageContainer>
+        <div className="rounded-2xl border border-border bg-card px-6 py-16 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <ClipboardList className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-bold tracking-tight text-foreground">Work order not found</h2>
+          <p className="mt-2 text-sm text-muted-foreground">This link may be invalid or the work order was removed.</p>
+          <Link href="/admin-portal/work-orders" className="mt-6 inline-block">
+            <Button>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Work Orders
             </Button>
           </Link>
         </div>
-      </>
+      </PageContainer>
     );
   }
 
@@ -2043,67 +2044,91 @@ export default function ViewWorkOrder() {
 
   return (
     <>
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-start gap-3 flex-wrap">
-          <Link href="/admin-portal/work-orders">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div className="flex-1 min-w-0">
-            {editMode ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <Input
-                  value={editForm.title}
-                  onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
-                  className="text-xl font-bold h-10 max-w-sm"
-                  placeholder="Work Order Title"
-                />
-                <SearchableSelect
-                  className="w-full min-w-[160px] sm:w-52"
-                  value={editForm.status}
-                  onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}
-                  options={WORK_ORDER_EDIT_STATUS_OPTIONS}
-                  placeholder="Status"
-                  aria-label="Work order status"
-                />
-                <SearchableSelect
-                  className="w-full min-w-[100px] sm:w-32"
-                  value={editForm.priority}
-                  onValueChange={(v) => setEditForm((f) => ({ ...f, priority: v }))}
-                  options={[
-                    { value: 'low', label: 'Low' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'high', label: 'High' },
-                  ]}
-                  placeholder="Priority"
-                  aria-label="Priority"
-                />
+      <PageContainer>
+        {/* Hero header — matches portal page UI (subcontractors / design doc) */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-blue-50/90 via-card to-violet-50/40 shadow-md ring-1 ring-border/50 dark:from-blue-950/30 dark:via-card dark:to-violet-950/25">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-blue-400/20 blur-3xl dark:bg-blue-500/10" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-28 -left-20 h-52 w-52 rounded-full bg-violet-400/15 blur-3xl dark:bg-violet-500/10" aria-hidden />
+          <div className="relative space-y-4 p-4 sm:p-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start">
+                <Link href="/admin-portal/work-orders" className="shrink-0">
+                  <Button variant="outline" size="sm">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </Button>
+                </Link>
+                <div className="min-w-0 flex-1 space-y-2">
+                  {editMode ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Input
+                        value={editForm.title}
+                        onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                        className="h-11 max-w-xl rounded-lg border-border text-xl font-bold shadow-sm transition-shadow focus-visible:ring-2 focus-visible:ring-ring"
+                        placeholder="Work Order Title"
+                      />
+                      <SearchableSelect
+                        className="w-full min-w-[160px] sm:w-52"
+                        value={editForm.status}
+                        onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}
+                        options={WORK_ORDER_EDIT_STATUS_OPTIONS}
+                        placeholder="Status"
+                        aria-label="Work order status"
+                      />
+                      <SearchableSelect
+                        className="w-full min-w-[100px] sm:w-32"
+                        value={editForm.priority}
+                        onValueChange={(v) => setEditForm((f) => ({ ...f, priority: v }))}
+                        options={[
+                          { value: 'low', label: 'Low' },
+                          { value: 'medium', label: 'Medium' },
+                          { value: 'high', label: 'High' },
+                        ]}
+                        placeholder="Priority"
+                        aria-label="Priority"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="truncate text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{workOrder.title}</h1>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${getStatusColor(workOrder.status)}`}
+                      >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
+                        {workOrder.status.replace(/_/g, ' ').toUpperCase()}
+                      </span>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${getPriorityColor(workOrder.priority)}`}
+                      >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
+                        {workOrder.priority.toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                    <span className="font-mono text-xs text-foreground/80">#{workOrder.workOrderNumber}</span>
+                    <span className="hidden sm:inline" aria-hidden>
+                      ·
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                      {workOrder.locationName}
+                    </span>
+                    {workOrder.createdAt?.toDate && (
+                      <>
+                        <span className="hidden sm:inline" aria-hidden>
+                          ·
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                          {workOrder.createdAt.toDate().toLocaleDateString()}
+                        </span>
+                      </>
+                    )}
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold text-foreground truncate">{workOrder.title}</h1>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getStatusColor(workOrder.status)}`}>
-                  {workOrder.status.replace(/_/g, ' ').toUpperCase()}
-                </span>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${getPriorityColor(workOrder.priority)}`}>
-                  {workOrder.priority.toUpperCase()}
-                </span>
-              </div>
-            )}
-            <p className="text-muted-foreground text-sm mt-0.5">
-              #{workOrder.workOrderNumber} &nbsp;·&nbsp;
-              <span className="flex-inline items-center gap-1">
-                <MapPin className="h-3 w-3 inline" /> {workOrder.locationName}
-              </span>
-              {workOrder.createdAt?.toDate && (
-                <> &nbsp;·&nbsp; <Calendar className="h-3 w-3 inline" /> {workOrder.createdAt.toDate().toLocaleDateString()}</>
-              )}
-            </p>
-          </div>
-          <div className="flex gap-2 flex-shrink-0 flex-wrap">
+              <div className="flex flex-shrink-0 flex-wrap gap-2 border-t border-border/60 pt-3 xl:rounded-xl xl:border xl:border-border/70 xl:border-t xl:bg-background/80 xl:p-2.5 xl:pt-2.5 xl:shadow-sm xl:backdrop-blur-sm dark:xl:bg-background/50">
             {workOrder.status === 'pending' && (
               <>
                 <Button
@@ -2208,14 +2233,16 @@ export default function ViewWorkOrder() {
                 Archived
               </span>
             )}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Create Invoice Modal */}
         {showInvoiceModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-card z-10 flex justify-between items-center gap-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto flex w-full max-w-3xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-xl ring-1 ring-border/40">
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-card p-6">
                 <div>
                   <h2 className="text-xl font-bold">Create Invoice</h2>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -2226,7 +2253,7 @@ export default function ViewWorkOrder() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="p-6 space-y-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
                 {/* Client Info (read-only) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
@@ -2369,7 +2396,7 @@ export default function ViewWorkOrder() {
                   />
                 </div>
               </div>
-              <div className="p-6 border-t flex gap-3">
+              <div className="flex shrink-0 flex-wrap gap-3 border-t border-border bg-card p-6">
                 <Button
                   className="flex-1"
                   onClick={handleConfirmCreateInvoice}
@@ -2388,18 +2415,21 @@ export default function ViewWorkOrder() {
 
         {/* Reject Dialog */}
         {showRejectDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold mb-2">Reject Work Order</h3>
-              <p className="text-sm text-muted-foreground mb-4">Please provide a reason for rejecting this work order.</p>
-              <Textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Enter rejection reason..."
-                className="mb-4"
-                rows={3}
-              />
-              <div className="flex gap-2 justify-end">
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="shrink-0 border-b border-border p-4 sm:p-6">
+                <h3 className="text-lg font-semibold mb-2">Reject Work Order</h3>
+                <p className="text-sm text-muted-foreground">Please provide a reason for rejecting this work order.</p>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                <Textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Enter rejection reason..."
+                  rows={3}
+                />
+              </div>
+              <div className="flex shrink-0 justify-end gap-2 border-t border-border p-4 sm:p-6">
                 <Button variant="outline" onClick={() => { setShowRejectDialog(false); setRejectReason(''); }}>
                   Cancel
                 </Button>
@@ -2417,18 +2447,20 @@ export default function ViewWorkOrder() {
 
         {/* Rating Dialog */}
         {showRatingDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold mb-2">Leave a Rating for this Work Order</h3>
-              <p className="text-muted-foreground text-sm mb-4">Is the work complete and to specifications?</p>
-              <div className="flex gap-3">
-                <Button className="flex-1" onClick={() => handleWorkOrderRating(true)} loading={ratingSubmitting} disabled={ratingSubmitting}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+            <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="shrink-0 p-4 sm:p-6">
+                <h3 className="text-lg font-semibold mb-2">Leave a Rating for this Work Order</h3>
+                <p className="text-muted-foreground text-sm">Is the work complete and to specifications?</p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-3 border-t border-border p-4 sm:p-6">
+                <Button className="flex-1 min-w-[6rem]" onClick={() => handleWorkOrderRating(true)} loading={ratingSubmitting} disabled={ratingSubmitting}>
                   Yes
                 </Button>
-                <Button variant="outline" className="flex-1" onClick={() => handleWorkOrderRating(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
+                <Button variant="outline" className="flex-1 min-w-[6rem]" onClick={() => handleWorkOrderRating(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
                   No
                 </Button>
-                <Button variant="ghost" onClick={() => setShowRatingDialog(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
+                <Button variant="ghost" className="w-full sm:ml-auto sm:w-auto" onClick={() => setShowRatingDialog(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
                   Cancel
                 </Button>
               </div>
@@ -2438,8 +2470,8 @@ export default function ViewWorkOrder() {
 
         {/* Status Pipeline */}
         {currentStepIdx >= 0 && (
-          <div className="bg-card border rounded-xl p-4 overflow-x-auto">
-            <div className="flex items-center min-w-max gap-0">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+            <div className="flex min-w-max items-center gap-0">
               {STATUS_PIPELINE.map((step, idx) => {
                 const isDone = idx < currentStepIdx;
                 const isCurrent = idx === currentStepIdx;
@@ -2468,38 +2500,47 @@ export default function ViewWorkOrder() {
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="border-b">
-          <div className="flex gap-0 overflow-x-auto">
-            {TABS.map(tab => (
+        {/* Tab Navigation — filter-pill style (page-ui-design) */}
+        <div className="rounded-2xl border border-border bg-muted/50 p-1.5 shadow-sm dark:bg-muted/30">
+          <div
+            className="-mx-0.5 flex gap-1 overflow-x-auto px-0.5 pb-0.5 sm:mx-0 sm:px-0 sm:pb-0"
+            role="tablist"
+            aria-label="Work order sections"
+          >
+            {TABS.map((tab) => (
               <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   activeTab === tab.key
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30'
+                    ? 'bg-card text-foreground shadow-md ring-2 ring-primary/25 ring-offset-2 ring-offset-background dark:ring-offset-card'
+                    : 'text-muted-foreground hover:bg-muted/90 hover:text-foreground'
                 }`}
               >
-                <tab.icon className="h-4 w-4" />
+                <tab.icon className="h-4 w-4 shrink-0 opacity-80" />
                 {tab.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Tab Content */}
-        <div>
+        {/* Tab Content — single surface for scanability */}
+        <div className="rounded-2xl border border-border bg-gradient-to-b from-card via-card to-muted/10 p-4 shadow-inner sm:p-6 lg:p-8 dark:to-muted/5">
 
           {/* OVERVIEW TAB */}
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <Card>
-                  <CardHeader><CardTitle>Work Order Details</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+              <div className="space-y-6 lg:col-span-2">
+                <Card className="overflow-hidden rounded-2xl border-border shadow-md transition-shadow hover:shadow-lg">
+                  <CardHeader className="border-b border-border/60 bg-muted/15 pb-4 dark:bg-muted/10">
+                    <CardTitle className="text-lg font-semibold tracking-tight">Work Order Details</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-5 pt-6">
                     <div>
-                      <h3 className="font-semibold text-muted-foreground text-sm mb-1">Description</h3>
+                      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</h3>
                       {editMode ? (
                         <Textarea
                           value={editForm.description}
@@ -2508,7 +2549,9 @@ export default function ViewWorkOrder() {
                           placeholder="Detailed description of the work needed..."
                         />
                       ) : (
-                        <p className="text-foreground">{workOrder.description}</p>
+                        <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3.5 dark:bg-muted/25">
+                          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">{workOrder.description}</p>
+                        </div>
                       )}
                     </div>
                     {(workOrder as any).diagnosticResults && (
@@ -2540,9 +2583,9 @@ export default function ViewWorkOrder() {
                         )}
                       </div>
                     )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Category</h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                      <div className="rounded-xl border border-border/50 bg-background/50 p-3 sm:p-4 dark:bg-background/30">
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Category</h3>
                         {editMode ? (
                           <SearchableSelect
                             className="mt-1 w-full"
@@ -2559,8 +2602,8 @@ export default function ViewWorkOrder() {
                           <p className="text-foreground">{workOrder.category}</p>
                         )}
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Estimate Budget</h3>
+                      <div className="rounded-xl border border-border/50 bg-background/50 p-3 sm:p-4 dark:bg-background/30">
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estimate Budget</h3>
                         {editMode ? (
                           <Input
                             type="number"
@@ -2573,14 +2616,14 @@ export default function ViewWorkOrder() {
                           />
                         ) : (
                           workOrder.estimateBudget
-                            ? <p className="text-foreground font-semibold">{formatMoney(workOrder.estimateBudget)}</p>
-                            : <p className="text-muted-foreground text-sm">Not set</p>
+                            ? <p className="font-semibold text-foreground">{formatMoney(workOrder.estimateBudget)}</p>
+                            : <p className="text-sm text-muted-foreground">Not set</p>
                         )}
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Date</h3>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                      <div className="rounded-xl border border-border/50 bg-background/50 p-3 sm:p-4 dark:bg-background/30">
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Scheduled Date</h3>
                         {editMode ? (
                           <Input
                             type="date"
@@ -2593,8 +2636,8 @@ export default function ViewWorkOrder() {
                             : <p className="text-muted-foreground text-sm">Not scheduled</p>
                         )}
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-muted-foreground text-sm mb-1">Scheduled Time</h3>
+                      <div className="rounded-xl border border-border/50 bg-background/50 p-3 sm:p-4 dark:bg-background/30">
+                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Scheduled Time</h3>
                         {editMode ? (
                           <Input
                             type="time"
@@ -2635,7 +2678,7 @@ export default function ViewWorkOrder() {
 
                 {/* Repair Decision Card (diagnostic → repair workflow) */}
                 {workOrder.status === 'diagnostic_submitted' && (
-                  <Card className="border-indigo-200 bg-indigo-50/50 dark:bg-indigo-950/20">
+                  <Card className="rounded-2xl border-indigo-200 bg-indigo-50/50 shadow-sm dark:bg-indigo-950/20">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
                         <Stethoscope className="h-5 w-5 text-indigo-600" />
@@ -2706,7 +2749,7 @@ export default function ViewWorkOrder() {
                 {workOrder.status !== 'diagnostic_submitted' &&
                  workOrder.diagnosticSubmittedAt &&
                  ['repair_approved', 'repair_declined', 'pending_invoice', 'completed', 'archived'].includes(workOrder.status) && (
-                  <Card>
+                  <Card className="rounded-2xl border-border shadow-sm">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Stethoscope className="h-5 w-5 text-indigo-600" />
@@ -2760,7 +2803,7 @@ export default function ViewWorkOrder() {
 
                 {/* Quick diagnostic requests preview */}
                 {diagnosticRequests.length > 0 && (
-                  <Card>
+                  <Card className="rounded-2xl border-border shadow-sm">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span className="flex items-center gap-2"><Stethoscope className="h-5 w-5" />Diagnostic Requests</span>
@@ -2796,7 +2839,7 @@ export default function ViewWorkOrder() {
 
                 {/* Quick quotes preview */}
                 {regularQuotes.length > 0 && (
-                  <Card>
+                  <Card className="rounded-2xl border-border shadow-sm">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span className="flex items-center gap-2"><FileText className="h-5 w-5" />Quotes</span>
@@ -2841,8 +2884,8 @@ export default function ViewWorkOrder() {
               </div>
 
               {/* Sidebar */}
-              <div className="space-y-4">
-                <Card>
+              <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+                <Card className="rounded-2xl border-border shadow-sm">
                   <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Client</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     {editMode ? (
@@ -2873,7 +2916,7 @@ export default function ViewWorkOrder() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="rounded-2xl border-border shadow-sm">
                   <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Location</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     {editMode ? (
@@ -2901,7 +2944,7 @@ export default function ViewWorkOrder() {
                 </Card>
 
                 {(workOrder.assignedToName || workOrder.assignedSubcontractorName) && (
-                  <Card>
+                  <Card className="rounded-2xl border-border shadow-sm">
                     <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Assigned To</CardTitle></CardHeader>
                     <CardContent className="text-sm">
                       <p className="font-semibold">{workOrder.assignedToName || workOrder.assignedSubcontractorName}</p>
@@ -2915,11 +2958,11 @@ export default function ViewWorkOrder() {
 
           {/* VENDOR PAYMENT TAB */}
           {activeTab === 'vendor_payment' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>Vendor Payment</CardTitle>
+            <div className="mx-auto max-w-4xl space-y-6">
+              <Card className="overflow-hidden rounded-2xl border-border shadow-md">
+                <CardHeader className="flex flex-col gap-4 border-b border-border/60 bg-muted/15 sm:flex-row sm:items-start sm:justify-between dark:bg-muted/10">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-lg font-semibold tracking-tight">Vendor Payment</CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
                       Track subcontractor payout for this work order (base + adjustments).
                     </p>
@@ -3083,9 +3126,9 @@ export default function ViewWorkOrder() {
 
           {/* Create Vendor Payment Modal */}
           {showCreateVendorPaymentModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-              <div className="bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-                <div className="p-4 sm:p-6 border-b flex items-start justify-between gap-3">
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+              <div className="my-auto flex w-full max-w-lg max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4 sm:p-6">
                   <div>
                     <h3 className="text-lg font-semibold">Create Vendor Payment</h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -3096,7 +3139,7 @@ export default function ViewWorkOrder() {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label>Work order</Label>
@@ -3281,7 +3324,7 @@ export default function ViewWorkOrder() {
                     />
                   </div>
                 </div>
-                <div className="p-6 border-t flex items-center justify-end gap-2">
+                <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-card p-6">
                   <Button variant="outline" onClick={() => setShowCreateVendorPaymentModal(false)} disabled={creatingVendorPayment}>
                     Cancel
                   </Button>
@@ -3296,16 +3339,20 @@ export default function ViewWorkOrder() {
 
           {/* NOTES TAB */}
           {activeTab === 'notes' && (
-            <div className="max-w-3xl space-y-4">
+            <div className="mx-auto max-w-3xl space-y-5">
               {/* Add note */}
-              <Card>
-                <CardContent className="pt-4">
+              <Card className="overflow-hidden rounded-2xl border-border shadow-md">
+                <CardHeader className="border-b border-border/60 bg-muted/15 py-4 dark:bg-muted/10">
+                  <CardTitle className="text-base font-semibold tracking-tight">Add a note</CardTitle>
+                  <p className="text-sm text-muted-foreground">Visible to admins on this work order.</p>
+                </CardHeader>
+                <CardContent className="pt-5">
                   <div className="space-y-3">
                     <Textarea
                       placeholder="Add a note about this work order..."
                       value={newNote}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewNote(e.target.value)}
-                      className="min-h-[80px] resize-none"
+                      className="min-h-[96px] resize-none rounded-xl border-border/80 text-[15px] leading-relaxed shadow-sm focus-visible:ring-2"
                     />
                     <div className="flex justify-end">
                       <Button onClick={handleAddNote} disabled={addingNote || !newNote.trim()} size="sm">
@@ -3319,15 +3366,16 @@ export default function ViewWorkOrder() {
 
               {/* Notes list */}
               {notes.length === 0 ? (
-                <div className="text-center py-16">
-                  <StickyNote className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No notes yet. Add the first note above.</p>
+                <div className="rounded-2xl border border-dashed border-border/80 bg-muted/10 py-16 text-center dark:bg-muted/5">
+                  <StickyNote className="mx-auto mb-3 h-12 w-12 text-muted-foreground/70" />
+                  <p className="font-medium text-foreground">No notes yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Add the first note using the form above.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {notes.map(note => (
-                    <Card key={note.id}>
-                      <CardContent className="pt-4">
+                    <Card key={note.id} className="rounded-2xl border-border shadow-sm transition-shadow hover:shadow-md">
+                      <CardContent className="pt-5">
                         <div className="flex items-start gap-3">
                           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                             <span className="text-primary text-xs font-bold">{(note.createdBy ?? 'A').charAt(0).toUpperCase()}</span>
@@ -3355,7 +3403,7 @@ export default function ViewWorkOrder() {
 
           {/* HISTORY TAB */}
           {activeTab === 'history' && (
-            <div className="max-w-3xl">
+            <div className="mx-auto max-w-4xl rounded-2xl border border-border/80 bg-card/80 p-4 shadow-sm sm:p-6">
               <WorkOrderSystemInfo
                 timeline={buildTimeline(workOrder)}
                 systemInformation={workOrder.systemInformation}
@@ -3367,17 +3415,23 @@ export default function ViewWorkOrder() {
 
           {/* ATTACHMENTS TAB */}
           {activeTab === 'attachments' && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" />Add Images</CardTitle>
+            <div className="mx-auto max-w-5xl space-y-6">
+              <Card className="overflow-hidden rounded-2xl border-border shadow-md">
+                <CardHeader className="border-b border-border/60 bg-muted/15 dark:bg-muted/10">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                    <Upload className="h-5 w-5 text-primary" />
+                    Add Images
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">Upload photos for documentation (multiple files supported).</p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-5">
                   <label
                     htmlFor="wo-image-upload-admin"
-                    className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg ${uploadingAttachments ? 'cursor-not-allowed border-gray-200 bg-gray-50' : 'cursor-pointer border-gray-300 hover:border-primary'}`}
+                    className={`flex min-h-[140px] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/20 px-4 py-8 text-center transition-all duration-200 hover:border-primary/50 hover:bg-primary/5 dark:bg-muted/10 ${
+                      uploadingAttachments ? 'pointer-events-none cursor-not-allowed opacity-60' : ''
+                    }`}
                   >
-                    <span className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                       {uploadingAttachments ? (
                         <><Loader2 className="h-4 w-4 animate-spin" />Uploading images…</>
                       ) : (
@@ -3400,13 +3454,18 @@ export default function ViewWorkOrder() {
                 </CardContent>
               </Card>
               {workOrder.images && workOrder.images.length > 0 && (
-                <Card>
-                  <CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Work Order Images ({workOrder.images.length})</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <Card className="overflow-hidden rounded-2xl border-border shadow-md">
+                  <CardHeader className="border-b border-border/60 bg-muted/10">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                      <ImageIcon className="h-5 w-5 text-primary" />
+                      Work Order Images ({workOrder.images.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-5">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                       {workOrder.images.map((image, idx) => (
                         <img key={idx} src={image} alt={`Image ${idx + 1}`}
-                          className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
+                          className="aspect-[4/3] w-full cursor-pointer rounded-xl border border-border object-cover shadow-sm transition-all hover:ring-2 hover:ring-primary/30 hover:shadow-md"
                           onClick={() => { setLightboxImages(workOrder.images || []); setLightboxIndex(idx); }} />
                       ))}
                     </div>
@@ -3414,13 +3473,18 @@ export default function ViewWorkOrder() {
                 </Card>
               )}
               {workOrder.completionImages && workOrder.completionImages.length > 0 && (
-                <Card>
-                  <CardHeader><CardTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-green-600" />Completion Images ({workOrder.completionImages.length})</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <Card className="overflow-hidden rounded-2xl border-border shadow-md">
+                  <CardHeader className="border-b border-border/60 bg-muted/10">
+                    <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                      <CheckCircle className="h-5 w-5 text-emerald-600" />
+                      Completion Images ({workOrder.completionImages.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-5">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
                       {workOrder.completionImages.map((image, idx) => (
                         <img key={idx} src={image} alt={`Completion ${idx + 1}`}
-                          className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border"
+                          className="aspect-[4/3] w-full cursor-pointer rounded-xl border border-border object-cover shadow-sm transition-all hover:ring-2 hover:ring-emerald-400/40 hover:shadow-md"
                           onClick={() => { setLightboxImages(workOrder.completionImages || []); setLightboxIndex(idx); }} />
                       ))}
                     </div>
@@ -3428,9 +3492,10 @@ export default function ViewWorkOrder() {
                 </Card>
               )}
               {(!workOrder.images || workOrder.images.length === 0) && (!workOrder.completionImages || workOrder.completionImages.length === 0) && (
-                <div className="text-center py-8">
-                  <Paperclip className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No attachments uploaded yet. Use the upload card above to add images.</p>
+                <div className="rounded-2xl border border-dashed border-border/80 bg-muted/10 py-12 text-center dark:bg-muted/5">
+                  <Paperclip className="mx-auto mb-2 h-10 w-10 text-muted-foreground/70" />
+                  <p className="font-medium text-foreground">No attachments yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Use the upload area above to add images.</p>
                 </div>
               )}
             </div>
@@ -3438,10 +3503,10 @@ export default function ViewWorkOrder() {
 
           {/* DIAGNOSTIC REQUESTS TAB */}
           {activeTab === 'diagnostic_requests' && (
-            <div className="max-w-3xl">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+            <div className="mx-auto max-w-4xl">
+              <Card className="rounded-2xl border-border shadow-md">
+                <CardHeader className="border-b border-border/60 bg-muted/10 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                     <Stethoscope className="h-5 w-5" />
                     Diagnostic Requests ({diagnosticRequests.length})
                   </CardTitle>
@@ -3469,7 +3534,11 @@ export default function ViewWorkOrder() {
                     </div>
                   )}
                   {diagnosticRequests.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">No diagnostic requests received yet</p>
+                    <div className="rounded-xl border border-dashed border-border/80 py-12 text-center">
+                      <Stethoscope className="mx-auto mb-2 h-10 w-10 text-muted-foreground/70" />
+                      <p className="font-medium text-foreground">No diagnostic requests yet</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Requests from subcontractors will show here.</p>
+                    </div>
                   ) : (
                     <div className="space-y-3">
                       {diagnosticRequests.map(quote => {
@@ -3487,7 +3556,7 @@ export default function ViewWorkOrder() {
                           rejected: 'text-red-600',
                         };
                         return (
-                          <div key={quote.id} className="p-4 border rounded-lg hover:bg-muted/30 transition-colors">
+                          <div key={quote.id} className="rounded-xl border border-border bg-card/60 p-4 shadow-sm transition-all hover:border-primary/20 hover:shadow-md dark:bg-card/40">
                             <div className="flex justify-between items-start gap-3">
                               <div>
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -3528,21 +3597,25 @@ export default function ViewWorkOrder() {
 
           {/* QUOTES TAB */}
           {activeTab === 'quotes' && (
-            <div className="max-w-3xl">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
+            <div className="mx-auto max-w-4xl">
+              <Card className="rounded-2xl border-border shadow-md">
+                <CardHeader className="border-b border-border/60 bg-muted/10 pb-4">
+                  <CardTitle className="flex items-center justify-between text-lg font-semibold tracking-tight">
                     <span className="flex items-center gap-2"><FileText className="h-5 w-5" />Quotes ({regularQuotes.length})</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {regularQuotes.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">No quotes received yet</p>
+                    <div className="rounded-xl border border-dashed border-border/80 py-12 text-center">
+                      <FileText className="mx-auto mb-2 h-10 w-10 text-muted-foreground/70" />
+                      <p className="font-medium text-foreground">No quotes received yet</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Quotes will appear after subcontractors respond.</p>
+                    </div>
                   ) : (
                     <div className="space-y-3">
                       {regularQuotes.length >= 2 && (
-                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                          <p className="text-sm text-primary">Select 2+ quotes to compare them side-by-side</p>
+                        <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 shadow-sm">
+                          <p className="text-sm font-medium text-primary">Select two or more quotes to compare them side by side.</p>
                         </div>
                       )}
                       {regularQuotes.map(quote => {
@@ -3553,7 +3626,7 @@ export default function ViewWorkOrder() {
                         const statusLabels: Record<string, string> = { pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' };
                         const statusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-blue-600', accepted: 'text-green-600', rejected: 'text-red-600' };
                         return (
-                        <div key={quote.id} className={`p-4 border rounded-lg hover:bg-muted/30 transition-colors ${isAccepted ? 'border-green-300 bg-green-50/30' : ''} ${selectedQuoteIds.includes(quote.id) ? 'bg-primary/5 border-primary/30' : ''}`}>
+                        <div key={quote.id} className={`rounded-xl border border-border bg-card/60 p-4 shadow-sm transition-all hover:shadow-md dark:bg-card/40 ${isAccepted ? 'border-emerald-300/80 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-950/20' : ''} ${selectedQuoteIds.includes(quote.id) ? 'ring-2 ring-primary/25 ring-offset-2 ring-offset-background dark:ring-offset-card' : ''}`}>
                           <div className="flex items-start gap-3">
                             {quotes.length >= 2 && (
                               <Checkbox checked={selectedQuoteIds.includes(quote.id)} onCheckedChange={(c) => handleQuoteSelection(quote.id, c === true)} className="mt-1" />
@@ -3605,7 +3678,7 @@ export default function ViewWorkOrder() {
                         );
                       })}
                       {quotes.length >= 2 && selectedQuoteIds.length >= 2 && (
-                        <Button onClick={handleCompareQuotes} className="w-full">
+                        <Button onClick={handleCompareQuotes} className="w-full rounded-xl shadow-sm">
                           <GitCompare className="h-4 w-4 mr-2" />Compare {selectedQuoteIds.length} Quotes
                         </Button>
                       )}
@@ -3618,19 +3691,25 @@ export default function ViewWorkOrder() {
 
           {/* INVOICES TAB */}
           {activeTab === 'invoices' && (
-            <div className="max-w-3xl">
-              <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Receipt className="h-5 w-5" />Related Invoices ({relatedInvoices.length})</CardTitle></CardHeader>
+            <div className="mx-auto max-w-4xl">
+              <Card className="rounded-2xl border-border shadow-md">
+                <CardHeader className="border-b border-border/60 bg-muted/10 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                    <Receipt className="h-5 w-5 text-primary" />
+                    Related Invoices ({relatedInvoices.length})
+                  </CardTitle>
+                </CardHeader>
                 <CardContent>
                   {relatedInvoices.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-muted-foreground">No invoices yet for this work order.</p>
+                    <div className="rounded-xl border border-dashed border-border/80 py-12 text-center">
+                      <Receipt className="mx-auto mb-3 h-12 w-12 text-muted-foreground/70" />
+                      <p className="font-medium text-foreground">No invoices yet</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Invoices linked to this work order will appear here.</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {relatedInvoices.map((inv: any) => (
-                        <div key={inv.id} className="p-4 border rounded-lg hover:bg-muted/30 transition-colors">
+                        <div key={inv.id} className="rounded-xl border border-border bg-card/60 p-4 shadow-sm transition-all hover:border-primary/20 hover:shadow-md dark:bg-card/40">
                           <div className="flex justify-between items-start">
                             <div>
                               <p className="font-semibold text-sm">Invoice #{inv.invoiceNumber || inv.id.slice(0, 8)}</p>
@@ -3657,16 +3736,16 @@ export default function ViewWorkOrder() {
             </div>
           )}
         </div>
-      </div>
+      </PageContainer>
 
       {/* Share for Bidding Modal */}
       {showBiddingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-card rounded-lg max-w-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b sticky top-0 bg-card z-10">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4 overflow-y-auto">
+          <div className="my-auto flex w-full max-w-2xl max-h-[min(95dvh,95vh)] sm:max-h-[min(90dvh,90vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+            <div className="shrink-0 border-b border-border bg-card px-4 py-4 sm:px-6 sm:py-4">
+              <div className="flex justify-between items-center gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-xl sm:text-2xl font-bold truncate">
                     {hasBeenSharedForBidding(workOrder) ? 'Add More Bidders' : 'Share for Bidding'}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -3675,17 +3754,17 @@ export default function ViewWorkOrder() {
                       : 'Select subcontractors to share this work order with'}
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); setBiddingSearch(''); }}>
+                <Button variant="outline" size="sm" className="shrink-0" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); setBiddingSearch(''); }}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-            <div className="p-4 sm:p-6">
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-4">
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <h3 className="font-semibold text-blue-900 mb-1">{workOrder?.title}</h3>
                 <p className="text-sm text-blue-700">{workOrder?.workOrderNumber}</p>
               </div>
-              <div className="mb-4 relative">
+              <div className="mb-3 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
@@ -3695,24 +3774,24 @@ export default function ViewWorkOrder() {
                   className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <input
                     type="checkbox"
-                    id="selectAll"
+                    id="selectAllAdminDetailBidding"
                     checked={subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length > 0 && subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).every(s => selectedSubcontractors.includes(s.id))}
                     onChange={() => {
                       const filtered = subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())));
                       const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                       setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                     }}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
                   />
-                  <label htmlFor="selectAll" className="text-sm font-medium text-foreground">Select All ({subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length})</label>
+                  <label htmlFor="selectAllAdminDetailBidding" className="text-sm font-medium text-foreground truncate">Select All ({subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length})</label>
                 </div>
-                <div className="text-sm text-muted-foreground">{selectedSubcontractors.length} selected</div>
+                <div className="text-sm text-muted-foreground shrink-0">{selectedSubcontractors.length} selected</div>
               </div>
-              <div className="space-y-2 border rounded-lg p-4">
+              <div className="space-y-2 border rounded-lg p-3 sm:p-4">
                 {subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">{biddingSearch.trim() ? 'No subcontractors match your search' : 'No approved subcontractors found'}</p>
                 ) : (
@@ -3736,8 +3815,8 @@ export default function ViewWorkOrder() {
                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
                         onClick={e => e.stopPropagation()}
                       />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-foreground">{sub.fullName}</p>
                           {sub.alreadyInvited && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">Already Invited</span>
@@ -3756,7 +3835,9 @@ export default function ViewWorkOrder() {
                   ))
                 )}
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t mt-6">
+            </div>
+            <div className="shrink-0 border-t border-border bg-card px-4 py-4 sm:px-6 sm:py-4">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button variant="outline" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); setBiddingSearch(''); }} disabled={biddingSubmitting} className="flex-1">
                   Cancel
                 </Button>
@@ -3779,9 +3860,9 @@ export default function ViewWorkOrder() {
 
       {/* Manual Assign Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-card rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b flex justify-between items-center gap-3 sticky top-0 bg-card z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card p-4 sm:p-6">
               <h2 className="text-lg font-semibold truncate">
                 {assignFromQuote ? `Assign Quote: ${assignFromQuote.subcontractorName}` : 'Assign to Subcontractor'}
               </h2>
@@ -3789,7 +3870,7 @@ export default function ViewWorkOrder() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-4 sm:p-6 space-y-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               {assignFromQuote && (
                 <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                   Assigning quote from <strong>{assignFromQuote.subcontractorName}</strong> — ${(assignFromQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -3812,25 +3893,25 @@ export default function ViewWorkOrder() {
                   aria-label="Subcontractor to assign"
                 />
               </div>
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>Cancel</Button>
-                <Button
-                  className="flex-1"
-                  onClick={handleSubmitManualAssign}
-                  disabled={!selectedAssignSubId || assignSubmitting}
-                >
-                  {assignSubmitting ? 'Assigning...' : 'Assign'}
-                </Button>
-              </div>
+            </div>
+            <div className="flex shrink-0 gap-3 border-t border-border bg-card p-4 sm:p-6">
+              <Button variant="outline" className="flex-1" onClick={() => setShowAssignModal(false)}>Cancel</Button>
+              <Button
+                className="flex-1"
+                onClick={handleSubmitManualAssign}
+                disabled={!selectedAssignSubId || assignSubmitting}
+              >
+                {assignSubmitting ? 'Assigning...' : 'Assign'}
+              </Button>
             </div>
           </div>
         </div>
       )}
       {/* View Quote Detail Modal */}
       {viewQuoteDetail && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-card rounded-lg shadow-lg max-w-2xl w-full my-4">
-            <div className="p-5 border-b flex justify-between items-center sticky top-0 bg-card z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="my-auto flex w-full max-w-2xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card p-5">
               <div>
                 <h2 className="text-lg font-semibold">{viewQuoteDetail.subcontractorName}</h2>
                 <p className="text-xs text-muted-foreground">{viewQuoteDetail.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
@@ -3842,7 +3923,7 @@ export default function ViewWorkOrder() {
                 <Button variant="outline" size="sm" onClick={() => setViewQuoteDetail(null)}><X className="h-4 w-4" /></Button>
               </div>
             </div>
-            <div className="p-5 space-y-5">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
               {/* Amounts */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">{formatMoney(viewQuoteDetail.totalAmount)}</p></div>
@@ -3904,8 +3985,8 @@ export default function ViewWorkOrder() {
                   <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-3">{viewQuoteDetail.notes}</p>
                 </div>
               )}
-              {/* Actions */}
-              <div className="border-t pt-4 flex flex-col gap-2">
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 border-t border-border bg-card p-5">
                 {viewQuoteDetail.status !== 'accepted' && viewQuoteDetail.status !== 'rejected' && workOrder.status === 'quotes_received' && (
                   <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { openShareModal(viewQuoteDetail); setViewQuoteDetail(null); }}>
                     <Share2 className="h-4 w-4 mr-2" />
@@ -3918,7 +3999,6 @@ export default function ViewWorkOrder() {
                     Assign to Subcontractor
                   </Button>
                 )}
-              </div>
             </div>
           </div>
         </div>
@@ -3940,15 +4020,15 @@ export default function ViewWorkOrder() {
         });
         const clientTotalPreview = previewRows.reduce((s, r) => s + r.clientAmount, 0);
         return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-card rounded-lg shadow-lg max-w-3xl w-full my-4">
-            <div className="p-5 border-b flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="my-auto flex w-full max-w-3xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card p-5">
               <h2 className="text-lg font-semibold">Share Quote with Client</h2>
               <Button variant="outline" size="sm" onClick={() => setShowShareModal(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
               <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
                 Sharing quote from <strong>{shareQuote.subcontractorName}</strong> — subcontractor total: <strong>${(shareQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
               </div>
@@ -4046,7 +4126,8 @@ export default function ViewWorkOrder() {
                   <span className="text-blue-600">${clientTotalPreview.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
-              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+            </div>
+            <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-border bg-card p-5 sm:flex-row">
                 <Button variant="outline" className="flex-1 w-full sm:w-auto" onClick={() => setShowShareModal(false)}>Cancel</Button>
                 <Button
                   className="flex-1 bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
@@ -4056,7 +4137,6 @@ export default function ViewWorkOrder() {
                   <Share2 className="h-4 w-4 mr-2" />
                   {shareSubmitting ? 'Sharing...' : shareQuote.status === 'sent_to_client' ? 'Resend to Client' : 'Share with Client'}
                 </Button>
-              </div>
             </div>
           </div>
         </div>

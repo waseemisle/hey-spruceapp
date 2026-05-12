@@ -1715,18 +1715,16 @@ function InvoicesManagementInner() {
 
         {/* Edit Modal */}
         {showModal && editingId && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b sticky top-0 bg-card z-10">
-                <div className="flex justify-between items-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-4xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card p-6">
                   <h2 className="text-2xl font-bold">Edit Invoice</h2>
-                  <Button variant="outline" size="sm" onClick={resetForm}>
+                  <Button variant="outline" size="sm" className="shrink-0" onClick={resetForm}>
                     <X className="h-4 w-4" />
                   </Button>
-                </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
                 {/* Line Items */}
                 <div>
                   <div className="flex justify-between items-center mb-3">
@@ -1840,8 +1838,9 @@ function InvoicesManagementInner() {
                   />
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-4 border-t">
+              </div>
+
+              <div className="flex shrink-0 gap-3 border-t border-border bg-card p-6">
                   <Button
                     className="flex-1"
                     onClick={handleSubmit}
@@ -1857,7 +1856,6 @@ function InvoicesManagementInner() {
                   >
                     Cancel
                   </Button>
-                </div>
               </div>
             </div>
           </div>
@@ -1881,9 +1879,9 @@ function InvoicesManagementInner() {
           const previewTotal = round2(subtotal + markupAmount);
           const isBusy = creatingForWoId === editingPendingItem.workOrderId;
           return (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-              <div className="bg-card rounded-lg w-full max-w-3xl my-8 shadow-xl">
-                <div className="flex items-start justify-between p-5 border-b border-border">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+              <div className="my-auto flex w-full max-w-3xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-xl">
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-5">
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">Create Invoice</h3>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -1901,7 +1899,7 @@ function InvoicesManagementInner() {
                   </button>
                 </div>
 
-                <div className="p-5 space-y-5">
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
                   {/* Client + WO info (read-only) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div>
@@ -2144,7 +2142,7 @@ function InvoicesManagementInner() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 justify-end p-5 border-t border-border">
+                <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-card p-5">
                   <Button
                     variant="outline"
                     onClick={() => setEditingPendingItem(null)}
@@ -2170,14 +2168,14 @@ function InvoicesManagementInner() {
         })()}
 
         {showUploadModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-card rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6 border-b">
-                <div className="flex justify-between items-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-4 sm:p-6">
                   <h2 className="text-2xl font-bold">Upload Invoice PDF</h2>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="shrink-0"
                     onClick={() => {
                       setShowUploadModal(false);
                       setSelectedFile(null);
@@ -2185,10 +2183,9 @@ function InvoicesManagementInner() {
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
                 <div>
                   <Label>Select PDF File</Label>
                   <input
@@ -2213,8 +2210,9 @@ function InvoicesManagementInner() {
                     <li>• The invoice will be available in your system</li>
                   </ul>
                 </div>
+              </div>
 
-                <div className="flex gap-3 pt-4 border-t">
+              <div className="flex shrink-0 gap-3 border-t border-border bg-card p-6">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -2234,7 +2232,6 @@ function InvoicesManagementInner() {
                     <Upload className="h-4 w-4 mr-2" />
                     {uploadingPdf ? 'Processing...' : 'Upload & Process'}
                   </Button>
-                </div>
               </div>
             </div>
           </div>

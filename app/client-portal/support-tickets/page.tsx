@@ -357,9 +357,9 @@ export default function ClientSupportTicketsPage() {
         )}
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Create support ticket</DialogTitle></DialogHeader>
-            <div className="space-y-3">
+          <DialogContent className="max-w-lg p-0">
+            <DialogHeader className="shrink-0 border-b px-6 pt-6 pb-3"><DialogTitle>Create support ticket</DialogTitle></DialogHeader>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-3 px-6 py-3">
               <div>
                 <Label>Title *</Label>
                 <Input className="mt-1" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} maxLength={120} />
@@ -465,7 +465,7 @@ export default function ClientSupportTicketsPage() {
                 <Input type="file" multiple className="mt-1" onChange={(e) => setFiles(e.target.files ? Array.from(e.target.files) : [])} />
               </div>
             </div>
-            <DialogFooter className="gap-2">
+            <DialogFooter className="shrink-0 gap-2 border-t bg-card px-6 py-4 mt-0">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleCreate} disabled={creating}>{creating ? 'Submitting…' : 'Submit'}</Button>
             </DialogFooter>

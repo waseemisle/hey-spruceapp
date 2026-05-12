@@ -268,9 +268,9 @@ export default function CategoriesManagement() {
 
         {/* Create/Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-start justify-center z-50 p-4 pt-10 overflow-y-auto">
-            <div className="bg-card rounded-2xl max-w-md w-full shadow-2xl">
-              <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-center justify-between gap-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 overflow-y-auto">
+            <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+              <div className="flex shrink-0 items-center justify-between gap-4 rounded-t-2xl border-b border-border bg-card px-6 py-4">
                 <h2 className="text-base font-semibold text-foreground">
                   {editingId ? 'Edit Category' : 'Create New Category'}
                 </h2>
@@ -279,7 +279,7 @@ export default function CategoriesManagement() {
                 </button>
               </div>
 
-              <div className="px-6 py-5 space-y-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-foreground uppercase tracking-wide">
                     Category Name <span className="text-destructive">*</span>
@@ -296,7 +296,7 @@ export default function CategoriesManagement() {
                 </div>
               </div>
 
-              <div className="sticky bottom-0 bg-card rounded-b-2xl border-t border-border px-6 py-4 flex gap-3">
+              <div className="flex shrink-0 gap-3 rounded-b-2xl border-t border-border bg-card px-6 py-4">
                 <Button variant="outline" className="flex-1" onClick={resetForm} disabled={submitting}>
                   Cancel
                 </Button>

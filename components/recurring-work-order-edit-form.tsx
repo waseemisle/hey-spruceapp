@@ -591,8 +591,9 @@ export default function RecurringWorkOrderEditForm({ id, onSaved, onCancel }: Re
   }
 
   return (
+    <div className="mx-auto max-w-6xl w-full space-y-4">
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Basic Information */}
         <Card>
           <CardHeader>
@@ -1115,6 +1116,7 @@ export default function RecurringWorkOrderEditForm({ id, onSaved, onCancel }: Re
           </Button>
         )}
       </div>
+    </div>
     </div>
   );
 }

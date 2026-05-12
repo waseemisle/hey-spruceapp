@@ -654,10 +654,10 @@ export default function EmailLogsPage() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selected} onOpenChange={(open: boolean) => !open && setSelected(null)}>
-        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-xl p-0">
           {selected && (
             <>
-              <DialogHeader>
+              <DialogHeader className="shrink-0 border-b px-6 pt-6 pb-3">
                 <div className="flex items-center justify-between gap-3">
                   <DialogTitle className="flex items-center gap-2 text-base">
                     <Mail className="h-5 w-5 text-muted-foreground" />
@@ -681,7 +681,7 @@ export default function EmailLogsPage() {
                 </div>
               </DialogHeader>
 
-              <div className="space-y-5 mt-1">
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-5 px-6 py-4">
 
                 {/* Status + Type */}
                 <div className="flex items-center gap-2 flex-wrap">

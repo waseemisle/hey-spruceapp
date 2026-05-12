@@ -186,9 +186,12 @@ function DateStrip({ value, onChange, accent }: { value: string; onChange: (iso:
 
 function TimeSlotGrid({ slots, value, onChange, accent, columns = 3 }: { slots: readonly string[]; value: string; onChange: (slot: string) => void; accent: Accent; columns?: 3 | 4 }) {
   const styles = ACCENT[accent];
-  const colCls = columns === 4 ? 'sm:grid-cols-3 lg:grid-cols-4' : 'sm:grid-cols-3';
+  const colCls =
+    columns === 4
+      ? 'sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+      : 'sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
   return (
-    <div className={`grid grid-cols-2 ${colCls} gap-2.5`}>
+    <div className={`grid grid-cols-2 ${colCls} gap-1.5 sm:gap-2`}>
       {slots.map((slot) => {
         const isSelected = value === slot;
         return (
@@ -197,7 +200,7 @@ function TimeSlotGrid({ slots, value, onChange, accent, columns = 3 }: { slots: 
             key={slot}
             onClick={() => onChange(slot)}
             aria-pressed={isSelected}
-            className={`rounded-xl border px-3 py-3 text-sm font-semibold tabular-nums whitespace-nowrap transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${styles.ring} ${isSelected ? styles.pillSelected : styles.pillIdle}`}
+            className={`rounded-lg sm:rounded-xl border px-1.5 py-2 sm:px-2.5 sm:py-2.5 text-[11px] sm:text-xs font-semibold tabular-nums whitespace-nowrap transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${styles.ring} ${isSelected ? styles.pillSelected : styles.pillIdle}`}
           >
             {slot}
           </button>
@@ -215,17 +218,17 @@ function SchedulePicker({
 }) {
   const styles = ACCENT[accent];
   return (
-    <div className={`rounded-2xl border ${styles.panelBorder} ${styles.panelBg} p-4 sm:p-5 space-y-5`}>
+    <div className={`rounded-2xl border ${styles.panelBorder} ${styles.panelBg} p-3 sm:p-4 space-y-3 sm:space-y-4`}>
       <div>
-        <p className="text-sm font-semibold text-foreground mb-2.5">Pick a service date</p>
+        <p className="text-xs sm:text-sm font-semibold text-foreground mb-2">Pick a service date</p>
         <DateStrip value={date} onChange={onDateChange} accent={accent} />
       </div>
       <div className={`border-t border-dashed ${styles.divider}`} />
       <div>
-        <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
-          <p className="text-sm font-semibold text-foreground">Select a time slot</p>
-          <span className={`text-xs font-medium flex items-center gap-1 ${styles.text}`}>
-            <Clock className="h-3.5 w-3.5" />
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <p className="text-xs sm:text-sm font-semibold text-foreground">Select a time slot</p>
+          <span className={`text-[11px] sm:text-xs font-medium flex items-center gap-1 ${styles.text}`}>
+            <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             {durationLabel}
           </span>
         </div>
@@ -1440,7 +1443,7 @@ export default function SubcontractorBidding() {
   if (showResultsForm && resultsBidding) {
     return (
       <>
-        <PageContainer>
+        <PageContainer className="!space-y-4">
           <PageHeader
             title="Submit Diagnostic Results"
             subtitle={resultsBidding.workOrderNumber ? `Work Order: ${resultsBidding.workOrderNumber}` : resultsBidding.workOrderTitle}
@@ -1456,91 +1459,158 @@ export default function SubcontractorBidding() {
             }
           />
 
-          <Card className="rounded-2xl border border-indigo-200/60 shadow-sm bg-indigo-50/40 dark:bg-indigo-950/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
-                <Stethoscope className="h-5 w-5" />
-                Diagnostic Results
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-6">
-                <div>
-                  <Label htmlFor="resultsText" className="text-sm font-semibold text-foreground">
-                    What did you find on the diagnostic visit? *
-                  </Label>
-                  <textarea
-                    id="resultsText"
-                    name="resultsText"
-                    value={resultsText}
-                    onChange={(e) => setResultsText(e.target.value)}
-                    rows={6}
-                    className="mt-1.5 w-full px-3.5 py-2.5 border border-input bg-background rounded-xl text-sm placeholder:text-muted-foreground hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                    placeholder="Describe the issues found, the cause if known, and what the repair will involve..."
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Visible to the admin and the client on the work order.
-                  </p>
-                </div>
-
-                <div>
-                  <Label className="text-sm font-semibold text-foreground">Photos (optional)</Label>
-                  <div className="mt-1.5 flex flex-wrap gap-3">
-                    {resultsImages.map((url, idx) => (
-                      <div key={idx} className="relative h-20 w-20 rounded-lg overflow-hidden border border-border group">
-                        <img src={url} alt={`Result ${idx + 1}`} className="h-full w-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => removeResultsImage(idx)}
-                          className="absolute top-0.5 right-0.5 h-6 w-6 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                          aria-label="Remove image"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 xl:gap-6 items-start">
+            <div className="space-y-4 lg:sticky lg:top-4 lg:z-[1] lg:max-h-[min(85dvh,calc(100dvh-6rem))] lg:overflow-y-auto lg:pr-1">
+              <Card className="rounded-2xl border border-border shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <ClipboardList className="h-5 w-5 shrink-0" />
+                    Work Order Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    {resultsBidding.workOrderTitle && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Title</p>
+                        <p className="font-semibold text-foreground">{resultsBidding.workOrderTitle}</p>
                       </div>
-                    ))}
-                    <label className={`h-20 w-20 rounded-lg border-2 border-dashed border-input flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors ${uploadingResultsImages ? 'opacity-50 pointer-events-none' : ''}`}>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        onChange={handleResultsImageUpload}
-                        disabled={uploadingResultsImages}
-                      />
-                      <Plus className="h-5 w-5 text-muted-foreground" />
-                    </label>
+                    )}
+                    {resultsBidding.workOrderNumber && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                        <p className="font-semibold text-foreground">{resultsBidding.workOrderNumber}</p>
+                      </div>
+                    )}
+                    {resultsBidding.category && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Category</p>
+                        <p className="text-foreground">{resultsBidding.category}</p>
+                      </div>
+                    )}
+                    {resultsBidding.priority && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Priority</p>
+                        <p className="text-foreground capitalize">{resultsBidding.priority}</p>
+                      </div>
+                    )}
+                    {resultsBidding.locationName && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Location</p>
+                        <p className="text-foreground">{resultsBidding.locationName}</p>
+                      </div>
+                    )}
+                    {resultsBidding.locationAddress && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Address</p>
+                        <p className="text-foreground">{formatAddress(resultsBidding.locationAddress)}</p>
+                      </div>
+                    )}
+                    <div className="sm:col-span-2">
+                      <p className="text-xs font-medium text-muted-foreground">Client</p>
+                      <p className="text-foreground">{resultsBidding.clientName}</p>
+                    </div>
                   </div>
-                  {uploadingResultsImages && (
-                    <p className="text-xs text-muted-foreground mt-2">Uploading…</p>
+                  {resultsBidding.workOrderDescription && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3 max-h-40 overflow-y-auto">{resultsBidding.workOrderDescription}</p>
+                    </div>
                   )}
-                </div>
+                </CardContent>
+              </Card>
+            </div>
 
-                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 rounded-xl px-5 font-semibold w-full sm:w-auto"
-                    onClick={() => {
-                      setShowResultsForm(false);
-                      setResultsBidding(null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleSubmitResults}
-                    loading={resultsSubmitting} disabled={resultsSubmitting || uploadingResultsImages}
-                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25 w-full sm:w-auto"
-                  >
-                    <Stethoscope className="h-4 w-4" />
-                    {resultsSubmitting ? 'Submitting...' : 'Submit Diagnostic Results'}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+            <div className="min-w-0">
+              <Card className="rounded-2xl border border-indigo-200/60 shadow-sm bg-indigo-50/40 dark:bg-indigo-950/10">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-indigo-900 dark:text-indigo-200">
+                    <Stethoscope className="h-5 w-5 shrink-0" />
+                    Diagnostic Results
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form className="space-y-4 sm:space-y-5">
+                    <div>
+                      <Label htmlFor="resultsText" className="text-sm font-semibold text-foreground">
+                        What did you find on the diagnostic visit? *
+                      </Label>
+                      <textarea
+                        id="resultsText"
+                        name="resultsText"
+                        value={resultsText}
+                        onChange={(e) => setResultsText(e.target.value)}
+                        rows={6}
+                        className="mt-1.5 w-full px-3.5 py-2.5 border border-input bg-background rounded-xl text-sm placeholder:text-muted-foreground hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                        placeholder="Describe the issues found, the cause if known, and what the repair will involve..."
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Visible to the admin and the client on the work order.
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-semibold text-foreground">Photos (optional)</Label>
+                      <div className="mt-1.5 flex flex-wrap gap-2 sm:gap-3">
+                        {resultsImages.map((url, idx) => (
+                          <div key={idx} className="relative h-20 w-20 rounded-lg overflow-hidden border border-border group">
+                            <img src={url} alt={`Result ${idx + 1}`} className="h-full w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeResultsImage(idx)}
+                              className="absolute top-0.5 right-0.5 h-6 w-6 rounded-full bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                              aria-label="Remove image"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <label className={`h-20 w-20 rounded-lg border-2 border-dashed border-input flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors ${uploadingResultsImages ? 'opacity-50 pointer-events-none' : ''}`}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handleResultsImageUpload}
+                            disabled={uploadingResultsImages}
+                          />
+                          <Plus className="h-5 w-5 text-muted-foreground" />
+                        </label>
+                      </div>
+                      {uploadingResultsImages && (
+                        <p className="text-xs text-muted-foreground mt-2">Uploading…</p>
+                      )}
+                    </div>
+
+                    <div className="sticky bottom-0 z-10 -mx-6 px-6 py-3 mt-2 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 border-t border-border lg:static lg:bg-transparent lg:backdrop-blur-none lg:border-t-0 lg:p-0 lg:mt-0">
+                      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 rounded-xl px-5 font-semibold w-full sm:w-auto"
+                          onClick={() => {
+                            setShowResultsForm(false);
+                            setResultsBidding(null);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={handleSubmitResults}
+                          loading={resultsSubmitting} disabled={resultsSubmitting || uploadingResultsImages}
+                          className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25 w-full sm:w-auto"
+                        >
+                          <Stethoscope className="h-4 w-4" />
+                          {resultsSubmitting ? 'Submitting...' : 'Submit Diagnostic Results'}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </PageContainer>
       </>
     );
@@ -1549,7 +1619,7 @@ export default function SubcontractorBidding() {
   if (showDirectInvoiceForm && directInvoiceBidding) {
     return (
       <>
-        <PageContainer>
+        <PageContainer className="!space-y-4">
           <PageHeader
             title="Submit Invoice"
             subtitle={directInvoiceBidding.workOrderNumber ? `Work Order: ${directInvoiceBidding.workOrderNumber}` : directInvoiceBidding.workOrderTitle}
@@ -1565,59 +1635,63 @@ export default function SubcontractorBidding() {
             }
           />
 
-          <Card className="rounded-2xl border border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Work Order Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {directInvoiceBidding.workOrderTitle && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Title</p>
-                    <p className="text-sm font-semibold text-foreground">{directInvoiceBidding.workOrderTitle}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 xl:gap-6 items-start">
+            <div className="space-y-4 lg:sticky lg:top-4 lg:z-[1] lg:max-h-[min(85dvh,calc(100dvh-6rem))] lg:overflow-y-auto lg:pr-1">
+              <Card className="rounded-2xl border border-border shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <ClipboardList className="h-5 w-5 shrink-0" />
+                    Work Order Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {directInvoiceBidding.workOrderTitle && (
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Title</p>
+                        <p className="text-sm font-semibold text-foreground">{directInvoiceBidding.workOrderTitle}</p>
+                      </div>
+                    )}
+                    {directInvoiceBidding.workOrderNumber && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                        <p className="text-sm font-semibold text-foreground">{directInvoiceBidding.workOrderNumber}</p>
+                      </div>
+                    )}
+                    {directInvoiceBidding.locationName && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Location</p>
+                        <p className="text-sm text-foreground">{directInvoiceBidding.locationName}</p>
+                      </div>
+                    )}
+                    {directInvoiceBidding.locationAddress && (
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Address</p>
+                        <p className="text-sm text-foreground">{formatAddress(directInvoiceBidding.locationAddress)}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-                {directInvoiceBidding.workOrderNumber && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
-                    <p className="text-sm font-semibold text-foreground">{directInvoiceBidding.workOrderNumber}</p>
-                  </div>
-                )}
-                {directInvoiceBidding.locationName && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Location</p>
-                    <p className="text-sm text-foreground">{directInvoiceBidding.locationName}</p>
-                  </div>
-                )}
-                {directInvoiceBidding.locationAddress && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Address</p>
-                    <p className="text-sm text-foreground">{formatAddress(directInvoiceBidding.locationAddress)}</p>
-                  </div>
-                )}
-              </div>
-              {directInvoiceBidding.workOrderDescription && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{directInvoiceBidding.workOrderDescription}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  {directInvoiceBidding.workOrderDescription && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3 max-h-48 overflow-y-auto">{directInvoiceBidding.workOrderDescription}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-          <Card className="rounded-2xl border border-blue-200/60 shadow-sm bg-blue-50/40 dark:bg-blue-950/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
-                <Receipt className="h-5 w-5" />
-                Invoice Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-6">
-                <div className="rounded-2xl bg-white/70 border border-blue-200/60 p-4 sm:p-5">
+            <div className="min-w-0">
+              <Card className="rounded-2xl border border-blue-200/60 shadow-sm bg-blue-50/40 dark:bg-blue-950/10">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-blue-900 dark:text-blue-200">
+                    <Receipt className="h-5 w-5 shrink-0" />
+                    Invoice Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form className="space-y-4 sm:space-y-5">
+                <div className="rounded-2xl bg-white/70 border border-blue-200/60 p-3 sm:p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-semibold text-foreground">Line Items *</p>
                     <Button type="button" size="sm" variant="outline" onClick={addDirectInvoiceLineItem} className="h-8 rounded-lg text-xs font-semibold gap-1.5">
@@ -1698,7 +1772,8 @@ export default function SubcontractorBidding() {
                   </div>
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <div className="sticky bottom-0 z-10 -mx-6 px-6 py-3 mt-2 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 border-t border-border lg:static lg:bg-transparent lg:backdrop-blur-none lg:border-t-0 lg:p-0 lg:mt-0">
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                   <Button type="button" variant="outline" className="h-10 rounded-xl px-5 font-semibold w-full sm:w-auto" onClick={() => {
                     setShowDirectInvoiceForm(false);
                     setDirectInvoiceBidding(null);
@@ -1714,10 +1789,13 @@ export default function SubcontractorBidding() {
                     <Receipt className="h-4 w-4" />
                     {directInvoiceSubmitting ? 'Submitting...' : 'Submit Invoice'}
                   </Button>
+                  </div>
                 </div>
               </form>
             </CardContent>
           </Card>
+            </div>
+          </div>
         </PageContainer>
       </>
     );
@@ -1726,7 +1804,7 @@ export default function SubcontractorBidding() {
   if (showDirectQuoteForm && selectedBidding) {
     return (
       <>
-        <PageContainer>
+        <PageContainer className="!space-y-4">
           <PageHeader
             title="Submit Quote"
             subtitle={selectedBidding.workOrderNumber ? `Work Order: ${selectedBidding.workOrderNumber}` : selectedBidding.workOrderTitle}
@@ -1742,58 +1820,62 @@ export default function SubcontractorBidding() {
             }
           />
 
-          <Card className="rounded-2xl border border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Work Order Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedBidding.workOrderTitle && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Title</p>
-                    <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderTitle}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 xl:gap-6 items-start">
+            <div className="space-y-4 lg:sticky lg:top-4 lg:z-[1] lg:max-h-[min(85dvh,calc(100dvh-6rem))] lg:overflow-y-auto lg:pr-1">
+              <Card className="rounded-2xl border border-border shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <ClipboardList className="h-5 w-5 shrink-0" />
+                    Work Order Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedBidding.workOrderTitle && (
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Title</p>
+                        <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderTitle}</p>
+                      </div>
+                    )}
+                    {selectedBidding.workOrderNumber && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                        <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderNumber}</p>
+                      </div>
+                    )}
+                    {selectedBidding.locationName && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Location</p>
+                        <p className="text-sm text-foreground">{selectedBidding.locationName}</p>
+                      </div>
+                    )}
+                    {selectedBidding.locationAddress && (
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Address</p>
+                        <p className="text-sm text-foreground">{formatAddress(selectedBidding.locationAddress)}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-                {selectedBidding.workOrderNumber && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
-                    <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderNumber}</p>
-                  </div>
-                )}
-                {selectedBidding.locationName && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Location</p>
-                    <p className="text-sm text-foreground">{selectedBidding.locationName}</p>
-                  </div>
-                )}
-                {selectedBidding.locationAddress && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Address</p>
-                    <p className="text-sm text-foreground">{formatAddress(selectedBidding.locationAddress)}</p>
-                  </div>
-                )}
-              </div>
-              {selectedBidding.workOrderDescription && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selectedBidding.workOrderDescription}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  {selectedBidding.workOrderDescription && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3 max-h-48 overflow-y-auto">{selectedBidding.workOrderDescription}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-          <Card className="rounded-2xl border border-emerald-200/60 shadow-sm bg-emerald-50/40 dark:bg-emerald-950/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
-                <FileText className="h-5 w-5" />
-                Quote Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-6">
+            <div className="min-w-0">
+              <Card className="rounded-2xl border border-emerald-200/60 shadow-sm bg-emerald-50/40 dark:bg-emerald-950/10">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-emerald-900 dark:text-emerald-200">
+                    <FileText className="h-5 w-5 shrink-0" />
+                    Quote Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form className="space-y-4 sm:space-y-5">
                 <SchedulePicker
                   date={directQuoteServiceDate}
                   onDateChange={setDirectQuoteServiceDate}
@@ -1804,7 +1886,7 @@ export default function SubcontractorBidding() {
                   durationLabel="2-hour window"
                 />
 
-                <div className="rounded-2xl bg-white/70 border border-emerald-200/60 p-4 sm:p-5">
+                <div className="rounded-2xl bg-white/70 border border-emerald-200/60 p-3 sm:p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-semibold text-foreground">Line Items *</p>
                     <Button type="button" size="sm" variant="outline" onClick={addDirectLineItem} className="h-8 rounded-lg text-xs font-semibold gap-1.5">
@@ -1885,7 +1967,8 @@ export default function SubcontractorBidding() {
                   </div>
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <div className="sticky bottom-0 z-10 -mx-6 px-6 py-3 mt-2 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 border-t border-border lg:static lg:bg-transparent lg:backdrop-blur-none lg:border-t-0 lg:p-0 lg:mt-0">
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                   <Button type="button" variant="outline" className="h-10 rounded-xl px-5 font-semibold w-full sm:w-auto" onClick={() => {
                     setShowDirectQuoteForm(false);
                     setSelectedBidding(null);
@@ -1901,10 +1984,13 @@ export default function SubcontractorBidding() {
                     <FileText className="h-4 w-4" />
                     {directQuoteSubmitting ? 'Submitting...' : 'Submit Quote'}
                   </Button>
+                  </div>
                 </div>
               </form>
             </CardContent>
           </Card>
+            </div>
+          </div>
         </PageContainer>
       </>
     );
@@ -1913,7 +1999,7 @@ export default function SubcontractorBidding() {
   if (showQuoteForm && selectedBidding) {
     return (
       <>
-        <PageContainer>
+        <PageContainer className="!space-y-4">
           <PageHeader
             title="Submit Diagnostic Request"
             subtitle={selectedBidding.workOrderNumber ? `Work Order: ${selectedBidding.workOrderNumber}` : selectedBidding.workOrderTitle}
@@ -1929,91 +2015,93 @@ export default function SubcontractorBidding() {
             }
           />
 
-          {/* Work Order Details */}
-          <Card className="rounded-2xl border border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5" />
-                Work Order Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedBidding.workOrderTitle && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Title</p>
-                    <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderTitle}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 xl:gap-6 items-start">
+            <div className="space-y-4 lg:sticky lg:top-4 lg:z-[1] lg:max-h-[min(85dvh,calc(100dvh-6rem))] lg:overflow-y-auto lg:pr-1">
+              <Card className="rounded-2xl border border-border shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <ClipboardList className="h-5 w-5 shrink-0" />
+                    Work Order Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedBidding.workOrderTitle && (
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Title</p>
+                        <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderTitle}</p>
+                      </div>
+                    )}
+                    {selectedBidding.workOrderNumber && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
+                        <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderNumber}</p>
+                      </div>
+                    )}
+                    {selectedBidding.category && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Category</p>
+                        <p className="text-sm text-foreground">{selectedBidding.category}</p>
+                      </div>
+                    )}
+                    {selectedBidding.priority && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Priority</p>
+                        <p className="text-sm text-foreground capitalize">{selectedBidding.priority}</p>
+                      </div>
+                    )}
+                    {(selectedBidding as any).estimateBudget != null && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
+                        <p className="text-sm text-foreground">{formatMoney((selectedBidding as any).estimateBudget)}</p>
+                      </div>
+                    )}
+                    {selectedBidding.locationName && (
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Location</p>
+                        <p className="text-sm text-foreground">{selectedBidding.locationName}</p>
+                      </div>
+                    )}
+                    {selectedBidding.locationAddress && (
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-medium text-muted-foreground">Address</p>
+                        <p className="text-sm text-foreground">{selectedBidding.locationAddress}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-                {selectedBidding.workOrderNumber && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Work Order #</p>
-                    <p className="text-sm font-semibold text-foreground">{selectedBidding.workOrderNumber}</p>
-                  </div>
-                )}
-                {selectedBidding.category && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Category</p>
-                    <p className="text-sm text-foreground">{selectedBidding.category}</p>
-                  </div>
-                )}
-                {selectedBidding.priority && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Priority</p>
-                    <p className="text-sm text-foreground capitalize">{selectedBidding.priority}</p>
-                  </div>
-                )}
-                {(selectedBidding as any).estimateBudget != null && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Estimate Budget</p>
-                    <p className="text-sm text-foreground">{formatMoney((selectedBidding as any).estimateBudget)}</p>
-                  </div>
-                )}
-                {selectedBidding.locationName && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Location</p>
-                    <p className="text-sm text-foreground">{selectedBidding.locationName}</p>
-                  </div>
-                )}
-                {selectedBidding.locationAddress && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Address</p>
-                    <p className="text-sm text-foreground">{selectedBidding.locationAddress}</p>
-                  </div>
-                )}
-              </div>
-              {selectedBidding.workOrderDescription && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selectedBidding.workOrderDescription}</p>
-                </div>
-              )}
-              {selectedBidding.images && selectedBidding.images.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedBidding.images.length})</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {selectedBidding.images.map((img, i) => (
-                      <button key={i} onClick={() => { setLightboxImages(selectedBidding.images!); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
-                        <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  {selectedBidding.workOrderDescription && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3 max-h-40 overflow-y-auto">{selectedBidding.workOrderDescription}</p>
+                    </div>
+                  )}
+                  {selectedBidding.images && selectedBidding.images.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedBidding.images.length})</p>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-1.5 sm:gap-2">
+                        {selectedBidding.images.map((img, i) => (
+                          <button key={i} type="button" onClick={() => { setLightboxImages(selectedBidding.images!); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
+                            <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-16 sm:h-20 object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Diagnostic Bid Form */}
-          <Card className="rounded-2xl border border-indigo-200/60 shadow-sm bg-indigo-50/40 dark:bg-indigo-950/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
-                <Stethoscope className="h-5 w-5" />
-                Diagnostic Request
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="min-w-0">
+              <Card className="rounded-2xl border border-indigo-200/60 shadow-sm bg-indigo-50/40 dark:bg-indigo-950/10">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-indigo-900 dark:text-indigo-200">
+                    <Stethoscope className="h-5 w-5 shrink-0" />
+                    Diagnostic Request
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form className="space-y-4 sm:space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <Label htmlFor="diagnosticFee" className="text-sm font-semibold text-foreground">Diagnostic Fee *</Label>
                     <div className="relative mt-1.5">
@@ -2061,8 +2149,8 @@ export default function SubcontractorBidding() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 border border-indigo-200/60 px-5 py-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-3">Bid Summary</p>
+                <div className="rounded-2xl bg-white/70 border border-indigo-200/60 px-4 py-3 sm:px-5 sm:py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 sm:mb-3">Bid Summary</p>
                   <div className="space-y-2.5">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Diagnostic Visit</span>
@@ -2075,7 +2163,8 @@ export default function SubcontractorBidding() {
                   </div>
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <div className="sticky bottom-0 z-10 -mx-6 px-6 py-3 mt-2 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 border-t border-border lg:static lg:bg-transparent lg:backdrop-blur-none lg:border-t-0 lg:p-0 lg:mt-0">
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -2096,10 +2185,13 @@ export default function SubcontractorBidding() {
                     <Stethoscope className="h-4 w-4" />
                     {submitting ? 'Submitting...' : 'Submit Diagnostic Request'}
                   </Button>
+                  </div>
                 </div>
               </form>
             </CardContent>
           </Card>
+            </div>
+          </div>
         </PageContainer>
       </>
     );

@@ -299,7 +299,7 @@ export default function GuidedWorkOrderCreate() {
   return (
     <>
       <PageContainer>
-        <div className="max-w-3xl mx-auto space-y-6 pb-24">
+        <div className="max-w-5xl mx-auto space-y-5 pb-8">
         <div className="flex items-center gap-4">
           <Link href="/admin-portal/work-orders">
             <Button variant="outline" size="sm">
@@ -348,129 +348,142 @@ export default function GuidedWorkOrderCreate() {
               <p className="text-sm text-muted-foreground">Select location and describe the issue. We’ll suggest area and problem type.</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {selectedLocation && selectedLocation.imageUrl && (
-                <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                  <img src={selectedLocation.imageUrl} alt={selectedLocation.locationName} className="w-full h-full object-cover" />
+              <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+                <div className="space-y-4 min-w-0">
+                  {selectedLocation && selectedLocation.imageUrl && (
+                    <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                      <img src={selectedLocation.imageUrl} alt={selectedLocation.locationName} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Client *</Label>
+                      <SearchableSelect
+                        className="mt-1 w-full"
+                        value={clientId}
+                        onValueChange={(v) => {
+                          setClientId(v);
+                          setCompanyId('');
+                          setLocationId('');
+                        }}
+                        options={[
+                          { value: '', label: 'Choose client...' },
+                          ...clients.map((c) => ({ value: c.id, label: c.fullName })),
+                        ]}
+                        placeholder="Choose client..."
+                        aria-label="Client"
+                      />
+                    </div>
+                    {filteredCompanies.length > 0 && (
+                      <div>
+                        <Label>Company</Label>
+                        <SearchableSelect
+                          className="mt-1 w-full"
+                          value={companyId}
+                          onValueChange={(v) => {
+                            setCompanyId(v);
+                            setLocationId('');
+                          }}
+                          options={[
+                            { value: '', label: 'All locations' },
+                            ...filteredCompanies.map((c) => ({ value: c.id, label: c.name })),
+                          ]}
+                          placeholder="All locations"
+                          aria-label="Company"
+                        />
+                      </div>
+                    )}
+                    <div className="sm:col-span-2">
+                      <Label>Location *</Label>
+                      <SearchableSelect
+                        className="mt-1 w-full"
+                        value={locationId}
+                        onValueChange={setLocationId}
+                        options={[
+                          { value: '', label: 'Choose location...' },
+                          ...filteredLocations.map((l) => ({
+                            value: l.id,
+                            label: `${l.locationName} — ${formatAddress(l.address)}`,
+                          })),
+                        ]}
+                        placeholder="Choose location..."
+                        aria-label="Location"
+                      />
+                    </div>
+                  </div>
                 </div>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Client *</Label>
-                  <SearchableSelect
-                    className="mt-1 w-full"
-                    value={clientId}
-                    onValueChange={(v) => {
-                      setClientId(v);
-                      setCompanyId('');
-                      setLocationId('');
-                    }}
-                    options={[
-                      { value: '', label: 'Choose client...' },
-                      ...clients.map((c) => ({ value: c.id, label: c.fullName })),
-                    ]}
-                    placeholder="Choose client..."
-                    aria-label="Client"
-                  />
-                </div>
-                {filteredCompanies.length > 0 && (
+
+                <div className="space-y-4 min-w-0">
                   <div>
-                    <Label>Company</Label>
-                    <SearchableSelect
-                      className="mt-1 w-full"
-                      value={companyId}
-                      onValueChange={(v) => {
-                        setCompanyId(v);
-                        setLocationId('');
-                      }}
-                      options={[
-                        { value: '', label: 'All locations' },
-                        ...filteredCompanies.map((c) => ({ value: c.id, label: c.name })),
-                      ]}
-                      placeholder="All locations"
-                      aria-label="Company"
+                    <Label>Search by keyword (Area, Problem Type, Equipment)</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={keywordSearch}
+                        onChange={(e) => setKeywordSearch(e.target.value)}
+                        placeholder="e.g. outlet, electrical, leak, HVAC..."
+                        className="pl-9"
+                      />
+                    </div>
+                    {suggestions.length > 0 && (
+                      <ul className="mt-2 border rounded-md divide-y max-h-48 overflow-y-auto">
+                        {suggestions.slice(0, 8).map((s, i) => (
+                          <li key={i}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedSuggestion(s);
+                                setKeywordSearch(`${s.area} / ${s.problemType} / ${s.equipment} — ${s.problemCode}`);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${selectedSuggestion === s ? 'bg-primary/10' : ''}`}
+                            >
+                              <span className="font-medium">{s.area}</span> → {s.problemType} / {s.equipment} — {s.problemCode}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {selectedSuggestion && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Selected: <strong>{selectedSuggestion.area}</strong> → {selectedSuggestion.problemType} / {selectedSuggestion.equipment} — {selectedSuggestion.problemCode}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Description *</Label>
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe the issue in detail..."
+                      rows={3}
+                      className="resize-none"
                     />
                   </div>
-                )}
-                <div className="sm:col-span-2">
-                  <Label>Location *</Label>
-                  <SearchableSelect
-                    className="mt-1 w-full"
-                    value={locationId}
-                    onValueChange={setLocationId}
-                    options={[
-                      { value: '', label: 'Choose location...' },
-                      ...filteredLocations.map((l) => ({
-                        value: l.id,
-                        label: `${l.locationName} — ${formatAddress(l.address)}`,
-                      })),
-                    ]}
-                    placeholder="Choose location..."
-                    aria-label="Location"
-                  />
+
+                  {duplicateWarnings.length > 0 && (
+                    <div className="flex gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-amber-800">Potential DUPLICATE WORK ORDERS may exist</p>
+                        <p className="text-sm text-amber-700 mt-1">
+                          {duplicateWarnings.length} open work order(s) at this location with similar problem type. Review before submitting.
+                        </p>
+                        <Link href={`/admin-portal/work-orders/${duplicateWarnings[0].id}`} className="text-sm text-amber-800 underline mt-1 inline-block">
+                          View existing WO
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div>
-                <Label>Search by keyword (Area, Problem Type, Equipment)</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={keywordSearch}
-                    onChange={(e) => setKeywordSearch(e.target.value)}
-                    placeholder="e.g. outlet, electrical, leak, HVAC..."
-                    className="pl-9"
-                  />
-                </div>
-                {suggestions.length > 0 && (
-                  <ul className="mt-2 border rounded-md divide-y max-h-48 overflow-y-auto">
-                    {suggestions.slice(0, 8).map((s, i) => (
-                      <li key={i}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedSuggestion(s);
-                            setKeywordSearch(`${s.area} / ${s.problemType} / ${s.equipment} — ${s.problemCode}`);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${selectedSuggestion === s ? 'bg-primary/10' : ''}`}
-                        >
-                          <span className="font-medium">{s.area}</span> → {s.problemType} / {s.equipment} — {s.problemCode}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {selectedSuggestion && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Selected: <strong>{selectedSuggestion.area}</strong> → {selectedSuggestion.problemType} / {selectedSuggestion.equipment} — {selectedSuggestion.problemCode}
-                  </p>
-                )}
+              <div className="flex border-t border-border pt-4 sm:justify-end">
+                <Button type="button" onClick={handleNext} disabled={!canProceedStep1} className="w-full sm:w-auto sm:min-w-[8rem]">
+                  Next
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
               </div>
-
-              <div>
-                <Label>Description *</Label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe the issue in detail..."
-                  rows={3}
-                  className="resize-none"
-                />
-              </div>
-
-              {duplicateWarnings.length > 0 && (
-                <div className="flex gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-amber-800">Potential DUPLICATE WORK ORDERS may exist</p>
-                    <p className="text-sm text-amber-700 mt-1">
-                      {duplicateWarnings.length} open work order(s) at this location with similar problem type. Review before submitting.
-                    </p>
-                    <Link href={`/admin-portal/work-orders/${duplicateWarnings[0].id}`} className="text-sm text-amber-800 underline mt-1 inline-block">
-                      View existing WO
-                    </Link>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
