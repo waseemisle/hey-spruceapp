@@ -8,16 +8,14 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { createNotification } from '@/lib/notifications';
 import { formatUsd2 } from '@/lib/format-currency';
 import ClientLayout from '@/components/client-layout';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Stethoscope, Check, X, Calendar, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
-
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 interface DiagnosticQuote {
   id: string;
   workOrderId?: string;
@@ -251,34 +249,26 @@ export default function ClientDiagnosticRequests() {
   if (loading) {
     return (
       <ClientLayout>
-      <PageContainer>
-        <PortalHero
-          title="Diagnostic Requests"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
-        </div>
-            </PageContainer>
-    </ClientLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
+          </div>
+        </PageContainer>
+      </ClientLayout>
     );
   }
 
   return (
     <ClientLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Diagnostic Requests</h1>
-            <p className="text-muted-foreground mt-2">
-              Approve the diagnostic fee so a subcontractor can inspect the job and submit a repair quote.
-            </p>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Diagnostic Requests"
+          subtitle="Approve the diagnostic fee so a subcontractor can inspect the job and submit a repair quote."
+          icon={Stethoscope}
+        />
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
-          <span className="text-sm font-medium text-foreground shrink-0">Filter by Status:</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <span className="text-sm font-medium text-foreground shrink-0">Filter:</span>
           <SearchableSelect
             className="w-full sm:w-auto sm:min-w-[200px]"
             value={filter}
@@ -290,19 +280,11 @@ export default function ClientDiagnosticRequests() {
         </div>
 
         {filteredQuotes.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Stethoscope className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                {filter === 'all' ? 'No diagnostic requests yet' : `No ${filter.replace('_', ' ')} requests`}
-              </h3>
-              <p className="text-muted-foreground text-center">
-                {filter === 'all'
-                  ? 'Diagnostic requests appear here when a subcontractor submits one and admin forwards it to you.'
-                  : 'Try a different filter'}
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Stethoscope}
+            title={filter === 'all' ? 'No diagnostic requests yet' : `No ${filter.replace('_', ' ')} requests`}
+            subtitle={filter === 'all' ? 'Diagnostic requests appear here when a subcontractor submits one.' : 'Try a different filter'}
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredQuotes.map((quote) => {
@@ -386,7 +368,7 @@ export default function ClientDiagnosticRequests() {
             })}
           </div>
         )}
-      </div>
+      </PageContainer>
     </ClientLayout>
   );
 }

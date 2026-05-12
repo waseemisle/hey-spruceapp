@@ -18,8 +18,6 @@ import { StatCards } from '@/components/ui/stat-cards';
 
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -221,9 +219,11 @@ function ClientInvoicesInner() {
   if (loading) {
     return (
       <ClientLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-        </div>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
       </ClientLayout>
     );
   }
@@ -231,11 +231,6 @@ function ClientInvoicesInner() {
   return (
     <ClientLayout>
       <PageContainer>
-        <PortalHero
-          title="Invoices"
-          subtitle=""
-          icon={Sparkles}
-        />
         <PageHeader
           title="Invoices"
           subtitle="View and pay your invoices"

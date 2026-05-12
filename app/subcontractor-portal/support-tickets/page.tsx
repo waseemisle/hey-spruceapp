@@ -28,8 +28,6 @@ import { supportTicketPost } from '@/lib/support-ticket-api-client';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 const OPEN_STATUSES = ['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin'];
 const TERMINAL = ['resolved', 'closed'];
 
@@ -248,11 +246,6 @@ export default function SubcontractorSupportTicketsPage() {
   return (
     <SubcontractorLayout>
       <PageContainer>
-        <PortalHero
-          title="Support Tickets"
-          subtitle=""
-          icon={Sparkles}
-        />
         <PageHeader
           title="Support Tickets"
           subtitle="Contact the GroundOps team"

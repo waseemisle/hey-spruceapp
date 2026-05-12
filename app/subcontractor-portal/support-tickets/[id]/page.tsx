@@ -24,8 +24,6 @@ import { supportTicketPost } from '@/lib/support-ticket-api-client';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 function formatTs(v: unknown): string {
   if (v && typeof v === 'object' && 'toDate' in v && typeof (v as { toDate: () => Date }).toDate === 'function') {
     return (v as { toDate: () => Date }).toDate().toLocaleString();
@@ -220,11 +218,6 @@ export default function SubcontractorSupportTicketDetailPage() {
   return (
     <SubcontractorLayout>
       <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
         <div className="flex items-center gap-3 mb-4">
           <Link href="/subcontractor-portal/support-tickets">
             <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>

@@ -23,8 +23,7 @@ import { formatAddress } from '@/lib/utils';
 import type { VendorPayment } from '@/types';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
 interface WorkOrder {
   id: string;
   title: string;
@@ -209,32 +208,23 @@ export default function SubcontractorCompletedJobs() {
   if (loading) {
     return (
       <SubcontractorLayout>
-      <PageContainer>
-        <PortalHero
-          title="Completed Jobs"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-            </PageContainer>
-    </SubcontractorLayout>
+        <PageContainer>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          </div>
+        </PageContainer>
+      </SubcontractorLayout>
     );
   }
 
   return (
     <SubcontractorLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <ClipboardCheck className="h-7 w-7 text-blue-600" />
-            My Completed Jobs
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Work you finished that is pending invoice or fully completed
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="My Completed Jobs"
+          subtitle="Work you finished that is pending invoice or fully completed"
+          icon={ClipboardCheck}
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-center gap-3">
@@ -360,7 +350,7 @@ export default function SubcontractorCompletedJobs() {
             })}
           </div>
         )}
-      </div>
+      </PageContainer>
     </SubcontractorLayout>
   );
 }
