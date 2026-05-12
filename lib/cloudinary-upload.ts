@@ -38,6 +38,7 @@ export async function uploadToCloudinary(file: File): Promise<string> {
   return data.url;
 }
 
-export async function uploadMultipleToCloudinary(files: FileList): Promise<string[]> {
-  return Promise.all(Array.from(files, (file) => uploadToCloudinary(file)));
+export async function uploadMultipleToCloudinary(files: FileList | readonly File[]): Promise<string[]> {
+  const list = Array.isArray(files) ? [...files] : Array.from(files);
+  return Promise.all(list.map((file) => uploadToCloudinary(file)));
 }

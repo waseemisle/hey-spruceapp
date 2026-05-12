@@ -115,9 +115,9 @@ function ClientWorkOrdersContent() {
   const [createLocationsError, setCreateLocationsError] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({
     locationId: '', title: '', description: '', category: '', priority: 'medium',
-    estimateBudget: '', isMaintenanceRequestOrder: false,
+    estimateBudget: '',
   });
-  const [createFiles, setCreateFiles] = useState<FileList | null>(null);
+  const [createFiles, setCreateFiles] = useState<File[]>([]);
   const [createPreviews, setCreatePreviews] = useState<string[]>([]);
   const [uploadingCreateImages, setUploadingCreateImages] = useState(false);
   const [submittingCreate, setSubmittingCreate] = useState(false);
@@ -455,30 +455,46 @@ function ClientWorkOrdersContent() {
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setCreateLocationsError(null);
-    setCreateForm({ locationId: '', title: '', description: '', category: '', priority: 'medium', estimateBudget: '', isMaintenanceRequestOrder: false });
+    setCreateForm({ locationId: '', title: '', description: '', category: '', priority: 'medium', estimateBudget: '' });
     createPreviews.forEach(u => URL.revokeObjectURL(u));
     setCreatePreviews([]);
-    setCreateFiles(null);
+    setCreateFiles([]);
+  };
+
+  /** Copy files into state — never store input.files (FileList) in React state; it can be cleared by the browser. */
+  const addCreateImages = (incoming: File[]) => {
+    const images = incoming.filter((f) => f.type.startsWith('image/'));
+    if (images.length === 0) return;
+    setCreateFiles((prev) => [...prev, ...images]);
+    setCreatePreviews((prev) => [...prev, ...images.map((f) => URL.createObjectURL(f))]);
   };
 
   const handleCreateFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      setCreateFiles(files);
-      setCreatePreviews(Array.from(files).map(f => URL.createObjectURL(f)));
+    const input = e.target;
+    const picked = input.files;
+    if (picked && picked.length > 0) {
+      addCreateImages(Array.from(picked));
     }
+    input.value = '';
+  };
+
+  const handleCreateDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      addCreateImages(Array.from(e.dataTransfer.files));
+    }
+    e.dataTransfer.clearData();
   };
 
   const handleCreateRemoveImage = (index: number) => {
-    if (createFiles) {
-      const dt = new DataTransfer();
-      Array.from(createFiles).filter((_, i) => i !== index).forEach(f => dt.items.add(f));
-      setCreateFiles(dt.files.length > 0 ? dt.files : null);
-    }
-    const updated = [...createPreviews];
-    URL.revokeObjectURL(updated[index]);
-    updated.splice(index, 1);
-    setCreatePreviews(updated);
+    setCreateFiles((prev) => prev.filter((_, i) => i !== index));
+    setCreatePreviews((prev) => {
+      const next = [...prev];
+      URL.revokeObjectURL(next[index]);
+      next.splice(index, 1);
+      return next;
+    });
   };
 
   const handleCreateWorkOrder = async () => {
@@ -486,7 +502,7 @@ function ClientWorkOrdersContent() {
     if (!createForm.category) { toast.error('Please select a category'); return; }
     if (!createForm.title.trim()) { toast.error('Please enter a title'); return; }
     if (!createForm.description.trim()) { toast.error('Please enter a description'); return; }
-    if (!createFiles || createFiles.length === 0) { toast.error('Please upload at least one image'); return; }
+    if (createFiles.length === 0) { toast.error('Please upload at least one image'); return; }
     const currentUser = auth.currentUser;
     if (!currentUser) { toast.error('Not authenticated'); return; }
 
@@ -505,7 +521,7 @@ function ClientWorkOrdersContent() {
       setUploadingCreateImages(true);
       let imageUrls: string[] = [];
       try {
-        imageUrls = await uploadMultipleToCloudinary(createFiles!);
+        imageUrls = await uploadMultipleToCloudinary(createFiles);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to upload images');
         setUploadingCreateImages(false);
@@ -545,7 +561,6 @@ function ClientWorkOrdersContent() {
           createdBy: { id: currentUser.uid, name: clientName, role: 'client', timestamp: Timestamp.now() },
         },
       };
-      if (createForm.isMaintenanceRequestOrder) payload.isMaintenanceRequestOrder = true;
 
       const woRef = await addDoc(collection(db, 'workOrders'), payload);
       const workOrderNumber = `WO-${woRef.id.slice(-8).toUpperCase()}`;
@@ -555,7 +570,7 @@ function ClientWorkOrdersContent() {
 
       fetch('/api/email/send-work-order-notification', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-        body: JSON.stringify({ workOrderId: woRef.id, workOrderNumber, title: createForm.title, clientName, locationName: locationData.locationName || locationData.name || 'Unnamed Location', priority: createForm.priority, workOrderType: createForm.isMaintenanceRequestOrder ? 'maintenance' : 'standard', description: createForm.description }),
+        body: JSON.stringify({ workOrderId: woRef.id, workOrderNumber, title: createForm.title, clientName, locationName: locationData.locationName || locationData.name || 'Unnamed Location', priority: createForm.priority, workOrderType: 'standard', description: createForm.description }),
       }).catch(err => console.error('Failed to send WO notification:', err));
 
       fetch('/api/email/send-work-order-received', {
@@ -1336,7 +1351,7 @@ function ClientWorkOrdersContent() {
             <div className="sticky top-0 bg-card z-10 rounded-t-2xl border-b border-border px-6 py-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-foreground">Create Work Order</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Submit a new maintenance request</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Add the details for your work order</p>
               </div>
               <button onClick={closeCreateModal} className="p-1.5 hover:bg-muted rounded-lg transition-colors shrink-0">
                 <X className="h-4 w-4 text-muted-foreground" />
@@ -1440,10 +1455,25 @@ function ClientWorkOrdersContent() {
                 <label className="text-xs font-medium text-foreground uppercase tracking-wide">
                   Images <span className="text-destructive">*</span>
                 </label>
-                <label htmlFor="create-wo-images" className="border-2 border-dashed border-border rounded-xl p-3 text-center cursor-pointer hover:border-primary/50 transition-colors flex flex-col items-center gap-1">
+                <label
+                  htmlFor="create-wo-images"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={handleCreateDrop}
+                  className="border-2 border-dashed border-border rounded-xl p-3 text-center cursor-pointer hover:border-primary/50 transition-colors flex flex-col items-center gap-1"
+                >
                   <Upload className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">Click or drag images</span>
-                  <input id="create-wo-images" type="file" multiple accept="image/*" onChange={handleCreateFileSelect} className="hidden" />
+                  <input
+                    id="create-wo-images"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleCreateFileSelect}
+                    className="sr-only"
+                  />
                 </label>
                 {createPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -1476,18 +1506,6 @@ function ClientWorkOrdersContent() {
                       placeholder="e.g., 5000"
                       className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                     />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="create-maintenance-toggle"
-                      checked={createForm.isMaintenanceRequestOrder}
-                      onChange={(e) => setCreateForm(p => ({ ...p, isMaintenanceRequestOrder: e.target.checked }))}
-                      className="h-4 w-4 rounded border-border"
-                    />
-                    <label htmlFor="create-maintenance-toggle" className="text-xs font-medium text-foreground cursor-pointer">
-                      Mark as Maintenance Request
-                    </label>
                   </div>
                 </div>
               </details>
