@@ -40,6 +40,7 @@ import {
   Send,
   UserPlus,
   CheckCircle,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { auth, db } from '@/lib/firebase';
@@ -211,6 +212,7 @@ export default function AdminWorkOrderGroupDetail() {
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
+  const [biddingSearch, setBiddingSearch] = useState('');
   const [biddingSubmitting, setBiddingSubmitting] = useState(false);
 
   // Assign
@@ -1186,13 +1188,28 @@ export default function AdminWorkOrderGroupDetail() {
                       Selected subcontractors will be invited to quote on all {bundles.length} work orders.
                     </p>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setShowBiddingModal(false)} className="h-8 w-8 p-0">
+                  <Button variant="ghost" size="sm" onClick={() => { setShowBiddingModal(false); setBiddingSearch(''); }} className="h-8 w-8 p-0">
                     ×
                   </Button>
                 </div>
               </CardHeader>
+              <div className="px-6 pb-2 pt-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search subcontractors..."
+                    value={biddingSearch}
+                    onChange={e => setBiddingSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              </div>
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-                {subcontractors.map((sub) => (
+                {subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8 text-sm">{biddingSearch.trim() ? 'No subcontractors match your search' : 'No approved subcontractors found'}</p>
+                ) : null}
+                {subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).map((sub) => (
                   <label key={sub.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                     selectedSubcontractors.includes(sub.id) ? 'border-blue-400 bg-blue-50' : 'border-border hover:bg-muted/50'
                   }`}>
@@ -1226,7 +1243,7 @@ export default function AdminWorkOrderGroupDetail() {
                   {selectedSubcontractors.length} selected
                 </span>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowBiddingModal(false)} className="h-9 rounded-xl">
+                  <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setBiddingSearch(''); }} className="h-9 rounded-xl">
                     Cancel
                   </Button>
                   <Button

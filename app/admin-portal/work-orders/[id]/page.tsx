@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2, Stethoscope, Wrench, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2, Stethoscope, Wrench, ThumbsUp, ThumbsDown, Search } from 'lucide-react';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -183,6 +183,7 @@ export default function ViewWorkOrder() {
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
+  const [biddingSearch, setBiddingSearch] = useState('');
   const [biddingSubmitting, setBiddingSubmitting] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -3681,7 +3682,7 @@ export default function ViewWorkOrder() {
                       : 'Select subcontractors to share this work order with'}
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); }}>
+                <Button variant="outline" size="sm" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); setBiddingSearch(''); }}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -3691,24 +3692,38 @@ export default function ViewWorkOrder() {
                 <h3 className="font-semibold text-blue-900 mb-1">{workOrder?.title}</h3>
                 <p className="text-sm text-blue-700">{workOrder?.workOrderNumber}</p>
               </div>
+              <div className="mb-4 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search subcontractors..."
+                  value={biddingSearch}
+                  onChange={e => setBiddingSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     id="selectAll"
-                    checked={selectedSubcontractors.length === subcontractors.length && subcontractors.length > 0}
-                    onChange={() => setSelectedSubcontractors(selectedSubcontractors.length === subcontractors.length ? [] : subcontractors.map(s => s.id))}
+                    checked={subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length > 0 && subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).every(s => selectedSubcontractors.includes(s.id))}
+                    onChange={() => {
+                      const filtered = subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()));
+                      const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
+                      setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
+                    }}
                     className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   />
-                  <label htmlFor="selectAll" className="text-sm font-medium text-foreground">Select All ({subcontractors.length})</label>
+                  <label htmlFor="selectAll" className="text-sm font-medium text-foreground">Select All ({subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length})</label>
                 </div>
                 <div className="text-sm text-muted-foreground">{selectedSubcontractors.length} selected</div>
               </div>
               <div className="space-y-2 border rounded-lg p-4">
-                {subcontractors.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No approved subcontractors found</p>
+                {subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">{biddingSearch.trim() ? 'No subcontractors match your search' : 'No approved subcontractors found'}</p>
                 ) : (
-                  subcontractors.map(sub => (
+                  subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).map(sub => (
                     <div
                       key={sub.id}
                       className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
@@ -3743,7 +3758,7 @@ export default function ViewWorkOrder() {
                 )}
               </div>
               <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t mt-6">
-                <Button variant="outline" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); }} disabled={biddingSubmitting} className="flex-1">
+                <Button variant="outline" onClick={() => { setShowBiddingModal(false); setSelectedSubcontractors([]); setBiddingSearch(''); }} disabled={biddingSubmitting} className="flex-1">
                   Cancel
                 </Button>
                 <Button onClick={handleSubmitBidding} loading={biddingSubmitting} disabled={biddingSubmitting || selectedSubcontractors.length === 0} className="flex-1">

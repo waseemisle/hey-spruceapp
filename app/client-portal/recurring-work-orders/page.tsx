@@ -31,7 +31,6 @@ export default function ClientRecurringWorkOrders() {
   const [hasPermission, setHasPermission] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
-  const [, setAssignedLocations] = useState<string[]>([]);
 
   useEffect(() => {
     /**
@@ -74,39 +73,17 @@ export default function ClientRecurringWorkOrders() {
         }
 
         const clientData = clientDoc.data();
-        const assignedLocationsList: string[] = clientData?.assignedLocations || [];
-        setAssignedLocations(assignedLocationsList);
         setCanCreate(!!(clientData?.permissions?.createRecurringWorkOrders));
         setCanEdit(!!(clientData?.permissions?.editRecurringWorkOrders));
         setHasPermission(true);
 
-        // Fire all queries in PARALLEL — was sequential awaits before, which
-        // made first paint take N×roundtrip on N location batches plus one
-        // more roundtrip for the clientId query. Now everything runs at once.
-        const queries: Promise<RecurringWorkOrder[]>[] = [];
-
-        for (let i = 0; i < assignedLocationsList.length; i += 10) {
-          const batch = assignedLocationsList.slice(i, i + 10);
-          queries.push(
-            getDocs(query(
-              collection(db, 'recurringWorkOrders'),
-              where('locationId', 'in', batch),
-            )).then((snap) => snap.docs.map(mapRwo)),
-          );
-        }
-
-        // Plus the clientId-keyed query (also fires in parallel)
-        queries.push(
-          getDocs(query(
-            collection(db, 'recurringWorkOrders'),
-            where('clientId', '==', user.uid),
-          )).then((snap) => snap.docs.map(mapRwo)),
-        );
-
-        const all = (await Promise.all(queries)).flat();
-        // Dedupe by id (a doc can match both location and clientId queries)
-        const unique = Array.from(new Map(all.map((rwo) => [rwo.id, rwo])).values());
-        setRecurringWorkOrders(unique);
+        // Single query by clientId — faster than location-batched queries
+        // which over-fetch all RWOs for those locations (across all clients).
+        const snap = await getDocs(query(
+          collection(db, 'recurringWorkOrders'),
+          where('clientId', '==', user.uid),
+        ));
+        setRecurringWorkOrders(snap.docs.map(mapRwo));
         setLoading(false);
       } catch (error: any) {
         console.error('Error fetching recurring work orders:', error);
