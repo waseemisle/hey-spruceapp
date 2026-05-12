@@ -102,6 +102,7 @@ interface Subcontractor {
   state?: string;
   status: 'pending' | 'approved' | 'rejected';
   matchesCategory?: boolean;
+  alreadyInvited?: boolean;
 }
 
 interface Category {
@@ -1841,23 +1842,16 @@ const handleLocationSelect = (locationId: string) => {
         skills: doc.data().skills || [],
       })) as (Subcontractor & { skills: string[] })[];
 
-      // Filter out subs already invited to this WO so the modal only
-      // shows NEW candidates the admin could add.
-      const alreadyInvited = new Set<string>(
+      const alreadyInvitedSet = new Set<string>(
         Array.isArray((workOrder as any).biddingSubcontractors)
           ? ((workOrder as any).biddingSubcontractors as string[])
           : [],
       );
-      const candidateSubs = allSubsData.filter((s) => !alreadyInvited.has((s.uid as string) || s.id));
-
-      if (alreadyInvited.size > 0 && candidateSubs.length === 0) {
-        toast.info('All approved subcontractors have already been invited to this work order.');
-        return;
-      }
 
       // Mark subcontractors that match the work order category
       let matchingCount = 0;
-      const subsData = candidateSubs.map(sub => {
+      const subsData = allSubsData.map(sub => {
+        const alreadyInvited = alreadyInvitedSet.has((sub.uid as string) || sub.id);
         let matchesCategory = false;
 
         if (workOrder.category) {
@@ -1883,6 +1877,7 @@ const handleLocationSelect = (locationId: string) => {
           email: sub.email,
           businessName: sub.businessName,
           matchesCategory,
+          alreadyInvited,
         } as Subcontractor;
       });
 
@@ -1895,7 +1890,11 @@ const handleLocationSelect = (locationId: string) => {
         }
       }
 
-      subsData.sort((a, b) => (b.matchesCategory ? 1 : 0) - (a.matchesCategory ? 1 : 0));
+      // Sort: category matches first, then uninvited, already-invited last
+      subsData.sort((a, b) => {
+        if (a.alreadyInvited !== b.alreadyInvited) return a.alreadyInvited ? 1 : -1;
+        return (b.matchesCategory ? 1 : 0) - (a.matchesCategory ? 1 : 0);
+      });
       setSubcontractors(subsData);
       setWorkOrderToShare(workOrder);
       setSelectedSubcontractors([]);
@@ -3186,16 +3185,16 @@ const companiesForSelectedClient = (() => {
                     <input
                       type="checkbox"
                       id="selectAll"
-                      checked={subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length > 0 && subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).every(s => selectedSubcontractors.includes(s.id))}
+                      checked={subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length > 0 && subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).every(s => selectedSubcontractors.includes(s.id))}
                       onChange={() => {
-                        const filtered = subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()));
+                        const filtered = subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())));
                         const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                         setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                       }}
                       className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <label htmlFor="selectAll" className="text-sm font-medium text-foreground">
-                      Select All ({subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length})
+                      Select All ({subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length})
                     </label>
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -3210,28 +3209,36 @@ const companiesForSelectedClient = (() => {
                     subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).map((sub) => (
                       <div
                         key={sub.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                          selectedSubcontractors.includes(sub.id)
-                            ? sub.matchesCategory
-                              ? 'bg-green-50 border-green-400 ring-2 ring-green-200'
-                              : 'bg-blue-50 border-blue-300'
-                            : sub.matchesCategory
-                            ? 'bg-green-50 border-green-300 hover:border-green-400'
-                            : 'bg-card border-border hover:bg-muted'
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                          sub.alreadyInvited
+                            ? 'bg-muted/40 border-border opacity-60 cursor-default'
+                            : selectedSubcontractors.includes(sub.id)
+                              ? sub.matchesCategory
+                                ? 'bg-green-50 border-green-400 ring-2 ring-green-200 cursor-pointer'
+                                : 'bg-blue-50 border-blue-300 cursor-pointer'
+                              : sub.matchesCategory
+                              ? 'bg-green-50 border-green-300 hover:border-green-400 cursor-pointer'
+                              : 'bg-card border-border hover:bg-muted cursor-pointer'
                         }`}
-                        onClick={() => toggleSubcontractorSelection(sub.id)}
+                        onClick={() => !sub.alreadyInvited && toggleSubcontractorSelection(sub.id)}
                       >
                         <input
                           type="checkbox"
                           checked={selectedSubcontractors.includes(sub.id)}
-                          onChange={() => toggleSubcontractorSelection(sub.id)}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          disabled={sub.alreadyInvited}
+                          onChange={() => !sub.alreadyInvited && toggleSubcontractorSelection(sub.id)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
                           onClick={(e) => e.stopPropagation()}
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-foreground">{sub.fullName}</p>
-                            {sub.matchesCategory && (
+                            {sub.alreadyInvited && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                Already Invited
+                              </span>
+                            )}
+                            {!sub.alreadyInvited && sub.matchesCategory && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">
                                 Matches Category
                               </span>
