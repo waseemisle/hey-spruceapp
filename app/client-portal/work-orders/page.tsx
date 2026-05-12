@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc, getDocs, updateDoc, serverTimestamp, addDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
@@ -8,7 +8,6 @@ import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { notifyBiddingOpportunity, notifyAdminsOfWorkOrder } from '@/lib/notifications';
 import { createTimelineEvent } from '@/lib/timeline';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
-import { resolveClientCompanyId } from '@/lib/resolve-client-company';
 import ClientLayout from '@/components/client-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,7 +112,8 @@ function ClientWorkOrdersContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createLocations, setCreateLocations] = useState<{ id: string; name: string }[]>([]);
   const [createCategories, setCreateCategories] = useState<{ id: string; name: string }[]>([]);
-  const [loadingCreateLocations, setLoadingCreateLocations] = useState(true);
+  const [loadingCreateLocations, setLoadingCreateLocations] = useState(false);
+  const [createLocationsError, setCreateLocationsError] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({
     locationId: '', title: '', description: '', category: '', priority: 'medium',
     estimateBudget: '', isMaintenanceRequestOrder: false,
@@ -123,6 +123,8 @@ function ClientWorkOrdersContent() {
   const [uploadingCreateImages, setUploadingCreateImages] = useState(false);
   const [submittingCreate, setSubmittingCreate] = useState(false);
   const [cachedClientData, setCachedClientData] = useState<any>(null);
+  /** Drives create-modal Firestore loads; `auth.currentUser` alone is not reactive and is often null on first paint. */
+  const [clientAuthUid, setClientAuthUid] = useState<string | null>(null);
 
   const normalizeStatus = (status: string) => {
     if (status === 'quotes_received') {
@@ -153,6 +155,65 @@ function ClientWorkOrdersContent() {
       .replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
+  const fetchCreateModalData = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setLoadingCreateLocations(false);
+      setCreateLocationsError(null);
+      return;
+    }
+    setLoadingCreateLocations(true);
+    setCreateLocationsError(null);
+    try {
+      await user.getIdToken();
+      const clientDoc = await getDoc(doc(db, 'clients', user.uid));
+      const clientData = clientDoc.data();
+      setCachedClientData(clientData);
+      const assignedSet = new Set<string>(
+        Array.isArray(clientData?.assignedLocations) ? clientData.assignedLocations : [],
+      );
+      const modalCompanyId = clientData?.companyId as string | undefined;
+
+      let snap;
+      if (modalCompanyId) {
+        snap = await getDocs(query(collection(db, 'locations'), where('companyId', '==', modalCompanyId)));
+      } else {
+        snap = await getDocs(query(collection(db, 'locations'), where('clientId', '==', user.uid)));
+      }
+      const visible = snap.docs.filter((d) => {
+        const data = d.data() as Record<string, unknown>;
+        const notRejected = (data.status || '') !== 'rejected';
+        const hasAccess = modalCompanyId
+          ? assignedSet.size === 0 || assignedSet.has(d.id) || data.clientId === user.uid
+          : true;
+        return notRejected && hasAccess;
+      });
+      setCreateLocations(
+        visible.map((d) => ({
+          id: d.id,
+          name: (d.data() as { locationName?: string; name?: string }).locationName
+            || (d.data() as { name?: string }).name
+            || 'Unnamed',
+        })),
+      );
+
+      const catSnap = await getDocs(query(collection(db, 'categories'), orderBy('name', 'asc')));
+      setCreateCategories(catSnap.docs.map((d) => ({ id: d.id, name: (d.data() as { name?: string }).name || '' })));
+    } catch (err) {
+      console.error('Create modal: failed to load locations/categories', err);
+      setCreateLocations([]);
+      setCreateLocationsError('Could not load locations — please refresh or try again.');
+    } finally {
+      setLoadingCreateLocations(false);
+    }
+  }, [auth, db]);
+
+  useEffect(() => {
+    if (!clientAuthUid) return;
+    if (!showCreateModal && createParam !== '1') return;
+    void fetchCreateModalData();
+  }, [showCreateModal, createParam, clientAuthUid, fetchCreateModalData]);
+
   useEffect(() => {
     let unsubscribeWorkOrders: (() => void) | null = null;
 
@@ -161,7 +222,9 @@ function ClientWorkOrdersContent() {
       unsubscribeWorkOrders?.();
 
       if (user) {
+        setClientAuthUid(user.uid);
         try {
+          await user.getIdToken();
           // Fetch client document to get assigned locations and permissions
           const clientDoc = await getDoc(doc(db, 'clients', user.uid));
           const clientData = clientDoc.data();
@@ -180,43 +243,8 @@ function ClientWorkOrdersContent() {
           setHasArchivePermission(clientData?.permissions?.archiveWorkOrders === true);
           setHasCombineWorkOrdersPermission(clientData?.permissions?.combineWorkOrders === true);
 
-          // Cache client data and load create-modal location/category data (non-blocking)
+          // Cache client data for create flow (locations load when create modal opens)
           setCachedClientData(clientData);
-          const assignedSet = new Set<string>(Array.isArray(clientData?.assignedLocations) ? clientData.assignedLocations : []);
-          const modalCompanyId = clientCompanyId;
-
-          const loadLocations = async () => {
-            try {
-              let snap;
-              if (modalCompanyId) {
-                snap = await getDocs(query(collection(db, 'locations'), where('companyId', '==', modalCompanyId)));
-              } else {
-                snap = await getDocs(query(collection(db, 'locations'), where('clientId', '==', user.uid)));
-              }
-              const visible = snap.docs.filter(d => {
-                const data = d.data() as any;
-                const notRejected = (data.status || '') !== 'rejected';
-                const hasAccess = modalCompanyId
-                  ? (assignedSet.size === 0 || assignedSet.has(d.id) || data.clientId === user.uid)
-                  : true;
-                return notRejected && hasAccess;
-              });
-              setCreateLocations(visible.map(d => ({
-                id: d.id,
-                name: (d.data() as any).locationName || (d.data() as any).name || 'Unnamed',
-              })));
-            } catch {
-              // silently ignore — user can try again
-            } finally {
-              setLoadingCreateLocations(false);
-            }
-          };
-          loadLocations();
-          getDocs(query(collection(db, 'categories'), orderBy('name', 'asc')))
-            .then(snap => {
-              setCreateCategories(snap.docs.map(d => ({ id: d.id, name: (d.data() as any).name })));
-            })
-            .catch(err => console.error('Failed to load categories for create modal:', err));
 
           // If viewing archive, require permission
           if (workOrderType === 'archive' && !clientData?.permissions?.archiveWorkOrders) {
@@ -380,9 +408,12 @@ function ClientWorkOrdersContent() {
         } catch (error) {
           console.error('Error setting up work orders listener:', error);
           setLoading(false);
+          setLoadingCreateLocations(false);
         }
       } else {
+        setClientAuthUid(null);
         setLoading(false);
+        setLoadingCreateLocations(false);
       }
     });
 
@@ -424,6 +455,7 @@ function ClientWorkOrdersContent() {
 
   const closeCreateModal = () => {
     setShowCreateModal(false);
+    setCreateLocationsError(null);
     setCreateForm({ locationId: '', title: '', description: '', category: '', priority: 'medium', estimateBudget: '', isMaintenanceRequestOrder: false });
     createPreviews.forEach(u => URL.revokeObjectURL(u));
     setCreatePreviews([]);
@@ -967,7 +999,13 @@ function ClientWorkOrdersContent() {
               </Link>
             )}
             {workOrderType !== 'maintenance' && workOrderType !== 'archive' && (
-              <Button className="gap-2 self-start sm:self-auto" onClick={() => setShowCreateModal(true)}>
+              <Button
+                className="gap-2 self-start sm:self-auto"
+                onClick={() => {
+                  setCreateLocationsError(null);
+                  setShowCreateModal(true);
+                }}
+              >
                 <Plus className="h-4 w-4" />
                 Create Work Order
               </Button>
@@ -1061,7 +1099,13 @@ function ClientWorkOrdersContent() {
               {filter === 'all' ? 'Get started by creating your first work order' : 'Try a different filter'}
             </p>
             {filter === 'all' && workOrderType !== 'maintenance' && (
-              <Button className="mt-4 gap-2" onClick={() => setShowCreateModal(true)}>
+              <Button
+                className="mt-4 gap-2"
+                onClick={() => {
+                  setCreateLocationsError(null);
+                  setShowCreateModal(true);
+                }}
+              >
                 <Plus className="h-4 w-4" />
                 Create Work Order
               </Button>
@@ -1318,6 +1362,14 @@ function ClientWorkOrdersContent() {
                   aria-label="Location"
                   className="w-full"
                 />
+                {createLocationsError && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+                    <p className="text-xs text-destructive">{createLocationsError}</p>
+                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs shrink-0 w-fit" onClick={() => void fetchCreateModalData()}>
+                      Retry
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Category + Priority */}
