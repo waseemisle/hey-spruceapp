@@ -51,8 +51,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Admin in-app (single fan-out helper)
+    let adminsNotified = 0;
     try {
-      await fanOutToAllAdmins(db, {
+      adminsNotified = await fanOutToAllAdmins(db, {
         type: 'diagnostic_request',
         title: 'Diagnostic Request Received',
         message: `${subcontractorName} submitted a Diagnostic Request (${feeStr}) for WO ${workOrderNumber} — sent directly to client.`,
@@ -161,7 +162,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, adminsNotified: adminIds.length, clientNotified: Boolean(clientId) });
+    return NextResponse.json({
+      success: true,
+      adminsNotified,
+      clientNotified: Boolean(clientId),
+    });
   } catch (error: any) {
     console.error('Error fanning out Diagnostic Request notifications:', error);
     return NextResponse.json({ error: error.message || 'Failed' }, { status: 500 });
