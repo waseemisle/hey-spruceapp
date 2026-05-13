@@ -248,7 +248,7 @@ export default function CompanyDetailPage() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
         </div>
             </PageContainer>
     </>
@@ -373,7 +373,7 @@ export default function CompanyDetailPage() {
                 Clients ({clients.length})
               </h3>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-border">
               {clients.map((client) => (
                 <div key={client.uid} className="px-5 py-3 flex items-center justify-between hover:bg-muted">
                   <div>
@@ -433,7 +433,7 @@ export default function CompanyDetailPage() {
                           : 'bg-blue-100 text-blue-600'
                         : tab.danger
                         ? 'bg-red-50 text-red-500'
-                        : 'bg-gray-200 text-muted-foreground'
+                        : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {tab.count}
@@ -460,7 +460,7 @@ export default function CompanyDetailPage() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">

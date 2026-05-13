@@ -12,6 +12,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Receipt, Download, ArrowLeft, History, Paperclip, CreditCard, Edit2, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Send, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
+import { tryDownloadStripeInvoicePdf } from '@/lib/invoice-stripe-pdf-client';
 import { formatMoney } from '@/lib/money';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ interface Invoice {
   clientId: string;
   clientName: string;
   clientEmail: string;
+  subcontractorId?: string;
   subcontractorName?: string;
   status: 'draft' | 'sent' | 'paid';
   totalAmount: number;
@@ -384,23 +386,34 @@ export default function AdminInvoiceDetail() {
   }, [params.id, router]);
 
   /**
-   * Prefer the Stripe-hosted invoice PDF when one exists. Stripe finalizes
-   * the invoice (with line items + "Pay online" link + bill-to/from blocks
-   * + Stripe-formatted layout) and exposes it at invoice.stripeInvoicePdf.
-   * That's the canonical document we want admins and clients to share —
-   * not our locally-generated PDF, which doesn't carry the pay link.
-   *
-   * Stripe's PDF is on a cross-origin host so browsers block programmatic
-   * downloads; opening in a new tab lets the user trigger the download
-   * from there (or Save / Print). When the Stripe PDF isn't ready yet
-   * (draft invoice, Stripe link still pending) we fall back to the
-   * locally-generated layout so the button never silently does nothing.
+   * Download the official Stripe invoice PDF (same file as Stripe Dashboard
+   * → ⋮ → Download PDF) via server proxy. Falls back to opening a stored
+   * `stripeInvoicePdf` URL, then to the local PDF generator.
    */
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!invoice) return;
+    const stripeInvId = invoice.stripeInvoiceId || '';
+    if (stripeInvId.startsWith('in_')) {
+      const ok = await tryDownloadStripeInvoicePdf(
+        invoice.id,
+        invoice.invoiceNumber || invoice.id,
+        () => auth.currentUser?.getIdToken(),
+      );
+      if (ok) return;
+    }
     if (invoice.stripeInvoicePdf) {
       window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
       return;
+    }
+    let vendorCompany = '';
+    const subId = invoice.subcontractorId;
+    if (subId) {
+      try {
+        const sd = await getDoc(doc(db, 'subcontractors', subId));
+        if (sd.exists()) vendorCompany = String((sd.data() as { companyName?: string }).companyName || '').trim();
+      } catch {
+        /* ignore */
+      }
     }
     const subtotal = (invoice.lineItems || []).reduce((s, li) => s + (li.amount || 0), 0);
     downloadInvoicePDF({
@@ -409,6 +422,7 @@ export default function AdminInvoiceDetail() {
       clientEmail: invoice.clientEmail,
       workOrderName: invoice.workOrderTitle,
       vendorName: invoice.subcontractorName,
+      vendorCompany: vendorCompany || undefined,
       serviceDescription: invoice.workOrderDescription,
       lineItems: invoice.lineItems || [],
       subtotal,
@@ -968,7 +982,7 @@ export default function AdminInvoiceDetail() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
         </div>
             </PageContainer>
     </>
@@ -1527,7 +1541,7 @@ export default function AdminInvoiceDetail() {
               <div>
                 <Label>Notes</Label>
                 <textarea
-                  className="mt-1 w-full border border-gray-300 rounded-md p-2 min-h-[80px] text-sm"
+                  className="mt-1 w-full border border-border rounded-md p-2 min-h-[80px] text-sm"
                   value={editForm.notes}
                   onChange={e => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
                 />
@@ -1537,7 +1551,7 @@ export default function AdminInvoiceDetail() {
               <div>
                 <Label>Terms</Label>
                 <textarea
-                  className="mt-1 w-full border border-gray-300 rounded-md p-2 min-h-[80px] text-sm"
+                  className="mt-1 w-full border border-border rounded-md p-2 min-h-[80px] text-sm"
                   value={editForm.terms}
                   onChange={e => setEditForm(prev => ({ ...prev, terms: e.target.value }))}
                 />

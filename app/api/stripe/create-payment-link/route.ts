@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { recordPaymentEvent, fromInvoice, buildMutation } from '@/lib/payment-logs';
+import { buildStripeHostedInvoiceFooter } from '@/lib/stripe-invoice-footer';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -63,6 +64,8 @@ export async function POST(request: NextRequest) {
         firestoreTotal: resolvedAmount,
       });
     }
+
+    const stripeInvoiceFooter = await buildStripeHostedInvoiceFooter(db, inv as Record<string, unknown>, invoiceNumber);
 
     // Stripe Invoices require a Customer object. If no clientId is on the
     // invoice we still need an ad-hoc customer keyed off the email.
@@ -150,6 +153,14 @@ export async function POST(request: NextRequest) {
               });
             }
           } catch { /* non-fatal */ }
+          try {
+            const pdfPatch: Record<string, unknown> = { updatedAt: serverTimestamp() };
+            if (prev.invoice_pdf) pdfPatch.stripeInvoicePdf = prev.invoice_pdf;
+            if (prev.hosted_invoice_url) pdfPatch.stripeHostedInvoiceUrl = prev.hosted_invoice_url;
+            if (prev.invoice_pdf || prev.hosted_invoice_url) {
+              await updateDoc(doc(db, 'invoices', invoiceId), pdfPatch);
+            }
+          } catch { /* non-fatal */ }
           return NextResponse.json({
             paymentLink: prev.hosted_invoice_url,
             hostedInvoiceUrl: prev.hosted_invoice_url,
@@ -163,6 +174,14 @@ export async function POST(request: NextRequest) {
           // Don't recreate a settled invoice. Return its hosted URL so
           // the UI can still link to it; the auto-sync route will pick
           // up the paid state on the next page load.
+          try {
+            const pdfPatch: Record<string, unknown> = { updatedAt: serverTimestamp() };
+            if (prev.invoice_pdf) pdfPatch.stripeInvoicePdf = prev.invoice_pdf;
+            if (prev.hosted_invoice_url) pdfPatch.stripeHostedInvoiceUrl = prev.hosted_invoice_url;
+            if (prev.invoice_pdf || prev.hosted_invoice_url) {
+              await updateDoc(doc(db, 'invoices', invoiceId), pdfPatch);
+            }
+          } catch { /* non-fatal */ }
           return NextResponse.json({
             paymentLink: prev.hosted_invoice_url || '',
             hostedInvoiceUrl: prev.hosted_invoice_url || '',
@@ -237,7 +256,7 @@ export async function POST(request: NextRequest) {
           auto_advance: true,
           default_payment_method: clientDefaultPaymentMethodId,
           pending_invoice_items_behavior: 'exclude',
-          footer: `Invoice ${invoiceNumber}`,
+          footer: stripeInvoiceFooter,
           metadata: {
             invoiceId,
             invoiceNumber,
@@ -252,7 +271,7 @@ export async function POST(request: NextRequest) {
           days_until_due: 30,
           auto_advance: false,
           pending_invoice_items_behavior: 'exclude',
-          footer: `Invoice ${invoiceNumber}`,
+          footer: stripeInvoiceFooter,
           metadata: {
             invoiceId,
             invoiceNumber,
@@ -382,6 +401,8 @@ export async function POST(request: NextRequest) {
       const persistFields: Record<string, unknown> = {
         stripePaymentLink: hostedUrl,
         stripeInvoiceId: finalized.id,
+        stripeInvoicePdf: finalized.invoice_pdf || null,
+        stripeHostedInvoiceUrl: finalized.hosted_invoice_url || null,
         updatedAt: serverTimestamp(),
       };
       if (willAutoCharge) {

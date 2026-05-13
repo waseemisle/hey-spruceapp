@@ -382,7 +382,7 @@ export default function AdminSupportTicketDetailPage() {
     return (
       <>
         <div className="flex justify-center py-24">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
         </div>
       </>
     );
@@ -454,7 +454,7 @@ export default function AdminSupportTicketDetailPage() {
                     className={`rounded-xl border p-4 ${c.isInternal ? 'bg-amber-50 border-amber-200' : 'bg-card border-border'}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-foreground">
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-foreground">
                         {c.authorAvatarInitials || initialsFromName(c.authorName)}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -655,7 +655,7 @@ export default function AdminSupportTicketDetailPage() {
                   <button
                     key={t}
                     type="button"
-                    className="text-xs px-2 py-0.5 rounded-full bg-muted border border-border hover:bg-gray-200"
+                    className="text-xs px-2 py-0.5 rounded-full bg-muted border border-border hover:bg-muted"
                     onClick={() => removeTag(t)}
                   >
                     {t} ×

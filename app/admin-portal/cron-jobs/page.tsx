@@ -352,7 +352,7 @@ export default function CronJobsPage() {
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground mb-1">Health</p>
               <div className="flex items-center gap-2">
-                <Activity className={`h-4 w-4 ${!lastRun ? 'text-gray-400' : lastRun.status === 'completed' ? 'text-emerald-600' : lastRun.status === 'partial' ? 'text-yellow-600' : 'text-red-600'}`} />
+                <Activity className={`h-4 w-4 ${!lastRun ? 'text-muted-foreground' : lastRun.status === 'completed' ? 'text-emerald-600' : lastRun.status === 'partial' ? 'text-yellow-600' : 'text-red-600'}`} />
                 <span className="font-bold text-sm">
                   {!lastRun ? 'No data' : lastRun.status === 'completed' ? 'Healthy' : lastRun.status === 'partial' ? 'Degraded' : 'Failing'}
                 </span>
@@ -472,7 +472,7 @@ export default function CronJobsPage() {
                   {(() => {
                     const last = siRuns[0];
                     const cls = !last
-                      ? 'text-gray-400'
+                      ? 'text-muted-foreground'
                       : last.status === 'completed' || last.status === 'idle'
                         ? 'text-emerald-600'
                         : last.status === 'partial'

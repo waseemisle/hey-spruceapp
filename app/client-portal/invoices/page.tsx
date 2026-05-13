@@ -7,6 +7,7 @@ import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
+import { tryDownloadStripeInvoicePdf } from '@/lib/invoice-stripe-pdf-client';
 import { Button } from '@/components/ui/button';
 import { Receipt, Download, CreditCard, Calendar, CheckCircle, Eye, Zap, AlertCircle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,6 +42,7 @@ interface Invoice {
   stripePaymentLink?: string;
   stripeSessionId?: string;
   stripePaymentIntentId?: string;
+  stripeInvoiceId?: string;
   stripeInvoicePdf?: string;
   stripeChargeId?: string;
   stripeReceiptUrl?: string;
@@ -118,20 +120,40 @@ function ClientInvoicesInner() {
   }, [auth, db]);
 
   /**
-   * Prefer the Stripe-hosted invoice PDF (carries pay-online link +
-   * Stripe layout). Falls back to the local generator only when the
-   * Stripe PDF isn't ready yet.
+   * Official Stripe invoice PDF (server proxy), then stored URL, then local PDF.
    */
   const handleDownloadPDF = async (invoice: Invoice) => {
+    const stripeInvId = invoice.stripeInvoiceId || '';
+    if (stripeInvId.startsWith('in_')) {
+      const ok = await tryDownloadStripeInvoicePdf(
+        invoice.id,
+        invoice.invoiceNumber || invoice.id,
+        () => auth.currentUser?.getIdToken(),
+      );
+      if (ok) return;
+    }
     if (invoice.stripeInvoicePdf) {
       window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
       return;
     }
     try {
+      let vendorCompany = '';
+      const subId = invoice.subcontractorId;
+      if (subId) {
+        try {
+          const sd = await getDoc(doc(db, 'subcontractors', subId));
+          if (sd.exists()) vendorCompany = String((sd.data() as { companyName?: string }).companyName || '').trim();
+        } catch {
+          /* ignore */
+        }
+      }
       const invoiceData = {
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.clientName,
         clientEmail: invoice.clientEmail,
+        workOrderName: invoice.workOrderTitle,
+        vendorName: invoice.subcontractorName,
+        vendorCompany: vendorCompany || undefined,
         lineItems: invoice.lineItems || [{
           description: invoice.workOrderTitle,
           quantity: 1,
@@ -220,7 +242,7 @@ function ClientInvoicesInner() {
       <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         </PageContainer>
       </>
@@ -479,7 +501,7 @@ export default function ClientInvoices() {
   return (
     <Suspense
       fallback={<div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>}
     >
       <ClientInvoicesInner />

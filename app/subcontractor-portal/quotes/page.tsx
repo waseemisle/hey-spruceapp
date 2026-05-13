@@ -127,7 +127,7 @@ export default function SubcontractorQuotes() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
         </div>
             </PageContainer>
     </>
@@ -161,7 +161,7 @@ export default function SubcontractorQuotes() {
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
                 filter === option.value
                   ? 'bg-green-600 text-white'
-                  : 'bg-card text-foreground border border-gray-300 hover:bg-muted'
+                  : 'bg-card text-foreground border border-border hover:bg-muted'
               }`}
             >
               {option.label} ({option.count})

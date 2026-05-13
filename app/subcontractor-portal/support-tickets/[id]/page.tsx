@@ -208,7 +208,7 @@ export default function SubcontractorSupportTicketDetailPage() {
     return (
       <>
         <div className="flex justify-center py-24">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
         </div>
       </>
     );
@@ -255,7 +255,7 @@ export default function SubcontractorSupportTicketDetailPage() {
                 {comments.map((c) => (
                   <div key={c.id} className="rounded-xl border border-border p-4 bg-card">
                     <div className="flex gap-3">
-                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold">
+                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold">
                         {c.authorAvatarInitials || initialsFromName(c.authorName)}
                       </div>
                       <div className="flex-1 min-w-0">

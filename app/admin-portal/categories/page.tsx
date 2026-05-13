@@ -233,7 +233,7 @@ export default function CategoriesManagement() {
                       <span className={`px-1 py-0.5 rounded text-[10px] font-semibold ${
                         category.creationSource === 'admin_portal' ? 'bg-blue-100 text-blue-700'
                         : category.creationSource === 'csv_import' ? 'bg-purple-100 text-purple-700'
-                        : 'bg-gray-100 text-gray-700'
+                        : 'bg-muted text-foreground'
                       }`}>
                         {category.creationSource === 'admin_portal' ? 'Admin Portal'
                         : category.creationSource === 'csv_import' ? 'CSV Import'

@@ -498,7 +498,7 @@ export default function ClientLocations() {
     return (
       <>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
         </div>
       </>
     );
@@ -863,12 +863,12 @@ export default function ClientLocations() {
                   </div>
                   {loadingWorkOrders ? (
                     <div className="flex items-center justify-center py-6">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary/20 border-t-primary" />
                     </div>
                   ) : locationWorkOrders.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No work orders at this location.</p>
                   ) : (
-                    <ul className="divide-y divide-gray-100 border border-border rounded-lg overflow-hidden">
+                    <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden">
                       {locationWorkOrders.map((wo) => (
                         <li key={wo.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted transition-colors">
                           <Link

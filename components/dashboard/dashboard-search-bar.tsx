@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Search, Plus } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 
 interface DashboardSearchBarProps {
@@ -62,10 +64,9 @@ export default function DashboardSearchBar({ portalType, onSearch }: DashboardSe
   const createButtonLabel = getCreateButtonLabel();
 
   return (
-    <div className="bg-card border-b border-border py-4 px-4 sm:px-6">
-      <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-        {/* Search Type Dropdown */}
-        <div className="flex-shrink-0 w-full md:w-auto md:min-w-[220px]">
+    <div className="border-b border-border bg-card/80 py-4 px-4 shadow-sm backdrop-blur-sm sm:px-6">
+      <form onSubmit={handleSearch} className="flex flex-col items-stretch gap-3 md:flex-row md:items-center">
+        <div className="w-full flex-shrink-0 md:w-auto md:min-w-[220px]">
           <SearchableSelect
             value={searchType}
             onValueChange={setSearchType}
@@ -75,36 +76,27 @@ export default function DashboardSearchBar({ portalType, onSearch }: DashboardSe
           />
         </div>
 
-        {/* Search Input */}
-        <div className="flex-1 min-w-0">
-          <input
+        <div className="min-w-0 flex-1">
+          <Input
             type="text"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Exact Search..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Exact search…"
+            className="h-10 w-full rounded-lg"
+            aria-label="Search value"
           />
         </div>
 
-        {/* Search Button */}
-        <button
-          type="submit"
-          className="flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          <Search className="w-4 h-4" />
+        <Button type="submit" className="h-10 shrink-0 gap-2 rounded-lg px-5">
+          <Search className="h-4 w-4" />
           <span className="hidden sm:inline">Search</span>
-        </button>
+        </Button>
 
-        {/* Create Button */}
         {createButtonLabel && (
-          <button
-            type="button"
-            onClick={handleCreateButton}
-            className="flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" />
+          <Button type="button" variant="secondary" onClick={handleCreateButton} className="h-10 shrink-0 gap-2 rounded-lg px-5 whitespace-nowrap">
+            <Plus className="h-4 w-4" />
             <span>{createButtonLabel}</span>
-          </button>
+          </Button>
         )}
       </form>
     </div>

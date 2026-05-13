@@ -119,7 +119,7 @@ export default function LocationLandingPage() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
         </div>
             </PageContainer>
     </>
@@ -311,7 +311,7 @@ export default function LocationLandingPage() {
                     : location.creationSource === 'maintenance_request_api' ? 'bg-yellow-100 text-yellow-700'
                     : location.creationSource === 'csv_import' ? 'bg-purple-100 text-purple-700'
                     : location.clientName === 'Auto-Generated' ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-gray-100 text-gray-700'
+                    : 'bg-muted text-foreground'
                   }`}>
                     {location.creationSource === 'admin_portal' ? 'Admin Portal'
                     : location.creationSource === 'client_portal' ? 'Client Portal'
@@ -365,7 +365,7 @@ export default function LocationLandingPage() {
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
                             note.action === 'created' ? 'bg-green-100 text-green-700'
                             : note.action === 'updated' ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-700'
+                            : 'bg-muted text-foreground'
                           }`}>
                             {note.action}
                           </span>

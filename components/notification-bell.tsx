@@ -122,8 +122,8 @@ export default function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button variant="outline" size="sm" className="relative h-9 w-9 shrink-0 rounded-lg border-border/80 p-0 shadow-sm backdrop-blur-sm hover:bg-muted/80">
+          <Bell className="h-[1.15rem] w-[1.15rem]" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-h-5 min-w-5 px-1 flex items-center justify-center tabular-nums">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -143,8 +143,9 @@ export default function NotificationBell() {
           </h3>
           {unreadCount > 0 && (
             <button
+              type="button"
               onClick={markAllAsRead}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              className="text-xs font-medium text-primary hover:underline"
             >
               Mark all as read
             </button>
@@ -157,7 +158,7 @@ export default function NotificationBell() {
               <p className="text-sm">No notifications yet</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-border">
               {notifications.map((notification) => {
                 const getTypeIcon = () => {
                   switch (notification.type) {
@@ -204,8 +205,8 @@ export default function NotificationBell() {
                   <DropdownMenuItem
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
-                    className={`px-4 py-3 cursor-pointer hover:bg-muted transition-colors ${
-                      !notification.read ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
+                    className={`cursor-pointer px-4 py-3 transition-colors hover:bg-muted ${
+                      !notification.read ? 'border-l-4 border-l-primary bg-primary/5' : ''
                     }`}
                   >
                     <div className="flex items-start gap-3 w-full">
@@ -216,7 +217,7 @@ export default function NotificationBell() {
                             {notification.title}
                           </p>
                           {!notification.read && (
-                            <span className="h-2 w-2 bg-blue-600 rounded-full flex-shrink-0 mt-1"></span>
+                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mb-1 line-clamp-2">

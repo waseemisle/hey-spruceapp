@@ -425,7 +425,7 @@ export default function MaintRequestsPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-card divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-border">
                 {sortedRequests.map((request) => (
                   <React.Fragment key={request.id}>
                     <tr className="hover:bg-muted transition-colors">
@@ -459,7 +459,7 @@ export default function MaintRequestsPage() {
                           </Button>
                           <button
                             onClick={() => toggleJsonCard(request.id)}
-                            className="p-1.5 border border-gray-300 rounded-md hover:bg-muted transition-colors"
+                            className="p-1.5 border border-border rounded-md hover:bg-muted transition-colors"
                             title="View Raw JSON"
                           >
                             <Code className="h-4 w-4 text-muted-foreground" />

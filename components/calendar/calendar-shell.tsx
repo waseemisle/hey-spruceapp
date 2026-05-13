@@ -221,7 +221,7 @@ export default function CalendarShell({
       </div>
 
       {/* ───────── 3-PANE WORKSPACE ───────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
+      <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
         {/* LEFT: filters + status legend */}
         <aside className="hidden lg:flex flex-col gap-5 border-r border-border bg-muted/30 p-5 min-w-0">
           {/* Search */}
@@ -317,7 +317,7 @@ export default function CalendarShell({
         </aside>
 
         {/* CENTER: calendar grid */}
-        <div className="ground-ops-calendar bg-card min-w-0">
+        <div className="ground-ops-calendar min-w-0 overflow-x-auto bg-card">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}

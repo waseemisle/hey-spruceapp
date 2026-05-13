@@ -2456,7 +2456,7 @@ const handleLocationSelect = (locationId: string) => {
       case 'completed': return 'text-emerald-600 bg-emerald-50';
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'rejected_by_subcontractor': return 'text-red-600 bg-red-50';
-      case 'archived': return 'text-gray-600 bg-gray-100';
+      case 'archived': return 'text-muted-foreground bg-muted';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -2671,12 +2671,12 @@ const companiesForSelectedClient = (() => {
           <div className="border rounded-lg overflow-hidden">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border animate-pulse">
-                <div className="h-4 w-4 rounded bg-gray-200" />
-                <div className="h-4 w-24 rounded bg-gray-200" />
-                <div className="h-4 flex-1 rounded bg-gray-200" />
-                <div className="h-4 w-20 rounded bg-gray-200" />
-                <div className="h-6 w-16 rounded-full bg-gray-200" />
-                <div className="h-4 w-16 rounded bg-gray-200" />
+                <div className="h-4 w-4 rounded bg-muted" />
+                <div className="h-4 w-24 rounded bg-muted" />
+                <div className="h-4 flex-1 rounded bg-muted" />
+                <div className="h-4 w-20 rounded bg-muted" />
+                <div className="h-6 w-16 rounded-full bg-muted" />
+                <div className="h-4 w-16 rounded bg-muted" />
               </div>
             ))}
           </div>
@@ -2710,7 +2710,7 @@ const companiesForSelectedClient = (() => {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-card divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-border">
                 {paginatedWorkOrders.map((workOrder) => (
                   <tr key={workOrder.id} className="hover:bg-muted transition-colors">
                     <td className="px-4 py-3">
@@ -2973,7 +2973,7 @@ const companiesForSelectedClient = (() => {
                         type="text"
                         value={workOrders.find(wo => wo.id === editingId)?.appyRequestor || ''}
                         disabled
-                        className="w-full border border-gray-300 rounded-md p-2 bg-muted"
+                        className="w-full border border-border rounded-md p-2 bg-muted"
                         placeholder="N/A"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -3042,7 +3042,7 @@ const companiesForSelectedClient = (() => {
                     <textarea
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                      className="w-full border border-border rounded-md p-2 min-h-[100px]"
                       placeholder="Detailed description of the work needed..."
                     />
                   </div>
@@ -3184,7 +3184,7 @@ const companiesForSelectedClient = (() => {
                         const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                         setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                       }}
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
+                      className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 shrink-0"
                     />
                     <label htmlFor="selectAllAdminListBidding" className="text-sm font-medium text-foreground truncate">
                       Select All ({subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length})
@@ -3220,14 +3220,14 @@ const companiesForSelectedClient = (() => {
                           checked={selectedSubcontractors.includes(sub.id)}
                           disabled={sub.alreadyInvited}
                           onChange={() => !sub.alreadyInvited && toggleSubcontractorSelection(sub.id)}
-                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                          className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 disabled:opacity-50"
                           onClick={(e) => e.stopPropagation()}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-medium text-foreground">{sub.fullName}</p>
                             {sub.alreadyInvited && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground border border-border">
                                 Already Invited
                               </span>
                             )}
@@ -3305,7 +3305,7 @@ const companiesForSelectedClient = (() => {
 
                 <div className="space-y-3">
                   <button
-                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
+                    className="w-full p-4 text-left border-2 border-border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateNormalWorkOrder}
                   >
                     <div className="font-semibold text-lg text-foreground">Standard Work Order</div>
@@ -3315,7 +3315,7 @@ const companiesForSelectedClient = (() => {
                   </button>
 
                   <button
-                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 cursor-pointer"
+                    className="w-full p-4 text-left border-2 border-border rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateMaintenanceWorkOrder}
                   >
                     <div className="font-semibold text-lg text-foreground">Maintenance Request Work Order</div>
@@ -3325,7 +3325,7 @@ const companiesForSelectedClient = (() => {
                   </button>
 
                   <button
-                    className="w-full p-4 text-left border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
+                    className="w-full p-4 text-left border-2 border-border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateRecurringWorkOrder}
                   >
                     <div className="font-semibold text-lg text-foreground">Recurring Work Order</div>
@@ -3374,7 +3374,7 @@ const companiesForSelectedClient = (() => {
                   <textarea
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                    className="w-full border border-border rounded-md p-2 min-h-[100px]"
                     placeholder="Please provide a reason for rejecting this work order..."
                     autoFocus
                   />

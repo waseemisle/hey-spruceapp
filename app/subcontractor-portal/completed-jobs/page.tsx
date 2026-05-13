@@ -209,7 +209,7 @@ export default function SubcontractorCompletedJobs() {
       <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         </PageContainer>
       </>
@@ -247,7 +247,7 @@ export default function SubcontractorCompletedJobs() {
 
         {filteredRows.length === 0 ? (
           <div className="bg-card rounded-xl border border-border p-16 text-center">
-            <ClipboardCheck className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <ClipboardCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-1">
               {completedRows.length === 0 ? 'No completed jobs yet' : 'No matches'}
             </h3>

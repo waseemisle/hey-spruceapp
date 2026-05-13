@@ -257,7 +257,7 @@ export default function AdminDashboard() {
               <button
                 type="button"
                 onClick={() => setIsCompanyDropdownOpen(v => !v)}
-                className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg shadow-sm hover:border-gray-300 transition-colors w-full sm:min-w-[200px]"
+                className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg shadow-sm hover:border-border transition-colors w-full sm:min-w-[200px]"
               >
                 <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm text-foreground flex-1 text-left truncate sm:max-w-[200px]">

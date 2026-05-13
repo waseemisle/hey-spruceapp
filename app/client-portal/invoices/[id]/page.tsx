@@ -11,6 +11,7 @@ import { Receipt, Download, CreditCard, Calendar, CheckCircle, ArrowLeft, Image 
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
+import { tryDownloadStripeInvoicePdf } from '@/lib/invoice-stripe-pdf-client';
 import { formatMoney } from '@/lib/money';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
@@ -27,6 +28,7 @@ interface Invoice {
   clientId: string;
   clientName: string;
   clientEmail: string;
+  subcontractorId?: string;
   subcontractorName?: string;
   status: 'draft' | 'pending_approval' | 'sent' | 'paid' | 'overdue' | 'disputed';
   totalAmount: number;
@@ -35,6 +37,7 @@ interface Invoice {
   dueDate: any;
   stripePaymentLink?: string;
   stripeReceiptUrl?: string;
+  stripeInvoiceId?: string;
   stripeInvoicePdf?: string;
   paidAt?: any;
   notes?: string;
@@ -145,23 +148,41 @@ export default function ClientInvoiceDetail() {
   }, [auth, db, params.id, router]);
 
   /**
-   * Prefer the Stripe-hosted invoice PDF (carries the "Pay online" link
-   * and Stripe-formatted layout). Cross-origin so we can't trigger a
-   * download programmatically — open in a new tab and let the user
-   * download from there. Falls back to the local generator only when
-   * the Stripe PDF isn't ready yet (draft / link still being created).
+   * Official Stripe invoice PDF (server proxy), then stored URL, then local PDF.
    */
   const handleDownloadPDF = async () => {
     if (!invoice) return;
+    const stripeInvId = invoice.stripeInvoiceId || '';
+    if (stripeInvId.startsWith('in_')) {
+      const ok = await tryDownloadStripeInvoicePdf(
+        invoice.id,
+        invoice.invoiceNumber || invoice.id,
+        () => auth.currentUser?.getIdToken(),
+      );
+      if (ok) return;
+    }
     if (invoice.stripeInvoicePdf) {
       window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
       return;
     }
     try {
+      let vendorCompany = '';
+      const subId = invoice.subcontractorId;
+      if (subId) {
+        try {
+          const sd = await getDoc(doc(db, 'subcontractors', subId));
+          if (sd.exists()) vendorCompany = String((sd.data() as { companyName?: string }).companyName || '').trim();
+        } catch {
+          /* ignore */
+        }
+      }
       await downloadInvoicePDF({
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.clientName,
         clientEmail: invoice.clientEmail,
+        workOrderName: invoice.workOrderTitle,
+        vendorName: invoice.subcontractorName,
+        vendorCompany: vendorCompany || undefined,
         lineItems: invoice.lineItems?.length
           ? invoice.lineItems
           : [{ description: invoice.workOrderTitle, quantity: 1, unitPrice: invoice.totalAmount, amount: invoice.totalAmount }],
@@ -389,7 +410,7 @@ export default function ClientInvoiceDetail() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
         </div>
             </PageContainer>
     </>

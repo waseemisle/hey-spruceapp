@@ -297,7 +297,7 @@ export default function AdminCompanies() {
                   <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {filtered.map((c) => {
                   const clients = clientCounts[c.id] || 0;
                   const locations = locationCounts[c.id] || 0;
@@ -419,7 +419,7 @@ export default function AdminCompanies() {
                       </div>
                     )}
                     <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-muted">
+                      <label className="flex items-center gap-2 px-4 py-2 border border-border rounded-md cursor-pointer hover:bg-muted">
                         <Upload className="h-4 w-4" />
                         <span className="text-sm">{logoPreview || formData.logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
                         <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" disabled={uploadingLogo} />

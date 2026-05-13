@@ -99,7 +99,7 @@ function SearchableSelect({ options, value, onChange, placeholder = 'Select...',
         type="button"
         onClick={handleOpen}
         disabled={disabled}
-        className={`w-full flex items-center justify-between border border-gray-300 rounded-md p-2 bg-card text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : 'hover:border-gray-400 cursor-pointer'}`}
+        className={`w-full flex items-center justify-between border border-border rounded-md p-2 bg-card text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : 'hover:border-gray-400 cursor-pointer'}`}
       >
         <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
           {selected ? selected.label : placeholder}
@@ -641,7 +641,7 @@ export default function CreateRecurringWorkOrder() {
       <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         </PageContainer>
       </>
@@ -724,7 +724,7 @@ export default function CreateRecurringWorkOrder() {
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                  className="w-full border border-border rounded-md p-2 min-h-[100px]"
                   placeholder="Detailed description of the recurring work..."
                 />
               </div>

@@ -85,26 +85,27 @@ export default function ImpersonationBanner() {
   }
 
   return (
-    <div className="bg-yellow-400 w-full fixed top-0 z-[100] shadow-md">
-      <div className="max-w-full px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-black flex-shrink-0" />
-            <span className="text-black font-semibold text-sm sm:text-base">
-              Impersonation Mode Active - Logged in as{' '}
-              <span className="font-bold">{impersonationState.impersonatedUserName}</span>
-            </span>
-          </div>
-          <Button
-            onClick={handleExitImpersonation}
-            variant="default"
-            size="sm"
-            className="bg-amber-900 hover:bg-amber-950 text-amber-50 border-amber-900 rounded-md flex-shrink-0"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Exit Impersonation
-          </Button>
+    <div
+      role="status"
+      className="fixed top-0 z-[100] w-full border-b border-amber-600/30 bg-amber-400/95 text-amber-950 shadow-md backdrop-blur-md dark:border-amber-500/25 dark:bg-amber-950/90 dark:text-amber-50"
+    >
+      <div className="mx-auto flex max-w-[92rem] items-center justify-between gap-3 px-4 py-2.5 sm:gap-4 sm:py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-900 dark:text-amber-300" aria-hidden />
+          <span className="text-sm font-semibold sm:text-base">
+            Impersonation active — signed in as{' '}
+            <span className="font-bold">{impersonationState.impersonatedUserName}</span>
+          </span>
         </div>
+        <Button
+          onClick={handleExitImpersonation}
+          variant="secondary"
+          size="sm"
+          className="shrink-0 rounded-lg border border-amber-900/30 bg-amber-950 text-amber-50 hover:bg-amber-900 dark:border-amber-400/30 dark:bg-amber-100 dark:text-amber-950 dark:hover:bg-amber-200"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Exit
+        </Button>
       </div>
     </div>
   );

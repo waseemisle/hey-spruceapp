@@ -259,7 +259,7 @@ export default function ViewClientWorkOrder() {
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
       case 'completed': return 'text-emerald-600 bg-emerald-50';
-      case 'archived': return 'text-gray-600 bg-gray-100';
+      case 'archived': return 'text-muted-foreground bg-muted';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -981,7 +981,7 @@ export default function ViewClientWorkOrder() {
       <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         </PageContainer>
       </>
@@ -1090,7 +1090,7 @@ export default function ViewClientWorkOrder() {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-50"
+                className="text-muted-foreground hover:text-foreground border-border hover:bg-muted/60"
                 onClick={handleArchiveWorkOrder}
                 loading={archiving} disabled={archiving}
               >
@@ -1326,9 +1326,9 @@ export default function ViewClientWorkOrder() {
                 <CardContent>
                   <label
                     htmlFor="wo-image-upload-client"
-                    className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg ${uploadingAttachments ? 'cursor-not-allowed border-gray-200 bg-gray-50' : 'cursor-pointer border-gray-300 hover:border-primary'}`}
+                    className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg ${uploadingAttachments ? 'cursor-not-allowed border-border bg-muted/60' : 'cursor-pointer border-border hover:border-primary'}`}
                   >
-                    <span className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
                       {uploadingAttachments ? (
                         <><Loader2 className="h-4 w-4 animate-spin" />Uploading images…</>
                       ) : (
@@ -1691,7 +1691,7 @@ export default function ViewClientWorkOrder() {
                       const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                       setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                     }}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
+                    className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 shrink-0"
                   />
                   <label htmlFor="selectAllDetail" className="text-sm font-medium text-foreground truncate">Select All ({subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length})</label>
                 </div>
@@ -1715,7 +1715,7 @@ export default function ViewClientWorkOrder() {
                         type="checkbox"
                         checked={selectedSubcontractors.includes(sub.id)}
                         onChange={() => toggleSubcontractorSelection(sub.id)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500"
                         onClick={e => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">

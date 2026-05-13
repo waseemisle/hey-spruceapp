@@ -152,7 +152,7 @@ export default function ClientAccountSettings() {
           <div className="space-y-6">
             {[1, 2].map(i => (
               <div key={i} className="bg-card rounded-xl border border-border p-6 space-y-4 animate-pulse">
-                <div className="h-5 w-40 rounded bg-gray-200" /><div className="h-10 w-full rounded bg-gray-200" />
+                <div className="h-5 w-40 rounded bg-muted" /><div className="h-10 w-full rounded bg-muted" />
               </div>
             ))}
           </div>

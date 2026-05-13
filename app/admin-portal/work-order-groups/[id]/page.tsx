@@ -155,11 +155,11 @@ function statusBadge(status?: string) {
     pending_invoice: 'bg-orange-100 text-orange-800 border-orange-200',
     completed: 'bg-green-100 text-green-800 border-green-200',
     rejected: 'bg-red-100 text-red-800 border-red-200',
-    archived: 'bg-gray-100 text-gray-600 border-gray-200',
+    archived: 'bg-muted text-muted-foreground border-border',
   };
   const label = status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${map[status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${map[status] || 'bg-muted text-foreground border-border'}`}>
       {label}
     </span>
   );
@@ -173,7 +173,7 @@ function priorityBadge(priority?: string) {
     high: 'bg-red-50 text-red-700',
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[priority] || 'bg-gray-50 text-gray-600'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[priority] || 'bg-muted/60 text-muted-foreground'}`}>
       {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
     </span>
   );
@@ -181,13 +181,13 @@ function priorityBadge(priority?: string) {
 
 function invoiceStatusBadge(status?: string) {
   const map: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-700',
+    draft: 'bg-muted text-foreground',
     sent: 'bg-blue-100 text-blue-800',
     paid: 'bg-green-100 text-green-800',
     overdue: 'bg-red-100 text-red-800',
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status || ''] || 'bg-gray-100 text-gray-700'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status || ''] || 'bg-muted text-foreground'}`}>
       {(status || 'unknown').charAt(0).toUpperCase() + (status || 'unknown').slice(1)}
     </span>
   );
@@ -700,7 +700,7 @@ export default function AdminWorkOrderGroupDetail() {
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         ) : !group ? (
           <Card className="rounded-2xl border border-border shadow-sm">
@@ -724,16 +724,16 @@ export default function AdminWorkOrderGroupDetail() {
                             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
                               isDone ? 'bg-blue-600 border-blue-600 text-white' :
                               isCurrent ? 'bg-white border-blue-600 text-blue-600' :
-                              'bg-white border-gray-300 text-gray-400'
+                              'bg-white border-border text-muted-foreground'
                             }`}>
                               {isDone ? <CheckCircle className="h-4 w-4" /> : <span>{i + 1}</span>}
                             </div>
-                            <span className={`text-xs whitespace-nowrap font-medium ${isCurrent ? 'text-blue-700' : isDone ? 'text-blue-500' : 'text-gray-400'}`}>
+                            <span className={`text-xs whitespace-nowrap font-medium ${isCurrent ? 'text-blue-700' : isDone ? 'text-blue-500' : 'text-muted-foreground'}`}>
                               {step.label}
                             </span>
                           </div>
                           {i < STATUS_PIPELINE.length - 1 && (
-                            <div className={`h-0.5 w-6 mx-0 flex-shrink-0 ${isDone ? 'bg-blue-400' : 'bg-gray-200'}`} />
+                            <div className={`h-0.5 w-6 mx-0 flex-shrink-0 ${isDone ? 'bg-blue-400' : 'bg-muted'}`} />
                           )}
                         </div>
                       );
@@ -1050,7 +1050,7 @@ export default function AdminWorkOrderGroupDetail() {
                                     q.status === 'accepted' ? 'bg-green-100 text-green-800' :
                                     q.status === 'rejected' ? 'bg-red-100 text-red-800' :
                                     q.status === 'sent_to_client' ? 'bg-blue-100 text-blue-800' :
-                                    'bg-gray-100 text-gray-700'
+                                    'bg-muted text-foreground'
                                   }`}>
                                     {(q.status || 'pending').replace(/_/g, ' ')}
                                   </span>

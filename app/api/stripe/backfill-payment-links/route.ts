@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { collection, getDocs, query, where, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid, isUserAdmin } from '@/lib/api-verify-firebase';
+import { buildStripeHostedInvoiceFooter } from '@/lib/stripe-invoice-footer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -139,6 +140,8 @@ async function regenerateHostedInvoiceUrl(
 
   const fallbackLineDescription = `Invoice ${invoiceNumber}`;
 
+  const invoiceFooter = await buildStripeHostedInvoiceFooter(db, invoiceData as Record<string, unknown>, invoiceNumber);
+
   // Create the empty Stripe Invoice first so line items can be attached
   // directly to it (Stripe no longer auto-pulls pending customer items).
   // No description (Memo) — line items render the breakdown. Set
@@ -151,7 +154,7 @@ async function regenerateHostedInvoiceUrl(
     days_until_due: 30,
     auto_advance: false,
     pending_invoice_items_behavior: 'exclude',
-    footer: `Invoice ${invoiceNumber}`,
+    footer: invoiceFooter,
     metadata: {
       invoiceId,
       invoiceNumber,
@@ -215,6 +218,8 @@ async function regenerateHostedInvoiceUrl(
   await updateDoc(doc(db, 'invoices', invoiceId), {
     stripePaymentLink: hostedUrl,
     stripeInvoiceId: finalized.id,
+    stripeInvoicePdf: finalized.invoice_pdf || null,
+    stripeHostedInvoiceUrl: finalized.hosted_invoice_url || null,
     updatedAt: serverTimestamp(),
   });
 

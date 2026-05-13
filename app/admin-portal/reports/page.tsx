@@ -446,7 +446,7 @@ export default function ReportsPage() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
         </div>
             </PageContainer>
     </>
@@ -495,7 +495,7 @@ export default function ReportsPage() {
                     className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                       period === v
                         ? 'bg-blue-600 text-white'
-                        : 'bg-muted text-muted-foreground hover:bg-gray-200'
+                        : 'bg-muted text-muted-foreground hover:bg-muted'
                     }`}
                   >
                     {l}
@@ -513,7 +513,7 @@ export default function ReportsPage() {
                     type="date"
                     value={dateFrom}
                     onChange={(e) => setDateFrom(e.target.value)}
-                    className="border border-gray-300 rounded-md px-2 py-1 text-sm text-foreground"
+                    className="border border-border rounded-md px-2 py-1 text-sm text-foreground"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -522,13 +522,13 @@ export default function ReportsPage() {
                     type="date"
                     value={dateTo}
                     onChange={(e) => setDateTo(e.target.value)}
-                    className="border border-gray-300 rounded-md px-2 py-1 text-sm text-foreground"
+                    className="border border-border rounded-md px-2 py-1 text-sm text-foreground"
                   />
                 </div>
               </>
             )}
 
-            <div className="w-px h-6 bg-gray-200 mx-1" />
+            <div className="w-px h-6 bg-muted mx-1" />
 
             {/* Customer filter */}
             <div className="flex items-center gap-2">
@@ -662,7 +662,7 @@ export default function ReportsPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-4 py-10 text-center text-muted-foreground">
@@ -851,7 +851,7 @@ export default function ReportsPage() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-border">
                   {agingRows.map((bucket) => {
                     const total = agingRows.reduce((s, b) => s + b.amount, 0);
                     const share = total > 0 ? (bucket.amount / total) * 100 : 0;
@@ -954,7 +954,7 @@ export default function ReportsPage() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-border">
                     {profitByCustomer.length === 0 ? (
                       <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No data</td></tr>
                     ) : (
@@ -1015,7 +1015,7 @@ export default function ReportsPage() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-border">
                     {profitByVendor.length === 0 ? (
                       <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No data</td></tr>
                     ) : (

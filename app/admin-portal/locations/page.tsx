@@ -556,11 +556,11 @@ export default function LocationsManagement() {
           <div className="bg-card rounded-xl border border-border overflow-hidden">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-5 py-3 border-b border-border animate-pulse">
-                <div className="h-4 w-36 rounded bg-gray-200" />
-                <div className="h-4 w-28 rounded bg-gray-200" />
-                <div className="h-4 flex-1 rounded bg-gray-200" />
-                <div className="h-4 w-20 rounded bg-gray-200" />
-                <div className="h-6 w-16 rounded-full bg-gray-200" />
+                <div className="h-4 w-36 rounded bg-muted" />
+                <div className="h-4 w-28 rounded bg-muted" />
+                <div className="h-4 flex-1 rounded bg-muted" />
+                <div className="h-4 w-20 rounded bg-muted" />
+                <div className="h-6 w-16 rounded-full bg-muted" />
               </div>
             ))}
           </div>
@@ -581,7 +581,7 @@ export default function LocationsManagement() {
                   <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {sortedLocations.map((location) => (
                   <tr key={location.id} className="hover:bg-muted transition-colors">
                     <td className="px-5 py-3.5">

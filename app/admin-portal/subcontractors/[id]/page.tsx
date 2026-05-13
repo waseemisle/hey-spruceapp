@@ -287,7 +287,7 @@ export default function SubcontractorDetailPage() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
         </div>
             </PageContainer>
     </>
@@ -502,7 +502,7 @@ export default function SubcontractorDetailPage() {
                           : 'bg-blue-100 text-blue-600'
                         : tab.danger
                         ? 'bg-red-50 text-red-500'
-                        : 'bg-gray-200 text-muted-foreground'
+                        : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {tab.count}
@@ -529,7 +529,7 @@ export default function SubcontractorDetailPage() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">

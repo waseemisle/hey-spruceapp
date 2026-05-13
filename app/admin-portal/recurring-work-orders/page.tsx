@@ -704,7 +704,7 @@ export default function RecurringWorkOrdersManagement() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-card divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-border">
                 {sortedRecurringWorkOrders.map((recurringWorkOrder) => (
                   <tr key={recurringWorkOrder.id} className="hover:bg-muted transition-colors">
                     <td className="px-4 py-3">
@@ -744,7 +744,7 @@ export default function RecurringWorkOrdersManagement() {
                         const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                         return (
                           <div className="min-w-[80px] space-y-0.5">
-                            <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                            <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
                               <div
                                 className="h-full rounded-full bg-green-500 transition-all"
                                 style={{ width: `${pct}%` }}
@@ -873,7 +873,7 @@ export default function RecurringWorkOrdersManagement() {
                   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                   return (
                     <div className="space-y-1">
-                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                         <div
                           className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-300"
                           style={{ width: `${pct}%` }}

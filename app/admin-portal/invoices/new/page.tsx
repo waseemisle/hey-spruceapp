@@ -125,7 +125,7 @@ function SearchableSelect({
         type="button"
         disabled={disabled}
         onClick={() => { if (!disabled) { setOpen(true); setSearch(''); setTimeout(() => inputRef.current?.focus(), 0); } }}
-        className={`w-full flex items-center justify-between border border-gray-300 rounded-md p-2 bg-card text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : 'hover:border-gray-400 cursor-pointer'}`}
+        className={`w-full flex items-center justify-between border border-border rounded-md p-2 bg-card text-left text-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : 'hover:border-gray-400 cursor-pointer'}`}
       >
         <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
           {selected ? selected.label : placeholder}
@@ -755,7 +755,7 @@ function CreateInvoiceContent() {
       <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         </PageContainer>
       </>
@@ -885,7 +885,7 @@ function CreateInvoiceContent() {
               <div>
                 <Label>Description</Label>
                 <textarea
-                  className="mt-1 w-full border border-gray-300 rounded-md p-2 min-h-[80px] text-sm"
+                  className="mt-1 w-full border border-border rounded-md p-2 min-h-[80px] text-sm"
                   value={formData.workOrderDescription}
                   onChange={e => setFormData(prev => ({ ...prev, workOrderDescription: e.target.value }))}
                   placeholder="Work order description..."
@@ -1103,7 +1103,7 @@ function CreateInvoiceContent() {
             <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
             <CardContent>
               <textarea
-                className="w-full border border-gray-300 rounded-md p-2 min-h-[100px] text-sm"
+                className="w-full border border-border rounded-md p-2 min-h-[100px] text-sm"
                 value={formData.notes}
                 onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Internal notes or client-facing notes..."
@@ -1115,7 +1115,7 @@ function CreateInvoiceContent() {
             <CardHeader><CardTitle>Terms</CardTitle></CardHeader>
             <CardContent>
               <textarea
-                className="w-full border border-gray-300 rounded-md p-2 min-h-[100px] text-sm"
+                className="w-full border border-border rounded-md p-2 min-h-[100px] text-sm"
                 value={formData.terms}
                 onChange={e => setFormData(prev => ({ ...prev, terms: e.target.value }))}
                 placeholder="Payment terms..."

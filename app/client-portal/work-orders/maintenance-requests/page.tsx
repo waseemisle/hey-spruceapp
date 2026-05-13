@@ -19,7 +19,7 @@ export default function ClientMaintenanceRequestsWorkOrders() {
         <PortalHero title="Work Orders" subtitle="Redirecting…" icon={Sparkles} />
         <div className="flex items-center justify-center h-48">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary mx-auto" />
             <p className="mt-4 text-muted-foreground">Redirecting to Maintenance Requests Work Orders…</p>
           </div>
         </div>

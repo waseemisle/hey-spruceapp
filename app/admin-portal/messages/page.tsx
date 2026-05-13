@@ -309,7 +309,7 @@ export default function MessagesManagement() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
         </div>
             </PageContainer>
     </>
@@ -614,7 +614,7 @@ export default function MessagesManagement() {
                 <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border">
                   {loadingUsers ? (
                     <div className="flex items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary"></div>
                     </div>
                   ) : filteredUsers.length === 0 ? (
                     <div className="text-center py-12">

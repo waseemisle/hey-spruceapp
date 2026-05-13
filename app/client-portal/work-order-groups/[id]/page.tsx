@@ -123,12 +123,12 @@ function statusBadge(status?: string) {
     pending_invoice: 'bg-orange-100 text-orange-800 border-orange-200',
     completed: 'bg-green-100 text-green-800 border-green-200',
     rejected: 'bg-red-100 text-red-800 border-red-200',
-    archived: 'bg-gray-100 text-gray-600 border-gray-200',
+    archived: 'bg-muted text-muted-foreground border-border',
   };
   if (!status) return <span className="text-xs text-muted-foreground">—</span>;
   const label = status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${map[status] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${map[status] || 'bg-muted text-foreground border-border'}`}>
       {label}
     </span>
   );
@@ -136,13 +136,13 @@ function statusBadge(status?: string) {
 
 function invoiceStatusBadge(status?: string) {
   const map: Record<string, string> = {
-    draft: 'bg-gray-100 text-gray-700',
+    draft: 'bg-muted text-foreground',
     sent: 'bg-blue-100 text-blue-800',
     paid: 'bg-green-100 text-green-800',
     overdue: 'bg-red-100 text-red-800',
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status || ''] || 'bg-gray-100 text-gray-700'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status || ''] || 'bg-muted text-foreground'}`}>
       {(status || 'unknown').charAt(0).toUpperCase() + (status || 'unknown').slice(1)}
     </span>
   );
@@ -512,7 +512,7 @@ export default function ClientWorkOrderGroupDetail() {
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         ) : !group ? (
           <Card className="rounded-2xl border border-border shadow-sm">
@@ -564,7 +564,7 @@ export default function ClientWorkOrderGroupDetail() {
             {/* Tab loading indicator */}
             {tabLoading && (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary/20 border-t-primary" />
               </div>
             )}
 
@@ -768,7 +768,7 @@ export default function ClientWorkOrderGroupDetail() {
                                     q.status === 'accepted' ? 'bg-green-100 text-green-800' :
                                     q.status === 'rejected' ? 'bg-red-100 text-red-800' :
                                     q.status === 'sent_to_client' ? 'bg-blue-100 text-blue-800' :
-                                    'bg-gray-100 text-gray-700'
+                                    'bg-muted text-foreground'
                                   }`}>
                                     {(q.status || 'pending').replace(/_/g, ' ')}
                                   </span>

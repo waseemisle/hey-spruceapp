@@ -56,7 +56,7 @@ const loginAgo = (iso: string | null) => {
 };
 
 const loginColor = (iso: string | null) => {
-  if (!iso) return 'text-gray-400';
+  if (!iso) return 'text-muted-foreground';
   const ms = Date.now() - new Date(iso).getTime();
   if (ms < 86400000) return 'text-emerald-600';
   if (ms < 604800000) return 'text-yellow-600';
@@ -69,7 +69,7 @@ const roleBadge = (role: string) => {
     client: 'bg-blue-50 text-blue-700 border-blue-200',
     subcontractor: 'bg-orange-50 text-orange-700 border-orange-200',
   };
-  return m[role] || 'bg-gray-50 text-gray-700 border-gray-200';
+  return m[role] || 'bg-muted/60 text-foreground border-border';
 };
 
 const roleIcon = (role: string) => {
@@ -280,7 +280,7 @@ export default function UserActivityPage() {
                                   </div>
                                   <div>
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
-                                      log.logoutAt ? 'bg-gray-50 text-gray-600 border-gray-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      log.logoutAt ? 'bg-muted/60 text-muted-foreground border-border' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                     }`}>
                                       {log.logoutAt ? 'ENDED' : 'ACTIVE'}
                                     </span>

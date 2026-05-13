@@ -960,7 +960,7 @@ export default function SubcontractorAssignedJobs() {
       <>
       <PageContainer>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
         </div>
       </PageContainer>
     </>
@@ -1025,7 +1025,7 @@ export default function SubcontractorAssignedJobs() {
         {/* Jobs Grid */}
         {filteredJobs.length === 0 ? (
           <div className="bg-card rounded-xl border border-border p-16 text-center">
-            <ClipboardList className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-1">
               {filter === 'all' ? 'No assigned jobs yet' : `No ${filter} jobs`}
             </h3>
@@ -1339,7 +1339,7 @@ export default function SubcontractorAssignedJobs() {
                     value={diagnosticNotes}
                     onChange={(e) => setDiagnosticNotes(e.target.value)}
                     placeholder="Describe what you found, the root cause, and recommended repair..."
-                    className="w-full border border-gray-300 rounded-lg p-3 min-h-32 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                    className="w-full border border-border rounded-lg p-3 min-h-32 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                     required
                   />
                 </div>
@@ -1494,7 +1494,7 @@ export default function SubcontractorAssignedJobs() {
                     value={repairNotes}
                     onChange={(e) => setRepairNotes(e.target.value)}
                     placeholder="Any additional context for the admin / client..."
-                    className="w-full border border-gray-300 rounded-lg p-3 min-h-24 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    className="w-full border border-border rounded-lg p-3 min-h-24 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                   />
                 </div>
               </div>
@@ -1579,7 +1579,7 @@ export default function SubcontractorAssignedJobs() {
                           ? 'Optional notes about the diagnostic visit...'
                           : 'Describe what work was completed, parts used, issues encountered, etc.'
                       }
-                      className="w-full border border-gray-300 rounded-lg p-3 min-h-32 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                      className="w-full border border-border rounded-lg p-3 min-h-32 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                       required={!isDeclinedFlow}
                     />
                   </div>
@@ -1593,7 +1593,7 @@ export default function SubcontractorAssignedJobs() {
                       value={completionNotes}
                       onChange={(e) => setCompletionNotes(e.target.value)}
                       placeholder="Any additional information, recommendations, or follow-up needed"
-                      className="w-full border border-gray-300 rounded-lg p-3 min-h-24 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                      className="w-full border border-border rounded-lg p-3 min-h-24 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                     />
                   </div>
 
@@ -1603,9 +1603,9 @@ export default function SubcontractorAssignedJobs() {
                       {isDeclinedFlow ? 'Images (Optional)' : 'Completion Images/Files (Required) *'}
                     </Label>
                     <div className="mt-2">
-                      <label htmlFor="completion-images" className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg appearance-none cursor-pointer focus:outline-none ${completionPreviewUrls.length > 0 ? 'border-emerald-400' : isDeclinedFlow ? 'border-gray-300 hover:border-gray-400' : 'border-red-300 hover:border-red-400'}`}>
+                      <label htmlFor="completion-images" className={`flex items-center justify-center w-full h-32 px-4 transition bg-white border-2 border-dashed rounded-lg appearance-none cursor-pointer focus:outline-none ${completionPreviewUrls.length > 0 ? 'border-emerald-400' : isDeclinedFlow ? 'border-border hover:border-gray-400' : 'border-red-300 hover:border-red-400'}`}>
                         <div className="flex flex-col items-center space-y-2">
-                          <Upload className={`h-8 w-8 ${completionPreviewUrls.length > 0 ? 'text-emerald-500' : isDeclinedFlow ? 'text-gray-400' : 'text-red-400'}`} />
+                          <Upload className={`h-8 w-8 ${completionPreviewUrls.length > 0 ? 'text-emerald-500' : isDeclinedFlow ? 'text-muted-foreground' : 'text-red-400'}`} />
                           <span className="text-sm text-muted-foreground">
                             {completionPreviewUrls.length > 0 ? `${completionPreviewUrls.length} file(s) selected — click to add more` : 'Click to upload images/files'}
                           </span>

@@ -160,6 +160,18 @@ Reference: `app/admin-portal/work-orders/[id]/page.tsx`.
 | `/client-portal/locations/create` | `app/client-portal/locations/create/page.tsx` |
 | `/client-portal/work-orders/create` | `app/client-portal/work-orders/create/page.tsx` |
 
+## Phase 3 (this pass)
+
+| Area | Notes |
+|------|--------|
+| Token sweep | Legacy `gray-*` / `divide-gray-*` in portal `app/*-portal` routes mapped to `foreground` / `muted` / `border` / `muted` utilities (39 files). |
+| Spinners | `border-blue-600` loading spinners in portal pages → `border-primary/20 border-t-primary` pattern (61 files). |
+| `PortalListPage` | New `components/ui/portal-list-page.tsx` — optional `PageContainer` + `PortalHero` wrapper for list/settings pages (adopt per page as you touch them). |
+| Dashboard search | `components/dashboard/dashboard-search-bar.tsx` uses `Input`, `Button`, portal chrome. |
+| Impersonation | `components/impersonation-banner.tsx` aligned to max-width column + dark mode. |
+| Notifications | `components/notification-bell.tsx` trigger + dropdown use design tokens. |
+| Primitives | `Card` → `rounded-xl`; `Input` → `rounded-lg` + `shadow-sm`. |
+
 ## Follow-up
 
-Optional: extract a shared **detail hero** from the work order glass header for long-tail detail pages; strip redundant `mx-auto max-w-[92rem]` from individual `PageContainer`s now that the layout constrains width; extend `components/ui/*` (tables, dialogs) for any remaining one-off grays outside the token set.
+Optional: migrate individual pages to `PortalListPage` where a `PortalHero` is missing; extract a shared **glass detail hero** from the work order page; replace remaining intentional `blue-*` stat accents with `primary` where you want full token consistency without losing green/amber/red semantics.

@@ -628,11 +628,11 @@ function QuotesContent() {
           <div className="border rounded-lg overflow-hidden">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border animate-pulse">
-                <div className="h-4 flex-1 rounded bg-gray-200" />
-                <div className="h-4 w-28 rounded bg-gray-200" />
-                <div className="h-4 w-24 rounded bg-gray-200" />
-                <div className="h-4 w-20 rounded bg-gray-200" />
-                <div className="h-6 w-16 rounded-full bg-gray-200" />
+                <div className="h-4 flex-1 rounded bg-muted" />
+                <div className="h-4 w-28 rounded bg-muted" />
+                <div className="h-4 w-24 rounded bg-muted" />
+                <div className="h-4 w-20 rounded bg-muted" />
+                <div className="h-6 w-16 rounded-full bg-muted" />
               </div>
             ))}
           </div>
@@ -658,7 +658,7 @@ function QuotesContent() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-card divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-border">
                 {sortedQuotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-muted transition-colors">
                     <td className="px-4 py-3 text-sm">
@@ -982,7 +982,7 @@ function QuotesContent() {
                 <div>
                   <Label>Notes (optional)</Label>
                   <textarea
-                    className="w-full border border-gray-300 rounded-md p-2 min-h-[100px]"
+                    className="w-full border border-border rounded-md p-2 min-h-[100px]"
                     placeholder="e.g., Door gaskets are special order—pricing and labor vary by manufacturer."
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}

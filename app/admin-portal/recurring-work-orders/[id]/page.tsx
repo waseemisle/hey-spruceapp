@@ -408,7 +408,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       case 'completed': return 'text-emerald-600 bg-emerald-50';
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'rejected_by_subcontractor': return 'text-red-600 bg-red-50';
-      case 'archived': return 'text-gray-600 bg-gray-100';
+      case 'archived': return 'text-muted-foreground bg-muted';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -665,7 +665,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
         </div>
             </PageContainer>
     </>
@@ -973,7 +973,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                         </span>
                         <span className="text-muted-foreground">{progressPercent}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-green-500 to-green-400"
                           style={{ width: `${progressPercent}%` }}
@@ -1124,7 +1124,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                   ? 'bg-blue-50 border-blue-300'
                                   : isNext
                                   ? 'bg-indigo-50 border-indigo-200'
-                                  : 'bg-gray-50 border-gray-200'
+                                  : 'bg-muted/60 border-border'
                               }`}
                             >
                               <div className="flex items-center gap-3">

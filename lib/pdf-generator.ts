@@ -13,6 +13,8 @@ export interface InvoiceData {
   };
   workOrderName?: string;
   vendorName?: string;
+  /** Subcontractor company (from profile) — shown below vendor name when set. */
+  vendorCompany?: string;
   serviceDescription?: string;
   lineItems: Array<{
     description: string;
@@ -132,7 +134,7 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
 
   // Service Information Section
   let yPosition = 88;
-  if (invoice.workOrderName || invoice.vendorName || invoice.serviceDescription) {
+  if (invoice.workOrderName || invoice.vendorName || invoice.vendorCompany || invoice.serviceDescription) {
     const startY = yPosition;
     
     // Calculate height needed for content
@@ -143,6 +145,10 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
     }
     if (invoice.vendorName) {
       contentHeight += 6;
+    }
+    if (invoice.vendorCompany) {
+      const splitCoH = doc.splitTextToSize(invoice.vendorCompany, pageWidth - 95);
+      contentHeight += Math.max(6, splitCoH.length * 5);
     }
     if (invoice.serviceDescription) {
       const splitServiceDesc = doc.splitTextToSize(invoice.serviceDescription, pageWidth - 50);
@@ -173,15 +179,24 @@ export function generateInvoicePDF(invoice: InvoiceData): jsPDF {
       yPosition += Math.max(6, splitWorkOrderName.length * 5) + 2;
     }
     
-    // Vendor Name
     if (invoice.vendorName) {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...COLORS.dark);
-      doc.text('Vendor:', 25, yPosition);
+      doc.text('Subcontractor:', 25, yPosition);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.text);
       doc.text(invoice.vendorName, 70, yPosition);
       yPosition += 6;
+    }
+    if (invoice.vendorCompany) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.dark);
+      doc.text('Company:', 25, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.text);
+      const splitCo = doc.splitTextToSize(invoice.vendorCompany, pageWidth - 95);
+      doc.text(splitCo, 70, yPosition);
+      yPosition += Math.max(6, splitCo.length * 5);
     }
     
     // Service Description

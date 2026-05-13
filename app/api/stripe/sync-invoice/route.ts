@@ -113,6 +113,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, synced: false, reason: 'stripe_retrieve_failed' });
     }
 
+    // Self-heal: persist Stripe PDF / hosted URLs whenever Stripe has them
+    // so portal "Download PDF" can proxy without waiting for webhooks.
+    if (
+      (stripeInvoice.invoice_pdf && inv.stripeInvoicePdf !== stripeInvoice.invoice_pdf) ||
+      (stripeInvoice.hosted_invoice_url && inv.stripeHostedInvoiceUrl !== stripeInvoice.hosted_invoice_url)
+    ) {
+      try {
+        await updateDoc(ref, {
+          stripeInvoicePdf: stripeInvoice.invoice_pdf || inv.stripeInvoicePdf || null,
+          stripeHostedInvoiceUrl: stripeInvoice.hosted_invoice_url || inv.stripeHostedInvoiceUrl || null,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (patchErr) {
+        console.warn('[sync-invoice] PDF URL patch failed:', patchErr);
+      }
+    }
+
     if (stripeInvoice.status !== 'paid') {
       return NextResponse.json({ ok: true, synced: false, stripeStatus: stripeInvoice.status });
     }

@@ -92,7 +92,7 @@ const EMAIL_TYPE_COLORS: Record<EmailType, string> = {
   'work-order-received': 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-300',
   'quote-approval-admin-notification': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
   'work-order-approved': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  test: 'bg-muted text-foreground dark:bg-gray-700 dark:text-gray-300',
+  test: 'bg-muted text-foreground dark:bg-gray-700 dark:text-muted-foreground',
 };
 
 const PAGE_SIZE = 25;
@@ -510,7 +510,7 @@ export default function EmailLogsPage() {
                       type="checkbox"
                       checked={paginated.length > 0 && paginated.every((l) => selectedIds.has(l.id))}
                       onChange={() => togglePageAll(paginated)}
-                      className="rounded border-gray-300 cursor-pointer"
+                      className="rounded border-border cursor-pointer"
                     />
                   </th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground whitespace-nowrap">Date</th>
@@ -552,7 +552,7 @@ export default function EmailLogsPage() {
                             type="checkbox"
                             checked={selectedIds.has(log.id)}
                             onChange={() => toggleRow(log.id)}
-                            className="rounded border-gray-300 cursor-pointer"
+                            className="rounded border-border cursor-pointer"
                           />
                         </td>
 

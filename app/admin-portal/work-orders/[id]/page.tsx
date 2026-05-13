@@ -2231,7 +2231,7 @@ export default function ViewWorkOrder() {
               <Button
                 size="sm"
                 variant="outline"
-                className="text-gray-600 hover:text-gray-800 border-gray-300 hover:bg-gray-50"
+                className="text-muted-foreground hover:text-foreground border-border hover:bg-muted/60"
                 onClick={handleArchiveWorkOrder}
                 loading={archiving} disabled={archiving}
               >
@@ -3008,7 +3008,7 @@ export default function ViewWorkOrder() {
                 <CardContent>
                   {vendorPaymentLoading ? (
                     <div className="flex items-center justify-center h-24">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
                     </div>
                   ) : !vendorPayment ? (
                     <div className="space-y-3">
@@ -3804,7 +3804,7 @@ export default function ViewWorkOrder() {
                       const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                       setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                     }}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
+                    className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 shrink-0"
                   />
                   <label htmlFor="selectAllAdminDetailBidding" className="text-sm font-medium text-foreground truncate">Select All ({subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length})</label>
                 </div>
@@ -3831,14 +3831,14 @@ export default function ViewWorkOrder() {
                         checked={selectedSubcontractors.includes(sub.id)}
                         disabled={sub.alreadyInvited}
                         onChange={() => {}}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                        className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 disabled:opacity-50"
                         onClick={e => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-foreground">{sub.fullName}</p>
                           {sub.alreadyInvited && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">Already Invited</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground border border-border">Already Invited</span>
                           )}
                           {!sub.alreadyInvited && sub.matchesCategory && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200">Matches Category</span>

@@ -136,7 +136,7 @@ export default function AdminWorkOrderGroupsList() {
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         ) : groups.length === 0 ? (
           <Card className="rounded-2xl border border-border shadow-sm">

@@ -1184,7 +1184,7 @@ export default function ClientDetailPage() {
     return (
       <PageContainer>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
         </div>
       </PageContainer>
     );
@@ -1393,8 +1393,8 @@ export default function ClientDetailPage() {
               </div>
 
               {displayMethods.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 p-6 flex flex-col items-center gap-2 text-center">
-                  <CreditCard className="h-8 w-8 text-gray-300" />
+                <div className="rounded-lg border border-dashed border-border p-6 flex flex-col items-center gap-2 text-center">
+                  <CreditCard className="h-8 w-8 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">No payment methods saved for this client.</p>
                   <p className="text-xs text-muted-foreground">Add a card or bank account to enable auto-charging.</p>
                 </div>
@@ -1479,13 +1479,13 @@ export default function ClientDetailPage() {
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {pm.accountType ? pm.accountType.charAt(0).toUpperCase() + pm.accountType.slice(1) : 'Checking'}
                             {pm.routingNumber && <> · Routing ••••{pm.routingNumber.slice(-4)}</>}
-                            <span className="mx-2 text-gray-300">|</span>
+                            <span className="mx-2 text-muted-foreground">|</span>
                             <span className="font-mono text-muted-foreground text-[11px]">{pm.id}</span>
                           </p>
                         ) : (
                           <p className="text-xs text-muted-foreground mt-0.5">
                             Expires {pm.expMonth ? String(pm.expMonth).padStart(2, '0') : '--'} / {pm.expYear || '--'}
-                            <span className="mx-2 text-gray-300">|</span>
+                            <span className="mx-2 text-muted-foreground">|</span>
                             <span className="font-mono text-muted-foreground text-[11px]">{pm.id}</span>
                           </p>
                         )}
@@ -1781,7 +1781,7 @@ export default function ClientDetailPage() {
                     placeholder="e.g. 300"
                     value={subAmount}
                     onChange={(e) => setSubAmount(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -1797,7 +1797,7 @@ export default function ClientDetailPage() {
                     placeholder="e.g. 2 = charged on the 2nd"
                     value={subBillingDay}
                     onChange={(e) => setSubBillingDay(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -1875,7 +1875,7 @@ export default function ClientDetailPage() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-border">
                   {consolidatedInvoices.map((ci) => (
                     <tr key={ci.id} className="hover:bg-muted/50">
                       <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
@@ -2127,7 +2127,7 @@ export default function ClientDetailPage() {
           <div className="p-5">
             {charges.length === 0 ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
-                <Receipt className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                <Receipt className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>No charges yet for this client.</span>
               </div>
             ) : (
@@ -2140,7 +2140,7 @@ export default function ClientDetailPage() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-border">
                     {charges.map((charge) => (
                       <tr key={charge.id} className="hover:bg-muted/50">
                         <td className="py-3 pr-4 text-muted-foreground text-xs whitespace-nowrap">
@@ -2258,7 +2258,7 @@ export default function ClientDetailPage() {
                     className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-xs font-bold px-1 ${
                       activeTab === tab.key
                         ? tab.danger ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
-                        : tab.danger ? 'bg-red-50 text-red-500' : 'bg-gray-200 text-muted-foreground'
+                        : tab.danger ? 'bg-red-50 text-red-500' : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {tab.count}
@@ -2284,7 +2284,7 @@ export default function ClientDetailPage() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
@@ -2472,7 +2472,7 @@ export default function ClientDetailPage() {
                       value={chargeAmount}
                       onChange={(e) => setChargeAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full border border-border rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                 </div>
@@ -2485,7 +2485,7 @@ export default function ClientDetailPage() {
                     value={chargeDesc}
                     onChange={(e) => setChargeDesc(e.target.value)}
                     placeholder="e.g. March 2026 service charge"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -2572,7 +2572,7 @@ export default function ClientDetailPage() {
                   <label className="block text-xs font-medium text-muted-foreground mb-2">Card details</label>
                   <div
                     ref={cardMountRef}
-                    className="w-full rounded-lg border border-gray-300 bg-card px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
+                    className="w-full rounded-lg border border-border bg-card px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
                   />
                   {cardError && (
                     <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
@@ -2785,7 +2785,7 @@ export default function ClientDetailPage() {
                     value={editAutoChargeThreshold}
                     onChange={(e) => setEditAutoChargeThreshold(e.target.value)}
                     placeholder="e.g. 500.00"
-                    className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Auto-charge when consolidated invoice reaches this amount</p>
@@ -2828,7 +2828,7 @@ export default function ClientDetailPage() {
                     value={editFullName}
                     onChange={(e) => setEditFullName(e.target.value)}
                     placeholder="Full name"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -2838,7 +2838,7 @@ export default function ClientDetailPage() {
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
                     placeholder="(555) 123-4567"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -2849,7 +2849,7 @@ export default function ClientDetailPage() {
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   placeholder="client@example.com"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {editEmail && editOriginalEmail && editEmail.trim().toLowerCase() !== editOriginalEmail.trim().toLowerCase() && (
                   <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md mt-1.5 px-2 py-1.5">
@@ -2905,7 +2905,7 @@ export default function ClientDetailPage() {
                   value={editStreet}
                   onChange={(e) => setEditStreet(e.target.value)}
                   placeholder="123 Main St"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2916,7 +2916,7 @@ export default function ClientDetailPage() {
                     value={editCity}
                     onChange={(e) => setEditCity(e.target.value)}
                     placeholder="City"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -2926,7 +2926,7 @@ export default function ClientDetailPage() {
                     value={editStateRegion}
                     onChange={(e) => setEditStateRegion(e.target.value)}
                     placeholder="State"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -2936,7 +2936,7 @@ export default function ClientDetailPage() {
                     value={editZip}
                     onChange={(e) => setEditZip(e.target.value)}
                     placeholder="ZIP"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -2975,7 +2975,7 @@ export default function ClientDetailPage() {
                       value={editAutoChargeThresholdMain}
                       onChange={(e) => setEditAutoChargeThresholdMain(e.target.value)}
                       placeholder="e.g. 500.00"
-                      className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-border rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>

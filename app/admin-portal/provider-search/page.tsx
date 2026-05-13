@@ -124,7 +124,7 @@ function ProviderCard({
         {rank <= 3 && (
           <div className={`flex-shrink-0 px-2 py-1 rounded-lg text-xs font-bold ${
             rank === 1 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-            rank === 2 ? 'bg-muted text-foreground dark:bg-gray-800 dark:text-gray-300' :
+            rank === 2 ? 'bg-muted text-foreground dark:bg-gray-800 dark:text-muted-foreground' :
             'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
           }`}>
             #{rank} CHOICE

@@ -110,7 +110,7 @@ export default function ClientWorkOrderGroupsList() {
     };
     const label = status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100 text-gray-700'}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-muted text-foreground'}`}>
         {label}
       </span>
     );
@@ -128,7 +128,7 @@ export default function ClientWorkOrderGroupsList() {
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         ) : !permitted ? (
           <Card className="rounded-2xl border border-border shadow-sm">

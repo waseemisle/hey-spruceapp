@@ -15,6 +15,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw, Loader2, FileText, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
+import { tryDownloadStripeInvoicePdf } from '@/lib/invoice-stripe-pdf-client';
 import { formatMoney } from '@/lib/money';
 import { Quote } from '@/types';
 import { toast } from 'sonner';
@@ -51,6 +52,7 @@ interface Invoice {
   stripePaymentLink?: string;
   stripeSessionId?: string;
   stripePaymentIntentId?: string;
+  stripeInvoiceId?: string;
   stripeInvoicePdf?: string;
   autoChargeAttempted?: boolean;
   autoChargeStatus?: 'pending' | 'succeeded' | 'failed' | 'requires_action';
@@ -1046,15 +1048,33 @@ function InvoicesManagementInner() {
   };
 
   /**
-   * Prefer Stripe's hosted invoice PDF when available (carries pay-online
-   * link + Stripe layout). Falls back to the local generator only when
-   * the Stripe PDF isn't ready (draft / Stripe link still pending).
+   * Prefer the official Stripe invoice PDF (server proxy), then stored URL,
+   * then the local generator.
    */
-  const downloadInvoice = (invoice: Invoice) => {
+  const downloadInvoice = async (invoice: Invoice) => {
     try {
+      const stripeInvId = invoice.stripeInvoiceId || '';
+      if (stripeInvId.startsWith('in_')) {
+        const ok = await tryDownloadStripeInvoicePdf(
+          invoice.id,
+          invoice.invoiceNumber || invoice.id,
+          () => auth.currentUser?.getIdToken(),
+        );
+        if (ok) return;
+      }
       if (invoice.stripeInvoicePdf) {
         window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
         return;
+      }
+      let vendorCompany = '';
+      const subId = invoice.subcontractorId;
+      if (subId) {
+        try {
+          const sd = await getDoc(doc(db, 'subcontractors', subId));
+          if (sd.exists()) vendorCompany = String((sd.data() as { companyName?: string }).companyName || '').trim();
+        } catch {
+          /* ignore */
+        }
       }
       downloadInvoicePDF({
         invoiceNumber: invoice.invoiceNumber,
@@ -1062,6 +1082,7 @@ function InvoicesManagementInner() {
         clientEmail: invoice.clientEmail,
         workOrderName: invoice.workOrderTitle,
         vendorName: invoice.subcontractorName,
+        vendorCompany: vendorCompany || undefined,
         serviceDescription: invoice.workOrderDescription,
         lineItems: invoice.lineItems,
         subtotal: invoice.totalAmount,
@@ -1803,7 +1824,7 @@ function InvoicesManagementInner() {
                 <div>
                   <Label>Notes</Label>
                   <textarea
-                    className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
+                    className="w-full border border-border rounded-md p-2 min-h-[80px]"
                     placeholder="Additional notes..."
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -1814,7 +1835,7 @@ function InvoicesManagementInner() {
                 <div>
                   <Label>Terms</Label>
                   <textarea
-                    className="w-full border border-gray-300 rounded-md p-2 min-h-[80px]"
+                    className="w-full border border-border rounded-md p-2 min-h-[80px]"
                     placeholder="Payment terms..."
                     value={formData.terms}
                     onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
@@ -2192,7 +2213,7 @@ function InvoicesManagementInner() {
                     type="file"
                     accept=".pdf"
                     onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                    className="w-full border border-gray-300 rounded-md p-2 mt-1"
+                    className="w-full border border-border rounded-md p-2 mt-1"
                   />
                   {selectedFile && (
                     <p className="text-sm text-muted-foreground mt-2">

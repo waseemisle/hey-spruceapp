@@ -74,7 +74,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string; dot: str
   accepted_by_subcontractor: { label: 'Scheduled', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
   completed: { label: 'Completed', className: 'bg-muted text-foreground border-border', dot: 'bg-gray-400' },
   rejected: { label: 'Rejected', className: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500' },
-  archived: { label: 'Archived', className: 'bg-gray-50 text-gray-700 border-gray-200', dot: 'bg-gray-400' },
+  archived: { label: 'Archived', className: 'bg-muted/60 text-foreground border-border', dot: 'bg-gray-400' },
 };
 
 const PRIORITY_CONFIG: Record<string, { className: string; dot: string }> = {
@@ -974,7 +974,7 @@ function ClientWorkOrdersContent() {
           icon={Sparkles}
         />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
         </div>
             </PageContainer>
     </>
@@ -989,7 +989,7 @@ function ClientWorkOrdersContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              {workOrderType === 'archive' ? <Archive className="h-7 w-7 text-gray-600" /> : <ClipboardList className="h-7 w-7 text-blue-600" />}
+              {workOrderType === 'archive' ? <Archive className="h-7 w-7 text-muted-foreground" /> : <ClipboardList className="h-7 w-7 text-blue-600" />}
               {workOrderType === 'maintenance' ? 'Maintenance Requests Work Orders' : workOrderType === 'archive' ? 'Archived Work Orders' : 'Work Orders'}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -1150,7 +1150,7 @@ function ClientWorkOrdersContent() {
                   <th className="text-right px-5 py-3 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {filteredWorkOrders.map((workOrder) => {
                   const statusCfg = STATUS_CONFIG[normalizeStatus(workOrder.status)] || STATUS_CONFIG.pending;
                   const priorityCfg = PRIORITY_CONFIG[workOrder.priority] || PRIORITY_CONFIG.medium;
@@ -1580,7 +1580,7 @@ function ClientWorkOrdersContent() {
                       const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                       setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                     }}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 shrink-0"
+                    className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 shrink-0"
                   />
                   <label htmlFor="selectAll" className="text-sm font-medium text-foreground truncate">
                     Select All ({subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length})
@@ -1613,7 +1613,7 @@ function ClientWorkOrdersContent() {
                         type="checkbox"
                         checked={selectedSubcontractors.includes(sub.id)}
                         onChange={() => toggleSubcontractorSelection(sub.id)}
-                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">
@@ -1672,7 +1672,7 @@ function ClientWorkOrdersContent() {
 export default function ClientWorkOrders() {
   return (
     <Suspense fallback={<div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
         </div>}>
       <ClientWorkOrdersContent />
     </Suspense>
