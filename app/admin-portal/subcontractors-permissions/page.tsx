@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   doc,
   getDoc,
@@ -9,16 +9,15 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { PortalListPage } from '@/components/ui/portal-list-page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { SettingCard, SettingRow, StatusPill } from '@/components/ui/setting-card';
+import { SettingCard, SettingRow } from '@/components/ui/setting-card';
 import {
   ShieldCheck, MessageSquare, MessageCircle, Smartphone, Users,
   Save, Search, TestTube2, CheckCircle2, XCircle, Loader2,
@@ -126,15 +125,38 @@ export default function SubcontractorsPermissionsPage() {
   const [subTestResults, setSubTestResults] = useState<TestResult[]>([]);
   const [subTestLoading, setSubTestLoading] = useState(false);
 
-  // Load global settings + test recipient on mount
+  // Load only after auth is restored and adminUsers doc exists (matches Firestore `isAdmin()`).
   useEffect(() => {
-    loadGlobal();
-    loadSubcontractors();
+    if (!auth || !db) {
+      setGlobalLoading(false);
+      return;
+    }
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      if (!firebaseUser) {
+        setGlobalLoading(false);
+        return;
+      }
+      void (async () => {
+        const adminSnap = await getDoc(doc(db, 'adminUsers', firebaseUser.uid));
+        if (!adminSnap.exists()) {
+          setGlobalLoading(false);
+          return;
+        }
+        await loadGlobal();
+        await loadSubcontractors();
+      })();
+    });
+    return () => unsub();
   }, []);
 
   async function loadGlobal() {
     setGlobalLoading(true);
     try {
+      const u = auth?.currentUser;
+      if (!u) return;
+      const adminSnap = await getDoc(doc(db, 'adminUsers', u.uid));
+      if (!adminSnap.exists()) return;
+
       const snap = await getDoc(doc(db, 'messagingSettings', 'global'));
       if (snap.exists()) {
         const data = snap.data() as GlobalSettings & { testRecipient?: string };
@@ -164,6 +186,11 @@ export default function SubcontractorsPermissionsPage() {
   async function loadSubPerm(subId: string) {
     setSubPermLoading(true);
     try {
+      const u = auth?.currentUser;
+      if (!u) return;
+      const adminSnap = await getDoc(doc(db, 'adminUsers', u.uid));
+      if (!adminSnap.exists()) return;
+
       const snap = await getDoc(doc(db, 'subcontractorMessagingPermissions', subId));
       if (snap.exists()) {
         setSubPerm(snap.data() as SubPerm);
@@ -205,7 +232,16 @@ export default function SubcontractorsPermissionsPage() {
   async function saveGlobal() {
     setGlobalSaving(true);
     try {
-      const user = auth.currentUser;
+      const user = auth?.currentUser;
+      if (!user) {
+        toast.error('You must be signed in to save settings.');
+        return;
+      }
+      const adminSnap = await getDoc(doc(db, 'adminUsers', user.uid));
+      if (!adminSnap.exists()) {
+        toast.error('You do not have permission to change messaging settings.');
+        return;
+      }
       const settingsToSave = {
         ...globalSettings,
         testRecipient: testPhone || '+923212134142',
@@ -241,7 +277,16 @@ export default function SubcontractorsPermissionsPage() {
     if (!selectedSub) return;
     setSubPermSaving(true);
     try {
-      const user = auth.currentUser;
+      const user = auth?.currentUser;
+      if (!user) {
+        toast.error('You must be signed in to save permissions.');
+        return;
+      }
+      const adminSnap = await getDoc(doc(db, 'adminUsers', user.uid));
+      if (!adminSnap.exists()) {
+        toast.error('You do not have permission to change subcontractor messaging permissions.');
+        return;
+      }
       await setDoc(
         doc(db, 'subcontractorMessagingPermissions', selectedSub.id),
         {
