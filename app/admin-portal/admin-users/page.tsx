@@ -8,11 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Mail, Phone, Plus, Edit2, Save, X, Search, Trash2, ShieldCheck, Bell } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
-
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface AdminUser {
   uid: string;
   email: string;
@@ -199,19 +197,17 @@ export default function AdminUsersManagement() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Admin Users"
-          subtitle="Manage admin user accounts"
-          icon={ShieldCheck}
-          iconClassName="text-blue-600"
-          action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create New Admin User
-            </Button>
-          }
-        />
+      <PortalListPage
+        title="Admin Users"
+        subtitle="Manage admin user accounts"
+        icon={ShieldCheck}
+        heroAction={
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create New Admin User
+          </Button>
+        }
+      >
 
         <StatCards items={[{ label: 'Total', value: adminUsers.length, icon: User, color: 'blue' }]} />
 
@@ -383,7 +379,7 @@ export default function AdminUsersManagement() {
             </div>
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

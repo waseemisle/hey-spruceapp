@@ -397,7 +397,7 @@ export default function AdminInvoiceDetail() {
       const ok = await tryDownloadStripeInvoicePdf(
         invoice.id,
         invoice.invoiceNumber || invoice.id,
-        () => auth.currentUser?.getIdToken(),
+        () => auth.currentUser?.getIdToken() ?? Promise.resolve(null),
       );
       if (ok) return;
     }

@@ -21,7 +21,7 @@ export function PortalHero({
       <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-start gap-4">
           <div className="rounded-xl bg-card border border-border shadow-sm p-3 flex-shrink-0">
-            <Icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            <Icon className="h-6 w-6 text-primary" />
           </div>
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
@@ -36,7 +36,7 @@ export function PortalHero({
         </div>
 
         {rightPill && (
-          <div className="hidden md:flex">
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
             {rightPill}
           </div>
         )}
