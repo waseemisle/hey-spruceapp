@@ -1995,23 +1995,26 @@ export default function ViewWorkOrder() {
 
   if (loading) {
     return (
-      <PageContainer>
-        <PortalHero
-          title="Work order"
-          subtitle="Loading details…"
-          icon={ClipboardList}
-        />
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-card py-24 shadow-sm">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-        </div>
-      </PageContainer>
+      <div className="-mx-4 md:-mx-6 -mt-2 mb-8 min-h-[50vh] bg-gradient-to-b from-slate-100/90 via-slate-50/40 to-muted/25 px-4 pb-10 pt-2 dark:from-zinc-950 dark:via-background dark:to-muted/15 md:px-6">
+        <PageContainer className="mx-auto max-w-[92rem]">
+          <PortalHero
+            title="Work order"
+            subtitle="Loading details…"
+            icon={ClipboardList}
+          />
+          <div className="flex items-center justify-center rounded-3xl border border-border/60 bg-card/90 py-28 shadow-lg shadow-slate-900/[0.04] backdrop-blur-sm dark:shadow-black/30">
+            <div className="h-11 w-11 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          </div>
+        </PageContainer>
+      </div>
     );
   }
 
   if (!workOrder) {
     return (
-      <PageContainer>
-        <div className="rounded-2xl border border-border bg-card px-6 py-16 text-center shadow-sm">
+      <div className="-mx-4 md:-mx-6 -mt-2 mb-8 bg-gradient-to-b from-slate-100/90 via-slate-50/40 to-muted/25 px-4 pb-10 pt-2 dark:from-zinc-950 dark:via-background dark:to-muted/15 md:px-6">
+        <PageContainer className="mx-auto max-w-[92rem]">
+        <div className="rounded-3xl border border-border/60 bg-card/95 px-6 py-20 text-center shadow-xl shadow-slate-900/[0.04] backdrop-blur-sm dark:shadow-black/30">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <ClipboardList className="h-7 w-7 text-muted-foreground" />
           </div>
@@ -2024,7 +2027,8 @@ export default function ViewWorkOrder() {
             </Button>
           </Link>
         </div>
-      </PageContainer>
+        </PageContainer>
+      </div>
     );
   }
 
@@ -2043,22 +2047,30 @@ export default function ViewWorkOrder() {
   ];
 
   return (
-    <>
-      <PageContainer>
-        {/* Hero header — matches portal page UI (subcontractors / design doc) */}
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-blue-50/90 via-card to-violet-50/40 shadow-md ring-1 ring-border/50 dark:from-blue-950/30 dark:via-card dark:to-violet-950/25">
-          <div className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-blue-400/20 blur-3xl dark:bg-blue-500/10" aria-hidden />
-          <div className="pointer-events-none absolute -bottom-28 -left-20 h-52 w-52 rounded-full bg-violet-400/15 blur-3xl dark:bg-violet-500/10" aria-hidden />
-          <div className="relative space-y-4 p-4 sm:p-6">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start">
+    <div className="-mx-4 md:-mx-6 -mt-2 mb-8 min-h-[calc(100vh-8rem)] bg-gradient-to-b from-slate-100/95 via-slate-50/50 to-muted/35 px-4 pb-12 pt-1 dark:from-zinc-950 dark:via-zinc-950/80 dark:to-background md:px-6">
+      <PageContainer className="mx-auto max-w-[92rem]">
+        {/* Hero — glass panel, breadcrumb, primary metadata, action rail */}
+        <div className="relative overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/85 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] ring-1 ring-black/[0.04] backdrop-blur-xl dark:bg-zinc-900/75 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] dark:ring-white/[0.06]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/10" aria-hidden />
+          <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-sky-400/15 blur-3xl dark:bg-sky-500/10" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-violet-400/12 blur-3xl dark:bg-violet-600/10" aria-hidden />
+          <div className="relative space-y-5 p-5 sm:p-7">
+            <nav className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground" aria-label="Breadcrumb">
+              <Link href="/admin-portal/work-orders" className="font-medium transition-colors hover:text-foreground">
+                Work orders
+              </Link>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" aria-hidden />
+              <span className="truncate font-mono text-xs text-foreground/90">#{workOrder.workOrderNumber}</span>
+            </nav>
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between xl:gap-8">
+              <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-start">
                 <Link href="/admin-portal/work-orders" className="shrink-0">
-                  <Button variant="outline" size="sm">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
+                  <Button variant="outline" size="sm" className="h-9 rounded-xl border-border/80 bg-background/60 shadow-sm backdrop-blur-sm transition-all hover:bg-background">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>
                 </Link>
-                <div className="min-w-0 flex-1 space-y-2">
+                <div className="min-w-0 flex-1 space-y-3">
                   {editMode ? (
                     <div className="flex flex-wrap items-center gap-3">
                       <Input
@@ -2089,30 +2101,34 @@ export default function ViewWorkOrder() {
                       />
                     </div>
                   ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="truncate text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{workOrder.title}</h1>
-                      <span
-                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${getStatusColor(workOrder.status)}`}
-                      >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
-                        {workOrder.status.replace(/_/g, ' ').toUpperCase()}
-                      </span>
-                      <span
-                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${getPriorityColor(workOrder.priority)}`}
-                      >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
-                        {workOrder.priority.toUpperCase()}
-                      </span>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                      <h1 className="min-w-0 max-w-full text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-[1.75rem] lg:leading-snug">
+                        {workOrder.title}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${getStatusColor(workOrder.status)}`}
+                        >
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
+                          {workOrder.status.replace(/_/g, ' ').toUpperCase()}
+                        </span>
+                        <span
+                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${getPriorityColor(workOrder.priority)}`}
+                        >
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
+                          {workOrder.priority.toUpperCase()}
+                        </span>
+                      </div>
                     </div>
                   )}
-                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-                    <span className="font-mono text-xs text-foreground/80">#{workOrder.workOrderNumber}</span>
-                    <span className="hidden sm:inline" aria-hidden>
-                      ·
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/50 px-2 py-0.5 font-mono text-xs text-foreground/85 dark:bg-muted/30">
+                      #{workOrder.workOrderNumber}
                     </span>
-                    <span className="inline-flex items-center gap-1">
+                    <span className="hidden sm:inline h-1 w-1 rounded-full bg-border" aria-hidden />
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-                      {workOrder.locationName}
+                      <span className="truncate">{workOrder.locationName}</span>
                     </span>
                     {workOrder.createdAt?.toDate && (
                       <>
@@ -2128,7 +2144,7 @@ export default function ViewWorkOrder() {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-shrink-0 flex-wrap gap-2 border-t border-border/60 pt-3 xl:rounded-xl xl:border xl:border-border/70 xl:border-t xl:bg-background/80 xl:p-2.5 xl:pt-2.5 xl:shadow-sm xl:backdrop-blur-sm dark:xl:bg-background/50">
+              <div className="flex flex-shrink-0 flex-wrap gap-2 border-t border-border/50 pt-4 xl:max-w-[min(100%,28rem)] xl:rounded-2xl xl:border xl:border-border/60 xl:border-t xl:bg-muted/25 xl:p-3 xl:pt-3 xl:shadow-inner dark:xl:bg-muted/15">
             {workOrder.status === 'pending' && (
               <>
                 <Button
@@ -2470,28 +2486,35 @@ export default function ViewWorkOrder() {
 
         {/* Status Pipeline */}
         {currentStepIdx >= 0 && (
-          <div className="overflow-x-auto rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
-            <div className="flex min-w-max items-center gap-0">
+          <div className="overflow-x-auto rounded-[1.25rem] border border-border/60 bg-card/90 p-4 shadow-md shadow-slate-900/[0.04] backdrop-blur-sm sm:p-5 dark:shadow-black/25">
+            <div className="flex min-w-max items-center gap-0 px-1">
               {STATUS_PIPELINE.map((step, idx) => {
                 const isDone = idx < currentStepIdx;
                 const isCurrent = idx === currentStepIdx;
-                const isSkipped = workOrder.status === 'rejected' || workOrder.status === 'rejected_by_subcontractor';
                 return (
                   <div key={step.key} className="flex items-center">
-                    <div className={`flex flex-col items-center px-3 ${isCurrent ? 'opacity-100' : isDone ? 'opacity-80' : 'opacity-40'}`}>
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
-                        isCurrent ? 'bg-primary border-primary text-primary-foreground' :
-                        isDone ? 'bg-green-500 border-green-500 text-white' :
-                        'bg-muted border-muted-foreground/30 text-muted-foreground'
-                      }`}>
+                    <div className={`flex flex-col items-center px-2.5 sm:px-3 ${isCurrent ? 'opacity-100' : isDone ? 'opacity-90' : 'opacity-45'}`}>
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-[11px] font-bold transition-all sm:h-9 sm:w-9 sm:text-xs ${
+                          isCurrent
+                            ? 'border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25'
+                            : isDone
+                              ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm'
+                              : 'border-muted-foreground/25 bg-muted/80 text-muted-foreground'
+                        }`}
+                      >
                         {isDone ? <CheckCircle className="h-4 w-4" /> : idx + 1}
                       </div>
-                      <span className={`text-xs mt-1 text-center whitespace-nowrap ${isCurrent ? 'font-semibold text-primary' : isDone ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                      <span
+                        className={`mt-2 max-w-[5.5rem] text-center text-[11px] leading-tight sm:max-w-none sm:text-xs ${
+                          isCurrent ? 'font-semibold text-primary' : isDone ? 'font-medium text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
+                        }`}
+                      >
                         {step.label}
                       </span>
                     </div>
                     {idx < STATUS_PIPELINE.length - 1 && (
-                      <div className={`h-0.5 w-8 ${idx < currentStepIdx ? 'bg-green-500' : 'bg-muted'}`} />
+                      <div className={`mx-0.5 h-0.5 w-6 rounded-full sm:w-8 ${idx < currentStepIdx ? 'bg-emerald-500' : 'bg-muted-foreground/20'}`} />
                     )}
                   </div>
                 );
@@ -2500,10 +2523,10 @@ export default function ViewWorkOrder() {
           </div>
         )}
 
-        {/* Tab Navigation — filter-pill style (page-ui-design) */}
-        <div className="rounded-2xl border border-border bg-muted/50 p-1.5 shadow-sm dark:bg-muted/30">
+        {/* Tab navigation — segmented control, scroll on small screens */}
+        <div className="sticky top-2 z-20 rounded-[1.25rem] border border-border/60 bg-background/80 p-1 shadow-lg shadow-slate-900/[0.04] backdrop-blur-xl dark:bg-background/70 dark:shadow-black/30">
           <div
-            className="-mx-0.5 flex gap-1 overflow-x-auto px-0.5 pb-0.5 sm:mx-0 sm:px-0 sm:pb-0"
+            className="-mx-0.5 flex gap-0.5 overflow-x-auto px-0.5 pb-0.5 sm:mx-0 sm:px-0 sm:pb-0"
             role="tablist"
             aria-label="Work order sections"
           >
@@ -2514,28 +2537,28 @@ export default function ViewWorkOrder() {
                 aria-selected={activeTab === tab.key}
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium outline-none transition-all duration-200 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:px-3.5 ${
                   activeTab === tab.key
-                    ? 'bg-card text-foreground shadow-md ring-2 ring-primary/25 ring-offset-2 ring-offset-background dark:ring-offset-card'
-                    : 'text-muted-foreground hover:bg-muted/90 hover:text-foreground'
+                    ? 'bg-card text-foreground shadow-md ring-1 ring-border/80 dark:bg-card'
+                    : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                 }`}
               >
-                <tab.icon className="h-4 w-4 shrink-0 opacity-80" />
+                <tab.icon className="h-4 w-4 shrink-0 opacity-85" aria-hidden />
                 {tab.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Tab Content — single surface for scanability */}
-        <div className="rounded-2xl border border-border bg-gradient-to-b from-card via-card to-muted/10 p-4 shadow-inner sm:p-6 lg:p-8 dark:to-muted/5">
+        {/* Tab content — elevated canvas */}
+        <div className="rounded-[1.75rem] border border-border/60 bg-card/95 p-5 shadow-[0_20px_40px_-24px_rgba(15,23,42,0.15)] ring-1 ring-black/[0.03] sm:p-7 lg:p-9 dark:bg-card/90 dark:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.5)] dark:ring-white/[0.04]">
 
           {/* OVERVIEW TAB */}
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-              <div className="space-y-6 lg:col-span-2">
-                <Card className="overflow-hidden rounded-2xl border-border shadow-md transition-shadow hover:shadow-lg">
-                  <CardHeader className="border-b border-border/60 bg-muted/15 pb-4 dark:bg-muted/10">
+            <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start xl:gap-10">
+              <div className="min-w-0 space-y-6">
+                <Card className="overflow-hidden rounded-2xl border-border/60 bg-card/80 shadow-md shadow-slate-900/[0.03] backdrop-blur-sm transition-shadow duration-300 hover:shadow-lg dark:shadow-black/20">
+                  <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/25 to-transparent pb-4 dark:from-muted/15">
                     <CardTitle className="text-lg font-semibold tracking-tight">Work Order Details</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-5 pt-6">
@@ -2884,9 +2907,9 @@ export default function ViewWorkOrder() {
               </div>
 
               {/* Sidebar */}
-              <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-                <Card className="rounded-2xl border-border shadow-sm">
-                  <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Client</CardTitle></CardHeader>
+              <div className="space-y-4 xl:sticky xl:top-4 xl:self-start">
+                <Card className="rounded-2xl border-border/60 bg-card/90 shadow-md shadow-slate-900/[0.03] backdrop-blur-sm dark:shadow-black/20">
+                  <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base font-semibold"><User className="h-5 w-5 text-primary" />Client</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     {editMode ? (
                       <div>
@@ -2916,8 +2939,8 @@ export default function ViewWorkOrder() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-2xl border-border shadow-sm">
-                  <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" />Location</CardTitle></CardHeader>
+                <Card className="rounded-2xl border-border/60 bg-card/90 shadow-md shadow-slate-900/[0.03] backdrop-blur-sm dark:shadow-black/20">
+                  <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base font-semibold"><MapPin className="h-5 w-5 text-primary" />Location</CardTitle></CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     {editMode ? (
                       <div>
@@ -2944,8 +2967,8 @@ export default function ViewWorkOrder() {
                 </Card>
 
                 {(workOrder.assignedToName || workOrder.assignedSubcontractorName) && (
-                  <Card className="rounded-2xl border-border shadow-sm">
-                    <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Assigned To</CardTitle></CardHeader>
+                  <Card className="rounded-2xl border-border/60 bg-card/90 shadow-md shadow-slate-900/[0.03] backdrop-blur-sm dark:shadow-black/20">
+                    <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base font-semibold"><User className="h-5 w-5 text-primary" />Assigned To</CardTitle></CardHeader>
                     <CardContent className="text-sm">
                       <p className="font-semibold">{workOrder.assignedToName || workOrder.assignedSubcontractorName}</p>
                       {workOrder.assignedAt && <p className="text-muted-foreground text-xs mt-1">Assigned {workOrder.assignedAt?.toDate?.().toLocaleDateString()}</p>}
@@ -4150,6 +4173,6 @@ export default function ViewWorkOrder() {
           onClose={() => setLightboxImages([])}
         />
       )}
-    </>
+    </div>
   );
 }

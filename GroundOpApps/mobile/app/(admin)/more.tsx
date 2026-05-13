@@ -22,7 +22,6 @@ const items = [
   { label: 'Recurring Work Orders', href: '/(admin)/recurring-work-orders', icon: ClipboardList },
   { label: 'Rejected Work Orders', href: '/(admin)/rejected-work-orders', icon: Archive },
   { label: 'Quotes', href: '/(admin)/quotes', icon: FileText },
-  { label: 'RFPs', href: '/(admin)/rfps', icon: FileText },
   { label: 'Scheduled Invoices', href: '/(admin)/scheduled-invoices', icon: Calendar },
   { label: 'Categories', href: '/(admin)/categories', icon: Tag },
   { label: 'Assets', href: '/(admin)/assets', icon: Package },

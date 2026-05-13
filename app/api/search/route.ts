@@ -102,15 +102,6 @@ const COLLECTIONS = [
     searchFields: ['name', 'serialNumber', 'type', 'status', 'location', 'description'],
     hrefFn: () => `/admin-portal/assets`,
   },
-  {
-    name: 'rfps',
-    category: 'RFPs',
-    titleField: 'title',
-    titleFallbacks: ['rfpNumber'],
-    subtitleFields: ['status', 'clientName'],
-    searchFields: ['title', 'rfpNumber', 'status', 'clientName', 'description', 'category'],
-    hrefFn: () => `/admin-portal/rfps`,
-  },
 ];
 
 export async function GET(request: NextRequest) {

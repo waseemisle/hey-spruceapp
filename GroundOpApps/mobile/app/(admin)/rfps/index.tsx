@@ -1,4 +1,5 @@
-import { StubScreen } from '@/components/StubScreen';
-export default function Screen() {
-  return <StubScreen title='RFPs' webPath='app/admin-portal/rfps/page.tsx' spec='§C.14' />;
+import { Redirect } from 'expo-router';
+
+export default function RfpsLegacyRedirect() {
+  return <Redirect href="/(admin)/quotes" />;
 }

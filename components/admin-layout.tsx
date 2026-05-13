@@ -27,7 +27,7 @@ type NavItem = {
   name: string;
   href?: string;
   icon: React.ElementType;
-  badgeKey?: 'locations' | 'workOrders' | 'messages' | 'supportTickets' | 'procurement';
+  badgeKey?: 'locations' | 'workOrders' | 'messages' | 'supportTickets' | 'quotes';
   children?: NavChild[];
 };
 
@@ -85,13 +85,10 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    name: 'Procurement',
+    name: 'Quotes',
+    href: '/admin-portal/quotes',
     icon: FileText,
-    badgeKey: 'procurement',
-    children: [
-      { name: 'Quotes', href: '/admin-portal/quotes', icon: FileText },
-      { name: 'RFPs', href: '/admin-portal/rfps', icon: FileText },
-    ],
+    badgeKey: 'quotes',
   },
   {
     name: 'Messaging',
@@ -167,7 +164,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileExpandedItems, setMobileExpandedItems] = useState<Set<string>>(new Set());
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [badgeCounts, setBadgeCounts] = useState({ locations: 0, workOrders: 0, messages: 0, supportTickets: 0, procurement: 0 });
+  const [badgeCounts, setBadgeCounts] = useState({ locations: 0, workOrders: 0, messages: 0, supportTickets: 0, quotes: 0 });
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -180,14 +177,14 @@ export default function AdminLayout({ children, headerExtra }: { children: React
     let unsubscribeLocations: (() => void) | undefined;
     let unsubscribeWorkOrders: (() => void) | undefined;
     let unsubscribeSupportTickets: (() => void) | undefined;
-    let unsubscribeProcurement: (() => void) | undefined;
+    let unsubscribeQuotesBadge: (() => void) | undefined;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       // Clean up previous badge listeners on every auth state change
       unsubscribeLocations?.();
       unsubscribeWorkOrders?.();
       unsubscribeSupportTickets?.();
-      unsubscribeProcurement?.();
+      unsubscribeQuotesBadge?.();
 
       if (firebaseUser) {
         setUser((prev: any) => prev?.uid === firebaseUser.uid ? prev : { ...firebaseUser });
@@ -217,12 +214,12 @@ export default function AdminLayout({ children, headerExtra }: { children: React
               (err) => console.error('Support tickets badge listener error:', err),
             );
 
-            // Procurement badge: quotes waiting for admin review (status == 'pending')
-            const procurementQuery = query(collection(db, 'quotes'), where('status', '==', 'pending'));
-            unsubscribeProcurement = onSnapshot(
-              procurementQuery,
-              (s) => setBadgeCounts(prev => ({ ...prev, procurement: s.size })),
-              (err) => console.error('Procurement badge listener error:', err),
+            // Quotes badge: pending quotes awaiting admin review
+            const pendingQuotesQuery = query(collection(db, 'quotes'), where('status', '==', 'pending'));
+            unsubscribeQuotesBadge = onSnapshot(
+              pendingQuotesQuery,
+              (s) => setBadgeCounts(prev => ({ ...prev, quotes: s.size })),
+              (err) => console.error('Quotes badge listener error:', err),
             );
           } else {
             setLoading(false);
@@ -244,7 +241,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
       unsubscribeLocations?.();
       unsubscribeWorkOrders?.();
       unsubscribeSupportTickets?.();
-      unsubscribeProcurement?.();
+      unsubscribeQuotesBadge?.();
     };
   }, [router]);
 

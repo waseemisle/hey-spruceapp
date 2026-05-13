@@ -101,15 +101,6 @@ const SEARCH_COLLECTIONS = [
     searchFields: ['name', 'serialNumber', 'type', 'status', 'location', 'description'],
     hrefFn: () => `/admin-portal/assets`,
   },
-  {
-    name: 'rfps',
-    category: 'RFPs',
-    titleField: 'title',
-    titleFallbacks: ['rfpNumber'],
-    subtitleFields: ['status', 'clientName'],
-    searchFields: ['title', 'rfpNumber', 'status', 'clientName', 'description', 'category'],
-    hrefFn: () => `/admin-portal/rfps`,
-  },
 ];
 
 interface SearchResultItem {
@@ -132,7 +123,6 @@ const CATEGORY_ICONS: Record<string, { Icon: React.ElementType; color: string }>
   'Maintenance Requests':  { Icon: Wrench,        color: 'text-amber-600' },
   'Categories':            { Icon: Tag,           color: 'text-pink-500' },
   'Assets':                { Icon: Package,       color: 'text-indigo-500' },
-  'RFPs':                  { Icon: FileText,      color: 'text-violet-500' },
 };
 
 export default function GlobalSearchDialog() {
