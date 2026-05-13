@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 import Logo from '@/components/ui/logo';
 import { AuthShell } from '@/components/ui/auth-shell';
-import { ShieldCheck } from 'lucide-react';
 
 export default function PortalLogin() {
   const [email, setEmail] = useState('');
@@ -131,12 +130,8 @@ export default function PortalLogin() {
   };
 
   return (
-    <AuthShell
-      title=""
-      subtitle=""
-      icon={ShieldCheck}
-    >
-      <Card className="w-full">
+    <AuthShell title="" subtitle="">
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-4">
             <Logo size="lg" href="/" />
@@ -167,7 +162,7 @@ export default function PortalLogin() {
               />
             </div>
             <div className="text-sm text-right">
-              <Link href="/forgot-password" className="text-blue-500 hover:underline">
+              <Link href="/forgot-password" className="text-primary underline-offset-4 hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -182,11 +177,11 @@ export default function PortalLogin() {
             </Button>
             <div className="text-sm text-center text-muted-foreground">
               Don't have an account?{' '}
-              <Link href="/register-client" className="text-blue-500 hover:underline">
+              <Link href="/register-client" className="text-primary underline-offset-4 hover:underline">
                 Register as Client
               </Link>
               {' or '}
-              <Link href="/register-subcontractor" className="text-blue-500 hover:underline">
+              <Link href="/register-subcontractor" className="text-primary underline-offset-4 hover:underline">
                 Subcontractor
               </Link>
             </div>

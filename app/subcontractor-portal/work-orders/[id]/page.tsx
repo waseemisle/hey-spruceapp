@@ -10,7 +10,7 @@ import { formatMoney } from '@/lib/money';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ClipboardList, Calendar, MapPin, Stethoscope, FileText, Image as ImageIcon } from 'lucide-react';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { formatAddress } from '@/lib/utils';
 
@@ -178,22 +178,20 @@ export default function SubWorkOrderDetail() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Work Order Details"
-          subtitle={workOrder.workOrderNumber ? `Work Order: ${workOrder.workOrderNumber}` : workOrder.title}
-          icon={ClipboardList}
-          iconClassName="text-blue-600"
-          action={
-            <div className="flex flex-wrap gap-2">
-              <Link href="/subcontractor-portal/assigned">
-                <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold gap-1.5">
-                  <ArrowLeft className="h-4 w-4" /> Back
-                </Button>
-              </Link>
-            </div>
-          }
-        />
+      <PortalListPage
+        title="Work Order Details"
+        subtitle={workOrder.workOrderNumber ? `Work Order: ${workOrder.workOrderNumber}` : workOrder.title}
+        icon={ClipboardList}
+        heroAction={
+          <div className="flex flex-wrap gap-2">
+            <Link href="/subcontractor-portal/assigned">
+              <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold gap-1.5">
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+            </Link>
+          </div>
+        }
+      >
 
         {/* Overview */}
         <Card className="rounded-2xl border border-border shadow-sm">
@@ -477,7 +475,7 @@ export default function SubWorkOrderDetail() {
             </CardContent>
           </Card>
         )}
-      </PageContainer>
+      </PortalListPage>
 
       {lightboxImages.length > 0 && (
         <ImageLightbox

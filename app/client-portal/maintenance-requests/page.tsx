@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Wrench, User, MapPin, Search, Eye, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 interface MaintRequest {
@@ -183,12 +183,11 @@ export default function ClientMaintenanceRequests() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Maintenance Requests"
-          subtitle="View maintenance requests from your properties"
-          icon={Wrench}
-        />
+      <PortalListPage
+        title="Maintenance Requests"
+        subtitle="View maintenance requests from your properties"
+        icon={Wrench}
+      >
 
         <StatCards
           items={[
@@ -296,7 +295,7 @@ export default function ClientMaintenanceRequests() {
             </div>
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

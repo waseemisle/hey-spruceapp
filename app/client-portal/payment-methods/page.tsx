@@ -6,7 +6,7 @@ import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
 import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import {
   CreditCard, ShieldCheck, Plus, Trash2, Zap, RefreshCw,
   CheckCircle, AlertCircle, Clock, X, Loader2, Building2,
@@ -14,7 +14,6 @@ import {
 import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
 
-import { PageContainer } from '@/components/ui/page-container';
 interface ClientData {
   uid: string;
   fullName: string;
@@ -283,13 +282,11 @@ function PaymentMethodsContent() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Payment Methods"
-          subtitle="Manage your saved card and automatic payments"
-          icon={CreditCard}
-          iconClassName="text-blue-600"
-        />
+      <PortalListPage
+        title="Payment Methods"
+        subtitle="Manage your saved card and automatic payments"
+        icon={CreditCard}
+      >
 
         {/* Auto-Pay Status Banner */}
         <div className={`rounded-xl border p-4 flex items-center gap-3 ${
@@ -441,7 +438,7 @@ function PaymentMethodsContent() {
             </p>
           </div>
         </div>
-      </PageContainer>
+      </PortalListPage>
 
       {/* ── Add Bank Account Modal ──────────────────────────────────────────── */}
       {showBankModal && (

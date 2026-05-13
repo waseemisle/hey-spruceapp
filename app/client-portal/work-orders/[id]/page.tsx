@@ -77,6 +77,9 @@ interface WorkOrder {
   assignedAt?: any;
   rejectedAt?: any;
   companyId?: string;
+  ratingCompleteToSpecs?: boolean;
+  ratedAt?: any;
+  ratedBy?: string;
 }
 
 interface Subcontractor {
@@ -143,6 +146,8 @@ export default function ViewClientWorkOrder() {
   const [hasShareForBiddingPermission, setHasShareForBiddingPermission] = useState(false);
   const [hasArchivePermission, setHasArchivePermission] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [showRatingDialog, setShowRatingDialog] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
@@ -976,6 +981,26 @@ export default function ViewClientWorkOrder() {
     }
   };
 
+  const handleWorkOrderRating = async (completeToSpecs: boolean) => {
+    if (!workOrder) return;
+    setRatingSubmitting(true);
+    try {
+      await updateDoc(doc(db, 'workOrders', workOrder.id), {
+        ratingCompleteToSpecs: completeToSpecs,
+        ratedAt: serverTimestamp(),
+        ratedBy: auth.currentUser?.email ?? auth.currentUser?.uid ?? 'Client',
+      });
+      setWorkOrder((prev) => (prev ? { ...prev, ratingCompleteToSpecs: completeToSpecs } : null));
+      setShowRatingDialog(false);
+      toast.success(completeToSpecs ? 'Thanks — work marked as complete to specifications.' : 'Feedback recorded.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save rating');
+    } finally {
+      setRatingSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -1111,6 +1136,18 @@ export default function ViewClientWorkOrder() {
                   Message Group
                 </Button>
               </Link>
+            )}
+            {workOrder.status === 'completed' && workOrder.ratingCompleteToSpecs === undefined && (
+              <Button size="sm" onClick={() => setShowRatingDialog(true)}>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Leave a Rating
+              </Button>
+            )}
+            {workOrder.status === 'completed' && workOrder.ratingCompleteToSpecs !== undefined && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <CheckCircle className="h-4 w-4" />
+                Rated: {workOrder.ratingCompleteToSpecs ? 'Complete to specifications' : 'Not to specifications'}
+              </span>
             )}
           </div>
         </div>
@@ -1649,6 +1686,28 @@ export default function ViewClientWorkOrder() {
         onClose={() => setShowCompareDialog(false)}
         viewMode="client"
       />
+
+      {showRatingDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+          <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
+            <div className="shrink-0 p-4 sm:p-6">
+              <h3 className="text-lg font-semibold mb-2">Leave a Rating for this Work Order</h3>
+              <p className="text-muted-foreground text-sm">Is the work complete and to specifications?</p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-3 border-t border-border p-4 sm:p-6">
+              <Button className="flex-1 min-w-[6rem]" onClick={() => handleWorkOrderRating(true)} loading={ratingSubmitting} disabled={ratingSubmitting}>
+                Yes
+              </Button>
+              <Button variant="outline" className="flex-1 min-w-[6rem]" onClick={() => handleWorkOrderRating(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
+                No
+              </Button>
+              <Button variant="ghost" className="w-full sm:ml-auto sm:w-auto" onClick={() => setShowRatingDialog(false)} disabled={ratingSubmitting}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Share for Bidding Modal */}
       {showBiddingModal && (

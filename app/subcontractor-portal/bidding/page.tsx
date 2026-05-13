@@ -14,13 +14,12 @@ import { Label } from '@/components/ui/label';
 import { ClipboardList, Calendar, MapPin, Search, Stethoscope, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 
-import { PageContainer } from '@/components/ui/page-container';
 // Predefined service time slots the subcontractor picks from. The chosen
 // label is stored verbatim on the quote and shown to client + admin
 // (e.g. "Proposed Date Apr 25 at 8:00 AM - 10:00 AM").
@@ -1201,13 +1200,11 @@ export default function SubcontractorBidding() {
   if (viewWorkOrder) {
     return (
       <>
-        <PageContainer>
-          <PageHeader
+        <PortalListPage
             title="Work Order Details"
             subtitle={viewWorkOrder.workOrderNumber ? `Work Order: ${viewWorkOrder.workOrderNumber}` : viewWorkOrder.workOrderTitle}
             icon={ClipboardList}
-            iconClassName="text-blue-600"
-            action={
+            heroAction={
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => setViewWorkOrder(null)}>
                   Back
@@ -1289,7 +1286,7 @@ export default function SubcontractorBidding() {
                 )}
               </div>
             }
-          />
+        >
 
           {/* Combined bundle: show each WO as its own card */}
           {Array.isArray(viewWorkOrder.workOrderIds) && viewWorkOrder.workOrderIds.length >= 2 && viewWorkOrder.workOrderDetails?.length ? (
@@ -1445,7 +1442,7 @@ export default function SubcontractorBidding() {
               </CardContent>
             </Card>
           )}
-        </PageContainer>
+        </PortalListPage>
       </>
     );
   }
@@ -1453,13 +1450,11 @@ export default function SubcontractorBidding() {
   if (showResultsForm && resultsBidding) {
     return (
       <>
-        <PageContainer className="!space-y-4">
-          <PageHeader
+        <PortalListPage className="!space-y-4"
             title="Submit Diagnostic Results"
             subtitle={resultsBidding.workOrderNumber ? `Work Order: ${resultsBidding.workOrderNumber}` : resultsBidding.workOrderTitle}
             icon={Stethoscope}
-            iconClassName="text-indigo-600"
-            action={
+            heroAction={
               <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => {
                 setShowResultsForm(false);
                 setResultsBidding(null);
@@ -1467,7 +1462,7 @@ export default function SubcontractorBidding() {
                 Cancel
               </Button>
             }
-          />
+        >
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 xl:gap-6 items-start">
             <div className="space-y-4 lg:sticky lg:top-4 lg:z-[1] lg:max-h-[min(85dvh,calc(100dvh-6rem))] lg:overflow-y-auto lg:pr-1">
@@ -1621,7 +1616,7 @@ export default function SubcontractorBidding() {
               </Card>
             </div>
           </div>
-        </PageContainer>
+        </PortalListPage>
       </>
     );
   }
@@ -1629,13 +1624,11 @@ export default function SubcontractorBidding() {
   if (showDirectInvoiceForm && directInvoiceBidding) {
     return (
       <>
-        <PageContainer className="!space-y-4">
-          <PageHeader
+        <PortalListPage className="!space-y-4"
             title="Submit Invoice"
             subtitle={directInvoiceBidding.workOrderNumber ? `Work Order: ${directInvoiceBidding.workOrderNumber}` : directInvoiceBidding.workOrderTitle}
             icon={Receipt}
-            iconClassName="text-blue-600"
-            action={
+            heroAction={
               <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => {
                 setShowDirectInvoiceForm(false);
                 setDirectInvoiceBidding(null);
@@ -1643,7 +1636,7 @@ export default function SubcontractorBidding() {
                 Cancel
               </Button>
             }
-          />
+        >
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 xl:gap-6 items-start">
             <div className="space-y-4 lg:sticky lg:top-4 lg:z-[1] lg:max-h-[min(85dvh,calc(100dvh-6rem))] lg:overflow-y-auto lg:pr-1">
@@ -1806,7 +1799,7 @@ export default function SubcontractorBidding() {
           </Card>
             </div>
           </div>
-        </PageContainer>
+        </PortalListPage>
       </>
     );
   }
@@ -1814,13 +1807,11 @@ export default function SubcontractorBidding() {
   if (showDirectQuoteForm && selectedBidding) {
     return (
       <>
-        <PageContainer className="!space-y-4">
-          <PageHeader
+        <PortalListPage className="!space-y-4"
             title="Submit Quote"
             subtitle={selectedBidding.workOrderNumber ? `Work Order: ${selectedBidding.workOrderNumber}` : selectedBidding.workOrderTitle}
             icon={FileText}
-            iconClassName="text-emerald-600"
-            action={
+            heroAction={
               <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => {
                 setShowDirectQuoteForm(false);
                 setSelectedBidding(null);
@@ -1828,7 +1819,7 @@ export default function SubcontractorBidding() {
                 Cancel
               </Button>
             }
-          />
+        >
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 xl:gap-6 items-start">
             <div className="space-y-4 lg:sticky lg:top-4 lg:z-[1] lg:max-h-[min(85dvh,calc(100dvh-6rem))] lg:overflow-y-auto lg:pr-1">
@@ -2001,7 +1992,7 @@ export default function SubcontractorBidding() {
           </Card>
             </div>
           </div>
-        </PageContainer>
+        </PortalListPage>
       </>
     );
   }
@@ -2009,13 +2000,11 @@ export default function SubcontractorBidding() {
   if (showQuoteForm && selectedBidding) {
     return (
       <>
-        <PageContainer className="!space-y-4">
-          <PageHeader
+        <PortalListPage className="!space-y-4"
             title="Submit Diagnostic Request"
             subtitle={selectedBidding.workOrderNumber ? `Work Order: ${selectedBidding.workOrderNumber}` : selectedBidding.workOrderTitle}
             icon={Stethoscope}
-            iconClassName="text-indigo-600"
-            action={
+            heroAction={
               <Button variant="outline" className="h-10 rounded-xl px-4 font-semibold" onClick={() => {
                 setShowQuoteForm(false);
                 setSelectedBidding(null);
@@ -2023,7 +2012,7 @@ export default function SubcontractorBidding() {
                 Cancel
               </Button>
             }
-          />
+        >
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 xl:gap-6 items-start">
             <div className="space-y-4 lg:sticky lg:top-4 lg:z-[1] lg:max-h-[min(85dvh,calc(100dvh-6rem))] lg:overflow-y-auto lg:pr-1">
@@ -2201,20 +2190,18 @@ export default function SubcontractorBidding() {
           </Card>
             </div>
           </div>
-        </PageContainer>
+        </PortalListPage>
       </>
     );
   }
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Available Work Orders"
-          subtitle="Submit quotes for available jobs"
-          icon={ClipboardList}
-          iconClassName="text-blue-600"
-        />
+      <PortalListPage
+        title="Available Work Orders"
+        subtitle="Submit quotes for available jobs"
+        icon={ClipboardList}
+      >
 
         <StatCards
           items={[
@@ -2361,7 +2348,7 @@ export default function SubcontractorBidding() {
             ))}
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
 
       {lightboxImages.length > 0 && (
         <ImageLightbox

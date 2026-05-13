@@ -1,7 +1,7 @@
 'use client';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 /**
  * Admin → Edit Scheduled Invoice
  *
@@ -188,20 +188,19 @@ export default function EditScheduledInvoicePage() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Edit Scheduled Invoice"
-          subtitle="Update title, description, and line items. Schedule changes require cancel + recreate."
-          icon={Receipt}
-          action={
-            <Link href={`/admin-portal/scheduled-invoices/${id}`}>
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-          }
-        />
+      <PortalListPage
+        title="Edit Scheduled Invoice"
+        subtitle="Update title, description, and line items. Schedule changes require cancel + recreate."
+        icon={Receipt}
+        heroAction={
+          <Link href={`/admin-portal/scheduled-invoices/${id}`}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+        }
+      >
 
         <div className="mx-auto w-full max-w-6xl space-y-4">
         <Card>
@@ -301,7 +300,7 @@ export default function EditScheduledInvoicePage() {
           </Link>
         </div>
         </div>
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

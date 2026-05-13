@@ -6,7 +6,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { db, auth } from '@/lib/firebase';
 import { subscribeClientSupportTickets } from '@/lib/support-ticket-snapshots';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +26,6 @@ import { SUPPORT_CATEGORY_LABELS, SUPPORT_STATUS_LABELS } from '@/lib/support-ti
 import { supportTicketPost } from '@/lib/support-ticket-api-client';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
-import { PageContainer } from '@/components/ui/page-container';
 const OPEN_STATUSES = ['open', 'in-progress', 'waiting-on-client', 'waiting-on-admin'];
 const TERMINAL = ['resolved', 'closed'];
 
@@ -244,13 +243,12 @@ export default function ClientSupportTicketsPage() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Support Tickets"
-          subtitle="Get help from our team"
-          icon={Headphones}
-          action={<Button onClick={() => setDialogOpen(true)}>Create New Ticket</Button>}
-        />
+      <PortalListPage
+        title="Support Tickets"
+        subtitle="Get help from our team"
+        icon={Headphones}
+        heroAction={<Button onClick={() => setDialogOpen(true)}>Create New Ticket</Button>}
+      >
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md">
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
@@ -471,7 +469,7 @@ export default function ClientSupportTicketsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

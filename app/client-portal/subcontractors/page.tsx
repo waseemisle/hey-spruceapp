@@ -10,13 +10,13 @@ import { Label } from '@/components/ui/label';
 import { SearchableMultiSelect } from '@/components/ui/searchable-select';
 import { User, Mail, Phone, Building, Award, Search, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 import { Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Subcontractor {
   uid: string;
   email: string;
@@ -234,18 +234,17 @@ export default function ClientSubcontractorsView() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Subcontractors"
-          subtitle={hasViewPermission ? 'View all approved subcontractors' : 'Create new subcontractors'}
-          icon={Users}
-          action={hasCreatePermission ? (
-            <Button className="gap-2" onClick={() => setShowCreateModal(true)}>
-              <Plus className="h-4 w-4" />
-              Add Subcontractor
-            </Button>
-          ) : undefined}
-        />
+      <PortalListPage
+        title="Subcontractors"
+        subtitle={hasViewPermission ? 'View all approved subcontractors' : 'Create new subcontractors'}
+        icon={Users}
+        heroAction={hasCreatePermission ? (
+          <Button className="gap-2" onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4" />
+            Add Subcontractor
+          </Button>
+        ) : undefined}
+      >
 
         {hasViewPermission && (
           <StatCards
@@ -394,7 +393,7 @@ export default function ClientSubcontractorsView() {
             </div>
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 /**
  * Admin → Create Scheduled Invoice
  *
@@ -432,20 +432,19 @@ export default function CreateScheduledInvoicePage() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Create Scheduled Invoice"
-          subtitle="Define the recurring billing schedule."
-          icon={Receipt}
-          action={
-            <Link href="/admin-portal/scheduled-invoices">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-          }
-        />
+      <PortalListPage
+        title="Create Scheduled Invoice"
+        subtitle="Define the recurring billing schedule."
+        icon={Receipt}
+        heroAction={
+          <Link href="/admin-portal/scheduled-invoices">
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+        }
+      >
 
         <div className="mx-auto w-full max-w-6xl space-y-4">
         <Card>
@@ -773,7 +772,7 @@ export default function CreateScheduledInvoicePage() {
           </Link>
         </div>
         </div>
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

@@ -12,10 +12,8 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
-import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
-
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Company { id: string; clientId?: string; name: string; email?: string; phone?: string; logoUrl?: string }
 
 const AVATAR_COLORS = [
@@ -176,19 +174,17 @@ export default function AdminCompanies() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Companies"
-          subtitle="Manage client companies and their details"
-          icon={Building2}
-          iconClassName="text-blue-600"
-          action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Company
-            </Button>
-          }
-        />
+      <PortalListPage
+        title="Companies"
+        subtitle="Manage client companies and their details"
+        icon={Building2}
+        heroAction={
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Company
+          </Button>
+        }
+      >
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
@@ -353,7 +349,7 @@ export default function AdminCompanies() {
             </table>
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
 
       {/* Modal */}
       {showModal && (

@@ -149,11 +149,11 @@ function SetPasswordContent() {
   if (success) {
     return (
       <AuthShell title="Set Password" subtitle="Account activation" icon={Lock}>
-        <Card className="w-full shadow-sm">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardContent className="pt-12 pb-8 text-center">
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle className="w-12 h-12 text-green-600" />
+            <div className="mb-6 flex justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/15 dark:bg-emerald-500/20">
+                <CheckCircle className="h-12 w-12 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-2">Password Set Successfully!</h2>
@@ -168,26 +168,26 @@ function SetPasswordContent() {
 
   return (
     <AuthShell title="Set Password" subtitle="Create a password to activate your account." icon={Lock}>
-      <Card className="w-full shadow-sm">
-        <CardHeader className="space-y-1 text-center pb-4">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
-              <Lock className="w-8 h-8 text-white" />
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
+        <CardHeader className="space-y-1 pb-4 text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 shadow-sm ring-1 ring-border">
+              <Lock className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Set Your Password
           </CardTitle>
           <CardDescription className="text-base">
             Welcome to GroundOps! Please create a password to activate your account.
           </CardDescription>
-          <div className="pt-4 space-y-2 bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+          <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 pt-4">
             <p className="text-lg text-foreground">
-              Setting password for Email: <span className="text-green-600">{email || 'Loading...'}</span>
+              Setting password for Email: <span className="font-medium text-primary">{email || 'Loading...'}</span>
             </p>
             {role && (
               <p className="text-sm text-muted-foreground">
-                Role: <span className="font-medium text-blue-600">{role}</span>
+                Role: <span className="font-medium text-foreground">{role}</span>
               </p>
             )}
           </div>
@@ -247,7 +247,7 @@ function SetPasswordContent() {
             <div className="pt-4">
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                className="w-full"
                 disabled={loading || !password || !confirmPassword || password !== confirmPassword || password.length < 6}
               >
                 {loading ? 'Setting Password...' : 'Set Password & Activate Account'}
@@ -258,7 +258,7 @@ function SetPasswordContent() {
           <div className="mt-6 pt-4 border-t text-center">
             <p className="text-sm text-muted-foreground">
               Already have a password?{' '}
-              <a href="/portal-login" className="text-green-600 hover:text-green-700 font-medium">
+              <a href="/portal-login" className="font-medium text-primary underline-offset-4 hover:underline">
                 Sign in here
               </a>
             </p>
@@ -273,8 +273,8 @@ export default function SetPasswordPage() {
   return (
     <Suspense fallback={
       <AuthShell title="Set Password" subtitle="Loading…" icon={Lock}>
-        <div className="text-center py-10">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+        <div className="rounded-xl border border-border/80 bg-card py-10 text-center shadow-sm">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           <p className="mt-2 text-muted-foreground">Loading...</p>
         </div>
       </AuthShell>

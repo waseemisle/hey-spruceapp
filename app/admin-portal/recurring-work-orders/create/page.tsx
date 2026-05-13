@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurrencePattern, InvoiceSchedule } from '@/types';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Client {
   id: string;
   fullName: string;
@@ -650,18 +650,17 @@ export default function CreateRecurringWorkOrder() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Create Recurring Work Order"
-          subtitle="Set up a work order that repeats automatically"
-          icon={RotateCcw}
-          action={
-            <Button variant="outline" onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          }
-        />
+      <PortalListPage
+        title="Create Recurring Work Order"
+        subtitle="Set up a work order that repeats automatically"
+        icon={RotateCcw}
+        heroAction={
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        }
+      >
 
         <div className="mx-auto w-full max-w-6xl space-y-4">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-4">
@@ -1153,7 +1152,7 @@ export default function CreateRecurringWorkOrder() {
           </Button>
         </div>
         </div>
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

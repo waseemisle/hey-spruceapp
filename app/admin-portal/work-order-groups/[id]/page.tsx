@@ -17,8 +17,7 @@ import {
   serverTimestamp,
   arrayUnion,
 } from 'firebase/firestore';
-import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -682,21 +681,19 @@ export default function AdminWorkOrderGroupDetail() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Combined Work Orders"
-          subtitle={group ? `${group.workOrderIds.length} work orders · Bundle ${groupId?.slice(0, 8)}…` : 'Loading…'}
-          icon={Layers}
-          iconClassName="text-blue-600"
-          action={(
-            <Button variant="outline" asChild className="h-10 rounded-xl px-4 font-semibold">
-              <Link href="/admin-portal/work-order-groups">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                All Combined
-              </Link>
-            </Button>
-          )}
-        />
+      <PortalListPage
+        title="Combined Work Orders"
+        subtitle={group ? `${group.workOrderIds.length} work orders · Bundle ${groupId?.slice(0, 8)}…` : 'Loading…'}
+        icon={Layers}
+        heroAction={(
+          <Button variant="outline" asChild className="h-10 rounded-xl px-4 font-semibold">
+            <Link href="/admin-portal/work-order-groups">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              All Combined
+            </Link>
+          </Button>
+        )}
+      >
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
@@ -1318,7 +1315,7 @@ export default function AdminWorkOrderGroupDetail() {
             </Card>
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

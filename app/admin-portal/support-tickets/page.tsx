@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +28,6 @@ import {
 } from '@/lib/support-ticket-helpers';
 import { supportTicketPost } from '@/lib/support-ticket-api-client';
 
-import { PageContainer } from '@/components/ui/page-container';
 const OPEN_STATUSES: SupportTicketStatus[] = [
   'open',
   'in-progress',
@@ -265,15 +264,12 @@ export default function AdminSupportTicketsPage() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Support Tickets"
-          subtitle="Track and respond to customer support requests"
-          icon={Headphones}
-          action={
-            <Button onClick={() => setDialogOpen(true)}>New Ticket</Button>
-          }
-        />
+      <PortalListPage
+        title="Support Tickets"
+        subtitle="Track and respond to customer support requests"
+        icon={Headphones}
+        heroAction={<Button onClick={() => setDialogOpen(true)}>New Ticket</Button>}
+      >
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
@@ -531,7 +527,7 @@ export default function AdminSupportTicketsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

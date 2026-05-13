@@ -13,7 +13,7 @@ import { Stethoscope, Check, X, Calendar, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { EmptyState } from '@/components/ui/empty-state';
 interface DiagnosticQuote {
   id: string;
@@ -250,7 +250,7 @@ export default function ClientDiagnosticRequests() {
       <>
         <PageContainer>
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
           </div>
         </PageContainer>
       </>
@@ -259,12 +259,11 @@ export default function ClientDiagnosticRequests() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Diagnostic Requests"
-          subtitle="Approve the diagnostic fee so a subcontractor can inspect the job and submit a repair quote."
-          icon={Stethoscope}
-        />
+      <PortalListPage
+        title="Diagnostic Requests"
+        subtitle="Approve the diagnostic fee so a subcontractor can inspect the job and submit a repair quote."
+        icon={Stethoscope}
+      >
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           <span className="text-sm font-medium text-foreground shrink-0">Filter:</span>
@@ -367,7 +366,7 @@ export default function ClientDiagnosticRequests() {
             })}
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

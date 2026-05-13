@@ -12,10 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { BookOpen, Plus, Edit2, Save, X, Search, Trash2, ExternalLink, FileText, Video, Tag } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -193,20 +192,17 @@ export default function ResourcesPage() {
 
   return (
     <>
-      <PageContainer>
-        {/* ── Header ────────────────────────────────────────────────────────── */}
-        <PageHeader
-          title="Resources & Knowledge Base"
-          subtitle="SOPs, training videos, and internal documentation"
-          icon={BookOpen}
-          iconClassName="text-blue-600"
-          action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add Resource
-            </Button>
-          }
-        />
+      <PortalListPage
+        title="Resources & Knowledge Base"
+        subtitle="SOPs, training videos, and internal documentation"
+        icon={BookOpen}
+        heroAction={
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Resource
+          </Button>
+        }
+      >
 
         {/* ── Stat Cards ────────────────────────────────────────────────────── */}
         <StatCards items={[
@@ -547,7 +543,7 @@ export default function ResourcesPage() {
           </div>
         )}
 
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

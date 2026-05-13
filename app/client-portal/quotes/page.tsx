@@ -14,7 +14,7 @@ import { FileText, Check, X, Calendar, DollarSign, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 interface Quote {
@@ -378,12 +378,11 @@ export default function ClientQuotes() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Quotes"
-          subtitle="Review and approve quotes from contractors"
-          icon={FileText}
-        />
+      <PortalListPage
+        title="Quotes"
+        subtitle="Review and approve quotes from contractors"
+        icon={FileText}
+      >
 
         <StatCards
           items={[
@@ -483,7 +482,7 @@ export default function ClientQuotes() {
             ))}
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

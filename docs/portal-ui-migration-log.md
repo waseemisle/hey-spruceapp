@@ -12,6 +12,8 @@ Reference: `app/admin-portal/work-orders/[id]/page.tsx`.
 
 **Phase 1–2**: `PortalPageSurface` in all three portal layouts applies the backdrop globally and constrains main content width. Work order detail no longer duplicates the outer gradient or max-width wrapper.
 
+**Phase 4**: Remaining portal pages that used `PageHeader` + `PageContainer` now use `PortalListPage` (shared `PortalHero` band + `PageContainer` rhythm). `PortalHero` shows primary actions on narrow viewports (no longer `hidden md:flex`). Subcontractor bidding multi-step flows and payment-methods modals keep siblings outside the list shell where they were portaled before.
+
 ## Theme / tokens
 
 | File | Status | Notes |

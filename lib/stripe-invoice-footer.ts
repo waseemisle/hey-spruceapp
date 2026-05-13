@@ -13,14 +13,18 @@ export async function buildStripeHostedInvoiceFooter(
   invoiceNumber: string,
 ): Promise<string> {
   const base = `Invoice ${invoiceNumber}`.trim();
-  const name = String(inv.subcontractorName || '').trim();
+  let name = String(inv.subcontractorName || '').trim();
   let company = '';
   const sid = inv.subcontractorId as string | undefined;
   if (sid) {
     try {
       const sd = await getDoc(doc(db, 'subcontractors', sid));
       if (sd.exists()) {
-        company = String((sd.data() as { companyName?: string }).companyName || '').trim();
+        const d = sd.data() as { fullName?: string; businessName?: string; companyName?: string };
+        if (!name) {
+          name = String(d.fullName || d.businessName || '').trim();
+        }
+        company = String(d.companyName || d.businessName || '').trim();
       }
     } catch {
       /* non-fatal */

@@ -195,7 +195,7 @@ function PaymentSuccessContent() {
     return (
       <AuthShell title="Payment Successful" subtitle="Processing your payment…" icon={CheckCircle} contentClassName="max-w-lg">
         <div className="text-center py-10">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           <p className="mt-4 text-muted-foreground">Processing your payment...</p>
         </div>
       </AuthShell>
@@ -333,7 +333,7 @@ export default function PaymentSuccess() {
     <Suspense fallback={
       <AuthShell title="Payment Successful" subtitle="Loading…" icon={CheckCircle} contentClassName="max-w-lg">
         <div className="text-center py-10">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </AuthShell>

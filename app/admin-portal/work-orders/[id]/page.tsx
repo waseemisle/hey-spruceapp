@@ -159,7 +159,6 @@ export default function ViewWorkOrder() {
   const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
   const [relatedInvoices, setRelatedInvoices] = useState<any[]>([]);
-  const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceForm, setInvoiceForm] = useState({
     notes: '',
@@ -179,7 +178,6 @@ export default function ViewWorkOrder() {
     isDefault?: boolean;
   }>>([]);
   const [invoiceAutoChargePmId, setInvoiceAutoChargePmId] = useState<string>('');
-  const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [showBiddingModal, setShowBiddingModal] = useState(false);
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [selectedSubcontractors, setSelectedSubcontractors] = useState<string[]>([]);
@@ -1951,25 +1949,6 @@ export default function ViewWorkOrder() {
     }
   };
 
-  const handleWorkOrderRating = async (completeToSpecs: boolean) => {
-    if (!workOrder) return;
-    setRatingSubmitting(true);
-    try {
-      await updateDoc(doc(db, 'workOrders', workOrder.id), {
-        ratingCompleteToSpecs: completeToSpecs,
-        ratedAt: serverTimestamp(),
-        ratedBy: auth.currentUser?.email ?? auth.currentUser?.uid ?? 'Admin',
-      });
-      setWorkOrder((prev) => prev ? { ...prev, ratingCompleteToSpecs: completeToSpecs } : null);
-      setShowRatingDialog(false);
-      toast.success(completeToSpecs ? 'Thanks — work marked as complete to specifications.' : 'Rating recorded.');
-    } catch (err) {
-      toast.error('Failed to save rating');
-    } finally {
-      setRatingSubmitting(false);
-    }
-  };
-
   // Work order status pipeline. Diagnostic-accepted is the single intermediate
   // stage added for the Diagnostic Request flow; the rest is the normal flow.
   const STATUS_PIPELINE = [
@@ -2215,12 +2194,6 @@ export default function ViewWorkOrder() {
                 {creatingInvoice ? 'Creating Invoice...' : 'Create Invoice'}
               </Button>
             )}
-            {workOrder.status === 'completed' && workOrder.ratingCompleteToSpecs === undefined && (
-              <Button size="sm" onClick={() => setShowRatingDialog(true)}>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Leave a Rating
-              </Button>
-            )}
             {workOrder.status === 'completed' && workOrder.ratingCompleteToSpecs !== undefined && (
               <span className="text-sm text-muted-foreground flex items-center gap-1">
                 <CheckCircle className="h-4 w-4" />
@@ -2451,29 +2424,6 @@ export default function ViewWorkOrder() {
                   loading={rejecting} disabled={rejecting || !rejectReason.trim()}
                 >
                   Reject Work Order
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Rating Dialog */}
-        {showRatingDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
-            <div className="my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-lg bg-card shadow-lg">
-              <div className="shrink-0 p-4 sm:p-6">
-                <h3 className="text-lg font-semibold mb-2">Leave a Rating for this Work Order</h3>
-                <p className="text-muted-foreground text-sm">Is the work complete and to specifications?</p>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-3 border-t border-border p-4 sm:p-6">
-                <Button className="flex-1 min-w-[6rem]" onClick={() => handleWorkOrderRating(true)} loading={ratingSubmitting} disabled={ratingSubmitting}>
-                  Yes
-                </Button>
-                <Button variant="outline" className="flex-1 min-w-[6rem]" onClick={() => handleWorkOrderRating(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
-                  No
-                </Button>
-                <Button variant="ghost" className="w-full sm:ml-auto sm:w-auto" onClick={() => setShowRatingDialog(false)} loading={ratingSubmitting} disabled={ratingSubmitting}>
-                  Cancel
                 </Button>
               </div>
             </div>

@@ -22,7 +22,7 @@ import { formatAddress } from '@/lib/utils';
 import type { VendorPayment } from '@/types';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface WorkOrder {
   id: string;
   title: string;
@@ -218,12 +218,11 @@ export default function SubcontractorCompletedJobs() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="My Completed Jobs"
-          subtitle="Work you finished that is pending invoice or fully completed"
-          icon={ClipboardCheck}
-        />
+      <PortalListPage
+        title="My Completed Jobs"
+        subtitle="Work you finished that is pending invoice or fully completed"
+        icon={ClipboardCheck}
+      >
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-center gap-3">
@@ -349,7 +348,7 @@ export default function SubcontractorCompletedJobs() {
             })}
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

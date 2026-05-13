@@ -11,11 +11,9 @@ import Link from 'next/link';
 import { CheckCircle, XCircle, MapPin, Building, Building2, User, Phone, Plus, Edit2, Save, X, Search, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewControls } from '@/contexts/view-controls-context';
-import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
-
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Location {
   id: string;
   clientId: string;
@@ -504,19 +502,17 @@ export default function LocationsManagement() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Locations"
-          subtitle="Manage client location requests and approvals"
-          icon={Building2}
-          iconClassName="text-blue-600"
-          action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Location
-            </Button>
-          }
-        />
+      <PortalListPage
+        title="Locations"
+        subtitle="Manage client location requests and approvals"
+        icon={Building2}
+        heroAction={
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Location
+          </Button>
+        }
+      >
 
         <StatCards
           items={[
@@ -938,7 +934,7 @@ export default function LocationsManagement() {
             </div>
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

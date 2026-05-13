@@ -183,7 +183,7 @@ export default function RegisterSubcontractor() {
       icon={UserPlus}
       contentClassName="max-w-2xl"
     >
-      <Card className="w-full">
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Subcontractor Registration</CardTitle>
           <CardDescription className="text-center">
@@ -320,7 +320,7 @@ export default function RegisterSubcontractor() {
             </Button>
             <div className="text-sm text-center text-muted-foreground">
               Already have an account?{' '}
-              <Link href="/portal-login" className="text-green-600 hover:underline">
+              <Link href="/portal-login" className="text-primary underline-offset-4 hover:underline">
                 Login here
               </Link>
             </div>

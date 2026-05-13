@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { tryDownloadStripeInvoicePdf } from '@/lib/invoice-stripe-pdf-client';
+import { resolveSubcontractorForInvoicePdf } from '@/lib/invoice-subcontractor-pdf';
 import { formatMoney } from '@/lib/money';
 import InvoiceSystemInfo from '@/components/invoice-system-info';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
@@ -152,37 +153,29 @@ export default function ClientInvoiceDetail() {
    */
   const handleDownloadPDF = async () => {
     if (!invoice) return;
-    const stripeInvId = invoice.stripeInvoiceId || '';
-    if (stripeInvId.startsWith('in_')) {
-      const ok = await tryDownloadStripeInvoicePdf(
-        invoice.id,
-        invoice.invoiceNumber || invoice.id,
-        () => auth.currentUser?.getIdToken() ?? Promise.resolve(null),
-      );
-      if (ok) return;
-    }
+    const ok = await tryDownloadStripeInvoicePdf(
+      invoice.id,
+      invoice.invoiceNumber || invoice.id,
+      () => auth.currentUser?.getIdToken() ?? Promise.resolve(null),
+    );
+    if (ok) return;
     if (invoice.stripeInvoicePdf) {
       window.open(invoice.stripeInvoicePdf, '_blank', 'noopener,noreferrer');
       return;
     }
     try {
-      let vendorCompany = '';
-      const subId = invoice.subcontractorId;
-      if (subId) {
-        try {
-          const sd = await getDoc(doc(db, 'subcontractors', subId));
-          if (sd.exists()) vendorCompany = String((sd.data() as { companyName?: string }).companyName || '').trim();
-        } catch {
-          /* ignore */
-        }
-      }
+      const { vendorName, vendorCompany } = await resolveSubcontractorForInvoicePdf(
+        db,
+        invoice.subcontractorId,
+        invoice.subcontractorName,
+      );
       await downloadInvoicePDF({
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.clientName,
         clientEmail: invoice.clientEmail,
         workOrderName: invoice.workOrderTitle,
-        vendorName: invoice.subcontractorName,
-        vendorCompany: vendorCompany || undefined,
+        vendorName,
+        vendorCompany,
         lineItems: invoice.lineItems?.length
           ? invoice.lineItems
           : [{ description: invoice.workOrderTitle, quantity: 1, unitPrice: invoice.totalAmount, amount: invoice.totalAmount }],

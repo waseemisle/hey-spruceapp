@@ -8,11 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tag, Plus, Edit2, Save, X, Search, Trash2, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
-
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface SystemNote {
   action: string;
   userId: string;
@@ -183,19 +181,17 @@ export default function CategoriesManagement() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Categories"
-          subtitle="Manage work order categories"
-          icon={Tag}
-          iconClassName="text-blue-600"
-          action={
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add New Category
-            </Button>
-          }
-        />
+      <PortalListPage
+        title="Categories"
+        subtitle="Manage work order categories"
+        icon={Tag}
+        heroAction={
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add New Category
+          </Button>
+        }
+      >
 
         <StatCards items={[{ label: 'Total', value: categories.length, icon: Tag, color: 'blue' }]} />
 
@@ -347,7 +343,7 @@ export default function CategoriesManagement() {
             </div>
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

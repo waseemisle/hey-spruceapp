@@ -146,7 +146,7 @@ function ImpersonateLoginContent() {
     return (
       <AuthShell title="Impersonation Login" subtitle="Signing you in…" icon={Loader2}>
         <div className="text-center py-10">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           <h2 className="text-base font-semibold text-foreground">Logging in…</h2>
           <p className="text-sm text-muted-foreground mt-2">Please wait while we sign you in.</p>
         </div>
@@ -174,7 +174,7 @@ function ImpersonateLoginContent() {
   return (
     <AuthShell title="Impersonation Login" subtitle="Redirecting you to the portal…" icon={UserCheck}>
       <div className="bg-card rounded-2xl border border-border shadow-sm p-6 text-center space-y-2">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary mx-auto mb-4" />
         <h2 className="text-base font-semibold text-foreground">Login Successful</h2>
         <p className="text-sm text-muted-foreground">Redirecting…</p>
       </div>
@@ -188,7 +188,7 @@ export default function ImpersonateLogin() {
       fallback={
         <AuthShell title="Impersonation Login" subtitle="Loading…" icon={Loader2}>
           <div className="text-center py-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4" />
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
             <h2 className="text-base font-semibold text-foreground">Loading…</h2>
             <p className="text-sm text-muted-foreground mt-2">Please wait…</p>
           </div>

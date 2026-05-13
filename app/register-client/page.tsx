@@ -95,7 +95,7 @@ export default function RegisterClient() {
       subtitle="Create your client account to manage cleaning and maintenance."
       icon={UserPlus}
     >
-      <Card className="w-full">
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Client Registration</CardTitle>
           <CardDescription className="text-center">
@@ -175,7 +175,7 @@ export default function RegisterClient() {
             </Button>
             <div className="text-sm text-center text-muted-foreground">
               Already have an account?{' '}
-              <Link href="/portal-login" className="text-blue-600 hover:underline">
+              <Link href="/portal-login" className="text-primary underline-offset-4 hover:underline">
                 Login here
               </Link>
             </div>

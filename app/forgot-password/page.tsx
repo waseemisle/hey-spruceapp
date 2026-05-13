@@ -63,12 +63,12 @@ export default function ForgotPassword() {
   if (emailSent) {
     return (
       <AuthShell title="Reset Password" subtitle="Check your email for instructions." icon={Mail}>
-        <Card className="w-full">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <Mail className="w-8 h-8 text-green-600" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 dark:bg-emerald-500/20">
+              <Mail className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <CardTitle className="text-2xl font-bold text-green-600">Check Your Email</CardTitle>
+            <CardTitle className="text-2xl font-bold text-foreground">Check Your Email</CardTitle>
             <CardDescription>
               We've sent password reset instructions to <strong>{email}</strong>
             </CardDescription>
@@ -101,7 +101,7 @@ export default function ForgotPassword() {
 
   return (
     <AuthShell title="Reset Password" subtitle="We’ll email you a reset link." icon={Mail}>
-      <Card className="w-full">
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Reset Password</CardTitle>
           <CardDescription className="text-center">
@@ -132,17 +132,17 @@ export default function ForgotPassword() {
             </Button>
             <div className="text-sm text-center text-muted-foreground">
               Remember your password?{' '}
-              <Link href="/portal-login" className="text-blue-500 hover:underline">
+              <Link href="/portal-login" className="text-primary underline-offset-4 hover:underline">
                 Back to Login
               </Link>
             </div>
             <div className="text-sm text-center text-muted-foreground">
               Don't have an account?{' '}
-              <Link href="/register-client" className="text-blue-500 hover:underline">
+              <Link href="/register-client" className="text-primary underline-offset-4 hover:underline">
                 Register as Client
               </Link>
               {' or '}
-              <Link href="/register-subcontractor" className="text-blue-500 hover:underline">
+              <Link href="/register-subcontractor" className="text-primary underline-offset-4 hover:underline">
                 Subcontractor
               </Link>
             </div>

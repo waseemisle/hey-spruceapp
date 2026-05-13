@@ -11,8 +11,7 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Layers, ChevronRight, ClipboardList, ShieldOff } from 'lucide-react';
@@ -118,13 +117,11 @@ export default function ClientWorkOrderGroupsList() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Combined Work Orders"
-          subtitle="Bundles of work orders managed as one unit"
-          icon={Layers}
-          iconClassName="text-blue-600"
-        />
+      <PortalListPage
+        title="Combined Work Orders"
+        subtitle="Bundles of work orders managed as one unit"
+        icon={Layers}
+      >
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
@@ -207,7 +204,7 @@ export default function ClientWorkOrderGroupsList() {
             </CardContent>
           </Card>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

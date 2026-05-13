@@ -27,11 +27,11 @@ import { toast } from 'sonner';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import { notifyAdminsOfLocation } from '@/lib/notifications';
 import Link from 'next/link';
-import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
 import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface WorkOrder {
   id: string;
   workOrderNumber?: string;
@@ -506,23 +506,21 @@ export default function ClientLocations() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="My Locations"
-          subtitle="Manage your property locations"
-          icon={Building2}
-          iconClassName="text-blue-600"
-          action={canCreateLocation ? (
-            <Button
-              disabled={!companyInfo || checkingCompany}
-              className="gap-2"
-              onClick={() => setShowCreateLocationModal(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Add New Location
-            </Button>
-          ) : undefined}
-        />
+      <PortalListPage
+        title="My Locations"
+        subtitle="Manage your property locations"
+        icon={Building2}
+        heroAction={canCreateLocation ? (
+          <Button
+            disabled={!companyInfo || checkingCompany}
+            className="gap-2"
+            onClick={() => setShowCreateLocationModal(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Add New Location
+          </Button>
+        ) : undefined}
+      >
 
         {!companyInfo && !checkingCompany && (
           <div className="bg-card rounded-xl border border-amber-200 bg-amber-50/50 p-6">
@@ -888,7 +886,7 @@ export default function ClientLocations() {
             </div>
           </div>
         )}
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

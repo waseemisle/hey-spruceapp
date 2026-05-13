@@ -17,7 +17,7 @@ import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { formatMoney } from '@/lib/money';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface WorkOrder {
@@ -764,18 +764,17 @@ function CreateInvoiceContent() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Create Invoice"
-          subtitle="Fill in the details or select a work order to auto-fill"
-          icon={Receipt}
-          action={
-            <Button variant="outline" onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          }
-        />
+      <PortalListPage
+        title="Create Invoice"
+        subtitle="Fill in the details or select a work order to auto-fill"
+        icon={Receipt}
+        heroAction={
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        }
+      >
 
         <div className="mx-auto w-full max-w-6xl space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1135,7 +1134,7 @@ function CreateInvoiceContent() {
           </Button>
         </div>
         </div>
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }

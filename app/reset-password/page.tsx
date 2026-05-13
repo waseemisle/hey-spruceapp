@@ -114,10 +114,10 @@ function ResetPasswordForm() {
   if (verifying) {
     return (
       <AuthShell title="Reset Password" subtitle="Verifying reset link…" icon={AlertCircle}>
-        <Card className="w-full">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
               <p className="mt-4 text-muted-foreground">Verifying reset link...</p>
             </div>
           </CardContent>
@@ -129,12 +129,12 @@ function ResetPasswordForm() {
   if (error) {
     return (
       <AuthShell title="Reset Password" subtitle="This link can’t be used." icon={AlertCircle}>
-        <Card className="w-full">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-              <AlertCircle className="w-8 h-8 text-red-600" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <AlertCircle className="h-8 w-8 text-destructive" />
             </div>
-            <CardTitle className="text-2xl font-bold text-red-600">Invalid Link</CardTitle>
+            <CardTitle className="text-2xl font-bold text-foreground">Invalid Link</CardTitle>
             <CardDescription>{error}</CardDescription>
           </CardHeader>
           <CardFooter className="flex flex-col space-y-4">
@@ -153,12 +153,12 @@ function ResetPasswordForm() {
   if (success) {
     return (
       <AuthShell title="Reset Password" subtitle="Password updated." icon={CheckCircle}>
-        <Card className="w-full">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardHeader className="space-y-1 text-center">
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 dark:bg-emerald-500/20">
+              <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <CardTitle className="text-2xl font-bold text-green-600">Password Reset Complete</CardTitle>
+            <CardTitle className="text-2xl font-bold text-foreground">Password Reset Complete</CardTitle>
             <CardDescription>
               Your password has been successfully updated. You can now log in with your new password.
             </CardDescription>
@@ -180,7 +180,7 @@ function ResetPasswordForm() {
   if (!verified) {
     return (
       <AuthShell title="Reset Password" subtitle="Preparing…" icon={AlertCircle}>
-        <Card className="w-full">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardContent className="pt-6">
             <div className="text-center">
               <p className="text-muted-foreground">Please wait while we verify your reset link...</p>
@@ -193,7 +193,7 @@ function ResetPasswordForm() {
 
   return (
     <AuthShell title="Reset Password" subtitle="Choose a new password." icon={CheckCircle}>
-      <Card className="w-full">
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold text-center">Set New Password</CardTitle>
           <CardDescription className="text-center">
@@ -252,10 +252,10 @@ export default function ResetPassword() {
   return (
     <Suspense fallback={
       <AuthShell title="Reset Password" subtitle="Loading…" icon={AlertCircle}>
-        <Card className="w-full">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
               <p className="mt-4 text-muted-foreground">Loading...</p>
             </div>
           </CardContent>

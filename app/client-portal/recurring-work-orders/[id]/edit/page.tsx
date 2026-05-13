@@ -19,7 +19,7 @@ import Link from 'next/link';
 import { syncRwoDescriptionToActiveWorkOrders } from '@/lib/sync-rwo-description';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PageHeader } from '@/components/ui/page-header';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { EmptyState } from '@/components/ui/empty-state';
 
 interface Category {
@@ -217,20 +217,19 @@ export default function ClientEditRecurringWorkOrder() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader
-          title="Edit Recurring Work Order"
-          subtitle="Update recurring work order details"
-          icon={RotateCcw}
-          action={
-            <Link href={`/client-portal/recurring-work-orders/${id}`}>
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-          }
-        />
+      <PortalListPage
+        title="Edit Recurring Work Order"
+        subtitle="Update recurring work order details"
+        icon={RotateCcw}
+        heroAction={
+          <Link href={`/client-portal/recurring-work-orders/${id}`}>
+            <Button variant="outline" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+        }
+      >
 
         <div className="mx-auto w-full max-w-5xl space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
@@ -333,7 +332,7 @@ export default function ClientEditRecurringWorkOrder() {
             </Link>
           </div>
         </div>
-      </PageContainer>
+      </PortalListPage>
     </>
   );
 }
