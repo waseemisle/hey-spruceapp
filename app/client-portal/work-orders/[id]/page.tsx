@@ -535,7 +535,8 @@ export default function ViewClientWorkOrder() {
       try {
         for (const subId of selectedSubcontractors) {
           const sub = subcontractors.find(s => s.id === subId);
-          if (sub && sub.email) {
+          if (!sub) continue;
+          if (sub.email) {
             await fetch('/api/email/send-bidding-opportunity', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -555,7 +556,7 @@ export default function ViewClientWorkOrder() {
           fetch('/api/messaging/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subId, context: { workOrderId: workOrder.id, workOrderNumber, workOrderTitle: workOrder.title, locationName: workOrder.locationName, category: workOrder.category, priority: workOrder.priority } }),
+            body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subcontractorAuthId(sub), context: { workOrderId: workOrder.id, workOrderNumber, workOrderTitle: workOrder.title, locationName: workOrder.locationName, category: workOrder.category, priority: workOrder.priority } }),
           }).catch(err => console.error('Messaging send failed (non-fatal):', err));
         }
       } catch (emailError) {

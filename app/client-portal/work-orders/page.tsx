@@ -821,7 +821,8 @@ function ClientWorkOrdersContent() {
       notifyBiddingOpportunity(subAuthIds, wo.id, workOrderNumber, wo.title).catch(console.error);
       subs.forEach((subId) => {
         const sub = subcontractors.find(s => s.id === subId);
-        if (sub?.email) {
+        if (!sub) return;
+        if (sub.email) {
           fetch('/api/email/send-bidding-opportunity', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
             body: JSON.stringify({ toEmail: sub.email, toName: sub.fullName, workOrderNumber, workOrderTitle: wo.title, workOrderDescription: wo.description, locationName: wo.locationName, category: wo.category, priority: wo.priority, portalLink: `${window.location.origin}/subcontractor-portal/bidding` }),
@@ -829,7 +830,7 @@ function ClientWorkOrdersContent() {
         }
         fetch('/api/messaging/send', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-          body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subId, context: { workOrderId: wo.id, workOrderNumber, workOrderTitle: wo.title, locationName: wo.locationName, category: wo.category, priority: wo.priority } }),
+          body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subcontractorAuthId(sub), context: { workOrderId: wo.id, workOrderNumber, workOrderTitle: wo.title, locationName: wo.locationName, category: wo.category, priority: wo.priority } }),
         }).catch(console.error);
       });
 

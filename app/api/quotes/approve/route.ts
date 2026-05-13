@@ -4,6 +4,7 @@ import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { writeInAppNotification } from '@/lib/server-admin-notifications';
+import { getBaseUrl } from '@/lib/base-url';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -393,10 +394,7 @@ export async function POST(request: Request) {
 
     // Fire-and-forget SMS + WhatsApp to the subcontractor whose quote was approved
     if (safeSubId) {
-      const baseUrl =
-        process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        'http://localhost:3000';
+      const baseUrl = getBaseUrl();
       fetch(`${baseUrl}/api/messaging/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

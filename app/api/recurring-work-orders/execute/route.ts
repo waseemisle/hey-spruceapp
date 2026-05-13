@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { collection, query, where, getDocs, addDoc, updateDoc, serverTimestamp, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
+import { getBaseUrl } from '@/lib/base-url';
 import { createTimelineEvent } from '@/lib/timeline';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import Stripe from 'stripe';
@@ -317,10 +318,8 @@ export async function POST(request: NextRequest) {
           console.warn('Failed to create biddingWorkOrders doc for cron execution', bidErr);
         }
 
+        const baseUrl = getBaseUrl();
         if (preAssignedSubEmail) {
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-            || process.env.NEXT_PUBLIC_BASE_URL
-            || 'http://localhost:3000';
           fetch(`${baseUrl}/api/email/send-bidding-opportunity`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -338,22 +337,22 @@ export async function POST(request: NextRequest) {
           }).catch(err =>
             console.error('Failed to send bidding opportunity email (cron execution):', err),
           );
-          if (preAssignedSubAuthId) {
-            fetch(`${baseUrl}/api/messaging/send`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                type: 'bidding-opportunity',
-                subcontractorId: preAssignedSubAuthId,
-                context: { workOrderId: standardWorkOrderRef.id, workOrderNumber: standardWorkOrderNumber, workOrderTitle: standardWorkOrderData.title, locationName: standardWorkOrderData.locationName, category: standardWorkOrderData.category, priority: standardWorkOrderData.priority },
-              }),
-            }).catch(err => console.error('Messaging send failed (cron execution, non-fatal):', err));
-          }
+        }
+        if (preAssignedSubAuthId) {
+          fetch(`${baseUrl}/api/messaging/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'bidding-opportunity',
+              subcontractorId: preAssignedSubAuthId,
+              context: { workOrderId: standardWorkOrderRef.id, workOrderNumber: standardWorkOrderNumber, workOrderTitle: standardWorkOrderData.title, locationName: standardWorkOrderData.locationName, category: standardWorkOrderData.category, priority: standardWorkOrderData.priority },
+            }),
+          }).catch(err => console.error('Messaging send failed (cron execution, non-fatal):', err));
         }
       }
 
       // Send email notifications to admins with work order emails enabled
-      fetch(`${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/email/send-work-order-notification`, {
+      fetch(`${getBaseUrl()}/api/email/send-work-order-notification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

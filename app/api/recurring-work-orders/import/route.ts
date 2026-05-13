@@ -4,6 +4,7 @@ import { createTimelineEvent } from '@/lib/timeline';
 import { getAuth } from 'firebase-admin/auth';
 import { getApps as getAdminApps } from 'firebase-admin/app';
 import { getServerDb } from '@/lib/firebase-server';
+import { getBaseUrl } from '@/lib/base-url';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,21 +24,19 @@ function sendBiddingOpportunityEmail(params: {
   subcontractorId?: string;
   workOrderId?: string;
 }): void {
-  if (!params.toEmail) return;
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    'http://localhost:3000';
-  fetch(`${baseUrl}/api/email/send-bidding-opportunity`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...params,
-      portalLink: `${baseUrl}/subcontractor-portal/bidding`,
-    }),
-  }).catch((err) =>
-    console.error('Failed to send bidding opportunity email (CSV import):', err),
-  );
+  const baseUrl = getBaseUrl();
+  if (params.toEmail) {
+    fetch(`${baseUrl}/api/email/send-bidding-opportunity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...params,
+        portalLink: `${baseUrl}/subcontractor-portal/bidding`,
+      }),
+    }).catch((err) =>
+      console.error('Failed to send bidding opportunity email (CSV import):', err),
+    );
+  }
   if (params.subcontractorId) {
     fetch(`${baseUrl}/api/messaging/send`, {
       method: 'POST',

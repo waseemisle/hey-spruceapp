@@ -532,31 +532,34 @@ export default function AdminWorkOrderGroupDetail() {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       selectedSubcontractors.forEach((subId) => {
         const sub = subcontractors.find((s) => s.id === subId);
-        if (!sub?.email) return;
+        if (!sub) return;
         const primaryWo = bundles.find((b) => b.wo.id === group.primaryWorkOrderId)?.wo || bundles[0]?.wo;
-        fetch('/api/email/send-bidding-opportunity', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          keepalive: true,
-          body: JSON.stringify({
-            toEmail: sub.email,
-            toName: sub.fullName,
-            workOrderNumber: `GROUP-${group.id.slice(0, 8)}`,
-            workOrderTitle: `Combined Work Orders (${bundles.length} orders)`,
-            workOrderDescription: primaryWo?.description || '',
-            locationName: primaryWo?.locationName || '',
-            category: primaryWo?.category || '',
-            priority: primaryWo?.priority || '',
-            portalLink: `${origin}/subcontractor-portal/bidding`,
-          }),
-        }).catch(console.error);
+        if (sub.email) {
+          fetch('/api/email/send-bidding-opportunity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
+            body: JSON.stringify({
+              toEmail: sub.email,
+              toName: sub.fullName,
+              workOrderNumber: `GROUP-${group.id.slice(0, 8)}`,
+              workOrderTitle: `Combined Work Orders (${bundles.length} orders)`,
+              workOrderDescription: primaryWo?.description || '',
+              locationName: primaryWo?.locationName || '',
+              category: primaryWo?.category || '',
+              priority: primaryWo?.priority || '',
+              portalLink: `${origin}/subcontractor-portal/bidding`,
+            }),
+          }).catch(console.error);
+        }
+        const messagingSubId = subcontractorAuthId(sub);
         fetch('/api/messaging/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           keepalive: true,
           body: JSON.stringify({
             type: 'bidding-opportunity',
-            subcontractorId: subId,
+            subcontractorId: messagingSubId,
             context: { workOrderId: group.id, workOrderNumber: `GROUP-${group.id.slice(0, 8)}`, workOrderTitle: `Combined Work Orders (${bundles.length} orders)`, locationName: primaryWo?.locationName || '', category: primaryWo?.category || '', priority: primaryWo?.priority || '' },
           }),
         }).catch(console.error);

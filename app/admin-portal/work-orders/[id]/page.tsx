@@ -1002,12 +1002,14 @@ export default function ViewWorkOrder() {
     }
     setBiddingSubmitting(true);
     try {
+      // Snapshot before we clear selection — used for email, SMS, async bidding docs
+      const shareSubIds = [...selectedSubcontractors];
       const workOrderNumber = workOrder.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
-      const subAuthIds = selectedSubcontractors.map((subId) => {
+      const subAuthIds = shareSubIds.map((subId) => {
         const sub = subcontractors.find((s) => s.id === subId);
         return sub ? subcontractorAuthId(sub) : subId;
       });
-      const selectedSubNames = selectedSubcontractors.map(id => subcontractors.find(s => s.id === id)?.fullName || 'Unknown').join(', ');
+      const selectedSubNames = shareSubIds.map(id => subcontractors.find(s => s.id === id)?.fullName || 'Unknown').join(', ');
       const currentUser = auth.currentUser;
 
       // Don't downgrade status if we're already past 'bidding' (e.g. quotes
@@ -1033,8 +1035,8 @@ export default function ViewWorkOrder() {
       }
       toast.success(
         isFirstShare
-          ? `Shared with ${selectedSubcontractors.length} subcontractor(s) for bidding`
-          : `Added ${selectedSubcontractors.length} more bidder(s) to this work order`,
+          ? `Shared with ${shareSubIds.length} subcontractor(s) for bidding`
+          : `Added ${shareSubIds.length} more bidder(s) to this work order`,
       );
       setShowBiddingModal(false);
       setSelectedSubcontractors([]);
@@ -1060,7 +1062,7 @@ export default function ViewWorkOrder() {
           }
         } catch { /* non-fatal; subs fall back to the API gate */ }
 
-        await Promise.all(selectedSubcontractors.map(async subId => {
+        await Promise.all(shareSubIds.map(async subId => {
           const sub = subcontractors.find(s => s.id === subId);
           if (!sub) return;
           const authId = subcontractorAuthId(sub);
@@ -1082,9 +1084,10 @@ export default function ViewWorkOrder() {
 
       notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title).catch(console.error);
 
-      selectedSubcontractors.forEach((subId) => {
+      shareSubIds.forEach((subId) => {
         const sub = subcontractors.find(s => s.id === subId);
-        if (sub?.email) {
+        if (!sub) return;
+        if (sub.email) {
           fetch('/api/email/send-bidding-opportunity', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             keepalive: true,
@@ -1097,6 +1100,24 @@ export default function ViewWorkOrder() {
             }),
           }).catch(console.error);
         }
+        const messagingSubId = subcontractorAuthId(sub);
+        fetch('/api/messaging/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({
+            type: 'bidding-opportunity',
+            subcontractorId: messagingSubId,
+            context: {
+              workOrderId: workOrder.id,
+              workOrderNumber,
+              workOrderTitle: workOrder.title,
+              locationName: workOrder.locationName,
+              category: workOrder.category,
+              priority: workOrder.priority,
+            },
+          }),
+        }).catch((err) => console.error('Messaging send failed (non-fatal):', err));
       });
 
       // Timeline update in background
@@ -1113,16 +1134,16 @@ export default function ViewWorkOrder() {
               type: isFirstShare ? 'shared_for_bidding' : 'bidders_added',
               userId: currentUser?.uid || 'unknown', userName: adminName, userRole: 'admin',
               details: isFirstShare
-                ? `Shared for bidding with ${selectedSubcontractors.length} subcontractor(s): ${selectedSubNames}`
-                : `Added ${selectedSubcontractors.length} more bidder(s): ${selectedSubNames}`,
-              metadata: { subcontractorIds: selectedSubcontractors, subcontractorCount: selectedSubcontractors.length, isAddition: !isFirstShare },
+                ? `Shared for bidding with ${shareSubIds.length} subcontractor(s): ${selectedSubNames}`
+                : `Added ${shareSubIds.length} more bidder(s): ${selectedSubNames}`,
+              metadata: { subcontractorIds: shareSubIds, subcontractorCount: shareSubIds.length, isAddition: !isFirstShare },
             }],
             systemInformation: {
               ...(woData?.systemInformation || {}),
               sharedForBidding: {
                 by: { id: currentUser?.uid || 'unknown', name: adminName },
                 timestamp: Timestamp.now(),
-                subcontractors: selectedSubcontractors.map(id => ({ id, name: subcontractors.find(s => s.id === id)?.fullName || 'Unknown' })),
+                subcontractors: shareSubIds.map(id => ({ id, name: subcontractors.find(s => s.id === id)?.fullName || 'Unknown' })),
               },
             },
           });

@@ -18,6 +18,7 @@ import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 
 import { PortalListPage } from '@/components/ui/portal-list-page';
+import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 const US_STATES = [
   { value: 'AL', label: 'Alabama' },
   { value: 'AK', label: 'Alaska' },
@@ -211,7 +212,7 @@ export default function SubcontractorsManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'subcontractor-approval',
-          subcontractorId: subId,
+          subcontractorId: subcontractorAuthId({ id: subId, uid: (subData as { uid?: string | null }).uid }),
           context: { toName: subData.fullName, businessName: subData.businessName, approvedBy: adminName },
         }),
       }).catch(err => console.error('Messaging send failed (non-fatal):', err));
@@ -260,7 +261,7 @@ export default function SubcontractorsManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'subcontractor-approval',
-          subcontractorId: subId,
+          subcontractorId: subcontractorAuthId({ id: subId, uid: (subData as { uid?: string | null }).uid }),
           context: { toName: subData.fullName, businessName: subData.businessName, approvedBy: adminName },
         }),
       }).catch(err => console.error('Messaging resend failed (non-fatal):', err));
