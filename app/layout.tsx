@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as SonnerToaster } from "sonner";
+import { PortalSonnerToaster } from "@/components/portal-sonner-toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ViewControlsProvider } from "@/contexts/view-controls-context";
 
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
     { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
   ],
   width: "device-width",
@@ -47,7 +47,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="font-sans">
+      <body className="min-h-dvh bg-background font-sans antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -57,7 +57,7 @@ export default function RootLayout({
           <ViewControlsProvider>
             {children}
             <Toaster />
-            <SonnerToaster position="top-right" richColors />
+            <PortalSonnerToaster />
           </ViewControlsProvider>
         </ThemeProvider>
       </body>

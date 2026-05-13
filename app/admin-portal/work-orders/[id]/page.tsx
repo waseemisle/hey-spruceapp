@@ -1995,25 +1995,22 @@ export default function ViewWorkOrder() {
 
   if (loading) {
     return (
-      <div className="-mx-4 md:-mx-6 -mt-2 mb-8 min-h-[50vh] bg-gradient-to-b from-slate-100/90 via-slate-50/40 to-muted/25 px-4 pb-10 pt-2 dark:from-zinc-950 dark:via-background dark:to-muted/15 md:px-6">
-        <PageContainer className="mx-auto max-w-[92rem]">
-          <PortalHero
-            title="Work order"
-            subtitle="Loading details…"
-            icon={ClipboardList}
-          />
-          <div className="flex items-center justify-center rounded-3xl border border-border/60 bg-card/90 py-28 shadow-lg shadow-slate-900/[0.04] backdrop-blur-sm dark:shadow-black/30">
-            <div className="h-11 w-11 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-          </div>
-        </PageContainer>
-      </div>
+      <PageContainer>
+        <PortalHero
+          title="Work order"
+          subtitle="Loading details…"
+          icon={ClipboardList}
+        />
+        <div className="flex items-center justify-center rounded-3xl border border-border/60 bg-card/90 py-28 shadow-lg shadow-slate-900/[0.04] backdrop-blur-sm dark:shadow-black/30">
+          <div className="h-11 w-11 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+        </div>
+      </PageContainer>
     );
   }
 
   if (!workOrder) {
     return (
-      <div className="-mx-4 md:-mx-6 -mt-2 mb-8 bg-gradient-to-b from-slate-100/90 via-slate-50/40 to-muted/25 px-4 pb-10 pt-2 dark:from-zinc-950 dark:via-background dark:to-muted/15 md:px-6">
-        <PageContainer className="mx-auto max-w-[92rem]">
+      <PageContainer>
         <div className="rounded-3xl border border-border/60 bg-card/95 px-6 py-20 text-center shadow-xl shadow-slate-900/[0.04] backdrop-blur-sm dark:shadow-black/30">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <ClipboardList className="h-7 w-7 text-muted-foreground" />
@@ -2027,8 +2024,7 @@ export default function ViewWorkOrder() {
             </Button>
           </Link>
         </div>
-        </PageContainer>
-      </div>
+      </PageContainer>
     );
   }
 
@@ -2047,8 +2043,8 @@ export default function ViewWorkOrder() {
   ];
 
   return (
-    <div className="-mx-4 md:-mx-6 -mt-2 mb-8 min-h-[calc(100vh-8rem)] bg-gradient-to-b from-slate-100/95 via-slate-50/50 to-muted/35 px-4 pb-12 pt-1 dark:from-zinc-950 dark:via-zinc-950/80 dark:to-background md:px-6">
-      <PageContainer className="mx-auto max-w-[92rem]">
+    <>
+      <PageContainer>
         {/* Hero — glass panel, breadcrumb, primary metadata, action rail */}
         <div className="relative overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/85 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] ring-1 ring-black/[0.04] backdrop-blur-xl dark:bg-zinc-900/75 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] dark:ring-white/[0.06]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/10" aria-hidden />
@@ -4173,6 +4169,6 @@ export default function ViewWorkOrder() {
           onClose={() => setLightboxImages([])}
         />
       )}
-    </div>
+    </>
   );
 }

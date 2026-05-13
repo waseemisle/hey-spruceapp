@@ -150,7 +150,7 @@ export default function CalendarShell({
   const hiddenCount = events.length - totalCount;
 
   return (
-    <div className="ground-ops-cal-shell rounded-2xl border border-border bg-card overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.05)]">
+    <div className="ground-ops-cal-shell rounded-[1.75rem] border border-border/70 bg-card/85 overflow-hidden shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] ring-1 ring-black/[0.04] backdrop-blur-xl dark:bg-zinc-900/75 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] dark:ring-white/[0.06]">
       {/* ───────── EDITORIAL HEADER ───────── */}
       <div className="border-b border-border bg-card">
         <div className="px-6 pt-6 pb-4 flex items-start justify-between gap-4 flex-wrap">
@@ -236,7 +236,7 @@ export default function CalendarShell({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Title or location"
-                className="w-full h-9 pl-8 pr-7 text-xs rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/30"
+                className="w-full h-9 pl-8 pr-7 text-xs rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0 focus:border-border"
               />
               {search && (
                 <button

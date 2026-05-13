@@ -9,6 +9,10 @@ import {
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import {
+  PortalGlobalSearchTrigger,
+  PORTAL_GLOBAL_SEARCH_PANEL_CLASS,
+} from '@/components/ui/portal-global-search-trigger';
 
 const SEARCH_COLLECTIONS = [
   {
@@ -265,21 +269,12 @@ export default function GlobalSearchDialog() {
 
   if (!open) {
     return (
-      <button
+      <PortalGlobalSearchTrigger
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors w-full sm:w-auto sm:min-w-[200px] sm:max-w-xs"
-        title="Global Search (Ctrl+K)"
-        aria-label="Global Search"
-      >
-        <Search className="h-4 w-4 flex-shrink-0" />
-        <span className="flex-1 text-left truncate">
-          <span className="hidden sm:inline">Search everything...</span>
-          <span className="sm:hidden">Search</span>
-        </span>
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-mono">
-          Ctrl K
-        </kbd>
-      </button>
+        desktopHint="Search everything…"
+        mobileLabel="Search"
+        shortcutTitle="Global Search (Ctrl+K)"
+      />
     );
   }
 
@@ -293,7 +288,7 @@ export default function GlobalSearchDialog() {
 
       {/* Dialog */}
       <div className="fixed inset-x-0 top-24 z-[70] mx-auto max-w-2xl px-4">
-        <div className="bg-card rounded-xl shadow-2xl border border-border overflow-hidden">
+        <div className={PORTAL_GLOBAL_SEARCH_PANEL_CLASS}>
           {/* Search Input */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
             <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />

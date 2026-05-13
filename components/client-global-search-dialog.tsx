@@ -7,6 +7,10 @@ import {
   MapPin, RotateCcw, Headphones,
 } from 'lucide-react';
 import { collection, getDocs, query, where, Firestore } from 'firebase/firestore';
+import {
+  PortalGlobalSearchTrigger,
+  PORTAL_GLOBAL_SEARCH_PANEL_CLASS,
+} from '@/components/ui/portal-global-search-trigger';
 
 interface SearchCollectionConfig {
   name: string;
@@ -235,17 +239,12 @@ export default function ClientGlobalSearchDialog({ dbInstance, userId }: ClientG
 
   if (!open) {
     return (
-      <button
+      <PortalGlobalSearchTrigger
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors sm:min-w-[180px] max-w-xs"
-        title="Search (Ctrl+K)"
-      >
-        <Search className="h-4 w-4 flex-shrink-0" />
-        <span className="flex-1 text-left">Search...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-[10px] font-mono">
-          Ctrl K
-        </kbd>
-      </button>
+        desktopHint="Search work orders, locations, invoices…"
+        mobileLabel="Search"
+        shortcutTitle="Search (Ctrl+K)"
+      />
     );
   }
 
@@ -256,7 +255,7 @@ export default function ClientGlobalSearchDialog({ dbInstance, userId }: ClientG
         onClick={() => setOpen(false)}
       />
       <div className="fixed inset-x-0 top-24 z-[70] mx-auto max-w-2xl px-4">
-        <div className="bg-card rounded-xl shadow-2xl border border-border overflow-hidden">
+        <div className={PORTAL_GLOBAL_SEARCH_PANEL_CLASS}>
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
             <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
             <input

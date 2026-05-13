@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
+import { PortalPageSurface } from '@/components/ui/portal-page-surface';
 import { subscribeAdminUnassignedOpenSupportTicketCount } from '@/lib/support-ticket-snapshots';
 import { AdminPortalHeaderExtraContext } from '@/components/admin-portal-header-extra-context';
 
@@ -298,10 +299,10 @@ export default function AdminLayout({ children, headerExtra }: { children: React
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
+          <div className="mx-auto h-11 w-11 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -543,7 +544,7 @@ export default function AdminLayout({ children, headerExtra }: { children: React
             {mergedHeaderExtra}
             <ViewControls className="flex-1" />
           </div>
-          {children}
+          <PortalPageSurface>{children}</PortalPageSurface>
         </div>
       </main>
     </div>

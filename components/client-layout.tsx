@@ -9,7 +9,6 @@ import { isItemUnviewed, markBadgeViewed, pathnameToBadgeKey, type ClientBadgeKe
 import { onAuthStateChanged, getAuth } from '@/lib/firebase-auth';
 import { initializeApp, getApps } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
-import { Button } from '@/components/ui/button';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import ProfileMenu from '@/components/profile-menu';
@@ -18,6 +17,7 @@ import { Home, Building2, ClipboardList, FileText, Receipt, MessageSquare, Menu,
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
 import ClientGlobalSearchDialog from '@/components/client-global-search-dialog';
+import { PortalPageSurface } from '@/components/ui/portal-page-surface';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -387,8 +387,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-11 w-11 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
       </div>
     );
   }
@@ -408,29 +408,53 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: 'Support Tickets', href: '/client-portal/support-tickets', icon: Headphones, badgeKey: 'supportTickets' },
   ];
 
+  const contentTopClass = isImpersonating ? 'pt-[108px]' : 'pt-14';
+  const sidebarTopClass = isImpersonating ? 'top-[108px]' : 'top-14';
+  const sidebarHeightClass = isImpersonating ? 'h-[calc(100dvh-108px)]' : 'h-[calc(100dvh-3.5rem)]';
+
+  const navLinkClass = (href: string) => {
+    const active =
+      href === '/client-portal'
+        ? pathname === href
+        : pathname === href || pathname.startsWith(`${href}/`);
+    return [
+      'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative min-h-11',
+      active
+        ? 'bg-accent text-accent-foreground font-medium'
+        : 'text-foreground hover:bg-accent hover:text-accent-foreground',
+    ].join(' ');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <ImpersonationBanner />
-      <header className={`bg-card shadow-sm border-b fixed w-full z-50 ${isImpersonating ? 'top-[52px]' : 'top-0'}`}>
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center">
+      <header
+        className={`fixed w-full z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 ${
+          isImpersonating ? 'top-[52px]' : 'top-0'
+        }`}
+      >
+        <div className="flex h-14 items-center justify-between px-4">
+          <div className="flex min-w-0 items-center gap-2">
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="mr-2 sm:mr-4 md:hidden text-muted-foreground hover:text-foreground"
+              className="shrink-0 md:hidden rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Toggle menu"
             >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
             <Logo href="/client-portal" size="sm" />
-            <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hidden md:inline border-l border-border pl-3 ml-3">Client</span>
+            <span className="hidden border-l border-border pl-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground md:inline">
+              Client
+            </span>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
             {user?.uid && <ClientGlobalSearchDialog dbInstance={firebaseInstances.dbInstance} userId={user.uid} />}
             <ThemeToggle />
             <NotificationBell />
             {user?.companyName && (
-              <span className="hidden lg:inline-flex items-center gap-1 text-xs text-muted-foreground border border-border rounded-full px-2 py-1 bg-card">
-                <Building2 className="h-3 w-3" />
+              <span className="hidden max-w-[10rem] truncate lg:inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                <Building2 className="h-3 w-3 shrink-0" />
                 {user.companyName}
               </span>
             )}
@@ -448,25 +472,26 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
+          aria-hidden
         />
       )}
 
-      <div className={`flex ${isImpersonating ? 'pt-[68px]' : 'pt-16'}`}>
-        <aside className="hidden md:block w-64 min-h-screen bg-card border-r fixed left-0">
-          <nav className="p-4 space-y-1 h-[calc(100vh-4rem)] overflow-y-auto">
+      <div className={`flex ${contentTopClass}`}>
+        <aside
+          className={`hidden md:block w-64 shrink-0 fixed left-0 border-r border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 ${sidebarTopClass} ${sidebarHeightClass}`}
+        >
+          <nav className="h-full space-y-0.5 overflow-y-auto p-3">
             {menuItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
-              >
+              <Link key={item.name} href={item.href} className={navLinkClass(item.href)}>
                 <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span>{item.name}</span>
+                <span className="min-w-0">{item.name}</span>
                 {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
+                  <span className="ml-auto flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99
+                      ? '99+'
+                      : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
                   </span>
                 )}
               </Link>
@@ -474,22 +499,26 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </nav>
         </aside>
 
-        <aside className={`md:hidden fixed left-0 h-[calc(100vh-4rem)] bg-card border-r transition-all duration-300 z-50 ${
-          mobileMenuOpen ? 'w-64' : 'w-0 -ml-64'
-        }`}>
-          <nav className="p-4 space-y-1 h-full overflow-y-auto">
+        <aside
+          className={`fixed left-0 z-50 w-64 border-r border-border bg-background transition-transform duration-300 ease-out md:hidden ${sidebarTopClass} ${sidebarHeightClass} ${
+            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <nav className="h-full space-y-0.5 overflow-y-auto p-3">
             {menuItems.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors relative"
+                className={navLinkClass(item.href)}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span>{item.name}</span>
+                <span className="min-w-0">{item.name}</span>
                 {item.badgeKey && badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
-                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99 ? '99+' : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
+                  <span className="ml-auto flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                    {badgeCounts[item.badgeKey as keyof typeof badgeCounts] > 99
+                      ? '99+'
+                      : badgeCounts[item.badgeKey as keyof typeof badgeCounts]}
                   </span>
                 )}
               </Link>
@@ -497,12 +526,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </nav>
         </aside>
 
-        <main className="flex-1 md:ml-64 min-w-0 overflow-x-hidden">
-          <div className="p-4 md:p-6 space-y-4">
+        <main className="min-w-0 flex-1 overflow-x-hidden md:ml-64">
+          <div className="space-y-4 p-4 md:p-6">
             <div className="flex items-center gap-4">
-              <ViewControls className="flex-1" />
+              <ViewControls className="min-w-0 flex-1" />
             </div>
-            {children}
+            <PortalPageSurface>{children}</PortalPageSurface>
           </div>
         </main>
       </div>

@@ -82,7 +82,12 @@ export default function ProfileMenu({
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-72 p-0 overflow-hidden">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        collisionPadding={16}
+        className="z-[100] w-72 overflow-hidden p-0"
+      >
         {/* Header card */}
         <div className="bg-gradient-to-br from-muted/40 to-muted/0 px-4 py-4 flex items-center gap-3 border-b border-border">
           <Avatar className="h-12 w-12 ring-2 ring-card">
