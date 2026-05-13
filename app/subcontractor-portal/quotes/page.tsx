@@ -79,14 +79,16 @@ export default function SubcontractorQuotes() {
 
   const getStatusBadge = (quote: Quote) => {
     if (quote.status === 'accepted') {
-      return { style: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Accepted' };
-    } else if (quote.status === 'rejected') {
-      return { style: 'bg-red-100 text-red-800', icon: XCircle, text: 'Rejected' };
-    } else if (quote.forwardedToClient) {
-      return { style: 'bg-blue-100 text-blue-800', icon: Clock, text: 'Under Review' };
-    } else {
-      return { style: 'bg-yellow-100 text-yellow-800', icon: Clock, text: 'Pending Admin' };
+      return { style: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Approved' };
     }
+    if (quote.status === 'rejected') {
+      return { style: 'bg-red-100 text-red-800', icon: XCircle, text: 'Rejected' };
+    }
+    // Pending until the client approves (with or without admin forward to client)
+    if (quote.forwardedToClient) {
+      return { style: 'bg-blue-100 text-blue-800', icon: Clock, text: 'Request Pending' };
+    }
+    return { style: 'bg-amber-100 text-amber-800', icon: Clock, text: 'Request Pending' };
   };
 
   const filteredQuotes = quotes.filter(quote => {
@@ -109,9 +111,9 @@ export default function SubcontractorQuotes() {
 
   const filterOptions = [
     { value: 'all', label: 'All', count: quotes.length },
-    { value: 'pending', label: 'Pending Admin', count: quotes.filter(q => q.status === 'pending' && !q.forwardedToClient).length },
-    { value: 'review', label: 'Client Review', count: quotes.filter(q => q.status === 'pending' && q.forwardedToClient).length },
-    { value: 'accepted', label: 'Accepted', count: quotes.filter(q => q.status === 'accepted').length },
+    { value: 'pending', label: 'Request Pending', count: quotes.filter(q => q.status === 'pending' && !q.forwardedToClient).length },
+    { value: 'review', label: 'Awaiting client', count: quotes.filter(q => q.status === 'pending' && q.forwardedToClient).length },
+    { value: 'accepted', label: 'Approved', count: quotes.filter(q => q.status === 'accepted').length },
     { value: 'rejected', label: 'Rejected', count: quotes.filter(q => q.status === 'rejected').length },
   ];
 
@@ -172,7 +174,15 @@ export default function SubcontractorQuotes() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <FileText className="h-16 w-16 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold text-foreground mb-2">
-                {filter === 'all' ? 'No quotes yet' : `No ${filter} quotes`}
+                {filter === 'all'
+                  ? 'No quotes yet'
+                  : filter === 'accepted'
+                    ? 'No approved quotes'
+                    : filter === 'pending'
+                      ? 'No quotes awaiting forward to client'
+                      : filter === 'review'
+                        ? 'No quotes awaiting client approval'
+                        : `No ${filter} quotes`}
               </h3>
               <p className="text-muted-foreground text-center">
                 {filter === 'all'
@@ -241,7 +251,7 @@ export default function SubcontractorQuotes() {
                   {quote.status === 'accepted' && quote.acceptedAt && (
                     <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-800 flex items-center gap-1">
                       <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-600" />
-                      Accepted on {quote.acceptedAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                      Approved on {quote.acceptedAt?.toDate?.().toLocaleDateString() || 'N/A'}
                     </div>
                   )}
 

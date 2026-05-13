@@ -766,13 +766,18 @@ export default function ClientLocations() {
         {showModal && selectedLocation && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 overflow-y-auto">
             <div className="my-auto flex w-full max-w-3xl max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
-              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-4 sm:p-6 sm:px-6 rounded-t-2xl bg-card">
-                <div className="flex justify-between items-center gap-3">
-                  <h2 className="text-xl sm:text-2xl font-bold truncate">{selectedLocation.name || (selectedLocation as any).locationName}</h2>
-                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => setShowModal(false)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="relative flex shrink-0 w-full items-start justify-between gap-3 border-b border-border p-4 sm:p-6 sm:px-6 rounded-t-2xl bg-card">
+                <h2 className="min-w-0 flex-1 pr-10 text-xl font-bold text-foreground sm:text-2xl sm:pr-12">
+                  <span className="line-clamp-2 break-words">{selectedLocation.name || (selectedLocation as any).locationName}</span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="absolute right-3 top-3 shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:right-5 sm:top-5"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
 
               <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
