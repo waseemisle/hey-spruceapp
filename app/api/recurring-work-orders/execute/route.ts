@@ -563,20 +563,22 @@ export async function POST(request: NextRequest) {
       // file. Fire-and-forget — don't block execution.
       if (autoChargeFailed) {
         try {
-          const { createNotification, getAllAdminUserIds } = await import('@/lib/notifications');
-          const adminIds = await getAllAdminUserIds();
-          if (adminIds.length > 0) {
-            await createNotification({
-              recipientIds: adminIds,
-              userRole: 'admin',
-              type: 'invoice',
-              title: 'Auto-charge failed',
-              message: `Recurring invoice ${invoiceData.invoiceNumber} for ${recurringWorkOrder.clientName} (${recurringWorkOrder.title}) — card ${autoChargeOutcome.outcome === 'requires_action' ? 'requires authentication' : 'was declined'}. Customer was emailed the hosted payment link.`,
-              link: `/admin-portal/invoices/${firestoreInvoiceRef.id}`,
-              referenceId: firestoreInvoiceRef.id,
-              referenceType: 'invoice',
-            });
-          }
+          const { fetchAllAdminUserIds, writeInAppNotification } = await import('@/lib/server-admin-notifications');
+          const adminIds = await fetchAllAdminUserIds(db);
+          await Promise.all(
+            adminIds.map((adminId) =>
+              writeInAppNotification(db, {
+                userId: adminId,
+                userRole: 'admin',
+                type: 'invoice',
+                title: 'Auto-charge failed',
+                message: `Recurring invoice ${invoiceData.invoiceNumber} for ${recurringWorkOrder.clientName} (${recurringWorkOrder.title}) — card ${autoChargeOutcome.outcome === 'requires_action' ? 'requires authentication' : 'was declined'}. Customer was emailed the hosted payment link.`,
+                link: `/admin-portal/invoices/${firestoreInvoiceRef.id}`,
+                referenceId: firestoreInvoiceRef.id,
+                referenceType: 'invoice',
+              }),
+            ),
+          );
         } catch (notifyErr) {
           console.warn('[rwo-execute] Failed to notify admins of auto-charge failure (non-fatal):', notifyErr);
         }

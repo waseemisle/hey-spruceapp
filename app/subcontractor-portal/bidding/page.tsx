@@ -679,11 +679,13 @@ export default function SubcontractorBidding() {
       }
 
       // Fire-and-forget: notify admins + client that results are in
+      const diagTok = await auth.currentUser?.getIdToken().catch(() => undefined);
       notifyDiagnosticResultsSubmitted(
         resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0] || '',
         resultsBidding.workOrderNumber || resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0] || '',
         subName,
         resultsBidding.clientId || null,
+        diagTok,
       ).catch(console.error);
 
       toast.success('Diagnostic results submitted. You can now submit your quote.');
@@ -793,12 +795,14 @@ export default function SubcontractorBidding() {
         updatedAt: serverTimestamp(),
       });
 
+      const quoteNotifyToken = await auth.currentUser?.getIdToken().catch(() => undefined);
       await notifyQuoteSubmission(
         selectedBidding.clientId,
         primaryWorkOrderId,
         selectedBidding.workOrderNumber || primaryWorkOrderId,
         subData.fullName || subData.businessName,
         total,
+        quoteNotifyToken,
       );
 
       // Admin email fan-out — kicked off here, but explicitly NOT awaited
@@ -930,11 +934,13 @@ export default function SubcontractorBidding() {
           ? ((subDoc.data() as any).fullName || (subDoc.data() as any).businessName || 'Subcontractor')
           : 'Subcontractor';
         const primaryId = bidding.workOrderId || bidding.workOrderIds?.[0] || '';
+        const rejectTok = await auth.currentUser?.getIdToken().catch(() => undefined);
         notifyAdminsOfBiddingRejection(
           primaryId,
           bidding.workOrderNumber || primaryId,
           bidding.workOrderTitle,
           subName,
+          rejectTok,
         ).catch(console.error);
       } catch (notifyErr) {
         console.error('Failed to notify admins of bidding rejection:', notifyErr);

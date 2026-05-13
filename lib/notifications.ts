@@ -1,5 +1,5 @@
 import { collection, addDoc, serverTimestamp, query, getDocs, where } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 
 export interface CreateNotificationParams {
   userId?: string; // Optional for single user notification
@@ -110,11 +110,90 @@ export async function getAllAdminUserIds(): Promise<string[]> {
   }
 }
 
+const ADMIN_FANOUT_URL = '/api/notifications/admin-fanout';
+
+/** Server-resolved admin fan-out (sub/client browsers cannot list adminUsers). */
+async function tryPostAdminFanout(
+  idToken: string | null | undefined,
+  body: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const token =
+      idToken ??
+      (typeof window !== 'undefined' && auth?.currentUser
+        ? await auth.currentUser.getIdToken().catch(() => null)
+        : null);
+    if (!token) return false;
+    const res = await fetch(ADMIN_FANOUT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Submitted diagnostic fee/notes on assigned flow — admins only (server fan-out).
+ */
+export async function notifyAdminsDiagnosticRepairPendingGate(
+  workOrderId: string,
+  workOrderNumber: string,
+  subcontractorName: string,
+  idToken?: string | null,
+): Promise<void> {
+  const ok = await tryPostAdminFanout(idToken, {
+    type: 'diagnostic_submitted_repair_pending',
+    workOrderId,
+    workOrderNumber,
+    subcontractorName,
+  });
+  if (!ok) {
+    console.error('notifyAdminsDiagnosticRepairPendingGate: API failed or no token');
+  }
+}
+
+/** After sub accepts assignment — schedule message to admins (server fan-out). */
+export async function notifyAdminsWorkOrderScheduleSet(
+  workOrderId: string,
+  message: string,
+  idToken?: string | null,
+): Promise<void> {
+  const ok = await tryPostAdminFanout(idToken, {
+    type: 'work_order_scheduled_admins',
+    workOrderId,
+    message,
+  });
+  if (!ok) {
+    console.error('notifyAdminsWorkOrderScheduleSet: API failed or no token');
+  }
+}
+
 /**
  * Notifies all admins about a new work order
  */
-export async function notifyAdminsOfWorkOrder(workOrderId: string, workOrderNumber: string, clientName: string) {
+export async function notifyAdminsOfWorkOrder(
+  workOrderId: string,
+  workOrderNumber: string,
+  clientName: string,
+  idToken?: string | null,
+) {
   try {
+    if (
+      await tryPostAdminFanout(idToken, {
+        type: 'work_order_pending',
+        workOrderId,
+        workOrderNumber,
+        clientName,
+      })
+    ) {
+      return;
+    }
     const adminIds = await getAllAdminUserIds();
     if (adminIds.length > 0) {
       await createNotification({
@@ -136,8 +215,23 @@ export async function notifyAdminsOfWorkOrder(workOrderId: string, workOrderNumb
 /**
  * Notifies all admins about a new location pending approval
  */
-export async function notifyAdminsOfLocation(locationId: string, locationName: string, clientName: string) {
+export async function notifyAdminsOfLocation(
+  locationId: string,
+  locationName: string,
+  clientName: string,
+  idToken?: string | null,
+) {
   try {
+    if (
+      await tryPostAdminFanout(idToken, {
+        type: 'location_pending',
+        locationId,
+        locationName,
+        clientName,
+      })
+    ) {
+      return;
+    }
     const adminIds = await getAllAdminUserIds();
     if (adminIds.length > 0) {
       await createNotification({
@@ -180,16 +274,50 @@ export async function notifyClientOfWorkOrderApproval(clientId: string, workOrde
  * Notifies admins only when a subcontractor submits a quote.
  * Clients must NOT be notified here — they are notified separately
  * only after the admin adds markup and clicks "Send to Client".
+ *
+ * @param idToken — Firebase ID token for the signed-in subcontractor (or admin).
+ *   When provided (or when `auth.currentUser` is available in the browser), fan-out
+ *   runs via `/api/notifications/quote-submitted` so admin IDs can be resolved
+ *   server-side (subcontractors cannot read `adminUsers` in Firestore rules).
  */
 export async function notifyQuoteSubmission(
   clientId: string,
   workOrderId: string,
   workOrderNumber: string,
   subcontractorName: string,
-  quoteAmount: number
+  quoteAmount: number,
+  idToken?: string | null
 ) {
   try {
-    // Notify all admins only — client is notified via notifyClientOfQuoteSent
+    void clientId;
+    void quoteAmount;
+
+    const token =
+      idToken ??
+      (typeof window !== 'undefined' && auth?.currentUser
+        ? await auth.currentUser.getIdToken().catch(() => null)
+        : null);
+
+    if (token) {
+      const res = await fetch('/api/notifications/quote-submitted', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          workOrderId,
+          workOrderNumber,
+          subcontractorName,
+          quoteAmount,
+        }),
+      });
+      if (res.ok) return;
+      const errText = await res.text().catch(() => '');
+      console.error('notifyQuoteSubmission: API failed', res.status, errText);
+    }
+
+    // Fallback when no token (e.g. server-side callers): direct fan-out works only if `db` has admin read access.
     const adminIds = await getAllAdminUserIds();
     if (adminIds.length > 0) {
       await createNotification({
@@ -317,7 +445,8 @@ export async function notifyClientOfInvoice(
 export async function notifyWorkOrderCompletion(
   clientId: string,
   workOrderId: string,
-  workOrderNumber: string
+  workOrderNumber: string,
+  idToken?: string | null,
 ) {
   try {
     // Notify client
@@ -332,7 +461,13 @@ export async function notifyWorkOrderCompletion(
       referenceType: 'workOrder',
     });
 
-    // Notify all admins
+    const wentApi = await tryPostAdminFanout(idToken, {
+      type: 'work_order_completed_admins',
+      workOrderId,
+      workOrderNumber,
+    });
+    if (wentApi) return;
+
     const adminIds = await getAllAdminUserIds();
     if (adminIds.length > 0) {
       await createNotification({
@@ -386,8 +521,20 @@ export async function notifyAdminsOfBiddingRejection(
   workOrderNumber: string,
   workOrderTitle: string,
   subcontractorName: string,
+  idToken?: string | null,
 ) {
   try {
+    if (
+      await tryPostAdminFanout(idToken, {
+        type: 'bidding_declined',
+        workOrderId,
+        workOrderNumber,
+        workOrderTitle,
+        subcontractorName,
+      })
+    ) {
+      return;
+    }
     const adminIds = await getAllAdminUserIds();
     if (adminIds.length === 0) return;
     await createNotification({
@@ -406,7 +553,9 @@ export async function notifyAdminsOfBiddingRejection(
 }
 
 /**
- * Notifies admins (and the sub) when the client rejects a quote
+ * Notifies admins (and the sub) when the client rejects a quote.
+ * Pass `quoteId` + `idToken` so fan-out runs server-side; otherwise falls back
+ * to direct writes (works only when Firestore rules allow adminUsers reads).
  */
 export async function notifyQuoteRejection(
   workOrderId: string,
@@ -414,8 +563,22 @@ export async function notifyQuoteRejection(
   subcontractorId: string | null,
   subcontractorName: string,
   reason?: string,
+  options?: { idToken?: string | null; quoteId?: string | null },
 ) {
   try {
+    const quoteId = options?.quoteId;
+    const idTok = options?.idToken;
+    if (
+      quoteId &&
+      (await tryPostAdminFanout(idTok, {
+        type: 'quote_rejected',
+        quoteId,
+        reason: reason ?? '',
+      }))
+    ) {
+      return;
+    }
+
     const adminIds = await getAllAdminUserIds();
     const summary = reason
       ? `Quote from ${subcontractorName} for WO ${workOrderNumber} was rejected by the client. Reason: ${reason}`
@@ -459,20 +622,29 @@ export async function notifyDiagnosticResultsSubmitted(
   workOrderNumber: string,
   subcontractorName: string,
   clientId: string | null,
+  idToken?: string | null,
 ) {
   try {
-    const adminIds = await getAllAdminUserIds();
-    if (adminIds.length > 0) {
-      await createNotification({
-        recipientIds: adminIds,
-        userRole: 'admin',
-        type: 'diagnostic_request',
-        title: 'Diagnostic Results Submitted',
-        message: `${subcontractorName} submitted diagnostic results for WO ${workOrderNumber}.`,
-        link: `/admin-portal/work-orders/${workOrderId}`,
-        referenceId: workOrderId,
-        referenceType: 'workOrder',
-      });
+    const wentApi = await tryPostAdminFanout(idToken, {
+      type: 'diagnostic_results_submitted',
+      workOrderId,
+      workOrderNumber,
+      subcontractorName,
+    });
+    if (!wentApi) {
+      const adminIds = await getAllAdminUserIds();
+      if (adminIds.length > 0) {
+        await createNotification({
+          recipientIds: adminIds,
+          userRole: 'admin',
+          type: 'diagnostic_request',
+          title: 'Diagnostic Results Submitted',
+          message: `${subcontractorName} submitted diagnostic results for WO ${workOrderNumber}.`,
+          link: `/admin-portal/work-orders/${workOrderId}`,
+          referenceId: workOrderId,
+          referenceType: 'workOrder',
+        });
+      }
     }
     if (clientId) {
       await createNotification({
@@ -500,8 +672,21 @@ export async function notifyAdminsOfAssignmentResponse(
   subcontractorName: string,
   decision: 'accepted' | 'rejected',
   reason?: string,
+  idToken?: string | null,
 ) {
   try {
+    if (
+      await tryPostAdminFanout(idToken, {
+        type: 'assignment_response',
+        workOrderId,
+        workOrderNumber,
+        subcontractorName,
+        decision,
+        reason: reason ?? '',
+      })
+    ) {
+      return;
+    }
     const adminIds = await getAllAdminUserIds();
     if (adminIds.length === 0) return;
     const accepted = decision === 'accepted';

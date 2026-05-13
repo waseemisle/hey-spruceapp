@@ -566,7 +566,8 @@ function ClientWorkOrdersContent() {
       const workOrderNumber = `WO-${woRef.id.slice(-8).toUpperCase()}`;
       await updateDoc(woRef, { workOrderNumber });
 
-      notifyAdminsOfWorkOrder(woRef.id, workOrderNumber, clientName).catch(console.error);
+      const idToken = await auth.currentUser?.getIdToken().catch(() => undefined);
+      notifyAdminsOfWorkOrder(woRef.id, workOrderNumber, clientName, idToken).catch(console.error);
 
       fetch('/api/email/send-work-order-notification', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,

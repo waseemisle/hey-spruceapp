@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, updateDoc, doc, orderBy, limit } from 'firebase/firestore';
+import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -44,32 +45,55 @@ export default function NotificationBell() {
   const router = useRouter();
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    if (!auth) return;
 
-    // Fetch the most recent 50 — enough that the dropdown's scroll
-     // container shows everything a user practically cares about
-     // without us needing a dedicated "View All" history page (the
-     // previous footer link pointed at /messages which is a chat
-     // page, not a notifications history, and confused users).
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
+    let unsubscribeSnapshot: (() => void) | undefined;
 
-    const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
-      const notificationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Notification[];
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      unsubscribeSnapshot?.();
+      unsubscribeSnapshot = undefined;
 
-      setNotifications(notificationsData);
-      setUnreadCount(notificationsData.filter(n => !n.read).length);
+      if (!user) {
+        setNotifications([]);
+        setUnreadCount(0);
+        return;
+      }
+
+      // Fetch the most recent 50 — enough that the dropdown's scroll
+      // container shows everything a user practically cares about
+      // without us needing a dedicated "View All" history page (the
+      // previous footer link pointed at /messages which is a chat
+      // page, not a notifications history, and confused users).
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('userId', '==', user.uid),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      );
+
+      unsubscribeSnapshot = onSnapshot(
+        notificationsQuery,
+        (snapshot) => {
+          const notificationsData = snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          })) as Notification[];
+
+          setNotifications(notificationsData);
+          setUnreadCount(notificationsData.filter((n) => !n.read).length);
+        },
+        (err) => {
+          console.error('NotificationBell snapshot error:', err);
+          setNotifications([]);
+          setUnreadCount(0);
+        }
+      );
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeSnapshot?.();
+    };
   }, [auth, db]);
 
   const handleNotificationClick = async (notification: Notification) => {
@@ -101,8 +125,8 @@ export default function NotificationBell() {
         <Button variant="ghost" size="sm" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-              {unreadCount > 9 ? '9+' : unreadCount}
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-h-5 min-w-5 px-1 flex items-center justify-center tabular-nums">
+              {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
         </Button>
@@ -148,6 +172,8 @@ export default function NotificationBell() {
                       return '📅';
                     case 'location':
                       return '📍';
+                    case 'support_ticket':
+                      return '🎧';
                     default:
                       return '🔔';
                   }

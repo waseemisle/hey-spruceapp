@@ -11,7 +11,7 @@ import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/fir
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
-import { getAllAdminUserIds, createNotifications } from '@/lib/notifications';
+import { fetchAllAdminUserIds, writeInAppNotification } from '@/lib/server-admin-notifications';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -71,19 +71,21 @@ export async function POST(request: NextRequest) {
 
     // Notify all admins. Required so ops can intervene before auto-finalize would have fired.
     try {
-      const adminIds = await getAllAdminUserIds();
-      if (adminIds.length > 0) {
-        await createNotifications(adminIds.map(adminId => ({
-          userId: adminId,
-          userRole: 'admin' as const,
-          type: 'invoice',
-          title: 'Invoice DISPUTED by client',
-          message: `${clientName} disputed invoice ${inv.invoiceNumber}${trimmedReason ? `: "${trimmedReason.slice(0, 100)}"` : ''}.`,
-          link: `/admin-portal/invoices`,
-          referenceId: invoiceId,
-          referenceType: 'invoice',
-        })));
-      }
+      const adminIds = await fetchAllAdminUserIds(db);
+      await Promise.all(
+        adminIds.map((adminId) =>
+          writeInAppNotification(db, {
+            userId: adminId,
+            userRole: 'admin',
+            type: 'invoice',
+            title: 'Invoice DISPUTED by client',
+            message: `${clientName} disputed invoice ${inv.invoiceNumber}${trimmedReason ? `: "${trimmedReason.slice(0, 100)}"` : ''}.`,
+            link: `/admin-portal/invoices`,
+            referenceId: invoiceId,
+            referenceType: 'invoice',
+          }),
+        ),
+      );
     } catch (e) {
       console.error('[invoices/dispute] admin notify failed', e);
     }

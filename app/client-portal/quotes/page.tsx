@@ -309,18 +309,15 @@ export default function ClientQuotes() {
               });
             }
 
-            // Reject notifications now fire server-side from
-            // /api/quotes/reject (admin + sub bell). The regular client
-            // /quotes UI does its rejects via direct Firestore writes
-            // (not the API), so this client-side fire is the only path
-            // and stays — kept for parity with the diagnostic flow which
-            // is now server-side.
+            // In-app admin + subcontractor bells (server-resolved admin IDs).
+            const rejTok = await auth.currentUser?.getIdToken().catch(() => undefined);
             notifyQuoteRejection(
               quote.workOrderId || '',
               quote.workOrderNumber || quote.workOrderId || '',
               quote.subcontractorId || null,
               quote.subcontractorName,
               reason || undefined,
+              { quoteId, idToken: rejTok },
             ).catch(console.error);
 
             toast.success('Quote rejected successfully!');

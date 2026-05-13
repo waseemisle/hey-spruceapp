@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, infoCard, infoRow, ctaButton, alertBox } from '@/lib/email-template';
 import { getServerDb } from '@/lib/firebase-server';
+import { fanOutToAllAdmins, writeInAppNotification } from '@/lib/server-admin-notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,40 +42,32 @@ export async function POST(request: NextRequest) {
 
     // ── In-app notifications ─────────────────────────────────────────
     const adminsSnap = await getDocs(collection(db, 'adminUsers'));
-    const adminIds: string[] = [];
     const adminEmails: { email: string; name: string }[] = [];
     adminsSnap.docs.forEach(d => {
       const data = d.data();
-      adminIds.push(d.id);
       if (data.email && data.workOrderEmailNotifications !== false) {
         adminEmails.push({ email: data.email, name: data.fullName || 'Admin' });
       }
     });
 
-    // Admin notification — informational, no action required
-    for (const adminId of adminIds) {
-      try {
-        await addDoc(collection(db, 'notifications'), {
-          userId: adminId,
-          userRole: 'admin',
-          type: 'diagnostic_request',
-          title: 'Diagnostic Request Received',
-          message: `${subcontractorName} submitted a Diagnostic Request (${feeStr}) for WO ${workOrderNumber} — sent directly to client.`,
-          link: `/admin-portal/work-orders/${workOrderId}`,
-          referenceId: workOrderId,
-          referenceType: 'workOrder',
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-      } catch (e) {
-        console.error('Failed to create admin notification:', e);
-      }
+    // Admin in-app (single fan-out helper)
+    try {
+      await fanOutToAllAdmins(db, {
+        type: 'diagnostic_request',
+        title: 'Diagnostic Request Received',
+        message: `${subcontractorName} submitted a Diagnostic Request (${feeStr}) for WO ${workOrderNumber} — sent directly to client.`,
+        link: `/admin-portal/work-orders/${workOrderId}`,
+        referenceId: workOrderId,
+        referenceType: 'workOrder',
+      });
+    } catch (e) {
+      console.error('Failed to create admin notifications:', e);
     }
 
     // Client notification — action required (approve the diagnostic fee)
     if (clientId) {
       try {
-        await addDoc(collection(db, 'notifications'), {
+        await writeInAppNotification(db, {
           userId: clientId,
           userRole: 'client',
           type: 'diagnostic_request',
@@ -83,8 +76,6 @@ export async function POST(request: NextRequest) {
           link: `/client-portal/diagnostic-requests`,
           referenceId: workOrderId,
           referenceType: 'workOrder',
-          read: false,
-          createdAt: serverTimestamp(),
         });
       } catch (e) {
         console.error('Failed to create client notification:', e);

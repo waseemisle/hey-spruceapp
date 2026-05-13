@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp,
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
-import { createNotification, notifySubcontractorAssignment } from '@/lib/notifications';
+import { writeInAppNotification } from '@/lib/server-admin-notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -227,14 +227,14 @@ export async function POST(request: Request) {
       // — no bell, no email path triggered. Fire-and-forget.
       if (resolvedSubId) {
         const woNumber = workOrderData.workOrderNumber || quoteData.workOrderId;
-        createNotification({
+        writeInAppNotification(db, {
           userId: resolvedSubId,
           userRole: 'subcontractor',
           type: 'quote',
           title: 'Diagnostic Request Accepted',
           message: `${clientName} accepted your diagnostic request for WO ${woNumber}. Submit your repair quote from the Bidding page.`,
           link: `/subcontractor-portal/bidding`,
-          referenceId: quoteData.workOrderId,
+          referenceId: String(quoteData.workOrderId || ''),
           referenceType: 'workOrder',
         }).catch((e) => console.error('[quotes/approve] diagnostic notify fail (non-fatal):', e));
       }
@@ -379,11 +379,16 @@ export async function POST(request: Request) {
     // notification call (closed tab, page nav, network blip). Better dupe
     // than silent. Idempotency / dedupe at the bell is a follow-up.
     if (safeSubId) {
-      notifySubcontractorAssignment(
-        safeSubId,
-        quoteData.workOrderId,
-        workOrderData.workOrderNumber || quoteData.workOrderId,
-      ).catch((e) => console.error('[quotes/approve] assignment notify fail (non-fatal):', e));
+      writeInAppNotification(db, {
+        userId: safeSubId,
+        userRole: 'subcontractor',
+        type: 'assignment',
+        title: 'Work Order Assigned',
+        message: `You've been assigned to Work Order ${workOrderData.workOrderNumber || quoteData.workOrderId}`,
+        link: `/subcontractor-portal/assigned`,
+        referenceId: String(quoteData.workOrderId || ''),
+        referenceType: 'workOrder',
+      }).catch((e) => console.error('[quotes/approve] assignment notify fail (non-fatal):', e));
     }
 
     // Fire-and-forget SMS + WhatsApp to the subcontractor whose quote was approved

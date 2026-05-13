@@ -6,11 +6,10 @@ import {
   serverTimestamp,
   arrayUnion,
   Timestamp,
-  addDoc,
-  collection,
 } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid, isUserAdmin, getPortalUserProfile } from '@/lib/api-verify-firebase';
+import { writeInAppNotification } from '@/lib/server-admin-notifications';
 import { sendEmail } from '@/lib/email';
 import { logEmail } from '@/lib/email-logger';
 import { emailLayout, infoCard, infoRow, ctaButton, alertBox } from '@/lib/email-template';
@@ -69,7 +68,7 @@ export async function POST(request: Request) {
       }),
     });
 
-    await addDoc(collection(db, 'notifications'), {
+    await writeInAppNotification(db, {
       userId: assignedTo,
       userRole: 'admin',
       type: 'support_ticket',
@@ -78,8 +77,6 @@ export async function POST(request: Request) {
       link: `/admin-portal/support-tickets/${ticketId}`,
       referenceId: ticketId,
       referenceType: 'supportTicket',
-      read: false,
-      createdAt: serverTimestamp(),
     });
 
     const base = process.env.NEXT_PUBLIC_APP_URL || 'https://groundopscos.vercel.app';

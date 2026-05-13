@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc, collection, serverTimestamp, Timestamp, query, 
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
-import { notifyQuoteRejection } from '@/lib/notifications';
+import { notifyQuoteRejectionWithServerDb } from '@/lib/server-admin-notifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -152,13 +152,9 @@ export async function POST(request: Request) {
     // client/quotes UI fires this client-side, but the diagnostic page
     // calls the API only). Fire-and-forget so it never blocks the
     // response.
-    notifyQuoteRejection(
-      quoteData.workOrderId || '',
-      quoteData.workOrderNumber || quoteData.workOrderId || '',
-      quoteData.subcontractorId || null,
-      quoteData.subcontractorName || 'Subcontractor',
-      reason || undefined,
-    ).catch((e) => console.error('[quotes/reject] notify fail (non-fatal):', e));
+    notifyQuoteRejectionWithServerDb(db, quoteData as Record<string, unknown>, reason || undefined).catch((e) =>
+      console.error('[quotes/reject] notify fail (non-fatal):', e),
+    );
 
     return NextResponse.json({ success: true, diagnostic: quoteIsDiagnostic });
   } catch (error: any) {

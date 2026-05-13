@@ -18,7 +18,7 @@ import {
 import { getServerDb } from '@/lib/firebase-server';
 import { getBaseUrl } from '@/lib/base-url';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
-import { getAllAdminUserIds, createNotifications, createNotification } from '@/lib/notifications';
+import { fetchAllAdminUserIds, writeInAppNotification } from '@/lib/server-admin-notifications';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
           await updateDoc(doc(db, 'invoices', invoiceId), { invoiceEmailSentAt: serverTimestamp() });
           // Notify the client (in-app) that their invoice was auto-finalized.
           try {
-            await createNotification({
+            await writeInAppNotification(db, {
               userId: inv.clientId,
               userRole: 'client',
               type: 'invoice',
@@ -128,19 +128,21 @@ export async function GET(request: NextRequest) {
               referenceId: invoiceId,
               referenceType: 'invoice',
             });
-            const adminIds = await getAllAdminUserIds();
-            if (adminIds.length > 0) {
-              await createNotifications(adminIds.map(adminId => ({
-                userId: adminId,
-                userRole: 'admin' as const,
-                type: 'invoice',
-                title: 'Invoice auto-finalized',
-                message: `Invoice ${inv.invoiceNumber} (${inv.clientName}) finalized after 72h with no client response.`,
-                link: `/admin-portal/invoices`,
-                referenceId: invoiceId,
-                referenceType: 'invoice',
-              })));
-            }
+            const adminIds = await fetchAllAdminUserIds(db);
+            await Promise.all(
+              adminIds.map((adminId) =>
+                writeInAppNotification(db, {
+                  userId: adminId,
+                  userRole: 'admin',
+                  type: 'invoice',
+                  title: 'Invoice auto-finalized',
+                  message: `Invoice ${inv.invoiceNumber} (${inv.clientName}) finalized after 72h with no client response.`,
+                  link: `/admin-portal/invoices`,
+                  referenceId: invoiceId,
+                  referenceType: 'invoice',
+                }),
+              ),
+            );
           } catch (notifyErr) {
             console.error('[invoices/auto-finalize] notify error:', notifyErr);
           }

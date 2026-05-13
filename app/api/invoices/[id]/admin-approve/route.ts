@@ -13,7 +13,7 @@
  *   • Flips status: pending_approval → sent, stamps adminApprovedAt /
  *     adminApprovedBy.
  *   • Sends the customer-facing /api/email/send-invoice email with PDF.
- *   • Creates the in-app client notification via notifyClientOfInvoice.
+ *   • Creates the in-app client notification via `notifyClientOfInvoiceWithServerDb`.
  *
  * Idempotency: if status is already 'sent' (or any post-sent state) AND
  * adminApprovedAt is set, returns 200 { skipped: true }. Re-clicking
@@ -27,7 +27,7 @@ import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/fir
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid, isUserAdmin } from '@/lib/api-verify-firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
-import { notifyClientOfInvoice } from '@/lib/notifications';
+import { notifyClientOfInvoiceWithServerDb } from '@/lib/server-admin-notifications';
 import { generateInvoicePDF, type InvoiceData } from '@/lib/pdf-generator';
 import { getBaseUrl } from '@/lib/base-url';
 
@@ -152,13 +152,13 @@ export async function POST(
     // In-app notification + customer email — fire-and-forget so a slow
     // mail provider doesn't block the response. The status is already
     // flipped; failures land in /admin-portal/email-logs for retry.
-    notifyClientOfInvoice(
-      inv.clientId,
+    notifyClientOfInvoiceWithServerDb(db, {
+      clientId: inv.clientId,
       invoiceId,
-      pdfPayload.invoiceNumber,
-      inv.workOrderNumber || inv.workOrderId || '',
-      Number(inv.totalAmount || 0),
-    ).catch((e) => console.error('[admin-approve] notify failed (non-fatal):', e));
+      invoiceNumber: pdfPayload.invoiceNumber,
+      workOrderNumber: inv.workOrderNumber || inv.workOrderId || '',
+      amount: Number(inv.totalAmount || 0),
+    }).catch((e) => console.error('[admin-approve] notify failed (non-fatal):', e));
 
     const baseUrl = getBaseUrl();
     fetch(`${baseUrl}/api/email/send-invoice`, {

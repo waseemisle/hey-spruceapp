@@ -6,8 +6,7 @@ import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
-import { notifyWorkOrderCompletion, notifyScheduledService, notifyQuoteSubmission, getAllAdminUserIds, notifyAdminsOfAssignmentResponse } from '@/lib/notifications';
-import { createNotification } from '@/lib/notifications';
+import { notifyWorkOrderCompletion, notifyScheduledService, notifyQuoteSubmission, notifyAdminsOfAssignmentResponse, notifyAdminsDiagnosticRepairPendingGate, notifyAdminsWorkOrderScheduleSet } from '@/lib/notifications';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -322,11 +321,14 @@ export default function SubcontractorAssignedJobs() {
           if (subDoc.exists()) subName = (subDoc.data() as any).fullName || (subDoc.data() as any).businessName || subName;
         }
         const wo = workOrders.get(woId);
+        const acceptTok = await auth.currentUser?.getIdToken().catch(() => undefined);
         notifyAdminsOfAssignmentResponse(
           woId,
           wo?.workOrderNumber || woId,
           subName,
           'accepted',
+          undefined,
+          acceptTok,
         ).catch(console.error);
       } catch (notifyErr) {
         console.error('Failed to notify admins of assignment acceptance:', notifyErr);
@@ -385,15 +387,10 @@ export default function SubcontractorAssignedJobs() {
             }).catch(console.error);
           }
 
-          const adminIds = await getAllAdminUserIds();
-          if (adminIds.length > 0) {
-            const timeRange = serviceTimeEnd ? `${serviceTimeStart} - ${serviceTimeEnd}` : serviceTimeStart;
-            createNotification({
-              recipientIds: adminIds, userRole: 'admin', type: 'schedule', title: 'Work Order Scheduled',
-              message: `Work Order ${woData?.workOrderNumber || woId} scheduled for ${new Date(serviceDate + 'T' + serviceTimeStart).toLocaleDateString()} ${timeRange}`,
-              link: `/admin-portal/work-orders/${woId}`, referenceId: woId, referenceType: 'workOrder',
-            }).catch(console.error);
-          }
+          const schedTok = await auth.currentUser?.getIdToken().catch(() => undefined);
+          const timeRange = serviceTimeEnd ? `${serviceTimeStart} - ${serviceTimeEnd}` : serviceTimeStart;
+          const schedMessage = `Work Order ${woData?.workOrderNumber || woId} scheduled for ${new Date(serviceDate + 'T' + serviceTimeStart).toLocaleDateString()} ${timeRange}`;
+          await notifyAdminsWorkOrderScheduleSet(woId, schedMessage, schedTok);
         } catch (e) { console.error('Background accept tasks failed:', e); }
       })();
 
@@ -448,12 +445,14 @@ export default function SubcontractorAssignedJobs() {
             // Fire-and-forget admin notification
             try {
               const wo = workOrders.get(workOrderId);
+              const rejectTok = await auth.currentUser?.getIdToken().catch(() => undefined);
               notifyAdminsOfAssignmentResponse(
                 workOrderId,
                 wo?.workOrderNumber || workOrderId,
                 subName,
                 'rejected',
                 reason || undefined,
+                rejectTok,
               ).catch(console.error);
             } catch (notifyErr) {
               console.error('Failed to notify admins of assignment rejection:', notifyErr);
@@ -552,21 +551,15 @@ export default function SubcontractorAssignedJobs() {
       // Background: notify admins (fire-and-forget)
       (async () => {
         try {
-          const adminIds = await getAllAdminUserIds();
-          if (adminIds.length > 0) {
-            const woSnap = await getDoc(doc(db, 'workOrders', woId));
-            const woData = woSnap.data();
-            createNotification({
-              recipientIds: adminIds,
-              userRole: 'admin',
-              type: 'work_order',
-              title: 'Diagnostic Submitted',
-              message: `Diagnostic submitted for Work Order ${woData?.workOrderNumber || woId}. Awaiting repair decision.`,
-              link: `/admin-portal/work-orders/${woId}`,
-              referenceId: woId,
-              referenceType: 'workOrder',
-            }).catch(console.error);
-          }
+          const woSnap = await getDoc(doc(db, 'workOrders', woId));
+          const woData = woSnap.data();
+          const diagFanTok = await auth.currentUser?.getIdToken().catch(() => undefined);
+          await notifyAdminsDiagnosticRepairPendingGate(
+            woId,
+            String(woData?.workOrderNumber || woId),
+            subName,
+            diagFanTok,
+          );
         } catch (e) { console.error('Background diagnostic notify failed:', e); }
       })();
 
@@ -713,12 +706,14 @@ export default function SubcontractorAssignedJobs() {
       (async () => {
         try {
           if (woData.clientId) {
-            notifyQuoteSubmission(
+            const token = await auth.currentUser?.getIdToken().catch(() => undefined);
+            await notifyQuoteSubmission(
               woData.clientId,
               woId,
               woData.workOrderNumber || woId,
               subName,
               repairTotal,
+              token,
             ).catch(console.error);
           }
           fetch('/api/email/send-quote-notification', {
@@ -872,7 +867,8 @@ export default function SubcontractorAssignedJobs() {
           const woSnap = await getDoc(doc(db, 'workOrders', woId));
           const woData = woSnap.data();
           if (woData?.clientId) {
-            notifyWorkOrderCompletion(woData.clientId, woId, woData.workOrderNumber || woId).catch(console.error);
+            const completeTok = await auth.currentUser?.getIdToken().catch(() => undefined);
+            notifyWorkOrderCompletion(woData.clientId, woId, woData.workOrderNumber || woId, completeTok).catch(console.error);
           }
           if (woData?.clientEmail && woData?.clientName) {
             fetch('/api/email/send-work-order-completion-client', {

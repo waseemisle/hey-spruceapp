@@ -3,6 +3,7 @@ import { collection, addDoc, getDocs, query, orderBy, where, updateDoc, doc, ser
 import sharp from 'sharp';
 import { APPY_CLIENT_ID, APPY_CLIENT_DISPLAY_NAME, APPY_CLIENT_EMAIL } from '@/lib/appy-client';
 import { getServerDb } from '@/lib/firebase-server';
+import { fanOutToAllAdmins } from '@/lib/server-admin-notifications';
 
 // Route segment config - Next.js 14 format
 export const dynamic = 'force-dynamic';
@@ -506,30 +507,19 @@ export async function POST(request: Request) {
 
       console.log(`Updated maint request ${maintRequestNumber} with work order reference: ${workOrderNumber}`);
 
-      // Notify admins about new maintenance request
-      // Get all admin users
-      const adminsQuery = query(collection(db, 'adminUsers'));
-      const adminsSnapshot = await getDocs(adminsQuery);
-
-      // Create in-app notifications for each admin
-      const notificationPromises = adminsSnapshot.docs.map(async (adminDoc) => {
-        await addDoc(collection(db, 'notifications'), {
-          userId: adminDoc.id,
-          userRole: 'admin',
-          type: 'general',
-          title: `New Maintenance Request: ${priority?.toUpperCase() || 'NORMAL'}`,
-          message: `New maintenance request for ${venue}: ${title}`,
-          link: `/admin-portal/work-orders`,
-          read: false,
-          referenceId: docRef.id,
-          referenceType: 'maintRequest',
-          createdAt: serverTimestamp(),
-        });
+      // Notify admins about new maintenance request (server-resolved admin IDs)
+      await fanOutToAllAdmins(db, {
+        type: 'general',
+        title: `New Maintenance Request: ${priority?.toUpperCase() || 'NORMAL'}`,
+        message: `New maintenance request for ${venue}: ${title}`,
+        link: `/admin-portal/work-orders`,
+        referenceId: docRef.id,
+        referenceType: 'maintRequest',
       });
 
-      await Promise.all(notificationPromises);
-
       // Send email to admins who have work order email notifications enabled
+      const adminsQuery = query(collection(db, 'adminUsers'));
+      const adminsSnapshot = await getDocs(adminsQuery);
       for (const adminDoc of adminsSnapshot.docs) {
         const adminData = adminDoc.data();
         const adminEmail = adminData.email;

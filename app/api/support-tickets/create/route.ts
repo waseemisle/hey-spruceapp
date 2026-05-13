@@ -5,13 +5,11 @@ import {
   setDoc,
   runTransaction,
   serverTimestamp,
-  collection,
-  getDocs,
-  addDoc,
   Timestamp,
 } from 'firebase/firestore';
 import { getServerDb } from '@/lib/firebase-server';
 import { getBearerUid, getPortalUserProfile, isUserAdmin } from '@/lib/api-verify-firebase';
+import { fanOutToAllAdmins } from '@/lib/server-admin-notifications';
 import type {
   SupportTicketCategory,
   SupportTicketPriority,
@@ -172,24 +170,14 @@ export async function POST(request: Request) {
       return id;
     });
 
-    const adminsSnap = await getDocs(collection(db, 'adminUsers'));
-    const adminIds = adminsSnap.docs.map((d) => d.id);
-    await Promise.all(
-      adminIds.map((adminId) =>
-        addDoc(collection(db, 'notifications'), {
-          userId: adminId,
-          userRole: 'admin',
-          type: 'support_ticket',
-          title: 'New support ticket',
-          message: `${ticketId}: ${title}`,
-          link: `/admin-portal/support-tickets/${ticketId}`,
-          referenceId: ticketId,
-          referenceType: 'supportTicket',
-          read: false,
-          createdAt: serverTimestamp(),
-        }),
-      ),
-    );
+    await fanOutToAllAdmins(db, {
+      type: 'support_ticket',
+      title: 'New support ticket',
+      message: `${ticketId}: ${title}`,
+      link: `/admin-portal/support-tickets/${ticketId}`,
+      referenceId: ticketId,
+      referenceType: 'supportTicket',
+    });
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     fetch(`${baseUrl}/api/email/send-support-ticket-notification`, {

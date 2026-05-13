@@ -13,7 +13,7 @@ import { getServerDb } from '@/lib/firebase-server';
 import { getBaseUrl } from '@/lib/base-url';
 import { getBearerUid } from '@/lib/api-verify-firebase';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
-import { getAllAdminUserIds, createNotifications } from '@/lib/notifications';
+import { fetchAllAdminUserIds, writeInAppNotification } from '@/lib/server-admin-notifications';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -103,19 +103,21 @@ export async function POST(request: NextRequest) {
 
     // Notify admins (fire-and-forget, in-app only).
     try {
-      const adminIds = await getAllAdminUserIds();
-      if (adminIds.length > 0) {
-        await createNotifications(adminIds.map(adminId => ({
-          userId: adminId,
-          userRole: 'admin' as const,
-          type: 'invoice',
-          title: 'Invoice approved by client',
-          message: `${clientName} approved invoice ${inv.invoiceNumber} ($${Number(inv.totalAmount || 0).toLocaleString()}).`,
-          link: `/admin-portal/invoices`,
-          referenceId: invoiceId,
-          referenceType: 'invoice',
-        })));
-      }
+      const adminIds = await fetchAllAdminUserIds(db);
+      await Promise.all(
+        adminIds.map((adminId) =>
+          writeInAppNotification(db, {
+            userId: adminId,
+            userRole: 'admin',
+            type: 'invoice',
+            title: 'Invoice approved by client',
+            message: `${clientName} approved invoice ${inv.invoiceNumber} ($${Number(inv.totalAmount || 0).toLocaleString()}).`,
+            link: `/admin-portal/invoices`,
+            referenceId: invoiceId,
+            referenceType: 'invoice',
+          }),
+        ),
+      );
     } catch (e) {
       console.error('[invoices/approve] admin notify failed', e);
     }

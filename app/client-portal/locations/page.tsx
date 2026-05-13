@@ -368,7 +368,8 @@ export default function ClientLocations() {
         }],
       });
 
-      notifyAdminsOfLocation(locationRef.id, createLocForm.name, clientName).catch(console.error);
+      const locNotifyToken = await auth.currentUser?.getIdToken().catch(() => undefined);
+      notifyAdminsOfLocation(locationRef.id, createLocForm.name, clientName, locNotifyToken).catch(console.error);
 
       toast.success('Location created! Awaiting admin approval.');
       closeCreateLocationModal();

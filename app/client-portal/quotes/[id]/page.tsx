@@ -275,13 +275,15 @@ export default function QuoteDetail() {
               },
               updatedAt: serverTimestamp(),
             });
-            // Fire-and-forget notification to admins + the sub
+            // Fire-and-forget notification to admins + the sub (server fan-out).
+            const rejTok = await auth.currentUser?.getIdToken().catch(() => undefined);
             notifyQuoteRejection(
               quote.workOrderId || '',
               quote.workOrderNumber || quote.workOrderId || '',
               quote.subcontractorId || null,
               quote.subcontractorName,
               reason || undefined,
+              { quoteId: quote.id, idToken: rejTok },
             ).catch(console.error);
 
             toast.success('Quote rejected successfully!');
